@@ -1,0 +1,41 @@
+{
+  "name": "liebe",
+  "version": "0.0.1",
+  "description": "A custom Home Assistant panel in React",
+  "author": "Marian Rudzynski <marian@rudzyn.ski>",
+  "license": "MIT",
+  "scripts": {
+    "start": "parcel src/index.tsx",
+    "build": "parcel build src/index.tsx",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
+    "lint": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\""
+  },
+  "dependencies": {
+    "@blueprintjs/core": "^3.51.0",
+    "date-fns": "^2.25.0",
+    "framer-motion": "^4.1.17",
+    "lodash": "^4.17.21",
+    "polished": "^4.1.3",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-grid-layout": "^1.3.0",
+    "styled-components": "^5.3.1",
+    "use-local-storage-state": "^11.0.0"
+  },
+  "devDependencies": {
+    "@parcel/optimizer-data-url": "2.0.0-rc.0",
+    "@parcel/transformer-image": "2.0.0-rc.0",
+    "@parcel/transformer-inline-string": "2.0.0-rc.0",
+    "@testing-library/react": "^11.2.6",
+    "@types/chai": "^4.2.17",
+    "@types/lodash": "^4.14.175",
+    "@types/mocha": "^8.2.2",
+    "@types/react": "^17.0.4",
+    "@types/react-dom": "^17.0.3",
+    "@types/react-grid-layout": "^1.1.2",
+    "@types/styled-components": "^5.1.15",
+    "parcel": "^2.0.0-rc.0",
+    "prettier": "^2.2.1",
+    "typescript": "^4.2.4"
+  }
+}
