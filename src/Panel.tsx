@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
-import { BatterySummary, MotionSummary, Card } from './components';
-import { WidthProvider, Responsive } from 'react-grid-layout';
+import React, { useEffect, useMemo } from 'react';
+import styled from 'styled-components';
+import { BatterySummary, MotionSummary, Card, ToggleCard } from './components';
+import { Responsive } from 'react-grid-layout';
+import { SquareWidthProvider } from './WidthProvider';
 import useLocalStorageState from 'use-local-storage-state';
 
-const ReactGridLayout = WidthProvider(Responsive);
+const ReactGridLayout = SquareWidthProvider(Responsive);
 
 interface PanelProps {
   className?: string;
