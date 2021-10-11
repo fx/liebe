@@ -17,6 +17,10 @@ const GlobalStyle = createGlobalStyle`
 `;
 
 const theme = {
+  sidebar: {
+    width: 250,
+    background: rgba('#212326', 0.55),
+  },
   card: {
     background: rgba('#212326', 0.55),
   },
