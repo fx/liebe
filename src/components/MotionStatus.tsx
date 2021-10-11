@@ -10,7 +10,7 @@ interface MotionStatusProps {
 }
 
 const Component = ({ entity, className }: MotionStatusProps) => {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(new Date());
 
   const {
     attributes: { friendly_name },
@@ -22,7 +22,7 @@ const Component = ({ entity, className }: MotionStatusProps) => {
   const active = state === 'on';
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
+    const interval = setInterval(() => setNow(new Date()), 1000);
     return () => {
       clearInterval(interval);
     };
