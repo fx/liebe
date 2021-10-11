@@ -1,9 +1,17 @@
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { BatterySummary, MotionSummary, Card, ToggleCard } from './components';
+import { BatterySummary, MotionSummary, Card, Toggle } from './components';
 import { Responsive } from 'react-grid-layout';
-import { SquareWidthProvider } from './WidthProvider';
+import { SquareWidthProvider } from './SquareWidthProvider';
 import useLocalStorageState from 'use-local-storage-state';
+import { library } from '@fortawesome/fontawesome-svg-core';
+import * as Icons from '@fortawesome/free-solid-svg-icons';
+
+// Import all FA icons, so they can be used w/o explicit imports
+const iconList = Object.keys(Icons)
+  .filter((key) => key !== 'fas' && key !== 'prefix')
+  .map((icon) => (Icons as any)[icon]);
+library.add(...iconList);
 
 const ReactGridLayout = SquareWidthProvider(Responsive);
 
@@ -15,17 +23,28 @@ interface PanelProps {
 
 export const Panel = ({ className, hass, panel }: PanelProps) => {
   const [layouts, setLayouts] = useLocalStorageState('liebe:layouts', {});
-
   const entities = Object.values(hass.states);
-  const components = {
-    batterySummary: <BatterySummary entities={entities} />,
-    motionSummary: <MotionSummary entities={entities} />,
-  };
+  const components = [
+    {
+      key: 'batterySummary',
+      children: <BatterySummary entities={entities} />,
+    },
+    {
+      key: 'motionSummary',
+      children: <MotionSummary entities={entities} />,
+    },
+    {
+      key: 'test-switch',
+      children: (
+        <Toggle entity={hass.states['light.marian_s_office_main_lights']} />
+      ),
+    },
+  ];
 
   const grid = useMemo(() => {
-    return Object.keys(components).map((key: string) => (
-      <Card key={key} id={key}>
-        {(components as any)[key]}
+    return components.map(({ key, children, gridDefault }: any) => (
+      <Card key={key} id={key} data-grid={gridDefault} hass={hass}>
+        {children}
       </Card>
     ));
   }, [layouts, hass.states]);
@@ -40,13 +59,12 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
   return (
     <div className={className}>
       <ReactGridLayout
-        isDraggable
-        isResizable
         layouts={layouts}
         cols={{ lg: 24, md: 12, sm: 8, xs: 4, xxs: 1 }}
-        breakpoints={{ lg: 2000, md: 996, sm: 768, xs: 480, xxs: 0 }}
+        breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
+        rowHeight={200}
         width={2400}
-        onLayoutChange={(layout, layouts) => {
+        onLayoutChange={(_layout: any, layouts: any[]) => {
           setLayouts(layouts);
         }}
       >
@@ -64,10 +82,10 @@ export const StyledPanel = styled(Panel)`
   background-position: center center;
   background-size: cover;
   min-height: 100vh;
+  color: ${({ theme }) => theme.text.color};
 
   * {
     box-sizing: border-box;
-    color: ${({ theme }) => theme.text.color};
   }
 
   user-select: none;

@@ -5,35 +5,57 @@ import styled from 'styled-components';
 interface CardProps {
   id: string;
   className?: string;
-  grid: any;
   children: any;
+  hass: any;
 }
 
-const Component = ({ className, grid, id, children, ...rest }: CardProps) => {
+const Component = ({ className, id, children, hass, ...rest }: CardProps) => {
   return (
     <div
       // Must pass through props for RGL
       {...rest}
       className={className}
       key={id}
-      data-grid={{ ...grid, i: id }}
     >
-      <div className="viewport">{children}</div>
+      <div className="viewport">
+        {children.map((child: JSX.Element) =>
+          React.cloneElement(child, { ...child.props, hass }),
+        )}
+      </div>
     </div>
   );
+};
+
+Component.gridDefault = {
+  x: 0,
+  y: 0,
+  w: 1,
+  h: 1,
+  isDraggable: true,
+  isResizable: true,
+  static: true,
 };
 
 export const Card = styled(Component)`
   background: ${({ theme }) => theme.card.background};
   backdrop-filter: blur(15px);
   border-radius: 4px;
-  cursor: move;
   padding: 15px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
 
   &.react-draggable-dragging,
   &.resizing {
     opacity: 0;
+  }
+
+  &.react-draggable {
+    cursor: move;
+  }
+
+  &.react-resizable-hide {
+    .react-resizable-handle {
+      display: none;
+    }
   }
 
   .viewport {
@@ -79,13 +101,3 @@ export const Card = styled(Component)`
     }
   }
 `;
-
-Card.defaultProps = {
-  grid: {
-    x: 0,
-    y: 0,
-    w: 1,
-    h: 1,
-    i: 'card',
-  },
-};
