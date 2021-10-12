@@ -5,3 +5,4 @@ export * from './BatteryLevel';
 export * from './BatterySummary';
 export * from './Card';
 export * from './Toggle';
+export * from './Sidebar';

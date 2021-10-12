@@ -1,15 +1,18 @@
 import React from 'react';
 import { ProgressBar, Intent } from '@blueprintjs/core';
+import styled from 'styled-components';
 
 interface BatteryLevelProps {
+  className?: string;
   entity: any;
 }
 
-export const BatteryLevel = ({ entity }: BatteryLevelProps) => {
+export const Component = ({ className, entity }: BatteryLevelProps) => {
+  const {
+    attributes: { friendly_name },
+  } = entity;
+
   const percentage = parseInt(entity?.state);
-  const label = `${percentage}${
-    percentage > 0 ? entity?.attributes?.unit_of_measurement : ''
-  }`;
 
   let intent: Intent = Intent.PRIMARY;
   if (percentage < 75 && percentage >= 50) {
@@ -19,9 +22,44 @@ export const BatteryLevel = ({ entity }: BatteryLevelProps) => {
   }
 
   return (
-    <div>
-      {entity?.entity_id} {label}
-      <ProgressBar intent={intent} stripes={false} value={percentage / 100.0} />
+    <div className={className}>
+      <span className="battery-level-name">{friendly_name}</span>
+      <span className="battery-level-level">
+        {`${percentage}${
+          percentage > 0 ? entity?.attributes?.unit_of_measurement : ''
+        }`}
+      </span>
+      <ProgressBar
+        className="battery-level-progress"
+        intent={intent}
+        stripes={false}
+        value={percentage / 100.0}
+      />
     </div>
   );
 };
+
+export const BatteryLevel = styled(Component)`
+  display: flex;
+  flex-wrap: wrap;
+  padding: 3px 5px;
+
+  .battery-level {
+    &-name {
+      flex-basis: 75%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &-level {
+      flex-basis: 25%;
+      text-align: right;
+    }
+
+    &-progress {
+      flex-basis: 100%;
+      height: 2px !important;
+    }
+  }
+`;
