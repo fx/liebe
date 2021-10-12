@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Alignment, Switch } from '@blueprintjs/core';
+import { lighten } from 'polished';
 
 interface SidebarProps {
   className?: string;
@@ -15,18 +16,20 @@ const Component = ({ className, visible, options, onChange }: SidebarProps) => {
   );
   return (
     <div className={classNames}>
-      <Switch
-        checked={options?.gridEditable}
-        onChange={(e) => {
-          onChange({
-            ...options,
-            gridEditable: (e.target as HTMLInputElement)?.checked,
-          });
-        }}
-        inline
-        alignIndicator={Alignment.LEFT}
-        label="Grid Editable"
-      />
+      <div className="sidebar-item">
+        <Switch
+          checked={options?.gridEditable}
+          onChange={(e) => {
+            onChange({
+              ...options,
+              gridEditable: (e.target as HTMLInputElement)?.checked,
+            });
+          }}
+          inline
+          alignIndicator={Alignment.LEFT}
+          label="Grid Editable"
+        />
+      </div>
     </div>
   );
 };
@@ -44,5 +47,17 @@ export const Sidebar = styled(Component)`
     left: 0;
     visibility: visible;
     transition: left 0.2s ease-in-out, visibility 0s ease-in-out 0s;
+  }
+
+  .sidebar-item {
+    padding: 15px;
+    width: 100%;
+    border-bottom: ${({ theme }) => lighten(0.1, theme.sidebar.background)} 1px
+      solid;
+
+    .bp3-switch {
+      width: 100%;
+      margin: 0;
+    }
   }
 `;
