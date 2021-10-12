@@ -8,6 +8,7 @@ interface CardProps {
   children: any;
   hass: any;
   title?: string;
+  cover?: boolean;
 }
 
 const Component = ({
@@ -16,13 +17,15 @@ const Component = ({
   children,
   hass,
   title,
+  cover,
   ...rest
 }: CardProps) => {
+  const classNames = [className, cover ? `card-cover` : undefined].join(' ');
   return (
     <div
       // Must pass through props for RGL
       {...rest}
-      className={className}
+      className={classNames}
       key={id}
     >
       {title ? <span className="card-title">{title}</span> : undefined}
@@ -39,22 +42,23 @@ const Component = ({
   );
 };
 
-Component.gridDefault = {
-  x: 0,
-  y: 0,
-  w: 1,
-  h: 1,
-  isDraggable: true,
-  isResizable: true,
-  static: true,
+Component.defaultProps = {
+  cover: false,
 };
 
 export const Card = styled(Component)`
   background: ${({ theme }) => theme.card.background};
   backdrop-filter: blur(15px);
   border-radius: 4px;
-  padding: 15px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  padding: 15px;
+
+  &.card-cover {
+    padding: 0;
+    > * {
+      border-radius: 4px;
+    }
+  }
 
   &.react-draggable-dragging,
   &.resizing {

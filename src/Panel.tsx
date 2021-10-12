@@ -6,6 +6,7 @@ import {
   Card,
   Toggle,
   Sidebar,
+  Camera,
 } from './components';
 import { Layout, Layouts, Responsive } from 'react-grid-layout';
 import { SquareWidthProvider } from './SquareWidthProvider';
@@ -38,6 +39,13 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
   const entities = Object.values(hass.states);
   const components = [
     {
+      key: 'test-camera',
+      options: {
+        cover: true,
+      },
+      children: <Camera entity={hass.states['camera.marian_office']} fill />,
+    },
+    {
       key: 'motionSummary',
       children: <MotionSummary entities={entities} />,
     },
@@ -51,8 +59,8 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
   ];
 
   const grid = useMemo(() => {
-    return components.map(({ key, title, children }: any) => (
-      <Card title={title} key={key} id={key} hass={hass}>
+    return components.map(({ key, title, options, children }: any) => (
+      <Card title={title} key={key} id={key} hass={hass} cover={options?.cover}>
         {children}
       </Card>
     ));

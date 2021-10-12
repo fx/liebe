@@ -69,9 +69,7 @@ export const createReactPanel = (app: any): CustomElementConstructor => {
 
     connectedCallback() {
       this.root = document.createElement('div');
-      // this.root.style = 'min-height: 100%; height: 1px;';
       this.mountPoint = document.createElement('div');
-      // this.mountPoint.style = 'min-height: 100%; height: 1px;';
       this.render();
       this.root.appendChild(this.mountPoint);
       const blueprintStyles = document.createElement('style');
