@@ -1,16 +1,34 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Alignment, Switch } from '@blueprintjs/core';
 
 interface SidebarProps {
   className?: string;
   visible: boolean;
+  options: any;
+  onChange: any;
 }
 
-const Component = ({ className, visible }: SidebarProps) => {
+const Component = ({ className, visible, options, onChange }: SidebarProps) => {
   const classNames = [className, `is-${visible ? 'visible' : 'hidden'}`].join(
     ' ',
   );
-  return <div className={classNames}>hi</div>;
+  return (
+    <div className={classNames}>
+      <Switch
+        checked={options?.gridEditable}
+        onChange={(e) => {
+          onChange({
+            ...options,
+            gridEditable: (e.target as HTMLInputElement)?.checked,
+          });
+        }}
+        inline
+        alignIndicator={Alignment.LEFT}
+        label="Grid Editable"
+      />
+    </div>
+  );
 };
 
 export const Sidebar = styled(Component)`
