@@ -1,5 +1,5 @@
 import React from 'react';
-import { lighten } from 'polished';
+import { darken, lighten } from 'polished';
 import styled from 'styled-components';
 
 interface CardProps {
@@ -7,9 +7,17 @@ interface CardProps {
   className?: string;
   children: any;
   hass: any;
+  title?: string;
 }
 
-const Component = ({ className, id, children, hass, ...rest }: CardProps) => {
+const Component = ({
+  className,
+  id,
+  children,
+  hass,
+  title,
+  ...rest
+}: CardProps) => {
   return (
     <div
       // Must pass through props for RGL
@@ -17,7 +25,12 @@ const Component = ({ className, id, children, hass, ...rest }: CardProps) => {
       className={className}
       key={id}
     >
-      <div className="viewport">
+      {title ? <span className="card-title">{title}</span> : undefined}
+      <div
+        className={['card-viewport', title ? 'with-title' : undefined].join(
+          ' ',
+        )}
+      >
         {children.map((child: JSX.Element) =>
           React.cloneElement(child, { ...child.props, hass }),
         )}
@@ -58,10 +71,29 @@ export const Card = styled(Component)`
     }
   }
 
-  .viewport {
+  .card-title {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 4px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    text-align: center;
+    color: ${({ theme }) => lighten('5%', theme.text.color)};
+  }
+
+  .card-viewport {
     width: 100%;
     height: 100%;
     overflow: auto;
+
+    &.with-title {
+      margin-top: 5px;
+    }
 
     ::-webkit-scrollbar,
     ::-webkit-scrollbar-corner {

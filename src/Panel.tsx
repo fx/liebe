@@ -47,6 +47,7 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
     },
     {
       key: 'test-switch',
+      title: 'A Random Switch',
       children: (
         <Toggle entity={hass.states['light.marian_s_office_main_lights']} />
       ),
@@ -54,8 +55,8 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
   ];
 
   const grid = useMemo(() => {
-    return components.map(({ key, children }: any) => (
-      <Card key={key} id={key} hass={hass}>
+    return components.map(({ key, title, children }: any) => (
+      <Card title={title} key={key} id={key} hass={hass}>
         {children}
       </Card>
     ));

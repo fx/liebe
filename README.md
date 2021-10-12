@@ -26,3 +26,7 @@ panel_custom:
 ```
 
 And hit `<your home assistant URL>/liebe`
+
+##### Why `Liebe`?
+
+Home Assistant's abbreviation `hass` is the German word for hate. Liebe is the German word for love. With local DNS, I can access this panel via `http://hass/liebe` :)
