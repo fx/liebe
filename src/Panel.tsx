@@ -38,10 +38,6 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
   const entities = Object.values(hass.states);
   const components = [
     {
-      key: 'batterySummary',
-      children: <BatterySummary entities={entities} />,
-    },
-    {
       key: 'motionSummary',
       children: <MotionSummary entities={entities} />,
     },
@@ -88,6 +84,8 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
       </a>
       <Sidebar
         options={settings?.options}
+        hass={hass}
+        entities={entities}
         onChange={(options: any) =>
           setSettings((value) => {
             return { ...value, options: { ...value?.options, ...options } };
