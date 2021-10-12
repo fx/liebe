@@ -1,6 +1,7 @@
 // Inspired by https://github.com/react-grid-layout/react-grid-layout/issues/399#issuecomment-258494575
 import { invert, isEmpty } from 'lodash';
 import React, { useCallback, useState } from 'react';
+import type { Responsive, ResponsiveProps } from 'react-grid-layout';
 
 function findBreakpoint(breakpoints: any, width: number) {
   if (!breakpoints) return;
@@ -11,8 +12,10 @@ function findBreakpoint(breakpoints: any, width: number) {
 }
 
 export const SquareWidthProvider =
-  (ComposedComponent: any): any =>
-  (props: any) => {
+  (ComposedComponent: typeof Responsive) =>
+  (
+    props: ResponsiveProps | (Readonly<ResponsiveProps> & { children: any }),
+  ) => {
     const { margin, breakpoints, cols } = props;
     const [rowHeight, setRowHeight] = useState(0);
     const updateRowHeight = useCallback((ref) => {
@@ -25,6 +28,7 @@ export const SquareWidthProvider =
         } = entries[0];
 
         const currentBreakpoint = findBreakpoint(breakpoints, width);
+
         if (currentBreakpoint)
           setRowHeight(
             (width -
@@ -33,6 +37,7 @@ export const SquareWidthProvider =
           );
       }).observe(ref);
     }, []);
+
     return (
       <div ref={updateRowHeight}>
         <ComposedComponent {...props} rowHeight={rowHeight} />
