@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import {
   BatterySummary,
@@ -22,50 +22,92 @@ library.add(...iconList);
 
 const ReactGridLayout = SquareWidthProvider(Responsive);
 
-interface PanelProps {
-  className?: string;
-  hass: any;
-  panel: any;
+interface Hass {
+  states: EntityStates;
+  callService: Function;
 }
 
-export const Panel = ({ className, hass, panel }: PanelProps) => {
+interface PanelProps {
+  className?: string;
+  hass: Hass;
+  root: any;
+}
+
+interface EntityStates {
+  [key: string]: EntityState;
+}
+
+interface EntityState {
+  entity_id: string;
+  attributes: any;
+  last_changed: string;
+  last_updated: string;
+  state: string;
+}
+
+interface GridItemProps {
+  entityId: string;
+  cover?: boolean;
+  hass: Hass;
+  render: Function;
+}
+
+const defaultItemProps: { [key: string]: Partial<GridItemProps> } = {
+  camera: {
+    cover: true,
+    render: (options: any) => <Camera entity={options.entity} fill />,
+  },
+};
+
+export const Panel = ({ className, hass, root }: PanelProps) => {
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
   const [settings, setSettings] = useLocalStorageState('liebe:settings', {
-    layouts: {},
+    grid: {
+      items: [
+        {
+          entityId: 'camera.marian_office',
+        },
+      ],
+      layouts: {},
+    },
     options: {
       gridEditable: false,
     },
   });
-  const entities = Object.values(hass.states);
-  const components = [
-    {
-      key: 'test-camera',
-      options: {
-        cover: true,
+
+  const addItem = useCallback((item: GridItemProps) => {
+    setSettings((value) => ({
+      ...value,
+      grid: {
+        ...value.grid,
+        items: [...value.grid.items, item],
       },
-      children: <Camera entity={hass.states['camera.marian_office']} fill />,
-    },
-    {
-      key: 'motionSummary',
-      children: <MotionSummary entities={entities} />,
-    },
-    {
-      key: 'test-switch',
-      title: 'A Random Switch',
-      children: (
-        <Toggle entity={hass.states['light.marian_s_office_main_lights']} />
-      ),
-    },
-  ];
+    }));
+  }, []);
+
+  const entities = Object.values(hass.states);
 
   const grid = useMemo(() => {
-    return components.map(({ key, title, options, children }: any) => (
-      <Card title={title} key={key} id={key} hass={hass} cover={options?.cover}>
-        {children}
-      </Card>
-    ));
+    return settings.grid.items.map((item: Pick<GridItemProps, 'entityId'>) => {
+      const { entityId } = item;
+      const entityType = entityId.split('.')[0];
+      const props = {
+        key: entityId,
+        id: entityId,
+        entity: hass.states[entityId],
+        hass,
+        ...defaultItemProps[entityType],
+        ...item,
+      };
+      if (!props.render) {
+        console.log("Don't know how to render ", item);
+        return;
+      }
+      return <Card {...props}>{props.render(props)}</Card>;
+    });
   }, [
-    settings.layouts,
+    settings.grid.layouts,
+    settings.grid.items,
     hass.states,
     // Important note: when updating options on the grid, its items need to be
     // re-created. So any change to something like `isDraggable` won't have any
@@ -94,12 +136,14 @@ export const Panel = ({ className, hass, panel }: PanelProps) => {
         options={settings?.options}
         hass={hass}
         entities={entities}
+        addItem={addItem}
         onChange={(options: any) =>
           setSettings((value) => {
             return { ...value, options: { ...value?.options, ...options } };
           })
         }
         visible={sidebarVisible}
+        root={root}
       />
       <ReactGridLayout
         isDraggable={settings.options?.gridEditable}
@@ -131,7 +175,7 @@ export const StyledPanel = styled(Panel)`
   background-position: center center;
   background-size: cover;
   min-height: 100vh;
-  color: ${({ theme }) => theme.text.color};
+  color: ${({ theme }) => theme.liebe.text.color};
   overflow-x: hidden;
 
   * {
@@ -155,11 +199,11 @@ export const StyledPanel = styled(Panel)`
     left: 0;
 
     &.sidebar-visible {
-      left: ${({ theme }) => theme.sidebar.width}px;
+      left: ${({ theme }) => theme.liebe.sidebar.width}px;
     }
   }
 
   .react-grid-placeholder {
-    background: ${({ theme }) => theme.card.background};
+    background: ${({ theme }) => theme.liebe.card.background};
   }
 `;

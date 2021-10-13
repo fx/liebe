@@ -1,9 +1,17 @@
-import React, { useRef } from 'react';
-import styled from 'styled-components';
-import { Popover, Alignment, Switch } from '@blueprintjs/core';
+import React, { useRef, useState } from 'react';
 import { lighten } from 'polished';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { BatterySummary } from '.';
+import {
+  Autocomplete,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  styled,
+  Switch,
+  TextField,
+} from '@mui/material';
 
 interface SidebarProps {
   className?: string;
@@ -12,7 +20,35 @@ interface SidebarProps {
   onChange: any;
   hass: any;
   entities: any;
+  root: Element;
+  addItem: Function;
 }
+
+interface Entity {
+  entity_id: string;
+}
+
+const AddCardForm = ({ entities, addItem }) => {
+  const [entity, setEntity] = useState();
+
+  return (
+    <>
+      <Autocomplete
+        disablePortal
+        sx={{ width: 300 }}
+        options={entities.map((entity: any) => ({
+          label: entity.entity_id,
+          id: entity.entity_id,
+        }))}
+        isOptionEqualToValue={(option, value) => option?.id === value?.id}
+        renderInput={(params) => <TextField {...params} label="Entity" />}
+        onChange={(_e, value) => setEntity(value)}
+      />
+      TWF {JSON.stringify(entity)}
+      <Button onClick={() => addItem({ entityId: entity?.id })}>Add</Button>
+    </>
+  );
+};
 
 const Component = ({
   className,
@@ -20,8 +56,11 @@ const Component = ({
   options,
   onChange,
   entities,
+  root,
+  addItem,
 }: SidebarProps) => {
   const ref = useRef<HTMLDivElement>(null);
+  const [activeDialog, setActiveDialog] = useState<string>('');
   const classNames = [className, `is-${visible ? 'visible' : 'hidden'}`].join(
     ' ',
   );
@@ -30,15 +69,39 @@ const Component = ({
   return (
     <div ref={ref} className={classNames}>
       <div className="sidebar-item">
-        <Popover
-          className="bp4-dark"
-          content={batterySummary}
-          usePortal={false}
+        <span
+          className="sidebar-icon"
+          onClick={() => setActiveDialog('battery-status')}
         >
-          <span className="sidebar-icon">
-            <FontAwesomeIcon icon="battery" />
-          </span>
-        </Popover>
+          <FontAwesomeIcon icon="battery" />
+        </span>
+
+        <Dialog
+          open={activeDialog === 'battery-status'}
+          container={root}
+          onClose={() => setActiveDialog('')}
+        >
+          <DialogContent>
+            <BatterySummary entities={entities} />
+          </DialogContent>
+        </Dialog>
+
+        <span
+          className="sidebar-icon"
+          onClick={() => setActiveDialog('add-card')}
+        >
+          <FontAwesomeIcon icon="plus-square" />
+        </span>
+
+        <Dialog
+          open={activeDialog === 'add-card'}
+          container={root}
+          onClose={() => setActiveDialog('')}
+        >
+          <DialogContent>
+            <AddCardForm entities={entities} addItem={addItem} />
+          </DialogContent>
+        </Dialog>
       </div>
       <div className="sidebar-item">
         <Switch
@@ -49,9 +112,6 @@ const Component = ({
               gridEditable: (e.target as HTMLInputElement)?.checked,
             });
           }}
-          inline
-          alignIndicator={Alignment.LEFT}
-          label="Grid Editable"
         />
       </div>
     </div>
@@ -61,9 +121,9 @@ const Component = ({
 export const Sidebar = styled(Component)`
   position: absolute;
   height: 100vh;
-  width: ${({ theme }) => theme.sidebar.width}px;
-  background: ${({ theme }) => theme.sidebar.background};
-  left: -${({ theme }) => theme.sidebar.width}px;
+  width: ${({ theme }) => theme.liebe.sidebar.width}px;
+  background: ${({ theme }) => theme.liebe.sidebar.background};
+  left: -${({ theme }) => theme.liebe.sidebar.width}px;
   visibility: hidden;
   transition: left 0.2s ease-in-out, visibility 0.2s ease-in-out 0.2s;
 
@@ -76,13 +136,9 @@ export const Sidebar = styled(Component)`
   .sidebar-item {
     padding: 15px;
     width: 100%;
-    border-bottom: ${({ theme }) => lighten(0.1, theme.sidebar.background)} 1px
-      solid;
-
-    .bp4-switch {
-      width: 100%;
-      margin: 0;
-    }
+    border-bottom: ${({ theme }) =>
+        lighten(0.1, theme.liebe.sidebar.background)}
+      1px solid;
 
     .sidebar-icon {
       width: 30px;
@@ -90,9 +146,5 @@ export const Sidebar = styled(Component)`
       display: inline-block;
       cursor: pointer;
     }
-  }
-
-  .bp4-popover-content {
-    padding: 15px;
   }
 `;

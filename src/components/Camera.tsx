@@ -1,6 +1,5 @@
-import { Intent, Spinner } from '@blueprintjs/core';
+import { CircularProgress, styled } from '@mui/material';
 import React, { useCallback, useEffect, useState } from 'react';
-import styled from 'styled-components';
 
 interface CameraProps {
   className?: string;
@@ -48,7 +47,7 @@ const Component = ({
         }}
       />
       <div className="camera-loading-indicator">
-        {loading ? <Spinner size={15} intent={Intent.PRIMARY} /> : undefined}
+        {loading ? <CircularProgress size={15} /> : undefined}
       </div>
     </div>
   );

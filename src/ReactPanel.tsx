@@ -6,28 +6,63 @@ import {
   StyleSheetManager,
   createGlobalStyle,
 } from 'styled-components';
-import { rgba } from 'polished';
-
-const blueprintCSS = fs.readFileSync(
-  'node_modules/@blueprintjs/core/lib/css/blueprint.css',
-);
+import { lighten, rgba } from 'polished';
+import { Theme, ThemeOptions } from '@mui/material/styles';
+import createTheme from '@mui/material/styles/createTheme';
 
 const GlobalStyle = createGlobalStyle`
   body { overflow: hidden; }
+
+  // Can't figure out how to tell Dialog not to be scrolly
+  .MuiDialog-paper {
+    overflow-y: visible !important;
+  }
+
+  * {
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-corner {
+      height: 15px;
+      width: 15px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background-clip: content-box;
+      background-color: ${({ theme: LiebeTheme }) => theme.liebe.text.color};
+      border: 5px solid transparent;
+      border-radius: 16px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: ${({ theme }) =>
+        lighten('10%', theme.liebe.text.color)};
+    }
+
+    &::-webkit-scrollbar-track:hover {
+      background-color: transparent;
+      box-shadow: none;
+    }
+  }
 `;
 
-const theme = {
-  sidebar: {
-    width: 250,
-    background: '#212326',
+// https://mui.com/customization/default-theme/
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
   },
-  card: {
-    background: rgba('#212326', 0.55),
+  zIndex: {},
+  liebe: {
+    sidebar: {
+      width: 250,
+      background: '#212326',
+    },
+    card: {
+      background: rgba('#212326', 0.55),
+    },
+    text: {
+      color: '#BDBEBF',
+    },
   },
-  text: {
-    color: '#BDBEBF',
-  },
-};
+});
 
 export const createReactPanel = (app: any): CustomElementConstructor => {
   return class extends HTMLElement {
@@ -50,7 +85,7 @@ export const createReactPanel = (app: any): CustomElementConstructor => {
       if (!this.isConnected) return;
 
       const panel = React.createElement(app, {
-        panel: this,
+        root: this.root,
         hass: this._hass,
       });
 
@@ -72,9 +107,6 @@ export const createReactPanel = (app: any): CustomElementConstructor => {
       this.mountPoint = document.createElement('div');
       this.render();
       this.root.appendChild(this.mountPoint);
-      const blueprintStyles = document.createElement('style');
-      blueprintStyles.textContent = blueprintCSS;
-      this.root.appendChild(blueprintStyles);
       this.attachShadow({ mode: 'open' }).appendChild(this.root);
     }
   };

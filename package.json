@@ -11,10 +11,12 @@
     "lint": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\""
   },
   "dependencies": {
-    "@blueprintjs/core": "4.0.0-beta.2",
     "@fortawesome/fontawesome-svg-core": "^1.3.0-beta2",
     "@fortawesome/free-solid-svg-icons": "^6.0.0-beta2",
     "@fortawesome/react-fontawesome": "^0.1.15",
+    "@mui/material": "^5.0.3",
+    "@mui/styled-engine-sc": "^5.0.3",
+    "@mui/system": "^5.0.3",
     "date-fns": "^2.25.0",
     "framer-motion": "^4.1.17",
     "lodash": "^4.17.21",
@@ -26,9 +28,8 @@
     "use-local-storage-state": "^11.0.0"
   },
   "devDependencies": {
-    "@parcel/optimizer-data-url": "2.0.0-rc.0",
-    "@parcel/transformer-image": "2.0.0-rc.0",
-    "@parcel/transformer-inline-string": "2.0.0-rc.0",
+    "@parcel/optimizer-data-url": "2.0.0-nightly.881",
+    "@parcel/transformer-inline-string": "2.0.0-nightly.881",
     "@testing-library/react": "^11.2.6",
     "@types/chai": "^4.2.17",
     "@types/lodash": "^4.14.175",
@@ -37,8 +38,11 @@
     "@types/react-dom": "^17.0.3",
     "@types/react-grid-layout": "^1.1.2",
     "@types/styled-components": "^5.1.15",
-    "parcel": "^2.0.0-rc.0",
+    "parcel": "2.0.0-nightly.879",
     "prettier": "^2.2.1",
     "typescript": "^4.2.4"
+  },
+  "alias": {
+    "@mui/styled-engine": "@mui/styled-engine-sc"
   }
 }

@@ -1,5 +1,5 @@
+import { LinearProgress } from '@mui/material';
 import React from 'react';
-import { ProgressBar, Intent } from '@blueprintjs/core';
 import styled from 'styled-components';
 
 interface BatteryLevelProps {
@@ -14,13 +14,6 @@ export const Component = ({ className, entity }: BatteryLevelProps) => {
 
   const percentage = parseInt(entity?.state);
 
-  let intent: Intent = Intent.PRIMARY;
-  if (percentage < 75 && percentage >= 50) {
-    intent = Intent.WARNING;
-  } else if (percentage < 25) {
-    intent = Intent.DANGER;
-  }
-
   return (
     <div className={className}>
       <span className="battery-level-name">{friendly_name}</span>
@@ -29,11 +22,10 @@ export const Component = ({ className, entity }: BatteryLevelProps) => {
           percentage > 0 ? entity?.attributes?.unit_of_measurement : ''
         }`}
       </span>
-      <ProgressBar
+      <LinearProgress
         className="battery-level-progress"
-        intent={intent}
-        stripes={false}
-        value={percentage / 100.0}
+        variant="determinate"
+        value={percentage}
       />
     </div>
   );

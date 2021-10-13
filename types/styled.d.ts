@@ -1,9 +1,7 @@
-// import original module declarations
-import 'styled-components';
+import { createTheme } from '@mui/material/styles/createTheme';
 
-// and extend them!
-declare module 'styled-components' {
-  export interface DefaultTheme {
+interface LiebeTheme extends Theme {
+  liebe: {
     sidebar: {
       width: number;
       background: string;
@@ -14,5 +12,10 @@ declare module 'styled-components' {
     text: {
       color: string;
     };
-  }
+  };
+}
+
+declare module '@mui/material/styles/createTheme' {
+  interface Theme extends LiebeTheme {}
+  interface ThemeOptions extends LiebeTheme {}
 }
