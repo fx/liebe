@@ -1,13 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { lighten } from 'polished';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { BatterySummary, GridItemSelect } from '.';
+import { BatterySummary, GridItem, GridItemSelect } from '.';
 import {
   Autocomplete,
   Button,
   Dialog,
   DialogContent,
-  DialogTitle,
   styled,
   Switch,
   TextField,
@@ -18,8 +17,8 @@ interface SidebarProps {
   visible: boolean;
   options: any;
   onChange: any;
-  hass: any;
-  entities: any;
+  hass: Hass;
+  entities: EntityState[];
   root: Element;
   addItem: Function;
 }
@@ -28,8 +27,14 @@ interface Entity {
   entity_id: string;
 }
 
-const AddCardForm = ({ entities, addItem }) => {
-  const [entity, setEntity] = useState();
+const AddCardForm = ({
+  entities,
+  addItem,
+}: {
+  entities: EntityState[];
+  addItem: Function;
+}) => {
+  const [entity, setEntity] = useState<GridItem | null>();
 
   return (
     <>
@@ -38,107 +43,110 @@ const AddCardForm = ({ entities, addItem }) => {
         sx={{ width: 300 }}
         options={entities.map((entity: any) => ({
           label: entity.entity_id,
-          id: entity.entity_id,
+          entityId: entity.entity_id,
         }))}
-        isOptionEqualToValue={(option, value) => option?.id === value?.id}
+        isOptionEqualToValue={(option, value) =>
+          option?.entityId === value?.entityId
+        }
         renderInput={(params) => <TextField {...params} label="Entity" />}
         onChange={(_e, value) => setEntity(value)}
       />
-      TWF {JSON.stringify(entity)}
-      <Button onClick={() => addItem({ entityId: entity?.id })}>Add</Button>
+      <Button onClick={() => addItem({ entityId: entity?.entityId })}>
+        Add
+      </Button>
     </>
   );
 };
 
-const Component = ({
-  className,
-  visible,
-  options,
-  onChange,
-  entities,
-  root,
-  addItem,
-  hass,
-}: SidebarProps) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [activeDialog, setActiveDialog] = useState<string>('');
-  const classNames = [className, `is-${visible ? 'visible' : 'hidden'}`].join(
-    ' ',
-  );
-  const batterySummary = <BatterySummary entities={entities} />;
+export const Sidebar = styled(
+  ({
+    className,
+    visible,
+    options,
+    onChange,
+    entities,
+    root,
+    addItem,
+    hass,
+  }: SidebarProps) => {
+    const ref = useRef<HTMLDivElement>(null);
+    const [activeDialog, setActiveDialog] = useState<string>('');
+    const classNames = [className, `is-${visible ? 'visible' : 'hidden'}`].join(
+      ' ',
+    );
+    const batterySummary = <BatterySummary entities={entities} />;
 
-  return (
-    <div ref={ref} className={classNames}>
-      <div className="sidebar-item">
-        <span
-          className="sidebar-icon"
-          onClick={() => setActiveDialog('battery-status')}
-        >
-          <FontAwesomeIcon icon="battery" />
-        </span>
+    return (
+      <div ref={ref} className={classNames}>
+        <div className="sidebar-item">
+          <span
+            className="sidebar-icon"
+            onClick={() => setActiveDialog('battery-status')}
+          >
+            <FontAwesomeIcon icon="battery" />
+          </span>
 
-        <Dialog
-          open={activeDialog === 'battery-status'}
-          container={root}
-          onClose={() => setActiveDialog('')}
-        >
-          <DialogContent>
-            <BatterySummary entities={entities} />
-          </DialogContent>
-        </Dialog>
+          <Dialog
+            open={activeDialog === 'battery-status'}
+            container={root}
+            onClose={() => setActiveDialog('')}
+          >
+            <DialogContent>
+              <BatterySummary entities={entities} />
+            </DialogContent>
+          </Dialog>
 
-        <span
-          className="sidebar-icon"
-          onClick={() => setActiveDialog('add-card')}
-        >
-          <FontAwesomeIcon icon="plus-square" />
-        </span>
+          <span
+            className="sidebar-icon"
+            onClick={() => setActiveDialog('add-card')}
+          >
+            <FontAwesomeIcon icon="plus-square" />
+          </span>
 
-        <Dialog
-          open={activeDialog === 'add-card'}
-          container={root}
-          onClose={() => setActiveDialog('')}
-        >
-          <DialogContent>
-            <AddCardForm entities={entities} addItem={addItem} />
-          </DialogContent>
-        </Dialog>
+          <Dialog
+            open={activeDialog === 'add-card'}
+            container={root}
+            onClose={() => setActiveDialog('')}
+          >
+            <DialogContent>
+              <AddCardForm entities={entities} addItem={addItem} />
+            </DialogContent>
+          </Dialog>
 
-        <span
-          className="sidebar-icon"
-          onClick={() => setActiveDialog('add-item')}
-        >
-          <FontAwesomeIcon icon="plus-square" />
-        </span>
+          <span
+            className="sidebar-icon"
+            onClick={() => setActiveDialog('add-item')}
+          >
+            <FontAwesomeIcon icon="plus-square" />
+          </span>
 
-        <Dialog
-          open={activeDialog === 'add-item' || true}
-          container={root}
-          fullWidth
-          maxWidth="xl"
-          onClose={() => setActiveDialog('')}
-        >
-          <DialogContent>
-            <GridItemSelect hass={hass} />
-          </DialogContent>
-        </Dialog>
+          <Dialog
+            open={activeDialog === 'add-item' || true}
+            container={root}
+            fullWidth
+            maxWidth="xl"
+            onClose={() => setActiveDialog('')}
+          >
+            <DialogContent>
+              <GridItemSelect hass={hass} />
+            </DialogContent>
+          </Dialog>
+        </div>
+        <div className="sidebar-item">
+          <Switch
+            checked={options?.gridEditable}
+            onChange={(e) => {
+              onChange({
+                ...options,
+                gridEditable: (e.target as HTMLInputElement)?.checked,
+              });
+            }}
+          />
+        </div>
       </div>
-      <div className="sidebar-item">
-        <Switch
-          checked={options?.gridEditable}
-          onChange={(e) => {
-            onChange({
-              ...options,
-              gridEditable: (e.target as HTMLInputElement)?.checked,
-            });
-          }}
-        />
-      </div>
-    </div>
-  );
-};
-
-export const Sidebar = styled(Component)`
+    );
+  },
+)`
   position: absolute;
   min-height: 100vh;
   height: 100%;

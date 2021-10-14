@@ -18,7 +18,7 @@ const formatDistanceLocale = {
   xYears: '{{count}}y',
   overXYears: '{{count}}y',
   almostXYears: '{{count}}y',
-};
+} as { [key: string]: string };
 
 // https://github.com/date-fns/date-fns/issues/1706#issuecomment-836601089
 function formatDistance(

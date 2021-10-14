@@ -1,3 +1,4 @@
+export * from './GridItem';
 export * from './icons';
 export * from './MotionStatus';
 export * from './MotionSummary';

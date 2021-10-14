@@ -1,13 +1,13 @@
 import { LinearProgress } from '@mui/material';
 import React from 'react';
-import styled from 'styled-components';
+import { GridItem } from '..';
 
 interface BatteryLevelProps {
   className?: string;
   entity: any;
 }
 
-export const BatteryLevel = styled(
+export const BatteryLevel = GridItem(
   ({ className, entity }: BatteryLevelProps) => {
     const {
       attributes: { friendly_name },

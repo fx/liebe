@@ -7,7 +7,10 @@ interface GridItemSelectProps {
   hass: Hass;
 }
 
-const getEntitiesForItem = ({ grid: { entityType, deviceClass } }, states) => {
+const getEntitiesForItem = (
+  { grid: { entityType, deviceClass } }: any,
+  states: EntityStates,
+) => {
   return Object.values(states).filter((entity) => {
     if (!!entity.entity_id.match(new RegExp(`^${entityType}\.`))) {
       if (!deviceClass || entity.attributes.device_class === deviceClass)
@@ -17,33 +20,35 @@ const getEntitiesForItem = ({ grid: { entityType, deviceClass } }, states) => {
   });
 };
 
-export const GridItemSelect = styled(({ className, hass }) => {
-  const previews = useMemo(
-    () =>
-      Object.entries(items).map((item) => {
-        const component = item[1];
-        const entities = getEntitiesForItem(component, hass.states);
-        const entity = entities[Math.floor(Math.random() * entities.length)];
-        const props = {
-          hass,
-          entity,
-          entities,
-        };
-        return (
-          <Grid item className="preview" xs={3}>
-            {React.createElement(item[1], props)}
-          </Grid>
-        );
-      }),
-    [],
-  );
+export const GridItemSelect = styled(
+  ({ className, hass }: GridItemSelectProps) => {
+    const previews = useMemo(
+      () =>
+        Object.entries(items).map((item) => {
+          const component = item[1];
+          const entities = getEntitiesForItem(component, hass.states);
+          const entity = entities[Math.floor(Math.random() * entities.length)];
+          const props = {
+            hass,
+            entity,
+            entities,
+          };
+          return (
+            <Grid item className="preview" xs={3}>
+              {React.createElement(item[1], props)}
+            </Grid>
+          );
+        }),
+      [],
+    );
 
-  return (
-    <Grid container spacing={2} className={className}>
-      {previews}
-    </Grid>
-  );
-})`
+    return (
+      <Grid container spacing={2} className={className}>
+        {previews}
+      </Grid>
+    );
+  },
+)`
   .preview {
     position: relative;
     height: 200px;

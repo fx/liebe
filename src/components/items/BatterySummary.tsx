@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
 import { isEmpty, sortBy } from 'lodash';
-import { BatteryLevel } from '.';
-import styled from 'styled-components';
+import { BatteryLevel } from './BatteryLevel';
+import { GridItem } from '..';
 
 interface BatterySummaryProps {
   className?: string;
   entities: any[];
 }
 
-export const BatterySummary = styled(
+export const BatterySummary = GridItem(
   ({ className, entities }: BatterySummaryProps) => {
     const batteries = useMemo(
       () =>

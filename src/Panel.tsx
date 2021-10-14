@@ -1,13 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import {
-  BatterySummary,
-  MotionSummary,
-  Card,
-  Toggle,
-  Sidebar,
-  Camera,
-} from './components';
+import { Card, Sidebar, Camera, GridItem } from './components';
 import { Layout, Layouts, Responsive } from 'react-grid-layout';
 import { SquareWidthProvider } from './SquareWidthProvider';
 import useLocalStorageState from 'use-local-storage-state';
@@ -22,37 +15,23 @@ library.add(...iconList);
 
 const ReactGridLayout = SquareWidthProvider(Responsive);
 
-interface Hass {
-  states: EntityStates;
-  callService: Function;
-}
-
 interface PanelProps {
   className?: string;
   hass: Hass;
   root: any;
 }
 
-interface EntityStates {
-  [key: string]: EntityState;
+interface PanelSettings {
+  grid: {
+    items: GridItem[];
+    layouts: any;
+  };
+  options: {
+    gridEditable: boolean;
+  };
 }
 
-interface EntityState {
-  entity_id: string;
-  attributes: any;
-  last_changed: string;
-  last_updated: string;
-  state: string;
-}
-
-interface GridItemProps {
-  entityId: string;
-  cover?: boolean;
-  hass: Hass;
-  render: Function;
-}
-
-const defaultItemProps: { [key: string]: Partial<GridItemProps> } = {
+const defaultItemProps: { [key: string]: Partial<GridItem> } = {
   camera: {
     cover: true,
     render: (options: any) => <Camera entity={options.entity} fill />,
@@ -61,21 +40,24 @@ const defaultItemProps: { [key: string]: Partial<GridItemProps> } = {
 
 export const Panel = ({ className, hass, root }: PanelProps) => {
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
-  const [settings, setSettings] = useLocalStorageState('liebe:settings', {
-    grid: {
-      items: [
-        {
-          entityId: 'camera.marian_office',
-        },
-      ],
-      layouts: {},
+  const [settings, setSettings] = useLocalStorageState<PanelSettings>(
+    'liebe:settings',
+    {
+      grid: {
+        items: [
+          {
+            entityId: 'camera.marian_office',
+          },
+        ],
+        layouts: {},
+      },
+      options: {
+        gridEditable: false,
+      },
     },
-    options: {
-      gridEditable: false,
-    },
-  });
+  );
 
-  const addItem = useCallback((item: GridItemProps) => {
+  const addItem = useCallback((item: GridItem) => {
     setSettings((value) => ({
       ...value,
       grid: {
@@ -88,7 +70,7 @@ export const Panel = ({ className, hass, root }: PanelProps) => {
   const entities = Object.values(hass.states);
 
   const grid = useMemo(() => {
-    return settings.grid.items.map((item: Pick<GridItemProps, 'entityId'>) => {
+    return settings.grid.items.map((item: Pick<GridItem, 'entityId'>) => {
       const { entityId } = item;
       const entityType = entityId.split('.')[0];
       const props = {
@@ -146,10 +128,11 @@ export const Panel = ({ className, hass, root }: PanelProps) => {
         root={root}
       />
       <ReactGridLayout
+        margin={[20, 20]}
         isDraggable={settings.options?.gridEditable}
         isResizable={settings.options?.gridEditable}
         className={`sidebar-${sidebarVisible ? 'visible' : 'hidden'}`}
-        layouts={settings.layouts}
+        layouts={settings.grid.layouts}
         cols={{ lg: 24, md: 12, sm: 8, xs: 4, xxs: 1 }}
         breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
         rowHeight={200}

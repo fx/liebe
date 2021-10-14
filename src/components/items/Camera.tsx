@@ -1,5 +1,6 @@
 import { CircularProgress, styled } from '@mui/material';
 import React, { useCallback, useEffect, useState } from 'react';
+import { GridItem } from '../GridItem';
 
 interface CameraProps {
   className?: string;
@@ -10,7 +11,7 @@ interface CameraProps {
   refresh?: number;
 }
 
-export const Camera = styled(
+export const Camera = GridItem(
   ({
     entity,
     className,

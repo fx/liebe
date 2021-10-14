@@ -1,13 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import fs from 'fs';
 import {
   ThemeProvider,
   StyleSheetManager,
   createGlobalStyle,
 } from 'styled-components';
 import { lighten, rgba } from 'polished';
-import { Theme, ThemeOptions } from '@mui/material/styles';
 import createTheme from '@mui/material/styles/createTheme';
 
 const GlobalStyle = createGlobalStyle`
@@ -64,29 +62,20 @@ const theme = createTheme({
   },
 });
 
-export const createReactPanel = (app: any): CustomElementConstructor => {
-  return class extends HTMLElement {
-    constructor() {
-      super();
-      Object.defineProperties(this, {
-        hass: {
-          set(value) {
-            this._hass = value;
-            this.render();
-          },
-        },
-        // narrow: { type: Boolean },
-        // route: { type: Object },
-        // panel: { type: Object },
-      });
-    }
+class PanelElement extends HTMLElement {
+  hass = undefined;
+  root: HTMLElement | undefined = undefined;
+  mountPoint: any = undefined;
+}
 
+export const createReactPanel = (app: any): CustomElementConstructor => {
+  return class extends PanelElement {
     render() {
       if (!this.isConnected) return;
 
       const panel = React.createElement(app, {
         root: this.root,
-        hass: this._hass,
+        hass: this.hass,
       });
 
       ReactDOM.render(

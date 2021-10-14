@@ -15,7 +15,13 @@ interface LiebeTheme extends Theme {
   };
 }
 
+interface DefaultTheme extends LiebeTheme {}
+
 declare module '@mui/material/styles/createTheme' {
   interface Theme extends LiebeTheme {}
   interface ThemeOptions extends LiebeTheme {}
+}
+
+declare module 'styled-components' {
+  export interface DefaultTheme extends LiebeTheme {}
 }
