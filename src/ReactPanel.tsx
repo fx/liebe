@@ -64,12 +64,14 @@ const theme = createTheme({
 
 class PanelElement extends HTMLElement {
   hass = undefined;
+
   root: HTMLElement | undefined = undefined;
+
   mountPoint: any = undefined;
 }
 
-export const createReactPanel = (app: any): CustomElementConstructor => {
-  return class extends PanelElement {
+export const createReactPanel = (app: any): CustomElementConstructor =>
+  class extends PanelElement {
     render() {
       if (!this.isConnected) return;
 
@@ -99,4 +101,3 @@ export const createReactPanel = (app: any): CustomElementConstructor => {
       this.attachShadow({ mode: 'open' }).appendChild(this.root);
     }
   };
-};

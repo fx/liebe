@@ -10,15 +10,14 @@ interface GridItemSelectProps {
 const getEntitiesForItem = (
   { grid: { entityType, deviceClass } }: any,
   states: EntityStates,
-) => {
-  return Object.values(states).filter((entity) => {
-    if (!!entity.entity_id.match(new RegExp(`^${entityType}\.`))) {
+) =>
+  Object.values(states).filter((entity) => {
+    if (entity.entity_id.match(new RegExp(`^${entityType}\.`))) {
       if (!deviceClass || entity.attributes.device_class === deviceClass)
         return true;
     }
     return false;
   });
-};
 
 export const GridItemSelect = styled(
   ({ className, hass }: GridItemSelectProps) => {
@@ -34,7 +33,7 @@ export const GridItemSelect = styled(
             entities,
           };
           return (
-            <Grid item className="preview" xs={3}>
+            <Grid key={entity.entity_id} item className="preview" xs={3}>
               {React.createElement(item[1], props)}
             </Grid>
           );

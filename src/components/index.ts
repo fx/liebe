@@ -2,7 +2,6 @@ export * from './GridItem';
 export * from './icons';
 export * from './MotionStatus';
 export * from './MotionSummary';
-export * from './items/BatteryLevel';
 export * from './Card';
 export * from './Toggle';
 export * from './Sidebar';

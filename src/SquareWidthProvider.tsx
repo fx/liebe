@@ -11,11 +11,10 @@ function findBreakpoint(breakpoints: any, width: number) {
   return invert(breakpoints)[closest];
 }
 
-export const SquareWidthProvider =
-  (ComposedComponent: typeof Responsive) =>
-  (
+export const SquareWidthProvider = (ComposedComponent: typeof Responsive) =>
+  function ResponsiveSquare(
     props: ResponsiveProps | (Readonly<ResponsiveProps> & { children: any }),
-  ) => {
+  ) {
     const { margin, breakpoints, cols } = props;
     const [rowHeight, setRowHeight] = useState(0);
     const updateRowHeight = useCallback((ref) => {

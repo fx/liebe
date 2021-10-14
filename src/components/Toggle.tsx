@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
-import styled from 'styled-components';
+import styled from '@mui/styled-engine';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconProp } from '@fortawesome/fontawesome-svg-core';
-import { get, isNil } from 'lodash';
+import { get } from 'lodash';
 
 interface ToggleProps {
   className?: string;
@@ -20,47 +20,53 @@ const entityServices: { [index: string]: any } = {
   },
 };
 
-const Component = ({
-  entity: { entity_id, state, ...entity },
-  className,
-  hass: { callService },
-  iconOn,
-  iconOff,
-  icon,
-}: ToggleProps) => {
-  const entityType = get(entity_id.match(/^(\w+)?\./), 1);
+export const Toggle = styled(
+  ({
+    entity: { entity_id, state },
+    className,
+    hass: { callService },
+    iconOn,
+    iconOff,
+    icon,
+  }: ToggleProps) => {
+    const entityType = get(entity_id.match(/^(\w+)?\./), 1);
 
-  if (!entityType || !Object.keys(entityServices).includes(entityType))
-    return <span>Unsupported entity type {entityType}</span>;
+    if (!entityType || !Object.keys(entityServices).includes(entityType)) {
+      return (
+        <span>
+          Unsupported entity type
+          {entityType}
+        </span>
+      );
+    }
 
-  const service = entityServices[entityType];
+    const service = entityServices[entityType];
 
-  const toggle = useCallback(async () => {
-    const action = state === 'on' ? service.off : service.on;
-    await callService(entityType, action, {
-      entity_id,
-    });
-  }, [state, service]);
+    const toggle = useCallback(async () => {
+      const action = state === 'on' ? service.off : service.on;
+      await callService(entityType, action, {
+        entity_id,
+      });
+    }, [state, service]);
 
-  const on = state === 'on';
-  // `icon` overrides for both states, and if `iconOff` is missing we'll
-  // use `iconOn` for the off state as well.
-  const currentIcon = icon ? icon : on ? iconOn : iconOff ? iconOff : iconOn;
+    const on = state === 'on';
+    // `icon` overrides for both states, and if `iconOff` is missing we'll
+    // use `iconOn` for the off state as well.
+    const currentIcon = icon || (on ? iconOn : iconOff || iconOn);
 
-  return (
-    <div className={className} onClick={toggle}>
-      <FontAwesomeIcon
-        icon={currentIcon as IconProp}
-        color={on ? 'green' : 'red'}
-      />
-    </div>
-  );
-};
+    return (
+      <div className={className} onClick={toggle}>
+        <FontAwesomeIcon
+          icon={currentIcon as IconProp}
+          color={on ? 'green' : 'red'}
+        />
+      </div>
+    );
+  },
+)``;
 
-Component.defaultProps = {
+Toggle.defaultProps = {
   icon: undefined,
   iconOn: 'toggle-on',
   iconOff: 'toggle-off',
 };
-
-export const Toggle = styled(Component)``;

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { isEmpty, sortBy } from 'lodash';
 import { BatteryLevel } from './BatteryLevel';
-import { GridItem } from '..';
+import { GridItem } from '../GridItem';
 
 interface BatterySummaryProps {
   className?: string;
@@ -16,14 +16,16 @@ export const BatterySummary = GridItem(
           entities.filter(
             (entity) => entity.attributes.device_class === 'battery',
           ),
-          (entity) => parseInt(entity?.state),
+          (entity) => parseInt(entity?.state, 10),
         ),
       [entities],
     );
 
     const levels = useMemo(() => {
       if (isEmpty(batteries)) return undefined;
-      return batteries.map((entity) => <BatteryLevel entity={entity} />);
+      return batteries.map((entity) => (
+        <BatteryLevel key={`${entity.entity_id}-battery`} entity={entity} />
+      ));
     }, [batteries]);
 
     return <div className={className}>{levels}</div>;

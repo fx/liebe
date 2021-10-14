@@ -1,52 +1,68 @@
-import React from 'react';
-import { darken, lighten } from 'polished';
-import styled from 'styled-components';
+import React, { DOMAttributes, ReactHTMLElement } from 'react';
+import PropTypes from 'prop-types';
+import { lighten } from 'polished';
+import styled from '@mui/styled-engine';
 
-interface CardProps {
+interface CardProps extends React.HTMLProps<HTMLDivElement> {
   id: string;
   className?: string;
   children: any;
   hass: any;
   title?: string;
   cover?: boolean;
+  render?: any;
 }
 
-const Component = ({
-  className,
-  id,
-  children,
-  hass,
-  title,
-  cover,
-  ...rest
-}: CardProps) => {
-  const classNames = [className, cover ? `card-cover` : undefined].join(' ');
-  return (
-    <div
-      // Must pass through props for RGL
-      {...rest}
-      className={classNames}
-      key={id}
-    >
-      {title ? <span className="card-title">{title}</span> : undefined}
-      <div
-        className={['card-viewport', title ? 'with-title' : undefined].join(
-          ' ',
-        )}
-      >
-        {children.map((child: JSX.Element) =>
-          React.cloneElement(child, { ...child.props, hass }),
-        )}
-      </div>
-    </div>
-  );
-};
-
-Component.defaultProps = {
-  cover: false,
-};
-
-export const Card = styled(Component)`
+export const Card = styled(
+  // eslint-disable-next-line react/display-name
+  React.forwardRef(
+    (
+      {
+        className,
+        id,
+        children,
+        hass,
+        title,
+        cover,
+        onMouseDown,
+        onMouseUp,
+        onTouchEnd,
+        style,
+      }: CardProps,
+      ref: any,
+    ) => {
+      const classNames = [className, cover ? 'card-cover' : undefined].join(
+        ' ',
+      );
+      return (
+        <div
+          // Must pass through props for RGL
+          onMouseDown={onMouseDown}
+          onMouseUp={onMouseUp}
+          onTouchEnd={onTouchEnd}
+          style={style}
+          className={classNames}
+          ref={ref}
+        >
+          {title ? <span className="card-title">{title}</span> : undefined}
+          <div
+            className={['card-viewport', title ? 'with-title' : undefined].join(
+              ' ',
+            )}
+          >
+            {children.map((child: JSX.Element, i: number) =>
+              React.cloneElement(child, {
+                ...child.props,
+                hass,
+                key: `kc-${id}-${i}`,
+              }),
+            )}
+          </div>
+        </div>
+      );
+    },
+  ),
+)`
   background: ${({ theme }) => theme.liebe.card.background};
   backdrop-filter: blur(15px);
   border-radius: 4px;
@@ -115,3 +131,11 @@ export const Card = styled(Component)`
     }
   }
 `;
+
+Card.propTypes = {
+  render: PropTypes.func,
+};
+
+Card.defaultProps = {
+  cover: false,
+};

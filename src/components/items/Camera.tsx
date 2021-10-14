@@ -1,5 +1,5 @@
-import { CircularProgress, styled } from '@mui/material';
-import React, { useCallback, useEffect, useState } from 'react';
+import { CircularProgress } from '@mui/material';
+import React, { useCallback, useState } from 'react';
 import { GridItem } from '../GridItem';
 
 interface CameraProps {
@@ -12,13 +12,7 @@ interface CameraProps {
 }
 
 export const Camera = GridItem(
-  ({
-    entity,
-    className,
-    hass: { callService },
-    fill,
-    refresh,
-  }: CameraProps) => {
+  ({ entity, className, fill, refresh }: CameraProps) => {
     const [loading, setLoading] = useState(true);
     const classNames = [
       className,
@@ -40,7 +34,7 @@ export const Camera = GridItem(
 
     return (
       <div className={classNames}>
-        <img src={url} onLoad={() => reload()} />
+        <img alt="Camera" src={url} onLoad={() => reload()} />
         <div
           className="camera-loading-bar"
           style={{

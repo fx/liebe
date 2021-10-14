@@ -1,7 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { lighten } from 'polished';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { BatterySummary, GridItem, GridItemSelect } from '.';
 import {
   Autocomplete,
   Button,
@@ -11,6 +10,8 @@ import {
   Switch,
   TextField,
 } from '@mui/material';
+import { BatterySummary, GridItem, GridItemSelect } from '.';
+import type { AddGridItemCallback } from '../Panel';
 
 interface SidebarProps {
   className?: string;
@@ -20,11 +21,7 @@ interface SidebarProps {
   hass: Hass;
   entities: EntityState[];
   root: Element;
-  addItem: Function;
-}
-
-interface Entity {
-  entity_id: string;
+  addItem: AddGridItemCallback;
 }
 
 const AddCardForm = ({
@@ -32,7 +29,7 @@ const AddCardForm = ({
   addItem,
 }: {
   entities: EntityState[];
-  addItem: Function;
+  addItem: AddGridItemCallback;
 }) => {
   const [entity, setEntity] = useState<GridItem | null>();
 
@@ -51,7 +48,10 @@ const AddCardForm = ({
         renderInput={(params) => <TextField {...params} label="Entity" />}
         onChange={(_e, value) => setEntity(value)}
       />
-      <Button onClick={() => addItem({ entityId: entity?.entityId })}>
+      <Button
+        disabled={!!entity}
+        onClick={() => addItem({ entityId: entity?.entityId as string })}
+      >
         Add
       </Button>
     </>
@@ -69,15 +69,13 @@ export const Sidebar = styled(
     addItem,
     hass,
   }: SidebarProps) => {
-    const ref = useRef<HTMLDivElement>(null);
     const [activeDialog, setActiveDialog] = useState<string>('');
     const classNames = [className, `is-${visible ? 'visible' : 'hidden'}`].join(
       ' ',
     );
-    const batterySummary = <BatterySummary entities={entities} />;
 
     return (
-      <div ref={ref} className={classNames}>
+      <div className={classNames}>
         <div className="sidebar-item">
           <span
             className="sidebar-icon"
@@ -121,7 +119,7 @@ export const Sidebar = styled(
           </span>
 
           <Dialog
-            open={activeDialog === 'add-item' || true}
+            open={activeDialog === 'add-item'}
             container={root}
             fullWidth
             maxWidth="xl"
