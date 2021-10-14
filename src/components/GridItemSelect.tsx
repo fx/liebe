@@ -1,10 +1,12 @@
 import { Grid, styled } from '@mui/material';
 import React, { useMemo } from 'react';
+import type { AddGridItemCallback } from '../Panel';
 import * as items from './items';
 
 interface GridItemSelectProps {
   className?: string;
   hass: Hass;
+  onAddItem?: AddGridItemCallback;
 }
 
 const getEntitiesForItem = (
@@ -20,7 +22,7 @@ const getEntitiesForItem = (
   });
 
 export const GridItemSelect = styled(
-  ({ className, hass }: GridItemSelectProps) => {
+  ({ className, hass, onAddItem }: GridItemSelectProps) => {
     const previews = useMemo(
       () =>
         Object.entries(items).map((item) => {
@@ -33,7 +35,15 @@ export const GridItemSelect = styled(
             entities,
           };
           return (
-            <Grid key={entity.entity_id} item className="preview" xs={3}>
+            <Grid
+              key={entity.entity_id}
+              item
+              className="preview"
+              xs={3}
+              onClick={() => {
+                if (onAddItem) onAddItem({ entityId: entity.entity_id });
+              }}
+            >
               {React.createElement(item[1], props)}
             </Grid>
           );
@@ -54,3 +64,7 @@ export const GridItemSelect = styled(
     overflow: scroll;
   }
 `;
+
+GridItemSelect.defaultProps = {
+  onAddItem: () => {},
+};

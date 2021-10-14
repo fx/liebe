@@ -126,7 +126,7 @@ export const Sidebar = styled(
             onClose={() => setActiveDialog('')}
           >
             <DialogContent>
-              <GridItemSelect hass={hass} />
+              <GridItemSelect hass={hass} onAddItem={addItem} />
             </DialogContent>
           </Dialog>
         </div>
