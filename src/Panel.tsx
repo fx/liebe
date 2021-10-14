@@ -177,6 +177,7 @@ export const StyledPanel = styled(Panel)`
   min-height: 100vh;
   color: ${({ theme }) => theme.liebe.text.color};
   overflow-x: hidden;
+  position: relative;
 
   * {
     box-sizing: border-box;

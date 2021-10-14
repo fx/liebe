@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { lighten } from 'polished';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { BatterySummary } from '.';
+import { BatterySummary, GridItemSelect } from '.';
 import {
   Autocomplete,
   Button,
@@ -58,6 +58,7 @@ const Component = ({
   entities,
   root,
   addItem,
+  hass,
 }: SidebarProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [activeDialog, setActiveDialog] = useState<string>('');
@@ -102,6 +103,25 @@ const Component = ({
             <AddCardForm entities={entities} addItem={addItem} />
           </DialogContent>
         </Dialog>
+
+        <span
+          className="sidebar-icon"
+          onClick={() => setActiveDialog('add-item')}
+        >
+          <FontAwesomeIcon icon="plus-square" />
+        </span>
+
+        <Dialog
+          open={activeDialog === 'add-item' || true}
+          container={root}
+          fullWidth
+          maxWidth="xl"
+          onClose={() => setActiveDialog('')}
+        >
+          <DialogContent>
+            <GridItemSelect hass={hass} />
+          </DialogContent>
+        </Dialog>
       </div>
       <div className="sidebar-item">
         <Switch
@@ -120,7 +140,8 @@ const Component = ({
 
 export const Sidebar = styled(Component)`
   position: absolute;
-  height: 100vh;
+  min-height: 100vh;
+  height: 100%;
   width: ${({ theme }) => theme.liebe.sidebar.width}px;
   background: ${({ theme }) => theme.liebe.sidebar.background};
   left: -${({ theme }) => theme.liebe.sidebar.width}px;
