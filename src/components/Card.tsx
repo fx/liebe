@@ -1,16 +1,26 @@
-import React, { DOMAttributes, ReactHTMLElement } from 'react';
+import React, {
+  DOMAttributes,
+  ReactHTMLElement,
+  useMemo,
+  useState,
+} from 'react';
 import PropTypes from 'prop-types';
 import { lighten } from 'polished';
 import styled from '@mui/styled-engine';
+import { EntitySelect } from '.';
+import type { GridItem } from '.';
+import { getEntitiesForItem } from './GridItemSelect';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-interface CardProps extends React.HTMLProps<HTMLDivElement> {
+interface CardProps extends GridItem, React.HTMLProps<HTMLDivElement> {
   id: string;
   className?: string;
-  children: any;
+  children?: any;
   hass: any;
   title?: string;
   cover?: boolean;
   render?: any;
+  entity?: EntityState;
 }
 
 export const Card = styled(
@@ -24,6 +34,9 @@ export const Card = styled(
         hass,
         title,
         cover,
+        entity,
+        render,
+        component,
         onMouseDown,
         onMouseUp,
         onTouchEnd,
@@ -31,9 +44,17 @@ export const Card = styled(
       }: CardProps,
       ref: any,
     ) => {
-      const classNames = [className, cover ? 'card-cover' : undefined].join(
-        ' ',
+      const [settingsVisible, setSettingsVisible] = useState<boolean>(false);
+      const classes = useMemo(
+        () => [
+          className,
+          cover ? 'card-cover' : undefined,
+          settingsVisible ? 'with-settings' : undefined,
+        ],
+        [settingsVisible, className],
       );
+      const entities = getEntitiesForItem(component, hass.states);
+
       return (
         <div
           // Must pass through props for RGL
@@ -41,22 +62,24 @@ export const Card = styled(
           onMouseUp={onMouseUp}
           onTouchEnd={onTouchEnd}
           style={style}
-          className={classNames}
+          className={classes.join(' ')}
           ref={ref}
         >
+          <span
+            className="settings-icon"
+            onClick={() => setSettingsVisible((value) => !value)}
+          >
+            <FontAwesomeIcon icon={settingsVisible ? 'close' : 'gear'} />
+          </span>
+
           {title ? <span className="card-title">{title}</span> : undefined}
           <div
             className={['card-viewport', title ? 'with-title' : undefined].join(
               ' ',
             )}
           >
-            {children.map((child: JSX.Element, i: number) =>
-              React.cloneElement(child, {
-                ...child.props,
-                hass,
-                key: `kc-${id}-${i}`,
-              }),
-            )}
+            {render({ entity, entities, hass })}
+            {children}
           </div>
         </div>
       );
@@ -106,10 +129,48 @@ export const Card = styled(
     color: ${({ theme }) => lighten('5%', theme.liebe.text.color)};
   }
 
+  .settings-icon {
+    display: none;
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+
+  &:hover .settings-icon {
+    display: block;
+  }
+
+  &.with-settings {
+    .settings-icon {
+      display: block;
+      z-index: 999;
+    }
+
+    .card-viewport {
+      .settings {
+        display: block;
+      }
+    }
+  }
+
   .card-viewport {
     width: 100%;
     height: 100%;
     overflow: auto;
+
+    .settings {
+      display: none;
+      background: rgba(255, 255, 255, 0.75);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 15px;
+    }
 
     &.with-title {
       margin-top: 5px;

@@ -7,3 +7,4 @@ export * from './Toggle';
 export * from './Sidebar';
 export * from './GridItemSelect';
 export * from './items';
+export * from './EntitySelect';

@@ -1,24 +1,23 @@
 import { CircularProgress } from '@mui/material';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { EntitySelect, getEntitiesForItem, ItemProps } from '..';
 import { GridItem } from '../GridItem';
 
-interface CameraProps {
-  className?: string;
-  entity: any;
-  hass?: any;
+interface CameraProps extends ItemProps {
   fill?: boolean;
   // Refresh interval in seconds
   refresh?: number;
 }
 
 export const Camera = GridItem(
-  ({ entity, className, fill, refresh }: CameraProps) => {
+  ({ entity, className, fill, refresh, entities }: CameraProps) => {
     const [loading, setLoading] = useState(true);
     const classNames = [
       className,
       fill ? 'camera-fill' : undefined,
       loading ? 'camera-loading' : undefined,
     ].join(' ');
+
     const {
       attributes: { entity_picture },
     } = entity;
@@ -32,9 +31,17 @@ export const Camera = GridItem(
       }, (refresh as number) * 1000);
     }, [entity_picture, refresh]);
 
+    const settings = useMemo(() => {
+      return (
+        <div className="settings">
+          <EntitySelect entities={entities} value={entity.entity_id} />
+        </div>
+      );
+    }, [entities, entity]);
+
     return (
       <div className={classNames}>
-        <img alt="Camera" src={url} onLoad={() => reload()} />
+        <img alt="Camera" src={url} onLoad={reload} />
         <div
           className="camera-loading-bar"
           style={{
@@ -45,6 +52,7 @@ export const Camera = GridItem(
         <div className="camera-loading-indicator">
           {loading ? <CircularProgress size={15} /> : undefined}
         </div>
+        {settings}
       </div>
     );
   },

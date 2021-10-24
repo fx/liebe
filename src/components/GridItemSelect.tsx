@@ -1,16 +1,17 @@
 import { Grid, styled } from '@mui/material';
 import React, { useMemo } from 'react';
+import type { GridItem } from '.';
 import type { AddGridItemCallback } from '../Panel';
 import * as items from './items';
 
 interface GridItemSelectProps {
   className?: string;
   hass: Hass;
-  onAddItem?: AddGridItemCallback;
+  onClick?: AddGridItemCallback;
 }
 
-const getEntitiesForItem = (
-  { grid: { entityType, deviceClass } }: any,
+export const getEntitiesForItem = (
+  { grid: { entityType, deviceClass } }: GridItem,
   states: EntityStates,
 ) =>
   Object.values(states).filter((entity) => {
@@ -22,7 +23,7 @@ const getEntitiesForItem = (
   });
 
 export const GridItemSelect = styled(
-  ({ className, hass, onAddItem }: GridItemSelectProps) => {
+  ({ className, hass, onClick }: GridItemSelectProps) => {
     const previews = useMemo(
       () =>
         Object.entries(items).map((item) => {
@@ -41,7 +42,7 @@ export const GridItemSelect = styled(
               className="preview"
               xs={3}
               onClick={() => {
-                if (onAddItem) onAddItem({ entityId: entity.entity_id });
+                if (onClick) onClick({ entityId: entity.entity_id });
               }}
             >
               {React.createElement(item[1], props)}
@@ -66,5 +67,5 @@ export const GridItemSelect = styled(
 `;
 
 GridItemSelect.defaultProps = {
-  onAddItem: () => {},
+  onClick: () => {},
 };

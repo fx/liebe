@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { Layout, Layouts, Responsive } from 'react-grid-layout';
-import useLocalStorageState from 'use-local-storage-state';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import * as Icons from '@fortawesome/free-solid-svg-icons';
 
@@ -9,6 +8,7 @@ import bg from 'data-url:./bg.jpg';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { SquareWidthProvider } from './SquareWidthProvider';
 import { Card, Sidebar, Camera, GridItem } from './components';
+import { Settings } from './ReactPanel';
 
 // Import all FA icons, so they can be used w/o explicit imports
 const iconList = Object.keys(Icons)
@@ -41,44 +41,22 @@ export interface AddGridItemCallback {
 const defaultItemProps: { [key: string]: Partial<GridItem> } = {
   camera: {
     cover: true,
-    render: (options: any) => <Camera entity={options.entity} fill />,
+    component: Camera,
+    render: (options: any) => (
+      <Camera entity={options.entity} entities={options.entities} fill />
+    ),
   },
 };
 
 export const Panel = ({ className, hass, root }: PanelProps) => {
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
-  const [settings, setSettings] = useLocalStorageState<PanelSettings>(
-    'liebe:settings',
-    {
-      grid: {
-        items: [
-          {
-            entityId: 'camera.marian_office',
-          },
-        ],
-        layouts: {},
-      },
-      options: {
-        gridEditable: false,
-      },
-    },
-  );
-
-  const addItem: AddGridItemCallback = useCallback((item: GridItem) => {
-    setSettings((value) => ({
-      ...value,
-      grid: {
-        ...value.grid,
-        items: [...value.grid.items, item],
-      },
-    }));
-  }, []);
+  const { grid, options, updateOptions, updateLayouts } = useContext(Settings);
 
   const entities = Object.values(hass.states);
 
-  const grid = useMemo(
+  const gridItems = useMemo(
     () =>
-      settings.grid.items.map((item: Pick<GridItem, 'entityId'>) => {
+      grid.items.map((item: Pick<GridItem, 'entityId'>) => {
         const { entityId } = item;
         const entityType = entityId.split('.')[0];
         const cardProps = {
@@ -92,20 +70,16 @@ export const Panel = ({ className, hass, root }: PanelProps) => {
           console.log("Don't know how to render ", item);
           return;
         }
-        return (
-          <Card key={cardProps.id} {...cardProps}>
-            {cardProps.render(cardProps)}
-          </Card>
-        );
+        return <Card key={cardProps.id} {...cardProps} />;
       }),
     [
-      settings.grid.layouts,
-      settings.grid.items,
+      grid.layouts,
+      grid.items,
       hass.states,
       // Important note: when updating options on the grid, its items need to be
       // re-created. So any change to something like `isDraggable` won't have any
       // effect unless we give the grid new children.
-      settings.options.gridEditable,
+      options.gridEditable,
     ],
   );
 
@@ -127,25 +101,17 @@ export const Panel = ({ className, hass, root }: PanelProps) => {
         <FontAwesomeIcon icon="gear" />
       </a>
       <Sidebar
-        options={settings?.options}
         hass={hass}
         entities={entities}
-        addItem={addItem}
-        onChange={(options: any) =>
-          setSettings((value) => ({
-            ...value,
-            options: { ...value?.options, ...options },
-          }))
-        }
         visible={sidebarVisible}
         root={root}
       />
       <ReactGridLayout
         margin={[20, 20]}
-        isDraggable={settings.options?.gridEditable}
-        isResizable={settings.options?.gridEditable}
+        isDraggable={options?.gridEditable}
+        isResizable={options?.gridEditable}
         className={`sidebar-${sidebarVisible ? 'visible' : 'hidden'}`}
-        layouts={settings.grid.layouts}
+        layouts={grid.layouts}
         cols={{
           lg: 24,
           md: 12,
@@ -163,15 +129,10 @@ export const Panel = ({ className, hass, root }: PanelProps) => {
         rowHeight={200}
         width={2400}
         onLayoutChange={(_layout: Layout[], layouts: Layouts) =>
-          setSettings(
-            (value: PanelSettings): PanelSettings => ({
-              ...value,
-              grid: { ...value.grid, layouts },
-            }),
-          )
+          updateLayouts({ ...grid.layouts, ...layouts })
         }
       >
-        {grid}
+        {gridItems}
       </ReactGridLayout>
     </div>
   );

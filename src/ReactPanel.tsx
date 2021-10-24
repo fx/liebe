@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createContext, useEffect, useReducer } from 'react';
 import ReactDOM from 'react-dom';
 import {
   ThemeProvider,
@@ -7,6 +7,9 @@ import {
 } from 'styled-components';
 import { lighten, rgba } from 'polished';
 import createTheme from '@mui/material/styles/createTheme';
+import type { GridItem } from './components';
+import type { Layout, Layouts } from 'react-grid-layout';
+import useLocalStorageState from 'use-local-storage-state';
 
 const GlobalStyle = createGlobalStyle`
   body { overflow: hidden; }
@@ -70,6 +73,110 @@ class PanelElement extends HTMLElement {
   mountPoint: any = undefined;
 }
 
+const emptySettings = {
+  grid: {
+    items: [
+      {
+        entityId: 'camera.marian_office',
+      },
+    ],
+    layouts: {},
+  },
+  options: {
+    gridEditable: false,
+  },
+  updateOptions: () => {},
+  addItem: () => {},
+  updateLayouts: () => {},
+};
+
+export interface LiebeSettings {
+  grid: {
+    items: GridItem[];
+    layouts: Layouts;
+  };
+  options: {
+    gridEditable: boolean;
+  };
+  updateOptions: Function;
+  addItem: Function;
+  updateLayouts: Function;
+}
+
+export const Settings = createContext<LiebeSettings>(emptySettings);
+
+export const SettingsReducer = (state: LiebeSettings, action: any) => {
+  console.log('reduce', state, action);
+  switch (action.type) {
+    case 'SET_OPTIONS':
+      return { ...state, options: action.payload };
+    case 'ADD_ITEM':
+      return {
+        ...state,
+        grid: {
+          ...state.grid,
+          items: [...state.grid.items, action.payload],
+        },
+      };
+    case 'SET_LAYOUTS':
+      return {
+        ...state,
+        grid: {
+          ...state.grid,
+          layouts: action.payload,
+        },
+      };
+    default:
+      return state;
+  }
+};
+
+export const SettingsProvider = ({ children }: any) => {
+  const [state, setState] = useLocalStorageState<LiebeSettings>(
+    'liebe:settings',
+    emptySettings,
+  );
+  const [settings, dispatch] = useReducer(SettingsReducer, state);
+
+  useEffect(() => {
+    setState(settings);
+  }, [settings]);
+
+  const updateOptions = (options = {}) => {
+    console.log('new', options);
+    dispatch({
+      type: 'SET_OPTIONS',
+      payload: {
+        ...settings.options,
+        ...options,
+      },
+    });
+  };
+
+  const addItem = (item: GridItem) => {
+    console.log('add item', item);
+    dispatch({
+      type: 'ADD_ITEM',
+      payload: item,
+    });
+  };
+
+  const updateLayouts = (layouts: Layouts) => {
+    dispatch({
+      type: 'SET_LAYOUTS',
+      payload: layouts,
+    });
+  };
+
+  return (
+    <Settings.Provider
+      value={{ ...settings, updateOptions, addItem, updateLayouts }}
+    >
+      {children}
+    </Settings.Provider>
+  );
+};
+
 export const createReactPanel = (app: any): CustomElementConstructor =>
   class extends PanelElement {
     render() {
@@ -83,10 +190,10 @@ export const createReactPanel = (app: any): CustomElementConstructor =>
       ReactDOM.render(
         <ThemeProvider theme={theme}>
           <StyleSheetManager target={this.root}>
-            <>
+            <SettingsProvider>
               <GlobalStyle />
               {panel}
-            </>
+            </SettingsProvider>
           </StyleSheetManager>
         </ThemeProvider>,
         this.mountPoint,

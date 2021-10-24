@@ -1,74 +1,21 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { lighten } from 'polished';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  Autocomplete,
-  Button,
-  Dialog,
-  DialogContent,
-  styled,
-  Switch,
-  TextField,
-} from '@mui/material';
+import { Dialog, DialogContent, styled, Switch } from '@mui/material';
 import { BatterySummary, GridItem, GridItemSelect } from '.';
-import type { AddGridItemCallback } from '../Panel';
+import { Settings } from '../ReactPanel';
 
 interface SidebarProps {
   className?: string;
   visible: boolean;
-  options: any;
-  onChange: any;
   hass: Hass;
   entities: EntityState[];
   root: Element;
-  addItem: AddGridItemCallback;
 }
 
-const AddCardForm = ({
-  entities,
-  addItem,
-}: {
-  entities: EntityState[];
-  addItem: AddGridItemCallback;
-}) => {
-  const [entity, setEntity] = useState<GridItem | null>();
-
-  return (
-    <>
-      <Autocomplete
-        disablePortal
-        sx={{ width: 300 }}
-        options={entities.map((entity: any) => ({
-          label: entity.entity_id,
-          entityId: entity.entity_id,
-        }))}
-        isOptionEqualToValue={(option, value) =>
-          option?.entityId === value?.entityId
-        }
-        renderInput={(params) => <TextField {...params} label="Entity" />}
-        onChange={(_e, value) => setEntity(value)}
-      />
-      <Button
-        disabled={!!entity}
-        onClick={() => addItem({ entityId: entity?.entityId as string })}
-      >
-        Add
-      </Button>
-    </>
-  );
-};
-
 export const Sidebar = styled(
-  ({
-    className,
-    visible,
-    options,
-    onChange,
-    entities,
-    root,
-    addItem,
-    hass,
-  }: SidebarProps) => {
+  ({ className, visible, entities, root, hass }: SidebarProps) => {
+    const { options, updateOptions, addItem } = useContext(Settings);
     const [activeDialog, setActiveDialog] = useState<string>('');
     const classNames = [className, `is-${visible ? 'visible' : 'hidden'}`].join(
       ' ',
@@ -96,23 +43,6 @@ export const Sidebar = styled(
 
           <span
             className="sidebar-icon"
-            onClick={() => setActiveDialog('add-card')}
-          >
-            <FontAwesomeIcon icon="plus-square" />
-          </span>
-
-          <Dialog
-            open={activeDialog === 'add-card'}
-            container={root}
-            onClose={() => setActiveDialog('')}
-          >
-            <DialogContent>
-              <AddCardForm entities={entities} addItem={addItem} />
-            </DialogContent>
-          </Dialog>
-
-          <span
-            className="sidebar-icon"
             onClick={() => setActiveDialog('add-item')}
           >
             <FontAwesomeIcon icon="plus-square" />
@@ -126,7 +56,7 @@ export const Sidebar = styled(
             onClose={() => setActiveDialog('')}
           >
             <DialogContent>
-              <GridItemSelect hass={hass} onAddItem={addItem} />
+              <GridItemSelect hass={hass} onClick={addItem} />
             </DialogContent>
           </Dialog>
         </div>
@@ -134,8 +64,7 @@ export const Sidebar = styled(
           <Switch
             checked={options?.gridEditable}
             onChange={(e) => {
-              onChange({
-                ...options,
+              updateOptions({
                 gridEditable: (e.target as HTMLInputElement)?.checked,
               });
             }}

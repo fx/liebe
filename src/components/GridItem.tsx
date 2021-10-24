@@ -8,7 +8,12 @@ export interface GridItem {
   hass?: Hass;
   entity?: EntityState;
   entities?: EntityStates[];
+  component?: any;
   render?: any;
+  grid?: {
+    entityType: string;
+    deviceClass?: string;
+  };
 }
 
 // TODO: property extend `CreateStyledComponent`
