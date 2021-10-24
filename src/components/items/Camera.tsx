@@ -1,10 +1,16 @@
-import { CircularProgress } from '@mui/material';
+import {
+  CircularProgress,
+  FormControlLabel,
+  InputLabel,
+  Switch,
+} from '@mui/material';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { EntitySelect, getEntitiesForItem, ItemProps } from '..';
 import { GridItem } from '../GridItem';
 
 interface CameraProps extends ItemProps {
   fill?: boolean;
+  cover?: true;
   // Refresh interval in seconds
   refresh?: number;
 }
@@ -14,6 +20,7 @@ export const Camera = GridItem(
     id,
     entity,
     className,
+    cover,
     fill,
     refresh,
     entities,
@@ -61,6 +68,15 @@ export const Camera = GridItem(
                 entityId,
               });
             }}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={cover}
+                onChange={(_e, cover) => updateItem({ id, cover })}
+              />
+            }
+            label="Cover"
           />
         </div>
       );
@@ -125,6 +141,7 @@ export const Camera = GridItem(
 
 Camera.defaultProps = {
   fill: true,
+  cover: true,
   refresh: 2,
 };
 

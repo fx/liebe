@@ -52,6 +52,7 @@ export const Panel = styled(
           (item: Pick<GridItem, 'id' | 'entityId' | 'component'>) => {
             const { component, entityId } = item;
             const cardProps = {
+              ...items[component].defaultProps,
               ...item,
               component: items[component],
               entity: hass.states[entityId],

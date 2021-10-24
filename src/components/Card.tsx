@@ -41,6 +41,7 @@ export const Card = styled(
         onTouchEnd,
         updateItem,
         style,
+        ...extra
       }: CardProps,
       ref: any,
     ) => {
@@ -51,12 +52,14 @@ export const Card = styled(
           cover ? 'card-cover' : undefined,
           settingsVisible ? 'with-settings' : undefined,
         ],
-        [settingsVisible, className],
+        [cover, settingsVisible, className],
       );
 
       const entities = getEntitiesForItem(component, hass.states);
 
       const content = React.createElement(component, {
+        ...extra,
+        cover,
         id,
         entity,
         entities,

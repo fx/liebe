@@ -115,7 +115,10 @@ export const SettingsReducer = (state: LiebeSettings, action: any) => {
         ...state,
         grid: {
           ...state.grid,
-          items: { ...state.grid.items, [payload.id]: payload },
+          items: {
+            ...state.grid.items,
+            [payload.id]: { ...state.grid.items[payload.id], ...payload },
+          },
         },
       };
     case 'SET_LAYOUTS':
