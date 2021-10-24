@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import type { GridItem } from '.';
 import type { AddGridItemCallback } from '../Panel';
 import * as items from './items';
+import { v4 as uuidv4 } from 'uuid';
 
 interface GridItemSelectProps {
   className?: string;
@@ -26,8 +27,8 @@ export const GridItemSelect = styled(
   ({ className, hass, onClick }: GridItemSelectProps) => {
     const previews = useMemo(
       () =>
-        Object.entries(items).map((item) => {
-          const component = item[1];
+        Object.keys(items).map((item) => {
+          const component = items[item];
           const entities = getEntitiesForItem(component, hass.states);
           const entity = entities[Math.floor(Math.random() * entities.length)];
           const props = {
@@ -42,10 +43,15 @@ export const GridItemSelect = styled(
               className="preview"
               xs={3}
               onClick={() => {
-                if (onClick) onClick({ entityId: entity.entity_id });
+                if (onClick)
+                  onClick({
+                    id: uuidv4(),
+                    component: item,
+                    entityId: entity.entity_id,
+                  });
               }}
             >
-              {React.createElement(item[1], props)}
+              {React.createElement(component, props)}
             </Grid>
           );
         }),

@@ -3,13 +3,13 @@ import styled from '@mui/styled-engine';
 
 export interface GridItem {
   id: string;
-  entityId: string;
+  entityId?: string;
+  component: any;
   cover?: boolean;
   label?: string;
   hass?: Hass;
   entity?: EntityState;
   entities?: EntityStates[];
-  component?: any;
   render?: any;
   updateItem?: Function;
   grid?: {

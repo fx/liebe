@@ -154,7 +154,7 @@ export const SettingsProvider = ({ children }: any) => {
 
   const addItem = (item: GridItem) => {
     // Generate UUID if not present
-    const payload = item.uuid ? item : { ...item, id: uuidv4() };
+    const payload = item.id ? item : { ...item, id: uuidv4() };
     dispatch({
       type: 'ADD_ITEM',
       payload,

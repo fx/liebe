@@ -3,12 +3,12 @@ import styled from 'styled-components';
 import { Layout, Layouts, Responsive } from 'react-grid-layout';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import * as Icons from '@fortawesome/free-solid-svg-icons';
-
 import bg from 'data-url:./bg.jpg';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { SquareWidthProvider } from './SquareWidthProvider';
 import { Card, Sidebar, Camera, GridItem } from './components';
 import { Settings } from './ReactPanel';
+import * as items from './components/items';
 
 // Import all FA icons, so they can be used w/o explicit imports
 const iconList = Object.keys(Icons)
@@ -38,14 +38,6 @@ export interface AddGridItemCallback {
   (item: GridItem): void;
 }
 
-const defaultItemProps: { [key: string]: Partial<GridItem> } = {
-  camera: {
-    cover: true,
-    component: Camera,
-    render: (options: any) => <Camera fill />,
-  },
-};
-
 export const Panel = styled(
   React.memo(function Panel({ className, hass, root }: PanelProps) {
     const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
@@ -57,20 +49,15 @@ export const Panel = styled(
     const gridItems = useMemo(
       () =>
         Object.values(grid.items).map(
-          (item: Pick<GridItem, 'id' | 'entityId'>) => {
-            const { entityId } = item;
-            const entityType = entityId.split('.')[0];
+          (item: Pick<GridItem, 'id' | 'entityId' | 'component'>) => {
+            const { component, entityId } = item;
             const cardProps = {
+              ...item,
+              component: items[component],
               entity: hass.states[entityId],
               updateItem,
               hass,
-              ...defaultItemProps[entityType],
-              ...item,
             };
-            if (!cardProps.render) {
-              console.log("Don't know how to render ", item);
-              return;
-            }
             return <Card key={cardProps.id} {...cardProps} />;
           },
         ),
