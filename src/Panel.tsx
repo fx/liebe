@@ -48,97 +48,98 @@ const defaultItemProps: { [key: string]: Partial<GridItem> } = {
   },
 };
 
-export const Panel = ({ className, hass, root }: PanelProps) => {
-  const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
-  const { grid, options, updateOptions, updateLayouts } = useContext(Settings);
+export const Panel = styled(
+  React.memo(function Panel({ className, hass, root }: PanelProps) {
+    const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
+    const { grid, options, updateOptions, updateLayouts } =
+      useContext(Settings);
 
-  const entities = Object.values(hass.states);
+    const entities = Object.values(hass.states);
 
-  const gridItems = useMemo(
-    () =>
-      grid.items.map((item: Pick<GridItem, 'entityId'>) => {
-        const { entityId } = item;
-        const entityType = entityId.split('.')[0];
-        const cardProps = {
-          id: entityId,
-          entity: hass.states[entityId],
-          hass,
-          ...defaultItemProps[entityType],
-          ...item,
-        };
-        if (!cardProps.render) {
-          console.log("Don't know how to render ", item);
-          return;
-        }
-        return <Card key={cardProps.id} {...cardProps} />;
-      }),
-    [
-      grid.layouts,
-      grid.items,
-      hass.states,
-      // Important note: when updating options on the grid, its items need to be
-      // re-created. So any change to something like `isDraggable` won't have any
-      // effect unless we give the grid new children.
-      options.gridEditable,
-    ],
-  );
+    const gridItems = useMemo(
+      () =>
+        grid.items.map((item: Pick<GridItem, 'entityId'>) => {
+          const { entityId } = item;
+          const entityType = entityId.split('.')[0];
+          const cardProps = {
+            id: entityId,
+            entity: hass.states[entityId],
+            hass,
+            ...defaultItemProps[entityType],
+            ...item,
+          };
+          if (!cardProps.render) {
+            console.log("Don't know how to render ", item);
+            return;
+          }
+          return <Card key={cardProps.id} {...cardProps} />;
+        }),
+      [
+        grid.layouts,
+        grid.items,
+        hass.states,
+        // Important note: when updating options on the grid, its items need to be
+        // re-created. So any change to something like `isDraggable` won't have any
+        // effect unless we give the grid new children.
+        options.gridEditable,
+      ],
+    );
 
-  // RGL fails getting initial width, force the issue after render.
-  useEffect(() => {
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 0);
-  }, []);
+    // RGL fails getting initial width, force the issue after render.
+    useEffect(() => {
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 0);
+    }, []);
 
-  return (
-    <div className={className}>
-      <a
-        className="sidebar-toggle"
-        onClick={() => {
-          setSidebarVisible((value) => !value);
-        }}
-      >
-        <FontAwesomeIcon icon="gear" />
-      </a>
-      <Sidebar
-        hass={hass}
-        entities={entities}
-        visible={sidebarVisible}
-        root={root}
-      />
-      <ReactGridLayout
-        margin={[20, 20]}
-        isDraggable={options?.gridEditable}
-        isResizable={options?.gridEditable}
-        className={`sidebar-${sidebarVisible ? 'visible' : 'hidden'}`}
-        layouts={grid.layouts}
-        cols={{
-          lg: 24,
-          md: 12,
-          sm: 8,
-          xs: 4,
-          xxs: 1,
-        }}
-        breakpoints={{
-          lg: 1280,
-          md: 996,
-          sm: 768,
-          xs: 480,
-          xxs: 0,
-        }}
-        rowHeight={200}
-        width={2400}
-        onLayoutChange={(_layout: Layout[], layouts: Layouts) =>
-          updateLayouts({ ...grid.layouts, ...layouts })
-        }
-      >
-        {gridItems}
-      </ReactGridLayout>
-    </div>
-  );
-};
-
-export const StyledPanel = styled(Panel)`
+    return (
+      <div className={className}>
+        <a
+          className="sidebar-toggle"
+          onClick={() => {
+            setSidebarVisible((value) => !value);
+          }}
+        >
+          <FontAwesomeIcon icon="gear" />
+        </a>
+        <Sidebar
+          hass={hass}
+          entities={entities}
+          visible={sidebarVisible}
+          root={root}
+        />
+        <ReactGridLayout
+          margin={[20, 20]}
+          isDraggable={options?.gridEditable}
+          isResizable={options?.gridEditable}
+          className={`sidebar-${sidebarVisible ? 'visible' : 'hidden'}`}
+          layouts={grid.layouts}
+          cols={{
+            lg: 24,
+            md: 12,
+            sm: 8,
+            xs: 4,
+            xxs: 1,
+          }}
+          breakpoints={{
+            lg: 1280,
+            md: 996,
+            sm: 768,
+            xs: 480,
+            xxs: 0,
+          }}
+          rowHeight={200}
+          width={2400}
+          onLayoutChange={(_layout: Layout[], layouts: Layouts) =>
+            updateLayouts({ ...grid.layouts, ...layouts })
+          }
+        >
+          {gridItems}
+        </ReactGridLayout>
+      </div>
+    );
+  }),
+)`
   background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
     url(${bg});
   background-position: center center;
