@@ -2,6 +2,7 @@ import React from 'react';
 import styled from '@mui/styled-engine';
 
 export interface GridItem {
+  id: string;
   entityId: string;
   cover?: boolean;
   label?: string;
@@ -10,6 +11,7 @@ export interface GridItem {
   entities?: EntityStates[];
   component?: any;
   render?: any;
+  updateItem?: Function;
   grid?: {
     entityType: string;
     deviceClass?: string;

@@ -1,5 +1,5 @@
 import { CircularProgress } from '@mui/material';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { EntitySelect, getEntitiesForItem, ItemProps } from '..';
 import { GridItem } from '../GridItem';
 
@@ -11,11 +11,13 @@ interface CameraProps extends ItemProps {
 
 export const Camera = GridItem(
   React.memo(function Camera({
+    id,
     entity,
     className,
     fill,
     refresh,
     entities,
+    updateItem,
   }: CameraProps) {
     const [loading, setLoading] = useState(true);
     const classNames = [
@@ -29,25 +31,49 @@ export const Camera = GridItem(
     } = entity;
     const [url, setUrl] = useState(entity_picture);
 
-    const reload = useCallback(() => {
-      setLoading(false);
-      setTimeout(() => {
-        setLoading(true);
-        setUrl(`${entity_picture}&${new Date().valueOf()}`);
-      }, (refresh as number) * 1000);
-    }, [entity_picture, refresh]);
+    useEffect(() => {
+      if (!loading) {
+        const timer = setTimeout(() => {
+          setLoading(true);
+          setUrl(`${entity_picture}&${new Date().valueOf()}`);
+        }, (refresh as number) * 1000);
+
+        return () => {
+          clearTimeout(timer);
+        };
+      }
+    }, [loading]);
+
+    useEffect(() => {
+      setLoading(true);
+      setUrl(entity_picture);
+    }, [entity_picture]);
 
     const settings = useMemo(() => {
       return (
         <div className="settings">
-          <EntitySelect entities={entities} value={entity.entity_id} />
+          <EntitySelect
+            entities={entities}
+            value={entity.entity_id}
+            onChange={(entityId) => {
+              updateItem({
+                id,
+                entityId,
+              });
+            }}
+          />
         </div>
       );
     }, [entities, entity]);
 
     return (
       <div className={classNames}>
-        <img alt="Camera" src={url} onLoad={reload} onError={reload} />
+        <img
+          alt="Camera"
+          src={url}
+          onLoad={() => setLoading(false)}
+          onError={() => setLoading(false)}
+        />
         <div
           className="camera-loading-bar"
           style={{

@@ -8,8 +8,9 @@ import {
 import { lighten, rgba } from 'polished';
 import createTheme from '@mui/material/styles/createTheme';
 import type { GridItem } from './components';
-import type { Layout, Layouts } from 'react-grid-layout';
+import type { Layouts } from 'react-grid-layout';
 import useLocalStorageState from 'use-local-storage-state';
+import { v4 as uuidv4 } from 'uuid';
 
 const GlobalStyle = createGlobalStyle`
   body { overflow: hidden; }
@@ -75,11 +76,7 @@ class PanelElement extends HTMLElement {
 
 const emptySettings = {
   grid: {
-    items: [
-      {
-        entityId: 'camera.marian_office',
-      },
-    ],
+    items: [],
     layouts: {},
   },
   options: {
@@ -87,6 +84,7 @@ const emptySettings = {
   },
   updateOptions: () => {},
   addItem: () => {},
+  updateItem: () => {},
   updateLayouts: () => {},
 };
 
@@ -100,22 +98,24 @@ export interface LiebeSettings {
   };
   updateOptions: Function;
   addItem: Function;
+  updateItem: Function;
   updateLayouts: Function;
 }
 
 export const Settings = createContext<LiebeSettings>(emptySettings);
 
 export const SettingsReducer = (state: LiebeSettings, action: any) => {
-  console.log('reduce', state, action);
-  switch (action.type) {
+  const { type, payload } = action;
+  switch (type) {
     case 'SET_OPTIONS':
-      return { ...state, options: action.payload };
+      return { ...state, options: payload };
+    case 'UPDATE_ITEM':
     case 'ADD_ITEM':
       return {
         ...state,
         grid: {
           ...state.grid,
-          items: [...state.grid.items, action.payload],
+          items: { ...state.grid.items, [payload.id]: payload },
         },
       };
     case 'SET_LAYOUTS':
@@ -143,7 +143,6 @@ export const SettingsProvider = ({ children }: any) => {
   }, [settings]);
 
   const updateOptions = (options = {}) => {
-    console.log('new', options);
     dispatch({
       type: 'SET_OPTIONS',
       payload: {
@@ -154,7 +153,16 @@ export const SettingsProvider = ({ children }: any) => {
   };
 
   const addItem = (item: GridItem) => {
-    console.log('add item', item);
+    // Generate UUID if not present
+    const payload = item.uuid ? item : { ...item, id: uuidv4() };
+    dispatch({
+      type: 'ADD_ITEM',
+      payload,
+    });
+  };
+
+  const updateItem = (item: GridItem) => {
+    if (!item.id) return;
     dispatch({
       type: 'ADD_ITEM',
       payload: item,
@@ -170,7 +178,7 @@ export const SettingsProvider = ({ children }: any) => {
 
   return (
     <Settings.Provider
-      value={{ ...settings, updateOptions, addItem, updateLayouts }}
+      value={{ ...settings, updateOptions, addItem, updateItem, updateLayouts }}
     >
       {children}
     </Settings.Provider>

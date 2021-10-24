@@ -42,38 +42,38 @@ const defaultItemProps: { [key: string]: Partial<GridItem> } = {
   camera: {
     cover: true,
     component: Camera,
-    render: (options: any) => (
-      <Camera entity={options.entity} entities={options.entities} fill />
-    ),
+    render: (options: any) => <Camera fill />,
   },
 };
 
 export const Panel = styled(
   React.memo(function Panel({ className, hass, root }: PanelProps) {
     const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
-    const { grid, options, updateOptions, updateLayouts } =
+    const { grid, options, updateOptions, updateLayouts, updateItem } =
       useContext(Settings);
 
     const entities = Object.values(hass.states);
 
     const gridItems = useMemo(
       () =>
-        grid.items.map((item: Pick<GridItem, 'entityId'>) => {
-          const { entityId } = item;
-          const entityType = entityId.split('.')[0];
-          const cardProps = {
-            id: entityId,
-            entity: hass.states[entityId],
-            hass,
-            ...defaultItemProps[entityType],
-            ...item,
-          };
-          if (!cardProps.render) {
-            console.log("Don't know how to render ", item);
-            return;
-          }
-          return <Card key={cardProps.id} {...cardProps} />;
-        }),
+        Object.values(grid.items).map(
+          (item: Pick<GridItem, 'id' | 'entityId'>) => {
+            const { entityId } = item;
+            const entityType = entityId.split('.')[0];
+            const cardProps = {
+              entity: hass.states[entityId],
+              updateItem,
+              hass,
+              ...defaultItemProps[entityType],
+              ...item,
+            };
+            if (!cardProps.render) {
+              console.log("Don't know how to render ", item);
+              return;
+            }
+            return <Card key={cardProps.id} {...cardProps} />;
+          },
+        ),
       [
         grid.layouts,
         grid.items,

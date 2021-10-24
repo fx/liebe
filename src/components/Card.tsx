@@ -21,6 +21,7 @@ interface CardProps extends GridItem, React.HTMLProps<HTMLDivElement> {
   cover?: boolean;
   render?: any;
   entity?: EntityState;
+  updateItem?: Function;
 }
 
 export const Card = styled(
@@ -40,6 +41,7 @@ export const Card = styled(
         onMouseDown,
         onMouseUp,
         onTouchEnd,
+        updateItem,
         style,
       }: CardProps,
       ref: any,
@@ -53,7 +55,19 @@ export const Card = styled(
         ],
         [settingsVisible, className],
       );
+
       const entities = getEntitiesForItem(component, hass.states);
+
+      const content = React.cloneElement(
+        render({ id, entity, entities, hass, updateItem }),
+        {
+          id,
+          entity,
+          entities,
+          hass,
+          updateItem,
+        },
+      );
 
       return (
         <div
@@ -78,7 +92,7 @@ export const Card = styled(
               ' ',
             )}
           >
-            {render({ entity, entities, hass })}
+            {content}
             {children}
           </div>
         </div>
