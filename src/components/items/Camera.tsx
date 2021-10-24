@@ -10,7 +10,13 @@ interface CameraProps extends ItemProps {
 }
 
 export const Camera = GridItem(
-  ({ entity, className, fill, refresh, entities }: CameraProps) => {
+  React.memo(function Camera({
+    entity,
+    className,
+    fill,
+    refresh,
+    entities,
+  }: CameraProps) {
     const [loading, setLoading] = useState(true);
     const classNames = [
       className,
@@ -41,7 +47,7 @@ export const Camera = GridItem(
 
     return (
       <div className={classNames}>
-        <img alt="Camera" src={url} onLoad={reload} />
+        <img alt="Camera" src={url} onLoad={reload} onError={reload} />
         <div
           className="camera-loading-bar"
           style={{
@@ -55,7 +61,7 @@ export const Camera = GridItem(
         {settings}
       </div>
     );
-  },
+  }),
 )`
   width: 100%;
   height: 100%;

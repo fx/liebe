@@ -5,7 +5,7 @@
   "author": "Marian Rudzynski <marian@rudzyn.ski>",
   "license": "MIT",
   "scripts": {
-    "start": "parcel src/index.tsx",
+    "start": "parcel serve src/index.tsx --host 127.0.0.1",
     "build": "parcel build src/index.tsx",
     "lint": "eslint src/**/*.{js,jsx,ts,tsx}"
   },
@@ -27,8 +27,8 @@
     "use-local-storage-state": "^11.0.0"
   },
   "devDependencies": {
-    "@parcel/optimizer-data-url": "2.0.0-nightly.881",
-    "@parcel/transformer-inline-string": "2.0.0-nightly.881",
+    "@parcel/optimizer-data-url": "^2.0.0",
+    "@parcel/transformer-inline-string": "^2.0.0",
     "@testing-library/react": "^11.2.6",
     "@types/chai": "^4.2.17",
     "@types/lodash": "^4.14.175",
@@ -46,7 +46,7 @@
     "eslint-plugin-jsx-a11y": "^6.4.1",
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-react": "^7.26.1",
-    "parcel": "2.0.0-nightly.879",
+    "parcel": "^2.0.0",
     "prettier": "^2.4.1",
     "typescript": "^4.4.4"
   },

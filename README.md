@@ -27,6 +27,18 @@ panel_custom:
 
 And hit `<your home assistant URL>/liebe`
 
+#### HMR is broke
+
+`--port` doesn't correctly translate to `HMR_PORT`, it'll always be `null` for us and as such default to the browser port (which will most likely not be the same.) If you run parcel on the same port as your home assistant instance, you can skip this.
+
+See https://github.com/parcel-bundler/parcel/issues/7164#issuecomment-950051451
+
+Just edit `node_modules/@parcel/runtime-browser-hmr/lib/HMRRuntime.js` for now, as per the above comment (or hardcode the port if you're in there anyway, I guess.)
+
+```
+code: `var HMR_HOST = ${JSON.stringify(host != null ? host : null)};` + `var HMR_PORT = "1234";
+```
+
 ##### Why `Liebe`?
 
 Home Assistant's abbreviation `hass` is the German word for hate. Liebe is the German word for love. With local DNS, I can access this panel via `http://hass/liebe` :)
