@@ -1,10 +1,11 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import styled from '@mui/styled-engine';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { get } from 'lodash';
+import { EntitySelect } from '..';
 
-interface ToggleProps {
+interface ToggleProps extends GridItem {
   className?: string;
   entity: any;
   hass?: any;
@@ -22,23 +23,35 @@ const entityServices: { [index: string]: any } = {
 
 export const Toggle = styled(
   ({
+    id,
     entity: { entity_id, state },
+    entities,
     className,
     hass: { callService },
     iconOn,
     iconOff,
     icon,
+    updateItem,
   }: ToggleProps) => {
     const entityType = get(entity_id.match(/^(\w+)?\./), 1);
 
-    if (!entityType || !Object.keys(entityServices).includes(entityType)) {
+    const settings = useMemo(() => {
       return (
-        <span>
-          Unsupported entity type
-          {entityType}
-        </span>
+        <div className="settings">
+          settings fam
+          <EntitySelect
+            entities={entities}
+            value={entity_id}
+            onChange={(entityId) => {
+              updateItem({
+                id,
+                entityId,
+              });
+            }}
+          />
+        </div>
       );
-    }
+    }, [entities, entity_id]);
 
     const service = entityServices[entityType];
 
@@ -48,6 +61,14 @@ export const Toggle = styled(
         entity_id,
       });
     }, [state, service]);
+
+    if (!entityType || !Object.keys(entityServices).includes(entityType)) {
+      return (
+        <div>
+          Unsupported entity type {entityType} {settings}
+        </div>
+      );
+    }
 
     const on = state === 'on';
     // `icon` overrides for both states, and if `iconOff` is missing we'll
@@ -60,6 +81,7 @@ export const Toggle = styled(
           icon={currentIcon as IconProp}
           color={on ? 'green' : 'red'}
         />
+        {settings}
       </div>
     );
   },
@@ -69,4 +91,8 @@ Toggle.defaultProps = {
   icon: undefined,
   iconOn: 'toggle-on',
   iconOff: 'toggle-off',
+};
+
+Toggle.grid = {
+  entityType: 'light',
 };

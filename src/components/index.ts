@@ -3,7 +3,6 @@ export * from './icons';
 export * from './MotionStatus';
 export * from './MotionSummary';
 export * from './Card';
-export * from './Toggle';
 export * from './Sidebar';
 export * from './GridItemSelect';
 export * from './items';

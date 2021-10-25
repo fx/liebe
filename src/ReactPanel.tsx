@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useReducer } from 'react';
+import React, { createContext, useEffect, useMemo, useReducer } from 'react';
 import ReactDOM from 'react-dom';
 import {
   ThemeProvider,
@@ -11,6 +11,7 @@ import type { GridItem } from './components';
 import type { Layouts } from 'react-grid-layout';
 import useLocalStorageState from 'use-local-storage-state';
 import { v4 as uuidv4 } from 'uuid';
+import { detailedDiff } from 'deep-object-diff';
 
 const GlobalStyle = createGlobalStyle`
   body { overflow: hidden; }
@@ -67,7 +68,22 @@ const theme = createTheme({
 });
 
 class PanelElement extends HTMLElement {
-  hass = undefined;
+  panel = undefined;
+  _hass = undefined;
+
+  render() {}
+
+  set hass(value) {
+    console.log('update', JSON.stringify(detailedDiff(this._hass, value)));
+    this._hass = value;
+    if (this.panel) {
+      this.render();
+    }
+  }
+
+  get hass() {
+    return this._hass;
+  }
 
   root: HTMLElement | undefined = undefined;
 
@@ -179,13 +195,12 @@ export const SettingsProvider = ({ children }: any) => {
     });
   };
 
-  return (
-    <Settings.Provider
-      value={{ ...settings, updateOptions, addItem, updateItem, updateLayouts }}
-    >
-      {children}
-    </Settings.Provider>
+  const value = useMemo(
+    () => ({ ...settings, updateOptions, addItem, updateItem, updateLayouts }),
+    [settings],
   );
+
+  return <Settings.Provider value={value}>{children}</Settings.Provider>;
 };
 
 export const createReactPanel = (app: any): CustomElementConstructor =>

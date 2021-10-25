@@ -8,3 +8,4 @@ export interface ItemProps {
 export * from './BatteryLevel';
 export * from './BatterySummary';
 export * from './Camera';
+export * from './Toggle';
