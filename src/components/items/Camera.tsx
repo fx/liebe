@@ -56,18 +56,23 @@ export const Camera = GridItem(
       setUrl(entity_picture);
     }, [entity_picture]);
 
+    const onEntityChange = useCallback(
+      (entityId) => {
+        updateItem({
+          id,
+          entityId,
+        });
+      },
+      [updateItem, id],
+    );
+
     const settings = useMemo(() => {
       return (
         <div className="settings">
           <EntitySelect
             entities={entities}
             value={entity.entity_id}
-            onChange={(entityId) => {
-              updateItem({
-                id,
-                entityId,
-              });
-            }}
+            onChange={onEntityChange}
           />
           <FormControlLabel
             control={

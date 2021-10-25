@@ -1,6 +1,6 @@
 import { Autocomplete, TextField } from '@mui/material';
 import styled from '@mui/styled-engine';
-import { isEmpty } from 'lodash';
+import { isEmpty, isEqual } from 'lodash';
 import React, { useMemo } from 'react';
 
 interface EntitySelectProps {
@@ -14,27 +14,33 @@ const renderInput = (params) => (
 );
 
 export const EntitySelect = styled(
-  ({ entities, value, onChange }: EntitySelectProps) => {
-    const options = useMemo(
-      () =>
-        isEmpty(entities)
-          ? []
-          : entities?.map((entity) => ({
-              id: entity.entity_id,
-              label: entity.entity_id,
-            })),
-      [JSON.stringify(entities)],
-    );
+  React.memo(
+    function EntitySelect({ entities, value, onChange }: EntitySelectProps) {
+      const entityIds = entities?.map((entity) => entity.entity_id);
+      const options = useMemo(
+        () =>
+          isEmpty(entityIds)
+            ? []
+            : entityIds?.map((id) => ({
+                id,
+                label: id,
+              })),
+        [entityIds],
+      );
 
-    return (
-      <Autocomplete
-        disablePortal
-        options={options}
-        value={value ? { id: value, label: value } : undefined}
-        renderInput={renderInput}
-        onChange={(_e, selected) => onChange(selected?.id)}
-        isOptionEqualToValue={(option, value) => option.id == value.id}
-      />
-    );
-  },
+      return (
+        <Autocomplete
+          disablePortal
+          options={options}
+          value={value ? { id: value, label: value } : undefined}
+          renderInput={renderInput}
+          onChange={(_e, selected) => onChange(selected?.id)}
+          isOptionEqualToValue={(option, value) => option.id == value.id}
+        />
+      );
+    },
+    (prevProps, nextProps) => {
+      return isEqual(prevProps, nextProps);
+    },
+  ),
 )``;

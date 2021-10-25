@@ -35,6 +35,16 @@ export const Toggle = styled(
   }: ToggleProps) => {
     const entityType = get(entity_id.match(/^(\w+)?\./), 1);
 
+    const onEntityChange = useCallback(
+      (entityId) => {
+        updateItem({
+          id,
+          entityId,
+        });
+      },
+      [updateItem, id],
+    );
+
     const settings = useMemo(() => {
       return (
         <div className="settings">
@@ -42,12 +52,7 @@ export const Toggle = styled(
           <EntitySelect
             entities={entities}
             value={entity_id}
-            onChange={(entityId) => {
-              updateItem({
-                id,
-                entityId,
-              });
-            }}
+            onChange={onEntityChange}
           />
         </div>
       );

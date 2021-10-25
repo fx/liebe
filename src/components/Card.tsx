@@ -7,7 +7,6 @@ import React, {
 import PropTypes from 'prop-types';
 import { lighten } from 'polished';
 import styled from '@mui/styled-engine';
-import { EntitySelect } from '.';
 import type { GridItem } from '.';
 import { getEntitiesForItem } from './GridItemSelect';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
