@@ -9,3 +9,5 @@ export * from './BatteryLevel';
 export * from './BatterySummary';
 export * from './Camera';
 export * from './Toggle';
+export * from './MotionStatus';
+export * from './MotionSummary';

@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
 import { isEmpty, sortBy } from 'lodash';
 import { MotionStatus } from './MotionStatus';
-import { GridItem } from '.';
+import { createGridItem } from '..';
 
 interface MotionSummaryProps {
   className?: string;
   entities: EntityState[];
 }
 
-export const MotionSummary = GridItem(
+export const MotionSummary = createGridItem(
   ({ className, entities }: MotionSummaryProps) => {
     const sensors = useMemo(
       () =>
@@ -30,4 +30,6 @@ export const MotionSummary = GridItem(
 
     return <div className={className}>{statuses}</div>;
   },
-)``;
+);
+
+MotionSummary.grid = { entityType: 'binary_sensor', deviceClass: 'motion' };

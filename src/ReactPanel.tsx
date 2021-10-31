@@ -74,7 +74,6 @@ class PanelElement extends HTMLElement {
   render() {}
 
   set hass(value) {
-    console.log('update', JSON.stringify(detailedDiff(this._hass, value)));
     this._hass = value;
     if (this.panel) {
       this.render();

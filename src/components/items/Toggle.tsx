@@ -1,9 +1,8 @@
 import React, { useCallback, useMemo } from 'react';
-import styled from '@mui/styled-engine';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { get } from 'lodash';
-import { EntitySelect } from '..';
+import { createGridItem, EntitySelect } from '..';
 
 interface ToggleProps extends GridItem {
   className?: string;
@@ -21,7 +20,7 @@ const entityServices: { [index: string]: any } = {
   },
 };
 
-export const Toggle = styled(
+export const Toggle = createGridItem(
   ({
     id,
     entity: { entity_id, state },
@@ -90,7 +89,7 @@ export const Toggle = styled(
       </div>
     );
   },
-)``;
+);
 
 Toggle.defaultProps = {
   icon: undefined,

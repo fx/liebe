@@ -1,7 +1,5 @@
 export * from './GridItem';
 export * from './icons';
-export * from './MotionStatus';
-export * from './MotionSummary';
 export * from './Card';
 export * from './Sidebar';
 export * from './GridItemSelect';

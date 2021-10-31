@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
 import { isEmpty, sortBy } from 'lodash';
 import { BatteryLevel } from './BatteryLevel';
-import { GridItem } from '../GridItem';
+import { createGridItem } from '..';
 
 interface BatterySummaryProps {
   className?: string;
   entities: any[];
 }
 
-export const BatterySummary = GridItem(
+export const BatterySummary = createGridItem(
   ({ className, entities }: BatterySummaryProps) => {
     const batteries = useMemo(
       () =>
@@ -30,6 +30,6 @@ export const BatterySummary = GridItem(
 
     return <div className={className}>{levels}</div>;
   },
-)``;
+);
 
 BatterySummary.grid = { entityType: 'sensor', deviceClass: 'battery' };

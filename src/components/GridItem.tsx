@@ -19,6 +19,10 @@ export interface GridItem {
 }
 
 // TODO: property extend `CreateStyledComponent`
-export function GridItem(component: any) {
-  return styled(component) as any;
+export function createGridItem(component: any) {
+  return styled(component)`
+    .settings {
+      display: none;
+    }
+  ` as any;
 }
