@@ -18,24 +18,21 @@ const formatDistanceLocale = {
   xYears: '{{count}}y',
   overXYears: '{{count}}y',
   almostXYears: '{{count}}y',
-};
+} as { [key: string]: string };
 
 // https://github.com/date-fns/date-fns/issues/1706#issuecomment-836601089
-function formatDistance(
+export function formatDistance(
   token: string | number,
   count: any,
-  options: { addSuffix?: any; comparison?: any },
+  options: { addSuffix?: any; comparison?: any } = {},
 ) {
-  options = options || {};
-
   const result = formatDistanceLocale[token].replace('{{count}}', count);
 
   if (options.addSuffix) {
     if (options.comparison > 0) {
-      return 'in ' + result;
-    } else {
-      return result + ' ago';
+      return `in ${result}`;
     }
+    return `${result} ago`;
   }
 
   return result;

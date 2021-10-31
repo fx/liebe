@@ -1,5 +1,5 @@
 // Inspired by https://github.com/react-grid-layout/react-grid-layout/issues/399#issuecomment-258494575
-import { invert, isEmpty } from 'lodash';
+import { get, invert, isEmpty } from 'lodash';
 import React, { useCallback, useState } from 'react';
 import type { Responsive, ResponsiveProps } from 'react-grid-layout';
 
@@ -11,11 +11,10 @@ function findBreakpoint(breakpoints: any, width: number) {
   return invert(breakpoints)[closest];
 }
 
-export const SquareWidthProvider =
-  (ComposedComponent: typeof Responsive) =>
-  (
+export const SquareWidthProvider = (ComposedComponent: typeof Responsive) =>
+  function ResponsiveSquare(
     props: ResponsiveProps | (Readonly<ResponsiveProps> & { children: any }),
-  ) => {
+  ) {
     const { margin, breakpoints, cols } = props;
     const [rowHeight, setRowHeight] = useState(0);
     const updateRowHeight = useCallback((ref) => {
@@ -29,12 +28,12 @@ export const SquareWidthProvider =
 
         const currentBreakpoint = findBreakpoint(breakpoints, width);
 
-        if (currentBreakpoint)
-          setRowHeight(
-            (width -
-              (margin ? margin[0] : 10) * (cols[currentBreakpoint] + 1)) /
-              cols[currentBreakpoint],
-          );
+        if (currentBreakpoint) {
+          // TODO: `margin` on RGL mistyped?
+          const colMargin = (get(margin, 0) as number) || 10;
+          const columns = get(cols, currentBreakpoint) || 12;
+          setRowHeight((width - colMargin * (columns + 1)) / columns);
+        }
       }).observe(ref);
     }, []);
 

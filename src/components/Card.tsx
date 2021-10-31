@@ -1,53 +1,103 @@
-import React from 'react';
-import { darken, lighten } from 'polished';
-import styled from 'styled-components';
+import React, {
+  DOMAttributes,
+  ReactHTMLElement,
+  useMemo,
+  useState,
+} from 'react';
+import PropTypes from 'prop-types';
+import { lighten } from 'polished';
+import styled from '@mui/styled-engine';
+import type { GridItem } from '.';
+import { getEntitiesForItem } from './GridItemSelect';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-interface CardProps {
+interface CardProps extends GridItem, React.HTMLProps<HTMLDivElement> {
   id: string;
   className?: string;
-  children: any;
+  children?: any;
   hass: any;
   title?: string;
   cover?: boolean;
+  entity?: EntityState;
+  updateItem?: Function;
 }
 
-const Component = ({
-  className,
-  id,
-  children,
-  hass,
-  title,
-  cover,
-  ...rest
-}: CardProps) => {
-  const classNames = [className, cover ? `card-cover` : undefined].join(' ');
-  return (
-    <div
-      // Must pass through props for RGL
-      {...rest}
-      className={classNames}
-      key={id}
-    >
-      {title ? <span className="card-title">{title}</span> : undefined}
-      <div
-        className={['card-viewport', title ? 'with-title' : undefined].join(
-          ' ',
-        )}
-      >
-        {children.map((child: JSX.Element) =>
-          React.cloneElement(child, { ...child.props, hass }),
-        )}
-      </div>
-    </div>
-  );
-};
+export const Card = styled(
+  // eslint-disable-next-line react/display-name
+  React.forwardRef(
+    (
+      {
+        className,
+        id,
+        children,
+        hass,
+        title,
+        cover,
+        entity,
+        component,
+        onMouseDown,
+        onMouseUp,
+        onTouchEnd,
+        updateItem,
+        style,
+        ...extra
+      }: CardProps,
+      ref: any,
+    ) => {
+      const [settingsVisible, setSettingsVisible] = useState<boolean>(false);
+      const classes = useMemo(
+        () => [
+          className,
+          cover ? 'card-cover' : undefined,
+          settingsVisible ? 'with-settings' : undefined,
+        ],
+        [cover, settingsVisible, className],
+      );
 
-Component.defaultProps = {
-  cover: false,
-};
+      const entities = getEntitiesForItem(component, hass.states);
 
-export const Card = styled(Component)`
-  background: ${({ theme }) => theme.card.background};
+      const content = React.createElement(component, {
+        ...extra,
+        cover,
+        id,
+        entity,
+        entities,
+        hass,
+        updateItem,
+      });
+
+      return (
+        <div
+          // Must pass through props for RGL
+          onMouseDown={onMouseDown}
+          onMouseUp={onMouseUp}
+          onTouchEnd={onTouchEnd}
+          style={style}
+          className={classes.join(' ')}
+          ref={ref}
+        >
+          <span
+            className="settings-icon"
+            onClick={() => setSettingsVisible((value) => !value)}
+          >
+            <FontAwesomeIcon icon={settingsVisible ? 'close' : 'gear'} />
+          </span>
+
+          {title ? <span className="card-title">{title}</span> : undefined}
+          <div
+            className={['card-viewport', title ? 'with-title' : undefined].join(
+              ' ',
+            )}
+          >
+            {content}
+            {children}
+          </div>
+        </div>
+      );
+    },
+  ),
+)`
+  background: ${({ theme }) => theme.liebe.card.background};
   backdrop-filter: blur(15px);
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
@@ -87,7 +137,34 @@ export const Card = styled(Component)`
     font-size: 0.8rem;
     text-transform: uppercase;
     text-align: center;
-    color: ${({ theme }) => lighten('5%', theme.text.color)};
+    color: ${({ theme }) => lighten('5%', theme.liebe.text.color)};
+  }
+
+  .settings-icon {
+    display: none;
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+
+  &:hover .settings-icon {
+    display: block;
+  }
+
+  &.with-settings {
+    .settings-icon {
+      display: block;
+      z-index: 999;
+    }
+
+    .card-viewport {
+      .settings {
+        display: block;
+      }
+    }
   }
 
   .card-viewport {
@@ -95,30 +172,19 @@ export const Card = styled(Component)`
     height: 100%;
     overflow: auto;
 
+    .settings {
+      display: none;
+      background: rgba(255, 255, 255, 0.75);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 15px;
+    }
+
     &.with-title {
       margin-top: 5px;
-    }
-
-    ::-webkit-scrollbar,
-    ::-webkit-scrollbar-corner {
-      height: 15px;
-      width: 15px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background-clip: content-box;
-      background-color: ${({ theme }) => theme.text.color};
-      border: 5px solid transparent;
-      border-radius: 16px;
-    }
-
-    &::-webkit-scrollbar-thumb:hover {
-      background-color: ${({ theme }) => lighten('10%', theme.text.color)};
-    }
-
-    &::-webkit-scrollbar-track:hover {
-      background-color: transparent;
-      box-shadow: none;
     }
 
     .react-resizable-handle {
@@ -128,12 +194,16 @@ export const Card = styled(Component)`
       width: 20px;
       height: 20px;
       clip-path: polygon(100% 0, 100% 90%, 90% 100%, 0 100%);
-      background: ${({ theme }) => theme.text.color};
+      background: ${({ theme }) => theme.liebe.text.color};
       cursor: nw-resize;
 
       &:hover {
-        background: ${({ theme }) => lighten('10%', theme.text.color)};
+        background: ${({ theme }) => lighten('10%', theme.liebe.text.color)};
       }
     }
   }
 `;
+
+Card.defaultProps = {
+  cover: false,
+};
