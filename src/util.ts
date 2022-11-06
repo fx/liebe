@@ -1,4 +1,4 @@
-import { formatDistanceStrict } from 'date-fns';
+import { formatDistanceStrict, isEqual } from 'date-fns';
 import locale from 'date-fns/locale/en-US';
 
 const formatDistanceLocale = {
@@ -38,7 +38,9 @@ export function formatDistance(
   return result;
 }
 
-export function formatDistanceAbbrev(from: Date, to: Date, options: any) {
+export function formatDistanceAbbrev(from: Date, to: Date, options?: any) {
+  if (isEqual(from, to)) return 'now';
+
   return formatDistanceStrict(from, to, {
     ...options,
     locale: { ...locale, formatDistance },

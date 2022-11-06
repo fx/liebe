@@ -1,5 +1,8 @@
 {
-  "include": ["src", "types"],
+  "include": [
+    "src",
+    "types"
+  ],
   "compilerOptions": {
     "module": "esnext",
     "target": "esnext",
@@ -7,12 +10,17 @@
     "jsx": "preserve",
     "baseUrl": "./",
     "paths": {
-      "@mui/styled-engine": ["./node_modules/@mui/styled-engine-sc"]
+      "@mui/styled-engine": [
+        "./node_modules/@mui/styled-engine-sc"
+      ]
     },
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,
-    "types": [],
+    "types": [
+      "jest",
+      "node"
+    ],
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
