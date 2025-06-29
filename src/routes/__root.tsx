@@ -12,6 +12,7 @@ import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
 import { DevHomeAssistantProvider } from '~/components/DevHomeAssistantProvider'
 import { useHomeAssistantRouting } from '~/hooks/useHomeAssistantRouting'
+import { useDashboardPersistence } from '~/store'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
 
@@ -59,6 +60,9 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // Enable persistence globally
+  useDashboardPersistence()
+  
   // Enable Home Assistant routing sync
   useHomeAssistantRouting()
   

@@ -60,14 +60,21 @@ export const clearDashboardConfig = (): void => {
   }
 };
 
-export const useDashboardPersistence = () => {
-  useEffect(() => {
-    const savedConfig = loadDashboardConfig();
-    if (savedConfig) {
-      dashboardActions.loadConfiguration(savedConfig);
-    }
-  }, []);
+// Initialize dashboard from localStorage synchronously
+export const initializeDashboard = () => {
+  const savedConfig = loadDashboardConfig();
+  if (savedConfig) {
+    dashboardActions.loadConfiguration(savedConfig);
+  }
+};
 
+// Initialize immediately when module loads
+if (typeof window !== 'undefined') {
+  initializeDashboard();
+}
+
+export const useDashboardPersistence = () => {
+  // Auto-save when changes occur
   useEffect(() => {
     const unsubscribe = dashboardStore.subscribe(() => {
       const state = dashboardStore.state;
