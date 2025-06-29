@@ -99,6 +99,34 @@ When creating a new epic with sub-issues:
 
 ## Development Workflow
 
+### Home Assistant Development Setup
+
+For developing with Home Assistant integration:
+
+1. **Quick Preview (iframe mode)**:
+   ```bash
+   npm run dev
+   npm run dev:ha iframe-config  # Shows config to add to HA
+   ```
+   - Simple setup, no build required
+   - Limited functionality (no hass object)
+   - Good for UI development
+
+2. **Full Integration (custom panel)**:
+   ```bash
+   npm run dev:ha watch  # Watches and rebuilds custom panel
+   npm run dev:ha custom-panel-config  # Shows config for HA
+   ```
+   - Full access to hass object
+   - Requires build step
+   - Best for testing HA integration
+
+3. **Helper Commands**:
+   ```bash
+   npm run dev:ha setup  # Initial setup
+   npm run dev:ha --help  # Show all options
+   ```
+
 ### Starting a New Task
 
 1. **Select Task from GitHub Project**

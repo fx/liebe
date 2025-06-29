@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "dev:ha": "./scripts/dev-ha.sh",
     "build": "vite build && tsc --noEmit",
     "build:ha": "./scripts/build-ha.sh",
     "preview": "vite preview",
