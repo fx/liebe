@@ -62,6 +62,8 @@ describe('EntityBrowser', () => {
     vi.clearAllMocks();
     vi.mocked(useEntities).mockReturnValue({
       entities: mockEntities,
+      filteredEntities: Object.values(mockEntities),
+      isConnected: true,
       isLoading: false,
     });
   });
@@ -212,6 +214,8 @@ describe('EntityBrowser', () => {
   it('should show loading state', () => {
     vi.mocked(useEntities).mockReturnValue({
       entities: {},
+      filteredEntities: [],
+      isConnected: true,
       isLoading: true,
     });
     
@@ -229,6 +233,8 @@ describe('EntityBrowser', () => {
   it('should show empty state when no entities found', () => {
     vi.mocked(useEntities).mockReturnValue({
       entities: {},
+      filteredEntities: [],
+      isConnected: true,
       isLoading: false,
     });
     

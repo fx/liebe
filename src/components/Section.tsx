@@ -83,18 +83,10 @@ export function Section({ section, onUpdate, onDelete, onAddEntities, children }
       {/* Section Content */}
       {!isCollapsed && (
         <Box p="3">
-          {children || (
-            <Flex 
-              direction="column" 
-              align="center" 
-              justify="center" 
-              gap="3"
-              style={{ minHeight: '150px' }}
-            >
-              <Text size="2" color="gray">
-                {isEditMode ? 'Drop entities here' : 'No entities in this section'}
-              </Text>
-              {isEditMode && (
+          <Flex direction="column" gap="3">
+            {/* Add Entity Button - Always visible in edit mode */}
+            {isEditMode && (
+              <Flex justify="end">
                 <Button 
                   size="2" 
                   variant="soft"
@@ -102,9 +94,22 @@ export function Section({ section, onUpdate, onDelete, onAddEntities, children }
                 >
                   <PlusIcon /> Add Entity
                 </Button>
-              )}
-            </Flex>
-          )}
+              </Flex>
+            )}
+            
+            {/* Entity content or empty state */}
+            {children || (
+              <Flex 
+                align="center" 
+                justify="center" 
+                style={{ minHeight: '120px' }}
+              >
+                <Text size="2" color="gray">
+                  {isEditMode ? 'Drop entities here' : 'No entities in this section'}
+                </Text>
+              </Flex>
+            )}
+          </Flex>
         </Box>
       )}
 
