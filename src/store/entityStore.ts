@@ -7,6 +7,8 @@ const initialState: EntityState = {
   isInitialLoading: true,
   lastError: null,
   subscribedEntities: new Set(),
+  staleEntities: new Set(),
+  lastUpdateTime: Date.now(),
 };
 
 export const entityStore = new Store<EntityState>(initialState);
@@ -101,5 +103,34 @@ export const entityStoreActions: EntityStoreActions = {
 
   reset: () => {
     entityStore.setState(() => initialState);
+  },
+
+  markEntityStale: (entityId: string) => {
+    entityStore.setState((state) => {
+      const newStaleEntities = new Set(state.staleEntities);
+      newStaleEntities.add(entityId);
+      return {
+        ...state,
+        staleEntities: newStaleEntities,
+      };
+    });
+  },
+
+  markEntityFresh: (entityId: string) => {
+    entityStore.setState((state) => {
+      const newStaleEntities = new Set(state.staleEntities);
+      newStaleEntities.delete(entityId);
+      return {
+        ...state,
+        staleEntities: newStaleEntities,
+      };
+    });
+  },
+
+  updateLastUpdateTime: () => {
+    entityStore.setState((state) => ({
+      ...state,
+      lastUpdateTime: Date.now(),
+    }));
   },
 };

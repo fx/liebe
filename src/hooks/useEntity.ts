@@ -7,10 +7,12 @@ export function useEntity(entityId: string): {
   entity: HassEntity | undefined;
   isConnected: boolean;
   isLoading: boolean;
+  isStale: boolean;
 } {
   const entities = useStore(entityStore, (state) => state.entities);
   const isConnected = useStore(entityStore, (state) => state.isConnected);
   const isInitialLoading = useStore(entityStore, (state) => state.isInitialLoading);
+  const staleEntities = useStore(entityStore, (state) => state.staleEntities);
 
   // Subscribe to entity when component mounts
   useEffect(() => {
@@ -28,9 +30,14 @@ export function useEntity(entityId: string): {
     return entities[entityId];
   }, [entities, entityId]);
 
+  const isStale = useMemo(() => {
+    return staleEntities.has(entityId);
+  }, [staleEntities, entityId]);
+
   return {
     entity,
     isConnected,
     isLoading: isInitialLoading && !entity,
+    isStale,
   };
 }
