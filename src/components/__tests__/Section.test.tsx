@@ -32,13 +32,13 @@ describe('Section', () => {
   });
 
   it('should render section with title', () => {
-    render(<Section section={mockSection} />);
+    render(<Section section={mockSection} screenId="screen-1" />);
     expect(screen.getByText('Test Section')).toBeInTheDocument();
   });
 
   it('should toggle collapse state when header is clicked', async () => {
     const user = userEvent.setup();
-    render(<Section section={mockSection} onUpdate={mockOnUpdate} />);
+    render(<Section section={mockSection} screenId="screen-1" onUpdate={mockOnUpdate} />);
     
     // Initially expanded
     expect(screen.getByText('No entities in this section')).toBeInTheDocument();
@@ -55,14 +55,14 @@ describe('Section', () => {
   it('should show delete button in edit mode', () => {
     dashboardStore.setState((state) => ({ ...state, mode: 'edit' }));
     
-    render(<Section section={mockSection} onDelete={mockOnDelete} />);
+    render(<Section section={mockSection} screenId="screen-1" onDelete={mockOnDelete} />);
     
     const deleteButton = screen.getByRole('button', { name: 'Delete section' });
     expect(deleteButton).toBeInTheDocument();
   });
 
   it('should not show delete button in view mode', () => {
-    render(<Section section={mockSection} onDelete={mockOnDelete} />);
+    render(<Section section={mockSection} screenId="screen-1" onDelete={mockOnDelete} />);
     
     const deleteButton = screen.queryByRole('button', { name: 'Delete section' });
     expect(deleteButton).not.toBeInTheDocument();
@@ -72,7 +72,7 @@ describe('Section', () => {
     const user = userEvent.setup();
     dashboardStore.setState((state) => ({ ...state, mode: 'edit' }));
     
-    render(<Section section={mockSection} onDelete={mockOnDelete} />);
+    render(<Section section={mockSection} screenId="screen-1" onDelete={mockOnDelete} />);
     
     const deleteButton = screen.getByRole('button', { name: 'Delete section' });
     await user.click(deleteButton);
@@ -82,7 +82,7 @@ describe('Section', () => {
 
   it('should render with collapsed state', () => {
     const collapsedSection = { ...mockSection, collapsed: true };
-    render(<Section section={collapsedSection} />);
+    render(<Section section={collapsedSection} screenId="screen-1" />);
     
     // Should not show content when collapsed
     expect(screen.queryByText('No entities in this section')).not.toBeInTheDocument();
@@ -90,7 +90,7 @@ describe('Section', () => {
 
   it('should render children when provided', () => {
     render(
-      <Section section={mockSection}>
+      <Section section={mockSection} screenId="screen-1">
         <div>Custom content</div>
       </Section>
     );
@@ -102,7 +102,7 @@ describe('Section', () => {
   it('should show drag handle in edit mode', () => {
     dashboardStore.setState((state) => ({ ...state, mode: 'edit' }));
     
-    render(<Section section={mockSection} />);
+    render(<Section section={mockSection} screenId="screen-1" />);
     
     // Check for drag handle icon (DragHandleDots2Icon)
     const header = screen.getByText('Test Section').closest('div');
