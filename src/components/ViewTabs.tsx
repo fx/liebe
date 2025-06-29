@@ -33,25 +33,34 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     dashboardActions.removeScreen(screenId);
   };
 
-  const renderScreenTabs = (screenList: ScreenConfig[], level = 0): React.ReactNode => {
-    return screenList.map((screen) => [
-      <Tabs.Trigger key={screen.id} value={screen.id} style={{ paddingLeft: `${level * 20}px` }}>
-        <Flex align="center" gap="2">
-          <span>{screen.name}</span>
-          {mode === 'edit' && screens.length > 1 && (
-            <IconButton
-              size="1"
-              variant="ghost"
-              color="gray"
-              onClick={(e) => handleRemoveView(screen.id, e)}
-            >
-              <Cross2Icon />
-            </IconButton>
-          )}
-        </Flex>
-      </Tabs.Trigger>,
-      ...(screen.children ? renderScreenTabs(screen.children, level + 1) : [])
-    ]).flat();
+  const renderScreenTabs = (screenList: ScreenConfig[], level = 0): React.ReactNode[] => {
+    const tabs: React.ReactNode[] = [];
+    
+    screenList.forEach((screen) => {
+      tabs.push(
+        <Tabs.Trigger key={screen.id} value={screen.id} style={{ paddingLeft: `${level * 20}px` }}>
+          <Flex align="center" gap="2">
+            <span>{screen.name}</span>
+            {mode === 'edit' && screens.length > 1 && (
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={(e) => handleRemoveView(screen.id, e)}
+              >
+                <Cross2Icon />
+              </IconButton>
+            )}
+          </Flex>
+        </Tabs.Trigger>
+      );
+      
+      if (screen.children) {
+        tabs.push(...renderScreenTabs(screen.children, level + 1));
+      }
+    });
+    
+    return tabs;
   };
 
   if (screens.length === 0) {
@@ -80,7 +89,18 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     ));
   };
 
-  const currentScreenName = screens.find(s => s.id === currentScreenId)?.name || 'Select View';
+  const findScreenById = (screenList: ScreenConfig[], id: string): ScreenConfig | undefined => {
+    for (const screen of screenList) {
+      if (screen.id === id) return screen;
+      if (screen.children) {
+        const found = findScreenById(screen.children, id);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+  
+  const currentScreenName = currentScreenId ? findScreenById(screens, currentScreenId)?.name || 'Select View' : 'Select View';
 
   if (isMobile) {
     return (
