@@ -22,7 +22,6 @@ class LiebeDashboardDevPanel extends HTMLElement {
         const route = '/' + routeParts.join('/');
         // Append the route to the iframe src
         iframeSrc = 'http://localhost:3000' + route;
-        console.log('Loading iframe with route:', iframeSrc);
       }
     }
     
@@ -40,16 +39,12 @@ class LiebeDashboardDevPanel extends HTMLElement {
         this._hass.callService(e.data.domain, e.data.service, e.data.serviceData);
       } else if (e.data.type === 'route-change') {
         // Handle route changes from the iframe
-        console.log('Route change requested:', e.data.path);
-        // Get the base path (everything before the last segment)
         const pathParts = window.location.pathname.split('/');
-        // Remove empty parts and find where 'liebe-dev' is
         const liebeIndex = pathParts.findIndex(part => part === 'liebe-dev');
         if (liebeIndex >= 0) {
           // Keep everything up to and including 'liebe-dev'
           const basePath = pathParts.slice(0, liebeIndex + 1).join('/');
           const newPath = basePath + e.data.path;
-          console.log('Updating URL to:', newPath);
           history.pushState(null, '', newPath);
         }
       } else if (e.data.type === 'get-route') {
@@ -60,7 +55,6 @@ class LiebeDashboardDevPanel extends HTMLElement {
           // Extract the route part after liebe-dev
           const routeParts = pathParts.slice(liebeIndex + 1);
           const route = routeParts.length > 0 ? '/' + routeParts.join('/') : '/';
-          console.log('Sending current route to iframe:', route);
           this.iframe.contentWindow.postMessage({
             type: 'current-route',
             path: route
@@ -85,7 +79,6 @@ class LiebeDashboardDevPanel extends HTMLElement {
         }, 'http://localhost:3000');
       } catch (e) {
         // Ignore CORS errors during initial load
-        console.debug('Could not send hass update:', e.message);
       }
     }
   }

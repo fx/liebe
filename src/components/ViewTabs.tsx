@@ -15,8 +15,6 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   const mode = useDashboardStore((state) => state.mode);
   const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
-  
-  console.log('ViewTabs render:', { screens, currentScreenId, mode });
 
   useEffect(() => {
     const checkMobile = () => {
@@ -29,28 +27,18 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   }, []);
 
   const handleTabChange = (value: string) => {
-    console.log('ViewTabs: handleTabChange called with:', value);
-    console.log('Current location before nav:', window.location.pathname);
-    console.log('Navigate function:', navigate);
-    console.log('Are we in iframe?', window.parent !== window);
-    
-    // Update the store state immediately
+    // Update the store state immediately for responsiveness
     dashboardActions.setCurrentScreen(value);
     
-    try {
-      // Try to navigate
-      navigate({ to: '/screen/$screenId', params: { screenId: value } });
-      console.log('Navigation call completed');
-      
-      // If we're in an iframe, also notify the parent
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'route-change',
-          path: `/screen/${value}`,
-        }, '*');
-      }
-    } catch (error) {
-      console.error('Navigation error:', error);
+    // Navigate to the new screen
+    navigate({ to: '/screen/$screenId', params: { screenId: value } });
+    
+    // If we're in an iframe, notify the parent window
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'route-change',
+        path: `/screen/${value}`,
+      }, '*');
     }
   };
 
@@ -179,15 +167,10 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     );
   }
 
-  console.log('Rendering Tabs.Root with value:', currentScreenId);
-  
   return (
     <Tabs.Root
       value={currentScreenId || ''}
-      onValueChange={(newValue) => {
-        console.log('Tabs.Root onValueChange fired with:', newValue);
-        handleTabChange(newValue);
-      }}
+      onValueChange={handleTabChange}
     >
       <Flex align="center" gap="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
         <ScrollArea type="hover" scrollbars="horizontal" style={{ flex: 1 }}>

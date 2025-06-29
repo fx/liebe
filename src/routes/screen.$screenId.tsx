@@ -15,8 +15,6 @@ function ScreenView() {
   
   // Use effect to update current screen when route changes
   useEffect(() => {
-    console.log('ScreenView: checking screen', screenId, 'in', screens.length, 'screens');
-    
     // Find the screen in the store
     const findScreen = (screenList: ScreenConfig[], id: string): boolean => {
       for (const screen of screenList) {
@@ -33,7 +31,6 @@ function ScreenView() {
     const screenExists = findScreen(screens, screenId);
     
     if (screenExists && currentScreenId !== screenId) {
-      console.log('ScreenView: Setting current screen to:', screenId);
       dashboardActions.setCurrentScreen(screenId);
     }
   }, [screenId, screens, currentScreenId]);

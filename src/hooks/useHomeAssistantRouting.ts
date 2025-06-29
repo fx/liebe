@@ -20,17 +20,9 @@ export function useHomeAssistantRouting() {
       // We're in an iframe
       // Wait a tick to ensure router is initialized
       setTimeout(() => {
-        try {
-          // Check current router location
-          const currentLocation = router.state.location.pathname;
-          console.log('Current router location:', currentLocation);
-          
-          // In iframe, we need to get the route from parent and sync
-          // Send a message to parent to get the current route
-          window.parent.postMessage({ type: 'get-route' }, '*');
-        } catch (e) {
-          console.debug('Could not sync initial route:', e);
-        }
+        // In iframe, we need to get the route from parent and sync
+        // Send a message to parent to get the current route
+        window.parent.postMessage({ type: 'get-route' }, '*');
       }, 0);
     }
 
@@ -59,9 +51,7 @@ export function useHomeAssistantRouting() {
       } else if (event.data.type === 'current-route') {
         // Response from parent with current route
         const parentRoute = event.data.path;
-        console.log('Received parent route:', parentRoute);
         if (parentRoute && parentRoute !== '/' && parentRoute !== router.state.location.pathname) {
-          console.log('Navigating to parent route:', parentRoute);
           router.navigate({ to: parentRoute as any });
         }
       }
