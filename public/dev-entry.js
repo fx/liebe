@@ -33,7 +33,7 @@ class LiebeDashboardDevPanel extends HTMLElement {
     
     // Listen for messages from iframe
     window.addEventListener('message', (e) => {
-      if (e.origin !== 'http://localhost:3000' && e.origin !== 'http://localhost:3001') return;
+      if (e.origin !== 'http://localhost:3000') return;
       
       if (e.data.type === 'call-service' && this._hass) {
         this._hass.callService(e.data.domain, e.data.service, e.data.serviceData);
@@ -58,7 +58,7 @@ class LiebeDashboardDevPanel extends HTMLElement {
           this.iframe.contentWindow.postMessage({
             type: 'current-route',
             path: route
-          }, '*');
+          }, 'http://localhost:3000');
         }
       }
     });
@@ -76,7 +76,7 @@ class LiebeDashboardDevPanel extends HTMLElement {
             themes: this._hass.themes,
             language: this._hass.language
           }
-        }, '*');
+        }, 'http://localhost:3000');
       } catch (e) {
         // Ignore CORS errors during initial load
       }
