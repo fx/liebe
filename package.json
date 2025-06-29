@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build && tsc --noEmit",
+    "build:ha": "./scripts/build-ha.sh",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",

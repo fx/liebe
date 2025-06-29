@@ -18,6 +18,7 @@ pnpm-lock.yaml
 /api/
 /server/build
 /public/build
+dist/
 
 # Development
 .DS_Store
