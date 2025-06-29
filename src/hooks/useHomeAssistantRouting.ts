@@ -14,6 +14,22 @@ export function useHomeAssistantRouting() {
                               window.location.pathname.includes('/liebe-dev');
     
     if (!isInHomeAssistant) return;
+    
+    // Check if we need to sync initial route from parent URL
+    if (window.parent !== window) {
+      // We're in an iframe, check parent URL
+      try {
+        // Extract route from parent URL if available
+        const parentPath = window.location.pathname;
+        const match = parentPath.match(/\/liebe-dev(\/.*)?$/);
+        if (match && match[1] && match[1] !== '/') {
+          console.log('Syncing initial route from parent URL:', match[1]);
+          router.navigate({ to: match[1] as any });
+        }
+      } catch (e) {
+        console.debug('Could not read parent URL:', e);
+      }
+    }
 
     // Listen for route changes and notify parent window
     const unsubscribe = router.subscribe('onResolved', () => {

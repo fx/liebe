@@ -26,7 +26,11 @@ export const Route = createFileRoute('/screen/$screenId')({
     const screenExists = findScreen(state.screens, screenId);
     
     if (screenExists) {
-      dashboardActions.setCurrentScreen(screenId);
+      // Only update if it's different to avoid loops
+      if (state.currentScreenId !== screenId) {
+        console.log('Setting current screen to:', screenId);
+        dashboardActions.setCurrentScreen(screenId);
+      }
     }
     
     return {

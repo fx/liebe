@@ -25,9 +25,17 @@ class LiebeDashboardDevPanel extends HTMLElement {
       } else if (e.data.type === 'route-change') {
         // Handle route changes from the iframe
         console.log('Route change requested:', e.data.path);
-        // Update the browser URL
-        const newPath = window.location.pathname.replace(/\/[^/]*$/, e.data.path);
-        history.pushState(null, '', newPath);
+        // Get the base path (everything before the last segment)
+        const pathParts = window.location.pathname.split('/');
+        // Remove empty parts and find where 'liebe-dev' is
+        const liebeIndex = pathParts.findIndex(part => part === 'liebe-dev');
+        if (liebeIndex >= 0) {
+          // Keep everything up to and including 'liebe-dev'
+          const basePath = pathParts.slice(0, liebeIndex + 1).join('/');
+          const newPath = basePath + e.data.path;
+          console.log('Updating URL to:', newPath);
+          history.pushState(null, '', newPath);
+        }
       }
     });
   }
