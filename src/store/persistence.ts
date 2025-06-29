@@ -12,11 +12,36 @@ export const saveDashboardConfig = (config: DashboardConfig): void => {
   }
 };
 
+// Migrate old screen format to new format with sections
+const migrateScreenConfig = (config: any): DashboardConfig => {
+  const migrateScreen = (screen: any): any => {
+    // If screen has grid with items instead of sections, migrate it
+    if (screen.grid && 'items' in screen.grid && !screen.grid.sections) {
+      screen.grid.sections = [];
+      delete screen.grid.items;
+    }
+    
+    // Recursively migrate children
+    if (screen.children) {
+      screen.children = screen.children.map(migrateScreen);
+    }
+    
+    return screen;
+  };
+  
+  if (config.screens) {
+    config.screens = config.screens.map(migrateScreen);
+  }
+  
+  return config as DashboardConfig;
+};
+
 export const loadDashboardConfig = (): DashboardConfig | null => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored) as DashboardConfig;
+      const parsed = JSON.parse(stored);
+      return migrateScreenConfig(parsed);
     }
   } catch (error) {
     console.error('Failed to load dashboard configuration:', error);

@@ -75,7 +75,7 @@ export function Dashboard() {
               {mode === 'edit' && (
                 <AddSectionButton 
                   screenId={currentScreen.id} 
-                  existingSectionsCount={currentScreen.grid?.sections.length || 0}
+                  existingSectionsCount={currentScreen.grid?.sections?.length || 0}
                 />
               )}
             </Flex>
