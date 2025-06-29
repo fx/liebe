@@ -126,8 +126,30 @@ case "$COMMAND" in
   watch)
     watch_build
     ;;
+  "")
+    # No command specified, show help
+    echo "Liebe Dashboard - Home Assistant Development Helper"
+    echo ""
+    echo "Usage: $0 <command> [options]"
+    echo ""
+    echo "Commands:"
+    echo "  setup               Set up development environment"
+    echo "  iframe-config       Show iframe configuration for development"
+    echo "  custom-panel-config Show custom panel configuration"
+    echo "  watch               Watch and build custom panel for development"
+    echo ""
+    echo "Options:"
+    echo "  --ha-config PATH    Path to Home Assistant config directory (default: /config)"
+    echo "  --port PORT         Development server port (default: 3000)"
+    echo "  --help              Show detailed help"
+    echo ""
+    echo "Examples:"
+    echo "  $0 setup"
+    echo "  $0 iframe-config"
+    echo "  $0 watch --ha-config /home/homeassistant/.homeassistant"
+    ;;
   *)
-    echo -e "${RED}Error:${NC} Unknown command or no command specified"
+    echo -e "${RED}Error:${NC} Unknown command '$COMMAND'"
     echo "Run '$0 --help' for usage information"
     exit 1
     ;;
