@@ -24,6 +24,7 @@ export interface SectionConfig {
 export interface ScreenConfig {
   id: string;
   name: string;
+  slug: string;
   type: 'grid';
   parentId?: string;
   children?: ScreenConfig[];
