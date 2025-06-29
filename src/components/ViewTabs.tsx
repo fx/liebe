@@ -3,6 +3,7 @@ import { Cross2Icon, PlusIcon, HamburgerMenuIcon } from '@radix-ui/react-icons';
 import { useDashboardStore, dashboardActions } from '../store';
 import type { ScreenConfig } from '../store/types';
 import { useEffect, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 
 interface ViewTabsProps {
   onAddView?: () => void;
@@ -13,6 +14,7 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   const currentScreenId = useDashboardStore((state) => state.currentScreenId);
   const mode = useDashboardStore((state) => state.mode);
   const [isMobile, setIsMobile] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -25,12 +27,22 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   }, []);
 
   const handleTabChange = (value: string) => {
-    dashboardActions.setCurrentScreen(value);
+    navigate({ to: '/screen/$screenId', params: { screenId: value } });
   };
 
   const handleRemoveView = (screenId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     dashboardActions.removeScreen(screenId);
+    
+    // If we're removing the current screen, navigate to another screen
+    if (screenId === currentScreenId) {
+      const remainingScreens = screens.filter(s => s.id !== screenId);
+      if (remainingScreens.length > 0) {
+        navigate({ to: '/screen/$screenId', params: { screenId: remainingScreens[0].id } });
+      } else {
+        navigate({ to: '/' });
+      }
+    }
   };
 
   const renderScreenTabs = (screenList: ScreenConfig[], level = 0): React.ReactNode[] => {

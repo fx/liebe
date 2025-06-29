@@ -10,11 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TestStoreRouteImport } from './routes/test-store'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ScreenScreenIdRouteImport } from './routes/screen.$screenId'
 
 const TestStoreRoute = TestStoreRouteImport.update({
   id: '/test-store',
   path: '/test-store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -22,31 +29,44 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScreenScreenIdRoute = ScreenScreenIdRouteImport.update({
+  id: '/screen/$screenId',
+  path: '/screen/$screenId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/test-store': typeof TestStoreRoute
+  '/screen/$screenId': typeof ScreenScreenIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/test-store': typeof TestStoreRoute
+  '/screen/$screenId': typeof ScreenScreenIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/test-store': typeof TestStoreRoute
+  '/screen/$screenId': typeof ScreenScreenIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/test-store'
+  fullPaths: '/' | '/$' | '/test-store' | '/screen/$screenId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/test-store'
-  id: '__root__' | '/' | '/test-store'
+  to: '/' | '/$' | '/test-store' | '/screen/$screenId'
+  id: '__root__' | '/' | '/$' | '/test-store' | '/screen/$screenId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
   TestStoreRoute: typeof TestStoreRoute
+  ScreenScreenIdRoute: typeof ScreenScreenIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +78,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestStoreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -65,12 +92,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/screen/$screenId': {
+      id: '/screen/$screenId'
+      path: '/screen/$screenId'
+      fullPath: '/screen/$screenId'
+      preLoaderRoute: typeof ScreenScreenIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
   TestStoreRoute: TestStoreRoute,
+  ScreenScreenIdRoute: ScreenScreenIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

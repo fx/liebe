@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Dialog, Button, TextField, Flex, Text, Select } from '@radix-ui/themes';
 import { dashboardActions, useDashboardStore } from '../store';
 import type { ScreenConfig } from '../store/types';
+import { useNavigate } from '@tanstack/react-router';
 
 interface AddViewDialogProps {
   open: boolean;
@@ -12,6 +13,7 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
   const screens = useDashboardStore((state) => state.screens);
   const [viewName, setViewName] = useState('');
   const [parentId, setParentId] = useState<string>('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +31,9 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
     };
 
     dashboardActions.addScreen(newScreen, parentId && parentId !== 'none' ? parentId : undefined);
-    dashboardActions.setCurrentScreen(newScreen.id);
+    
+    // Navigate to the new screen
+    navigate({ to: '/screen/$screenId', params: { screenId: newScreen.id } });
     
     setViewName('');
     setParentId('');
