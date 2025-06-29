@@ -10,13 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TestStoreRouteImport } from './routes/test-store'
+import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ScreenScreenIdRouteImport } from './routes/screen.$screenId'
 
 const TestStoreRoute = TestStoreRouteImport.update({
   id: '/test-store',
   path: '/test-store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SlugRoute = SlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SplatRoute = SplatRouteImport.update({
@@ -29,44 +34,39 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScreenScreenIdRoute = ScreenScreenIdRouteImport.update({
-  id: '/screen/$screenId',
-  path: '/screen/$screenId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
-  '/screen/$screenId': typeof ScreenScreenIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
-  '/screen/$screenId': typeof ScreenScreenIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
-  '/screen/$screenId': typeof ScreenScreenIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/test-store' | '/screen/$screenId'
+  fullPaths: '/' | '/$' | '/$slug' | '/test-store'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/test-store' | '/screen/$screenId'
-  id: '__root__' | '/' | '/$' | '/test-store' | '/screen/$screenId'
+  to: '/' | '/$' | '/$slug' | '/test-store'
+  id: '__root__' | '/' | '/$' | '/$slug' | '/test-store'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  SlugRoute: typeof SlugRoute
   TestStoreRoute: typeof TestStoreRoute
-  ScreenScreenIdRoute: typeof ScreenScreenIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -76,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/test-store'
       fullPath: '/test-store'
       preLoaderRoute: typeof TestStoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$slug': {
+      id: '/$slug'
+      path: '/$slug'
+      fullPath: '/$slug'
+      preLoaderRoute: typeof SlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$': {
@@ -92,21 +99,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/screen/$screenId': {
-      id: '/screen/$screenId'
-      path: '/screen/$screenId'
-      fullPath: '/screen/$screenId'
-      preLoaderRoute: typeof ScreenScreenIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  SlugRoute: SlugRoute,
   TestStoreRoute: TestStoreRoute,
-  ScreenScreenIdRoute: ScreenScreenIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

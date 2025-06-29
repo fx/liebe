@@ -9,8 +9,8 @@ export const Route = createFileRoute('/')({
     if (state.screens.length > 0) {
       const firstScreen = state.screens[0];
       throw redirect({
-        to: '/screen/$screenId',
-        params: { screenId: firstScreen.id },
+        to: '/$slug',
+        params: { slug: firstScreen.slug },
       });
     }
   },
