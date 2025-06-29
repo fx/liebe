@@ -1,0 +1,120 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ConnectionStatus } from '../ConnectionStatus';
+import { entityStore } from '../../store/entityStore';
+
+// Mock the CSS import
+vi.mock('../ConnectionStatus.css', () => ({}));
+
+// Mock the context
+vi.mock('~/contexts/HomeAssistantContext', () => ({
+  useHomeAssistantOptional: vi.fn(),
+}));
+
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext';
+
+describe('ConnectionStatus', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Reset store to initial state
+    entityStore.setState(() => ({
+      entities: {},
+      isConnected: false,
+      isInitialLoading: true,
+      lastError: null,
+      subscribedEntities: new Set(),
+    }));
+  });
+
+  it('should show "No Home Assistant" when hass is not available', () => {
+    vi.mocked(useHomeAssistantOptional).mockReturnValue(null);
+    
+    render(<ConnectionStatus />);
+    
+    expect(screen.getByText('No Home Assistant')).toBeInTheDocument();
+  });
+
+  it('should show "Connected" when connected to Home Assistant', () => {
+    vi.mocked(useHomeAssistantOptional).mockReturnValue({} as any);
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: true,
+      entities: {
+        'light.test': {
+          entity_id: 'light.test',
+          state: 'on',
+          attributes: {},
+          last_changed: '2023-01-01T00:00:00Z',
+          last_updated: '2023-01-01T00:00:00Z',
+          context: { id: '123', parent_id: null, user_id: null },
+        },
+      },
+    }));
+    
+    render(<ConnectionStatus />);
+    
+    expect(screen.getByText('Connected')).toBeInTheDocument();
+  });
+
+  it('should show "Disconnected" when not connected', () => {
+    vi.mocked(useHomeAssistantOptional).mockReturnValue({} as any);
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: false,
+    }));
+    
+    render(<ConnectionStatus />);
+    
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+  });
+
+  it('should show error status when there is an error', () => {
+    vi.mocked(useHomeAssistantOptional).mockReturnValue({} as any);
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: false,
+      lastError: 'Connection failed',
+    }));
+    
+    render(<ConnectionStatus />);
+    
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+  });
+
+  it('should show detailed information in popover', async () => {
+    const user = userEvent.setup();
+    vi.mocked(useHomeAssistantOptional).mockReturnValue({} as any);
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: true,
+      entities: {
+        'light.test': {
+          entity_id: 'light.test',
+          state: 'on',
+          attributes: {},
+          last_changed: '2023-01-01T00:00:00Z',
+          last_updated: '2023-01-01T00:00:00Z',
+          context: { id: '123', parent_id: null, user_id: null },
+        },
+      },
+      subscribedEntities: new Set(['light.test']),
+    }));
+    
+    render(<ConnectionStatus />);
+    
+    // Click on the status badge
+    const badge = screen.getByText('Connected');
+    await user.click(badge);
+    
+    // Check popover content
+    expect(screen.getByText('Home Assistant:')).toBeInTheDocument();
+    expect(screen.getByText('Available')).toBeInTheDocument();
+    expect(screen.getByText('WebSocket:')).toBeInTheDocument();
+    expect(screen.getByText('Total Entities:')).toBeInTheDocument();
+    // Check for entity count
+    const entityCounts = screen.getAllByText('1');
+    expect(entityCounts).toHaveLength(2); // Total entities and subscribed count
+    expect(screen.getByText('Subscribed:')).toBeInTheDocument();
+  });
+});

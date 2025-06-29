@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box } from '@radix-ui/themes';
 import { Section } from './Section';
-import { SectionConfig } from '../store/types';
+import { SectionConfig, GridItem } from '../store/types';
 import { dashboardActions, useDashboardStore } from '../store';
 import './SectionGrid.css';
 
@@ -23,6 +23,21 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
 
   const handleDeleteSection = (sectionId: string) => {
     dashboardActions.removeSection(screenId, sectionId);
+  };
+
+  const handleAddEntities = (sectionId: string, entityIds: string[]) => {
+    // Create GridItem for each entity
+    entityIds.forEach((entityId, index) => {
+      const newItem: GridItem = {
+        id: `${Date.now()}-${index}`,
+        entityId,
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+      };
+      dashboardActions.addGridItem(screenId, sectionId, newItem);
+    });
   };
 
   const handleDragStart = (e: React.DragEvent, sectionId: string) => {
@@ -114,8 +129,10 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
         >
           <Section
             section={section}
+            screenId={screenId}
             onUpdate={(updates) => handleUpdateSection(section.id, updates)}
             onDelete={() => handleDeleteSection(section.id)}
+            onAddEntities={(entityIds) => handleAddEntities(section.id, entityIds)}
           >
             {/* Entity items will go here */}
             {section.items.length > 0 && (
