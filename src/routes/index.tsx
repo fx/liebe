@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useContext } from 'react'
 import { 
   Dialog, 
   DialogTrigger, 
@@ -15,6 +15,8 @@ import {
   TabsTrigger,
   TabsContent
 } from '~/components/ui'
+import { HomeAssistantContext } from '~/contexts/HomeAssistantContext'
+import { EntityCard } from '~/components/EntityCard'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -22,11 +24,28 @@ export const Route = createFileRoute('/')({
 
 function Home() {
   const [switchChecked, setSwitchChecked] = useState(false)
+  const hass = useContext(HomeAssistantContext)
 
   return (
     <div style={{ padding: '20px' }}>
       <h1>Liebe Dashboard</h1>
       <p>Welcome to your Home Assistant custom dashboard.</p>
+      
+      {hass && (
+        <div style={{ marginTop: '20px' }}>
+          <h2>Home Assistant Status</h2>
+          <p>Connected to Home Assistant {hass.config?.version || 'Unknown version'}</p>
+          <p>Location: {hass.config?.location_name || 'Unknown'}</p>
+          
+          <h3 style={{ marginTop: '20px' }}>Example Entities</h3>
+          <div>
+            {/* Show first 5 entities as examples */}
+            {Object.keys(hass.states).slice(0, 5).map(entityId => (
+              <EntityCard key={entityId} entityId={entityId} />
+            ))}
+          </div>
+        </div>
+      )}
       
       <div style={{ marginTop: '40px' }}>
         <h2>Radix UI Components Demo</h2>
