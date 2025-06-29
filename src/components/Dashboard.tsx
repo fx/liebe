@@ -14,7 +14,19 @@ export function Dashboard() {
   const currentScreenId = useDashboardStore((state) => state.currentScreenId);
   const screens = useDashboardStore((state) => state.screens);
   
-  const currentScreen = screens.find((s) => s.id === currentScreenId);
+  // Helper function to find screen in tree structure
+  const findScreenById = (screenList: typeof screens, id: string): typeof screens[0] | undefined => {
+    for (const screen of screenList) {
+      if (screen.id === id) return screen;
+      if (screen.children) {
+        const found = findScreenById(screen.children, id);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+  
+  const currentScreen = currentScreenId ? findScreenById(screens, currentScreenId) : undefined;
 
   const handleToggleMode = () => {
     dashboardActions.setMode(mode === 'view' ? 'edit' : 'view');
