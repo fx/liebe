@@ -2,7 +2,6 @@
 import {
   createRootRoute,
   Outlet,
-  Scripts,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { Theme } from '@radix-ui/themes'
@@ -29,14 +28,11 @@ function RootComponent() {
   useHomeAssistantRouting()
   
   return (
-    <>
-      <Theme>
-        <DevHomeAssistantProvider>
-          <Outlet />
-          <TanStackRouterDevtools position="bottom-right" />
-        </DevHomeAssistantProvider>
-      </Theme>
-      <Scripts />
-    </>
+    <Theme>
+      <DevHomeAssistantProvider>
+        <Outlet />
+        <TanStackRouterDevtools position="bottom-right" />
+      </DevHomeAssistantProvider>
+    </Theme>
   )
 }
