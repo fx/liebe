@@ -15,6 +15,18 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   const mode = useDashboardStore((state) => state.mode);
   const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
+  
+  // Helper function to find screen by ID
+  const findScreenById = (screenList: ScreenConfig[], id: string): ScreenConfig | undefined => {
+    for (const screen of screenList) {
+      if (screen.id === id) return screen;
+      if (screen.children) {
+        const found = findScreenById(screen.children, id);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
 
   useEffect(() => {
     const checkMobile = () => {
@@ -30,15 +42,18 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     // Update the store state immediately for responsiveness
     dashboardActions.setCurrentScreen(value);
     
-    // Navigate to the new screen
-    navigate({ to: '/screen/$screenId', params: { screenId: value } });
-    
-    // If we're in an iframe, notify the parent window
-    if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'route-change',
-        path: `/screen/${value}`,
-      }, '*');
+    const screen = findScreenById(screens, value);
+    if (screen) {
+      // Navigate to the new screen using slug
+      navigate({ to: '/$slug', params: { slug: screen.slug } });
+      
+      // If we're in an iframe, notify the parent window
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'route-change',
+          path: `/${screen.slug}`,
+        }, '*');
+      }
     }
   };
 
@@ -50,7 +65,7 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     if (screenId === currentScreenId) {
       const remainingScreens = screens.filter(s => s.id !== screenId);
       if (remainingScreens.length > 0) {
-        navigate({ to: '/screen/$screenId', params: { screenId: remainingScreens[0].id } });
+        navigate({ to: '/$slug', params: { slug: remainingScreens[0].slug } });
       } else {
         navigate({ to: '/' });
       }
@@ -127,17 +142,6 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     ));
   };
 
-  const findScreenById = (screenList: ScreenConfig[], id: string): ScreenConfig | undefined => {
-    for (const screen of screenList) {
-      if (screen.id === id) return screen;
-      if (screen.children) {
-        const found = findScreenById(screen.children, id);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  };
-  
   const currentScreenName = currentScreenId ? findScreenById(screens, currentScreenId)?.name || 'Select View' : 'Select View';
 
   if (isMobile) {
