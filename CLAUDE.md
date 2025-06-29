@@ -110,7 +110,6 @@ When creating a new epic with sub-issues:
 ### Branch and Pull Request Strategy
 
 **Important**: For GitHub issues that have sub-issues, create a separate branch and pull request for every sub-issue. This keeps pull requests at a reasonable size and makes code review more manageable.
-
 ## Development Workflow
 
 ### Home Assistant Development Setup
@@ -531,7 +530,7 @@ When adding new sections, use this format:
 
 ## Scripts Directory
 
-The `/scripts` directory contains automation scripts for the project.
+All project automation scripts should be maintained in the `/scripts` directory. This keeps the project root clean and makes scripts easy to find.
 
 ### Available Scripts
 
@@ -544,6 +543,13 @@ The `/scripts` directory contains automation scripts for the project.
   ./scripts/link-sub-issues.sh 1 12 13 14
   ```
 
+### Creating New Scripts
+
+When creating automation scripts:
+1. Place them in the `/scripts` directory
+2. Make them executable: `chmod +x scripts/script-name.sh`
+3. Add a description to this section
+4. Include usage instructions in the script header
 ## GitHub Issue Linking
 
 ### Important: Linking Sub-Issues to Epics
@@ -600,3 +606,4 @@ GitHub has a specific feature for linking issues as sub-issues to epics. This is
    - Create the epic first
    - Create all sub-issues with "Epic: #<number>" in description
    - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
+10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
