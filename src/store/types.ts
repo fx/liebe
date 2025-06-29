@@ -12,6 +12,15 @@ export interface GridItem {
   height: number;
 }
 
+export interface SectionConfig {
+  id: string;
+  title: string;
+  order: number;
+  width: 'full' | 'half' | 'third' | 'quarter';
+  collapsed?: boolean;
+  items: GridItem[];
+}
+
 export interface ScreenConfig {
   id: string;
   name: string;
@@ -20,7 +29,7 @@ export interface ScreenConfig {
   children?: ScreenConfig[];
   grid?: {
     resolution: GridResolution;
-    items: GridItem[];
+    sections: SectionConfig[];
   };
 }
 
@@ -48,9 +57,12 @@ export interface StoreActions {
   addScreen: (screen: ScreenConfig, parentId?: string) => void;
   updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => void;
   removeScreen: (screenId: string) => void;
-  addGridItem: (screenId: string, item: GridItem) => void;
-  updateGridItem: (screenId: string, itemId: string, updates: Partial<GridItem>) => void;
-  removeGridItem: (screenId: string, itemId: string) => void;
+  addSection: (screenId: string, section: SectionConfig) => void;
+  updateSection: (screenId: string, sectionId: string, updates: Partial<SectionConfig>) => void;
+  removeSection: (screenId: string, sectionId: string) => void;
+  addGridItem: (screenId: string, sectionId: string, item: GridItem) => void;
+  updateGridItem: (screenId: string, sectionId: string, itemId: string, updates: Partial<GridItem>) => void;
+  removeGridItem: (screenId: string, sectionId: string, itemId: string) => void;
   setTheme: (theme: 'light' | 'dark' | 'auto') => void;
   setGridResolution: (resolution: GridResolution) => void;
   loadConfiguration: (config: DashboardConfig) => void;

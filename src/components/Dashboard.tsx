@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Box, Flex, Card, Text, Button, Badge } from '@radix-ui/themes';
 import { ViewTabs } from './ViewTabs';
 import { AddViewDialog } from './AddViewDialog';
+import { SectionGrid } from './SectionGrid';
+import { AddSectionButton } from './AddSectionButton';
 import { useDashboardStore, dashboardActions, useDashboardPersistence } from '../store';
 
 export function Dashboard() {
@@ -61,19 +63,39 @@ export function Dashboard() {
       {/* Main Content Area */}
       <Box style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
         {currentScreen ? (
-          <Card>
-            <Flex direction="column" gap="3">
-              <Text size="4" weight="bold">{currentScreen.name}</Text>
-              <Text color="gray">
-                Grid: {currentScreen.grid?.resolution.columns} × {currentScreen.grid?.resolution.rows}
-              </Text>
-              {currentScreen.grid?.items.length === 0 && (
+          <Flex direction="column" gap="4">
+            {/* Screen Header */}
+            <Flex align="center" justify="between">
+              <Flex direction="column" gap="1">
+                <Text size="4" weight="bold">{currentScreen.name}</Text>
                 <Text color="gray" size="2">
-                  No entities added yet. {mode === 'edit' && 'Add entities to start building your dashboard.'}
+                  Grid: {currentScreen.grid?.resolution.columns} × {currentScreen.grid?.resolution.rows}
                 </Text>
+              </Flex>
+              {mode === 'edit' && (
+                <AddSectionButton 
+                  screenId={currentScreen.id} 
+                  existingSectionsCount={currentScreen.grid?.sections?.length || 0}
+                />
               )}
             </Flex>
-          </Card>
+
+            {/* Sections Grid */}
+            {currentScreen.grid?.sections && currentScreen.grid.sections.length > 0 ? (
+              <SectionGrid 
+                screenId={currentScreen.id} 
+                sections={currentScreen.grid.sections}
+              />
+            ) : (
+              <Card>
+                <Flex align="center" justify="center" p="6">
+                  <Text color="gray" size="2">
+                    No sections added yet. {mode === 'edit' && 'Click "Add Section" to start organizing your dashboard.'}
+                  </Text>
+                </Flex>
+              </Card>
+            )}
+          </Flex>
         ) : (
           <Flex align="center" justify="center" style={{ height: '100%' }}>
             <Card>

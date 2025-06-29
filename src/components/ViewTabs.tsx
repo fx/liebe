@@ -1,4 +1,4 @@
-import { Tabs, Button, Flex, IconButton, ScrollArea, DropdownMenu } from '@radix-ui/themes';
+import { Tabs, Button, Flex, IconButton, ScrollArea, DropdownMenu, Box } from '@radix-ui/themes';
 import { Cross2Icon, PlusIcon, HamburgerMenuIcon } from '@radix-ui/react-icons';
 import { useDashboardStore, dashboardActions } from '../store';
 import type { ScreenConfig } from '../store/types';
@@ -39,17 +39,31 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     screenList.forEach((screen) => {
       tabs.push(
         <Tabs.Trigger key={screen.id} value={screen.id} style={{ paddingLeft: `${level * 20}px` }}>
-          <Flex align="center" gap="2">
-            <span>{screen.name}</span>
+          <Flex align="center" gap="2" style={{ width: '100%' }}>
+            <span style={{ flex: 1 }}>{screen.name}</span>
             {mode === 'edit' && screens.length > 1 && (
-              <IconButton
-                size="1"
-                variant="ghost"
-                color="gray"
+              <Box
                 onClick={(e) => handleRemoveView(screen.id, e)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  color: 'var(--gray-11)',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--gray-a3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
               >
-                <Cross2Icon />
-              </IconButton>
+                <Cross2Icon width="14" height="14" />
+              </Box>
             )}
           </Flex>
         </Tabs.Trigger>
