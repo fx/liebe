@@ -15,6 +15,8 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   const mode = useDashboardStore((state) => state.mode);
   const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
+  
+  console.log('ViewTabs render:', { screens, currentScreenId, mode });
 
   useEffect(() => {
     const checkMobile = () => {
@@ -27,7 +29,16 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   }, []);
 
   const handleTabChange = (value: string) => {
-    navigate({ to: '/screen/$screenId', params: { screenId: value } });
+    console.log('ViewTabs: handleTabChange called with:', value);
+    console.log('Current location before nav:', window.location.pathname);
+    console.log('Navigate function:', navigate);
+    
+    try {
+      navigate({ to: '/screen/$screenId', params: { screenId: value } });
+      console.log('Navigation call completed');
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
   };
 
   const handleRemoveView = (screenId: string, e: React.MouseEvent) => {
@@ -157,7 +168,7 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
 
   return (
     <Tabs.Root
-      value={currentScreenId || undefined}
+      value={currentScreenId || ''}
       onValueChange={handleTabChange}
     >
       <Flex align="center" gap="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>

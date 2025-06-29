@@ -7,6 +7,7 @@ export const Route = createFileRoute('/screen/$screenId')({
   beforeLoad: ({ params }) => {
     // Set the current screen when navigating to this route
     const { screenId } = params;
+    console.log('Route beforeLoad: navigating to screen:', screenId);
     
     // Find the screen in the store
     const findScreen = (screens: ScreenConfig[], id: string): boolean => {
