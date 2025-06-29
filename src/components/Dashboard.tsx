@@ -4,6 +4,7 @@ import { ViewTabs } from './ViewTabs';
 import { AddViewDialog } from './AddViewDialog';
 import { SectionGrid } from './SectionGrid';
 import { AddSectionButton } from './AddSectionButton';
+import { ConfigurationMenu } from './ConfigurationMenu';
 import { useDashboardStore, dashboardActions, useDashboardPersistence } from '../store';
 
 export function Dashboard() {
@@ -49,12 +50,15 @@ export function Dashboard() {
             {mode} mode
           </Badge>
         </Flex>
-        <Button
-          variant="soft"
-          onClick={handleToggleMode}
-        >
-          {mode === 'view' ? 'Edit' : 'Done'}
-        </Button>
+        <Flex align="center" gap="2">
+          <ConfigurationMenu />
+          <Button
+            variant="soft"
+            onClick={handleToggleMode}
+          >
+            {mode === 'view' ? 'Edit' : 'Done'}
+          </Button>
+        </Flex>
       </Flex>
 
       {/* View Tabs */}
