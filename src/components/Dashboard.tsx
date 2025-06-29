@@ -5,6 +5,7 @@ import { AddViewDialog } from './AddViewDialog';
 import { SectionGrid } from './SectionGrid';
 import { AddSectionButton } from './AddSectionButton';
 import { ConfigurationMenu } from './ConfigurationMenu';
+import { ConnectionStatus } from './ConnectionStatus';
 import { useDashboardStore, dashboardActions, useDashboardPersistence } from '../store';
 import { useEntityConnection } from '../hooks';
 
@@ -15,7 +16,7 @@ export function Dashboard() {
   useDashboardPersistence();
   
   // Enable entity connection
-  const { isConnected, lastError } = useEntityConnection();
+  useEntityConnection();
   
   const mode = useDashboardStore((state) => state.mode);
   const currentScreenId = useDashboardStore((state) => state.currentScreenId);
@@ -53,16 +54,7 @@ export function Dashboard() {
           <Badge color={mode === 'edit' ? 'orange' : 'blue'} size="2">
             {mode} mode
           </Badge>
-          {!isConnected && (
-            <Badge color="red" size="2">
-              Disconnected
-            </Badge>
-          )}
-          {lastError && (
-            <Text size="1" color="red">
-              {lastError}
-            </Text>
-          )}
+          <ConnectionStatus />
         </Flex>
         <Flex align="center" gap="2">
           <ConfigurationMenu />
