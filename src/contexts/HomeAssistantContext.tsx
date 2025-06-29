@@ -67,4 +67,10 @@ export const useHomeAssistant = () => {
   return context
 }
 
+// Hook that returns null when not in Home Assistant context
+export const useHomeAssistantOptional = () => {
+  const context = useContext(HomeAssistantContext)
+  return context
+}
+
 export { HomeAssistantContext }

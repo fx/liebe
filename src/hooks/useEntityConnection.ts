@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { useStore } from '@tanstack/react-store';
-import { useHomeAssistant } from '../contexts/HomeAssistantContext';
+import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext';
 import { hassConnectionManager } from '../services/hassConnection';
 import { entityStore } from '../store/entityStore';
 
 export function useEntityConnection() {
-  const hass = useHomeAssistant();
+  const hass = useHomeAssistantOptional();
   const isConnected = useStore(entityStore, (state) => state.isConnected);
   const lastError = useStore(entityStore, (state) => state.lastError);
 
@@ -22,8 +22,8 @@ export function useEntityConnection() {
   }, [hass]);
 
   return {
-    isConnected,
-    lastError,
+    isConnected: hass ? isConnected : false,
+    lastError: hass ? lastError : null,
     reconnect: () => hassConnectionManager.reconnect(),
   };
 }
