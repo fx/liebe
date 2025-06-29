@@ -103,28 +103,19 @@ When creating a new epic with sub-issues:
 
 For developing with Home Assistant integration:
 
-1. **Quick Preview (iframe mode)**:
+1. **Development with Home Assistant**:
+   ```bash
+   # Watch and rebuild custom panel on changes
+   npx vite build --config vite.config.ha.ts --watch
+   
+   # In another terminal, symlink for auto-deploy
+   ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard-dev
+   ```
+
+2. **Mock Development (without HA)**:
    ```bash
    npm run dev
-   npm run dev:ha iframe-config  # Shows config to add to HA
-   ```
-   - Simple setup, no build required
-   - Limited functionality (no hass object)
-   - Good for UI development
-
-2. **Full Integration (custom panel)**:
-   ```bash
-   npm run dev:ha watch  # Watches and rebuilds custom panel
-   npm run dev:ha custom-panel-config  # Shows config for HA
-   ```
-   - Full access to hass object
-   - Requires build step
-   - Best for testing HA integration
-
-3. **Helper Commands**:
-   ```bash
-   npm run dev:ha setup  # Initial setup
-   npm run dev:ha --help  # Show all options
+   # Add mock hass data in your components for testing
    ```
 
 ### Starting a New Task
@@ -173,8 +164,8 @@ For developing with Home Assistant integration:
    ```
 
 3. **Home Assistant Integration Testing**
-   - Build the project: `npm run build`
-   - Copy built files to HA config: `www/dashboard/`
+   - Build the custom panel: `npm run build:ha`
+   - Copy built files to HA config: `cp -r dist/liebe-dashboard /config/www/`
    - Update `configuration.yaml` with panel config
    - Restart Home Assistant to test
 
@@ -253,41 +244,96 @@ For developing with Home Assistant integration:
 
 ### Home Assistant Custom Panel
 
-1. **Panel Registration**
-   ```javascript
-   customElements.define('dashboard-panel', class extends HTMLElement {
-     set hass(hass) {
-       // Store hass object for API access
-       this._hass = hass;
-       this.render();
-     }
-     
-     connectedCallback() {
-       // Initialize React app here
-     }
-   });
-   ```
+#### Important: panel_iframe is Deprecated
 
-2. **Accessing Entities**
-   ```javascript
-   // Get all entities
-   const entities = this._hass.states;
-   
-   // Call service
-   this._hass.callService('light', 'turn_on', {
-     entity_id: 'light.living_room'
-   });
-   ```
+Home Assistant has deprecated `panel_iframe` in favor of custom panels. Always use `panel_custom` for proper integration with full access to the `hass` object.
 
-3. **Configuration in HA**
-   ```yaml
-   panel_custom:
-     - name: dashboard-panel
-       sidebar_title: Dashboard
-       sidebar_icon: mdi:view-dashboard
-       url_path: dashboard
-       module_url: /local/dashboard/index.js
-   ```
+**Migration Guide:** If you're coming from `panel_iframe`, see [MIGRATION-FROM-IFRAME.md](/workspace/docs/MIGRATION-FROM-IFRAME.md) for detailed migration steps.
+
+#### Development Approaches
+
+**1. Development Custom Panel (Recommended)**
+
+This approach provides full hass access during development:
+
+```yaml
+# configuration.yaml
+panel_custom:
+  - name: liebe-dashboard-dev
+    sidebar_title: Liebe Dev
+    sidebar_icon: mdi:react
+    url_path: liebe-dev
+    module_url: /local/liebe-dashboard-dev/custom-panel.js
+    config:
+      # Optional: Enable development mode
+      dev_mode: true
+      dev_url: "http://localhost:3000"
+```
+
+Then use watch mode:
+```bash
+./scripts/dev-ha.sh watch --ha-config /path/to/ha/config
+```
+
+**2. Mock Server for Local Development**
+
+For UI development without Home Assistant:
+```bash
+# Start mock HA server
+./scripts/dev-ha.sh mock-server
+
+# In another terminal, start dev server
+npm run dev
+```
+
+**3. Browser Extension for CORS**
+
+If you need to bypass CORS during development:
+1. Install a CORS extension (e.g., "CORS Unblock")
+2. Configure it to allow HA → localhost:3000
+3. Use the custom panel configuration
+
+#### Panel Registration
+
+```javascript
+customElements.define('liebe-dashboard-panel', class extends HTMLElement {
+  set hass(hass) {
+    // Store hass object for API access
+    this._hass = hass;
+    this.render();
+  }
+  
+  connectedCallback() {
+    // Initialize React app here
+  }
+});
+```
+
+#### Accessing Entities
+
+```javascript
+// Get all entities
+const entities = this._hass.states;
+
+// Call service
+this._hass.callService('light', 'turn_on', {
+  entity_id: 'light.living_room'
+});
+```
+
+#### Production Configuration
+
+```yaml
+panel_custom:
+  - name: liebe-dashboard-panel
+    sidebar_title: Liebe Dashboard
+    sidebar_icon: mdi:view-dashboard
+    url_path: liebe
+    module_url: /local/liebe-dashboard/custom-panel.js
+    config:
+      # Any custom configuration
+      theme: default
+```
 
 ## Common Patterns
 
@@ -335,11 +381,44 @@ try {
 2. **Development Tools**
    - React Developer Tools
    - Use `console.log(this._hass)` to explore available APIs
+   - Network tab to monitor WebSocket connections
 
 3. **Common Issues**
    - Panel not loading: Check module_url path
    - No hass object: Ensure proper custom element setup
    - State not updating: Check event subscriptions
+   - CORS errors: Use custom panel instead of iframe
+   - Dev server not accessible: Check firewall/network settings
+
+4. **Development Mode Issues**
+   - If using panel_iframe (deprecated): No hass object access
+   - Solution: Always use panel_custom for development
+   - For hot reload: Use watch build + symlink approach
+
+## Development Best Practices
+
+### Modern Home Assistant Development
+
+1. **Never use panel_iframe** - It's deprecated and doesn't provide hass object access
+2. **Always use panel_custom** for proper integration
+3. **Development workflow options:**
+   - Watch build with symlinks (recommended)
+   - Mock server for UI-only development
+   - Home Assistant dev container for full integration testing
+
+### Quick Development Setup
+
+```bash
+# One-time setup
+./scripts/dev-ha.sh setup
+
+# For development with real HA
+./scripts/dev-ha.sh watch --ha-config /path/to/ha
+
+# For UI-only development
+./scripts/dev-ha.sh mock-server
+npm run dev  # In another terminal
+```
 
 ## Resources
 
@@ -347,6 +426,7 @@ try {
 - [Radix UI Components](https://www.radix-ui.com/primitives)
 - [Home Assistant Frontend Dev](https://developers.home-assistant.io/docs/frontend/)
 - [Custom Panel Docs](https://developers.home-assistant.io/docs/frontend/custom-ui/creating-custom-panels/)
+- [Home Assistant Development Environment](https://developers.home-assistant.io/docs/development_environment)
 
 ## Continuous Documentation Updates
 
@@ -401,7 +481,7 @@ When adding new sections, use this format:
 
 ## Scripts Directory
 
-All project automation scripts should be maintained in the `/scripts` directory. This keeps the project root clean and makes scripts easy to find.
+The `/scripts` directory contains automation scripts for the project.
 
 ### Available Scripts
 
@@ -413,14 +493,6 @@ All project automation scripts should be maintained in the `/scripts` directory.
   # Example: Link issues 12, 13, 14 to epic 1
   ./scripts/link-sub-issues.sh 1 12 13 14
   ```
-
-### Creating New Scripts
-
-When creating automation scripts:
-1. Place them in the `/scripts` directory
-2. Make them executable: `chmod +x scripts/script-name.sh`
-3. Add a description to this section
-4. Include usage instructions in the script header
 
 ## GitHub Issue Linking
 
@@ -478,4 +550,3 @@ GitHub has a specific feature for linking issues as sub-issues to epics. This is
    - Create the epic first
    - Create all sub-issues with "Epic: #<number>" in description
    - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
-10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
