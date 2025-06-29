@@ -11,6 +11,7 @@ import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
 import { DevHomeAssistantProvider } from '~/components/DevHomeAssistantProvider'
+import { useHomeAssistantRouting } from '~/hooks/useHomeAssistantRouting'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
 
@@ -58,6 +59,9 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // Enable Home Assistant routing sync
+  useHomeAssistantRouting()
+  
   return (
     <html>
       <head>
