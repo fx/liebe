@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ButtonCard } from '../ButtonCard';
 import { useEntity } from '~/hooks';
-import { useHomeAssistant } from '~/contexts/HomeAssistantContext';
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext';
 import type { HomeAssistant } from '~/contexts/HomeAssistantContext';
 
 // Mock the hooks
@@ -12,7 +12,7 @@ vi.mock('~/hooks', () => ({
 }));
 
 vi.mock('~/contexts/HomeAssistantContext', () => ({
-  useHomeAssistant: vi.fn(),
+  useHomeAssistantOptional: vi.fn(),
   HomeAssistant: vi.fn(),
 }));
 
@@ -64,7 +64,7 @@ describe('ButtonCard', () => {
         version: '2024.1.0',
       },
     };
-    vi.mocked(useHomeAssistant).mockReturnValue(mockHass);
+    vi.mocked(useHomeAssistantOptional).mockReturnValue(mockHass);
   });
 
   it('should render entity not found when entity is null', () => {
@@ -243,7 +243,7 @@ describe('ButtonCard', () => {
       isConnected: true,
       isLoading: false,
     });
-    vi.mocked(useHomeAssistant).mockReturnValue(null as unknown as HomeAssistant);
+    vi.mocked(useHomeAssistantOptional).mockReturnValue(null);
     
     render(<ButtonCard entityId="light.living_room" />);
     

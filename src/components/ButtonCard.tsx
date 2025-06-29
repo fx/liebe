@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, Flex, Text, Spinner, Box } from '@radix-ui/themes';
 import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons';
 import { useEntity } from '~/hooks';
-import { useHomeAssistant } from '~/contexts/HomeAssistantContext';
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext';
 import type { HassEntity } from '~/store/entityTypes';
 
 interface ButtonCardProps {
@@ -28,7 +28,7 @@ const getEntityIcon = (entity: HassEntity) => {
 export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { entity, isConnected } = useEntity(entityId);
-  const homeAssistant = useHomeAssistant();
+  const homeAssistant = useHomeAssistantOptional();
   
   if (!entity || !isConnected) {
     return (
