@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Flex, Text, IconButton, Card } from '@radix-ui/themes';
-import { ChevronDownIcon, ChevronRightIcon } from '@radix-ui/react-icons';
+import { ChevronDownIcon, ChevronRightIcon, DragHandleDots2Icon } from '@radix-ui/react-icons';
 import { SectionConfig } from '../store/types';
 import { useDashboardStore } from '../store';
 
@@ -41,6 +41,15 @@ export function Section({ section, onUpdate, onDelete, children }: SectionProps)
         onClick={handleToggleCollapse}
       >
         <Flex align="center" gap="2">
+          {isEditMode && (
+            <DragHandleDots2Icon
+              style={{
+                cursor: 'grab',
+                color: 'var(--gray-9)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
           <IconButton
             size="1"
             variant="ghost"
