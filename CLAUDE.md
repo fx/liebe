@@ -97,6 +97,10 @@ When creating a new epic with sub-issues:
    ./scripts/link-sub-issues.sh 24 25 26 27
    ```
 
+### Branch and Pull Request Strategy
+
+**Important**: For GitHub issues that have sub-issues, create a separate branch and pull request for every sub-issue. This keeps pull requests at a reasonable size and makes code review more manageable.
+
 ## Development Workflow
 
 ### Home Assistant Development Setup
@@ -546,7 +550,7 @@ GitHub has a specific feature for linking issues as sub-issues to epics. This is
 
 1. **Never commit sensitive data** (tokens, passwords, URLs)
 2. **Always test in both dev and HA environments**
-3. **Keep PRs focused** - one feature/fix per PR
+3. **Keep PRs focused** - one feature/fix per PR (create separate branches for each sub-issue)
 4. **Update documentation** as you add features
 5. **Use semantic commit messages**
 6. **Mark todos as completed** immediately after finishing tasks
