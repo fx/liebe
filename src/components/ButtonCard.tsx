@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { Card, Flex, Text, Spinner, Box } from '@radix-ui/themes';
 import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons';
-import { useEntity } from '~/hooks';
-import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext';
+import { useEntity, useServiceCall } from '~/hooks';
 import type { HassEntity } from '~/store/entityTypes';
 
 interface ButtonCardProps {
@@ -26,9 +24,8 @@ const getEntityIcon = (entity: HassEntity) => {
 };
 
 export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
-  const [isLoading, setIsLoading] = useState(false);
   const { entity, isConnected } = useEntity(entityId);
-  const homeAssistant = useHomeAssistantOptional();
+  const { loading: isLoading, error, toggle, clearError } = useServiceCall();
   
   if (!entity || !isConnected) {
     return (
@@ -42,35 +39,18 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
     );
   }
   
-  const domain = entity.entity_id.split('.')[0];
   const friendlyName = entity.attributes.friendly_name || entity.entity_id;
   const isOn = entity.state === 'on';
   
   const handleClick = async () => {
-    if (!homeAssistant || isLoading) return;
+    if (isLoading) return;
     
-    setIsLoading(true);
-    
-    try {
-      // Determine the correct service based on domain
-      let service = 'toggle';
-      if (domain === 'light' || domain === 'switch') {
-        service = 'toggle';
-      } else if (domain === 'input_boolean') {
-        service = 'toggle';
-      }
-      
-      await homeAssistant.callService(domain, service, {
-        entity_id: entity.entity_id,
-      });
-    } catch (error) {
-      console.error('Failed to call service:', error);
-    } finally {
-      // Add a small delay to show the loading state
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 300);
+    // Clear any previous errors
+    if (error) {
+      clearError();
     }
+    
+    await toggle(entity.entity_id);
   };
   
   const cardSize = {
@@ -85,13 +65,14 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
       style={{
         cursor: isLoading ? 'wait' : 'pointer',
         backgroundColor: isOn ? 'var(--amber-3)' : undefined,
-        borderColor: isOn ? 'var(--amber-6)' : undefined,
-        borderWidth: isOn ? '2px' : '1px',
+        borderColor: error ? 'var(--red-6)' : isOn ? 'var(--amber-6)' : undefined,
+        borderWidth: error || isOn ? '2px' : '1px',
         borderStyle: 'solid',
         transition: 'all 0.2s ease',
         transform: isLoading ? 'scale(0.98)' : undefined,
       }}
       onClick={handleClick}
+      title={error || undefined}
     >
       <Flex
         p={cardSize.p}
@@ -131,10 +112,10 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
         
         <Text
           size="1"
-          color={isOn ? 'amber' : 'gray'}
+          color={error ? 'red' : isOn ? 'amber' : 'gray'}
           weight="medium"
         >
-          {entity.state.toUpperCase()}
+          {error ? 'ERROR' : entity.state.toUpperCase()}
         </Text>
       </Flex>
     </Card>

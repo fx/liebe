@@ -2,13 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ButtonCard } from '../ButtonCard';
-import { useEntity } from '~/hooks';
+import { useEntity, useServiceCall } from '~/hooks';
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext';
 import type { HomeAssistant } from '~/contexts/HomeAssistantContext';
 
 // Mock the hooks
 vi.mock('~/hooks', () => ({
   useEntity: vi.fn(),
+  useServiceCall: vi.fn(),
 }));
 
 vi.mock('~/contexts/HomeAssistantContext', () => ({
@@ -18,6 +19,8 @@ vi.mock('~/contexts/HomeAssistantContext', () => ({
 
 describe('ButtonCard', () => {
   const mockCallService = vi.fn();
+  const mockToggle = vi.fn();
+  const mockClearError = vi.fn();
   const mockEntity = {
     entity_id: 'light.living_room',
     state: 'off',
@@ -65,6 +68,18 @@ describe('ButtonCard', () => {
       },
     };
     vi.mocked(useHomeAssistantOptional).mockReturnValue(mockHass);
+    
+    // Default mock for useServiceCall
+    vi.mocked(useServiceCall).mockReturnValue({
+      loading: false,
+      error: null,
+      callService: vi.fn(),
+      turnOn: vi.fn(),
+      turnOff: vi.fn(),
+      toggle: mockToggle,
+      setValue: vi.fn(),
+      clearError: mockClearError,
+    });
   });
 
   it('should render entity not found when entity is null', () => {
@@ -126,16 +141,14 @@ describe('ButtonCard', () => {
       isConnected: true,
       isLoading: false,
     });
-    mockCallService.mockResolvedValue(undefined);
+    mockToggle.mockResolvedValue({ success: true });
     
     render(<ButtonCard entityId="light.living_room" />);
     
     const card = screen.getByText('Living Room Light').closest('[class*="Card"]');
     await user.click(card!);
     
-    expect(mockCallService).toHaveBeenCalledWith('light', 'toggle', {
-      entity_id: 'light.living_room',
-    });
+    expect(mockToggle).toHaveBeenCalledWith('light.living_room');
   });
 
   it('should handle switch entities', async () => {
@@ -158,9 +171,7 @@ describe('ButtonCard', () => {
     const card = screen.getByText('Garage Door').closest('[class*="Card"]');
     await user.click(card!);
     
-    expect(mockCallService).toHaveBeenCalledWith('switch', 'toggle', {
-      entity_id: 'switch.garage_door',
-    });
+    expect(mockToggle).toHaveBeenCalledWith('switch.garage_door');
   });
 
   it('should handle input_boolean entities', async () => {
@@ -183,74 +194,92 @@ describe('ButtonCard', () => {
     const card = screen.getByText('Vacation Mode').closest('[class*="Card"]');
     await user.click(card!);
     
-    expect(mockCallService).toHaveBeenCalledWith('input_boolean', 'toggle', {
-      entity_id: 'input_boolean.vacation_mode',
-    });
+    expect(mockToggle).toHaveBeenCalledWith('input_boolean.vacation_mode');
   });
 
   it('should show loading state during service call', async () => {
-    const user = userEvent.setup();
     vi.mocked(useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
     });
     
-    // Make the service call hang
-    let resolvePromise: () => void;
-    const promise = new Promise<void>((resolve) => {
-      resolvePromise = resolve;
+    // Set loading state
+    vi.mocked(useServiceCall).mockReturnValue({
+      loading: true,
+      error: null,
+      callService: vi.fn(),
+      turnOn: vi.fn(),
+      turnOff: vi.fn(),
+      toggle: mockToggle,
+      setValue: vi.fn(),
+      clearError: mockClearError,
     });
-    mockCallService.mockReturnValue(promise);
     
     render(<ButtonCard entityId="light.living_room" />);
     
     const card = screen.getByText('Living Room Light').closest('[class*="Card"]');
-    await user.click(card!);
     
-    // Should show loading spinner
+    // Should show loading spinner by checking for the spinner class
+    expect(screen.getByText('Living Room Light').parentElement?.querySelector('.rt-Spinner')).toBeInTheDocument();
     expect(card).toHaveStyle({ cursor: 'wait' });
-    
-    // Resolve the promise
-    resolvePromise!();
-    await promise;
   });
 
   it('should handle service call errors', async () => {
-    const user = userEvent.setup();
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
     });
-    mockCallService.mockRejectedValue(new Error('Service call failed'));
+    
+    // Set error state
+    vi.mocked(useServiceCall).mockReturnValue({
+      loading: false,
+      error: 'Service call failed',
+      callService: vi.fn(),
+      turnOn: vi.fn(),
+      turnOff: vi.fn(),
+      toggle: mockToggle,
+      setValue: vi.fn(),
+      clearError: mockClearError,
+    });
     
     render(<ButtonCard entityId="light.living_room" />);
     
     const card = screen.getByText('Living Room Light').closest('[class*="Card"]');
-    await user.click(card!);
     
-    expect(consoleSpy).toHaveBeenCalledWith('Failed to call service:', expect.any(Error));
-    
-    consoleSpy.mockRestore();
+    // Should show error state
+    expect(screen.getByText('ERROR')).toBeInTheDocument();
+    expect(card).toHaveAttribute('title', 'Service call failed');
+    expect(card).toHaveStyle({ borderColor: 'var(--red-6)' });
   });
 
-  it('should not call service when hass is not available', async () => {
+  it('should not call service when loading', async () => {
     const user = userEvent.setup();
     vi.mocked(useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
     });
-    vi.mocked(useHomeAssistantOptional).mockReturnValue(null);
+    
+    // Set loading state to prevent clicks
+    vi.mocked(useServiceCall).mockReturnValue({
+      loading: true,
+      error: null,
+      callService: vi.fn(),
+      turnOn: vi.fn(),
+      turnOff: vi.fn(),
+      toggle: mockToggle,
+      setValue: vi.fn(),
+      clearError: mockClearError,
+    });
     
     render(<ButtonCard entityId="light.living_room" />);
     
     const card = screen.getByText('Living Room Light').closest('[class*="Card"]');
     await user.click(card!);
     
-    expect(mockCallService).not.toHaveBeenCalled();
+    expect(mockToggle).not.toHaveBeenCalled();
   });
 
   it('should render different sizes correctly', () => {
