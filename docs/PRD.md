@@ -3,15 +3,16 @@
 
 ## Executive Summary
 
-Liebe is an open-source dashboard for Home Assistant that provides a modern, customizable interface with native integration. The project focuses on performance, ease of use, and extensibility while maintaining full compatibility with Home Assistant's ecosystem.
+Liebe is an open-source dashboard for Home Assistant that provides a modern, touch-optimized interface with native integration. The project prioritizes in-panel configuration, eliminating the need for users to edit files. All dashboard configuration is stored in a single shareable YAML file, with a clean separation between "view mode" and "edit mode".
 
 ## Project Goals
 
-1. **Native Integration**: Seamless integration with Home Assistant as a custom panel
-2. **Modern Stack**: Leverage TanStack Start for optimal performance and developer experience
-3. **User-Friendly**: Intuitive drag-and-drop interface for dashboard customization
-4. **Real-time Updates**: Instant reflection of entity state changes
-5. **Extensible**: Architecture that allows for future feature additions
+1. **Zero-File Configuration**: All configuration happens directly in the dashboard through edit mode
+2. **Touch-First Design**: Optimized for touch interaction with consistent, generous spacing
+3. **Single YAML Export**: Entire dashboard configuration in one shareable file
+4. **Clean Modes**: Clear separation between viewing and editing
+5. **Flexible Screens**: Unlimited screens organized in tree structures
+6. **Grid-Based Layout**: Customizable grid resolution for precise component placement
 
 ## Technical Architecture
 
@@ -27,7 +28,7 @@ Liebe is an open-source dashboard for Home Assistant that provides a modern, cus
 - **State Management**: TanStack Store
 - **Build Tool**: Vite (via TanStack Start)
 - **Language**: TypeScript
-- **Styling**: CSS-in-JS with Radix UI defaults
+- **Styling**: Radix UI Theme with default styling (no custom CSS unless absolutely necessary)
 
 ### Development Environment
 - Home Assistant instance: To be provided when needed
@@ -42,16 +43,25 @@ The MVP is organized into 6 epics, each representing a major feature area. Detai
 Establish the basic project structure and development environment with TanStack Start, TypeScript, and Home Assistant integration.
 
 ### Epic 2: Core Dashboard Infrastructure
-Build the fundamental dashboard system with view management, state handling, and configuration persistence.
+Build the fundamental dashboard system with screen management (tree structure), edit/view modes, and single YAML configuration export.
 
 ### Epic 3: Entity Management
 Develop the system for displaying and controlling Home Assistant entities with real-time updates.
 
-### Epic 4: Dashboard Editor
-Enable users to customize their dashboards through an intuitive interface without writing code.
+### Epic 4: Dashboard Editor (Edit Mode)
+Implement the edit mode where all configuration happens directly on the dashboard. Users can:
+- Switch between view and edit modes
+- Add/remove/organize screens in a tree structure
+- Configure grid resolution per screen
+- Place and resize components on the grid
+- Export/import entire configuration as YAML
 
-### Epic 5: UI Components and Theming
-Create the essential UI components using Radix UI and implement basic theming support.
+### Epic 5: UI Components and Touch Optimization
+Implement touch-optimized components using Radix UI Theme:
+- Consistent spacing and sizing across all components
+- Minimum 44px touch targets
+- Default Radix UI Theme styling (no custom CSS)
+- Clean appearance in view mode (no edit controls visible)
 
 ### Epic 6: Advanced Entity Controls
 Extend entity support beyond basic switches to include lights, climate, sensors, and other Home Assistant entity types.
@@ -82,22 +92,33 @@ Extend entity support beyond basic switches to include lights, climate, sensors,
 
 ## UI/UX Principles
 
-Successful open source projects share common qualities that Liebe should embrace:
+### Core Principles
 
-- **Immediate Usability**: Works out of the box with sensible defaults (leveraging Radix UI's built-in accessibility and behavior)
-- **Progressive Complexity**: Advanced features discoverable but not overwhelming
-- **Dark Mode First**: Respects system preferences, with light mode as an option
-- **Responsive Design**: Functions well on all screen sizes
-- **Clear Error States**: Helpful messages that guide users to solutions
-- **Keyboard Friendly**: Full functionality without requiring a mouse
-- **Data Portability**: Easy backup and restore of configurations
+1. **No File Editing Required**: Everything configurable through the UI in edit mode
+2. **Touch-First**: All interactions optimized for touch with generous tap targets
+3. **Clean Separation**: View mode shows only content, edit mode shows configuration tools
+4. **Radix UI Theme Defaults**: Use the design system as-is, no custom styling
+5. **Single Configuration File**: One YAML file contains everything needed to recreate a dashboard
+
+### Screen Organization
+
+- **Tree Structure**: Screens organized hierarchically for menu/sidebar navigation
+- **Unlimited Screens**: Users can create as many screens as needed
+- **Screen Types**: MVP includes only grid type, extensible for future types
+
+### Grid System
+
+- **Customizable Resolution**: Users set grid columns/rows per screen
+- **Free Placement**: Components placed anywhere on the grid
+- **Responsive Sizing**: Components can span multiple grid cells
+- **Visual Grid**: Grid visible in edit mode, hidden in view mode
 
 ## Constraints and Considerations
 
 1. **Browser Support**: Modern browsers only (Chrome, Firefox, Safari, Edge)
 2. **Mobile**: Responsive design but mobile-first optimization in Phase 2
 3. **Security**: Inherits Home Assistant's security model
-4. **Configuration**: YAML-based configuration for consistency with HA
+4. **Configuration**: Single YAML file for entire dashboard, edited only through UI
 5. **Localization**: English-only for MVP
 
 ## Development Process
