@@ -28,7 +28,7 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
       },
     };
 
-    dashboardActions.addScreen(newScreen, parentId || undefined);
+    dashboardActions.addScreen(newScreen, parentId && parentId !== 'none' ? parentId : undefined);
     dashboardActions.setCurrentScreen(newScreen.id);
     
     setViewName('');
@@ -68,17 +68,12 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
               <Text as="div" size="2" mb="1" weight="bold">
                 View Name
               </Text>
-              <TextField.Root>
-                <TextField.Slot>
-                  <input
-                    placeholder="Living Room"
-                    value={viewName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViewName(e.target.value)}
-                    autoFocus
-                    style={{ border: 'none', outline: 'none', width: '100%', background: 'transparent' }}
-                  />
-                </TextField.Slot>
-              </TextField.Root>
+              <TextField.Root
+                placeholder="Living Room"
+                value={viewName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViewName(e.target.value)}
+                autoFocus
+              />
             </label>
 
             {screens.length > 0 && (
@@ -89,7 +84,7 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
                 <Select.Root value={parentId} onValueChange={setParentId}>
                   <Select.Trigger placeholder="Select parent view..." />
                   <Select.Content>
-                    <Select.Item value="">
+                    <Select.Item value="none">
                       <em>None (Top Level)</em>
                     </Select.Item>
                     {getScreenOptions(screens)}

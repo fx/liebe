@@ -34,26 +34,24 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   };
 
   const renderScreenTabs = (screenList: ScreenConfig[], level = 0): React.ReactNode => {
-    return screenList.map((screen) => (
-      <>
-        <Tabs.Trigger key={screen.id} value={screen.id} style={{ paddingLeft: `${level * 20}px` }}>
-          <Flex align="center" gap="2">
-            <span>{screen.name}</span>
-            {mode === 'edit' && screens.length > 1 && (
-              <IconButton
-                size="1"
-                variant="ghost"
-                color="gray"
-                onClick={(e) => handleRemoveView(screen.id, e)}
-              >
-                <Cross2Icon />
-              </IconButton>
-            )}
-          </Flex>
-        </Tabs.Trigger>
-        {screen.children && renderScreenTabs(screen.children, level + 1)}
-      </>
-    ));
+    return screenList.map((screen) => [
+      <Tabs.Trigger key={screen.id} value={screen.id} style={{ paddingLeft: `${level * 20}px` }}>
+        <Flex align="center" gap="2">
+          <span>{screen.name}</span>
+          {mode === 'edit' && screens.length > 1 && (
+            <IconButton
+              size="1"
+              variant="ghost"
+              color="gray"
+              onClick={(e) => handleRemoveView(screen.id, e)}
+            >
+              <Cross2Icon />
+            </IconButton>
+          )}
+        </Flex>
+      </Tabs.Trigger>,
+      ...(screen.children ? renderScreenTabs(screen.children, level + 1) : [])
+    ]).flat();
   };
 
   if (screens.length === 0) {
