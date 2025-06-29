@@ -119,7 +119,7 @@ describe('Dashboard', () => {
         type: 'grid',
         grid: {
           resolution: { columns: 12, rows: 8 },
-          items: [],
+          sections: [],
         },
       });
       dashboardActions.setCurrentScreen('test-1');
