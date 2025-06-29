@@ -84,7 +84,7 @@ describe('AddViewDialog', () => {
       id: 'parent-1',
       name: 'Main Floor',
       type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, items: [] },
+      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
     });
     
     render(<AddViewDialog open={true} onOpenChange={mockOnOpenChange} />);
@@ -101,7 +101,7 @@ describe('AddViewDialog', () => {
       id: 'parent-1',
       name: 'Main Floor',
       type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, items: [] },
+      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
     });
     
     render(<AddViewDialog open={true} onOpenChange={mockOnOpenChange} />);
