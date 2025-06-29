@@ -1,6 +1,9 @@
 import type { HomeAssistant } from '../contexts/HomeAssistantContext';
 import type { HassEntity } from '../store/entityTypes';
 import { entityStoreActions } from '../store/entityStore';
+import { entityDebouncer } from '../store/entityDebouncer';
+import { entityUpdateBatcher } from '../store/entityBatcher';
+import { staleEntityMonitor } from './staleEntityMonitor';
 
 export interface StateChangedEvent {
   event_type: 'state_changed';
@@ -40,6 +43,9 @@ export class HassConnectionManager {
 
       // Subscribe to state changes
       this.subscribeToStateChanges();
+      
+      // Start monitoring for stale entities
+      staleEntityMonitor.start();
     } catch (error) {
       console.error('Failed to connect to Home Assistant:', error);
       entityStoreActions.setError(error instanceof Error ? error.message : 'Connection failed');
@@ -59,6 +65,13 @@ export class HassConnectionManager {
       this.stateChangeUnsubscribe();
       this.stateChangeUnsubscribe = null;
     }
+
+    // Stop stale entity monitoring
+    staleEntityMonitor.stop();
+
+    // Flush any pending updates before disconnecting
+    entityDebouncer.flushAll();
+    entityUpdateBatcher.flush();
 
     // Mark as disconnected
     entityStoreActions.setConnected(false);
@@ -119,7 +132,8 @@ export class HassConnectionManager {
 
     // Handle entity update or addition
     if (new_state) {
-      entityStoreActions.updateEntity(new_state);
+      // Use debouncer which will pass to batcher
+      entityDebouncer.processUpdate(new_state);
     }
   }
 

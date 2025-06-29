@@ -87,6 +87,7 @@ describe('ButtonCard', () => {
       entity: undefined,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="unknown.entity" />);
@@ -99,6 +100,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: false,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="light.living_room" />);
@@ -111,6 +113,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="light.living_room" />);
@@ -127,6 +130,7 @@ describe('ButtonCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="light.living_room" />);
@@ -140,6 +144,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     mockToggle.mockResolvedValue({ success: true });
     
@@ -164,6 +169,7 @@ describe('ButtonCard', () => {
       entity: switchEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="switch.garage_door" />);
@@ -187,6 +193,7 @@ describe('ButtonCard', () => {
       entity: inputBooleanEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="input_boolean.vacation_mode" />);
@@ -202,6 +209,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     // Set loading state
@@ -238,6 +246,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     // Set error state
@@ -268,6 +277,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     // Set loading state to prevent clicks
@@ -295,6 +305,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     const { rerender } = render(<ButtonCard entityId="light.living_room" size="small" />);
@@ -315,6 +326,7 @@ describe('ButtonCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="light.living_room" />);
@@ -330,6 +342,7 @@ describe('ButtonCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isStale: false,
     });
     
     render(<ButtonCard entityId="light.living_room" />);
