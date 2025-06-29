@@ -5,9 +5,16 @@ import { NotFound } from './components/NotFound'
 
 export function createRouter() {
   // Determine base path for Home Assistant custom panel
-  // In HA, the panel is served at /liebe/ (or whatever url_path is configured)
-  const isInHomeAssistant = typeof window !== 'undefined' && window.location.pathname.includes('/liebe')
-  const basepath = isInHomeAssistant ? '/liebe' : undefined
+  // In HA, the panel is served at /liebe/ (production) or /liebe-dev/ (development)
+  let basepath: string | undefined = undefined
+  
+  if (typeof window !== 'undefined') {
+    if (window.location.pathname.includes('/liebe-dev')) {
+      basepath = '/liebe-dev'
+    } else if (window.location.pathname.includes('/liebe')) {
+      basepath = '/liebe'
+    }
+  }
   
   const router = createTanStackRouter({
     routeTree,
