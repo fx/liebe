@@ -2,14 +2,24 @@
 
 ## Project Overview
 
-You are working on a custom Home Assistant dashboard project that integrates as a native panel within Home Assistant. This project uses TanStack Start with React in SPA mode and Radix UI for components.
+You are working on a custom Home Assistant dashboard project that integrates as a native panel within Home Assistant. This project uses TanStack Start with React in SPA mode and Radix UI Theme for components.
+
+### Core Design Principles
+
+1. **In-Panel Configuration**: All configuration happens directly within the dashboard through an "edit mode". Users should NEVER need to edit files manually.
+2. **Single YAML Export**: The entire dashboard configuration is stored in and exportable as a single YAML file for sharing.
+3. **Touch-First UI**: All UI elements optimized for touch interaction with consistent spacing and sizing.
+4. **Radix UI Theme**: Use Radix UI Theme (not just primitives) with default styling - no custom CSS unless absolutely necessary.
+5. **Clean View Mode**: Default mode shows no editing controls - just the dashboard content.
+6. **Flexible Screen Organization**: Users create unlimited screens organized in a tree structure (menu/sidebar navigation).
+7. **Grid-Based Layout**: Each screen uses a customizable grid where users freely place entity components.
 
 ## Development Environment
 
 - **Home Assistant Instance**: To be provided when needed
 - **Repository**: Use GitHub Projects for task management
 - **Framework**: TanStack Start with React (SPA Mode)
-- **UI Library**: Radix UI (no Tailwind, use defaults)
+- **UI Library**: Radix UI Theme (not just primitives, use default theme)
 - **Integration**: Custom Panel in Home Assistant
 
 ## Task Management
@@ -154,7 +164,7 @@ Note: The custom element name in panel_custom must match the name in customEleme
 1. **Code Standards**
    - Use TypeScript for all new files
    - Follow React best practices
-   - Use Radix UI components without custom styling initially
+   - Use Radix UI Theme components with default styling (no custom CSS unless absolutely necessary)
    - Implement proper error boundaries
    - Add loading states for async operations
 
@@ -227,30 +237,36 @@ Note: The custom element name in panel_custom must match the name in customEleme
    - `vite.config.ts` - Build configuration
    - `tsconfig.json` - TypeScript configuration
 
-### Radix UI Integration
+### Radix UI Theme Integration
 
 1. **Installation Pattern**
    ```bash
-   npm install @radix-ui/react-<component>
+   npm install @radix-ui/themes
    ```
 
 2. **Usage Pattern**
    ```tsx
-   import * as Dialog from '@radix-ui/react-dialog';
+   import { Theme, Button, Dialog, Grid } from '@radix-ui/themes';
+   import '@radix-ui/themes/styles.css';
    
-   // Use with default styling only
-   <Dialog.Root>
-     <Dialog.Trigger>Open</Dialog.Trigger>
-     <Dialog.Portal>
-       <Dialog.Overlay />
+   // Wrap app in Theme provider
+   <Theme>
+     <Dialog.Root>
+       <Dialog.Trigger>
+         <Button>Open Dialog</Button>
+       </Dialog.Trigger>
        <Dialog.Content>
          <Dialog.Title>Title</Dialog.Title>
          <Dialog.Description>Description</Dialog.Description>
-         <Dialog.Close />
        </Dialog.Content>
-     </Dialog.Portal>
-   </Dialog.Root>
+     </Dialog.Root>
+   </Theme>
    ```
+
+3. **Touch Optimization**
+   - Use size="3" or larger for all interactive elements
+   - Maintain consistent spacing with Radix's built-in spacing scale
+   - Ensure minimum 44px touch targets
 
 ### Home Assistant Custom Panel
 
@@ -353,10 +369,34 @@ panel_custom:
 import { Store } from '@tanstack/store';
 
 export const dashboardStore = new Store({
-  views: [],
-  currentView: null,
+  mode: 'view', // 'view' | 'edit'
+  screens: [],  // Tree structure of screens
+  currentScreen: null,
+  configuration: {}, // Full dashboard config
+  gridResolution: { columns: 12, rows: 8 },
   theme: 'auto'
 });
+```
+
+### Configuration Management
+```typescript
+// Configuration is stored as YAML and managed in-panel
+export interface DashboardConfig {
+  version: string;
+  screens: ScreenConfig[];
+  theme?: string;
+}
+
+export interface ScreenConfig {
+  id: string;
+  name: string;
+  type: 'grid'; // Only grid type for MVP
+  children?: ScreenConfig[]; // For tree structure
+  grid?: {
+    resolution: { columns: number; rows: number };
+    items: GridItem[];
+  };
+}
 ```
 
 ### Entity Subscription
@@ -433,7 +473,7 @@ npm run dev  # In another terminal
 ## Resources
 
 - [TanStack Start Docs](https://tanstack.com/start/latest)
-- [Radix UI Components](https://www.radix-ui.com/primitives)
+- [Radix UI Themes](https://www.radix-ui.com/themes/docs)
 - [Home Assistant Frontend Dev](https://developers.home-assistant.io/docs/frontend/)
 - [Custom Panel Docs](https://developers.home-assistant.io/docs/frontend/custom-ui/creating-custom-panels/)
 - [Home Assistant Development Environment](https://developers.home-assistant.io/docs/development_environment)
