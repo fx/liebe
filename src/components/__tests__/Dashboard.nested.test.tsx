@@ -16,7 +16,7 @@ describe('Dashboard - Nested Views', () => {
       type: 'grid',
       grid: {
         resolution: { columns: 12, rows: 8 },
-        items: [],
+        sections: [],
       },
     });
     
@@ -27,7 +27,7 @@ describe('Dashboard - Nested Views', () => {
       type: 'grid',
       grid: {
         resolution: { columns: 12, rows: 8 },
-        items: [],
+        sections: [],
       },
     }, 'parent-1');
     
@@ -52,7 +52,7 @@ describe('Dashboard - Nested Views', () => {
       id: 'floor-1',
       name: 'First Floor',
       type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, items: [] },
+      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
     });
     
     // Create child
@@ -60,7 +60,7 @@ describe('Dashboard - Nested Views', () => {
       id: 'area-1',
       name: 'Living Area',
       type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, items: [] },
+      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
     }, 'floor-1');
     
     // Create grandchild
@@ -68,7 +68,7 @@ describe('Dashboard - Nested Views', () => {
       id: 'room-1',
       name: 'TV Room',
       type: 'grid',
-      grid: { resolution: { columns: 10, rows: 6 }, items: [] },
+      grid: { resolution: { columns: 10, rows: 6 }, sections: [] },
     }, 'area-1');
     
     // Select the grandchild
@@ -87,14 +87,14 @@ describe('Dashboard - Nested Views', () => {
       id: 'top-1',
       name: 'Overview',
       type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, items: [] },
+      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
     });
     
     dashboardActions.addScreen({
       id: 'nested-1',
       name: 'Kitchen',
       type: 'grid',
-      grid: { resolution: { columns: 8, rows: 6 }, items: [] },
+      grid: { resolution: { columns: 8, rows: 6 }, sections: [] },
     }, 'top-1');
     
     const { rerender } = render(<Dashboard />);

@@ -24,7 +24,7 @@ function StoreTestPage() {
       type: 'grid' as const,
       grid: {
         resolution: { columns: 12, rows: 8 },
-        items: [],
+        sections: [],
       },
     };
     dashboardActions.addScreen(newScreen);
@@ -42,7 +42,8 @@ function StoreTestPage() {
       width: 2,
       height: 2,
     };
-    dashboardActions.addGridItem(currentScreenId, newItem);
+    // TODO: Update to use sections
+    // dashboardActions.addGridItem(currentScreenId, 'section-id', newItem);
   };
 
   const handleExport = () => {
@@ -136,7 +137,7 @@ function StoreTestPage() {
               <Card>
                 <pre style={{ fontSize: '12px', margin: 0 }}>
                   {JSON.stringify(
-                    screens.find(s => s.id === currentScreenId)?.grid?.items || [],
+                    screens.find(s => s.id === currentScreenId)?.grid?.sections || [],
                     null,
                     2
                   )}
