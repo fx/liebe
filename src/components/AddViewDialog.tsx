@@ -3,6 +3,7 @@ import { Dialog, Button, TextField, Flex, Text, Select } from '@radix-ui/themes'
 import { dashboardActions, useDashboardStore } from '../store';
 import type { ScreenConfig } from '../store/types';
 import { useNavigate } from '@tanstack/react-router';
+import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug';
 
 interface AddViewDialogProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface AddViewDialogProps {
 export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
   const screens = useDashboardStore((state) => state.screens);
   const [viewName, setViewName] = useState('');
+  const [viewSlug, setViewSlug] = useState('');
   const [parentId, setParentId] = useState<string>('');
   const navigate = useNavigate();
 
@@ -20,9 +22,15 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
     
     if (!viewName.trim()) return;
 
+    // Use custom slug or generate from name
+    const baseSlug = viewSlug.trim() || generateSlug(viewName.trim());
+    const existingSlugs = getAllSlugs(screens);
+    const uniqueSlug = ensureUniqueSlug(baseSlug, existingSlugs);
+
     const newScreen: ScreenConfig = {
       id: `screen-${Date.now()}`,
       name: viewName.trim(),
+      slug: uniqueSlug,
       type: 'grid',
       grid: {
         resolution: { columns: 12, rows: 8 },
@@ -32,10 +40,11 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
 
     dashboardActions.addScreen(newScreen, parentId && parentId !== 'none' ? parentId : undefined);
     
-    // Navigate to the new screen
-    navigate({ to: '/screen/$screenId', params: { screenId: newScreen.id } });
+    // Navigate to the new screen using slug
+    navigate({ to: '/$slug', params: { slug: newScreen.slug } });
     
     setViewName('');
+    setViewSlug('');
     setParentId('');
     onOpenChange(false);
   };
@@ -75,9 +84,30 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
               <TextField.Root
                 placeholder="Living Room"
                 value={viewName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViewName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const newName = e.target.value;
+                  setViewName(newName);
+                  // Auto-generate slug if user hasn't manually edited it
+                  if (!viewSlug || generateSlug(viewName) === viewSlug) {
+                    setViewSlug(generateSlug(newName));
+                  }
+                }}
                 autoFocus
               />
+            </label>
+
+            <label>
+              <Text as="div" size="2" mb="1" weight="bold">
+                URL Slug
+              </Text>
+              <TextField.Root
+                placeholder="living-room"
+                value={viewSlug}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViewSlug(e.target.value)}
+              />
+              <Text as="div" size="1" color="gray" mt="1">
+                This will be used in the URL: /{viewSlug || 'living-room'}
+              </Text>
             </label>
 
             {screens.length > 0 && (
