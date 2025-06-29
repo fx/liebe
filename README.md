@@ -44,54 +44,24 @@ Restart Home Assistant and find "Liebe Dashboard" in the sidebar.
 
 ## Development with Home Assistant
 
-### Option 1: Development Custom Panel (Recommended)
-
-Build and watch for changes:
+Start the development server:
 ```bash
-# Watch mode - rebuilds on file changes
-npx vite build --config vite.config.ha.ts --watch
+npm run dev
 ```
 
-In another terminal, create a symlink to auto-deploy:
-```bash
-# Linux/Mac
-ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard-dev
-
-# Or manually copy after each build
-cp -r dist/liebe-dashboard/* /config/www/liebe-dashboard-dev/
-```
-
-Add a development panel to `configuration.yaml`:
+Add to your Home Assistant `configuration.yaml`:
 ```yaml
 panel_custom:
   - name: liebe-dashboard-dev
     sidebar_title: Liebe Dev
     sidebar_icon: mdi:react
     url_path: liebe-dev
-    module_url: /local/liebe-dashboard-dev/custom-panel.js
+    module_url: http://localhost:3000/dev-entry.js
 ```
 
-### Option 2: Mock Development
+**Restart Home Assistant** (required after adding/changing panel_custom).
 
-For UI development without Home Assistant:
-```bash
-# In src/routes/index.tsx, add mock data:
-const mockHass = {
-  states: {
-    'light.living_room': { 
-      entity_id: 'light.living_room',
-      state: 'on',
-      attributes: { friendly_name: 'Living Room Light' }
-    }
-  },
-  callService: async (domain, service, data) => {
-    console.log('Mock service call:', { domain, service, data })
-  }
-}
-
-# Use mockHass when real hass is not available
-const hass = useContext(HomeAssistantContext) || mockHass
-```
+This loads a wrapper that embeds your dev server in an iframe while providing access to the hass object via postMessage.
 
 ## Scripts
 

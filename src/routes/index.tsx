@@ -17,6 +17,7 @@ import {
 } from '~/components/ui'
 import { HomeAssistantContext } from '~/contexts/HomeAssistantContext'
 import { EntityCard } from '~/components/EntityCard'
+import { useDevHass } from '~/hooks/useDevHass'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -24,7 +25,9 @@ export const Route = createFileRoute('/')({
 
 function Home() {
   const [switchChecked, setSwitchChecked] = useState(false)
-  const hass = useContext(HomeAssistantContext)
+  const hassFromContext = useContext(HomeAssistantContext)
+  const hassFromDev = useDevHass()
+  const hass = hassFromContext || hassFromDev
 
   return (
     <div style={{ padding: '20px' }}>

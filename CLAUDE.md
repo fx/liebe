@@ -103,20 +103,26 @@ When creating a new epic with sub-issues:
 
 For developing with Home Assistant integration:
 
-1. **Development with Home Assistant**:
-   ```bash
-   # Watch and rebuild custom panel on changes
-   npx vite build --config vite.config.ha.ts --watch
-   
-   # In another terminal, symlink for auto-deploy
-   ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard-dev
-   ```
+```bash
+npm run dev
+```
 
-2. **Mock Development (without HA)**:
-   ```bash
-   npm run dev
-   # Add mock hass data in your components for testing
-   ```
+Add to Home Assistant configuration.yaml:
+```yaml
+panel_custom:
+  - name: liebe-dashboard-dev
+    sidebar_title: Liebe Dev
+    sidebar_icon: mdi:react
+    url_path: liebe-dev
+    module_url: http://localhost:3000/dev-entry.js
+```
+
+This gives you:
+- Hot module replacement  
+- Full hass object access (via postMessage bridge)
+- Real-time updates as you code
+
+Note: The custom element name in panel_custom must match the name in customElements.define()
 
 ### Starting a New Task
 

@@ -1,4 +1,6 @@
-import { useHomeAssistant } from '~/contexts/HomeAssistantContext'
+import { useContext } from 'react'
+import { HomeAssistantContext } from '~/contexts/HomeAssistantContext'
+import { useDevHass } from '~/hooks/useDevHass'
 import { Switch } from './ui/Switch'
 
 interface EntityCardProps {
@@ -6,7 +8,23 @@ interface EntityCardProps {
 }
 
 export function EntityCard({ entityId }: EntityCardProps) {
-  const hass = useHomeAssistant()
+  const hassFromContext = useContext(HomeAssistantContext)
+  const hassFromDev = useDevHass()
+  const hass = hassFromContext || hassFromDev
+  
+  if (!hass) {
+    return (
+      <div style={{ 
+        border: '1px solid #ccc', 
+        borderRadius: '8px', 
+        padding: '16px',
+        marginBottom: '8px' 
+      }}>
+        <p>Loading...</p>
+      </div>
+    )
+  }
+  
   const entity = hass.states[entityId]
 
   if (!entity) {
