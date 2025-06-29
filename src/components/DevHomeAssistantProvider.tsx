@@ -5,16 +5,11 @@ import { useDevHass } from '~/hooks/useDevHass';
 export function DevHomeAssistantProvider({ children }: { children: ReactNode }) {
   const devHass = useDevHass();
   
-  // If we have a hass object from dev mode, use it
-  if (devHass) {
-    return (
-      <HomeAssistantProvider hass={devHass}>
-        {children}
-      </HomeAssistantProvider>
-    );
-  }
-  
-  // Otherwise, render children without the provider
-  // This allows hooks to use useHomeAssistantOptional
-  return <>{children}</>;
+  // Always wrap children in the provider, even with null hass
+  // This prevents "useHomeAssistant must be used within a HomeAssistantProvider" errors
+  return (
+    <HomeAssistantProvider hass={devHass}>
+      {children}
+    </HomeAssistantProvider>
+  );
 }

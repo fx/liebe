@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Box } from '@radix-ui/themes';
+import { Box, Grid } from '@radix-ui/themes';
 import { Section } from './Section';
+import { ButtonCard } from './ButtonCard';
 import { SectionConfig, GridItem } from '../store/types';
 import { dashboardActions, useDashboardStore } from '../store';
 import './SectionGrid.css';
@@ -134,16 +135,26 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
             onDelete={() => handleDeleteSection(section.id)}
             onAddEntities={(entityIds) => handleAddEntities(section.id, entityIds)}
           >
-            {/* Entity items will go here */}
+            {/* Entity items grid */}
             {section.items.length > 0 && (
-              <Box>
-                {/* Placeholder for entity items */}
+              <Grid 
+                columns={{ 
+                  initial: '2',
+                  xs: '3',
+                  sm: '4',
+                  md: '6',
+                }}
+                gap="3"
+                width="100%"
+              >
                 {section.items.map((item) => (
-                  <Box key={item.id} p="2" style={{ background: 'var(--gray-a3)' }}>
-                    Entity: {item.entityId}
-                  </Box>
+                  <ButtonCard 
+                    key={item.id} 
+                    entityId={item.entityId}
+                    size="medium"
+                  />
                 ))}
-              </Box>
+              </Grid>
             )}
           </Section>
         </Box>
