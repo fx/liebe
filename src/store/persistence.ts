@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { dashboardStore, dashboardActions } from './dashboardStore';
 import type { DashboardConfig } from './types';
+import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug';
 
 const STORAGE_KEY = 'liebe-dashboard-config';
 
@@ -12,13 +13,22 @@ export const saveDashboardConfig = (config: DashboardConfig): void => {
   }
 };
 
-// Migrate old screen format to new format with sections
+// Migrate old screen format to new format with sections and slugs
 const migrateScreenConfig = (config: any): DashboardConfig => {
+  const allSlugs: string[] = [];
+  
   const migrateScreen = (screen: any): any => {
     // If screen has grid with items instead of sections, migrate it
     if (screen.grid && 'items' in screen.grid && !screen.grid.sections) {
       screen.grid.sections = [];
       delete screen.grid.items;
+    }
+    
+    // Add slug if it doesn't exist
+    if (!screen.slug && screen.name) {
+      const baseSlug = generateSlug(screen.name);
+      screen.slug = ensureUniqueSlug(baseSlug, allSlugs);
+      allSlugs.push(screen.slug);
     }
     
     // Recursively migrate children
@@ -181,6 +191,7 @@ export const exportConfigurationAsYAML = (): string => {
     const prefix = ' '.repeat(indent);
     yamlLines.push(`${prefix}- id: "${screen.id}"`);
     yamlLines.push(`${prefix}  name: "${screen.name}"`);
+    yamlLines.push(`${prefix}  slug: "${screen.slug}"`);
     yamlLines.push(`${prefix}  type: ${screen.type}`);
     
     if (screen.grid) {
