@@ -2,14 +2,24 @@
 
 ## Project Overview
 
-You are working on a custom Home Assistant dashboard project that integrates as a native panel within Home Assistant. This project uses TanStack Start with React in SPA mode and Radix UI for components.
+You are working on a custom Home Assistant dashboard project that integrates as a native panel within Home Assistant. This project uses TanStack Start with React in SPA mode and Radix UI Theme for components.
+
+### Core Design Principles
+
+1. **In-Panel Configuration**: All configuration happens directly within the dashboard through an "edit mode". Users should NEVER need to edit files manually.
+2. **Single YAML Export**: The entire dashboard configuration is stored in and exportable as a single YAML file for sharing.
+3. **Touch-First UI**: All UI elements optimized for touch interaction with consistent spacing and sizing.
+4. **Radix UI Theme**: Use Radix UI Theme (not just primitives) with default styling - no custom CSS unless absolutely necessary.
+5. **Clean View Mode**: Default mode shows no editing controls - just the dashboard content.
+6. **Flexible Screen Organization**: Users create unlimited screens organized in a tree structure (menu/sidebar navigation).
+7. **Grid-Based Layout**: Each screen uses a customizable grid where users freely place entity components.
 
 ## Development Environment
 
 - **Home Assistant Instance**: To be provided when needed
 - **Repository**: Use GitHub Projects for task management
 - **Framework**: TanStack Start with React (SPA Mode)
-- **UI Library**: Radix UI (no Tailwind, use defaults)
+- **UI Library**: Radix UI Theme (not just primitives, use default theme)
 - **Integration**: Custom Panel in Home Assistant
 
 ## Task Management
@@ -55,9 +65,6 @@ Brief description of the epic
 ## Success Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
-
-## Tasks
-- [ ] #task-issue-number - Task description
 ```
 
 **Task Format:**
@@ -77,7 +84,59 @@ Any implementation details
 Epic: #epic-issue-number
 ```
 
+### Creating Epics with Sub-Issues
+
+When creating a new epic with sub-issues:
+
+1. **Create the epic issue first**
+   ```bash
+   gh issue create --title "[EPIC] Epic Name" --body "..."
+   ```
+
+2. **Create all sub-issues**, mentioning the epic in their description
+   ```bash
+   gh issue create --title "Sub-task name" --body "... Epic: #<epic-number>"
+   ```
+
+3. **Link sub-issues to the epic** using the provided script
+   ```bash
+   # Link multiple issues to an epic
+   ./scripts/link-sub-issues.sh <epic-number> <issue-1> <issue-2> <issue-3>
+   
+   # Example: Link issues 25, 26, 27 to epic 24
+   ./scripts/link-sub-issues.sh 24 25 26 27
+   ```
+
+### Branch and Pull Request Strategy
+
+**Important**: For GitHub issues that have sub-issues, create a separate branch and pull request for every sub-issue. This keeps pull requests at a reasonable size and makes code review more manageable.
+
 ## Development Workflow
+
+### Home Assistant Development Setup
+
+For developing with Home Assistant integration:
+
+```bash
+npm run dev
+```
+
+Add to Home Assistant configuration.yaml:
+```yaml
+panel_custom:
+  - name: liebe-dashboard-dev
+    sidebar_title: Liebe Dev
+    sidebar_icon: mdi:react
+    url_path: liebe-dev
+    module_url: http://localhost:3000/dev-entry.js
+```
+
+This gives you:
+- Hot module replacement  
+- Full hass object access (via postMessage bridge)
+- Real-time updates as you code
+
+Note: The custom element name in panel_custom must match the name in customElements.define()
 
 ### Starting a New Task
 
@@ -105,7 +164,7 @@ Epic: #epic-issue-number
 1. **Code Standards**
    - Use TypeScript for all new files
    - Follow React best practices
-   - Use Radix UI components without custom styling initially
+   - Use Radix UI Theme components with default styling (no custom CSS unless absolutely necessary)
    - Implement proper error boundaries
    - Add loading states for async operations
 
@@ -125,8 +184,8 @@ Epic: #epic-issue-number
    ```
 
 3. **Home Assistant Integration Testing**
-   - Build the project: `npm run build`
-   - Copy built files to HA config: `www/dashboard/`
+   - Build the custom panel: `npm run build:ha`
+   - Copy built files to HA config: `cp -r dist/liebe-dashboard /config/www/`
    - Update `configuration.yaml` with panel config
    - Restart Home Assistant to test
 
@@ -178,68 +237,129 @@ Epic: #epic-issue-number
    - `vite.config.ts` - Build configuration
    - `tsconfig.json` - TypeScript configuration
 
-### Radix UI Integration
+### Radix UI Theme Integration
 
 1. **Installation Pattern**
    ```bash
-   npm install @radix-ui/react-<component>
+   npm install @radix-ui/themes
    ```
 
 2. **Usage Pattern**
    ```tsx
-   import * as Dialog from '@radix-ui/react-dialog';
+   import { Theme, Button, Dialog, Grid } from '@radix-ui/themes';
+   import '@radix-ui/themes/styles.css';
    
-   // Use with default styling only
-   <Dialog.Root>
-     <Dialog.Trigger>Open</Dialog.Trigger>
-     <Dialog.Portal>
-       <Dialog.Overlay />
+   // Wrap app in Theme provider
+   <Theme>
+     <Dialog.Root>
+       <Dialog.Trigger>
+         <Button>Open Dialog</Button>
+       </Dialog.Trigger>
        <Dialog.Content>
          <Dialog.Title>Title</Dialog.Title>
          <Dialog.Description>Description</Dialog.Description>
-         <Dialog.Close />
        </Dialog.Content>
-     </Dialog.Portal>
-   </Dialog.Root>
+     </Dialog.Root>
+   </Theme>
    ```
+
+3. **Touch Optimization**
+   - Use size="3" or larger for all interactive elements
+   - Maintain consistent spacing with Radix's built-in spacing scale
+   - Ensure minimum 44px touch targets
 
 ### Home Assistant Custom Panel
 
-1. **Panel Registration**
-   ```javascript
-   customElements.define('dashboard-panel', class extends HTMLElement {
-     set hass(hass) {
-       // Store hass object for API access
-       this._hass = hass;
-       this.render();
-     }
-     
-     connectedCallback() {
-       // Initialize React app here
-     }
-   });
-   ```
+#### Important: panel_iframe is Deprecated
 
-2. **Accessing Entities**
-   ```javascript
-   // Get all entities
-   const entities = this._hass.states;
-   
-   // Call service
-   this._hass.callService('light', 'turn_on', {
-     entity_id: 'light.living_room'
-   });
-   ```
+Home Assistant has deprecated `panel_iframe` in favor of custom panels. Always use `panel_custom` for proper integration with full access to the `hass` object.
 
-3. **Configuration in HA**
-   ```yaml
-   panel_custom:
-     - name: dashboard-panel
-       sidebar_title: Dashboard
-       sidebar_icon: mdi:view-dashboard
-       url_path: dashboard
-       module_url: /local/dashboard/index.js
-   ```
+**Migration Guide:** If you're coming from `panel_iframe`, see [MIGRATION-FROM-IFRAME.md](/workspace/docs/MIGRATION-FROM-IFRAME.md) for detailed migration steps.
+
+#### Development Approaches
+
+**1. Development Custom Panel (Recommended)**
+
+This approach provides full hass access during development:
+
+```yaml
+# configuration.yaml
+panel_custom:
+  - name: liebe-dashboard-dev
+    sidebar_title: Liebe Dev
+    sidebar_icon: mdi:react
+    url_path: liebe-dev
+    module_url: /local/liebe-dashboard-dev/custom-panel.js
+    config:
+      # Optional: Enable development mode
+      dev_mode: true
+      dev_url: "http://localhost:3000"
+```
+
+Then use watch mode:
+```bash
+./scripts/dev-ha.sh watch --ha-config /path/to/ha/config
+```
+
+**2. Mock Server for Local Development**
+
+For UI development without Home Assistant:
+```bash
+# Start mock HA server
+./scripts/dev-ha.sh mock-server
+
+# In another terminal, start dev server
+npm run dev
+```
+
+**3. Browser Extension for CORS**
+
+If you need to bypass CORS during development:
+1. Install a CORS extension (e.g., "CORS Unblock")
+2. Configure it to allow HA → localhost:3000
+3. Use the custom panel configuration
+
+#### Panel Registration
+
+```javascript
+customElements.define('liebe-dashboard-panel', class extends HTMLElement {
+  set hass(hass) {
+    // Store hass object for API access
+    this._hass = hass;
+    this.render();
+  }
+  
+  connectedCallback() {
+    // Initialize React app here
+  }
+});
+```
+
+#### Accessing Entities
+
+```javascript
+// Get all entities
+const entities = this._hass.states;
+
+// Call service
+this._hass.callService('light', 'turn_on', {
+  entity_id: 'light.living_room'
+});
+```
+
+#### Production Configuration
+
+```yaml
+panel_custom:
+  - name: liebe-dashboard-panel
+    sidebar_title: Liebe Dashboard
+    sidebar_icon: mdi:view-dashboard
+    url_path: liebe
+    module_url: /local/liebe-dashboard/custom-panel.js
+    config:
+      # Any custom configuration
+      theme: default
+```
 
 ## Common Patterns
 
@@ -249,10 +369,34 @@ Epic: #epic-issue-number
 import { Store } from '@tanstack/store';
 
 export const dashboardStore = new Store({
-  views: [],
-  currentView: null,
+  mode: 'view', // 'view' | 'edit'
+  screens: [],  // Tree structure of screens
+  currentScreen: null,
+  configuration: {}, // Full dashboard config
+  gridResolution: { columns: 12, rows: 8 },
   theme: 'auto'
 });
+```
+
+### Configuration Management
+```typescript
+// Configuration is stored as YAML and managed in-panel
+export interface DashboardConfig {
+  version: string;
+  screens: ScreenConfig[];
+  theme?: string;
+}
+
+export interface ScreenConfig {
+  id: string;
+  name: string;
+  type: 'grid'; // Only grid type for MVP
+  children?: ScreenConfig[]; // For tree structure
+  grid?: {
+    resolution: { columns: number; rows: number };
+    items: GridItem[];
+  };
+}
 ```
 
 ### Entity Subscription
@@ -287,18 +431,52 @@ try {
 2. **Development Tools**
    - React Developer Tools
    - Use `console.log(this._hass)` to explore available APIs
+   - Network tab to monitor WebSocket connections
 
 3. **Common Issues**
    - Panel not loading: Check module_url path
    - No hass object: Ensure proper custom element setup
    - State not updating: Check event subscriptions
+   - CORS errors: Use custom panel instead of iframe
+   - Dev server not accessible: Check firewall/network settings
+
+4. **Development Mode Issues**
+   - If using panel_iframe (deprecated): No hass object access
+   - Solution: Always use panel_custom for development
+   - For hot reload: Use watch build + symlink approach
+
+## Development Best Practices
+
+### Modern Home Assistant Development
+
+1. **Never use panel_iframe** - It's deprecated and doesn't provide hass object access
+2. **Always use panel_custom** for proper integration
+3. **Development workflow options:**
+   - Watch build with symlinks (recommended)
+   - Mock server for UI-only development
+   - Home Assistant dev container for full integration testing
+
+### Quick Development Setup
+
+```bash
+# One-time setup
+./scripts/dev-ha.sh setup
+
+# For development with real HA
+./scripts/dev-ha.sh watch --ha-config /path/to/ha
+
+# For UI-only development
+./scripts/dev-ha.sh mock-server
+npm run dev  # In another terminal
+```
 
 ## Resources
 
 - [TanStack Start Docs](https://tanstack.com/start/latest)
-- [Radix UI Components](https://www.radix-ui.com/primitives)
+- [Radix UI Themes](https://www.radix-ui.com/themes/docs)
 - [Home Assistant Frontend Dev](https://developers.home-assistant.io/docs/frontend/)
 - [Custom Panel Docs](https://developers.home-assistant.io/docs/frontend/custom-ui/creating-custom-panels/)
+- [Home Assistant Development Environment](https://developers.home-assistant.io/docs/development_environment)
 
 ## Continuous Documentation Updates
 
@@ -351,13 +529,74 @@ When adding new sections, use this format:
 [Link to GitHub issues if applicable]
 ```
 
+## Scripts Directory
+
+The `/scripts` directory contains automation scripts for the project.
+
+### Available Scripts
+
+- **`scripts/link-sub-issues.sh`** - Links GitHub sub-issues to their parent issues/epics
+  ```bash
+  # Usage: Link multiple issues to a parent
+  ./scripts/link-sub-issues.sh <parent-issue> <child-issue> [<child-issue>...]
+  
+  # Example: Link issues 12, 13, 14 to epic 1
+  ./scripts/link-sub-issues.sh 1 12 13 14
+  ```
+
+## GitHub Issue Linking
+
+### Important: Linking Sub-Issues to Epics
+
+GitHub has a specific feature for linking issues as sub-issues to epics. This is NOT done by simply mentioning the epic number in the description (e.g., "Epic: #1"). Instead, issues must be properly linked using GitHub's issue tracking features.
+
+**How to Link Sub-Issues via API:**
+
+1. **Use the provided script**:
+   ```bash
+   ./scripts/link-sub-issues.sh
+   ```
+
+2. **Manual API calls** (if needed):
+   ```bash
+   # Get issue ID for a specific issue
+   gh api graphql -F owner="fx" -f repository="liebe" -F number="7" -f query='
+   query ($owner: String!, $repository: String!, $number: Int!) {
+     repository(owner: $owner, name: $repository) {
+       issue(number: $number) {
+         id
+       }
+     }
+   }' --jq '.data.repository.issue.id'
+   
+   # Link child issue to parent issue
+   gh api graphql -H GraphQL-Features:issue_types -H GraphQL-Features:sub_issues \
+     -f parentIssueId="<PARENT_ID>" -f childIssueId="<CHILD_ID>" -f query='
+   mutation($parentIssueId: ID!, $childIssueId: ID!) {
+     addSubIssue(input: { issueId: $parentIssueId, subIssueId: $childIssueId }) {
+       issue {
+         title
+         number
+       }
+     }
+   }'
+   ```
+
+**Reference:** Based on https://github.com/joshjohanning/github-misc-scripts/blob/main/gh-cli/add-sub-issue-to-issue.sh
+
+**Note:** Simply updating the epic's description with issue numbers (e.g., `- [ ] #7`) creates task references but may not create the proper sub-issue relationship that appears in GitHub's UI.
+
 ## Important Reminders
 
 1. **Never commit sensitive data** (tokens, passwords, URLs)
 2. **Always test in both dev and HA environments**
-3. **Keep PRs focused** - one feature/fix per PR
+3. **Keep PRs focused** - one feature/fix per PR (create separate branches for each sub-issue)
 4. **Update documentation** as you add features
 5. **Use semantic commit messages**
 6. **Mark todos as completed** immediately after finishing tasks
 7. **UPDATE THIS FILE** whenever you learn something new about the project
 8. **ALWAYS check GitHub issues first** - Use `gh issue` commands to get task requirements, not the PRD
+9. **GitHub issue linking** - When creating epics with sub-issues:
+   - Create the epic first
+   - Create all sub-issues with "Epic: #<number>" in description
+   - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
