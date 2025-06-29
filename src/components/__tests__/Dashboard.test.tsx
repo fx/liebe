@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Dashboard } from '../Dashboard';
 import { dashboardActions } from '../../store';
+import { createTestScreen } from '../../test-utils/screen-helpers';
 
 describe('Dashboard', () => {
   beforeEach(() => {
@@ -113,15 +114,10 @@ describe('Dashboard', () => {
   describe('With Existing Views', () => {
     beforeEach(() => {
       // Add a test view
-      dashboardActions.addScreen({
+      dashboardActions.addScreen(createTestScreen({
         id: 'test-1',
         name: 'Living Room',
-        type: 'grid',
-        grid: {
-          resolution: { columns: 12, rows: 8 },
-          sections: [],
-        },
-      });
+      }));
       dashboardActions.setCurrentScreen('test-1');
     });
 

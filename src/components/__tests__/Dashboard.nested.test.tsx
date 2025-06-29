@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Dashboard } from '../Dashboard';
 import { dashboardActions } from '../../store';
+import { createTestScreen } from '../../test-utils/screen-helpers';
 
 describe('Dashboard - Nested Views', () => {
   beforeEach(() => {
@@ -10,26 +11,16 @@ describe('Dashboard - Nested Views', () => {
 
   it('should display nested view content when selected', () => {
     // Create parent view
-    dashboardActions.addScreen({
+    dashboardActions.addScreen(createTestScreen({
       id: 'parent-1',
       name: 'Main Floor',
-      type: 'grid',
-      grid: {
-        resolution: { columns: 12, rows: 8 },
-        sections: [],
-      },
-    });
+    }));
     
     // Create nested view
-    dashboardActions.addScreen({
+    dashboardActions.addScreen(createTestScreen({
       id: 'child-1',
       name: 'Living Room',
-      type: 'grid',
-      grid: {
-        resolution: { columns: 12, rows: 8 },
-        sections: [],
-      },
-    }, 'parent-1');
+    }), 'parent-1');
     
     // Select the nested view
     dashboardActions.setCurrentScreen('child-1');
@@ -48,28 +39,23 @@ describe('Dashboard - Nested Views', () => {
 
   it('should handle deeply nested views', () => {
     // Create parent
-    dashboardActions.addScreen({
+    dashboardActions.addScreen(createTestScreen({
       id: 'floor-1',
       name: 'First Floor',
-      type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
-    });
+    }));
     
     // Create child
-    dashboardActions.addScreen({
+    dashboardActions.addScreen(createTestScreen({
       id: 'area-1',
       name: 'Living Area',
-      type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
-    }, 'floor-1');
+    }), 'floor-1');
     
     // Create grandchild
-    dashboardActions.addScreen({
+    dashboardActions.addScreen(createTestScreen({
       id: 'room-1',
       name: 'TV Room',
-      type: 'grid',
       grid: { resolution: { columns: 10, rows: 6 }, sections: [] },
-    }, 'area-1');
+    }), 'area-1');
     
     // Select the grandchild
     dashboardActions.setCurrentScreen('room-1');
@@ -83,19 +69,16 @@ describe('Dashboard - Nested Views', () => {
 
   it('should handle switching between nested and top-level views', () => {
     // Create views
-    dashboardActions.addScreen({
+    dashboardActions.addScreen(createTestScreen({
       id: 'top-1',
       name: 'Overview',
-      type: 'grid',
-      grid: { resolution: { columns: 12, rows: 8 }, sections: [] },
-    });
+    }));
     
-    dashboardActions.addScreen({
+    dashboardActions.addScreen(createTestScreen({
       id: 'nested-1',
       name: 'Kitchen',
-      type: 'grid',
       grid: { resolution: { columns: 8, rows: 6 }, sections: [] },
-    }, 'top-1');
+    }), 'top-1');
     
     const { rerender } = render(<Dashboard />);
     
