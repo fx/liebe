@@ -16,27 +16,39 @@ class LiebeDashboardDevPanel extends HTMLElement {
     // Send hass updates when iframe loads
     this.iframe.addEventListener('load', () => this.sendHassUpdate());
     
-    // Listen for service calls from iframe
+    // Listen for messages from iframe
     window.addEventListener('message', (e) => {
       if (e.origin !== 'http://localhost:3000') return;
+      
       if (e.data.type === 'call-service' && this._hass) {
         this._hass.callService(e.data.domain, e.data.service, e.data.serviceData);
+      } else if (e.data.type === 'route-change') {
+        // Handle route changes from the iframe
+        console.log('Route change requested:', e.data.path);
+        // Update the browser URL
+        const newPath = window.location.pathname.replace(/\/[^/]*$/, e.data.path);
+        history.pushState(null, '', newPath);
       }
     });
   }
 
   sendHassUpdate() {
-    if (this._hass && this.iframe) {
-      this.iframe.contentWindow.postMessage({
-        type: 'hass-update',
-        hass: {
-          states: this._hass.states,
-          user: this._hass.user,
-          config: this._hass.config,
-          themes: this._hass.themes,
-          language: this._hass.language
-        }
-      }, 'http://localhost:3000');
+    if (this._hass && this.iframe && this.iframe.contentWindow) {
+      try {
+        this.iframe.contentWindow.postMessage({
+          type: 'hass-update',
+          hass: {
+            states: this._hass.states,
+            user: this._hass.user,
+            config: this._hass.config,
+            themes: this._hass.themes,
+            language: this._hass.language
+          }
+        }, 'http://localhost:3000');
+      } catch (e) {
+        // Ignore CORS errors during initial load
+        console.debug('Could not send hass update:', e.message);
+      }
     }
   }
 }

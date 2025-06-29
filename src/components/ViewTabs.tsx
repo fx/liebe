@@ -32,10 +32,23 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     console.log('ViewTabs: handleTabChange called with:', value);
     console.log('Current location before nav:', window.location.pathname);
     console.log('Navigate function:', navigate);
+    console.log('Are we in iframe?', window.parent !== window);
+    
+    // Update the store state immediately
+    dashboardActions.setCurrentScreen(value);
     
     try {
+      // Try to navigate
       navigate({ to: '/screen/$screenId', params: { screenId: value } });
       console.log('Navigation call completed');
+      
+      // If we're in an iframe, also notify the parent
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'route-change',
+          path: `/screen/${value}`,
+        }, '*');
+      }
     } catch (error) {
       console.error('Navigation error:', error);
     }
@@ -166,10 +179,15 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     );
   }
 
+  console.log('Rendering Tabs.Root with value:', currentScreenId);
+  
   return (
     <Tabs.Root
       value={currentScreenId || ''}
-      onValueChange={handleTabChange}
+      onValueChange={(newValue) => {
+        console.log('Tabs.Root onValueChange fired with:', newValue);
+        handleTabChange(newValue);
+      }}
     >
       <Flex align="center" gap="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
         <ScrollArea type="hover" scrollbars="horizontal" style={{ flex: 1 }}>
