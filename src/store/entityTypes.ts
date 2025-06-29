@@ -26,6 +26,8 @@ export interface EntityState {
   isInitialLoading: boolean;
   lastError: string | null;
   subscribedEntities: Set<string>;
+  staleEntities: Set<string>; // Track entities that haven't updated in a while
+  lastUpdateTime: number; // Track when we last received any update
 }
 
 export interface EntityStoreActions {
@@ -39,4 +41,7 @@ export interface EntityStoreActions {
   unsubscribeFromEntity: (entityId: string) => void;
   clearSubscriptions: () => void;
   reset: () => void;
+  markEntityStale: (entityId: string) => void;
+  markEntityFresh: (entityId: string) => void;
+  updateLastUpdateTime: () => void;
 }

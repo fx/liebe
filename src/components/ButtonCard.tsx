@@ -2,6 +2,7 @@ import { Card, Flex, Text, Spinner, Box } from '@radix-ui/themes';
 import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons';
 import { useEntity, useServiceCall } from '~/hooks';
 import type { HassEntity } from '~/store/entityTypes';
+import { memo } from 'react';
 import './ButtonCard.css';
 
 interface ButtonCardProps {
@@ -24,8 +25,8 @@ const getEntityIcon = (entity: HassEntity) => {
   }
 };
 
-export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
-  const { entity, isConnected } = useEntity(entityId);
+function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
+  const { entity, isConnected, isStale } = useEntity(entityId);
   const { loading: isLoading, error, toggle, clearError } = useServiceCall();
   
   if (!entity || !isConnected) {
@@ -34,6 +35,32 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
         <Flex p="3" align="center" justify="center">
           <Text size="2" color="gray">
             {!isConnected ? 'Disconnected' : 'Entity not found'}
+          </Text>
+        </Flex>
+      </Card>
+    );
+  }
+
+  const cardSize = {
+    small: { p: '2', iconSize: '16', fontSize: '1' },
+    medium: { p: '3', iconSize: '20', fontSize: '2' },
+    large: { p: '4', iconSize: '24', fontSize: '3' },
+  }[size];
+
+  // Handle unavailable state
+  const isUnavailable = entity.state === 'unavailable';
+  if (isUnavailable) {
+    return (
+      <Card variant="classic" style={{ opacity: 0.6, borderStyle: 'dotted' }}>
+        <Flex p={cardSize.p} direction="column" align="center" justify="center" gap="2">
+          <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
+            {getEntityIcon(entity)}
+          </Box>
+          <Text size={cardSize.fontSize as ('1' | '2' | '3')} color="gray" align="center">
+            {entity.attributes.friendly_name || entity.entity_id}
+          </Text>
+          <Text size="1" color="gray" weight="medium">
+            UNAVAILABLE
           </Text>
         </Flex>
       </Card>
@@ -54,27 +81,22 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
     await toggle(entity.entity_id);
   };
   
-  const cardSize = {
-    small: { p: '2', iconSize: '16', fontSize: '1' },
-    medium: { p: '3', iconSize: '20', fontSize: '2' },
-    large: { p: '4', iconSize: '24', fontSize: '3' },
-  }[size];
-  
   return (
     <Card
       variant="classic"
       style={{
         cursor: isLoading ? 'wait' : 'pointer',
         backgroundColor: isOn ? 'var(--amber-3)' : undefined,
-        borderColor: error ? 'var(--red-6)' : isOn ? 'var(--amber-6)' : undefined,
-        borderWidth: error || isOn ? '2px' : '1px',
-        borderStyle: 'solid',
+        borderColor: error ? 'var(--red-6)' : isStale ? 'var(--orange-6)' : isOn ? 'var(--amber-6)' : undefined,
+        borderWidth: error || isOn || isStale ? '2px' : '1px',
+        borderStyle: isStale ? 'dashed' : 'solid',
         transition: 'all 0.2s ease',
         transform: isLoading ? 'scale(0.98)' : undefined,
         animation: isLoading ? (error ? 'pulse-border-error' : 'pulse-border') + ' 1.5s ease-in-out infinite' : undefined,
+        opacity: isStale ? 0.8 : 1,
       }}
       onClick={handleClick}
-      title={error || undefined}
+      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
     >
       <Flex
         p={cardSize.p}
@@ -94,9 +116,9 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
         >
           <Box
             style={{
-              color: isOn ? 'var(--amber-9)' : 'var(--gray-9)',
+              color: isStale ? 'var(--orange-9)' : isOn ? 'var(--amber-9)' : 'var(--gray-9)',
               transform: `scale(${size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8})`,
-              opacity: isLoading ? 0.3 : 1,
+              opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
               transition: 'opacity 0.2s ease',
             }}
           >
@@ -154,3 +176,9 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
     </Card>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const ButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
+  // Only re-render if entityId or size changes
+  return prevProps.entityId === nextProps.entityId && prevProps.size === nextProps.size;
+});

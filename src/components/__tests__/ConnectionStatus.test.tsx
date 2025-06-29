@@ -24,6 +24,8 @@ describe('ConnectionStatus', () => {
       isInitialLoading: true,
       lastError: null,
       subscribedEntities: new Set(),
+      staleEntities: new Set(),
+      lastUpdateTime: Date.now(),
     }));
   });
 
