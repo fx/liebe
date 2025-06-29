@@ -2,6 +2,7 @@ import { Card, Flex, Text, Spinner, Box } from '@radix-ui/themes';
 import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons';
 import { useEntity, useServiceCall } from '~/hooks';
 import type { HassEntity } from '~/store/entityTypes';
+import './ButtonCard.css';
 
 interface ButtonCardProps {
   entityId: string;
@@ -70,6 +71,7 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
         borderStyle: 'solid',
         transition: 'all 0.2s ease',
         transform: isLoading ? 'scale(0.98)' : undefined,
+        animation: isLoading ? (error ? 'pulse-border-error' : 'pulse-border') + ' 1.5s ease-in-out infinite' : undefined,
       }}
       onClick={handleClick}
       title={error || undefined}
@@ -82,18 +84,43 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
         gap="2"
         style={{ minHeight: size === 'large' ? '120px' : size === 'medium' ? '100px' : '80px' }}
       >
-        {isLoading ? (
-          <Spinner size={cardSize.fontSize as ('1' | '2' | '3')} />
-        ) : (
+        <Box
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <Box
             style={{
               color: isOn ? 'var(--amber-9)' : 'var(--gray-9)',
               transform: `scale(${size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8})`,
+              opacity: isLoading ? 0.3 : 1,
+              transition: 'opacity 0.2s ease',
             }}
           >
             {getEntityIcon(entity)}
           </Box>
-        )}
+          {isLoading && (
+            <Box
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <Spinner 
+                size={cardSize.fontSize as ('1' | '2' | '3')} 
+                style={{
+                  '--spinner-track-color': 'var(--gray-a6)',
+                  '--spinner-fill-color': isOn ? 'var(--amber-9)' : 'var(--gray-9)',
+                } as React.CSSProperties}
+              />
+            </Box>
+          )}
+        </Box>
         
         <Text
           size={cardSize.fontSize as ('1' | '2' | '3')}
@@ -105,6 +132,8 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            opacity: isLoading ? 0.7 : 1,
+            transition: 'opacity 0.2s ease',
           }}
         >
           {friendlyName}
@@ -114,6 +143,10 @@ export function ButtonCard({ entityId, size = 'medium' }: ButtonCardProps) {
           size="1"
           color={error ? 'red' : isOn ? 'amber' : 'gray'}
           weight="medium"
+          style={{
+            opacity: isLoading ? 0.5 : 1,
+            transition: 'opacity 0.2s ease',
+          }}
         >
           {error ? 'ERROR' : entity.state.toUpperCase()}
         </Text>

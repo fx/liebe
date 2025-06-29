@@ -220,9 +220,17 @@ describe('ButtonCard', () => {
     
     const card = screen.getByText('Living Room Light').closest('[class*="Card"]');
     
-    // Should show loading spinner by checking for the spinner class
-    expect(screen.getByText('Living Room Light').parentElement?.querySelector('.rt-Spinner')).toBeInTheDocument();
+    // Should show loading spinner overlay
+    const spinner = document.querySelector('.rt-Spinner');
+    expect(spinner).toBeInTheDocument();
+    
+    // Should show loading styles
     expect(card).toHaveStyle({ cursor: 'wait' });
+    expect(card).toHaveStyle({ transform: 'scale(0.98)' });
+    
+    // Text should be dimmed
+    expect(screen.getByText('Living Room Light')).toHaveStyle({ opacity: '0.7' });
+    expect(screen.getByText('OFF')).toHaveStyle({ opacity: '0.5' });
   });
 
   it('should handle service call errors', async () => {
