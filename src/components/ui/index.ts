@@ -1,3 +1,2 @@
-export * from './Dialog'
-export * from './Switch'
-export * from './Tabs'
+// Re-export all Radix UI Themes components
+export * from '@radix-ui/themes'

@@ -1,20 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useContext } from 'react'
 import { 
+  Container,
+  Heading,
+  Text,
   Dialog, 
-  DialogTrigger, 
-  DialogPortal, 
-  DialogOverlay, 
-  DialogContent, 
-  DialogTitle, 
-  DialogDescription,
-  DialogClose,
+  Button,
   Switch,
   Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent
-} from '~/components/ui'
+  Flex,
+  Box,
+  Section
+} from '@radix-ui/themes'
 import { HomeAssistantContext } from '~/contexts/HomeAssistantContext'
 import { EntityCard } from '~/components/EntityCard'
 import { useDevHass } from '~/hooks/useDevHass'
@@ -30,108 +27,90 @@ function Home() {
   const hass = hassFromContext || hassFromDev
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Liebe Dashboard</h1>
-      <p>Welcome to your Home Assistant custom dashboard.</p>
+    <Container size="3">
+      <Heading size="8" mb="2">Liebe Dashboard</Heading>
+      <Text>Welcome to your Home Assistant custom dashboard.</Text>
       
       {hass && (
-        <div style={{ marginTop: '20px' }}>
-          <h2>Home Assistant Status</h2>
-          <p>Connected to Home Assistant {hass.config?.version || 'Unknown version'}</p>
-          <p>Location: {hass.config?.location_name || 'Unknown'}</p>
+        <Section size="3" mt="6">
+          <Heading size="6" mb="2">Home Assistant Status</Heading>
+          <Text as="div">Connected to Home Assistant {hass.config?.version || 'Unknown version'}</Text>
+          <Text as="div">Location: {hass.config?.location_name || 'Unknown'}</Text>
           
-          <h3 style={{ marginTop: '20px' }}>Example Entities</h3>
-          <div>
+          <Heading size="4" mt="4" mb="3">Example Entities</Heading>
+          <Flex direction="column" gap="3">
             {/* Show first 5 entities as examples */}
             {Object.keys(hass.states).slice(0, 5).map(entityId => (
               <EntityCard key={entityId} entityId={entityId} />
             ))}
-          </div>
-        </div>
+          </Flex>
+        </Section>
       )}
       
-      <div style={{ marginTop: '40px' }}>
-        <h2>Radix UI Components Demo</h2>
+      <Section size="3" mt="6">
+        <Heading size="6" mb="4">Radix UI Components Demo</Heading>
         
         {/* Switch Example */}
-        <div style={{ marginTop: '20px' }}>
-          <h3>Switch Component</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <Box mb="4">
+          <Heading size="4" mb="2">Switch Component</Heading>
+          <Flex align="center" gap="2">
             <Switch 
+              size="3"
               checked={switchChecked}
               onCheckedChange={setSwitchChecked}
               id="example-switch"
             />
-            <label htmlFor="example-switch">
+            <Text as="label" htmlFor="example-switch">
               Toggle me ({switchChecked ? 'ON' : 'OFF'})
-            </label>
-          </div>
-        </div>
+            </Text>
+          </Flex>
+        </Box>
 
         {/* Dialog Example */}
-        <div style={{ marginTop: '20px' }}>
-          <h3>Dialog Component</h3>
-          <Dialog>
-            <DialogTrigger asChild>
-              <button>Open Dialog</button>
-            </DialogTrigger>
-            <DialogPortal>
-              <DialogOverlay style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                position: 'fixed',
-                inset: 0,
-              }} />
-              <DialogContent style={{
-                backgroundColor: 'white',
-                borderRadius: '6px',
-                boxShadow: '0 10px 38px -10px rgba(0, 0, 0, 0.35)',
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '90vw',
-                maxWidth: '450px',
-                padding: '25px',
-              }}>
-                <DialogTitle>Radix UI Dialog</DialogTitle>
-                <DialogDescription style={{ marginTop: '10px', marginBottom: '20px' }}>
-                  This is an example of a Radix UI dialog component with default styling.
-                </DialogDescription>
-                <DialogClose asChild>
-                  <button style={{ marginTop: '10px' }}>Close</button>
-                </DialogClose>
-              </DialogContent>
-            </DialogPortal>
-          </Dialog>
-        </div>
+        <Box mb="4">
+          <Heading size="4" mb="2">Dialog Component</Heading>
+          <Dialog.Root>
+            <Dialog.Trigger>
+              <Button size="3">Open Dialog</Button>
+            </Dialog.Trigger>
+            <Dialog.Content>
+              <Dialog.Title>Radix UI Dialog</Dialog.Title>
+              <Dialog.Description>
+                This is an example of a Radix UI dialog component with default styling.
+              </Dialog.Description>
+              <Flex gap="3" mt="4" justify="end">
+                <Dialog.Close>
+                  <Button variant="soft" color="gray" size="3">Close</Button>
+                </Dialog.Close>
+              </Flex>
+            </Dialog.Content>
+          </Dialog.Root>
+        </Box>
 
         {/* Tabs Example */}
-        <div style={{ marginTop: '20px' }}>
-          <h3>Tabs Component</h3>
-          <Tabs defaultValue="tab1">
-            <TabsList style={{ display: 'flex', gap: '10px' }}>
-              <TabsTrigger value="tab1" style={{ padding: '5px 10px', cursor: 'pointer' }}>
-                Tab 1
-              </TabsTrigger>
-              <TabsTrigger value="tab2" style={{ padding: '5px 10px', cursor: 'pointer' }}>
-                Tab 2
-              </TabsTrigger>
-              <TabsTrigger value="tab3" style={{ padding: '5px 10px', cursor: 'pointer' }}>
-                Tab 3
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="tab1" style={{ marginTop: '10px' }}>
-              <p>Content for Tab 1</p>
-            </TabsContent>
-            <TabsContent value="tab2" style={{ marginTop: '10px' }}>
-              <p>Content for Tab 2</p>
-            </TabsContent>
-            <TabsContent value="tab3" style={{ marginTop: '10px' }}>
-              <p>Content for Tab 3</p>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </div>
+        <Box>
+          <Heading size="4" mb="2">Tabs Component</Heading>
+          <Tabs.Root defaultValue="tab1">
+            <Tabs.List size="2">
+              <Tabs.Trigger value="tab1">Tab 1</Tabs.Trigger>
+              <Tabs.Trigger value="tab2">Tab 2</Tabs.Trigger>
+              <Tabs.Trigger value="tab3">Tab 3</Tabs.Trigger>
+            </Tabs.List>
+            
+            <Box pt="3">
+              <Tabs.Content value="tab1">
+                <Text>Content for Tab 1</Text>
+              </Tabs.Content>
+              <Tabs.Content value="tab2">
+                <Text>Content for Tab 2</Text>
+              </Tabs.Content>
+              <Tabs.Content value="tab3">
+                <Text>Content for Tab 3</Text>
+              </Tabs.Content>
+            </Box>
+          </Tabs.Root>
+        </Box>
+      </Section>
+    </Container>
   )
 }

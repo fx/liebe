@@ -5,6 +5,8 @@ import {
   createRootRoute,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { Theme } from '@radix-ui/themes'
+import '@radix-ui/themes/styles.css'
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
@@ -61,8 +63,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
-        <TanStackRouterDevtools position="bottom-right" />
+        <Theme>
+          {children}
+          <TanStackRouterDevtools position="bottom-right" />
+        </Theme>
         <Scripts />
       </body>
     </html>
