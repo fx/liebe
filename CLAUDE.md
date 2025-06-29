@@ -55,9 +55,6 @@ Brief description of the epic
 ## Success Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
-
-## Tasks
-- [ ] #task-issue-number - Task description
 ```
 
 **Task Format:**
@@ -76,6 +73,29 @@ Any implementation details
 
 Epic: #epic-issue-number
 ```
+
+### Creating Epics with Sub-Issues
+
+When creating a new epic with sub-issues:
+
+1. **Create the epic issue first**
+   ```bash
+   gh issue create --title "[EPIC] Epic Name" --body "..."
+   ```
+
+2. **Create all sub-issues**, mentioning the epic in their description
+   ```bash
+   gh issue create --title "Sub-task name" --body "... Epic: #<epic-number>"
+   ```
+
+3. **Link sub-issues to the epic** using the provided script
+   ```bash
+   # Link multiple issues to an epic
+   ./scripts/link-sub-issues.sh <epic-number> <issue-1> <issue-2> <issue-3>
+   
+   # Example: Link issues 25, 26, 27 to epic 24
+   ./scripts/link-sub-issues.sh 24 25 26 27
+   ```
 
 ## Development Workflow
 
@@ -351,6 +371,71 @@ When adding new sections, use this format:
 [Link to GitHub issues if applicable]
 ```
 
+## Scripts Directory
+
+All project automation scripts should be maintained in the `/scripts` directory. This keeps the project root clean and makes scripts easy to find.
+
+### Available Scripts
+
+- **`scripts/link-sub-issues.sh`** - Links GitHub sub-issues to their parent issues/epics
+  ```bash
+  # Usage: Link multiple issues to a parent
+  ./scripts/link-sub-issues.sh <parent-issue> <child-issue> [<child-issue>...]
+  
+  # Example: Link issues 12, 13, 14 to epic 1
+  ./scripts/link-sub-issues.sh 1 12 13 14
+  ```
+
+### Creating New Scripts
+
+When creating automation scripts:
+1. Place them in the `/scripts` directory
+2. Make them executable: `chmod +x scripts/script-name.sh`
+3. Add a description to this section
+4. Include usage instructions in the script header
+
+## GitHub Issue Linking
+
+### Important: Linking Sub-Issues to Epics
+
+GitHub has a specific feature for linking issues as sub-issues to epics. This is NOT done by simply mentioning the epic number in the description (e.g., "Epic: #1"). Instead, issues must be properly linked using GitHub's issue tracking features.
+
+**How to Link Sub-Issues via API:**
+
+1. **Use the provided script**:
+   ```bash
+   ./scripts/link-sub-issues.sh
+   ```
+
+2. **Manual API calls** (if needed):
+   ```bash
+   # Get issue ID for a specific issue
+   gh api graphql -F owner="fx" -f repository="liebe" -F number="7" -f query='
+   query ($owner: String!, $repository: String!, $number: Int!) {
+     repository(owner: $owner, name: $repository) {
+       issue(number: $number) {
+         id
+       }
+     }
+   }' --jq '.data.repository.issue.id'
+   
+   # Link child issue to parent issue
+   gh api graphql -H GraphQL-Features:issue_types -H GraphQL-Features:sub_issues \
+     -f parentIssueId="<PARENT_ID>" -f childIssueId="<CHILD_ID>" -f query='
+   mutation($parentIssueId: ID!, $childIssueId: ID!) {
+     addSubIssue(input: { issueId: $parentIssueId, subIssueId: $childIssueId }) {
+       issue {
+         title
+         number
+       }
+     }
+   }'
+   ```
+
+**Reference:** Based on https://github.com/joshjohanning/github-misc-scripts/blob/main/gh-cli/add-sub-issue-to-issue.sh
+
+**Note:** Simply updating the epic's description with issue numbers (e.g., `- [ ] #7`) creates task references but may not create the proper sub-issue relationship that appears in GitHub's UI.
+
 ## Important Reminders
 
 1. **Never commit sensitive data** (tokens, passwords, URLs)
@@ -361,3 +446,8 @@ When adding new sections, use this format:
 6. **Mark todos as completed** immediately after finishing tasks
 7. **UPDATE THIS FILE** whenever you learn something new about the project
 8. **ALWAYS check GitHub issues first** - Use `gh issue` commands to get task requirements, not the PRD
+9. **GitHub issue linking** - When creating epics with sub-issues:
+   - Create the epic first
+   - Create all sub-issues with "Epic: #<number>" in description
+   - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
+10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
