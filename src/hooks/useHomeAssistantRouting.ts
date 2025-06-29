@@ -17,18 +17,21 @@ export function useHomeAssistantRouting() {
     
     // Check if we need to sync initial route from parent URL
     if (window.parent !== window) {
-      // We're in an iframe, check parent URL
-      try {
-        // Extract route from parent URL if available
-        const parentPath = window.location.pathname;
-        const match = parentPath.match(/\/liebe-dev(\/.*)?$/);
-        if (match && match[1] && match[1] !== '/') {
-          console.log('Syncing initial route from parent URL:', match[1]);
-          router.navigate({ to: match[1] as any });
+      // We're in an iframe
+      // Wait a tick to ensure router is initialized
+      setTimeout(() => {
+        try {
+          // Check current router location
+          const currentLocation = router.state.location.pathname;
+          console.log('Current router location:', currentLocation);
+          
+          // In iframe, we need to get the route from parent and sync
+          // Send a message to parent to get the current route
+          window.parent.postMessage({ type: 'get-route' }, '*');
+        } catch (e) {
+          console.debug('Could not sync initial route:', e);
         }
-      } catch (e) {
-        console.debug('Could not read parent URL:', e);
-      }
+      }, 0);
     }
 
     // Listen for route changes and notify parent window
@@ -53,6 +56,14 @@ export function useHomeAssistantRouting() {
     const handleMessage = (event: MessageEvent) => {
       if (event.data.type === 'navigate-to') {
         router.navigate({ to: event.data.path });
+      } else if (event.data.type === 'current-route') {
+        // Response from parent with current route
+        const parentRoute = event.data.path;
+        console.log('Received parent route:', parentRoute);
+        if (parentRoute && parentRoute !== '/' && parentRoute !== router.state.location.pathname) {
+          console.log('Navigating to parent route:', parentRoute);
+          router.navigate({ to: parentRoute as any });
+        }
       }
     };
     

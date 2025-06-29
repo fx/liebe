@@ -9,10 +9,16 @@ export function createRouter() {
   let basepath: string | undefined = undefined
   
   if (typeof window !== 'undefined') {
-    if (window.location.pathname.includes('/liebe-dev')) {
-      basepath = '/liebe-dev'
-    } else if (window.location.pathname.includes('/liebe')) {
-      basepath = '/liebe'
+    // Only use base path if we're NOT in an iframe
+    // In iframe mode, we handle routing differently
+    const isInIframe = window.parent !== window
+    
+    if (!isInIframe) {
+      if (window.location.pathname.includes('/liebe-dev')) {
+        basepath = '/liebe-dev'
+      } else if (window.location.pathname.includes('/liebe')) {
+        basepath = '/liebe'
+      }
     }
   }
   

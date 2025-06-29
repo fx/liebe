@@ -10,7 +10,23 @@ class LiebeDashboardDevPanel extends HTMLElement {
   }
 
   connectedCallback() {
-    this.innerHTML = '<iframe src="http://localhost:3000" style="width:100%;height:100%;border:0"></iframe>';
+    // Extract the route from the current URL
+    const pathParts = window.location.pathname.split('/');
+    const liebeIndex = pathParts.findIndex(part => part === 'liebe-dev');
+    let iframeSrc = 'http://localhost:3000';
+    
+    if (liebeIndex >= 0) {
+      // Extract the route part after liebe-dev
+      const routeParts = pathParts.slice(liebeIndex + 1);
+      if (routeParts.length > 0) {
+        const route = '/' + routeParts.join('/');
+        // Append the route to the iframe src
+        iframeSrc = 'http://localhost:3000' + route;
+        console.log('Loading iframe with route:', iframeSrc);
+      }
+    }
+    
+    this.innerHTML = `<iframe src="${iframeSrc}" style="width:100%;height:100%;border:0"></iframe>`;
     this.iframe = this.querySelector('iframe');
     
     // Send hass updates when iframe loads
@@ -35,6 +51,20 @@ class LiebeDashboardDevPanel extends HTMLElement {
           const newPath = basePath + e.data.path;
           console.log('Updating URL to:', newPath);
           history.pushState(null, '', newPath);
+        }
+      } else if (e.data.type === 'get-route') {
+        // Iframe is asking for current route
+        const pathParts = window.location.pathname.split('/');
+        const liebeIndex = pathParts.findIndex(part => part === 'liebe-dev');
+        if (liebeIndex >= 0) {
+          // Extract the route part after liebe-dev
+          const routeParts = pathParts.slice(liebeIndex + 1);
+          const route = routeParts.length > 0 ? '/' + routeParts.join('/') : '/';
+          console.log('Sending current route to iframe:', route);
+          this.iframe.contentWindow.postMessage({
+            type: 'current-route',
+            path: route
+          }, 'http://localhost:3000');
         }
       }
     });
