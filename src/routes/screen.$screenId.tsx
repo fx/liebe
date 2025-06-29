@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Dashboard } from '~/components/Dashboard';
 import { dashboardActions, useDashboardStore } from '~/store/dashboardStore';
 import type { ScreenConfig } from '~/store/types';
@@ -50,11 +50,16 @@ function ScreenView() {
   
   const screenExists = findScreen(screens, screenId);
   
-  // If screens haven't loaded yet, show loading
+  // If screens haven't loaded yet, redirect to home
   if (screens.length === 0) {
+    const navigate = Route.useNavigate();
+    React.useEffect(() => {
+      navigate({ to: '/' });
+    }, [navigate]);
+    
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>Loading...</p>
+        <p>No screens found. Redirecting to home...</p>
       </div>
     );
   }
