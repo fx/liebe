@@ -50,7 +50,7 @@ export const HomeAssistantProvider = ({
   hass 
 }: { 
   children: ReactNode
-  hass: HomeAssistant 
+  hass: HomeAssistant | null
 }) => {
   return (
     <HomeAssistantContext.Provider value={hass}>
