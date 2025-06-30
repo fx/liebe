@@ -1,44 +1,44 @@
-import type { HassEntity } from './entityTypes';
-import { entityStoreActions } from './entityStore';
+import type { HassEntity } from './entityTypes'
+import { entityStoreActions } from './entityStore'
 
 interface PendingUpdate {
-  entity: HassEntity;
-  timestamp: number;
+  entity: HassEntity
+  timestamp: number
 }
 
 export class EntityUpdateBatcher {
-  private pendingUpdates = new Map<string, PendingUpdate>();
-  private batchTimer: NodeJS.Timeout | null = null;
-  private readonly BATCH_DELAY = 50; // 50ms batching window
-  private readonly MAX_BATCH_SIZE = 100; // Process at most 100 entities per batch
+  private pendingUpdates = new Map<string, PendingUpdate>()
+  private batchTimer: NodeJS.Timeout | null = null
+  private readonly BATCH_DELAY = 50 // 50ms batching window
+  private readonly MAX_BATCH_SIZE = 100 // Process at most 100 entities per batch
 
   // Track attribute changes
-  private attributeListeners = new Map<string, Set<string>>();
+  private attributeListeners = new Map<string, Set<string>>()
 
   /**
    * Add an entity update to the batch
    */
   addUpdate(entity: HassEntity): void {
-    const existingUpdate = this.pendingUpdates.get(entity.entity_id);
-    
+    const existingUpdate = this.pendingUpdates.get(entity.entity_id)
+
     // Check if attributes changed (not just state)
     if (existingUpdate) {
-      const oldEntity = existingUpdate.entity;
-      const attributesChanged = this.hasAttributesChanged(oldEntity, entity);
-      
+      const oldEntity = existingUpdate.entity
+      const attributesChanged = this.hasAttributesChanged(oldEntity, entity)
+
       // Only update if state or attributes changed
       if (oldEntity.state === entity.state && !attributesChanged) {
-        return; // No meaningful change
+        return // No meaningful change
       }
     }
 
     this.pendingUpdates.set(entity.entity_id, {
       entity,
       timestamp: Date.now(),
-    });
+    })
 
     // Start or reset the batch timer
-    this.scheduleBatch();
+    this.scheduleBatch()
   }
 
   /**
@@ -47,30 +47,32 @@ export class EntityUpdateBatcher {
   private hasAttributesChanged(oldEntity: HassEntity, newEntity: HassEntity): boolean {
     // Quick check if attributes object reference changed
     if (oldEntity.attributes === newEntity.attributes) {
-      return false;
+      return false
     }
 
     // Get tracked attributes for this entity
-    const trackedAttributes = this.attributeListeners.get(oldEntity.entity_id);
+    const trackedAttributes = this.attributeListeners.get(oldEntity.entity_id)
     if (!trackedAttributes || trackedAttributes.size === 0) {
       // If no specific attributes are tracked, do a full comparison
       // Check if the number of attributes changed
-      const oldKeys = Object.keys(oldEntity.attributes);
-      const newKeys = Object.keys(newEntity.attributes);
-      
+      const oldKeys = Object.keys(oldEntity.attributes)
+      const newKeys = Object.keys(newEntity.attributes)
+
       if (oldKeys.length !== newKeys.length) {
-        return true;
+        return true
       }
-      
+
       // Check if any attribute values changed
-      return oldKeys.some(key => oldEntity.attributes[key] !== newEntity.attributes[key]) ||
-             newKeys.some(key => !(key in oldEntity.attributes));
+      return (
+        oldKeys.some((key) => oldEntity.attributes[key] !== newEntity.attributes[key]) ||
+        newKeys.some((key) => !(key in oldEntity.attributes))
+      )
     }
 
     // Check only tracked attributes
-    return Array.from(trackedAttributes).some(attr =>
-      oldEntity.attributes[attr] !== newEntity.attributes[attr]
-    );
+    return Array.from(trackedAttributes).some(
+      (attr) => oldEntity.attributes[attr] !== newEntity.attributes[attr]
+    )
   }
 
   /**
@@ -78,20 +80,20 @@ export class EntityUpdateBatcher {
    */
   trackAttribute(entityId: string, attribute: string): void {
     if (!this.attributeListeners.has(entityId)) {
-      this.attributeListeners.set(entityId, new Set());
+      this.attributeListeners.set(entityId, new Set())
     }
-    this.attributeListeners.get(entityId)!.add(attribute);
+    this.attributeListeners.get(entityId)!.add(attribute)
   }
 
   /**
    * Unregister attribute tracking
    */
   untrackAttribute(entityId: string, attribute: string): void {
-    const attributes = this.attributeListeners.get(entityId);
+    const attributes = this.attributeListeners.get(entityId)
     if (attributes) {
-      attributes.delete(attribute);
+      attributes.delete(attribute)
       if (attributes.size === 0) {
-        this.attributeListeners.delete(entityId);
+        this.attributeListeners.delete(entityId)
       }
     }
   }
@@ -102,19 +104,19 @@ export class EntityUpdateBatcher {
   private scheduleBatch(): void {
     // Clear existing timer
     if (this.batchTimer) {
-      clearTimeout(this.batchTimer);
+      clearTimeout(this.batchTimer)
     }
 
     // If we have too many pending updates, process immediately
     if (this.pendingUpdates.size >= this.MAX_BATCH_SIZE) {
-      this.processBatch();
-      return;
+      this.processBatch()
+      return
     }
 
     // Otherwise, schedule batch processing
     this.batchTimer = setTimeout(() => {
-      this.processBatch();
-    }, this.BATCH_DELAY);
+      this.processBatch()
+    }, this.BATCH_DELAY)
   }
 
   /**
@@ -122,29 +124,29 @@ export class EntityUpdateBatcher {
    */
   private processBatch(): void {
     if (this.pendingUpdates.size === 0) {
-      return;
+      return
     }
 
     // Convert pending updates to array and clear the map
-    const updates = Array.from(this.pendingUpdates.values()).map(u => u.entity);
-    this.pendingUpdates.clear();
+    const updates = Array.from(this.pendingUpdates.values()).map((u) => u.entity)
+    this.pendingUpdates.clear()
 
     // Clear the timer
     if (this.batchTimer) {
-      clearTimeout(this.batchTimer);
-      this.batchTimer = null;
+      clearTimeout(this.batchTimer)
+      this.batchTimer = null
     }
 
     // Update all entities at once
-    entityStoreActions.updateEntities(updates);
-    
+    entityStoreActions.updateEntities(updates)
+
     // Mark all updated entities as fresh
-    updates.forEach(entity => {
-      entityStoreActions.markEntityFresh(entity.entity_id);
-    });
-    
+    updates.forEach((entity) => {
+      entityStoreActions.markEntityFresh(entity.entity_id)
+    })
+
     // Update last update time
-    entityStoreActions.updateLastUpdateTime();
+    entityStoreActions.updateLastUpdateTime()
   }
 
   /**
@@ -152,10 +154,10 @@ export class EntityUpdateBatcher {
    */
   flush(): void {
     if (this.batchTimer) {
-      clearTimeout(this.batchTimer);
-      this.batchTimer = null;
+      clearTimeout(this.batchTimer)
+      this.batchTimer = null
     }
-    this.processBatch();
+    this.processBatch()
   }
 
   /**
@@ -163,11 +165,11 @@ export class EntityUpdateBatcher {
    */
   clear(): void {
     if (this.batchTimer) {
-      clearTimeout(this.batchTimer);
-      this.batchTimer = null;
+      clearTimeout(this.batchTimer)
+      this.batchTimer = null
     }
-    this.pendingUpdates.clear();
-    this.attributeListeners.clear();
+    this.pendingUpdates.clear()
+    this.attributeListeners.clear()
   }
 
   /**
@@ -177,9 +179,9 @@ export class EntityUpdateBatcher {
     return {
       pendingCount: this.pendingUpdates.size,
       trackedAttributes: this.attributeListeners.size,
-    };
+    }
   }
 }
 
 // Singleton instance
-export const entityUpdateBatcher = new EntityUpdateBatcher();
+export const entityUpdateBatcher = new EntityUpdateBatcher()

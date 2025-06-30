@@ -1,5 +1,5 @@
-import { Store } from '@tanstack/store';
-import { useStore } from '@tanstack/react-store';
+import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type {
   DashboardState,
   DashboardMode,
@@ -8,13 +8,13 @@ import type {
   GridItem,
   GridResolution,
   DashboardConfig,
-} from './types';
-import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug';
+} from './types'
+import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug'
 
 const DEFAULT_GRID_RESOLUTION: GridResolution = {
   columns: 12,
   rows: 8,
-};
+}
 
 const initialState: DashboardState = {
   mode: 'view',
@@ -28,9 +28,9 @@ const initialState: DashboardState = {
   gridResolution: DEFAULT_GRID_RESOLUTION,
   theme: 'auto',
   isDirty: false,
-};
+}
 
-export const dashboardStore = new Store<DashboardState>(initialState);
+export const dashboardStore = new Store<DashboardState>(initialState)
 
 export const dashboardActions = {
   setMode: (mode: DashboardMode) => {
@@ -38,20 +38,20 @@ export const dashboardActions = {
       ...state,
       mode,
       isDirty: true,
-    }));
+    }))
   },
 
   setCurrentScreen: (screenId: string) => {
     dashboardStore.setState((state) => ({
       ...state,
       currentScreenId: screenId,
-    }));
+    }))
   },
 
   addScreen: (screen: ScreenConfig, parentId?: string) => {
     dashboardStore.setState((state) => {
-      const newScreens = [...state.screens];
-      
+      const newScreens = [...state.screens]
+
       if (parentId) {
         const addToParent = (screens: ScreenConfig[]): ScreenConfig[] => {
           return screens.map((s) => {
@@ -59,80 +59,82 @@ export const dashboardActions = {
               return {
                 ...s,
                 children: [...(s.children || []), screen],
-              };
+              }
             }
             if (s.children) {
               return {
                 ...s,
                 children: addToParent(s.children),
-              };
+              }
             }
-            return s;
-          });
-        };
-        
+            return s
+          })
+        }
+
         return {
           ...state,
           screens: addToParent(newScreens),
           isDirty: true,
-        };
+        }
       }
-      
+
       return {
         ...state,
         screens: [...newScreens, screen],
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => {
     dashboardStore.setState((state) => {
       // If name is being updated, regenerate slug
-      let finalUpdates = { ...updates };
+      let finalUpdates = { ...updates }
       if (updates.name && typeof updates.name === 'string') {
-        const existingSlugs = getAllSlugs(state.screens);
-        const baseSlug = generateSlug(updates.name);
-        
+        const existingSlugs = getAllSlugs(state.screens)
+        const baseSlug = generateSlug(updates.name)
+
         // Find current screen to exclude its slug from uniqueness check
         const findScreen = (screens: ScreenConfig[], id: string): ScreenConfig | null => {
           for (const screen of screens) {
-            if (screen.id === id) return screen;
+            if (screen.id === id) return screen
             if (screen.children) {
-              const found = findScreen(screen.children, id);
-              if (found) return found;
+              const found = findScreen(screen.children, id)
+              if (found) return found
             }
           }
-          return null;
-        };
-        
-        const currentScreen = findScreen(state.screens, screenId);
-        const slugsToCheck = currentScreen ? existingSlugs.filter(s => s !== currentScreen.slug) : existingSlugs;
-        
-        finalUpdates.slug = ensureUniqueSlug(baseSlug, slugsToCheck);
+          return null
+        }
+
+        const currentScreen = findScreen(state.screens, screenId)
+        const slugsToCheck = currentScreen
+          ? existingSlugs.filter((s) => s !== currentScreen.slug)
+          : existingSlugs
+
+        finalUpdates.slug = ensureUniqueSlug(baseSlug, slugsToCheck)
       }
-      
+
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
         return screens.map((screen) => {
           if (screen.id === screenId) {
-            return { ...screen, ...finalUpdates };
+            return { ...screen, ...finalUpdates }
           }
           if (screen.children) {
             return {
               ...screen,
               children: updateInTree(screen.children),
-            };
+            }
           }
-          return screen;
-        });
-      };
+          return screen
+        })
+      }
 
       return {
         ...state,
         screens: updateInTree(state.screens),
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   removeScreen: (screenId: string) => {
@@ -145,22 +147,22 @@ export const dashboardActions = {
               return {
                 ...screen,
                 children: removeFromTree(screen.children),
-              };
+              }
             }
-            return screen;
-          });
-      };
+            return screen
+          })
+      }
 
-      const newScreens = removeFromTree(state.screens);
-      const newCurrentScreenId = state.currentScreenId === screenId ? null : state.currentScreenId;
+      const newScreens = removeFromTree(state.screens)
+      const newCurrentScreenId = state.currentScreenId === screenId ? null : state.currentScreenId
 
       return {
         ...state,
         screens: newScreens,
         currentScreenId: newCurrentScreenId,
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   addSection: (screenId: string, section: SectionConfig) => {
@@ -174,24 +176,24 @@ export const dashboardActions = {
                 ...screen.grid,
                 sections: [...screen.grid.sections, section],
               },
-            };
+            }
           }
           if (screen.children) {
             return {
               ...screen,
               children: updateInTree(screen.children),
-            };
+            }
           }
-          return screen;
-        });
-      };
+          return screen
+        })
+      }
 
       return {
         ...state,
         screens: updateInTree(state.screens),
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   updateSection: (screenId: string, sectionId: string, updates: Partial<SectionConfig>) => {
@@ -207,24 +209,24 @@ export const dashboardActions = {
                   section.id === sectionId ? { ...section, ...updates } : section
                 ),
               },
-            };
+            }
           }
           if (screen.children) {
             return {
               ...screen,
               children: updateInTree(screen.children),
-            };
+            }
           }
-          return screen;
-        });
-      };
+          return screen
+        })
+      }
 
       return {
         ...state,
         screens: updateInTree(state.screens),
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   removeSection: (screenId: string, sectionId: string) => {
@@ -238,24 +240,24 @@ export const dashboardActions = {
                 ...screen.grid,
                 sections: screen.grid.sections.filter((section) => section.id !== sectionId),
               },
-            };
+            }
           }
           if (screen.children) {
             return {
               ...screen,
               children: updateInTree(screen.children),
-            };
+            }
           }
-          return screen;
-        });
-      };
+          return screen
+        })
+      }
 
       return {
         ...state,
         screens: updateInTree(state.screens),
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   addGridItem: (screenId: string, sectionId: string, item: GridItem) => {
@@ -273,27 +275,32 @@ export const dashboardActions = {
                     : section
                 ),
               },
-            };
+            }
           }
           if (screen.children) {
             return {
               ...screen,
               children: updateInTree(screen.children),
-            };
+            }
           }
-          return screen;
-        });
-      };
+          return screen
+        })
+      }
 
       return {
         ...state,
         screens: updateInTree(state.screens),
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
-  updateGridItem: (screenId: string, sectionId: string, itemId: string, updates: Partial<GridItem>) => {
+  updateGridItem: (
+    screenId: string,
+    sectionId: string,
+    itemId: string,
+    updates: Partial<GridItem>
+  ) => {
     dashboardStore.setState((state) => {
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
         return screens.map((screen) => {
@@ -313,24 +320,24 @@ export const dashboardActions = {
                     : section
                 ),
               },
-            };
+            }
           }
           if (screen.children) {
             return {
               ...screen,
               children: updateInTree(screen.children),
-            };
+            }
           }
-          return screen;
-        });
-      };
+          return screen
+        })
+      }
 
       return {
         ...state,
         screens: updateInTree(state.screens),
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   removeGridItem: (screenId: string, sectionId: string, itemId: string) => {
@@ -351,24 +358,24 @@ export const dashboardActions = {
                     : section
                 ),
               },
-            };
+            }
           }
           if (screen.children) {
             return {
               ...screen,
               children: updateInTree(screen.children),
-            };
+            }
           }
-          return screen;
-        });
-      };
+          return screen
+        })
+      }
 
       return {
         ...state,
         screens: updateInTree(state.screens),
         isDirty: true,
-      };
-    });
+      }
+    })
   },
 
   setTheme: (theme: 'light' | 'dark' | 'auto') => {
@@ -376,7 +383,7 @@ export const dashboardActions = {
       ...state,
       theme,
       isDirty: true,
-    }));
+    }))
   },
 
   setGridResolution: (resolution: GridResolution) => {
@@ -384,7 +391,7 @@ export const dashboardActions = {
       ...state,
       gridResolution: resolution,
       isDirty: true,
-    }));
+    }))
   },
 
   loadConfiguration: (config: DashboardConfig) => {
@@ -396,30 +403,30 @@ export const dashboardActions = {
       gridResolution: DEFAULT_GRID_RESOLUTION,
       theme: config.theme || 'auto',
       isDirty: false,
-    }));
+    }))
   },
 
   exportConfiguration: (): DashboardConfig => {
-    const state = dashboardStore.state;
+    const state = dashboardStore.state
     return {
       version: state.configuration.version,
       screens: state.screens,
       theme: state.theme,
-    };
+    }
   },
 
   resetState: () => {
-    dashboardStore.setState(() => initialState);
+    dashboardStore.setState(() => initialState)
   },
 
   markClean: () => {
     dashboardStore.setState((state) => ({
       ...state,
       isDirty: false,
-    }));
+    }))
   },
-};
+}
 
 export const useDashboardStore = <TSelected = DashboardState>(
   selector?: (state: DashboardState) => TSelected
-) => useStore(dashboardStore, selector);
+) => useStore(dashboardStore, selector)

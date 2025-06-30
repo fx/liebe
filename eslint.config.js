@@ -3,6 +3,7 @@ import tsParser from '@typescript-eslint/parser'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooksPlugin from 'eslint-plugin-react-hooks'
+import prettierConfig from 'eslint-config-prettier'
 
 export default [
   js.configs.recommended,
@@ -21,7 +22,7 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
-      'react': reactPlugin,
+      react: reactPlugin,
       'react-hooks': reactHooksPlugin,
     },
     rules: {
@@ -58,4 +59,5 @@ export default [
   {
     ignores: ['node_modules/', '.output/', '.tanstack/', 'dist/', 'build/', '*.gen.ts', '.nitro/'],
   },
+  prettierConfig,
 ]

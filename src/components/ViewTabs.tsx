@@ -1,80 +1,83 @@
-import { Tabs, Button, Flex, IconButton, ScrollArea, DropdownMenu, Box } from '@radix-ui/themes';
-import { Cross2Icon, PlusIcon, HamburgerMenuIcon } from '@radix-ui/react-icons';
-import { useDashboardStore, dashboardActions } from '../store';
-import type { ScreenConfig } from '../store/types';
-import { useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { Tabs, Button, Flex, IconButton, ScrollArea, DropdownMenu, Box } from '@radix-ui/themes'
+import { Cross2Icon, PlusIcon, HamburgerMenuIcon } from '@radix-ui/react-icons'
+import { useDashboardStore, dashboardActions } from '../store'
+import type { ScreenConfig } from '../store/types'
+import { useEffect, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 
 interface ViewTabsProps {
-  onAddView?: () => void;
+  onAddView?: () => void
 }
 
 export function ViewTabs({ onAddView }: ViewTabsProps) {
-  const screens = useDashboardStore((state) => state.screens);
-  const currentScreenId = useDashboardStore((state) => state.currentScreenId);
-  const mode = useDashboardStore((state) => state.mode);
-  const [isMobile, setIsMobile] = useState(false);
-  const navigate = useNavigate();
-  
+  const screens = useDashboardStore((state) => state.screens)
+  const currentScreenId = useDashboardStore((state) => state.currentScreenId)
+  const mode = useDashboardStore((state) => state.mode)
+  const [isMobile, setIsMobile] = useState(false)
+  const navigate = useNavigate()
+
   // Helper function to find screen by ID
   const findScreenById = (screenList: ScreenConfig[], id: string): ScreenConfig | undefined => {
     for (const screen of screenList) {
-      if (screen.id === id) return screen;
+      if (screen.id === id) return screen
       if (screen.children) {
-        const found = findScreenById(screen.children, id);
-        if (found) return found;
+        const found = findScreenById(screen.children, id)
+        if (found) return found
       }
     }
-    return undefined;
-  };
+    return undefined
+  }
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const handleTabChange = (value: string) => {
     // Update the store state immediately for responsiveness
-    dashboardActions.setCurrentScreen(value);
-    
-    const screen = findScreenById(screens, value);
+    dashboardActions.setCurrentScreen(value)
+
+    const screen = findScreenById(screens, value)
     if (screen) {
       // Navigate to the new screen using slug
-      navigate({ to: '/$slug', params: { slug: screen.slug } });
-      
+      navigate({ to: '/$slug', params: { slug: screen.slug } })
+
       // If we're in an iframe, notify the parent window
       if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'route-change',
-          path: `/${screen.slug}`,
-        }, '*');
+        window.parent.postMessage(
+          {
+            type: 'route-change',
+            path: `/${screen.slug}`,
+          },
+          '*'
+        )
       }
     }
-  };
+  }
 
   const handleRemoveView = (screenId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    dashboardActions.removeScreen(screenId);
-    
+    e.stopPropagation()
+    dashboardActions.removeScreen(screenId)
+
     // If we're removing the current screen, navigate to another screen
     if (screenId === currentScreenId) {
-      const remainingScreens = screens.filter(s => s.id !== screenId);
+      const remainingScreens = screens.filter((s) => s.id !== screenId)
       if (remainingScreens.length > 0) {
-        navigate({ to: '/$slug', params: { slug: remainingScreens[0].slug } });
+        navigate({ to: '/$slug', params: { slug: remainingScreens[0].slug } })
       } else {
-        navigate({ to: '/' });
+        navigate({ to: '/' })
       }
     }
-  };
+  }
 
   const renderScreenTabs = (screenList: ScreenConfig[], level = 0): React.ReactNode[] => {
-    const tabs: React.ReactNode[] = [];
-    
+    const tabs: React.ReactNode[] = []
+
     screenList.forEach((screen) => {
       tabs.push(
         <Tabs.Trigger key={screen.id} value={screen.id} style={{ paddingLeft: `${level * 20}px` }}>
@@ -95,10 +98,10 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
                   transition: 'background-color 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--gray-a3)';
+                  e.currentTarget.style.backgroundColor = 'var(--gray-a3)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.backgroundColor = 'transparent'
                 }}
               >
                 <Cross2Icon width="14" height="14" />
@@ -106,15 +109,15 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
             )}
           </Flex>
         </Tabs.Trigger>
-      );
-      
+      )
+
       if (screen.children) {
-        tabs.push(...renderScreenTabs(screen.children, level + 1));
+        tabs.push(...renderScreenTabs(screen.children, level + 1))
       }
-    });
-    
-    return tabs;
-  };
+    })
+
+    return tabs
+  }
 
   if (screens.length === 0) {
     return (
@@ -124,7 +127,7 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
           Add First View
         </Button>
       </Flex>
-    );
+    )
   }
 
   const renderDropdownItems = (screenList: ScreenConfig[], level = 0): React.ReactNode => {
@@ -137,12 +140,16 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
           {screen.name}
           {currentScreenId === screen.id && ' ✓'}
         </DropdownMenu.Item>
-        {screen.children && screen.children.length > 0 && renderDropdownItems(screen.children, level + 1)}
+        {screen.children &&
+          screen.children.length > 0 &&
+          renderDropdownItems(screen.children, level + 1)}
       </DropdownMenu.Sub>
-    ));
-  };
+    ))
+  }
 
-  const currentScreenName = currentScreenId ? findScreenById(screens, currentScreenId)?.name || 'Select View' : 'Select View';
+  const currentScreenName = currentScreenId
+    ? findScreenById(screens, currentScreenId)?.name || 'Select View'
+    : 'Select View'
 
   if (isMobile) {
     return (
@@ -168,31 +175,21 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </Flex>
-    );
+    )
   }
 
   return (
-    <Tabs.Root
-      value={currentScreenId || ''}
-      onValueChange={handleTabChange}
-    >
+    <Tabs.Root value={currentScreenId || ''} onValueChange={handleTabChange}>
       <Flex align="center" gap="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
         <ScrollArea type="hover" scrollbars="horizontal" style={{ flex: 1 }}>
-          <Tabs.List>
-            {renderScreenTabs(screens)}
-          </Tabs.List>
+          <Tabs.List>{renderScreenTabs(screens)}</Tabs.List>
         </ScrollArea>
         {mode === 'edit' && (
-          <IconButton
-            size="2"
-            variant="soft"
-            onClick={onAddView}
-            style={{ marginRight: '8px' }}
-          >
+          <IconButton size="2" variant="soft" onClick={onAddView} style={{ marginRight: '8px' }}>
             <PlusIcon />
           </IconButton>
         )}
       </Flex>
     </Tabs.Root>
-  );
+  )
 }

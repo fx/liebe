@@ -1,34 +1,34 @@
-import { Card, Flex, Text, Spinner, Box } from '@radix-ui/themes';
-import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons';
-import { useEntity, useServiceCall } from '~/hooks';
-import type { HassEntity } from '~/store/entityTypes';
-import { memo } from 'react';
-import './ButtonCard.css';
+import { Card, Flex, Text, Spinner, Box } from '@radix-ui/themes'
+import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons'
+import { useEntity, useServiceCall } from '~/hooks'
+import type { HassEntity } from '~/store/entityTypes'
+import { memo } from 'react'
+import './ButtonCard.css'
 
 interface ButtonCardProps {
-  entityId: string;
-  size?: 'small' | 'medium' | 'large';
+  entityId: string
+  size?: 'small' | 'medium' | 'large'
 }
 
 const getEntityIcon = (entity: HassEntity) => {
-  const domain = entity.entity_id.split('.')[0];
-  
+  const domain = entity.entity_id.split('.')[0]
+
   switch (domain) {
     case 'light':
-      return <SunIcon width="20" height="20" />;
+      return <SunIcon width="20" height="20" />
     case 'switch':
-      return <LightningBoltIcon width="20" height="20" />;
+      return <LightningBoltIcon width="20" height="20" />
     case 'input_boolean':
-      return <CheckIcon width="20" height="20" />;
+      return <CheckIcon width="20" height="20" />
     default:
-      return <LightningBoltIcon width="20" height="20" />;
+      return <LightningBoltIcon width="20" height="20" />
   }
-};
+}
 
 function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
-  const { entity, isConnected, isStale } = useEntity(entityId);
-  const { loading: isLoading, error, toggle, clearError } = useServiceCall();
-  
+  const { entity, isConnected, isStale } = useEntity(entityId)
+  const { loading: isLoading, error, toggle, clearError } = useServiceCall()
+
   if (!entity || !isConnected) {
     return (
       <Card variant="classic" style={{ opacity: 0.5 }}>
@@ -38,25 +38,23 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
           </Text>
         </Flex>
       </Card>
-    );
+    )
   }
 
   const cardSize = {
     small: { p: '2', iconSize: '16', fontSize: '1' },
     medium: { p: '3', iconSize: '20', fontSize: '2' },
     large: { p: '4', iconSize: '24', fontSize: '3' },
-  }[size];
+  }[size]
 
   // Handle unavailable state
-  const isUnavailable = entity.state === 'unavailable';
+  const isUnavailable = entity.state === 'unavailable'
   if (isUnavailable) {
     return (
       <Card variant="classic" style={{ opacity: 0.6, borderStyle: 'dotted' }}>
         <Flex p={cardSize.p} direction="column" align="center" justify="center" gap="2">
-          <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
-            {getEntityIcon(entity)}
-          </Box>
-          <Text size={cardSize.fontSize as ('1' | '2' | '3')} color="gray" align="center">
+          <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>{getEntityIcon(entity)}</Box>
+          <Text size={cardSize.fontSize as '1' | '2' | '3'} color="gray" align="center">
             {entity.attributes.friendly_name || entity.entity_id}
           </Text>
           <Text size="1" color="gray" weight="medium">
@@ -64,35 +62,43 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
           </Text>
         </Flex>
       </Card>
-    );
+    )
   }
-  
-  const friendlyName = entity.attributes.friendly_name || entity.entity_id;
-  const isOn = entity.state === 'on';
-  
+
+  const friendlyName = entity.attributes.friendly_name || entity.entity_id
+  const isOn = entity.state === 'on'
+
   const handleClick = async () => {
-    if (isLoading) return;
-    
+    if (isLoading) return
+
     // Clear any previous errors
     if (error) {
-      clearError();
+      clearError()
     }
-    
-    await toggle(entity.entity_id);
-  };
-  
+
+    await toggle(entity.entity_id)
+  }
+
   return (
     <Card
       variant="classic"
       style={{
         cursor: isLoading ? 'wait' : 'pointer',
         backgroundColor: isOn ? 'var(--amber-3)' : undefined,
-        borderColor: error ? 'var(--red-6)' : isStale ? 'var(--orange-6)' : isOn ? 'var(--amber-6)' : undefined,
+        borderColor: error
+          ? 'var(--red-6)'
+          : isStale
+            ? 'var(--orange-6)'
+            : isOn
+              ? 'var(--amber-6)'
+              : undefined,
         borderWidth: error || isOn || isStale ? '2px' : '1px',
         borderStyle: isStale ? 'dashed' : 'solid',
         transition: 'all 0.2s ease',
         transform: isLoading ? 'scale(0.98)' : undefined,
-        animation: isLoading ? (error ? 'pulse-border-error' : 'pulse-border') + ' 1.5s ease-in-out infinite' : undefined,
+        animation: isLoading
+          ? (error ? 'pulse-border-error' : 'pulse-border') + ' 1.5s ease-in-out infinite'
+          : undefined,
         opacity: isStale ? 0.8 : 1,
       }}
       onClick={handleClick}
@@ -133,19 +139,21 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
                 transform: 'translate(-50%, -50%)',
               }}
             >
-              <Spinner 
-                size={cardSize.fontSize as ('1' | '2' | '3')} 
-                style={{
-                  '--spinner-track-color': 'var(--gray-a6)',
-                  '--spinner-fill-color': isOn ? 'var(--amber-9)' : 'var(--gray-9)',
-                } as React.CSSProperties}
+              <Spinner
+                size={cardSize.fontSize as '1' | '2' | '3'}
+                style={
+                  {
+                    '--spinner-track-color': 'var(--gray-a6)',
+                    '--spinner-fill-color': isOn ? 'var(--amber-9)' : 'var(--gray-9)',
+                  } as React.CSSProperties
+                }
               />
             </Box>
           )}
         </Box>
-        
+
         <Text
-          size={cardSize.fontSize as ('1' | '2' | '3')}
+          size={cardSize.fontSize as '1' | '2' | '3'}
           weight={isOn ? 'medium' : 'regular'}
           align="center"
           style={{
@@ -160,7 +168,7 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
         >
           {friendlyName}
         </Text>
-        
+
         <Text
           size="1"
           color={error ? 'red' : isOn ? 'amber' : 'gray'}
@@ -174,11 +182,11 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
         </Text>
       </Flex>
     </Card>
-  );
+  )
 }
 
 // Memoize the component to prevent unnecessary re-renders
 export const ButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
   // Only re-render if entityId or size changes
-  return prevProps.entityId === nextProps.entityId && prevProps.size === nextProps.size;
-});
+  return prevProps.entityId === nextProps.entityId && prevProps.size === nextProps.size
+})

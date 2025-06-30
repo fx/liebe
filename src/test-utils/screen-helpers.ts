@@ -1,12 +1,14 @@
-import type { ScreenConfig } from '../store/types';
-import { generateSlug } from '../utils/slug';
+import type { ScreenConfig } from '../store/types'
+import { generateSlug } from '../utils/slug'
 
 /**
  * Create a test screen with all required fields including slug
  */
-export function createTestScreen(overrides: Partial<ScreenConfig> & { name: string; id: string }): ScreenConfig {
-  const { name, id, slug, ...rest } = overrides;
-  
+export function createTestScreen(
+  overrides: Partial<ScreenConfig> & { name: string; id: string }
+): ScreenConfig {
+  const { name, id, slug, ...rest } = overrides
+
   return {
     id,
     name,
@@ -17,5 +19,5 @@ export function createTestScreen(overrides: Partial<ScreenConfig> & { name: stri
       sections: [],
     },
     ...rest,
-  };
+  }
 }

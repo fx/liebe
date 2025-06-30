@@ -1,73 +1,78 @@
 export interface GridResolution {
-  columns: number;
-  rows: number;
+  columns: number
+  rows: number
 }
 
 export interface GridItem {
-  id: string;
-  entityId: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  id: string
+  entityId: string
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 export interface SectionConfig {
-  id: string;
-  title: string;
-  order: number;
-  width: 'full' | 'half' | 'third' | 'quarter';
-  collapsed?: boolean;
-  items: GridItem[];
+  id: string
+  title: string
+  order: number
+  width: 'full' | 'half' | 'third' | 'quarter'
+  collapsed?: boolean
+  items: GridItem[]
 }
 
 export interface ScreenConfig {
-  id: string;
-  name: string;
-  slug: string;
-  type: 'grid';
-  parentId?: string;
-  children?: ScreenConfig[];
+  id: string
+  name: string
+  slug: string
+  type: 'grid'
+  parentId?: string
+  children?: ScreenConfig[]
   grid?: {
-    resolution: GridResolution;
-    sections: SectionConfig[];
-  };
+    resolution: GridResolution
+    sections: SectionConfig[]
+  }
 }
 
 export interface DashboardConfig {
-  version: string;
-  screens: ScreenConfig[];
-  theme?: 'light' | 'dark' | 'auto';
+  version: string
+  screens: ScreenConfig[]
+  theme?: 'light' | 'dark' | 'auto'
 }
 
-export type DashboardMode = 'view' | 'edit';
+export type DashboardMode = 'view' | 'edit'
 
 export interface DashboardState {
-  mode: DashboardMode;
-  screens: ScreenConfig[];
-  currentScreenId: string | null;
-  configuration: DashboardConfig;
-  gridResolution: GridResolution;
-  theme: 'light' | 'dark' | 'auto';
-  isDirty: boolean;
+  mode: DashboardMode
+  screens: ScreenConfig[]
+  currentScreenId: string | null
+  configuration: DashboardConfig
+  gridResolution: GridResolution
+  theme: 'light' | 'dark' | 'auto'
+  isDirty: boolean
 }
 
 export interface StoreActions {
-  setMode: (mode: DashboardMode) => void;
-  setCurrentScreen: (screenId: string) => void;
-  addScreen: (screen: ScreenConfig, parentId?: string) => void;
-  updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => void;
-  removeScreen: (screenId: string) => void;
-  addSection: (screenId: string, section: SectionConfig) => void;
-  updateSection: (screenId: string, sectionId: string, updates: Partial<SectionConfig>) => void;
-  removeSection: (screenId: string, sectionId: string) => void;
-  addGridItem: (screenId: string, sectionId: string, item: GridItem) => void;
-  updateGridItem: (screenId: string, sectionId: string, itemId: string, updates: Partial<GridItem>) => void;
-  removeGridItem: (screenId: string, sectionId: string, itemId: string) => void;
-  setTheme: (theme: 'light' | 'dark' | 'auto') => void;
-  setGridResolution: (resolution: GridResolution) => void;
-  loadConfiguration: (config: DashboardConfig) => void;
-  exportConfiguration: () => DashboardConfig;
-  resetState: () => void;
-  markClean: () => void;
+  setMode: (mode: DashboardMode) => void
+  setCurrentScreen: (screenId: string) => void
+  addScreen: (screen: ScreenConfig, parentId?: string) => void
+  updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => void
+  removeScreen: (screenId: string) => void
+  addSection: (screenId: string, section: SectionConfig) => void
+  updateSection: (screenId: string, sectionId: string, updates: Partial<SectionConfig>) => void
+  removeSection: (screenId: string, sectionId: string) => void
+  addGridItem: (screenId: string, sectionId: string, item: GridItem) => void
+  updateGridItem: (
+    screenId: string,
+    sectionId: string,
+    itemId: string,
+    updates: Partial<GridItem>
+  ) => void
+  removeGridItem: (screenId: string, sectionId: string, itemId: string) => void
+  setTheme: (theme: 'light' | 'dark' | 'auto') => void
+  setGridResolution: (resolution: GridResolution) => void
+  loadConfiguration: (config: DashboardConfig) => void
+  exportConfiguration: () => DashboardConfig
+  resetState: () => void
+  markClean: () => void
 }

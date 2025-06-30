@@ -25,19 +25,21 @@ You are working on a custom Home Assistant dashboard project that integrates as 
 ## Task Management
 
 ### Task Discovery Hierarchy
+
 When starting work or looking for task requirements, ALWAYS follow this order:
 
 1. **GitHub Issues and Projects (Primary Source)**
+
    ```bash
    # List all open issues
    gh issue list --repo fx/liebe
-   
+
    # View specific issue details
    gh issue view <issue-number>
-   
+
    # List issues by label
    gh issue list --label epic
-   
+
    # View project status
    gh project list --owner fx
    ```
@@ -47,15 +49,18 @@ When starting work or looking for task requirements, ALWAYS follow this order:
    - PRD provides context but GitHub issues have the actual tasks
 
 ### GitHub Projects Setup
+
 1. All epics and tasks are tracked as GitHub Issues
 2. Use GitHub Projects to organize epics and track progress
 3. Each epic should have a corresponding milestone
 4. Tasks should reference their parent epic
 
 ### Issue Templates
+
 When creating issues, use these formats:
 
 **Epic Format:**
+
 ```
 Title: [EPIC] Epic Name
 Body:
@@ -68,6 +73,7 @@ Brief description of the epic
 ```
 
 **Task Format:**
+
 ```
 Title: Task description
 Body:
@@ -89,20 +95,23 @@ Epic: #epic-issue-number
 When creating a new epic with sub-issues:
 
 1. **Create the epic issue first**
+
    ```bash
    gh issue create --title "[EPIC] Epic Name" --body "..."
    ```
 
 2. **Create all sub-issues**, mentioning the epic in their description
+
    ```bash
    gh issue create --title "Sub-task name" --body "... Epic: #<epic-number>"
    ```
 
 3. **Link sub-issues to the epic** using the provided script
+
    ```bash
    # Link multiple issues to an epic
    ./scripts/link-sub-issues.sh <epic-number> <issue-1> <issue-2> <issue-3>
-   
+
    # Example: Link issues 25, 26, 27 to epic 24
    ./scripts/link-sub-issues.sh 24 25 26 27
    ```
@@ -110,6 +119,7 @@ When creating a new epic with sub-issues:
 ### Branch and Pull Request Strategy
 
 **Important**: For GitHub issues that have sub-issues, create a separate branch and pull request for every sub-issue. This keeps pull requests at a reasonable size and makes code review more manageable.
+
 ## Development Workflow
 
 ### Home Assistant Development Setup
@@ -121,6 +131,7 @@ npm run dev
 ```
 
 Add to Home Assistant configuration.yaml:
+
 ```yaml
 panel_custom:
   - name: liebe-dashboard-dev
@@ -131,7 +142,8 @@ panel_custom:
 ```
 
 This gives you:
-- Hot module replacement  
+
+- Hot module replacement
 - Full hass object access (via postMessage bridge)
 - Real-time updates as you code
 
@@ -140,17 +152,20 @@ Note: The custom element name in panel_custom must match the name in customEleme
 ### Starting a New Task
 
 1. **Select Task from GitHub Project**
+
    ```bash
    gh issue list --assignee @me
    gh issue view <issue-number>
    ```
 
 2. **Create Feature Branch**
+
    ```bash
    git checkout main
    git pull origin main
    git checkout -b <branch-type>/<issue-number>-<brief-description>
    ```
+
    Branch types: `feat/`, `fix/`, `docs/`, `refactor/`
 
 3. **Update Todo List**
@@ -168,16 +183,17 @@ Note: The custom element name in panel_custom must match the name in customEleme
    - Add loading states for async operations
 
 2. **Testing Approach**
+
    ```bash
    # Run development server
    npm run dev
-   
+
    # Run tests (when implemented)
    npm run test
-   
+
    # Type checking
    npm run typecheck
-   
+
    # Linting
    npm run lint
    ```
@@ -197,6 +213,7 @@ Note: The custom element name in panel_custom must match the name in customEleme
    - [ ] Todo items marked as completed
 
 2. **Commit and Push**
+
    ```bash
    git add .
    git commit -m "<type>(<scope>): <subject>"
@@ -204,15 +221,16 @@ Note: The custom element name in panel_custom must match the name in customEleme
    ```
 
 3. **Create Pull Request**
+
    ```bash
    gh pr create --title "<type>(<scope>): <subject>" \
                 --body "$(cat <<'EOF'
    ## Summary
    - Brief description of changes
-   
+
    ## Related Issue
    Closes #<issue-number>
-   
+
    ## Testing
    - [ ] Tested in development
    - [ ] Tested in Home Assistant
@@ -227,6 +245,7 @@ Note: The custom element name in panel_custom must match the name in customEleme
 ### TanStack Start SPA Configuration
 
 1. **Project Initialization** (First task)
+
    ```bash
    npm create @tanstack/start@latest -- --template react-spa
    ```
@@ -239,17 +258,19 @@ Note: The custom element name in panel_custom must match the name in customEleme
 ### Radix UI Theme Integration
 
 1. **Installation Pattern**
+
    ```bash
    npm install @radix-ui/themes
    ```
 
 2. **Usage Pattern**
+
    ```tsx
-   import { Theme, Button, Dialog, Grid } from '@radix-ui/themes';
-   import '@radix-ui/themes/styles.css';
-   
+   import { Theme, Button, Dialog, Grid } from '@radix-ui/themes'
+   import '@radix-ui/themes/styles.css'
+
    // Wrap app in Theme provider
-   <Theme>
+   ;<Theme>
      <Dialog.Root>
        <Dialog.Trigger>
          <Button>Open Dialog</Button>
@@ -292,10 +313,11 @@ panel_custom:
     config:
       # Optional: Enable development mode
       dev_mode: true
-      dev_url: "http://localhost:3000"
+      dev_url: 'http://localhost:3000'
 ```
 
 Then use watch mode:
+
 ```bash
 ./scripts/dev-ha.sh watch --ha-config /path/to/ha/config
 ```
@@ -303,6 +325,7 @@ Then use watch mode:
 **2. Mock Server for Local Development**
 
 For UI development without Home Assistant:
+
 ```bash
 # Start mock HA server
 ./scripts/dev-ha.sh mock-server
@@ -314,6 +337,7 @@ npm run dev
 **3. Browser Extension for CORS**
 
 If you need to bypass CORS during development:
+
 1. Install a CORS extension (e.g., "CORS Unblock")
 2. Configure it to allow HA → localhost:3000
 3. Use the custom panel configuration
@@ -321,29 +345,32 @@ If you need to bypass CORS during development:
 #### Panel Registration
 
 ```javascript
-customElements.define('liebe-dashboard-panel', class extends HTMLElement {
-  set hass(hass) {
-    // Store hass object for API access
-    this._hass = hass;
-    this.render();
+customElements.define(
+  'liebe-dashboard-panel',
+  class extends HTMLElement {
+    set hass(hass) {
+      // Store hass object for API access
+      this._hass = hass
+      this.render()
+    }
+
+    connectedCallback() {
+      // Initialize React app here
+    }
   }
-  
-  connectedCallback() {
-    // Initialize React app here
-  }
-});
+)
 ```
 
 #### Accessing Entities
 
 ```javascript
 // Get all entities
-const entities = this._hass.states;
+const entities = this._hass.states
 
 // Call service
 this._hass.callService('light', 'turn_on', {
-  entity_id: 'light.living_room'
-});
+  entity_id: 'light.living_room',
+})
 ```
 
 #### Production Configuration
@@ -363,60 +390,64 @@ panel_custom:
 ## Common Patterns
 
 ### State Management
+
 ```typescript
 // Use TanStack Store for global state
-import { Store } from '@tanstack/store';
+import { Store } from '@tanstack/store'
 
 export const dashboardStore = new Store({
   mode: 'view', // 'view' | 'edit'
-  screens: [],  // Tree structure of screens
+  screens: [], // Tree structure of screens
   currentScreen: null,
   configuration: {}, // Full dashboard config
   gridResolution: { columns: 12, rows: 8 },
-  theme: 'auto'
-});
+  theme: 'auto',
+})
 ```
 
 ### Configuration Management
+
 ```typescript
 // Configuration is stored as YAML and managed in-panel
 export interface DashboardConfig {
-  version: string;
-  screens: ScreenConfig[];
-  theme?: string;
+  version: string
+  screens: ScreenConfig[]
+  theme?: string
 }
 
 export interface ScreenConfig {
-  id: string;
-  name: string;
-  type: 'grid'; // Only grid type for MVP
-  children?: ScreenConfig[]; // For tree structure
+  id: string
+  name: string
+  type: 'grid' // Only grid type for MVP
+  children?: ScreenConfig[] // For tree structure
   grid?: {
-    resolution: { columns: number; rows: number };
-    items: GridItem[];
-  };
+    resolution: { columns: number; rows: number }
+    items: GridItem[]
+  }
 }
 ```
 
 ### Entity Subscription
+
 ```typescript
 // Subscribe to entity updates
 const handleStateChanged = (event) => {
-  const entityId = event.data.entity_id;
-  const newState = event.data.new_state;
+  const entityId = event.data.entity_id
+  const newState = event.data.new_state
   // Update local state
-};
+}
 
 // In panel class
-this._hass.connection.subscribeEvents(handleStateChanged, 'state_changed');
+this._hass.connection.subscribeEvents(handleStateChanged, 'state_changed')
 ```
 
 ### Error Handling
+
 ```typescript
 try {
-  await this._hass.callService(domain, service, data);
+  await this._hass.callService(domain, service, data)
 } catch (error) {
-  console.error('Service call failed:', error);
+  console.error('Service call failed:', error)
   // Show user-friendly error
 }
 ```
@@ -487,17 +518,14 @@ You MUST update this CLAUDE.md file whenever you:
    - Found a better way to integrate with Home Assistant
    - Discovered optimal TanStack Start configurations
    - Identified Radix UI usage patterns
-   
 2. **Encounter Blockers or Issues**
    - Document the problem and solution
    - Add to debugging tips section
    - Update common issues list
-   
 3. **Learn New Requirements**
    - User clarifies expectations
    - Technical constraints discovered
    - Performance considerations identified
-   
 4. **Add New Dependencies**
    - Document why it was added
    - Include installation instructions
@@ -519,12 +547,15 @@ When adding new sections, use this format:
 ## [New Section Name]
 
 ### Context
+
 [When/why this is relevant]
 
 ### Details
+
 [Specific information, code examples, commands]
 
 ### Related Issues
+
 [Link to GitHub issues if applicable]
 ```
 
@@ -535,10 +566,11 @@ All project automation scripts should be maintained in the `/scripts` directory.
 ### Available Scripts
 
 - **`scripts/link-sub-issues.sh`** - Links GitHub sub-issues to their parent issues/epics
+
   ```bash
   # Usage: Link multiple issues to a parent
   ./scripts/link-sub-issues.sh <parent-issue> <child-issue> [<child-issue>...]
-  
+
   # Example: Link issues 12, 13, 14 to epic 1
   ./scripts/link-sub-issues.sh 1 12 13 14
   ```
@@ -546,10 +578,12 @@ All project automation scripts should be maintained in the `/scripts` directory.
 ### Creating New Scripts
 
 When creating automation scripts:
+
 1. Place them in the `/scripts` directory
 2. Make them executable: `chmod +x scripts/script-name.sh`
 3. Add a description to this section
 4. Include usage instructions in the script header
+
 ## GitHub Issue Linking
 
 ### Important: Linking Sub-Issues to Epics
@@ -559,11 +593,13 @@ GitHub has a specific feature for linking issues as sub-issues to epics. This is
 **How to Link Sub-Issues via API:**
 
 1. **Use the provided script**:
+
    ```bash
    ./scripts/link-sub-issues.sh
    ```
 
 2. **Manual API calls** (if needed):
+
    ```bash
    # Get issue ID for a specific issue
    gh api graphql -F owner="fx" -f repository="liebe" -F number="7" -f query='
@@ -574,7 +610,7 @@ GitHub has a specific feature for linking issues as sub-issues to epics. This is
        }
      }
    }' --jq '.data.repository.issue.id'
-   
+
    # Link child issue to parent issue
    gh api graphql -H GraphQL-Features:issue_types -H GraphQL-Features:sub_issues \
      -f parentIssueId="<PARENT_ID>" -f childIssueId="<CHILD_ID>" -f query='
