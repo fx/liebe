@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useEntity } from '../useEntity';
-import { entityStore, entityStoreActions } from '../../store/entityStore';
-import type { HassEntity } from '../../store/entityTypes';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { renderHook, act } from '@testing-library/react'
+import { useEntity } from '../useEntity'
+import { entityStore, entityStoreActions } from '../../store/entityStore'
+import type { HassEntity } from '../../store/entityTypes'
 
 describe('useEntity', () => {
   const mockEntity: HassEntity = {
@@ -19,126 +19,126 @@ describe('useEntity', () => {
       parent_id: null,
       user_id: null,
     },
-  };
+  }
 
   beforeEach(() => {
     // Reset store to initial state
-    entityStoreActions.reset();
-  });
+    entityStoreActions.reset()
+  })
 
   afterEach(() => {
     // Clean up subscriptions
-    entityStoreActions.clearSubscriptions();
-  });
+    entityStoreActions.clearSubscriptions()
+  })
 
   it('should return entity when available', () => {
     // Add entity to store
     act(() => {
-      entityStoreActions.updateEntity(mockEntity);
-      entityStoreActions.setConnected(true);
-      entityStoreActions.setInitialLoading(false);
-    });
+      entityStoreActions.updateEntity(mockEntity)
+      entityStoreActions.setConnected(true)
+      entityStoreActions.setInitialLoading(false)
+    })
 
-    const { result } = renderHook(() => useEntity('light.bedroom'));
+    const { result } = renderHook(() => useEntity('light.bedroom'))
 
-    expect(result.current.entity).toEqual(mockEntity);
-    expect(result.current.isConnected).toBe(true);
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.isStale).toBe(false);
-  });
+    expect(result.current.entity).toEqual(mockEntity)
+    expect(result.current.isConnected).toBe(true)
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.isStale).toBe(false)
+  })
 
   it('should return undefined entity when not found', () => {
     act(() => {
-      entityStoreActions.setConnected(true);
-      entityStoreActions.setInitialLoading(false);
-    });
+      entityStoreActions.setConnected(true)
+      entityStoreActions.setInitialLoading(false)
+    })
 
-    const { result } = renderHook(() => useEntity('light.unknown'));
+    const { result } = renderHook(() => useEntity('light.unknown'))
 
-    expect(result.current.entity).toBeUndefined();
-    expect(result.current.isConnected).toBe(true);
-    expect(result.current.isLoading).toBe(false);
-  });
+    expect(result.current.entity).toBeUndefined()
+    expect(result.current.isConnected).toBe(true)
+    expect(result.current.isLoading).toBe(false)
+  })
 
   it('should show loading state during initial load', () => {
     act(() => {
-      entityStoreActions.setConnected(true);
-      entityStoreActions.setInitialLoading(true);
-    });
+      entityStoreActions.setConnected(true)
+      entityStoreActions.setInitialLoading(true)
+    })
 
-    const { result } = renderHook(() => useEntity('light.bedroom'));
+    const { result } = renderHook(() => useEntity('light.bedroom'))
 
-    expect(result.current.isLoading).toBe(true);
-  });
+    expect(result.current.isLoading).toBe(true)
+  })
 
   it('should track stale state', () => {
     act(() => {
-      entityStoreActions.updateEntity(mockEntity);
-      entityStoreActions.setConnected(true);
-      entityStoreActions.setInitialLoading(false);
-    });
+      entityStoreActions.updateEntity(mockEntity)
+      entityStoreActions.setConnected(true)
+      entityStoreActions.setInitialLoading(false)
+    })
 
-    const { result } = renderHook(() => useEntity('light.bedroom'));
+    const { result } = renderHook(() => useEntity('light.bedroom'))
 
-    expect(result.current.isStale).toBe(false);
+    expect(result.current.isStale).toBe(false)
 
     // Mark entity as stale
     act(() => {
-      entityStoreActions.markEntityStale('light.bedroom');
-    });
+      entityStoreActions.markEntityStale('light.bedroom')
+    })
 
-    expect(result.current.isStale).toBe(true);
+    expect(result.current.isStale).toBe(true)
 
     // Mark entity as fresh
     act(() => {
-      entityStoreActions.markEntityFresh('light.bedroom');
-    });
+      entityStoreActions.markEntityFresh('light.bedroom')
+    })
 
-    expect(result.current.isStale).toBe(false);
-  });
+    expect(result.current.isStale).toBe(false)
+  })
 
   it('should subscribe and unsubscribe to entity', () => {
-    const { unmount } = renderHook(() => useEntity('light.bedroom'));
+    const { unmount } = renderHook(() => useEntity('light.bedroom'))
 
     // Check subscription was added
-    expect(entityStore.state.subscribedEntities.has('light.bedroom')).toBe(true);
+    expect(entityStore.state.subscribedEntities.has('light.bedroom')).toBe(true)
 
     // Unmount hook
-    unmount();
+    unmount()
 
     // Check subscription was removed
-    expect(entityStore.state.subscribedEntities.has('light.bedroom')).toBe(false);
-  });
+    expect(entityStore.state.subscribedEntities.has('light.bedroom')).toBe(false)
+  })
 
   it('should update when entity state changes', () => {
     act(() => {
-      entityStoreActions.updateEntity(mockEntity);
-      entityStoreActions.setConnected(true);
-      entityStoreActions.setInitialLoading(false);
-    });
+      entityStoreActions.updateEntity(mockEntity)
+      entityStoreActions.setConnected(true)
+      entityStoreActions.setInitialLoading(false)
+    })
 
-    const { result } = renderHook(() => useEntity('light.bedroom'));
+    const { result } = renderHook(() => useEntity('light.bedroom'))
 
-    expect(result.current.entity?.state).toBe('on');
+    expect(result.current.entity?.state).toBe('on')
 
     // Update entity state
     act(() => {
       entityStoreActions.updateEntity({
         ...mockEntity,
         state: 'off',
-      });
-    });
+      })
+    })
 
-    expect(result.current.entity?.state).toBe('off');
-  });
+    expect(result.current.entity?.state).toBe('off')
+  })
 
   it('should handle disconnected state', () => {
     act(() => {
-      entityStoreActions.setConnected(false);
-    });
+      entityStoreActions.setConnected(false)
+    })
 
-    const { result } = renderHook(() => useEntity('light.bedroom'));
+    const { result } = renderHook(() => useEntity('light.bedroom'))
 
-    expect(result.current.isConnected).toBe(false);
-  });
-});
+    expect(result.current.isConnected).toBe(false)
+  })
+})

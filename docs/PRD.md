@@ -1,4 +1,5 @@
 # Product Requirements Document (PRD)
+
 # Liebe - Custom Home Assistant Dashboard
 
 ## Executive Summary
@@ -17,12 +18,14 @@ Liebe is an open-source dashboard for Home Assistant that provides a modern, tou
 ## Technical Architecture
 
 ### Integration Method
+
 - Custom Panel integration
 - Direct access to Home Assistant's `hass` object
 - No separate authentication required
 - Accessible via Home Assistant sidebar
 
 ### Technology Stack
+
 - **Framework**: TanStack Start with React (SPA Mode)
 - **UI Components**: Radix UI primitives
 - **State Management**: TanStack Store
@@ -31,6 +34,7 @@ Liebe is an open-source dashboard for Home Assistant that provides a modern, tou
 - **Styling**: Radix UI Theme with default styling (no custom CSS unless absolutely necessary)
 
 ### Development Environment
+
 - Home Assistant instance: To be provided when needed
 - Local development with hot reload
 - GitHub Projects for task management
@@ -40,16 +44,21 @@ Liebe is an open-source dashboard for Home Assistant that provides a modern, tou
 The MVP is organized into 6 epics, each representing a major feature area. Detailed tasks and requirements for each epic are tracked in GitHub Projects.
 
 ### Epic 1: Project Foundation
+
 Establish the basic project structure and development environment with TanStack Start, TypeScript, and Home Assistant integration.
 
 ### Epic 2: Core Dashboard Infrastructure
+
 Build the fundamental dashboard system with screen management (tree structure), edit/view modes, and single YAML configuration export.
 
 ### Epic 3: Entity Management
+
 Develop the system for displaying and controlling Home Assistant entities with real-time updates.
 
 ### Epic 4: Dashboard Editor (Edit Mode)
+
 Implement the edit mode where all configuration happens directly on the dashboard. Users can:
+
 - Switch between view and edit modes
 - Add/remove/organize screens in a tree structure
 - Configure grid resolution per screen
@@ -57,18 +66,22 @@ Implement the edit mode where all configuration happens directly on the dashboar
 - Export/import entire configuration as YAML
 
 ### Epic 5: UI Components and Touch Optimization
+
 Implement touch-optimized components using Radix UI Theme:
+
 - Consistent spacing and sizing across all components
 - Minimum 44px touch targets
 - Default Radix UI Theme styling (no custom CSS)
 - Clean appearance in view mode (no edit controls visible)
 
 ### Epic 6: Advanced Entity Controls
+
 Extend entity support beyond basic switches to include lights, climate, sensors, and other Home Assistant entity types.
 
 ## Post-MVP Features
 
 ### Phase 2 Enhancements
+
 - Weather widget integration
 - Media player controls
 - Camera stream support
@@ -76,6 +89,7 @@ Extend entity support beyond basic switches to include lights, climate, sensors,
 - Conditional visibility rules
 
 ### Phase 3 Advanced Features
+
 - Picture elements support
 - Custom card system
 - Advanced templating
@@ -129,18 +143,14 @@ Extend entity support beyond basic switches to include lights, climate, sensors,
 4. **Documentation**: Inline code documentation and user guide
 5. **Issue Tracking**: GitHub Projects for all epics and tasks
 
-
 ## Risks and Mitigation
 
 1. **Risk**: Home Assistant API changes
    - **Mitigation**: Pin to specific HA version for MVP
-   
 2. **Risk**: Performance with many entities
    - **Mitigation**: Implement virtualization early
-   
 3. **Risk**: Complex state management
    - **Mitigation**: Use proven patterns and TanStack Store
 
 4. **Risk**: Browser compatibility issues
    - **Mitigation**: Test on major browsers regularly
-

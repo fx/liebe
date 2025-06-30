@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react';
-import { useStore } from '@tanstack/react-store';
-import { entityStore } from '../store/entityStore';
-import { entityUpdateBatcher } from '../store/entityBatcher';
+import { useEffect, useMemo } from 'react'
+import { useStore } from '@tanstack/react-store'
+import { entityStore } from '../store/entityStore'
+import { entityUpdateBatcher } from '../store/entityBatcher'
 
 /**
  * Hook to subscribe to specific entity attributes
@@ -12,28 +12,28 @@ export function useEntityAttribute<T = unknown>(
   attributeName: string,
   defaultValue?: T
 ): T | undefined {
-  const entity = useStore(entityStore, (state) => state.entities[entityId]);
+  const entity = useStore(entityStore, (state) => state.entities[entityId])
 
   // Track this attribute for change detection
   useEffect(() => {
     if (entityId && attributeName) {
-      entityUpdateBatcher.trackAttribute(entityId, attributeName);
-      
+      entityUpdateBatcher.trackAttribute(entityId, attributeName)
+
       return () => {
-        entityUpdateBatcher.untrackAttribute(entityId, attributeName);
-      };
+        entityUpdateBatcher.untrackAttribute(entityId, attributeName)
+      }
     }
-  }, [entityId, attributeName]);
+  }, [entityId, attributeName])
 
   // Extract the attribute value
   const attributeValue = useMemo(() => {
-    if (!entity) return defaultValue;
-    
-    const value = entity.attributes[attributeName];
-    return value !== undefined ? (value as T) : defaultValue;
-  }, [entity, attributeName, defaultValue]);
+    if (!entity) return defaultValue
 
-  return attributeValue;
+    const value = entity.attributes[attributeName]
+    return value !== undefined ? (value as T) : defaultValue
+  }, [entity, attributeName, defaultValue])
+
+  return attributeValue
 }
 
 /**
@@ -43,36 +43,36 @@ export function useEntityAttributes<T extends Record<string, unknown>>(
   entityId: string,
   attributeNames: string[]
 ): Partial<T> {
-  const entity = useStore(entityStore, (state) => state.entities[entityId]);
+  const entity = useStore(entityStore, (state) => state.entities[entityId])
 
   // Track all requested attributes
   useEffect(() => {
     if (entityId && attributeNames.length > 0) {
-      attributeNames.forEach(attr => {
-        entityUpdateBatcher.trackAttribute(entityId, attr);
-      });
-      
+      attributeNames.forEach((attr) => {
+        entityUpdateBatcher.trackAttribute(entityId, attr)
+      })
+
       return () => {
-        attributeNames.forEach(attr => {
-          entityUpdateBatcher.untrackAttribute(entityId, attr);
-        });
-      };
+        attributeNames.forEach((attr) => {
+          entityUpdateBatcher.untrackAttribute(entityId, attr)
+        })
+      }
     }
-  }, [entityId, attributeNames]);
+  }, [entityId, attributeNames])
 
   // Extract all attribute values
   const attributes = useMemo(() => {
-    if (!entity) return {} as Partial<T>;
-    
-    const result: Partial<T> = {};
-    attributeNames.forEach(attr => {
-      if (entity.attributes[attr] !== undefined) {
-        result[attr as keyof T] = entity.attributes[attr] as T[keyof T];
-      }
-    });
-    
-    return result;
-  }, [entity, attributeNames]);
+    if (!entity) return {} as Partial<T>
 
-  return attributes;
+    const result: Partial<T> = {}
+    attributeNames.forEach((attr) => {
+      if (entity.attributes[attr] !== undefined) {
+        result[attr as keyof T] = entity.attributes[attr] as T[keyof T]
+      }
+    })
+
+    return result
+  }, [entity, attributeNames])
+
+  return attributes
 }

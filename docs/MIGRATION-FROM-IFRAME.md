@@ -7,6 +7,7 @@ Home Assistant has deprecated `panel_iframe` in favor of `panel_custom` which pr
 ## Why Migrate?
 
 ### Limitations of panel_iframe:
+
 - ❌ No access to `hass` object
 - ❌ No access to Home Assistant WebSocket API
 - ❌ Cannot interact with entities directly
@@ -15,6 +16,7 @@ Home Assistant has deprecated `panel_iframe` in favor of `panel_custom` which pr
 - ❌ Deprecated and may be removed in future HA versions
 
 ### Benefits of panel_custom:
+
 - ✅ Full access to `hass` object
 - ✅ Direct entity state access and control
 - ✅ WebSocket API for real-time updates
@@ -28,11 +30,12 @@ Home Assistant has deprecated `panel_iframe` in favor of `panel_custom` which pr
 ### Step 1: Remove panel_iframe Configuration
 
 **Old configuration (remove this):**
+
 ```yaml
 panel_iframe:
   my_dashboard:
-    title: "My Dashboard"
-    url: "http://localhost:3000"
+    title: 'My Dashboard'
+    url: 'http://localhost:3000'
     icon: mdi:view-dashboard
     require_admin: false
 ```
@@ -71,10 +74,8 @@ class MyDashboardPanel extends HTMLElement {
 
   private render() {
     if (!this.root || !this._hass) return
-    
-    this.root.render(
-      React.createElement(App, { hass: this._hass })
-    )
+
+    this.root.render(React.createElement(App, { hass: this._hass }))
   }
 }
 
@@ -105,6 +106,7 @@ export default defineConfig({
 ### Step 4: Update Home Assistant Configuration
 
 **New configuration:**
+
 ```yaml
 panel_custom:
   - name: my-dashboard-panel
@@ -151,45 +153,49 @@ npm run dev
 ## Accessing Home Assistant Features
 
 ### With panel_iframe (old way):
+
 ```javascript
 // ❌ Not possible - no hass access
 const entities = window.hass?.states // undefined
 ```
 
 ### With panel_custom (new way):
+
 ```javascript
 // ✅ Full access to hass object
 const entities = this.props.hass.states
 
 // ✅ Call services
 await this.props.hass.callService('light', 'turn_on', {
-  entity_id: 'light.living_room'
+  entity_id: 'light.living_room',
 })
 
 // ✅ Subscribe to state changes
-this.props.hass.connection.subscribeEvents(
-  (event) => console.log(event),
-  'state_changed'
-)
+this.props.hass.connection.subscribeEvents((event) => console.log(event), 'state_changed')
 ```
 
 ## Common Migration Issues
 
 ### Issue 1: CORS Errors
+
 **Solution:** Use custom panel instead of trying to access HA API from iframe
 
 ### Issue 2: Missing hass Object
+
 **Solution:** Ensure your custom element properly receives and passes the hass prop
 
 ### Issue 3: Build Errors
+
 **Solution:** Create separate build configs for SPA and custom panel
 
 ### Issue 4: Panel Not Loading
+
 **Solution:** Check browser console and ensure module_url path is correct
 
 ## Example Projects
 
 See the Liebe Dashboard project for a complete example of a modern Home Assistant custom panel implementation using:
+
 - TanStack Start (React)
 - Radix UI
 - TypeScript

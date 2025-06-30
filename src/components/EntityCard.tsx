@@ -11,7 +11,7 @@ export function EntityCard({ entityId }: EntityCardProps) {
   const hassFromContext = useContext(HomeAssistantContext)
   const hassFromDev = useDevHass()
   const hass = hassFromContext || hassFromDev
-  
+
   if (!hass) {
     return (
       <Card>
@@ -19,21 +19,21 @@ export function EntityCard({ entityId }: EntityCardProps) {
       </Card>
     )
   }
-  
+
   const entity = hass.states[entityId]
 
   if (!entity) {
     return (
       <Card>
-        <Text>Entity "{entityId}" not found</Text>
+        <Text>Entity &quot;{entityId}&quot; not found</Text>
       </Card>
     )
   }
 
   const handleToggle = async () => {
-    const [domain, ...rest] = entityId.split('.')
+    const [domain] = entityId.split('.')
     const service = entity.state === 'on' ? 'turn_off' : 'turn_on'
-    
+
     try {
       await hass.callService(domain, service, { entity_id: entityId })
     } catch (error) {
@@ -48,20 +48,12 @@ export function EntityCard({ entityId }: EntityCardProps) {
     <Card>
       <Flex justify="between" align="center">
         <Flex direction="column" gap="1">
-          <Heading size="3">
-            {entity.attributes.friendly_name || entityId}
-          </Heading>
+          <Heading size="3">{entity.attributes.friendly_name || entityId}</Heading>
           <Text size="2" color="gray">
             {entity.state} {entity.attributes.unit_of_measurement || ''}
           </Text>
         </Flex>
-        {isToggleable && (
-          <Switch 
-            size="3"
-            checked={isOn}
-            onCheckedChange={handleToggle}
-          />
-        )}
+        {isToggleable && <Switch size="3" checked={isOn} onCheckedChange={handleToggle} />}
       </Flex>
     </Card>
   )
