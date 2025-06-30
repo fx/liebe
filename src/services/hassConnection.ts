@@ -104,8 +104,34 @@ export class HassConnectionManager {
   }
 
   private subscribeToStateChanges(): void {
+    // Check if we're in iframe mode (no WebSocket connection)
     if (!this.hass?.connection) {
-      throw new Error('Home Assistant connection not available')
+      // In iframe mode, we get state updates via the hass object itself
+      // No need to subscribe to WebSocket events
+      console.info('Running in iframe mode - state updates handled via postMessage')
+      
+      // Listen for state change events from parent window
+      const handleIframeStateChange = (event: CustomEvent) => {
+        this.handleStateChanged(event.detail as StateChangedEvent)
+      }
+      
+      const handleStatesUpdate = (event: CustomEvent) => {
+        if (event.detail?.states) {
+          // Update all states at once
+          entityStoreActions.setEntities(event.detail.states)
+        }
+      }
+      
+      window.addEventListener('hass-state-changed', handleIframeStateChange as EventListener)
+      window.addEventListener('hass-states-update', handleStatesUpdate as EventListener)
+      
+      // Store cleanup function
+      this.stateChangeUnsubscribe = () => {
+        window.removeEventListener('hass-state-changed', handleIframeStateChange as EventListener)
+        window.removeEventListener('hass-states-update', handleStatesUpdate as EventListener)
+      }
+      
+      return
     }
 
     try {

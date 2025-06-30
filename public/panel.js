@@ -6,6 +6,7 @@ class LiebePanel extends HTMLElement {
     super()
     this._hass = null
     this.iframe = null
+    this.stateChangeUnsubscribe = null
   }
 
   set hass(hass) {
@@ -16,6 +17,9 @@ class LiebePanel extends HTMLElement {
       // Only send if iframe already exists
       this.sendHassToIframe()
     }
+    
+    // Subscribe to state changes
+    this.subscribeToStateChanges()
   }
 
   set panel(panel) {
@@ -137,8 +141,46 @@ class LiebePanel extends HTMLElement {
     }
   }
 
+  subscribeToStateChanges() {
+    // Unsubscribe from previous subscription if any
+    if (this.stateChangeUnsubscribe) {
+      this.stateChangeUnsubscribe()
+      this.stateChangeUnsubscribe = null
+    }
+
+    // Subscribe to state changes if we have a connection
+    if (this._hass && this._hass.connection) {
+      try {
+        this.stateChangeUnsubscribe = this._hass.connection.subscribeEvents(
+          (event) => {
+            // Forward state change events to iframe
+            if (this.iframe && this.iframe.contentWindow) {
+              try {
+                this.iframe.contentWindow.postMessage(
+                  { type: 'state-changed', event },
+                  '*'
+                )
+              } catch (error) {
+                console.error('Failed to forward state change:', error)
+              }
+            }
+          },
+          'state_changed'
+        )
+      } catch (error) {
+        console.error('Failed to subscribe to state changes:', error)
+      }
+    }
+  }
+
   disconnectedCallback() {
     window.removeEventListener('message', this.handleMessage.bind(this))
+    
+    // Unsubscribe from state changes
+    if (this.stateChangeUnsubscribe) {
+      this.stateChangeUnsubscribe()
+      this.stateChangeUnsubscribe = null
+    }
   }
 }
 

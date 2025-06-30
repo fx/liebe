@@ -66,6 +66,23 @@ export function useRemoteHass(): HomeAssistant | null {
         } as HomeAssistant
 
         setHass(proxyHass)
+        
+        // Also update entity store with new states
+        if (event.data.hass.states) {
+          // Trigger a custom event to update the entity store
+          window.dispatchEvent(
+            new CustomEvent('hass-states-update', {
+              detail: { states: event.data.hass.states },
+            })
+          )
+        }
+      } else if (event.data.type === 'state-changed' && event.data.event) {
+        // Handle state change events from parent
+        window.dispatchEvent(
+          new CustomEvent('hass-state-changed', {
+            detail: event.data.event,
+          })
+        )
       } else if (event.data.type === 'navigate-to' && event.data.path) {
         // Handle navigation requests from parent
         window.dispatchEvent(
