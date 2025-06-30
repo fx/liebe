@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { HassConnectionManager } from '../hassConnection';
 import { entityStoreActions } from '../../store/entityStore';
-import { entityDebouncer } from '../entityDebouncer';
+import { entityDebouncer } from '../../store/entityDebouncer';
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext';
 import type { StateChangedEvent } from '../hassConnection';
 
@@ -276,13 +276,12 @@ describe('HassConnectionManager', () => {
 
       // Simulate max reconnection attempts
       // The delays are: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, 30000ms (capped)
-      let totalTime = 0;
-      const delays = [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000];
+      // Need 11 attempts because check happens before increment
+      const delays = [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 30000];
       
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 11; i++) {
         // Advance by the expected delay
         vi.advanceTimersByTime(delays[i]);
-        totalTime += delays[i];
       }
 
       // After 10 attempts, should show max attempts error
