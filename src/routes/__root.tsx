@@ -1,9 +1,5 @@
 /// <reference types="vite/client" />
-import {
-  createRootRoute,
-  Outlet,
-  Scripts,
-} from '@tanstack/react-router'
+import { createRootRoute, Outlet, Scripts } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { Theme } from '@radix-ui/themes'
 import '@radix-ui/themes/styles.css'
@@ -24,10 +20,10 @@ export const Route = createRootRoute({
 function RootComponent() {
   // Enable persistence globally
   useDashboardPersistence()
-  
+
   // Enable Home Assistant routing sync
   useHomeAssistantRouting()
-  
+
   return (
     <>
       <Theme>

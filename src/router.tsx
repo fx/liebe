@@ -7,12 +7,12 @@ export function createRouter() {
   // Determine base path for Home Assistant custom panel
   // In HA, the panel is served at /liebe/ (production) or /liebe-dev/ (development)
   let basepath: string | undefined = undefined
-  
+
   if (typeof window !== 'undefined') {
     // Only use base path if we're NOT in an iframe
     // In iframe mode, we handle routing differently
     const isInIframe = window.parent !== window
-    
+
     if (!isInIframe) {
       if (window.location.pathname.includes('/liebe-dev')) {
         basepath = '/liebe-dev'
@@ -21,7 +21,7 @@ export function createRouter() {
       }
     }
   }
-  
+
   const router = createTanStackRouter({
     routeTree,
     basepath,

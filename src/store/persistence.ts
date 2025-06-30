@@ -1,246 +1,278 @@
-import { useEffect } from 'react';
-import { dashboardStore, dashboardActions } from './dashboardStore';
-import type { DashboardConfig } from './types';
-import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug';
+import { useEffect } from 'react'
+import { dashboardStore, dashboardActions } from './dashboardStore'
+import type { DashboardConfig } from './types'
+import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 
-const STORAGE_KEY = 'liebe-dashboard-config';
+const STORAGE_KEY = 'liebe-dashboard-config'
 
 export const saveDashboardConfig = (config: DashboardConfig): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
   } catch (error) {
-    console.error('Failed to save dashboard configuration:', error);
+    console.error('Failed to save dashboard configuration:', error)
   }
-};
+}
 
 // Migrate old screen format to new format with sections and slugs
-const migrateScreenConfig = (config: any): DashboardConfig => {
-  const allSlugs: string[] = [];
-  
-  const migrateScreen = (screen: any): any => {
-    // If screen has grid with items instead of sections, migrate it
-    if (screen.grid && 'items' in screen.grid && !screen.grid.sections) {
-      screen.grid.sections = [];
-      delete screen.grid.items;
+const migrateScreenConfig = (config: unknown): DashboardConfig => {
+  const allSlugs: string[] = []
+
+  interface ScreenToMigrate {
+    grid?: {
+      items?: unknown[]
+      sections?: unknown[]
     }
-    
-    // Add slug if it doesn't exist
-    if (!screen.slug && screen.name) {
-      const baseSlug = generateSlug(screen.name);
-      screen.slug = ensureUniqueSlug(baseSlug, allSlugs);
-      allSlugs.push(screen.slug);
-    }
-    
-    // Recursively migrate children
-    if (screen.children) {
-      screen.children = screen.children.map(migrateScreen);
-    }
-    
-    return screen;
-  };
-  
-  if (config.screens) {
-    config.screens = config.screens.map(migrateScreen);
+    slug?: string
+    name?: string
+    children?: ScreenToMigrate[]
+    [key: string]: unknown
   }
-  
-  return config as DashboardConfig;
-};
+
+  const migrateScreen = (screen: unknown): ScreenToMigrate => {
+    const screenObj = screen as ScreenToMigrate
+    // If screen has grid with items instead of sections, migrate it
+    if (screenObj.grid && 'items' in screenObj.grid && !screenObj.grid.sections) {
+      screenObj.grid.sections = []
+      delete screenObj.grid.items
+    }
+
+    // Add slug if it doesn't exist
+    if (!screenObj.slug && screenObj.name) {
+      const baseSlug = generateSlug(screenObj.name)
+      screenObj.slug = ensureUniqueSlug(baseSlug, allSlugs)
+      allSlugs.push(screenObj.slug)
+    }
+
+    // Recursively migrate children
+    if (screenObj.children) {
+      screenObj.children = screenObj.children.map(migrateScreen)
+    }
+
+    return screenObj
+  }
+
+  const configObj = config as { screens?: unknown[] }
+  if (configObj.screens) {
+    configObj.screens = configObj.screens.map(migrateScreen)
+  }
+
+  return configObj as DashboardConfig
+}
 
 export const loadDashboardConfig = (): DashboardConfig | null => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      const parsed = JSON.parse(stored);
-      return migrateScreenConfig(parsed);
+      const parsed = JSON.parse(stored)
+      return migrateScreenConfig(parsed)
     }
   } catch (error) {
-    console.error('Failed to load dashboard configuration:', error);
+    console.error('Failed to load dashboard configuration:', error)
   }
-  return null;
-};
+  return null
+}
 
 export const clearDashboardConfig = (): void => {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY)
     // Reset the store state
-    dashboardActions.resetState();
+    dashboardActions.resetState()
   } catch (error) {
-    console.error('Failed to clear dashboard configuration:', error);
-    throw new Error('Failed to reset configuration');
+    console.error('Failed to clear dashboard configuration:', error)
+    throw new Error('Failed to reset configuration')
   }
-};
+}
 
 // Initialize dashboard from localStorage synchronously
 export const initializeDashboard = () => {
-  const savedConfig = loadDashboardConfig();
+  const savedConfig = loadDashboardConfig()
   if (savedConfig) {
-    dashboardActions.loadConfiguration(savedConfig);
+    dashboardActions.loadConfiguration(savedConfig)
   }
-};
+}
 
 // Initialize immediately when module loads
 if (typeof window !== 'undefined') {
-  initializeDashboard();
+  initializeDashboard()
 }
 
 export const useDashboardPersistence = () => {
   // Auto-save when changes occur
   useEffect(() => {
     const unsubscribe = dashboardStore.subscribe(() => {
-      const state = dashboardStore.state;
+      const state = dashboardStore.state
       if (state.isDirty) {
-        const config = dashboardActions.exportConfiguration();
-        saveDashboardConfig(config);
-        dashboardActions.markClean();
+        const config = dashboardActions.exportConfiguration()
+        saveDashboardConfig(config)
+        dashboardActions.markClean()
       }
-    });
+    })
 
-    return unsubscribe;
-  }, []);
-};
+    return unsubscribe
+  }, [])
+}
 
 export const useAutoSave = (interval: number = 5000) => {
   useEffect(() => {
     const intervalId = setInterval(() => {
-      const state = dashboardStore.state;
+      const state = dashboardStore.state
       if (state.isDirty) {
-        const config = dashboardActions.exportConfiguration();
-        saveDashboardConfig(config);
-        dashboardActions.markClean();
+        const config = dashboardActions.exportConfiguration()
+        saveDashboardConfig(config)
+        dashboardActions.markClean()
       }
-    }, interval);
+    }, interval)
 
-    return () => clearInterval(intervalId);
-  }, [interval]);
-};
+    return () => clearInterval(intervalId)
+  }, [interval])
+}
 
 // Export configuration to JSON file
 export const exportConfigurationToFile = (): void => {
   try {
-    const config = dashboardActions.exportConfiguration();
-    const dataStr = JSON.stringify(config, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `liebe-dashboard-${new Date().toISOString().split('T')[0]}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    linkElement.remove();
+    const config = dashboardActions.exportConfiguration()
+    const dataStr = JSON.stringify(config, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
+
+    const exportFileDefaultName = `liebe-dashboard-${new Date().toISOString().split('T')[0]}.json`
+
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', exportFileDefaultName)
+    linkElement.click()
+    linkElement.remove()
   } catch (error) {
-    console.error('Failed to export configuration:', error);
-    throw new Error('Failed to export configuration');
+    console.error('Failed to export configuration:', error)
+    throw new Error('Failed to export configuration')
   }
-};
+}
 
 // Import configuration from JSON file
 export const importConfigurationFromFile = (file: File): Promise<void> => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
+    const reader = new FileReader()
+
     reader.onload = (e) => {
       try {
-        const content = e.target?.result;
+        const content = e.target?.result
         if (typeof content !== 'string') {
-          throw new Error('Invalid file content');
+          throw new Error('Invalid file content')
         }
-        
-        const config = JSON.parse(content) as DashboardConfig;
-        
+
+        const config = JSON.parse(content) as DashboardConfig
+
         // Validate basic structure
         if (!config.version || !Array.isArray(config.screens)) {
-          throw new Error('Invalid configuration format');
+          throw new Error('Invalid configuration format')
         }
-        
+
         // Apply migration if needed
-        const migratedConfig = migrateScreenConfig(config);
-        
+        const migratedConfig = migrateScreenConfig(config)
+
         // Load the configuration
-        dashboardActions.loadConfiguration(migratedConfig);
-        
+        dashboardActions.loadConfiguration(migratedConfig)
+
         // Save to localStorage
-        saveDashboardConfig(migratedConfig);
-        
-        resolve();
+        saveDashboardConfig(migratedConfig)
+
+        resolve()
       } catch (error) {
-        console.error('Failed to import configuration:', error);
-        reject(new Error('Failed to import configuration: Invalid file format'));
+        console.error('Failed to import configuration:', error)
+        reject(new Error('Failed to import configuration: Invalid file format'))
       }
-    };
-    
+    }
+
     reader.onerror = () => {
-      reject(new Error('Failed to read file'));
-    };
-    
-    reader.readAsText(file);
-  });
-};
+      reject(new Error('Failed to read file'))
+    }
+
+    reader.readAsText(file)
+  })
+}
 
 // Export configuration as YAML string
 export const exportConfigurationAsYAML = (): string => {
-  const config = dashboardActions.exportConfiguration();
-  
+  const config = dashboardActions.exportConfiguration()
+
   // Simple YAML serialization (could be enhanced with a proper YAML library)
-  const yamlLines: string[] = ['# Liebe Dashboard Configuration'];
-  yamlLines.push(`version: "${config.version}"`);
-  yamlLines.push(`theme: ${config.theme || 'auto'}`);
-  yamlLines.push('screens:');
-  
-  const serializeScreen = (screen: any, indent: number = 2): void => {
-    const prefix = ' '.repeat(indent);
-    yamlLines.push(`${prefix}- id: "${screen.id}"`);
-    yamlLines.push(`${prefix}  name: "${screen.name}"`);
-    yamlLines.push(`${prefix}  slug: "${screen.slug}"`);
-    yamlLines.push(`${prefix}  type: ${screen.type}`);
-    
+  const yamlLines: string[] = ['# Liebe Dashboard Configuration']
+  yamlLines.push(`version: "${config.version}"`)
+  yamlLines.push(`theme: ${config.theme || 'auto'}`)
+  yamlLines.push('screens:')
+
+  interface ScreenToSerialize {
+    id: string
+    name: string
+    slug: string
+    type: string
+    grid?: {
+      resolution: { columns: number; rows: number }
+      sections?: unknown[]
+    }
+    children?: ScreenToSerialize[]
+  }
+
+  const serializeScreen = (screen: ScreenToSerialize, indent: number = 2): void => {
+    const prefix = ' '.repeat(indent)
+    yamlLines.push(`${prefix}- id: "${screen.id}"`)
+    yamlLines.push(`${prefix}  name: "${screen.name}"`)
+    yamlLines.push(`${prefix}  slug: "${screen.slug}"`)
+    yamlLines.push(`${prefix}  type: ${screen.type}`)
+
     if (screen.grid) {
-      yamlLines.push(`${prefix}  grid:`);
-      yamlLines.push(`${prefix}    resolution:`);
-      yamlLines.push(`${prefix}      columns: ${screen.grid.resolution.columns}`);
-      yamlLines.push(`${prefix}      rows: ${screen.grid.resolution.rows}`);
-      
+      yamlLines.push(`${prefix}  grid:`)
+      yamlLines.push(`${prefix}    resolution:`)
+      yamlLines.push(`${prefix}      columns: ${screen.grid.resolution.columns}`)
+      yamlLines.push(`${prefix}      rows: ${screen.grid.resolution.rows}`)
+
       if (screen.grid.sections && screen.grid.sections.length > 0) {
-        yamlLines.push(`${prefix}    sections:`);
-        screen.grid.sections.forEach((section: any) => {
-          yamlLines.push(`${prefix}      - id: "${section.id}"`);
-          yamlLines.push(`${prefix}        title: "${section.title}"`);
-          yamlLines.push(`${prefix}        order: ${section.order}`);
-          yamlLines.push(`${prefix}        width: ${section.width}`);
-          yamlLines.push(`${prefix}        collapsed: ${section.collapsed || false}`);
-        });
+        yamlLines.push(`${prefix}    sections:`)
+        screen.grid.sections.forEach((section: unknown) => {
+          const sectionObj = section as {
+            id: string
+            title: string
+            order: number
+            width: string
+            collapsed?: boolean
+          }
+          yamlLines.push(`${prefix}      - id: "${sectionObj.id}"`)
+          yamlLines.push(`${prefix}        title: "${sectionObj.title}"`)
+          yamlLines.push(`${prefix}        order: ${sectionObj.order}`)
+          yamlLines.push(`${prefix}        width: ${sectionObj.width}`)
+          yamlLines.push(`${prefix}        collapsed: ${sectionObj.collapsed || false}`)
+        })
       }
     }
-    
+
     if (screen.children && screen.children.length > 0) {
-      yamlLines.push(`${prefix}  children:`);
-      screen.children.forEach((child: any) => serializeScreen(child, indent + 4));
+      yamlLines.push(`${prefix}  children:`)
+      screen.children.forEach((child) => serializeScreen(child, indent + 4))
     }
-  };
-  
-  config.screens.forEach((screen) => serializeScreen(screen));
-  
-  return yamlLines.join('\n');
-};
+  }
+
+  config.screens.forEach((screen) => serializeScreen(screen))
+
+  return yamlLines.join('\n')
+}
 
 // Check storage usage
 export const getStorageInfo = (): { used: number; available: boolean; percentage: number } => {
   try {
-    const config = dashboardActions.exportConfiguration();
-    const configStr = JSON.stringify(config);
-    const sizeInBytes = new Blob([configStr]).size;
-    
+    const config = dashboardActions.exportConfiguration()
+    const configStr = JSON.stringify(config)
+    const sizeInBytes = new Blob([configStr]).size
+
     // localStorage typically has a 5-10MB limit
-    const estimatedLimit = 5 * 1024 * 1024; // 5MB
-    const percentage = (sizeInBytes / estimatedLimit) * 100;
-    
+    const estimatedLimit = 5 * 1024 * 1024 // 5MB
+    const percentage = (sizeInBytes / estimatedLimit) * 100
+
     return {
       used: sizeInBytes,
       available: percentage < 90, // Consider it full at 90%
-      percentage
-    };
+      percentage,
+    }
   } catch (error) {
-    console.error('Failed to get storage info:', error);
-    return { used: 0, available: false, percentage: 100 };
+    console.error('Failed to get storage info:', error)
+    return { used: 0, available: false, percentage: 100 }
   }
-};
+}

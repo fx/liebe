@@ -1,8 +1,8 @@
 host: https://1fx.dev
 template: Default
-name: {{repo}}
+name: { { repo } }
 parameters:
-  - name: "repo"
-    value: "custom"
-  - name: "custom_repo_url"
-    value: "git@github.com:{{org}}/{{repo}}.git"
+  - name: 'repo'
+    value: 'custom'
+  - name: 'custom_repo_url'
+    value: 'git@github.com:{{org}}/{{repo}}.git'

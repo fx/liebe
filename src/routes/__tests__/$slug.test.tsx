@@ -1,50 +1,58 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { dashboardStore, dashboardActions } from '~/store/dashboardStore';
-import { createTestScreen } from '~/test-utils/screen-helpers';
-import type { ScreenConfig } from '~/store/types';
+import { describe, it, expect, beforeEach } from 'vitest'
+import { dashboardStore, dashboardActions } from '~/store/dashboardStore'
+import { createTestScreen } from '~/test-utils/screen-helpers'
+import type { ScreenConfig } from '~/store/types'
 
 // Helper function to find screen by slug (same as in the route)
 const findScreenBySlug = (screenList: ScreenConfig[], targetSlug: string): ScreenConfig | null => {
   for (const screen of screenList) {
     if (screen.slug === targetSlug) {
-      return screen;
+      return screen
     }
     if (screen.children) {
-      const found = findScreenBySlug(screen.children, targetSlug);
-      if (found) return found;
+      const found = findScreenBySlug(screen.children, targetSlug)
+      if (found) return found
     }
   }
-  return null;
-};
+  return null
+}
 
 describe('Slug Route Logic', () => {
   beforeEach(() => {
     // Reset store to initial state
     dashboardStore.setState({
+      mode: 'view',
       screens: [],
       currentScreenId: null,
-      mode: 'view',
-    });
-  });
+      configuration: {
+        version: '1.0.0',
+        screens: [],
+        theme: 'auto',
+      },
+      gridResolution: { columns: 12, rows: 8 },
+      theme: 'auto',
+      isDirty: false,
+    })
+  })
 
   it('should find screen by slug', () => {
-    const screen1 = createTestScreen({ 
-      id: 'screen-1', 
+    const screen1 = createTestScreen({
+      id: 'screen-1',
       name: 'Living Room',
-      slug: 'living-room' 
-    });
-    const screen2 = createTestScreen({ 
-      id: 'screen-2', 
+      slug: 'living-room',
+    })
+    const screen2 = createTestScreen({
+      id: 'screen-2',
       name: 'Kitchen',
-      slug: 'kitchen' 
-    });
-    
-    dashboardStore.setState({ screens: [screen1, screen2] });
-    
-    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'living-room');
-    expect(foundScreen).toBeDefined();
-    expect(foundScreen?.id).toBe('screen-1');
-  });
+      slug: 'kitchen',
+    })
+
+    dashboardStore.setState((state) => ({ ...state, screens: [screen1, screen2] }))
+
+    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'living-room')
+    expect(foundScreen).toBeDefined()
+    expect(foundScreen?.id).toBe('screen-1')
+  })
 
   it('should find nested screen by slug', () => {
     const parentScreen = createTestScreen({
@@ -55,80 +63,81 @@ describe('Slug Route Logic', () => {
         createTestScreen({
           id: 'child-1',
           name: 'Living Room',
-          slug: 'living-room'
+          slug: 'living-room',
         }),
         createTestScreen({
           id: 'child-2',
           name: 'Bedroom',
-          slug: 'bedroom'
-        })
-      ]
-    });
-    
-    dashboardStore.setState({ screens: [parentScreen] });
-    
-    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'bedroom');
-    expect(foundScreen).toBeDefined();
-    expect(foundScreen?.id).toBe('child-2');
-  });
+          slug: 'bedroom',
+        }),
+      ],
+    })
+
+    dashboardStore.setState((state) => ({ ...state, screens: [parentScreen] }))
+
+    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'bedroom')
+    expect(foundScreen).toBeDefined()
+    expect(foundScreen?.id).toBe('child-2')
+  })
 
   it('should return null for non-existent slug', () => {
-    const screen1 = createTestScreen({ 
-      id: 'screen-1', 
+    const screen1 = createTestScreen({
+      id: 'screen-1',
       name: 'Living Room',
-      slug: 'living-room' 
-    });
-    
-    dashboardStore.setState({ screens: [screen1] });
-    
-    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'non-existent');
-    expect(foundScreen).toBeNull();
-  });
+      slug: 'living-room',
+    })
+
+    dashboardStore.setState((state) => ({ ...state, screens: [screen1] }))
+
+    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'non-existent')
+    expect(foundScreen).toBeNull()
+  })
 
   it('should handle empty screens array', () => {
-    dashboardStore.setState({ screens: [] });
-    
-    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'any-slug');
-    expect(foundScreen).toBeNull();
-  });
+    dashboardStore.setState((state) => ({ ...state, screens: [] }))
+
+    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'any-slug')
+    expect(foundScreen).toBeNull()
+  })
 
   it('should update current screen when found', () => {
-    const screen1 = createTestScreen({ 
-      id: 'screen-1', 
+    const screen1 = createTestScreen({
+      id: 'screen-1',
       name: 'Living Room',
-      slug: 'living-room' 
-    });
-    const screen2 = createTestScreen({ 
-      id: 'screen-2', 
+      slug: 'living-room',
+    })
+    const screen2 = createTestScreen({
+      id: 'screen-2',
       name: 'Kitchen',
-      slug: 'kitchen' 
-    });
-    
-    dashboardStore.setState({ 
+      slug: 'kitchen',
+    })
+
+    dashboardStore.setState((state) => ({
+      ...state,
       screens: [screen1, screen2],
-      currentScreenId: null 
-    });
+      currentScreenId: null,
+    }))
 
     // Simulate finding and setting screen
-    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'kitchen');
+    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'kitchen')
     if (foundScreen) {
-      dashboardActions.setCurrentScreen(foundScreen.id);
+      dashboardActions.setCurrentScreen(foundScreen.id)
     }
-    
-    expect(dashboardStore.state.currentScreenId).toBe('screen-2');
-  });
+
+    expect(dashboardStore.state.currentScreenId).toBe('screen-2')
+  })
 
   it('should handle special characters in slugs', () => {
-    const testScreen = createTestScreen({ 
-      id: 'screen-1', 
+    const testScreen = createTestScreen({
+      id: 'screen-1',
       name: 'Test & Demo',
-      slug: 'test-demo' 
-    });
-    
-    dashboardStore.setState({ screens: [testScreen] });
-    
-    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'test-demo');
-    expect(foundScreen).toBeDefined();
-    expect(foundScreen?.id).toBe('screen-1');
-  });
-});
+      slug: 'test-demo',
+    })
+
+    dashboardStore.setState((state) => ({ ...state, screens: [testScreen] }))
+
+    const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'test-demo')
+    expect(foundScreen).toBeDefined()
+    expect(foundScreen?.id).toBe('screen-1')
+  })
+})

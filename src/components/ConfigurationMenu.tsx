@@ -1,97 +1,89 @@
-import { useState, useRef } from 'react';
-import { 
-  DropdownMenu, 
-  Button, 
-  AlertDialog, 
-  Text, 
-  Flex,
-  Callout
-} from '@radix-ui/themes';
-import { 
-  GearIcon, 
-  DownloadIcon, 
-  UploadIcon, 
+import { useState, useRef } from 'react'
+import { DropdownMenu, Button, AlertDialog, Text, Flex, Callout } from '@radix-ui/themes'
+import {
+  GearIcon,
+  UploadIcon,
   ResetIcon,
   FileIcon,
   CodeIcon,
-  ExclamationTriangleIcon
-} from '@radix-ui/react-icons';
+  ExclamationTriangleIcon,
+} from '@radix-ui/react-icons'
 import {
   exportConfigurationToFile,
   exportConfigurationAsYAML,
   importConfigurationFromFile,
   clearDashboardConfig,
-  getStorageInfo
-} from '../store/persistence';
+  getStorageInfo,
+} from '../store/persistence'
 
 export function ConfigurationMenu() {
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [showStorageWarning, setShowStorageWarning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [showStorageWarning, setShowStorageWarning] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExportJSON = () => {
     try {
-      exportConfigurationToFile();
+      exportConfigurationToFile()
     } catch (error) {
-      console.error('Export failed:', error);
+      console.error('Export failed:', error)
     }
-  };
+  }
 
   const handleExportYAML = () => {
     try {
-      const yaml = exportConfigurationAsYAML();
-      const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `liebe-dashboard-${new Date().toISOString().split('T')[0]}.yaml`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const yaml = exportConfigurationAsYAML()
+      const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `liebe-dashboard-${new Date().toISOString().split('T')[0]}.yaml`
+      link.click()
+      URL.revokeObjectURL(url)
     } catch (error) {
-      console.error('YAML export failed:', error);
+      console.error('YAML export failed:', error)
     }
-  };
+  }
 
   const handleImport = () => {
-    fileInputRef.current?.click();
-  };
+    fileInputRef.current?.click()
+  }
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const file = event.target.files?.[0]
+    if (!file) return
 
     try {
-      setImportError(null);
-      await importConfigurationFromFile(file);
-      
+      setImportError(null)
+      await importConfigurationFromFile(file)
+
       // Check storage after import
-      const storageInfo = getStorageInfo();
+      const storageInfo = getStorageInfo()
       if (!storageInfo.available) {
-        setShowStorageWarning(true);
+        setShowStorageWarning(true)
       }
     } catch (error) {
-      setImportError((error as Error).message);
+      setImportError((error as Error).message)
     }
 
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = ''
     }
-  };
+  }
 
   const handleReset = () => {
     try {
-      clearDashboardConfig();
-      setResetDialogOpen(false);
+      clearDashboardConfig()
+      setResetDialogOpen(false)
       // Reload to apply reset
-      window.location.reload();
+      window.location.reload()
     } catch (error) {
-      console.error('Reset failed:', error);
+      console.error('Reset failed:', error)
     }
-  };
+  }
 
-  const storageInfo = getStorageInfo();
+  const storageInfo = getStorageInfo()
 
   return (
     <>
@@ -133,10 +125,7 @@ export function ConfigurationMenu() {
 
           <DropdownMenu.Separator />
 
-          <DropdownMenu.Item 
-            color="red" 
-            onClick={() => setResetDialogOpen(true)}
-          >
+          <DropdownMenu.Item color="red" onClick={() => setResetDialogOpen(true)}>
             <ResetIcon />
             Reset Configuration
           </DropdownMenu.Item>
@@ -179,8 +168,8 @@ export function ConfigurationMenu() {
         <AlertDialog.Content maxWidth="450px">
           <AlertDialog.Title>Reset Configuration</AlertDialog.Title>
           <AlertDialog.Description size="2">
-            Are you sure you want to reset all configuration? This will delete all views, 
-            sections, and settings. This action cannot be undone.
+            Are you sure you want to reset all configuration? This will delete all views, sections,
+            and settings. This action cannot be undone.
           </AlertDialog.Description>
 
           <Flex gap="3" mt="4" justify="end">
@@ -198,5 +187,5 @@ export function ConfigurationMenu() {
         </AlertDialog.Content>
       </AlertDialog.Root>
     </>
-  );
+  )
 }
