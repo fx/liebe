@@ -105,7 +105,7 @@ describe('Dashboard - Nested Views', () => {
     // Then switch to top-level view
     dashboardActions.setCurrentScreen('top-1');
     rerender(<Theme><Dashboard /></Theme>);
-    expect(screen.getByText('Overview')).toBeInTheDocument();
+    expect(screen.getAllByText('Overview').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
   });
 });

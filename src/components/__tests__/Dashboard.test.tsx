@@ -116,7 +116,7 @@ describe('Dashboard', () => {
       expect(mockNavigate).toHaveBeenCalled();
       
       // Get the created screen and set it as current
-      const state = dashboardStore.getState();
+      const state = dashboardStore.state;
       expect(state.screens.length).toBe(1);
       const newScreen = state.screens[0];
       expect(newScreen.name).toBe('Test View');

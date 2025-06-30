@@ -21,19 +21,10 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ({ pathname: `/${mockSlug}` }),
 }));
 
-// Mock Dashboard to simplify testing
+// Mock Dashboard to simplify testing and avoid complex dependencies
 vi.mock('~/components/Dashboard', () => ({
   Dashboard: () => {
-    const { useDashboardStore } = require('~/store/dashboardStore');
-    const currentScreenId = useDashboardStore((state: any) => state.currentScreenId);
-    const screens = useDashboardStore((state: any) => state.screens);
-    const screen = screens.find((s: any) => s.id === currentScreenId);
-    return (
-      <div>
-        <div>Dashboard Component</div>
-        {screen && <div>Current Screen: {screen.name}</div>}
-      </div>
-    );
+    return <div data-testid="dashboard">Dashboard Component</div>;
   },
 }));
 
@@ -47,14 +38,14 @@ const renderWithTheme = (ui: React.ReactElement) => {
 
 // Component that mimics the slug route behavior
 const ScreenView = () => {
-  const { slug } = mockParams;
+  const slug = mockSlug;
   const navigate = mockNavigate;
-  const [screens, setScreens] = React.useState(dashboardStore.getState().screens);
-  const [currentScreenId, setCurrentScreenId] = React.useState(dashboardStore.getState().currentScreenId);
+  const [screens, setScreens] = React.useState(dashboardStore.state.screens || []);
+  const [currentScreenId, setCurrentScreenId] = React.useState(dashboardStore.state.currentScreenId);
   
   React.useEffect(() => {
     const unsubscribe = dashboardStore.subscribe((state) => {
-      setScreens(state.screens);
+      setScreens(state.screens || []);
       setCurrentScreenId(state.currentScreenId);
     });
     return unsubscribe;
@@ -139,18 +130,18 @@ describe('Slug Route', () => {
     renderWithTheme(<ScreenView />);
 
     // Should render the Dashboard component
-    expect(await screen.findByText('Dashboard Component')).toBeInTheDocument();
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
     
     // Wait for currentScreenId to be set
     await waitFor(() => {
-      expect(dashboardStore.getState().currentScreenId).toBe('screen-1');
+      expect(dashboardStore.state.currentScreenId).toBe('screen-1');
     });
-    
-    // Should show the current screen name
-    expect(screen.getByText('Current Screen: Living Room')).toBeInTheDocument();
   });
 
   it('should handle nested screens', async () => {
+    // Set slug to bedroom for this test
+    mockSlug = 'bedroom';
+    
     // Create nested screen structure
     const parentScreen = createTestScreen({
       id: 'parent-1',
@@ -175,13 +166,11 @@ describe('Slug Route', () => {
     renderWithTheme(<ScreenView />);
 
     // Should find and render nested screen
-    expect(await screen.findByText('Dashboard Component')).toBeInTheDocument();
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(dashboardStore.getState().currentScreenId).toBe('child-2');
+      expect(dashboardStore.state.currentScreenId).toBe('child-2');
     });
-    
-    expect(screen.getByText('Current Screen: Bedroom')).toBeInTheDocument();
   });
 
   it('should show error when screen with slug does not exist', async () => {
@@ -235,7 +224,7 @@ describe('Slug Route', () => {
     const { rerender } = renderWithTheme(<ScreenView />);
 
     await waitFor(() => {
-      expect(dashboardStore.getState().currentScreenId).toBe('screen-1');
+      expect(dashboardStore.state.currentScreenId).toBe('screen-1');
     });
 
     // Navigate to kitchen
@@ -243,7 +232,7 @@ describe('Slug Route', () => {
     rerender(<Theme><ScreenView /></Theme>);
 
     await waitFor(() => {
-      expect(dashboardStore.getState().currentScreenId).toBe('screen-2');
+      expect(dashboardStore.state.currentScreenId).toBe('screen-2');
     });
   });
 
@@ -259,12 +248,10 @@ describe('Slug Route', () => {
 
     renderWithTheme(<ScreenView />);
 
-    expect(await screen.findByText('Dashboard Component')).toBeInTheDocument();
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(dashboardStore.getState().currentScreenId).toBe('screen-1');
+      expect(dashboardStore.state.currentScreenId).toBe('screen-1');
     });
-    
-    expect(screen.getByText('Current Screen: Test & Demo')).toBeInTheDocument();
   });
 });

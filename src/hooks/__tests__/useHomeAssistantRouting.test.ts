@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useHomeAssistantRouting } from '../useHomeAssistantRouting';
 
 // Mock the router
@@ -61,6 +61,14 @@ describe('useHomeAssistantRouting', () => {
         value: { pathname: '/liebe-dev/test' },
         writable: true
       });
+      
+      // Use fake timers
+      vi.useFakeTimers();
+    });
+    
+    afterEach(() => {
+      // Restore real timers
+      vi.useRealTimers();
     });
 
     it('should subscribe to router changes', () => {
@@ -192,7 +200,7 @@ describe('useHomeAssistantRouting', () => {
       expect(mockNavigate).toHaveBeenCalledWith({ to: '/custom-path' });
     });
 
-    it('should request current route from parent when in iframe', (done) => {
+    it('should request current route from parent when in iframe', () => {
       // Mock being in an iframe
       const mockPostMessage = vi.fn();
       Object.defineProperty(window, 'parent', {
@@ -202,14 +210,14 @@ describe('useHomeAssistantRouting', () => {
       
       renderHook(() => useHomeAssistantRouting());
       
-      // Should send get-route message after timeout
-      setTimeout(() => {
-        expect(mockPostMessage).toHaveBeenCalledWith(
-          { type: 'get-route' },
-          '*'
-        );
-        done();
-      }, 10);
+      // Advance timers to trigger the setTimeout
+      vi.runAllTimers();
+      
+      // Check that postMessage was called
+      expect(mockPostMessage).toHaveBeenCalledWith(
+        { type: 'get-route' },
+        '*'
+      );
     });
 
     it('should cleanup listeners on unmount', () => {
