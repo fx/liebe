@@ -1,31 +1,31 @@
-import { useState } from 'react';
-import { Dialog, Button, TextField, Flex, Text, Select } from '@radix-ui/themes';
-import { dashboardActions, useDashboardStore } from '../store';
-import type { ScreenConfig } from '../store/types';
-import { useNavigate } from '@tanstack/react-router';
-import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug';
+import { useState } from 'react'
+import { Dialog, Button, TextField, Flex, Text, Select } from '@radix-ui/themes'
+import { dashboardActions, useDashboardStore } from '../store'
+import type { ScreenConfig } from '../store/types'
+import { useNavigate } from '@tanstack/react-router'
+import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug'
 
 interface AddViewDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
-  const screens = useDashboardStore((state) => state.screens);
-  const [viewName, setViewName] = useState('');
-  const [viewSlug, setViewSlug] = useState('');
-  const [parentId, setParentId] = useState<string>('');
-  const navigate = useNavigate();
+  const screens = useDashboardStore((state) => state.screens)
+  const [viewName, setViewName] = useState('')
+  const [viewSlug, setViewSlug] = useState('')
+  const [parentId, setParentId] = useState<string>('')
+  const navigate = useNavigate()
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!viewName.trim()) return;
+    e.preventDefault()
+
+    if (!viewName.trim()) return
 
     // Use custom slug or generate from name
-    const baseSlug = viewSlug.trim() || generateSlug(viewName.trim());
-    const existingSlugs = getAllSlugs(screens);
-    const uniqueSlug = ensureUniqueSlug(baseSlug, existingSlugs);
+    const baseSlug = viewSlug.trim() || generateSlug(viewName.trim())
+    const existingSlugs = getAllSlugs(screens)
+    const uniqueSlug = ensureUniqueSlug(baseSlug, existingSlugs)
 
     const newScreen: ScreenConfig = {
       id: `screen-${Date.now()}`,
@@ -36,36 +36,37 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
         resolution: { columns: 12, rows: 8 },
         sections: [],
       },
-    };
+    }
 
-    dashboardActions.addScreen(newScreen, parentId && parentId !== 'none' ? parentId : undefined);
-    
+    dashboardActions.addScreen(newScreen, parentId && parentId !== 'none' ? parentId : undefined)
+
     // Navigate to the new screen using slug
-    navigate({ to: '/$slug', params: { slug: newScreen.slug } });
-    
-    setViewName('');
-    setViewSlug('');
-    setParentId('');
-    onOpenChange(false);
-  };
+    navigate({ to: '/$slug', params: { slug: newScreen.slug } })
+
+    setViewName('')
+    setViewSlug('')
+    setParentId('')
+    onOpenChange(false)
+  }
 
   const getScreenOptions = (screenList: ScreenConfig[], prefix = ''): React.ReactElement[] => {
-    const options: React.ReactElement[] = [];
-    
+    const options: React.ReactElement[] = []
+
     screenList.forEach((screen) => {
       options.push(
         <Select.Item key={screen.id} value={screen.id}>
-          {prefix}{screen.name}
+          {prefix}
+          {screen.name}
         </Select.Item>
-      );
-      
+      )
+
       if (screen.children) {
-        options.push(...getScreenOptions(screen.children, `${prefix}  `));
+        options.push(...getScreenOptions(screen.children, `${prefix}  `))
       }
-    });
-    
-    return options;
-  };
+    })
+
+    return options
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -85,11 +86,11 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
                 placeholder="Living Room"
                 value={viewName}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const newName = e.target.value;
-                  setViewName(newName);
+                  const newName = e.target.value
+                  setViewName(newName)
                   // Auto-generate slug if user hasn't manually edited it
                   if (!viewSlug || generateSlug(viewName) === viewSlug) {
-                    setViewSlug(generateSlug(newName));
+                    setViewSlug(generateSlug(newName))
                   }
                 }}
                 autoFocus
@@ -141,5 +142,5 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
         </form>
       </Dialog.Content>
     </Dialog.Root>
-  );
+  )
 }

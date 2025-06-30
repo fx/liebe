@@ -3,7 +3,7 @@ import { createContext, useContext, ReactNode } from 'react'
 export interface HomeAssistantState {
   entity_id: string
   state: string
-  attributes: Record<string, any>
+  attributes: Record<string, unknown>
   last_changed: string
   last_updated: string
   context: {
@@ -15,16 +15,20 @@ export interface HomeAssistantState {
 
 export interface HomeAssistant {
   states: Record<string, HomeAssistantState>
-  callService: (domain: string, service: string, serviceData?: any) => Promise<void>
+  callService: (
+    domain: string,
+    service: string,
+    serviceData?: Record<string, unknown>
+  ) => Promise<void>
   connection: {
-    subscribeEvents: (callback: (event: any) => void, eventType: string) => () => void
+    subscribeEvents: (callback: (event: unknown) => void, eventType: string) => () => void
   }
   user: {
     name: string
     id: string
     is_admin: boolean
   }
-  themes: Record<string, any>
+  themes: Record<string, unknown>
   language: string
   config: {
     latitude: number
@@ -45,18 +49,14 @@ export interface HomeAssistant {
 
 const HomeAssistantContext = createContext<HomeAssistant | null>(null)
 
-export const HomeAssistantProvider = ({ 
-  children, 
-  hass 
-}: { 
+export const HomeAssistantProvider = ({
+  children,
+  hass,
+}: {
   children: ReactNode
   hass: HomeAssistant | null
 }) => {
-  return (
-    <HomeAssistantContext.Provider value={hass}>
-      {children}
-    </HomeAssistantContext.Provider>
-  )
+  return <HomeAssistantContext.Provider value={hass}>{children}</HomeAssistantContext.Provider>
 }
 
 export const useHomeAssistant = () => {

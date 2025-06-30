@@ -14,20 +14,27 @@ export function useDevHass(): HomeAssistant | null {
         // Create a hass proxy that sends service calls back to parent
         const hassProxy: HomeAssistant = {
           ...event.data.hass,
-          callService: async (domain: string, service: string, serviceData?: any) => {
-            window.parent.postMessage({
-              type: 'call-service',
-              domain,
-              service,
-              serviceData
-            }, '*')
+          callService: async (
+            domain: string,
+            service: string,
+            serviceData?: Record<string, unknown>
+          ) => {
+            window.parent.postMessage(
+              {
+                type: 'call-service',
+                domain,
+                service,
+                serviceData,
+              },
+              '*'
+            )
           },
           connection: {
             subscribeEvents: () => {
               // Event subscription not available in development iframe
               return () => {}
-            }
-          }
+            },
+          },
         }
         setHass(hassProxy)
       }

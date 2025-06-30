@@ -1,21 +1,21 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { Theme } from '@radix-ui/themes';
-import { ViewTabs } from '../ViewTabs';
-import { dashboardStore, dashboardActions } from '~/store/dashboardStore';
-import { createTestScreen } from '~/test-utils/screen-helpers';
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { Theme } from '@radix-ui/themes'
+import { ViewTabs } from '../ViewTabs'
+import { dashboardStore } from '~/store/dashboardStore'
+import { createTestScreen } from '~/test-utils/screen-helpers'
 
 // Mock useNavigate
-const mockNavigate = vi.fn();
+const mockNavigate = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
-}));
+}))
 
 // Mock window.matchMedia for responsive behavior
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -25,207 +25,221 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
-});
+})
 
 // Helper to render with Theme
 const renderWithTheme = (ui: React.ReactElement) => {
-  return render(<Theme>{ui}</Theme>);
-};
+  return render(<Theme>{ui}</Theme>)
+}
 
 describe('ViewTabs', () => {
-  const user = userEvent.setup();
+  const user = userEvent.setup()
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.clearAllMocks()
     // Reset store to initial state
     dashboardStore.setState({
+      mode: 'view',
       screens: [],
       currentScreenId: null,
-      mode: 'view',
-    });
+      configuration: {
+        version: '1.0.0',
+        screens: [],
+        theme: 'auto',
+      },
+      gridResolution: { columns: 12, rows: 8 },
+      theme: 'auto',
+      isDirty: false,
+    })
     // Clear mock calls
-    mockNavigate.mockClear();
-    window.parent.postMessage = vi.fn();
-  });
+    mockNavigate.mockClear()
+    window.parent.postMessage = vi.fn()
+  })
 
   describe('Desktop View', () => {
     it('should render tabs for all screens', () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      const screen2 = createTestScreen({ 
-        id: 'screen-2', 
+        slug: 'living-room',
+      })
+      const screen2 = createTestScreen({
+        id: 'screen-2',
         name: 'Kitchen',
-        slug: 'kitchen' 
-      });
-      
-      dashboardStore.setState({ 
+        slug: 'kitchen',
+      })
+
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
-        currentScreenId: 'screen-1' 
-      });
+        currentScreenId: 'screen-1',
+      }))
 
-      renderWithTheme(<ViewTabs />);
+      renderWithTheme(<ViewTabs />)
 
-      expect(screen.getByRole('tab', { name: /Living Room/ })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Kitchen/ })).toBeInTheDocument();
-    });
+      expect(screen.getByRole('tab', { name: /Living Room/ })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /Kitchen/ })).toBeInTheDocument()
+    })
 
     it('should navigate to screen slug when tab is clicked', async () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      const screen2 = createTestScreen({ 
-        id: 'screen-2', 
+        slug: 'living-room',
+      })
+      const screen2 = createTestScreen({
+        id: 'screen-2',
         name: 'Kitchen',
-        slug: 'kitchen' 
-      });
-      
-      dashboardStore.setState({ 
+        slug: 'kitchen',
+      })
+
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
-        currentScreenId: 'screen-1' 
-      });
+        currentScreenId: 'screen-1',
+      }))
 
-      renderWithTheme(<ViewTabs />);
+      renderWithTheme(<ViewTabs />)
 
-      const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ });
-      await user.click(kitchenTab);
+      const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ })
+      await user.click(kitchenTab)
 
       expect(mockNavigate).toHaveBeenCalledWith({
         to: '/$slug',
-        params: { slug: 'kitchen' }
-      });
-      expect(dashboardStore.state.currentScreenId).toBe('screen-2');
-    });
+        params: { slug: 'kitchen' },
+      })
+      expect(dashboardStore.state.currentScreenId).toBe('screen-2')
+    })
 
     it('should show add button in edit mode', () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      
-      dashboardStore.setState({ 
-        screens: [screen1],
-        mode: 'edit' 
-      });
+        slug: 'living-room',
+      })
 
-      const onAddView = vi.fn();
-      renderWithTheme(<ViewTabs onAddView={onAddView} />);
+      dashboardStore.setState((state) => ({
+        ...state,
+        screens: [screen1],
+        mode: 'edit',
+      }))
+
+      const onAddView = vi.fn()
+      renderWithTheme(<ViewTabs onAddView={onAddView} />)
 
       // Should show the IconButton when screens exist
       // Get the button by finding the one that's not a tab
-      const buttons = screen.getAllByRole('button');
-      const addButton = buttons.find(btn => !btn.hasAttribute('aria-selected'));
-      expect(addButton).toBeInTheDocument();
-    });
+      const buttons = screen.getAllByRole('button')
+      const addButton = buttons.find((btn) => !btn.hasAttribute('aria-selected'))
+      expect(addButton).toBeInTheDocument()
+    })
 
     it('should show remove buttons on tabs in edit mode', () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      const screen2 = createTestScreen({ 
-        id: 'screen-2', 
+        slug: 'living-room',
+      })
+      const screen2 = createTestScreen({
+        id: 'screen-2',
         name: 'Kitchen',
-        slug: 'kitchen' 
-      });
-      
-      dashboardStore.setState({ 
+        slug: 'kitchen',
+      })
+
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2], // Need at least 2 screens to show remove buttons
         currentScreenId: 'screen-1',
-        mode: 'edit' 
-      });
+        mode: 'edit',
+      }))
 
-      renderWithTheme(<ViewTabs />);
+      renderWithTheme(<ViewTabs />)
 
       // The remove button should be visible within the tab
-      const tab = screen.getByRole('tab', { name: /Living Room/ });
-      const removeButton = tab.querySelector('[style*="cursor: pointer"]');
-      expect(removeButton).toBeInTheDocument();
-    });
+      const tab = screen.getByRole('tab', { name: /Living Room/ })
+      const removeButton = tab.querySelector('[style*="cursor: pointer"]')
+      expect(removeButton).toBeInTheDocument()
+    })
 
     it('should remove screen and navigate to another when remove is clicked', async () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      const screen2 = createTestScreen({ 
-        id: 'screen-2', 
+        slug: 'living-room',
+      })
+      const screen2 = createTestScreen({
+        id: 'screen-2',
         name: 'Kitchen',
-        slug: 'kitchen' 
-      });
-      
-      dashboardStore.setState({ 
+        slug: 'kitchen',
+      })
+
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
-        mode: 'edit' 
-      });
+        mode: 'edit',
+      }))
 
-      renderWithTheme(<ViewTabs />);
+      renderWithTheme(<ViewTabs />)
 
       // Find the remove button within the Living Room tab
-      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ });
-      const removeButton = livingRoomTab.querySelector('[style*="cursor: pointer"]');
-      
-      await user.click(removeButton!);
+      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ })
+      const removeButton = livingRoomTab.querySelector('[style*="cursor: pointer"]')
+
+      await user.click(removeButton!)
 
       // Should navigate to the remaining screen
       expect(mockNavigate).toHaveBeenCalledWith({
         to: '/$slug',
-        params: { slug: 'kitchen' }
-      });
-      
+        params: { slug: 'kitchen' },
+      })
+
       // Should remove the screen from store
-      expect(dashboardStore.state.screens).toHaveLength(1);
-      expect(dashboardStore.state.screens[0].id).toBe('screen-2');
-    });
+      expect(dashboardStore.state.screens).toHaveLength(1)
+      expect(dashboardStore.state.screens[0].id).toBe('screen-2')
+    })
 
     it('should not allow removing the last screen', async () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      const screen2 = createTestScreen({ 
-        id: 'screen-2', 
+        slug: 'living-room',
+      })
+      const screen2 = createTestScreen({
+        id: 'screen-2',
         name: 'Kitchen',
-        slug: 'kitchen' 
-      });
-      
-      dashboardStore.setState({ 
+        slug: 'kitchen',
+      })
+
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
-        mode: 'edit' 
-      });
+        mode: 'edit',
+      }))
 
-      renderWithTheme(<ViewTabs />);
+      renderWithTheme(<ViewTabs />)
 
       // First remove the kitchen screen
-      const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ });
-      const kitchenRemoveButton = kitchenTab.querySelector('[style*="cursor: pointer"]');
-      await user.click(kitchenRemoveButton!);
+      const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ })
+      const kitchenRemoveButton = kitchenTab.querySelector('[style*="cursor: pointer"]')
+      await user.click(kitchenRemoveButton!)
 
       // Wait for first removal
       await waitFor(() => {
-        expect(dashboardStore.state.screens.length).toBe(1);
-      });
+        expect(dashboardStore.state.screens.length).toBe(1)
+      })
 
       // Now remove the last screen
-      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ });
-      const livingRoomRemoveButton = livingRoomTab.querySelector('[style*="cursor: pointer"]');
-      
+      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ })
+      const livingRoomRemoveButton = livingRoomTab.querySelector('[style*="cursor: pointer"]')
+
       // Since there's only one screen left, there should be no remove button
-      expect(livingRoomRemoveButton).toBeNull();
-      
+      expect(livingRoomRemoveButton).toBeNull()
+
       // This test actually verifies that we DON'T allow removing the last screen
       // The UI should not show a remove button when there's only one screen left
-    });
+    })
 
     it('should render nested screens with indentation', () => {
       const parentScreen = createTestScreen({
@@ -236,28 +250,29 @@ describe('ViewTabs', () => {
           createTestScreen({
             id: 'child-1',
             name: 'Living Room',
-            slug: 'living-room'
-          })
-        ]
-      });
-      
-      dashboardStore.setState({ 
+            slug: 'living-room',
+          }),
+        ],
+      })
+
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [parentScreen],
-        currentScreenId: 'parent-1' 
-      });
+        currentScreenId: 'parent-1',
+      }))
 
-      renderWithTheme(<ViewTabs />);
+      renderWithTheme(<ViewTabs />)
 
-      const homeTab = screen.getByRole('tab', { name: /Home/ });
-      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ });
-      
-      expect(homeTab).toBeInTheDocument();
-      expect(livingRoomTab).toBeInTheDocument();
-      
+      const homeTab = screen.getByRole('tab', { name: /Home/ })
+      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ })
+
+      expect(homeTab).toBeInTheDocument()
+      expect(livingRoomTab).toBeInTheDocument()
+
       // Check indentation
-      expect(livingRoomTab).toHaveStyle({ paddingLeft: '20px' });
-    });
-  });
+      expect(livingRoomTab).toHaveStyle({ paddingLeft: '20px' })
+    })
+  })
 
   describe('Mobile View', () => {
     beforeEach(() => {
@@ -265,103 +280,109 @@ describe('ViewTabs', () => {
       Object.defineProperty(window, 'innerWidth', {
         writable: true,
         configurable: true,
-        value: 500
-      });
-    });
+        value: 500,
+      })
+    })
 
     it('should render dropdown menu on mobile', () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      
-      dashboardStore.setState({ 
-        screens: [screen1],
-        currentScreenId: 'screen-1' 
-      });
+        slug: 'living-room',
+      })
 
-      renderWithTheme(<ViewTabs />);
+      dashboardStore.setState((state) => ({
+        ...state,
+        screens: [screen1],
+        currentScreenId: 'screen-1',
+      }))
+
+      renderWithTheme(<ViewTabs />)
 
       // Should show dropdown button with current screen name
-      expect(screen.getByRole('button', { name: /Living Room/ })).toBeInTheDocument();
-    });
+      expect(screen.getByRole('button', { name: /Living Room/ })).toBeInTheDocument()
+    })
 
     it('should navigate when dropdown item is selected', async () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      const screen2 = createTestScreen({ 
-        id: 'screen-2', 
+        slug: 'living-room',
+      })
+      const screen2 = createTestScreen({
+        id: 'screen-2',
         name: 'Kitchen',
-        slug: 'kitchen' 
-      });
-      
-      dashboardStore.setState({ 
-        screens: [screen1, screen2],
-        currentScreenId: 'screen-1' 
-      });
+        slug: 'kitchen',
+      })
 
-      renderWithTheme(<ViewTabs />);
+      dashboardStore.setState((state) => ({
+        ...state,
+        screens: [screen1, screen2],
+        currentScreenId: 'screen-1',
+      }))
+
+      renderWithTheme(<ViewTabs />)
 
       // Open dropdown
-      const dropdownButton = screen.getByRole('button', { name: /Living Room/ });
-      await user.click(dropdownButton);
+      const dropdownButton = screen.getByRole('button', { name: /Living Room/ })
+      await user.click(dropdownButton)
 
       // Click Kitchen option
-      const kitchenOption = await screen.findByRole('menuitem', { name: /Kitchen/ });
-      await user.click(kitchenOption);
+      const kitchenOption = await screen.findByRole('menuitem', { name: /Kitchen/ })
+      await user.click(kitchenOption)
 
       expect(mockNavigate).toHaveBeenCalledWith({
         to: '/$slug',
-        params: { slug: 'kitchen' }
-      });
-    });
-  });
+        params: { slug: 'kitchen' },
+      })
+    })
+  })
 
   describe('iframe communication', () => {
     beforeEach(() => {
       // Mock that we're in an iframe
       Object.defineProperty(window, 'parent', {
         writable: true,
-        value: { postMessage: vi.fn() }
-      });
+        value: { postMessage: vi.fn() },
+      })
       // Mock desktop viewport
       Object.defineProperty(window, 'innerWidth', {
         writable: true,
         configurable: true,
-        value: 1024
-      });
-    });
+        value: 1024,
+      })
+    })
 
     it('should send postMessage when navigating in iframe', async () => {
-      const screen1 = createTestScreen({ 
-        id: 'screen-1', 
+      const screen1 = createTestScreen({
+        id: 'screen-1',
         name: 'Living Room',
-        slug: 'living-room' 
-      });
-      const screen2 = createTestScreen({ 
-        id: 'screen-2', 
+        slug: 'living-room',
+      })
+      const screen2 = createTestScreen({
+        id: 'screen-2',
         name: 'Kitchen',
-        slug: 'kitchen' 
-      });
-      
-      dashboardStore.setState({ 
+        slug: 'kitchen',
+      })
+
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
-        currentScreenId: 'screen-1' 
-      });
+        currentScreenId: 'screen-1',
+      }))
 
-      renderWithTheme(<ViewTabs />);
+      renderWithTheme(<ViewTabs />)
 
-      const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ });
-      await user.click(kitchenTab);
+      const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ })
+      await user.click(kitchenTab)
 
-      expect(window.parent.postMessage).toHaveBeenCalledWith({
-        type: 'route-change',
-        path: '/kitchen',
-      }, '*');
-    });
-  });
-});
+      expect(window.parent.postMessage).toHaveBeenCalledWith(
+        {
+          type: 'route-change',
+          path: '/kitchen',
+        },
+        '*'
+      )
+    })
+  })
+})

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useEntityAttribute, useEntityAttributes } from '../useEntityAttribute';
-import { entityStoreActions } from '../../store/entityStore';
-import { entityUpdateBatcher } from '../../store/entityBatcher';
-import type { HassEntity } from '../../store/entityTypes';
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { renderHook, act } from '@testing-library/react'
+import { useEntityAttribute, useEntityAttributes } from '../useEntityAttribute'
+import { entityStoreActions } from '../../store/entityStore'
+import { entityUpdateBatcher } from '../../store/entityBatcher'
+import type { HassEntity } from '../../store/entityTypes'
 
 // Mock the batcher
 vi.mock('../../store/entityBatcher', () => ({
@@ -11,7 +11,7 @@ vi.mock('../../store/entityBatcher', () => ({
     trackAttribute: vi.fn(),
     untrackAttribute: vi.fn(),
   },
-}));
+}))
 
 describe('useEntityAttribute', () => {
   const mockEntity: HassEntity = {
@@ -30,74 +30,63 @@ describe('useEntityAttribute', () => {
       parent_id: null,
       user_id: null,
     },
-  };
+  }
 
   beforeEach(() => {
-    entityStoreActions.reset();
-    vi.clearAllMocks();
-  });
+    entityStoreActions.reset()
+    vi.clearAllMocks()
+  })
 
   describe('useEntityAttribute', () => {
     it('should return attribute value when available', () => {
       act(() => {
-        entityStoreActions.updateEntity(mockEntity);
-      });
+        entityStoreActions.updateEntity(mockEntity)
+      })
 
-      const { result } = renderHook(() => 
-        useEntityAttribute<number>('light.bedroom', 'brightness')
-      );
+      const { result } = renderHook(() => useEntityAttribute<number>('light.bedroom', 'brightness'))
 
-      expect(result.current).toBe(255);
-    });
+      expect(result.current).toBe(255)
+    })
 
     it('should return default value when attribute not found', () => {
       act(() => {
-        entityStoreActions.updateEntity(mockEntity);
-      });
+        entityStoreActions.updateEntity(mockEntity)
+      })
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useEntityAttribute<number>('light.bedroom', 'nonexistent', 100)
-      );
+      )
 
-      expect(result.current).toBe(100);
-    });
+      expect(result.current).toBe(100)
+    })
 
     it('should return undefined when entity not found', () => {
-      const { result } = renderHook(() => 
-        useEntityAttribute<number>('light.unknown', 'brightness')
-      );
+      const { result } = renderHook(() => useEntityAttribute<number>('light.unknown', 'brightness'))
 
-      expect(result.current).toBeUndefined();
-    });
+      expect(result.current).toBeUndefined()
+    })
 
     it('should track attribute for changes', () => {
-      const { unmount } = renderHook(() => 
-        useEntityAttribute('light.bedroom', 'brightness')
-      );
+      const { unmount } = renderHook(() => useEntityAttribute('light.bedroom', 'brightness'))
 
-      expect(entityUpdateBatcher.trackAttribute).toHaveBeenCalledWith(
-        'light.bedroom',
-        'brightness'
-      );
+      expect(entityUpdateBatcher.trackAttribute).toHaveBeenCalledWith('light.bedroom', 'brightness')
 
-      unmount();
+      unmount()
 
       expect(entityUpdateBatcher.untrackAttribute).toHaveBeenCalledWith(
         'light.bedroom',
         'brightness'
-      );
-    });
+      )
+    })
 
     it('should update when attribute value changes', () => {
       act(() => {
-        entityStoreActions.updateEntity(mockEntity);
-      });
+        entityStoreActions.updateEntity(mockEntity)
+      })
 
-      const { result } = renderHook(() => 
-        useEntityAttribute<number>('light.bedroom', 'brightness')
-      );
+      const { result } = renderHook(() => useEntityAttribute<number>('light.bedroom', 'brightness'))
 
-      expect(result.current).toBe(255);
+      expect(result.current).toBe(255)
 
       // Update attribute
       act(() => {
@@ -107,84 +96,76 @@ describe('useEntityAttribute', () => {
             ...mockEntity.attributes,
             brightness: 128,
           },
-        });
-      });
+        })
+      })
 
-      expect(result.current).toBe(128);
-    });
-  });
+      expect(result.current).toBe(128)
+    })
+  })
 
   describe('useEntityAttributes', () => {
     it('should return multiple attribute values', () => {
       act(() => {
-        entityStoreActions.updateEntity(mockEntity);
-      });
+        entityStoreActions.updateEntity(mockEntity)
+      })
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useEntityAttributes<{
-          brightness: number;
-          color_temp: number;
-          friendly_name: string;
+          brightness: number
+          color_temp: number
+          friendly_name: string
         }>('light.bedroom', ['brightness', 'color_temp', 'friendly_name'])
-      );
+      )
 
       expect(result.current).toEqual({
         brightness: 255,
         color_temp: 350,
         friendly_name: 'Bedroom Light',
-      });
-    });
+      })
+    })
 
     it('should return empty object when entity not found', () => {
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useEntityAttributes('light.unknown', ['brightness', 'color_temp'])
-      );
+      )
 
-      expect(result.current).toEqual({});
-    });
+      expect(result.current).toEqual({})
+    })
 
     it('should track all requested attributes', () => {
-      const attributes = ['brightness', 'color_temp', 'friendly_name'];
-      
-      const { unmount } = renderHook(() => 
-        useEntityAttributes('light.bedroom', attributes)
-      );
+      const attributes = ['brightness', 'color_temp', 'friendly_name']
 
-      attributes.forEach(attr => {
-        expect(entityUpdateBatcher.trackAttribute).toHaveBeenCalledWith(
-          'light.bedroom',
-          attr
-        );
-      });
+      const { unmount } = renderHook(() => useEntityAttributes('light.bedroom', attributes))
 
-      unmount();
+      attributes.forEach((attr) => {
+        expect(entityUpdateBatcher.trackAttribute).toHaveBeenCalledWith('light.bedroom', attr)
+      })
 
-      attributes.forEach(attr => {
-        expect(entityUpdateBatcher.untrackAttribute).toHaveBeenCalledWith(
-          'light.bedroom',
-          attr
-        );
-      });
-    });
+      unmount()
+
+      attributes.forEach((attr) => {
+        expect(entityUpdateBatcher.untrackAttribute).toHaveBeenCalledWith('light.bedroom', attr)
+      })
+    })
 
     it('should only return requested attributes', () => {
       act(() => {
-        entityStoreActions.updateEntity(mockEntity);
-      });
+        entityStoreActions.updateEntity(mockEntity)
+      })
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useEntityAttributes<{
-          brightness: number;
-          friendly_name: string;
+          brightness: number
+          friendly_name: string
         }>('light.bedroom', ['brightness', 'friendly_name'])
-      );
+      )
 
       expect(result.current).toEqual({
         brightness: 255,
         friendly_name: 'Bedroom Light',
-      });
-      expect(result.current).not.toHaveProperty('color_temp');
-      expect(result.current).not.toHaveProperty('rgb_color');
-    });
-  });
-});
+      })
+      expect(result.current).not.toHaveProperty('color_temp')
+      expect(result.current).not.toHaveProperty('rgb_color')
+    })
+  })
+})

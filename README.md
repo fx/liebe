@@ -31,6 +31,7 @@ cp -r dist/liebe-dashboard /config/www/
 ```
 
 Add to your `configuration.yaml`:
+
 ```yaml
 panel_custom:
   - name: liebe-dashboard-panel
@@ -45,11 +46,13 @@ Restart Home Assistant and find "Liebe Dashboard" in the sidebar.
 ## Development with Home Assistant
 
 Start the development server:
+
 ```bash
 npm run dev
 ```
 
 Add to your Home Assistant `configuration.yaml`:
+
 ```yaml
 panel_custom:
   - name: liebe-dashboard-dev
@@ -66,7 +69,7 @@ This loads a wrapper that embeds your dev server in an iframe while providing ac
 ## Scripts
 
 - `npm run dev` - Start development server
-- `npm run build` - Build SPA application  
+- `npm run build` - Build SPA application
 - `npm run build:ha` - Build custom panel for Home Assistant
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run lint` - Run ESLint

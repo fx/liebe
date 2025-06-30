@@ -1,15 +1,15 @@
-import type { HomeAssistant } from '../contexts/HomeAssistantContext';
+import type { HomeAssistant } from '../contexts/HomeAssistantContext'
 
 export interface ServiceCallOptions {
-  domain: string;
-  service: string;
-  entityId?: string;
-  data?: Record<string, unknown>;
+  domain: string
+  service: string
+  entityId?: string
+  data?: Record<string, unknown>
 }
 
 export interface ServiceCallResult {
-  success: boolean;
-  error?: string;
+  success: boolean
+  error?: string
 }
 
 export class ServiceCallError extends Error {
@@ -19,22 +19,22 @@ export class ServiceCallError extends Error {
     public readonly service: string,
     public readonly entityId?: string
   ) {
-    super(message);
-    this.name = 'ServiceCallError';
+    super(message)
+    this.name = 'ServiceCallError'
   }
 }
 
 export class HassService {
-  private hass: HomeAssistant | null = null;
-  private activeCallsMap = new Map<string, AbortController>();
-  private retryDelays = [1000, 2000, 4000]; // Retry delays in milliseconds
+  private hass: HomeAssistant | null = null
+  private activeCallsMap = new Map<string, AbortController>()
+  private retryDelays = [1000, 2000, 4000] // Retry delays in milliseconds
 
   setHass(hass: HomeAssistant | null): void {
-    this.hass = hass;
+    this.hass = hass
   }
 
   private getCallKey(options: ServiceCallOptions): string {
-    return `${options.domain}.${options.service}.${options.entityId || 'global'}`;
+    return `${options.domain}.${options.service}.${options.entityId || 'global'}`
   }
 
   private async callServiceWithRetry(
@@ -42,29 +42,36 @@ export class HassService {
     retryCount = 0
   ): Promise<ServiceCallResult> {
     if (!this.hass) {
-      throw new ServiceCallError('Home Assistant not connected', options.domain, options.service, options.entityId);
+      throw new ServiceCallError(
+        'Home Assistant not connected',
+        options.domain,
+        options.service,
+        options.entityId
+      )
     }
 
     try {
-      const serviceData = options.entityId 
+      const serviceData = options.entityId
         ? { entity_id: options.entityId, ...options.data }
-        : options.data;
+        : options.data
 
-      await this.hass.callService(options.domain, options.service, serviceData);
-      
-      console.log(`Service call successful: ${options.domain}.${options.service}`, serviceData);
-      return { success: true };
+      await this.hass.callService(options.domain, options.service, serviceData)
+
+      console.log(`Service call successful: ${options.domain}.${options.service}`, serviceData)
+      return { success: true }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Service call failed: ${options.domain}.${options.service}`, errorMessage);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`Service call failed: ${options.domain}.${options.service}`, errorMessage)
 
       // Check if we should retry
       if (retryCount < this.retryDelays.length) {
-        const delay = this.retryDelays[retryCount];
-        console.log(`Retrying service call in ${delay}ms (attempt ${retryCount + 1}/${this.retryDelays.length})`);
-        
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return this.callServiceWithRetry(options, retryCount + 1);
+        const delay = this.retryDelays[retryCount]
+        console.log(
+          `Retrying service call in ${delay}ms (attempt ${retryCount + 1}/${this.retryDelays.length})`
+        )
+
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        return this.callServiceWithRetry(options, retryCount + 1)
       }
 
       throw new ServiceCallError(
@@ -72,104 +79,104 @@ export class HassService {
         options.domain,
         options.service,
         options.entityId
-      );
+      )
     }
   }
 
   async callService(options: ServiceCallOptions): Promise<ServiceCallResult> {
-    const callKey = this.getCallKey(options);
+    const callKey = this.getCallKey(options)
 
     // Cancel any existing calls for the same entity/service
-    const existingController = this.activeCallsMap.get(callKey);
+    const existingController = this.activeCallsMap.get(callKey)
     if (existingController) {
-      existingController.abort();
+      existingController.abort()
     }
 
     // Create new abort controller for this call
-    const abortController = new AbortController();
-    this.activeCallsMap.set(callKey, abortController);
+    const abortController = new AbortController()
+    this.activeCallsMap.set(callKey, abortController)
 
     try {
-      const result = await this.callServiceWithRetry(options);
-      this.activeCallsMap.delete(callKey);
-      return result;
+      const result = await this.callServiceWithRetry(options)
+      this.activeCallsMap.delete(callKey)
+      return result
     } catch (error) {
-      this.activeCallsMap.delete(callKey);
-      
+      this.activeCallsMap.delete(callKey)
+
       if (error instanceof ServiceCallError) {
-        return { success: false, error: error.message };
+        return { success: false, error: error.message }
       }
-      
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      };
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      }
     }
   }
 
   // Common service helpers
   async turnOn(entityId: string, data?: Record<string, unknown>): Promise<ServiceCallResult> {
-    const [domain] = entityId.split('.');
+    const [domain] = entityId.split('.')
     return this.callService({
       domain,
       service: 'turn_on',
       entityId,
-      data
-    });
+      data,
+    })
   }
 
   async turnOff(entityId: string, data?: Record<string, unknown>): Promise<ServiceCallResult> {
-    const [domain] = entityId.split('.');
+    const [domain] = entityId.split('.')
     return this.callService({
       domain,
       service: 'turn_off',
       entityId,
-      data
-    });
+      data,
+    })
   }
 
   async toggle(entityId: string, data?: Record<string, unknown>): Promise<ServiceCallResult> {
-    const [domain] = entityId.split('.');
+    const [domain] = entityId.split('.')
     return this.callService({
       domain,
       service: 'toggle',
       entityId,
-      data
-    });
+      data,
+    })
   }
 
   async setValue(entityId: string, value: unknown): Promise<ServiceCallResult> {
-    const [domain] = entityId.split('.');
-    
+    const [domain] = entityId.split('.')
+
     // Handle different entity types
     if (domain === 'input_number') {
       return this.callService({
         domain,
         service: 'set_value',
         entityId,
-        data: { value }
-      });
+        data: { value },
+      })
     } else if (domain === 'input_text') {
       return this.callService({
         domain,
         service: 'set_value',
         entityId,
-        data: { value }
-      });
+        data: { value },
+      })
     } else if (domain === 'input_select') {
       return this.callService({
         domain,
         service: 'select_option',
         entityId,
-        data: { option: value }
-      });
+        data: { option: value },
+      })
     } else if (domain === 'light' && typeof value === 'number') {
       return this.callService({
         domain,
         service: 'turn_on',
         entityId,
-        data: { brightness: value }
-      });
+        data: { brightness: value },
+      })
     }
 
     throw new ServiceCallError(
@@ -177,15 +184,15 @@ export class HassService {
       domain,
       'set_value',
       entityId
-    );
+    )
   }
 
   // Cancel all active service calls
   cancelAll(): void {
-    this.activeCallsMap.forEach(controller => controller.abort());
-    this.activeCallsMap.clear();
+    this.activeCallsMap.forEach((controller) => controller.abort())
+    this.activeCallsMap.clear()
   }
 }
 
 // Singleton instance
-export const hassService = new HassService();
+export const hassService = new HassService()

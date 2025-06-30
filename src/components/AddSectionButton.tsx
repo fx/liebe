@@ -1,23 +1,23 @@
-import { useState } from 'react';
-import { Button, Dialog, TextField, Flex, Text, Select } from '@radix-ui/themes';
-import { PlusIcon } from '@radix-ui/react-icons';
-import { dashboardActions } from '../store';
-import type { SectionConfig } from '../store/types';
+import { useState } from 'react'
+import { Button, Dialog, TextField, Flex, Text, Select } from '@radix-ui/themes'
+import { PlusIcon } from '@radix-ui/react-icons'
+import { dashboardActions } from '../store'
+import type { SectionConfig } from '../store/types'
 
 interface AddSectionButtonProps {
-  screenId: string;
-  existingSectionsCount: number;
+  screenId: string
+  existingSectionsCount: number
 }
 
 export function AddSectionButton({ screenId, existingSectionsCount }: AddSectionButtonProps) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [width, setWidth] = useState<SectionConfig['width']>('full');
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [width, setWidth] = useState<SectionConfig['width']>('full')
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!title.trim()) return;
+    e.preventDefault()
+
+    if (!title.trim()) return
 
     const newSection: SectionConfig = {
       id: `section-${Date.now()}`,
@@ -26,21 +26,18 @@ export function AddSectionButton({ screenId, existingSectionsCount }: AddSection
       width,
       collapsed: false,
       items: [],
-    };
+    }
 
-    dashboardActions.addSection(screenId, newSection);
-    
-    setTitle('');
-    setWidth('full');
-    setOpen(false);
-  };
+    dashboardActions.addSection(screenId, newSection)
+
+    setTitle('')
+    setWidth('full')
+    setOpen(false)
+  }
 
   return (
     <>
-      <Button
-        size="3"
-        onClick={() => setOpen(true)}
-      >
+      <Button size="3" onClick={() => setOpen(true)}>
         <PlusIcon />
         Add Section
       </Button>
@@ -70,7 +67,10 @@ export function AddSectionButton({ screenId, existingSectionsCount }: AddSection
                 <Text as="div" size="2" mb="1" weight="bold">
                   Section Width
                 </Text>
-                <Select.Root value={width} onValueChange={(value) => setWidth(value as SectionConfig['width'])}>
+                <Select.Root
+                  value={width}
+                  onValueChange={(value) => setWidth(value as SectionConfig['width'])}
+                >
                   <Select.Trigger />
                   <Select.Content>
                     <Select.Item value="full">Full Width</Select.Item>
@@ -96,5 +96,5 @@ export function AddSectionButton({ screenId, existingSectionsCount }: AddSection
         </Dialog.Content>
       </Dialog.Root>
     </>
-  );
+  )
 }
