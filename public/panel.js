@@ -12,9 +12,10 @@ class LiebePanel extends HTMLElement {
     this._hass = hass
     if (!this.iframe) {
       this.render()
+    } else {
+      // Only send if iframe already exists
+      this.sendHassToIframe()
     }
-    // Send hass object to iframe
-    this.sendHassToIframe()
   }
 
   set panel(panel) {
@@ -58,30 +59,34 @@ class LiebePanel extends HTMLElement {
   }
 
   sendHassToIframe() {
-    if (this.iframe && this._hass) {
-      // Create a serializable version of hass
-      const hassData = {
-        states: this._hass.states,
-        services: this._hass.services,
-        config: this._hass.config,
-        user: this._hass.user,
-        panels: this._hass.panels,
-        language: this._hass.language,
-        selectedLanguage: this._hass.selectedLanguage,
-        themes: this._hass.themes,
-        selectedTheme: this._hass.selectedTheme,
-        // Include connection info
-        auth: {
-          data: {
-            hassUrl: this._hass.auth.data.hassUrl
+    if (this.iframe && this.iframe.contentWindow && this._hass) {
+      try {
+        // Create a serializable version of hass
+        const hassData = {
+          states: this._hass.states,
+          services: this._hass.services,
+          config: this._hass.config,
+          user: this._hass.user,
+          panels: this._hass.panels,
+          language: this._hass.language,
+          selectedLanguage: this._hass.selectedLanguage,
+          themes: this._hass.themes,
+          selectedTheme: this._hass.selectedTheme,
+          // Include connection info
+          auth: {
+            data: {
+              hassUrl: this._hass.auth.data.hassUrl
+            }
           }
         }
-      }
 
-      this.iframe.contentWindow.postMessage(
-        { type: 'hass-update', hass: hassData },
-        '*'
-      )
+        this.iframe.contentWindow.postMessage(
+          { type: 'hass-update', hass: hassData },
+          '*'
+        )
+      } catch (error) {
+        console.error('Failed to send hass to iframe:', error)
+      }
     }
   }
 
