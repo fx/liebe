@@ -242,7 +242,7 @@ describe('HassConnectionManager', () => {
       const event = {
         event_type: 'other_event',
         data: {},
-      } as StateChangedEvent
+      } as unknown as StateChangedEvent
 
       stateChangeHandler(event)
 

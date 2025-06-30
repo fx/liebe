@@ -85,9 +85,9 @@ describe('Slug Utilities', () => {
   describe('getAllSlugs', () => {
     it('should get slugs from flat screen list', () => {
       const screens: ScreenConfig[] = [
-        createTestScreen({ slug: 'living-room' }),
-        createTestScreen({ slug: 'kitchen' }),
-        createTestScreen({ slug: 'bedroom' }),
+        createTestScreen({ id: '1', name: 'Living Room', slug: 'living-room' }),
+        createTestScreen({ id: '2', name: 'Kitchen', slug: 'kitchen' }),
+        createTestScreen({ id: '3', name: 'Bedroom', slug: 'bedroom' }),
       ]
 
       const slugs = getAllSlugs(screens)
@@ -97,19 +97,23 @@ describe('Slug Utilities', () => {
     it('should get slugs from nested screens', () => {
       const screens: ScreenConfig[] = [
         createTestScreen({
+          id: '1',
+          name: 'Home',
           slug: 'home',
           children: [
-            createTestScreen({ slug: 'living-room' }),
+            createTestScreen({ id: '2', name: 'Living Room', slug: 'living-room' }),
             createTestScreen({
+              id: '3',
+              name: 'Upstairs',
               slug: 'upstairs',
               children: [
-                createTestScreen({ slug: 'bedroom' }),
-                createTestScreen({ slug: 'bathroom' }),
+                createTestScreen({ id: '4', name: 'Bedroom', slug: 'bedroom' }),
+                createTestScreen({ id: '5', name: 'Bathroom', slug: 'bathroom' }),
               ],
             }),
           ],
         }),
-        createTestScreen({ slug: 'garage' }),
+        createTestScreen({ id: '6', name: 'Garage', slug: 'garage' }),
       ]
 
       const slugs = getAllSlugs(screens)
@@ -123,8 +127,8 @@ describe('Slug Utilities', () => {
 
     it('should handle screens without children', () => {
       const screens: ScreenConfig[] = [
-        createTestScreen({ slug: 'screen-1', children: undefined }),
-        createTestScreen({ slug: 'screen-2', children: [] }),
+        createTestScreen({ id: '1', name: 'Screen 1', slug: 'screen-1', children: undefined }),
+        createTestScreen({ id: '2', name: 'Screen 2', slug: 'screen-2', children: [] }),
       ]
 
       const slugs = getAllSlugs(screens)
@@ -134,14 +138,20 @@ describe('Slug Utilities', () => {
     it('should handle deeply nested screens', () => {
       const screens: ScreenConfig[] = [
         createTestScreen({
+          id: '1',
+          name: 'Level 1',
           slug: 'level-1',
           children: [
             createTestScreen({
+              id: '2',
+              name: 'Level 2',
               slug: 'level-2',
               children: [
                 createTestScreen({
+                  id: '3',
+                  name: 'Level 3',
                   slug: 'level-3',
-                  children: [createTestScreen({ slug: 'level-4' })],
+                  children: [createTestScreen({ id: '4', name: 'Level 4', slug: 'level-4' })],
                 }),
               ],
             }),
@@ -157,8 +167,8 @@ describe('Slug Utilities', () => {
   describe('Integration scenarios', () => {
     it('should generate unique slugs for duplicate names', () => {
       const screens: ScreenConfig[] = [
-        createTestScreen({ name: 'Living Room', slug: 'living-room' }),
-        createTestScreen({ name: 'Kitchen', slug: 'kitchen' }),
+        createTestScreen({ id: '1', name: 'Living Room', slug: 'living-room' }),
+        createTestScreen({ id: '2', name: 'Kitchen', slug: 'kitchen' }),
       ]
 
       const existingSlugs = getAllSlugs(screens)

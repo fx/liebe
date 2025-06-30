@@ -21,9 +21,17 @@ describe('Slug Route Logic', () => {
   beforeEach(() => {
     // Reset store to initial state
     dashboardStore.setState({
+      mode: 'view',
       screens: [],
       currentScreenId: null,
-      mode: 'view',
+      configuration: {
+        version: '1.0.0',
+        screens: [],
+        theme: 'auto',
+      },
+      gridResolution: { columns: 12, rows: 8 },
+      theme: 'auto',
+      isDirty: false,
     })
   })
 
@@ -39,7 +47,7 @@ describe('Slug Route Logic', () => {
       slug: 'kitchen',
     })
 
-    dashboardStore.setState({ screens: [screen1, screen2] })
+    dashboardStore.setState((state) => ({ ...state, screens: [screen1, screen2] }))
 
     const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'living-room')
     expect(foundScreen).toBeDefined()
@@ -65,7 +73,7 @@ describe('Slug Route Logic', () => {
       ],
     })
 
-    dashboardStore.setState({ screens: [parentScreen] })
+    dashboardStore.setState((state) => ({ ...state, screens: [parentScreen] }))
 
     const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'bedroom')
     expect(foundScreen).toBeDefined()
@@ -79,14 +87,14 @@ describe('Slug Route Logic', () => {
       slug: 'living-room',
     })
 
-    dashboardStore.setState({ screens: [screen1] })
+    dashboardStore.setState((state) => ({ ...state, screens: [screen1] }))
 
     const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'non-existent')
     expect(foundScreen).toBeNull()
   })
 
   it('should handle empty screens array', () => {
-    dashboardStore.setState({ screens: [] })
+    dashboardStore.setState((state) => ({ ...state, screens: [] }))
 
     const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'any-slug')
     expect(foundScreen).toBeNull()
@@ -104,10 +112,11 @@ describe('Slug Route Logic', () => {
       slug: 'kitchen',
     })
 
-    dashboardStore.setState({
+    dashboardStore.setState((state) => ({
+      ...state,
       screens: [screen1, screen2],
       currentScreenId: null,
-    })
+    }))
 
     // Simulate finding and setting screen
     const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'kitchen')
@@ -125,7 +134,7 @@ describe('Slug Route Logic', () => {
       slug: 'test-demo',
     })
 
-    dashboardStore.setState({ screens: [testScreen] })
+    dashboardStore.setState((state) => ({ ...state, screens: [testScreen] }))
 
     const foundScreen = findScreenBySlug(dashboardStore.state.screens, 'test-demo')
     expect(foundScreen).toBeDefined()

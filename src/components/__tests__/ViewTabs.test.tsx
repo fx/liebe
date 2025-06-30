@@ -39,9 +39,17 @@ describe('ViewTabs', () => {
     vi.clearAllMocks()
     // Reset store to initial state
     dashboardStore.setState({
+      mode: 'view',
       screens: [],
       currentScreenId: null,
-      mode: 'view',
+      configuration: {
+        version: '1.0.0',
+        screens: [],
+        theme: 'auto',
+      },
+      gridResolution: { columns: 12, rows: 8 },
+      theme: 'auto',
+      isDirty: false,
     })
     // Clear mock calls
     mockNavigate.mockClear()
@@ -61,10 +69,11 @@ describe('ViewTabs', () => {
         slug: 'kitchen',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -84,10 +93,11 @@ describe('ViewTabs', () => {
         slug: 'kitchen',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -108,10 +118,11 @@ describe('ViewTabs', () => {
         slug: 'living-room',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1],
         mode: 'edit',
-      })
+      }))
 
       const onAddView = vi.fn()
       renderWithTheme(<ViewTabs onAddView={onAddView} />)
@@ -135,11 +146,12 @@ describe('ViewTabs', () => {
         slug: 'kitchen',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2], // Need at least 2 screens to show remove buttons
         currentScreenId: 'screen-1',
         mode: 'edit',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -161,11 +173,12 @@ describe('ViewTabs', () => {
         slug: 'kitchen',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
         mode: 'edit',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -198,11 +211,12 @@ describe('ViewTabs', () => {
         slug: 'kitchen',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
         mode: 'edit',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -241,10 +255,11 @@ describe('ViewTabs', () => {
         ],
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [parentScreen],
         currentScreenId: 'parent-1',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -276,10 +291,11 @@ describe('ViewTabs', () => {
         slug: 'living-room',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1],
         currentScreenId: 'screen-1',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -299,10 +315,11 @@ describe('ViewTabs', () => {
         slug: 'kitchen',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 
@@ -348,10 +365,11 @@ describe('ViewTabs', () => {
         slug: 'kitchen',
       })
 
-      dashboardStore.setState({
+      dashboardStore.setState((state) => ({
+        ...state,
         screens: [screen1, screen2],
         currentScreenId: 'screen-1',
-      })
+      }))
 
       renderWithTheme(<ViewTabs />)
 

@@ -73,7 +73,7 @@ describe('ConfigurationMenu', () => {
   it('should export configuration as YAML', async () => {
     const user = userEvent.setup()
     const originalCreateElement = document.createElement.bind(document)
-    let mockLink: HTMLAnchorElement
+    let mockLink: HTMLAnchorElement | undefined
 
     vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
       if (tagName === 'a') {
@@ -90,8 +90,8 @@ describe('ConfigurationMenu', () => {
     await user.click(screen.getByText('Export as YAML'))
 
     expect(persistence.exportConfigurationAsYAML).toHaveBeenCalled()
-    expect(mockLink.download).toMatch(/^liebe-dashboard-.*\.yaml$/)
-    expect(mockLink.click).toHaveBeenCalled()
+    expect(mockLink!.download).toMatch(/^liebe-dashboard-.*\.yaml$/)
+    expect(mockLink!.click).toHaveBeenCalled()
   })
 
   it('should handle file import', async () => {

@@ -110,7 +110,7 @@ export class HassConnectionManager {
 
     try {
       this.stateChangeUnsubscribe = this.hass.connection.subscribeEvents(
-        this.handleStateChanged,
+        (event: unknown) => this.handleStateChanged(event as StateChangedEvent),
         'state_changed'
       )
     } catch (error) {

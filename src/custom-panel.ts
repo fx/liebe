@@ -95,11 +95,11 @@ class LiebeDashboardPanel extends HTMLElement {
       React.createElement(
         React.StrictMode,
         null,
-        React.createElement(
-          HomeAssistantProvider,
-          { hass: this._hass },
-          React.createElement(RouterProvider, { router })
-        )
+        // eslint-disable-next-line react/no-children-prop
+        React.createElement(HomeAssistantProvider, {
+          hass: this._hass,
+          children: React.createElement(RouterProvider, { router }),
+        })
       )
     )
   }

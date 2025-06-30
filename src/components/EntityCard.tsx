@@ -48,9 +48,9 @@ export function EntityCard({ entityId }: EntityCardProps) {
     <Card>
       <Flex justify="between" align="center">
         <Flex direction="column" gap="1">
-          <Heading size="3">{entity.attributes.friendly_name || entityId}</Heading>
+          <Heading size="3">{(entity.attributes.friendly_name as string) || entityId}</Heading>
           <Text size="2" color="gray">
-            {entity.state} {entity.attributes.unit_of_measurement || ''}
+            {entity.state} {(entity.attributes.unit_of_measurement as string) || ''}
           </Text>
         </Flex>
         {isToggleable && <Switch size="3" checked={isOn} onCheckedChange={handleToggle} />}

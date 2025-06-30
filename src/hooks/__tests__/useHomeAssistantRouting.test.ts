@@ -20,9 +20,12 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 describe('useHomeAssistantRouting', () => {
-  let addEventListenerSpy: ReturnType<typeof vi.spyOn>
-  let removeEventListenerSpy: ReturnType<typeof vi.spyOn>
-  let dispatchEventSpy: ReturnType<typeof vi.spyOn>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let addEventListenerSpy: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let removeEventListenerSpy: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let dispatchEventSpy: any
   let originalLocation: Location
 
   beforeEach(() => {
@@ -130,15 +133,19 @@ describe('useHomeAssistantRouting', () => {
       renderHook(() => useHomeAssistantRouting())
 
       // Get the message handler
-      const messageHandler = addEventListenerSpy.mock.calls.find((call) => call[0] === 'message')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const messageCall = addEventListenerSpy.mock.calls.find((call: any) => call[0] === 'message')
+      const messageHandler = messageCall![1] as EventListener
 
       // Simulate message event
-      messageHandler({
-        data: {
-          type: 'navigate-to',
-          path: '/new-path',
-        },
-      })
+      messageHandler(
+        new MessageEvent('message', {
+          data: {
+            type: 'navigate-to',
+            path: '/new-path',
+          },
+        })
+      )
 
       expect(mockNavigate).toHaveBeenCalledWith({ to: '/new-path' })
     })
@@ -147,15 +154,19 @@ describe('useHomeAssistantRouting', () => {
       renderHook(() => useHomeAssistantRouting())
 
       // Get the message handler
-      const messageHandler = addEventListenerSpy.mock.calls.find((call) => call[0] === 'message')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const messageCall = addEventListenerSpy.mock.calls.find((call: any) => call[0] === 'message')
+      const messageHandler = messageCall![1] as EventListener
 
       // Simulate message event with different route
-      messageHandler({
-        data: {
-          type: 'current-route',
-          path: '/parent-route',
-        },
-      })
+      messageHandler(
+        new MessageEvent('message', {
+          data: {
+            type: 'current-route',
+            path: '/parent-route',
+          },
+        })
+      )
 
       expect(mockNavigate).toHaveBeenCalledWith({ to: '/parent-route' })
     })
@@ -164,15 +175,19 @@ describe('useHomeAssistantRouting', () => {
       renderHook(() => useHomeAssistantRouting())
 
       // Get the message handler
-      const messageHandler = addEventListenerSpy.mock.calls.find((call) => call[0] === 'message')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const messageCall = addEventListenerSpy.mock.calls.find((call: any) => call[0] === 'message')
+      const messageHandler = messageCall![1] as EventListener
 
       // Simulate message event with same route
-      messageHandler({
-        data: {
-          type: 'current-route',
-          path: '/test-path', // Same as mockRouterState.location.pathname
-        },
-      })
+      messageHandler(
+        new MessageEvent('message', {
+          data: {
+            type: 'current-route',
+            path: '/test-path', // Same as mockRouterState.location.pathname
+          },
+        })
+      )
 
       expect(mockNavigate).not.toHaveBeenCalled()
     })
@@ -181,16 +196,20 @@ describe('useHomeAssistantRouting', () => {
       renderHook(() => useHomeAssistantRouting())
 
       // Get the navigate handler
-      const navigateHandler = addEventListenerSpy.mock.calls.find(
-        (call) => call[0] === 'liebe-navigate'
-      )[1]
+      const navigateCall = addEventListenerSpy.mock.calls.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (call: any) => call[0] === 'liebe-navigate'
+      )
+      const navigateHandler = navigateCall?.[1] as EventListener
 
       // Simulate custom event
-      navigateHandler({
-        detail: {
-          path: '/custom-path',
-        },
-      })
+      navigateHandler(
+        new CustomEvent('liebe-navigate', {
+          detail: {
+            path: '/custom-path',
+          },
+        })
+      )
 
       expect(mockNavigate).toHaveBeenCalledWith({ to: '/custom-path' })
     })
