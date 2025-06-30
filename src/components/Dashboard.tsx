@@ -12,9 +12,6 @@ import { useEntityConnection } from '../hooks';
 export function Dashboard() {
   const [addViewOpen, setAddViewOpen] = useState(false);
   
-  // Enable persistence
-  useDashboardPersistence();
-  
   // Enable entity connection
   useEntityConnection();
   

@@ -3,6 +3,7 @@ import { Cross2Icon, PlusIcon, HamburgerMenuIcon } from '@radix-ui/react-icons';
 import { useDashboardStore, dashboardActions } from '../store';
 import type { ScreenConfig } from '../store/types';
 import { useEffect, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 
 interface ViewTabsProps {
   onAddView?: () => void;
@@ -13,6 +14,19 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   const currentScreenId = useDashboardStore((state) => state.currentScreenId);
   const mode = useDashboardStore((state) => state.mode);
   const [isMobile, setIsMobile] = useState(false);
+  const navigate = useNavigate();
+  
+  // Helper function to find screen by ID
+  const findScreenById = (screenList: ScreenConfig[], id: string): ScreenConfig | undefined => {
+    for (const screen of screenList) {
+      if (screen.id === id) return screen;
+      if (screen.children) {
+        const found = findScreenById(screen.children, id);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
 
   useEffect(() => {
     const checkMobile = () => {
@@ -25,12 +39,37 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   }, []);
 
   const handleTabChange = (value: string) => {
+    // Update the store state immediately for responsiveness
     dashboardActions.setCurrentScreen(value);
+    
+    const screen = findScreenById(screens, value);
+    if (screen) {
+      // Navigate to the new screen using slug
+      navigate({ to: '/$slug', params: { slug: screen.slug } });
+      
+      // If we're in an iframe, notify the parent window
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'route-change',
+          path: `/${screen.slug}`,
+        }, '*');
+      }
+    }
   };
 
   const handleRemoveView = (screenId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     dashboardActions.removeScreen(screenId);
+    
+    // If we're removing the current screen, navigate to another screen
+    if (screenId === currentScreenId) {
+      const remainingScreens = screens.filter(s => s.id !== screenId);
+      if (remainingScreens.length > 0) {
+        navigate({ to: '/$slug', params: { slug: remainingScreens[0].slug } });
+      } else {
+        navigate({ to: '/' });
+      }
+    }
   };
 
   const renderScreenTabs = (screenList: ScreenConfig[], level = 0): React.ReactNode[] => {
@@ -103,17 +142,6 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     ));
   };
 
-  const findScreenById = (screenList: ScreenConfig[], id: string): ScreenConfig | undefined => {
-    for (const screen of screenList) {
-      if (screen.id === id) return screen;
-      if (screen.children) {
-        const found = findScreenById(screen.children, id);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  };
-  
   const currentScreenName = currentScreenId ? findScreenById(screens, currentScreenId)?.name || 'Select View' : 'Select View';
 
   if (isMobile) {
@@ -145,7 +173,7 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
 
   return (
     <Tabs.Root
-      value={currentScreenId || undefined}
+      value={currentScreenId || ''}
       onValueChange={handleTabChange}
     >
       <Flex align="center" gap="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>

@@ -33,6 +33,7 @@ describe('persistence', () => {
       {
         id: 'screen-1',
         name: 'Test Screen',
+        slug: 'test-screen',
         type: 'grid',
         grid: {
           resolution: { columns: 12, rows: 8 },

@@ -9,6 +9,7 @@ import type {
   GridResolution,
   DashboardConfig,
 } from './types';
+import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug';
 
 const DEFAULT_GRID_RESOLUTION: GridResolution = {
   columns: 12,
@@ -87,10 +88,34 @@ export const dashboardActions = {
 
   updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => {
     dashboardStore.setState((state) => {
+      // If name is being updated, regenerate slug
+      let finalUpdates = { ...updates };
+      if (updates.name && typeof updates.name === 'string') {
+        const existingSlugs = getAllSlugs(state.screens);
+        const baseSlug = generateSlug(updates.name);
+        
+        // Find current screen to exclude its slug from uniqueness check
+        const findScreen = (screens: ScreenConfig[], id: string): ScreenConfig | null => {
+          for (const screen of screens) {
+            if (screen.id === id) return screen;
+            if (screen.children) {
+              const found = findScreen(screen.children, id);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const currentScreen = findScreen(state.screens, screenId);
+        const slugsToCheck = currentScreen ? existingSlugs.filter(s => s !== currentScreen.slug) : existingSlugs;
+        
+        finalUpdates.slug = ensureUniqueSlug(baseSlug, slugsToCheck);
+      }
+      
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
         return screens.map((screen) => {
           if (screen.id === screenId) {
-            return { ...screen, ...updates };
+            return { ...screen, ...finalUpdates };
           }
           if (screen.children) {
             return {

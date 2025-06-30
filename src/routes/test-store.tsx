@@ -21,6 +21,7 @@ function StoreTestPage() {
     const newScreen = {
       id: `screen-${Date.now()}`,
       name: `Screen ${screens.length + 1}`,
+      slug: `screen-${screens.length + 1}`,
       type: 'grid' as const,
       grid: {
         resolution: { columns: 12, rows: 8 },
