@@ -20,7 +20,9 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-## Building for Home Assistant
+## Installation Options
+
+### Option 1: Local Installation
 
 ```bash
 # Build the custom panel
@@ -30,15 +32,64 @@ npm run build:ha
 cp -r dist/liebe /config/www/
 ```
 
+### Option 2: Remote Server
+
+Host Liebe on any web server and point Home Assistant to it.
+
+### Option 3: Development Mode
+
+Run locally with hot reload:
+
+```bash
+npm run dev
+```
+
+## Configuration
+
 Add to your `configuration.yaml`:
 
 ```yaml
 panel_custom:
-  - name: liebe-panel
+  - name: liebe
     sidebar_title: Liebe
     sidebar_icon: mdi:heart
     url_path: liebe
-    module_url: /local/liebe/custom-panel.js
+    module_url: /local/liebe/panel.js
+```
+
+### Configuration Examples
+
+**Local installation:**
+
+```yaml
+panel_custom:
+  - name: liebe
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: /local/liebe/panel.js
+```
+
+**Development mode (localhost):**
+
+```yaml
+panel_custom:
+  - name: liebe
+    sidebar_title: Liebe Dev
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: http://localhost:3000/panel.js
+```
+
+**Remote server:**
+
+```yaml
+panel_custom:
+  - name: liebe
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: https://your-server.com/liebe/panel.js
 ```
 
 Restart Home Assistant and find "Liebe" in the sidebar.

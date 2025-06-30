@@ -9,21 +9,33 @@ export function useHomeAssistantRouting() {
   const router = useRouter()
 
   useEffect(() => {
-    // Check if we're running inside Home Assistant custom panel
+    const isInIframe = window.parent !== window
     const isInHomeAssistant = window.location.pathname.includes('/liebe')
 
-    if (!isInHomeAssistant) return
+    // Skip if not in Home Assistant and not in iframe
+    if (!isInHomeAssistant && !isInIframe) return
 
-    // Listen for route changes and notify custom panel
+    // Listen for route changes
     const unsubscribe = router.subscribe('onResolved', () => {
       const currentPath = router.state.location.pathname
 
-      // Dispatch event for custom panel integration
-      window.dispatchEvent(
-        new CustomEvent('liebe-route-change', {
-          detail: { path: currentPath },
-        })
-      )
+      if (isInIframe) {
+        // Send route change to parent window
+        window.parent.postMessage(
+          {
+            type: 'route-change',
+            path: currentPath,
+          },
+          '*'
+        )
+      } else {
+        // Dispatch event for custom panel integration
+        window.dispatchEvent(
+          new CustomEvent('liebe-route-change', {
+            detail: { path: currentPath },
+          })
+        )
+      }
     })
 
     // Listen for navigation from custom panel element

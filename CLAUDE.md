@@ -144,11 +144,11 @@ For developing with Home Assistant integration:
 
    ```yaml
    panel_custom:
-     - name: liebe-panel
+     - name: liebe
        sidebar_title: Liebe
        sidebar_icon: mdi:heart
        url_path: liebe
-       module_url: /local/liebe/custom-panel.js
+       module_url: /local/liebe/panel.js
    ```
 
 4. **For development with hot reload**:
@@ -157,6 +157,42 @@ For developing with Home Assistant integration:
    - The symlink approach allows you to just rebuild without copying files
 
 Note: The custom element name in panel_custom must match the name in customElements.define()
+
+### Remote Server Deployment
+
+Liebe can be hosted on any server and integrated into Home Assistant:
+
+1. **For development (localhost:3000)**:
+
+   ```yaml
+   panel_custom:
+     - name: liebe
+       sidebar_title: Liebe Dev
+       sidebar_icon: mdi:heart
+       url_path: liebe
+       module_url: http://localhost:3000/panel.js
+   ```
+
+2. **For remote hosting**:
+
+   ```yaml
+   panel_custom:
+     - name: liebe
+       sidebar_title: Liebe
+       sidebar_icon: mdi:heart
+       url_path: liebe
+       module_url: https://your-server.com/liebe/panel.js
+   ```
+
+3. **For local installation**:
+   ```yaml
+   panel_custom:
+     - name: liebe
+       sidebar_title: Liebe
+       sidebar_icon: mdi:heart
+       url_path: liebe
+       module_url: /local/liebe/panel.js
+   ```
 
 ### Starting a New Task
 
@@ -344,7 +380,7 @@ npm run build:ha -- --watch
 
 ```javascript
 customElements.define(
-  'liebe-panel',
+  'liebe',
   class extends HTMLElement {
     set hass(hass) {
       // Store hass object for API access
@@ -375,11 +411,11 @@ this._hass.callService('light', 'turn_on', {
 
 ```yaml
 panel_custom:
-  - name: liebe-panel
+  - name: liebe
     sidebar_title: Liebe
     sidebar_icon: mdi:heart
     url_path: liebe
-    module_url: /local/liebe/custom-panel.js
+    module_url: /local/liebe/panel.js
     config:
       # Any custom configuration
       theme: default

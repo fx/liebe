@@ -106,4 +106,4 @@ class LiebePanel extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('liebe-panel', LiebePanel)
+customElements.define('liebe', LiebePanel)

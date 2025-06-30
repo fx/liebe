@@ -6,6 +6,7 @@ import '@radix-ui/themes/styles.css'
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
+import { RemoteHomeAssistantProvider } from '~/components/RemoteHomeAssistantProvider'
 import { useHomeAssistantRouting } from '~/hooks/useHomeAssistantRouting'
 import { useDashboardPersistence } from '~/store'
 import '~/styles/app.css'
@@ -23,7 +24,10 @@ function RootComponent() {
   // Enable Home Assistant routing sync
   useHomeAssistantRouting()
 
-  return (
+  // Check if we're running in an iframe (remote mode)
+  const isInIframe = typeof window !== 'undefined' && window.parent !== window
+
+  const content = (
     <>
       <Theme>
         <Outlet />
@@ -32,4 +36,11 @@ function RootComponent() {
       <Scripts />
     </>
   )
+
+  // Wrap with RemoteHomeAssistantProvider if in iframe
+  if (isInIframe) {
+    return <RemoteHomeAssistantProvider>{content}</RemoteHomeAssistantProvider>
+  }
+
+  return content
 }

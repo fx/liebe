@@ -7,7 +7,7 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, 'src/custom-panel.ts'),
       name: 'Liebe',
-      fileName: 'custom-panel',
+      fileName: 'panel',
       formats: ['iife'],
     },
     outDir: 'dist/liebe',
