@@ -126,26 +126,35 @@ When creating a new epic with sub-issues:
 
 For developing with Home Assistant integration:
 
-```bash
-npm run dev
-```
+1. **Build the custom panel**:
 
-Add to Home Assistant configuration.yaml:
+   ```bash
+   npm run build:ha
+   ```
 
-```yaml
-panel_custom:
-  - name: liebe-dashboard-dev
-    sidebar_title: Liebe Dev
-    sidebar_icon: mdi:react
-    url_path: liebe-dev
-    module_url: http://localhost:3000/dev-entry.js
-```
+2. **Copy to Home Assistant** (or use a symlink):
 
-This gives you:
+   ```bash
+   cp -r dist/liebe-dashboard /config/www/
+   # OR create a symlink for development:
+   ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard
+   ```
 
-- Hot module replacement
-- Full hass object access (via postMessage bridge)
-- Real-time updates as you code
+3. **Add to Home Assistant configuration.yaml**:
+
+   ```yaml
+   panel_custom:
+     - name: liebe-dashboard-panel
+       sidebar_title: Liebe Dashboard
+       sidebar_icon: mdi:view-dashboard
+       url_path: liebe
+       module_url: /local/liebe-dashboard/custom-panel.js
+   ```
+
+4. **For development with hot reload**:
+   - Use `npm run dev` for UI development
+   - Rebuild with `npm run build:ha` to test in Home Assistant
+   - The symlink approach allows you to just rebuild without copying files
 
 Note: The custom element name in panel_custom must match the name in customElements.define()
 
@@ -290,57 +299,46 @@ Note: The custom element name in panel_custom must match the name in customEleme
 
 ### Home Assistant Custom Panel
 
-#### Important: panel_iframe is Deprecated
+#### Custom Panel Integration
 
-Home Assistant has deprecated `panel_iframe` in favor of custom panels. Always use `panel_custom` for proper integration with full access to the `hass` object.
-
-**Migration Guide:** If you're coming from `panel_iframe`, see [MIGRATION-FROM-IFRAME.md](/workspace/docs/MIGRATION-FROM-IFRAME.md) for detailed migration steps.
+Home Assistant custom panels provide full access to the `hass` object and proper integration with the Home Assistant frontend. Always use `panel_custom` for dashboard integration.
 
 #### Development Approaches
 
-**1. Development Custom Panel (Recommended)**
-
-This approach provides full hass access during development:
-
-```yaml
-# configuration.yaml
-panel_custom:
-  - name: liebe-dashboard-dev
-    sidebar_title: Liebe Dev
-    sidebar_icon: mdi:react
-    url_path: liebe-dev
-    module_url: /local/liebe-dashboard-dev/custom-panel.js
-    config:
-      # Optional: Enable development mode
-      dev_mode: true
-      dev_url: 'http://localhost:3000'
-```
-
-Then use watch mode:
-
-```bash
-./scripts/dev-ha.sh watch --ha-config /path/to/ha/config
-```
-
-**2. Mock Server for Local Development**
+**1. Local Development with Vite**
 
 For UI development without Home Assistant:
 
 ```bash
-# Start mock HA server
-./scripts/dev-ha.sh mock-server
-
-# In another terminal, start dev server
 npm run dev
 ```
 
-**3. Browser Extension for CORS**
+This starts a local development server with hot module replacement. You can develop the UI components without needing Home Assistant.
 
-If you need to bypass CORS during development:
+**2. Integration Testing with Home Assistant**
 
-1. Install a CORS extension (e.g., "CORS Unblock")
-2. Configure it to allow HA → localhost:3000
-3. Use the custom panel configuration
+For testing the full integration:
+
+```bash
+# Build the custom panel
+npm run build:ha
+
+# Copy to Home Assistant (or use symlink as shown above)
+cp -r dist/liebe-dashboard /config/www/
+
+# Restart Home Assistant or reload custom panels
+```
+
+**3. Watch Mode for Development**
+
+For rapid development with Home Assistant:
+
+```bash
+# Watch for changes and rebuild automatically
+npm run build:ha -- --watch
+
+# If using symlink, changes will be reflected after reload
+```
 
 #### Panel Registration
 
@@ -467,37 +465,37 @@ try {
    - Panel not loading: Check module_url path
    - No hass object: Ensure proper custom element setup
    - State not updating: Check event subscriptions
-   - CORS errors: Use custom panel instead of iframe
-   - Dev server not accessible: Check firewall/network settings
+   - CORS errors: Ensure proper module_url path in configuration
+   - Build not updating: Clear browser cache or use hard reload
 
-4. **Development Mode Issues**
-   - If using panel_iframe (deprecated): No hass object access
-   - Solution: Always use panel_custom for development
-   - For hot reload: Use watch build + symlink approach
+4. **Development Tips**
+   - Use symlinks to avoid copying files during development
+   - Run build in watch mode for faster iteration
+   - Check browser console for module loading errors
 
 ## Development Best Practices
 
 ### Modern Home Assistant Development
 
-1. **Never use panel_iframe** - It's deprecated and doesn't provide hass object access
-2. **Always use panel_custom** for proper integration
-3. **Development workflow options:**
-   - Watch build with symlinks (recommended)
-   - Mock server for UI-only development
-   - Home Assistant dev container for full integration testing
+1. **Always use panel_custom** for proper integration with full hass object access
+2. **Development workflow options:**
+   - Local development with `npm run dev` for UI work
+   - Watch build with symlinks for integration testing
+   - Home Assistant dev container for full environment testing
 
 ### Quick Development Setup
 
 ```bash
-# One-time setup
-./scripts/dev-ha.sh setup
+# For UI development
+npm run dev
 
-# For development with real HA
-./scripts/dev-ha.sh watch --ha-config /path/to/ha
+# For Home Assistant integration
+npm run build:ha
+cp -r dist/liebe-dashboard /config/www/
 
-# For UI-only development
-./scripts/dev-ha.sh mock-server
-npm run dev  # In another terminal
+# Or use symlink (one-time setup)
+ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard
+npm run build:ha -- --watch
 ```
 
 ## Resources

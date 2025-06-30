@@ -57,7 +57,7 @@ export function ConnectionStatus() {
       color: 'gray' as const,
       icon: <InfoCircledIcon />,
       text: 'No Home Assistant',
-      description: 'Running in development mode',
+      description: 'Home Assistant connection not available',
     },
     disconnected: {
       color: 'red' as const,
@@ -165,7 +165,7 @@ export function ConnectionStatus() {
             </>
           )}
 
-          {/* Dev Mode Notice */}
+          {/* No Connection Notice */}
           {!hass && (
             <>
               <Separator size="4" />

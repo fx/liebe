@@ -6,7 +6,6 @@ import '@radix-ui/themes/styles.css'
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
-import { DevHomeAssistantProvider } from '~/components/DevHomeAssistantProvider'
 import { useHomeAssistantRouting } from '~/hooks/useHomeAssistantRouting'
 import { useDashboardPersistence } from '~/store'
 import '~/styles/app.css'
@@ -27,10 +26,8 @@ function RootComponent() {
   return (
     <>
       <Theme>
-        <DevHomeAssistantProvider>
-          <Outlet />
-          <TanStackRouterDevtools position="bottom-right" />
-        </DevHomeAssistantProvider>
+        <Outlet />
+        <TanStackRouterDevtools position="bottom-right" />
       </Theme>
       <Scripts />
     </>

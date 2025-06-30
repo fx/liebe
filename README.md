@@ -45,26 +45,23 @@ Restart Home Assistant and find "Liebe Dashboard" in the sidebar.
 
 ## Development with Home Assistant
 
-Start the development server:
+For rapid development with Home Assistant integration:
 
-```bash
-npm run dev
-```
+1. **Use a symlink** (recommended):
 
-Add to your Home Assistant `configuration.yaml`:
+   ```bash
+   ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard
+   ```
 
-```yaml
-panel_custom:
-  - name: liebe-dashboard-dev
-    sidebar_title: Liebe Dev
-    sidebar_icon: mdi:react
-    url_path: liebe-dev
-    module_url: http://localhost:3000/dev-entry.js
-```
+2. **Build in watch mode**:
 
-**Restart Home Assistant** (required after adding/changing panel_custom).
+   ```bash
+   npm run build:ha -- --watch
+   ```
 
-This loads a wrapper that embeds your dev server in an iframe while providing access to the hass object via postMessage.
+3. **Reload the panel** in Home Assistant after changes (no restart needed).
+
+This approach gives you quick iteration while maintaining full access to the hass object.
 
 ## Scripts
 
