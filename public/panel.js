@@ -43,9 +43,13 @@ class LiebePanel extends HTMLElement {
   render() {
     this.innerHTML = ''
     
-    // Create iframe that loads the app from the same origin
+    // Create iframe that loads the app from the correct origin
     this.iframe = document.createElement('iframe')
-    this.iframe.src = window.location.origin
+    // Get the script's src to determine where we're hosted
+    const currentScript = document.currentScript || document.querySelector('script[src*="panel.js"]')
+    const scriptUrl = new URL(currentScript.src)
+    // Use the script's origin as the iframe source
+    this.iframe.src = scriptUrl.origin
     this.iframe.style.width = '100%'
     this.iframe.style.height = '100%'
     this.iframe.style.border = 'none'
