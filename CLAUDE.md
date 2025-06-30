@@ -139,7 +139,7 @@ Liebe runs as a web application that integrates with Home Assistant via custom p
 
    ```yaml
    panel_custom:
-     - name: liebe
+     - name: liebe-panel
        sidebar_title: Liebe Dev
        sidebar_icon: mdi:heart
        url_path: liebe
@@ -154,7 +154,7 @@ Host Liebe on any web server:
 
 ```yaml
 panel_custom:
-  - name: liebe
+  - name: liebe-panel
     sidebar_title: Liebe
     sidebar_icon: mdi:heart
     url_path: liebe

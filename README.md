@@ -24,7 +24,7 @@ Then add to your Home Assistant `configuration.yaml`:
 
 ```yaml
 panel_custom:
-  - name: liebe
+  - name: liebe-panel
     sidebar_title: Liebe Dev
     sidebar_icon: mdi:heart
     url_path: liebe
@@ -37,7 +37,7 @@ Host Liebe on any web server and add to your `configuration.yaml`:
 
 ```yaml
 panel_custom:
-  - name: liebe
+  - name: liebe-panel
     sidebar_title: Liebe
     sidebar_icon: mdi:heart
     url_path: liebe
@@ -45,6 +45,25 @@ panel_custom:
 ```
 
 Restart Home Assistant and find "Liebe" in the sidebar.
+
+## Testing with Automation Tools
+
+When testing Liebe with automation tools like Playwright, you may encounter authentication issues. To bypass authentication for testing purposes, you can configure Home Assistant to use trusted networks:
+
+```yaml
+homeassistant:
+  auth_providers:
+    - type: trusted_networks
+      trusted_networks:
+        - 192.168.1.100/32  # Replace with your testing machine's IP
+      trusted_users:
+        192.168.1.100:      # Replace with your testing machine's IP
+          - user_id_here    # Replace with the user ID to auto-login as
+      allow_bypass_login: true
+    - type: homeassistant
+```
+
+**⚠️ Security Warning**: Only use trusted networks in secure, controlled environments. This bypasses authentication for specified IP addresses.
 
 ## Scripts
 

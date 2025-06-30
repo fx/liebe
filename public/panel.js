@@ -129,4 +129,4 @@ class LiebePanel extends HTMLElement {
   }
 }
 
-customElements.define('liebe', LiebePanel)
+customElements.define('liebe-panel', LiebePanel)
