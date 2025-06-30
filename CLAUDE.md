@@ -135,20 +135,20 @@ For developing with Home Assistant integration:
 2. **Copy to Home Assistant** (or use a symlink):
 
    ```bash
-   cp -r dist/liebe-dashboard /config/www/
+   cp -r dist/liebe /config/www/
    # OR create a symlink for development:
-   ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard
+   ln -s $(pwd)/dist/liebe /config/www/liebe
    ```
 
 3. **Add to Home Assistant configuration.yaml**:
 
    ```yaml
    panel_custom:
-     - name: liebe-dashboard-panel
-       sidebar_title: Liebe Dashboard
-       sidebar_icon: mdi:view-dashboard
+     - name: liebe-panel
+       sidebar_title: Liebe
+       sidebar_icon: mdi:heart
        url_path: liebe
-       module_url: /local/liebe-dashboard/custom-panel.js
+       module_url: /local/liebe/custom-panel.js
    ```
 
 4. **For development with hot reload**:
@@ -209,7 +209,7 @@ Note: The custom element name in panel_custom must match the name in customEleme
 
 3. **Home Assistant Integration Testing**
    - Build the custom panel: `npm run build:ha`
-   - Copy built files to HA config: `cp -r dist/liebe-dashboard /config/www/`
+   - Copy built files to HA config: `cp -r dist/liebe /config/www/`
    - Update `configuration.yaml` with panel config
    - Restart Home Assistant to test
 
@@ -324,7 +324,7 @@ For testing the full integration:
 npm run build:ha
 
 # Copy to Home Assistant (or use symlink as shown above)
-cp -r dist/liebe-dashboard /config/www/
+cp -r dist/liebe /config/www/
 
 # Restart Home Assistant or reload custom panels
 ```
@@ -344,7 +344,7 @@ npm run build:ha -- --watch
 
 ```javascript
 customElements.define(
-  'liebe-dashboard-panel',
+  'liebe-panel',
   class extends HTMLElement {
     set hass(hass) {
       // Store hass object for API access
@@ -375,11 +375,11 @@ this._hass.callService('light', 'turn_on', {
 
 ```yaml
 panel_custom:
-  - name: liebe-dashboard-panel
-    sidebar_title: Liebe Dashboard
-    sidebar_icon: mdi:view-dashboard
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
     url_path: liebe
-    module_url: /local/liebe-dashboard/custom-panel.js
+    module_url: /local/liebe/custom-panel.js
     config:
       # Any custom configuration
       theme: default
@@ -491,10 +491,10 @@ npm run dev
 
 # For Home Assistant integration
 npm run build:ha
-cp -r dist/liebe-dashboard /config/www/
+cp -r dist/liebe /config/www/
 
 # Or use symlink (one-time setup)
-ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard
+ln -s $(pwd)/dist/liebe /config/www/liebe
 npm run build:ha -- --watch
 ```
 

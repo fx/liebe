@@ -1,6 +1,6 @@
-# Liebe Dashboard
+# Liebe
 
-A custom Home Assistant dashboard built with TanStack Start and React in SPA mode.
+A custom Home Assistant panel built with TanStack Start and React in SPA mode.
 
 ## Features
 
@@ -27,21 +27,21 @@ npm run dev
 npm run build:ha
 
 # Copy to Home Assistant
-cp -r dist/liebe-dashboard /config/www/
+cp -r dist/liebe /config/www/
 ```
 
 Add to your `configuration.yaml`:
 
 ```yaml
 panel_custom:
-  - name: liebe-dashboard-panel
-    sidebar_title: Liebe Dashboard
-    sidebar_icon: mdi:view-dashboard
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
     url_path: liebe
-    module_url: /local/liebe-dashboard/custom-panel.js
+    module_url: /local/liebe/custom-panel.js
 ```
 
-Restart Home Assistant and find "Liebe Dashboard" in the sidebar.
+Restart Home Assistant and find "Liebe" in the sidebar.
 
 ## Development with Home Assistant
 
@@ -50,7 +50,7 @@ For rapid development with Home Assistant integration:
 1. **Use a symlink** (recommended):
 
    ```bash
-   ln -s $(pwd)/dist/liebe-dashboard /config/www/liebe-dashboard
+   ln -s $(pwd)/dist/liebe /config/www/liebe
    ```
 
 2. **Build in watch mode**:

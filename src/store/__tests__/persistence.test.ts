@@ -62,7 +62,7 @@ describe('persistence', () => {
       saveDashboardConfig(mockConfig)
 
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'liebe-dashboard-config',
+        'liebe-config',
         JSON.stringify(mockConfig)
       )
     })
@@ -84,7 +84,7 @@ describe('persistence', () => {
       const loaded = loadDashboardConfig()
 
       expect(loaded).toEqual(mockConfig)
-      expect(localStorageMock.getItem).toHaveBeenCalledWith('liebe-dashboard-config')
+      expect(localStorageMock.getItem).toHaveBeenCalledWith('liebe-config')
     })
 
     it('should return null if no config exists', () => {
@@ -136,7 +136,7 @@ describe('persistence', () => {
     it('should remove config from localStorage and reset state', () => {
       clearDashboardConfig()
 
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('liebe-dashboard-config')
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('liebe-config')
       expect(dashboardStore.state.screens).toEqual([])
     })
 
@@ -167,7 +167,7 @@ describe('persistence', () => {
       expect(createElementSpy).toHaveBeenCalledWith('a')
       expect(mockElement.setAttribute).toHaveBeenCalledWith(
         'download',
-        expect.stringMatching(/^liebe-dashboard-\d{4}-\d{2}-\d{2}\.json$/)
+        expect.stringMatching(/^liebe-\d{4}-\d{2}-\d{2}\.json$/)
       )
       expect(clickSpy).toHaveBeenCalled()
       expect(mockElement.remove).toHaveBeenCalled()

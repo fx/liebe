@@ -18,7 +18,7 @@ interface Panel {
 }
 
 // Home Assistant custom panel element
-class LiebeDashboardPanel extends HTMLElement {
+class LiebePanel extends HTMLElement {
   private _hass: HomeAssistant | null = null
   private root?: ReactDOM.Root
   private _panel?: Panel
@@ -106,4 +106,4 @@ class LiebeDashboardPanel extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('liebe-dashboard-panel', LiebeDashboardPanel)
+customElements.define('liebe-panel', LiebePanel)
