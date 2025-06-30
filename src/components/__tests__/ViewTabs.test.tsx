@@ -36,6 +36,7 @@ describe('ViewTabs', () => {
   const user = userEvent.setup();
 
   beforeEach(() => {
+    vi.clearAllMocks();
     // Reset store to initial state
     dashboardStore.setState({
       screens: [],
@@ -205,10 +206,14 @@ describe('ViewTabs', () => {
       
       await user.click(removeButton!);
 
-      // Wait for the navigation to be called
+      // Wait a bit for the action to complete
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
-      }, { timeout: 3000 });
+        // Check that the screen was removed
+        expect(dashboardStore.getState().screens.length).toBe(0);
+      });
+
+      // Navigation should happen after removing the last screen
+      expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
     });
 
     it('should render nested screens with indentation', () => {

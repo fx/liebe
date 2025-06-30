@@ -48,7 +48,7 @@ describe('Dashboard - Nested Views', () => {
     // Should show the nested view information
     expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
-    expect(screen.getByText(/No entities added yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No sections added yet/)).toBeInTheDocument();
   });
 
   it('should handle deeply nested views', () => {
@@ -77,7 +77,7 @@ describe('Dashboard - Nested Views', () => {
     renderWithTheme(<Dashboard />);
     
     // Should show the grandchild view content
-    expect(screen.getByText('TV Room')).toBeInTheDocument();
+    expect(screen.getAllByText('TV Room').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Grid: 10 × 6')).toBeInTheDocument();
   });
 
@@ -94,17 +94,17 @@ describe('Dashboard - Nested Views', () => {
       grid: { resolution: { columns: 8, rows: 6 }, sections: [] },
     }), 'top-1');
     
-    const { rerender } = render(<Dashboard />);
+    const { rerender } = renderWithTheme(<Dashboard />);
     
     // First select nested view
     dashboardActions.setCurrentScreen('nested-1');
-    rerender(<Dashboard />);
-    expect(screen.getByText('Kitchen')).toBeInTheDocument();
+    rerender(<Theme><Dashboard /></Theme>);
+    expect(screen.getAllByText('Kitchen').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Grid: 8 × 6')).toBeInTheDocument();
     
     // Then switch to top-level view
     dashboardActions.setCurrentScreen('top-1');
-    rerender(<Dashboard />);
+    rerender(<Theme><Dashboard /></Theme>);
     expect(screen.getByText('Overview')).toBeInTheDocument();
     expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
   });

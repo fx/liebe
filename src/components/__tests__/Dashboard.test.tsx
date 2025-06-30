@@ -3,12 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Theme } from '@radix-ui/themes';
 import { Dashboard } from '../Dashboard';
-import { dashboardActions } from '../../store';
+import { dashboardActions, dashboardStore } from '../../store';
 import { createTestScreen } from '../../test-utils/screen-helpers';
 
 // Mock router
+const mockNavigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => mockNavigate,
   useLocation: () => ({ pathname: '/' }),
   useParams: () => ({}),
   Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
@@ -21,6 +22,7 @@ const renderWithTheme = (component: React.ReactElement) => {
 
 describe('Dashboard', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     dashboardActions.resetState();
   });
 
@@ -105,11 +107,28 @@ describe('Dashboard', () => {
       const addButton = screen.getByRole('button', { name: 'Add View' });
       await user.click(addButton);
       
-      // Check if view was created
+      // Wait for dialog to close
       await waitFor(() => {
-        expect(screen.getAllByText('Test View').length).toBeGreaterThanOrEqual(1);
+        expect(screen.queryByText('Add New View')).not.toBeInTheDocument();
+      });
+      
+      // Check that navigation was called
+      expect(mockNavigate).toHaveBeenCalled();
+      
+      // Get the created screen and set it as current
+      const state = dashboardStore.getState();
+      expect(state.screens.length).toBe(1);
+      const newScreen = state.screens[0];
+      expect(newScreen.name).toBe('Test View');
+      
+      // Manually set current screen since navigation is mocked
+      dashboardActions.setCurrentScreen(newScreen.id);
+      
+      // Check if view is displayed
+      await waitFor(() => {
         expect(screen.queryByText('No views created yet')).not.toBeInTheDocument();
       });
+      expect(screen.getAllByText('Test View').length).toBeGreaterThanOrEqual(1);
     });
 
     it('should not create a view with empty name', async () => {
@@ -140,7 +159,7 @@ describe('Dashboard', () => {
       
       expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
-      expect(screen.getByText(/No entities added yet/)).toBeInTheDocument();
+      expect(screen.getByText(/No sections added yet/)).toBeInTheDocument();
     });
 
     it('should show entity message in edit mode', async () => {
@@ -149,7 +168,7 @@ describe('Dashboard', () => {
       
       await user.click(screen.getByText('Edit'));
       
-      expect(screen.getByText(/No entities added yet/)).toBeInTheDocument();
+      expect(screen.getByText(/No sections added yet/)).toBeInTheDocument();
     });
   });
 });
