@@ -24,11 +24,15 @@ class LiebePanel extends HTMLElement {
 
   set route(route) {
     this._route = route
-    if (this.iframe) {
-      this.iframe.contentWindow.postMessage(
-        { type: 'navigate-to', path: route },
-        '*'
-      )
+    if (this.iframe && this.iframe.contentWindow) {
+      try {
+        this.iframe.contentWindow.postMessage(
+          { type: 'navigate-to', path: route },
+          '*'
+        )
+      } catch (error) {
+        console.error('Failed to send route to iframe:', error)
+      }
     }
   }
 
