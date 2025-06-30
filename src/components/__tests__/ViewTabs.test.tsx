@@ -203,18 +203,12 @@ describe('ViewTabs', () => {
       const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ });
       const removeButton = livingRoomTab.querySelector('[style*="cursor: pointer"]');
       
-      // Mock the removeScreen action to update state
-      const originalRemoveScreen = dashboardActions.removeScreen;
-      dashboardActions.removeScreen = vi.fn((screenId) => {
-        dashboardStore.setState({ screens: [] });
-      });
-      
       await user.click(removeButton!);
 
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
-      
-      // Restore original action
-      dashboardActions.removeScreen = originalRemoveScreen;
+      // Wait for the navigation to be called
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
+      });
     });
 
     it('should render nested screens with indentation', () => {

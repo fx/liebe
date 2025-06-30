@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Theme } from '@radix-ui/themes';
 import { ConfigurationMenu } from '../ConfigurationMenu';
@@ -110,12 +110,13 @@ describe('ConfigurationMenu', () => {
     
     // Simulate file selection
     const file = new File(['{}'], 'config.json', { type: 'application/json' });
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
-      writable: false,
-    });
     
-    await userEvent.upload(fileInput, file);
+    // Use fireEvent for file input changes as userEvent.upload has issues with jsdom
+    fireEvent.change(fileInput, {
+      target: {
+        files: [file],
+      },
+    });
     
     await waitFor(() => {
       expect(persistence.importConfigurationFromFile).toHaveBeenCalledWith(file);

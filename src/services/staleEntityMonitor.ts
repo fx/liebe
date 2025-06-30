@@ -26,7 +26,7 @@ export class StaleEntityMonitor {
   }
 
   private checkStaleEntities(): void {
-    const state = entityStore.state;
+    const state = entityStore.getState();
     const now = Date.now();
     
     // Check if we're disconnected (no updates for a while)

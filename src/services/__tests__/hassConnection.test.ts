@@ -1,11 +1,25 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { HassConnectionManager } from '../hassConnection';
 import { entityStoreActions } from '../../store/entityStore';
+import { entityDebouncer } from '../entityDebouncer';
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext';
 import type { StateChangedEvent } from '../hassConnection';
 
 // Mock the store actions
 vi.mock('../../store/entityStore', () => ({
+  entityStore: {
+    getState: vi.fn().mockReturnValue({
+      entities: {},
+      isConnected: false,
+      isInitialLoading: true,
+      lastError: null,
+      subscribedEntities: new Set(),
+      staleEntities: new Set(),
+      lastUpdateTime: Date.now(),
+    }),
+    setState: vi.fn(),
+    subscribe: vi.fn(),
+  },
   entityStoreActions: {
     setConnected: vi.fn(),
     setInitialLoading: vi.fn(),
@@ -13,6 +27,20 @@ vi.mock('../../store/entityStore', () => ({
     updateEntity: vi.fn(),
     updateEntities: vi.fn(),
     removeEntity: vi.fn(),
+    subscribeToEntity: vi.fn(),
+    unsubscribeFromEntity: vi.fn(),
+    clearSubscriptions: vi.fn(),
+    reset: vi.fn(),
+    markEntityStale: vi.fn(),
+    markEntityFresh: vi.fn(),
+    updateLastUpdateTime: vi.fn(),
+  },
+}));
+
+// Mock the entity debouncer
+vi.mock('../entityDebouncer', () => ({
+  entityDebouncer: {
+    processUpdate: vi.fn(),
   },
 }));
 
@@ -137,6 +165,7 @@ describe('HassConnectionManager', () => {
     let stateChangeHandler: (event: StateChangedEvent) => void;
 
     beforeEach(() => {
+      vi.clearAllMocks();
       connectionManager.connect(mockHass);
       stateChangeHandler = (mockHass.connection.subscribeEvents as any).mock.calls[0][0];
     });
@@ -167,7 +196,7 @@ describe('HassConnectionManager', () => {
 
       stateChangeHandler(event);
 
-      expect(entityStoreActions.updateEntity).toHaveBeenCalledWith(event.data.new_state);
+      expect(entityDebouncer.processUpdate).toHaveBeenCalledWith(event.data.new_state);
     });
 
     it('should handle entity removal', () => {
@@ -246,14 +275,22 @@ describe('HassConnectionManager', () => {
       connectionManager.connect(errorHass);
 
       // Simulate max reconnection attempts
+      // The delays are: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, 30000ms (capped)
+      let totalTime = 0;
+      const delays = [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000];
+      
       for (let i = 0; i < 10; i++) {
-        vi.runAllTimers();
+        // Advance by the expected delay
+        vi.advanceTimersByTime(delays[i]);
+        totalTime += delays[i];
       }
 
-      // Should have error message about max attempts
+      // After 10 attempts, should show max attempts error
       const errorCalls = (entityStoreActions.setError as any).mock.calls;
-      const lastErrorCall = errorCalls[errorCalls.length - 1];
-      expect(lastErrorCall[0]).toBe('Unable to reconnect to Home Assistant');
+      const hasMaxAttemptsError = errorCalls.some(call => 
+        call[0] === 'Unable to reconnect to Home Assistant'
+      );
+      expect(hasMaxAttemptsError).toBe(true);
     });
   });
 

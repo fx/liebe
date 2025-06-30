@@ -1,9 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Theme } from '@radix-ui/themes';
 import { Dashboard } from '../Dashboard';
 import { dashboardActions } from '../../store';
 import { createTestScreen } from '../../test-utils/screen-helpers';
+
+// Helper function to render with Theme
+const renderWithTheme = (component: React.ReactElement) => {
+  return render(<Theme>{component}</Theme>);
+};
 
 describe('Dashboard', () => {
   beforeEach(() => {
@@ -12,17 +18,17 @@ describe('Dashboard', () => {
 
   describe('Initial State', () => {
     it('should show "No views created yet" when there are no screens', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       expect(screen.getByText('No views created yet')).toBeInTheDocument();
     });
 
     it('should show "Create Your First View" button when no screens exist', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       expect(screen.getByText('Create Your First View')).toBeInTheDocument();
     });
 
     it('should start in view mode', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       expect(screen.getByText('view mode')).toBeInTheDocument();
     });
   });
@@ -30,7 +36,7 @@ describe('Dashboard', () => {
   describe('Mode Toggle', () => {
     it('should toggle between view and edit mode', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       const editButton = screen.getByText('Edit');
       expect(editButton).toBeInTheDocument();
@@ -48,7 +54,7 @@ describe('Dashboard', () => {
   describe('View Creation', () => {
     it('should open AddViewDialog when clicking "Create Your First View"', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       const createButton = screen.getByText('Create Your First View');
       await user.click(createButton);
@@ -62,7 +68,7 @@ describe('Dashboard', () => {
 
     it('should open AddViewDialog when clicking + button in edit mode', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       // Switch to edit mode
       await user.click(screen.getByText('Edit'));
@@ -78,7 +84,7 @@ describe('Dashboard', () => {
 
     it('should create a new view and display it', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       // Open dialog
       await user.click(screen.getByText('Create Your First View'));
@@ -100,7 +106,7 @@ describe('Dashboard', () => {
 
     it('should not create a view with empty name', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       // Open dialog
       await user.click(screen.getByText('Create Your First View'));
@@ -122,7 +128,7 @@ describe('Dashboard', () => {
     });
 
     it('should display current view information', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       expect(screen.getByText('Living Room')).toBeInTheDocument();
       expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
@@ -131,7 +137,7 @@ describe('Dashboard', () => {
 
     it('should show entity message in edit mode', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       await user.click(screen.getByText('Edit'));
       

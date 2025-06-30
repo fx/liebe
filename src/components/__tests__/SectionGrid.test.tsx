@@ -8,6 +8,43 @@ import { dashboardStore, dashboardActions } from '../../store';
 // Mock CSS import
 vi.mock('../SectionGrid.css', () => ({}));
 
+// Mock the hooks
+vi.mock('~/hooks', () => ({
+  useEntity: vi.fn((entityId: string) => {
+    const entities: Record<string, any> = {
+      'light.living_room': {
+        entity: {
+          entity_id: 'light.living_room',
+          state: 'off',
+          attributes: {
+            friendly_name: 'Living Room Light',
+          },
+        },
+        isConnected: true,
+        isStale: false,
+      },
+      'switch.kitchen': {
+        entity: {
+          entity_id: 'switch.kitchen',
+          state: 'off',
+          attributes: {
+            friendly_name: 'Kitchen Switch',
+          },
+        },
+        isConnected: true,
+        isStale: false,
+      },
+    };
+    return entities[entityId] || { entity: null, isConnected: false, isStale: false };
+  }),
+  useServiceCall: vi.fn(() => ({
+    loading: false,
+    error: null,
+    toggle: vi.fn(),
+    clearError: vi.fn(),
+  })),
+}));
+
 describe('SectionGrid', () => {
   const mockSections: SectionConfig[] = [
     {
@@ -151,7 +188,7 @@ describe('SectionGrid', () => {
     
     render(<SectionGrid screenId="screen-1" sections={sectionsWithItems} />);
     
-    expect(screen.getByText('Entity: light.living_room')).toBeInTheDocument();
-    expect(screen.getByText('Entity: switch.kitchen')).toBeInTheDocument();
+    expect(screen.getByText('Living Room Light')).toBeInTheDocument();
+    expect(screen.getByText('Kitchen Switch')).toBeInTheDocument();
   });
 });

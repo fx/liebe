@@ -12,8 +12,8 @@ vi.mock('~/components/Dashboard', () => ({
 }));
 
 // We need to mock useNavigate but not the entire router module
-vi.mock('@tanstack/react-router', async () => {
-  const actual = await vi.importActual('@tanstack/react-router');
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
   return {
     ...actual,
     useNavigate: () => vi.fn(),

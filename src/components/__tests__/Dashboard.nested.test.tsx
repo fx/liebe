@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { Theme } from '@radix-ui/themes';
 import { Dashboard } from '../Dashboard';
 import { dashboardActions } from '../../store';
 import { createTestScreen } from '../../test-utils/screen-helpers';
+
+// Helper function to render with Theme
+const renderWithTheme = (component: React.ReactElement) => {
+  return render(<Theme>{component}</Theme>);
+};
 
 describe('Dashboard - Nested Views', () => {
   beforeEach(() => {
@@ -25,7 +31,7 @@ describe('Dashboard - Nested Views', () => {
     // Select the nested view
     dashboardActions.setCurrentScreen('child-1');
     
-    render(<Dashboard />);
+    renderWithTheme(<Dashboard />);
     
     // Should show the nested view content, not "Create Your First View"
     expect(screen.queryByText('No views created yet')).not.toBeInTheDocument();
@@ -60,7 +66,7 @@ describe('Dashboard - Nested Views', () => {
     // Select the grandchild
     dashboardActions.setCurrentScreen('room-1');
     
-    render(<Dashboard />);
+    renderWithTheme(<Dashboard />);
     
     // Should show the grandchild view content
     expect(screen.getByText('TV Room')).toBeInTheDocument();
