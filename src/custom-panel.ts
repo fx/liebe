@@ -10,10 +10,28 @@ import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
 class LiebeDashboardPanel extends HTMLElement {
   private _hass: any
   private root?: ReactDOM.Root
+  private _panel?: any
+  private _route?: string
 
   set hass(hass: any) {
     this._hass = hass
     this.render()
+  }
+
+  set panel(panel: any) {
+    this._panel = panel
+    // Extract initial route from panel config if available
+    if (panel?.config?.route) {
+      this._route = panel.config.route
+    }
+  }
+
+  set route(route: string) {
+    this._route = route
+    // Navigate to the specified route
+    window.dispatchEvent(new CustomEvent('liebe-navigate', {
+      detail: { path: route }
+    }))
   }
 
   connectedCallback() {
@@ -22,6 +40,9 @@ class LiebeDashboardPanel extends HTMLElement {
       container.style.height = '100%'
       this.appendChild(container)
       this.root = ReactDOM.createRoot(container)
+      
+      // Listen for route changes from the React app
+      window.addEventListener('liebe-route-change', this.handleRouteChange)
     }
     this.render()
   }
@@ -29,6 +50,26 @@ class LiebeDashboardPanel extends HTMLElement {
   disconnectedCallback() {
     if (this.root) {
       this.root.unmount()
+    }
+    window.removeEventListener('liebe-route-change', this.handleRouteChange)
+  }
+  
+  private handleRouteChange = (event: Event) => {
+    const customEvent = event as CustomEvent
+    const path = customEvent.detail.path
+    
+    // Update the browser URL via Home Assistant's history API
+    if (this._hass && path) {
+      const basePath = window.location.pathname.split('/').slice(0, -1).join('/')
+      const newPath = `${basePath}${path}`
+      history.pushState(null, '', newPath)
+      
+      // Notify Home Assistant about the URL change
+      this.dispatchEvent(new CustomEvent('location-changed', {
+        bubbles: true,
+        composed: true,
+        detail: { path: newPath }
+      }))
     }
   }
 

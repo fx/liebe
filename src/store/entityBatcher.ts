@@ -53,11 +53,18 @@ export class EntityUpdateBatcher {
     // Get tracked attributes for this entity
     const trackedAttributes = this.attributeListeners.get(oldEntity.entity_id);
     if (!trackedAttributes || trackedAttributes.size === 0) {
-      // If no specific attributes are tracked, do a deep comparison of common attributes
-      const commonAttributes = ['friendly_name', 'icon', 'unit_of_measurement', 'device_class'];
-      return commonAttributes.some(attr => 
-        oldEntity.attributes[attr] !== newEntity.attributes[attr]
-      );
+      // If no specific attributes are tracked, do a full comparison
+      // Check if the number of attributes changed
+      const oldKeys = Object.keys(oldEntity.attributes);
+      const newKeys = Object.keys(newEntity.attributes);
+      
+      if (oldKeys.length !== newKeys.length) {
+        return true;
+      }
+      
+      // Check if any attribute values changed
+      return oldKeys.some(key => oldEntity.attributes[key] !== newEntity.attributes[key]) ||
+             newKeys.some(key => !(key in oldEntity.attributes));
     }
 
     // Check only tracked attributes

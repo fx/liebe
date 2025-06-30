@@ -1,27 +1,44 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Theme } from '@radix-ui/themes';
 import { Dashboard } from '../Dashboard';
-import { dashboardActions } from '../../store';
+import { dashboardActions, dashboardStore } from '../../store';
+import { createTestScreen } from '../../test-utils/screen-helpers';
+
+// Mock router
+const mockNavigate = vi.fn();
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mockNavigate,
+  useLocation: () => ({ pathname: '/' }),
+  useParams: () => ({}),
+  Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
+
+// Helper function to render with Theme
+const renderWithTheme = (component: React.ReactElement) => {
+  return render(<Theme>{component}</Theme>);
+};
 
 describe('Dashboard', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     dashboardActions.resetState();
   });
 
   describe('Initial State', () => {
     it('should show "No views created yet" when there are no screens', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       expect(screen.getByText('No views created yet')).toBeInTheDocument();
     });
 
     it('should show "Create Your First View" button when no screens exist', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       expect(screen.getByText('Create Your First View')).toBeInTheDocument();
     });
 
     it('should start in view mode', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       expect(screen.getByText('view mode')).toBeInTheDocument();
     });
   });
@@ -29,7 +46,7 @@ describe('Dashboard', () => {
   describe('Mode Toggle', () => {
     it('should toggle between view and edit mode', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       const editButton = screen.getByText('Edit');
       expect(editButton).toBeInTheDocument();
@@ -47,7 +64,7 @@ describe('Dashboard', () => {
   describe('View Creation', () => {
     it('should open AddViewDialog when clicking "Create Your First View"', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       const createButton = screen.getByText('Create Your First View');
       await user.click(createButton);
@@ -61,7 +78,7 @@ describe('Dashboard', () => {
 
     it('should open AddViewDialog when clicking + button in edit mode', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       // Switch to edit mode
       await user.click(screen.getByText('Edit'));
@@ -77,7 +94,7 @@ describe('Dashboard', () => {
 
     it('should create a new view and display it', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       // Open dialog
       await user.click(screen.getByText('Create Your First View'));
@@ -90,16 +107,33 @@ describe('Dashboard', () => {
       const addButton = screen.getByRole('button', { name: 'Add View' });
       await user.click(addButton);
       
-      // Check if view was created
+      // Wait for dialog to close
       await waitFor(() => {
-        expect(screen.getByText('Test View')).toBeInTheDocument();
+        expect(screen.queryByText('Add New View')).not.toBeInTheDocument();
+      });
+      
+      // Check that navigation was called
+      expect(mockNavigate).toHaveBeenCalled();
+      
+      // Get the created screen and set it as current
+      const state = dashboardStore.getState();
+      expect(state.screens.length).toBe(1);
+      const newScreen = state.screens[0];
+      expect(newScreen.name).toBe('Test View');
+      
+      // Manually set current screen since navigation is mocked
+      dashboardActions.setCurrentScreen(newScreen.id);
+      
+      // Check if view is displayed
+      await waitFor(() => {
         expect(screen.queryByText('No views created yet')).not.toBeInTheDocument();
       });
+      expect(screen.getAllByText('Test View').length).toBeGreaterThanOrEqual(1);
     });
 
     it('should not create a view with empty name', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       // Open dialog
       await user.click(screen.getByText('Create Your First View'));
@@ -113,33 +147,28 @@ describe('Dashboard', () => {
   describe('With Existing Views', () => {
     beforeEach(() => {
       // Add a test view
-      dashboardActions.addScreen({
+      dashboardActions.addScreen(createTestScreen({
         id: 'test-1',
         name: 'Living Room',
-        type: 'grid',
-        grid: {
-          resolution: { columns: 12, rows: 8 },
-          sections: [],
-        },
-      });
+      }));
       dashboardActions.setCurrentScreen('test-1');
     });
 
     it('should display current view information', () => {
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
-      expect(screen.getByText('Living Room')).toBeInTheDocument();
+      expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
-      expect(screen.getByText(/No entities added yet/)).toBeInTheDocument();
+      expect(screen.getByText(/No sections added yet/)).toBeInTheDocument();
     });
 
     it('should show entity message in edit mode', async () => {
       const user = userEvent.setup();
-      render(<Dashboard />);
+      renderWithTheme(<Dashboard />);
       
       await user.click(screen.getByText('Edit'));
       
-      expect(screen.getByText('No entities added yet. Add entities to start building your dashboard.')).toBeInTheDocument();
+      expect(screen.getByText(/No sections added yet/)).toBeInTheDocument();
     });
   });
 });

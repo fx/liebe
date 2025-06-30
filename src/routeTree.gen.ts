@@ -10,11 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TestStoreRouteImport } from './routes/test-store'
+import { Route as SlugRouteImport } from './routes/$slug'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TestStoreRoute = TestStoreRouteImport.update({
   id: '/test-store',
   path: '/test-store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SlugRoute = SlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +37,35 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
+  '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
+  '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
+  '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/test-store'
+  fullPaths: '/' | '/$' | '/$slug' | '/test-store'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/test-store'
-  id: '__root__' | '/' | '/test-store'
+  to: '/' | '/$' | '/$slug' | '/test-store'
+  id: '__root__' | '/' | '/$' | '/$slug' | '/test-store'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
+  SlugRoute: typeof SlugRoute
   TestStoreRoute: typeof TestStoreRoute
 }
 
@@ -56,6 +76,20 @@ declare module '@tanstack/react-router' {
       path: '/test-store'
       fullPath: '/test-store'
       preLoaderRoute: typeof TestStoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$slug': {
+      id: '/$slug'
+      path: '/$slug'
+      fullPath: '/$slug'
+      preLoaderRoute: typeof SlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +104,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
+  SlugRoute: SlugRoute,
   TestStoreRoute: TestStoreRoute,
 }
 export const routeTree = rootRouteImport
