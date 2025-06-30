@@ -136,12 +136,13 @@ describe('ConfigurationMenu', () => {
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(['invalid'], 'config.json', { type: 'application/json' });
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
-      writable: false,
-    });
     
-    await userEvent.upload(fileInput, file);
+    // Use fireEvent for file input changes as userEvent.upload has issues with jsdom
+    fireEvent.change(fileInput, {
+      target: {
+        files: [file],
+      },
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Invalid file format')).toBeInTheDocument();
@@ -173,12 +174,13 @@ describe('ConfigurationMenu', () => {
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(['{}'], 'config.json', { type: 'application/json' });
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
-      writable: false,
-    });
     
-    await userEvent.upload(fileInput, file);
+    // Use fireEvent for file input changes as userEvent.upload has issues with jsdom
+    fireEvent.change(fileInput, {
+      target: {
+        files: [file],
+      },
+    });
     
     await waitFor(() => {
       expect(screen.getByText(/Storage is nearly full/)).toBeInTheDocument();

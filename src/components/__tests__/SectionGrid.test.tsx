@@ -43,6 +43,21 @@ vi.mock('~/hooks', () => ({
     toggle: vi.fn(),
     clearError: vi.fn(),
   })),
+  useEntities: vi.fn(() => ({
+    entities: {
+      'light.living_room': {
+        entity_id: 'light.living_room',
+        state: 'off',
+        attributes: { friendly_name: 'Living Room Light' },
+      },
+      'switch.kitchen': {
+        entity_id: 'switch.kitchen', 
+        state: 'off',
+        attributes: { friendly_name: 'Kitchen Switch' },
+      },
+    },
+    isConnected: true,
+  })),
 }));
 
 describe('SectionGrid', () => {

@@ -6,19 +6,14 @@ import { Route as RootRoute } from '../__root';
 import { dashboardStore, dashboardActions } from '~/store/dashboardStore';
 import { createTestScreen } from '~/test-utils/screen-helpers';
 
-// Mock the Dashboard component
+// Mock the Dashboard component and its dependencies
+vi.mock('~/components/ViewTabs', () => ({
+  ViewTabs: () => <div>ViewTabs Mock</div>
+}));
+
 vi.mock('~/components/Dashboard', () => ({
   Dashboard: () => <div>Dashboard Component</div>
 }));
-
-// We need to mock useNavigate but not the entire router module
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    useNavigate: () => vi.fn(),
-  };
-});
 
 // Create a test router with our routes
 function createTestRouter(initialPath = '/') {

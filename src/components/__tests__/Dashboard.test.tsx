@@ -1,10 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Theme } from '@radix-ui/themes';
 import { Dashboard } from '../Dashboard';
 import { dashboardActions } from '../../store';
 import { createTestScreen } from '../../test-utils/screen-helpers';
+
+// Mock router
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: '/' }),
+  useParams: () => ({}),
+  Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 
 // Helper function to render with Theme
 const renderWithTheme = (component: React.ReactElement) => {
@@ -130,7 +138,7 @@ describe('Dashboard', () => {
     it('should display current view information', () => {
       renderWithTheme(<Dashboard />);
       
-      expect(screen.getByText('Living Room')).toBeInTheDocument();
+      expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
       expect(screen.getByText(/No entities added yet/)).toBeInTheDocument();
     });

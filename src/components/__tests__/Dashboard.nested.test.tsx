@@ -1,9 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { Dashboard } from '../Dashboard';
 import { dashboardActions } from '../../store';
 import { createTestScreen } from '../../test-utils/screen-helpers';
+
+// Mock router
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: '/' }),
+  useParams: () => ({}),
+  Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+}));
 
 // Helper function to render with Theme
 const renderWithTheme = (component: React.ReactElement) => {

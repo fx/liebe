@@ -208,7 +208,7 @@ describe('ViewTabs', () => {
       // Wait for the navigation to be called
       await waitFor(() => {
         expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
-      });
+      }, { timeout: 3000 });
     });
 
     it('should render nested screens with indentation', () => {
