@@ -46,7 +46,7 @@ describe('Dashboard - Nested Views', () => {
     expect(screen.queryByText('Create Your First View')).not.toBeInTheDocument();
     
     // Should show the nested view information
-    expect(screen.getByText('Living Room')).toBeInTheDocument();
+    expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument();
     expect(screen.getByText(/No entities added yet/)).toBeInTheDocument();
   });

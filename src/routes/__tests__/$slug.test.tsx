@@ -6,13 +6,15 @@ import { Route as RootRoute } from '../__root';
 import { dashboardStore, dashboardActions } from '~/store/dashboardStore';
 import { createTestScreen } from '~/test-utils/screen-helpers';
 
-// Mock the Dashboard component and its dependencies
-vi.mock('~/components/ViewTabs', () => ({
-  ViewTabs: () => <div>ViewTabs Mock</div>
-}));
+// Clear any existing mocks
+vi.unmock('@tanstack/react-router');
 
+// Mock only the components, not the router
 vi.mock('~/components/Dashboard', () => ({
-  Dashboard: () => <div>Dashboard Component</div>
+  Dashboard: () => {
+    const React = require('react');
+    return React.createElement('div', null, 'Dashboard Component');
+  }
 }));
 
 // Create a test router with our routes

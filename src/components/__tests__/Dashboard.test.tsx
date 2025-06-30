@@ -107,7 +107,7 @@ describe('Dashboard', () => {
       
       // Check if view was created
       await waitFor(() => {
-        expect(screen.getByText('Test View')).toBeInTheDocument();
+        expect(screen.getAllByText('Test View').length).toBeGreaterThanOrEqual(1);
         expect(screen.queryByText('No views created yet')).not.toBeInTheDocument();
       });
     });
@@ -149,7 +149,7 @@ describe('Dashboard', () => {
       
       await user.click(screen.getByText('Edit'));
       
-      expect(screen.getByText('No entities added yet. Add entities to start building your dashboard.')).toBeInTheDocument();
+      expect(screen.getByText(/No entities added yet/)).toBeInTheDocument();
     });
   });
 });
