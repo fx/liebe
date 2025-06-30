@@ -1,5 +1,5 @@
-// Development entry point for Home Assistant custom panel
-// This file allows running Liebe from http://localhost:3000 during development
+// Bridge for Home Assistant custom panel integration
+// This file allows running Liebe from any external URL (localhost or remote server)
 
 class LiebePanel extends HTMLElement {
   constructor() {
@@ -38,9 +38,9 @@ class LiebePanel extends HTMLElement {
   render() {
     this.innerHTML = ''
     
-    // Create iframe that loads the Vite dev server
+    // Create iframe that loads the app from the same origin
     this.iframe = document.createElement('iframe')
-    this.iframe.src = 'http://localhost:3000'
+    this.iframe.src = window.location.origin
     this.iframe.style.width = '100%'
     this.iframe.style.height = '100%'
     this.iframe.style.border = 'none'
