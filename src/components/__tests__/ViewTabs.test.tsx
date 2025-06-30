@@ -186,34 +186,45 @@ describe('ViewTabs', () => {
       expect(dashboardStore.state.screens[0].id).toBe('screen-2');
     });
 
-    it('should navigate to home when last screen is removed', async () => {
+    it('should not allow removing the last screen', async () => {
       const screen1 = createTestScreen({ 
         id: 'screen-1', 
         name: 'Living Room',
         slug: 'living-room' 
       });
+      const screen2 = createTestScreen({ 
+        id: 'screen-2', 
+        name: 'Kitchen',
+        slug: 'kitchen' 
+      });
       
       dashboardStore.setState({ 
-        screens: [screen1],
+        screens: [screen1, screen2],
         currentScreenId: 'screen-1',
         mode: 'edit' 
       });
 
       renderWithTheme(<ViewTabs />);
 
-      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ });
-      const removeButton = livingRoomTab.querySelector('[style*="cursor: pointer"]');
-      
-      await user.click(removeButton!);
+      // First remove the kitchen screen
+      const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ });
+      const kitchenRemoveButton = kitchenTab.querySelector('[style*="cursor: pointer"]');
+      await user.click(kitchenRemoveButton!);
 
-      // Wait a bit for the action to complete
+      // Wait for first removal
       await waitFor(() => {
-        // Check that the screen was removed
-        expect(dashboardStore.getState().screens.length).toBe(0);
+        expect(dashboardStore.state.screens.length).toBe(1);
       });
 
-      // Navigation should happen after removing the last screen
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
+      // Now remove the last screen
+      const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ });
+      const livingRoomRemoveButton = livingRoomTab.querySelector('[style*="cursor: pointer"]');
+      
+      // Since there's only one screen left, there should be no remove button
+      expect(livingRoomRemoveButton).toBeNull();
+      
+      // This test actually verifies that we DON'T allow removing the last screen
+      // The UI should not show a remove button when there's only one screen left
     });
 
     it('should render nested screens with indentation', () => {

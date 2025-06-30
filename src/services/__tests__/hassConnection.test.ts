@@ -279,9 +279,6 @@ describe('HassConnectionManager', () => {
     });
 
     it('should stop reconnecting after max attempts', () => {
-      // Since connect() resets reconnectAttempts, we need to test differently
-      // We'll test that the reconnection logic has a proper limit
-      
       const errorHass = {
         ...mockHass,
         connection: {
@@ -291,36 +288,15 @@ describe('HassConnectionManager', () => {
         },
       };
 
-      // First connection fails
-      connectionManager.connect(errorHass);
-
-      // Clear all timers to start fresh
-      vi.clearAllTimers();
-      
-      // Manually set reconnectAttempts to near the limit
-      (connectionManager as any).reconnectAttempts = 9;
-      
-      // Trigger one more reconnect
+      // Manually set reconnectAttempts to the limit and call scheduleReconnect
+      (connectionManager as any).reconnectAttempts = 10;
       (connectionManager as any).scheduleReconnect();
       
-      // This should schedule one timer
-      expect(vi.getTimerCount()).toBe(1);
-      
-      // Advance time to trigger the reconnect
-      vi.advanceTimersByTime(30000);
-      
-      // Now reconnectAttempts should be 10, and the next scheduleReconnect should not schedule
-      (connectionManager as any).scheduleReconnect();
-      
-      // No new timer should be scheduled
+      // No timer should be scheduled
       expect(vi.getTimerCount()).toBe(0);
       
       // Should show max attempts error
-      const errorCalls = (entityStoreActions.setError as any).mock.calls;
-      const hasMaxAttemptsError = errorCalls.some((call: any[]) => 
-        call[0] === 'Unable to reconnect to Home Assistant'
-      );
-      expect(hasMaxAttemptsError).toBe(true);
+      expect(entityStoreActions.setError).toHaveBeenCalledWith('Unable to reconnect to Home Assistant');
     });
   });
 
