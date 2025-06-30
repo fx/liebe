@@ -20,57 +20,7 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-## Installation Options
-
-### Option 1: Local Installation
-
-```bash
-# Build the custom panel
-npm run build:ha
-
-# Copy to Home Assistant
-cp -r dist/liebe /config/www/
-```
-
-### Option 2: Remote Server
-
-Host Liebe on any web server and point Home Assistant to it.
-
-### Option 3: Development Mode
-
-Run locally with hot reload:
-
-```bash
-npm run dev
-```
-
-## Configuration
-
-Add to your `configuration.yaml`:
-
-```yaml
-panel_custom:
-  - name: liebe
-    sidebar_title: Liebe
-    sidebar_icon: mdi:heart
-    url_path: liebe
-    module_url: /local/liebe/panel.js
-```
-
-### Configuration Examples
-
-**Local installation:**
-
-```yaml
-panel_custom:
-  - name: liebe
-    sidebar_title: Liebe
-    sidebar_icon: mdi:heart
-    url_path: liebe
-    module_url: /local/liebe/panel.js
-```
-
-**Development mode (localhost):**
+Then add to your Home Assistant `configuration.yaml`:
 
 ```yaml
 panel_custom:
@@ -81,7 +31,9 @@ panel_custom:
     module_url: http://localhost:3000/panel.js
 ```
 
-**Remote server:**
+## Production
+
+Host Liebe on any web server and add to your `configuration.yaml`:
 
 ```yaml
 panel_custom:
@@ -94,31 +46,10 @@ panel_custom:
 
 Restart Home Assistant and find "Liebe" in the sidebar.
 
-## Development with Home Assistant
-
-For rapid development with Home Assistant integration:
-
-1. **Use a symlink** (recommended):
-
-   ```bash
-   ln -s $(pwd)/dist/liebe /config/www/liebe
-   ```
-
-2. **Build in watch mode**:
-
-   ```bash
-   npm run build:ha -- --watch
-   ```
-
-3. **Reload the panel** in Home Assistant after changes (no restart needed).
-
-This approach gives you quick iteration while maintaining full access to the hass object.
-
 ## Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build SPA application
-- `npm run build:ha` - Build custom panel for Home Assistant
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier

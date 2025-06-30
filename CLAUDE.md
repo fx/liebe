@@ -122,47 +122,20 @@ When creating a new epic with sub-issues:
 
 ## Development Workflow
 
-### Home Assistant Development Setup
+### Home Assistant Integration
 
-For developing with Home Assistant integration:
+Liebe runs as a web application that integrates with Home Assistant via custom panel.
 
-1. **Build the custom panel**:
+#### Development Setup
 
-   ```bash
-   npm run build:ha
-   ```
-
-2. **Copy to Home Assistant** (or use a symlink):
+1. **Start the development server**:
 
    ```bash
-   cp -r dist/liebe /config/www/
-   # OR create a symlink for development:
-   ln -s $(pwd)/dist/liebe /config/www/liebe
+   npm install
+   npm run dev
    ```
 
-3. **Add to Home Assistant configuration.yaml**:
-
-   ```yaml
-   panel_custom:
-     - name: liebe
-       sidebar_title: Liebe
-       sidebar_icon: mdi:heart
-       url_path: liebe
-       module_url: /local/liebe/panel.js
-   ```
-
-4. **For development with hot reload**:
-   - Use `npm run dev` for UI development
-   - Rebuild with `npm run build:ha` to test in Home Assistant
-   - The symlink approach allows you to just rebuild without copying files
-
-Note: The custom element name in panel_custom must match the name in customElements.define()
-
-### Remote Server Deployment
-
-Liebe can be hosted on any server and integrated into Home Assistant:
-
-1. **For development (localhost:3000)**:
+2. **Add to Home Assistant configuration.yaml**:
 
    ```yaml
    panel_custom:
@@ -173,35 +146,31 @@ Liebe can be hosted on any server and integrated into Home Assistant:
        module_url: http://localhost:3000/panel.js
    ```
 
-2. **For remote hosting**:
+3. **Restart Home Assistant** and find "Liebe Dev" in the sidebar.
 
-   ```yaml
-   panel_custom:
-     - name: liebe
-       sidebar_title: Liebe
-       sidebar_icon: mdi:heart
-       url_path: liebe
-       module_url: https://your-server.com/liebe/panel.js
-   ```
+#### Production Deployment
 
-3. **For local installation**:
-   ```yaml
-   panel_custom:
-     - name: liebe
-       sidebar_title: Liebe
-       sidebar_icon: mdi:heart
-       url_path: liebe
-       module_url: /local/liebe/panel.js
-   ```
+Host Liebe on any web server:
+
+```yaml
+panel_custom:
+  - name: liebe
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: https://your-server.com/liebe/panel.js
+```
+
+Note: The custom element name in panel_custom must match the name in customElements.define()
 
 ### Starting a New Task
 
 1. **Select Task from GitHub Project**
 
-   ```bash
-   gh issue list --assignee @me
-   gh issue view <issue-number>
-   ```
+```bash
+gh issue list --assignee @me
+gh issue view <issue-number>
+```
 
 2. **Create Feature Branch**
 
@@ -244,9 +213,8 @@ Liebe can be hosted on any server and integrated into Home Assistant:
    ```
 
 3. **Home Assistant Integration Testing**
-   - Build the custom panel: `npm run build:ha`
-   - Copy built files to HA config: `cp -r dist/liebe /config/www/`
-   - Update `configuration.yaml` with panel config
+   - Ensure dev server is running: `npm run dev`
+   - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
 
 ### Completing a Task
@@ -353,28 +321,7 @@ This starts a local development server with hot module replacement. You can deve
 
 **2. Integration Testing with Home Assistant**
 
-For testing the full integration:
-
-```bash
-# Build the custom panel
-npm run build:ha
-
-# Copy to Home Assistant (or use symlink as shown above)
-cp -r dist/liebe /config/www/
-
-# Restart Home Assistant or reload custom panels
-```
-
-**3. Watch Mode for Development**
-
-For rapid development with Home Assistant:
-
-```bash
-# Watch for changes and rebuild automatically
-npm run build:ha -- --watch
-
-# If using symlink, changes will be reflected after reload
-```
+For testing the integration, ensure your dev server is running (`npm run dev`) and that Home Assistant is configured to use `http://localhost:3000/panel.js`.
 
 #### Panel Registration
 
@@ -409,13 +356,15 @@ this._hass.callService('light', 'turn_on', {
 
 #### Production Configuration
 
+For production, host Liebe on your server:
+
 ```yaml
 panel_custom:
   - name: liebe
     sidebar_title: Liebe
     sidebar_icon: mdi:heart
     url_path: liebe
-    module_url: /local/liebe/panel.js
+    module_url: https://your-server.com/liebe/panel.js
     config:
       # Any custom configuration
       theme: default
@@ -514,24 +463,20 @@ try {
 ### Modern Home Assistant Development
 
 1. **Always use panel_custom** for proper integration with full hass object access
-2. **Development workflow options:**
-   - Local development with `npm run dev` for UI work
-   - Watch build with symlinks for integration testing
-   - Home Assistant dev container for full environment testing
+2. **Development workflow:**
+   - Run `npm run dev` for development with hot reload
+   - Configure Home Assistant to use `http://localhost:3000/panel.js`
+   - For production, deploy to a web server and update the URL
 
 ### Quick Development Setup
 
 ```bash
-# For UI development
+# Start development server
+npm install
 npm run dev
 
-# For Home Assistant integration
-npm run build:ha
-cp -r dist/liebe /config/www/
-
-# Or use symlink (one-time setup)
-ln -s $(pwd)/dist/liebe /config/www/liebe
-npm run build:ha -- --watch
+# Configure Home Assistant to use http://localhost:3000/panel.js
+# Restart Home Assistant
 ```
 
 ## Resources
