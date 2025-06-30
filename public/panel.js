@@ -143,7 +143,7 @@ class LiebePanel extends HTMLElement {
 
   subscribeToStateChanges() {
     // Unsubscribe from previous subscription if any
-    if (this.stateChangeUnsubscribe) {
+    if (this.stateChangeUnsubscribe && typeof this.stateChangeUnsubscribe === 'function') {
       this.stateChangeUnsubscribe()
       this.stateChangeUnsubscribe = null
     }
@@ -177,7 +177,7 @@ class LiebePanel extends HTMLElement {
     window.removeEventListener('message', this.handleMessage.bind(this))
     
     // Unsubscribe from state changes
-    if (this.stateChangeUnsubscribe) {
+    if (this.stateChangeUnsubscribe && typeof this.stateChangeUnsubscribe === 'function') {
       this.stateChangeUnsubscribe()
       this.stateChangeUnsubscribe = null
     }
