@@ -6,7 +6,6 @@ import { dashboardActions } from '../store'
 
 interface GridLayoutSectionProps {
   screenId: string
-  sectionId: string
   items: GridItem[]
   isEditMode: boolean
   resolution: { columns: number; rows: number }
@@ -15,7 +14,6 @@ interface GridLayoutSectionProps {
 
 export function GridLayoutSection({
   screenId,
-  sectionId,
   items,
   isEditMode,
   resolution,
@@ -47,7 +45,7 @@ export function GridLayoutSection({
             originalItem.width !== layoutItem.w ||
             originalItem.height !== layoutItem.h)
         ) {
-          dashboardActions.updateGridItem(screenId, sectionId, layoutItem.i, {
+          dashboardActions.updateGridItem(screenId, layoutItem.i, {
             x: layoutItem.x,
             y: layoutItem.y,
             width: layoutItem.w,
@@ -56,7 +54,7 @@ export function GridLayoutSection({
         }
       })
     },
-    [screenId, sectionId, items]
+    [screenId, items]
   )
 
   // Calculate row height based on container width

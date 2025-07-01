@@ -16,7 +16,7 @@ export function createTestScreen(
     type: 'grid',
     grid: {
       resolution: { columns: 12, rows: 8 },
-      sections: [],
+      items: [],
     },
     ...rest,
   }

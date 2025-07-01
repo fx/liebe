@@ -34,14 +34,17 @@ export const loadDashboardMode = (): 'view' | 'edit' => {
   return 'view' // Default to view mode
 }
 
-// Migrate old screen format to new format with sections and slugs
+// Migrate old screen format to new format with items and slugs
 const migrateScreenConfig = (config: unknown): DashboardConfig => {
   const allSlugs: string[] = []
 
   interface ScreenToMigrate {
     grid?: {
       items?: unknown[]
-      sections?: unknown[]
+      sections?: Array<{
+        id: string
+        items: unknown[]
+      }>
     }
     slug?: string
     name?: string
@@ -51,10 +54,22 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
 
   const migrateScreen = (screen: unknown): ScreenToMigrate => {
     const screenObj = screen as ScreenToMigrate
-    // If screen has grid with items instead of sections, migrate it
-    if (screenObj.grid && 'items' in screenObj.grid && !screenObj.grid.sections) {
-      screenObj.grid.sections = []
-      delete screenObj.grid.items
+
+    // If screen has grid with sections, migrate to flat items structure
+    if (screenObj.grid && 'sections' in screenObj.grid && screenObj.grid.sections) {
+      const allItems: unknown[] = []
+      screenObj.grid.sections.forEach((section) => {
+        if (section.items && Array.isArray(section.items)) {
+          allItems.push(...section.items)
+        }
+      })
+      screenObj.grid.items = allItems
+      delete screenObj.grid.sections
+    }
+
+    // Ensure grid has items array if it exists
+    if (screenObj.grid && !screenObj.grid.items) {
+      screenObj.grid.items = []
     }
 
     // Add slug if it doesn't exist

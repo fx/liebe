@@ -83,14 +83,29 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
 
 describe('GridLayoutSection', () => {
   const mockItems: GridItem[] = [
-    { id: 'item-1', entityId: 'light.living_room', x: 0, y: 0, width: 2, height: 2 },
-    { id: 'item-2', entityId: 'switch.kitchen', x: 3, y: 0, width: 1, height: 1 },
-    { id: 'item-3', entityId: 'sensor.temperature', x: 0, y: 3, width: 3, height: 1 },
+    {
+      id: 'item-1',
+      type: 'entity',
+      entityId: 'light.living_room',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+    },
+    { id: 'item-2', type: 'entity', entityId: 'switch.kitchen', x: 3, y: 0, width: 1, height: 1 },
+    {
+      id: 'item-3',
+      type: 'entity',
+      entityId: 'sensor.temperature',
+      x: 0,
+      y: 3,
+      width: 3,
+      height: 1,
+    },
   ]
 
   const defaultProps = {
     screenId: 'screen-1',
-    sectionId: 'section-1',
     items: mockItems,
     isEditMode: true,
     resolution: { columns: 12, rows: 8 },
@@ -169,17 +184,12 @@ describe('GridLayoutSection', () => {
     }
 
     // Check that updateGridItem was called with new position
-    expect(dashboardActions.updateGridItem).toHaveBeenCalledWith(
-      'screen-1',
-      'section-1',
-      'item-1',
-      {
-        x: 1, // moved from 0 to 1
-        y: 0,
-        width: 2,
-        height: 2,
-      }
-    )
+    expect(dashboardActions.updateGridItem).toHaveBeenCalledWith('screen-1', 'item-1', {
+      x: 1, // moved from 0 to 1
+      y: 0,
+      width: 2,
+      height: 2,
+    })
   })
 
   it('only updates items that have changed', async () => {
@@ -195,7 +205,6 @@ describe('GridLayoutSection', () => {
     expect(dashboardActions.updateGridItem).toHaveBeenCalledTimes(1)
     expect(dashboardActions.updateGridItem).toHaveBeenCalledWith(
       'screen-1',
-      'section-1',
       'item-1',
       expect.any(Object)
     )
