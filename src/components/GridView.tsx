@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Box } from '@radix-ui/themes'
 import { ButtonCard } from './ButtonCard'
+import { LightCard } from './LightCard'
 import { Separator } from './Separator'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
@@ -12,6 +13,51 @@ interface GridViewProps {
   screenId: string
   items: GridItem[]
   resolution: { columns: number; rows: number }
+}
+
+// Component to determine which card type to render based on entity
+function EntityCard({
+  entityId,
+  size = 'medium',
+  onDelete,
+  isSelected,
+  onSelect,
+}: {
+  entityId: string
+  size?: 'small' | 'medium' | 'large'
+  onDelete?: () => void
+  isSelected?: boolean
+  onSelect?: (selected: boolean) => void
+}) {
+  // We only need the entityId to determine the domain
+  // The actual entity data will be fetched by the card component
+
+  // Determine entity domain
+  const domain = entityId.split('.')[0]
+
+  // Use LightCard for light entities, ButtonCard for others
+  if (domain === 'light') {
+    return (
+      <LightCard
+        entityId={entityId}
+        size={size}
+        onDelete={onDelete}
+        isSelected={isSelected}
+        onSelect={onSelect}
+      />
+    )
+  }
+
+  // Default to ButtonCard for switches, input_booleans, and other entities
+  return (
+    <ButtonCard
+      entityId={entityId}
+      size={size}
+      onDelete={onDelete}
+      isSelected={isSelected}
+      onSelect={onSelect}
+    />
+  )
 }
 
 export function GridView({ screenId, items, resolution }: GridViewProps) {
@@ -109,7 +155,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
             )
           } else {
             return (
-              <ButtonCard
+              <EntityCard
                 entityId={item.entityId!}
                 size="medium"
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
