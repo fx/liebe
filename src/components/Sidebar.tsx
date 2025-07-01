@@ -48,6 +48,7 @@ export function SidebarTrigger() {
       variant="soft"
       onClick={() => dashboardStore.setState(() => ({ sidebarOpen: true }))}
       aria-label="Open sidebar"
+      style={{ minWidth: '44px', minHeight: '44px' }}
     >
       <HamburgerMenuIcon width="22" height="22" />
     </IconButton>

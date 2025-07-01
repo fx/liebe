@@ -48,8 +48,29 @@
   }
 }
 
+@media (max-width: 480px) {
+  .sidebar-content {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}
+
 /* Touch target sizes */
 .sidebar-content button {
   min-width: 44px;
   min-height: 44px;
+}
+
+/* Ensure proper scrolling on mobile */
+.sidebar-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Close button position adjustment for mobile */
+@media (max-width: 480px) {
+  .sidebar-content [aria-label="Close"] {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
 }
