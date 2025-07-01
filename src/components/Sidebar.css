@@ -68,7 +68,7 @@
 
 /* Close button position adjustment for mobile */
 @media (max-width: 480px) {
-  .sidebar-content [aria-label="Close"] {
+  .sidebar-content [aria-label='Close'] {
     position: sticky;
     top: 0;
     z-index: 10;

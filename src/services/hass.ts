@@ -1,18 +1,20 @@
-import { entityStore } from '../store/entityStore'
-
 declare global {
   interface Window {
     hass?: {
-      callService: (domain: string, service: string, data?: Record<string, any>) => Promise<void>
+      callService: (
+        domain: string,
+        service: string,
+        data?: Record<string, unknown>
+      ) => Promise<void>
       connection: {
-        subscribeEvents: (callback: (event: any) => void, eventType: string) => () => void
+        subscribeEvents: (callback: (event: unknown) => void, eventType: string) => () => void
       }
     }
   }
 }
 
 export const hassService = {
-  callService: async (domain: string, service: string, data?: Record<string, any>) => {
+  callService: async (domain: string, service: string, data?: Record<string, unknown>) => {
     if (!window.hass) {
       console.error('Home Assistant connection not available')
       return

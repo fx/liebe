@@ -6,7 +6,7 @@ interface ClockWidgetProps {
   widget: WidgetConfig
 }
 
-export function ClockWidget({ widget }: ClockWidgetProps) {
+export function ClockWidget({ widget: _widget }: ClockWidgetProps) {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {

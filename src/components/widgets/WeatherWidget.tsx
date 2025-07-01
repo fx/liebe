@@ -8,13 +8,13 @@ interface WeatherWidgetProps {
   widget: WidgetConfig
 }
 
-export function WeatherWidget({ widget }: WeatherWidgetProps) {
+export function WeatherWidget({ widget: _widget }: WeatherWidgetProps) {
   const entities = useStore(entityStore, (state) => state.entities)
-  
+
   // Look for weather entity - this is a simplified version
   // In a real implementation, this would be configurable
-  const weatherEntity = Object.values(entities).find(
-    (entity) => entity.entity_id.startsWith('weather.')
+  const weatherEntity = Object.values(entities).find((entity) =>
+    entity.entity_id.startsWith('weather.')
   )
 
   if (!weatherEntity) {
@@ -47,8 +47,8 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
     }
   }
 
-  const temperature = weatherEntity.attributes?.temperature
-  const humidity = weatherEntity.attributes?.humidity
+  const temperature = weatherEntity.attributes?.temperature as number | undefined
+  const humidity = weatherEntity.attributes?.humidity as number | undefined
   const condition = weatherEntity.state
 
   return (
@@ -65,7 +65,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
           </Flex>
           {getWeatherIcon(condition)}
         </Flex>
-        
+
         <Flex justify="between" align="center">
           <Flex direction="column">
             <Text size="6" weight="bold">

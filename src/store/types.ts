@@ -43,7 +43,7 @@ export interface WidgetConfig {
   id: string
   type: WidgetType
   position: number
-  config?: Record<string, any>
+  config?: Record<string, unknown>
 }
 
 export interface DashboardState {

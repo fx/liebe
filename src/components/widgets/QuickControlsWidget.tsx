@@ -9,17 +9,15 @@ interface QuickControlsWidgetProps {
   widget: WidgetConfig
 }
 
-export function QuickControlsWidget({ widget }: QuickControlsWidgetProps) {
+export function QuickControlsWidget({ widget: _widget }: QuickControlsWidgetProps) {
   const entities = useStore(entityStore, (state) => state.entities)
-  
+
   // Find common entity types for quick controls
-  const lights = Object.values(entities).filter(
-    (entity) => entity.entity_id.startsWith('light.')
+  const lights = Object.values(entities).filter((entity) => entity.entity_id.startsWith('light.'))
+  const switches = Object.values(entities).filter((entity) =>
+    entity.entity_id.startsWith('switch.')
   )
-  const switches = Object.values(entities).filter(
-    (entity) => entity.entity_id.startsWith('switch.')
-  )
-  
+
   // Count how many are on
   const lightsOn = lights.filter((light) => light.state === 'on').length
   const switchesOn = switches.filter((sw) => sw.state === 'on').length
@@ -48,7 +46,7 @@ export function QuickControlsWidget({ widget }: QuickControlsWidgetProps) {
         <Heading size="4" weight="bold">
           Quick Controls
         </Heading>
-        
+
         <Flex direction="column" gap="3">
           {/* All Lights Control */}
           <Flex align="center" justify="between" minHeight="44px">
@@ -111,11 +109,7 @@ export function QuickControlsWidget({ widget }: QuickControlsWidgetProps) {
                 </Text>
               </Flex>
             </Flex>
-            <Switch
-              size="3"
-              disabled
-              style={{ minWidth: '44px', minHeight: '24px' }}
-            />
+            <Switch size="3" disabled style={{ minWidth: '44px', minHeight: '24px' }} />
           </Flex>
         </Flex>
       </Flex>

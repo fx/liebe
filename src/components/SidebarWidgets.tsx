@@ -18,13 +18,7 @@ export function SidebarWidgets() {
     if (mode === 'edit') {
       return (
         <Card key={widget.id} size="2" style={{ position: 'relative' }}>
-          <Flex
-            position="absolute"
-            top="2"
-            right="2"
-            gap="1"
-            style={{ zIndex: 10 }}
-          >
+          <Flex position="absolute" top="2" right="2" gap="1" style={{ zIndex: 10 }}>
             <IconButton
               size="1"
               variant="ghost"
@@ -76,36 +70,24 @@ export function SidebarWidgets() {
 
   return (
     <Flex direction="column" gap="3">
-      {sidebarWidgets
-        .sort((a, b) => a.position - b.position)
-        .map((widget) => renderWidget(widget))}
-      
+      {sidebarWidgets.sort((a, b) => a.position - b.position).map((widget) => renderWidget(widget))}
+
       {mode === 'edit' && (
         <Card size="2">
           <Flex direction="column" gap="2" p="2">
-            <Text size="2" weight="medium">Add Widget</Text>
+            <Text size="2" weight="medium">
+              Add Widget
+            </Text>
             <Flex gap="2" wrap="wrap">
-              <Button
-                size="1"
-                variant="soft"
-                onClick={() => addWidget('clock')}
-              >
+              <Button size="1" variant="soft" onClick={() => addWidget('clock')}>
                 <PlusIcon />
                 Clock
               </Button>
-              <Button
-                size="1"
-                variant="soft"
-                onClick={() => addWidget('weather')}
-              >
+              <Button size="1" variant="soft" onClick={() => addWidget('weather')}>
                 <PlusIcon />
                 Weather
               </Button>
-              <Button
-                size="1"
-                variant="soft"
-                onClick={() => addWidget('quick-controls')}
-              >
+              <Button size="1" variant="soft" onClick={() => addWidget('quick-controls')}>
                 <PlusIcon />
                 Quick Controls
               </Button>
