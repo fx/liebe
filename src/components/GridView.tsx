@@ -3,6 +3,11 @@ import { Box } from '@radix-ui/themes'
 import { ButtonCard } from './ButtonCard'
 import { LightCard } from './LightCard'
 import { SensorCard } from './SensorCard'
+import { InputBooleanCard } from './InputBooleanCard'
+import { InputNumberCard } from './InputNumberCard'
+import { InputSelectCard } from './InputSelectCard'
+import { InputTextCard } from './InputTextCard'
+import { InputDateTimeCard } from './InputDateTimeCard'
 import { Separator } from './Separator'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
@@ -59,8 +64,58 @@ function EntityCard({
           onSelect={onSelect}
         />
       )
+    case 'input_boolean':
+      return (
+        <InputBooleanCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'input_number':
+      return (
+        <InputNumberCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'input_select':
+      return (
+        <InputSelectCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'input_text':
+      return (
+        <InputTextCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'input_datetime':
+      return (
+        <InputDateTimeCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
     default:
-      // Default to ButtonCard for switches, input_booleans, and other entities
+      // Default to ButtonCard for switches and other entities
       return (
         <ButtonCard
           entityId={entityId}
