@@ -70,7 +70,9 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('Test Thermostat')).toBeInTheDocument()
-      expect(screen.getByText('22.5°C')).toBeInTheDocument()
+      // Temperature is now rounded in the display
+      expect(screen.getByText('23')).toBeInTheDocument()
+      expect(screen.getByText('°C')).toBeInTheDocument()
     })
 
     it('shows target temperature when not off', () => {
@@ -90,6 +92,7 @@ describe('ClimateCard', () => {
 
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
+      // Target temperature is shown with decimal in the blue indicator
       expect(screen.getByText('23.0°C')).toBeInTheDocument()
     })
 
@@ -140,9 +143,13 @@ describe('ClimateCard', () => {
       const upButton = screen.getByRole('button', { name: /increase temperature/i })
       await userEvent.click(upButton)
 
-      expect(mockCallService).toHaveBeenCalledWith('climate', 'set_temperature', {
-        entity_id: 'climate.test_thermostat',
-        temperature: 21.5,
+      expect(mockCallService).toHaveBeenCalledWith({
+        domain: 'climate',
+        service: 'set_temperature',
+        entityId: 'climate.test_thermostat',
+        data: {
+          temperature: 21.5,
+        },
       })
     })
 
@@ -166,9 +173,13 @@ describe('ClimateCard', () => {
       const downButton = screen.getByRole('button', { name: /decrease temperature/i })
       await userEvent.click(downButton)
 
-      expect(mockCallService).toHaveBeenCalledWith('climate', 'set_temperature', {
-        entity_id: 'climate.test_thermostat',
-        temperature: 20.5,
+      expect(mockCallService).toHaveBeenCalledWith({
+        domain: 'climate',
+        service: 'set_temperature',
+        entityId: 'climate.test_thermostat',
+        data: {
+          temperature: 20.5,
+        },
       })
     })
 
@@ -217,7 +228,7 @@ describe('ClimateCard', () => {
   })
 
   describe('HVAC Mode Selection', () => {
-    it('changes HVAC mode via select', async () => {
+    it('changes HVAC mode via icon buttons', async () => {
       const entity = createMockClimateEntity({
         attributes: {
           hvac_mode: 'off',
@@ -232,76 +243,37 @@ describe('ClimateCard', () => {
 
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      // Open select
-      const trigger = screen.getByRole('combobox')
-      await userEvent.click(trigger)
+      // Find all mode buttons - there should be 3 (off, heat, cool)
+      const buttons = screen.getAllByRole('button')
+      // Filter to just the mode buttons (they have min-width: 80px)
+      const modeButtons = buttons.filter(btn => btn.style.minWidth === '80px')
+      expect(modeButtons).toHaveLength(3)
 
-      // Click heat option
-      const heatOption = await screen.findByText('Heat')
-      await userEvent.click(heatOption)
+      // Click the heat button (second button)
+      await userEvent.click(modeButtons[1])
 
-      expect(mockCallService).toHaveBeenCalledWith('climate', 'set_hvac_mode', {
-        entity_id: 'climate.test_thermostat',
-        hvac_mode: 'heat',
+      expect(mockCallService).toHaveBeenCalledWith({
+        domain: 'climate',
+        service: 'set_hvac_mode',
+        entityId: 'climate.test_thermostat',
+        data: {
+          hvac_mode: 'heat',
+        },
       })
     })
   })
 
   describe('Fan Mode Controls', () => {
-    it('shows fan mode selector when supported', () => {
-      const entity = createMockClimateEntity({
-        attributes: {
-          supported_features: 9, // TARGET_TEMP + FAN_MODE
-          fan_modes: ['auto', 'low', 'medium', 'high'],
-          fan_mode: 'auto',
-        },
-      })
-      ;(useEntity as any).mockReturnValue({
-        entity,
-        isConnected: true,
-        isStale: false,
-      })
-
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
-
-      const fanSelects = screen.getAllByRole('combobox')
-      expect(fanSelects).toHaveLength(2) // HVAC mode + fan mode
-    })
-
-    it('changes fan mode', async () => {
-      const entity = createMockClimateEntity({
-        attributes: {
-          supported_features: 9, // TARGET_TEMP + FAN_MODE
-          fan_modes: ['auto', 'low', 'medium', 'high'],
-          fan_mode: 'auto',
-        },
-      })
-      ;(useEntity as any).mockReturnValue({
-        entity,
-        isConnected: true,
-        isStale: false,
-      })
-
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
-
-      // Get the second select (fan mode)
-      const selects = screen.getAllByRole('combobox')
-      await userEvent.click(selects[1])
-
-      const highOption = await screen.findByText('High')
-      await userEvent.click(highOption)
-
-      expect(mockCallService).toHaveBeenCalledWith('climate', 'set_fan_mode', {
-        entity_id: 'climate.test_thermostat',
-        fan_mode: 'high',
-      })
-    })
+    // Fan mode controls have been removed from the new design
+    it.skip('shows fan mode selector when supported', () => {})
+    it.skip('changes fan mode', async () => {})
   })
 
   describe('Visual States', () => {
     it('shows heating action with orange color', () => {
       const entity = createMockClimateEntity({
         attributes: {
+          friendly_name: 'Test Thermostat',
           hvac_mode: 'heat',
           hvac_action: 'heating',
         },
@@ -315,13 +287,15 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('heating')).toBeInTheDocument()
+      // In the new design, border color is transparent unless selected/error/stale
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
-      expect(card).toHaveStyle({ borderColor: 'var(--orange-6)' })
+      expect(card).toHaveStyle({ borderColor: 'transparent' })
     })
 
     it('shows cooling action with blue color', () => {
       const entity = createMockClimateEntity({
         attributes: {
+          friendly_name: 'Test Thermostat',
           hvac_mode: 'cool',
           hvac_action: 'cooling',
         },
@@ -335,8 +309,9 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('cooling')).toBeInTheDocument()
+      // In the new design, border color is transparent unless selected/error/stale
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
-      expect(card).toHaveStyle({ borderColor: 'var(--blue-6)' })
+      expect(card).toHaveStyle({ borderColor: 'transparent' })
     })
   })
 
@@ -389,8 +364,8 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       // Temperature controls should not be visible
-      expect(screen.queryByRole('button', { name: /chevron.*up/i })).not.toBeInTheDocument()
-      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /increase temperature/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /decrease temperature/i })).not.toBeInTheDocument()
     })
 
     it('handles selection in edit mode', async () => {
@@ -413,7 +388,7 @@ describe('ClimateCard', () => {
 
   describe('Error and Loading States', () => {
     it('shows loading spinner when service call is in progress', () => {
-      const entity = createMockClimateEntity()
+      const entity = createMockClimateEntity({ attributes: { friendly_name: 'Test Thermostat' } })
       ;(useEntity as any).mockReturnValue({
         entity,
         isConnected: true,
@@ -426,9 +401,10 @@ describe('ClimateCard', () => {
         clearError: mockClearError,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      const { container } = renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      expect(screen.getByRole('status')).toBeInTheDocument()
+      // Check for spinner by class name since Radix UI Spinner doesn't have role="status"
+      expect(container.querySelector('.rt-Spinner')).toBeInTheDocument()
     })
 
     it('shows error state with red border', () => {
@@ -485,7 +461,8 @@ describe('ClimateCard', () => {
 
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      expect(screen.getByText('72.5°F')).toBeInTheDocument()
+      // Current temp is rounded, target temp shown with decimal
+      expect(screen.getByText('73')).toBeInTheDocument()
       expect(screen.getByText('70.0°F')).toBeInTheDocument()
     })
   })

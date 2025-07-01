@@ -1,5 +1,5 @@
-import { Card, Flex, Text, Spinner, Box, IconButton, Select } from '@radix-ui/themes'
-import { Cross2Icon, ChevronUpIcon, ChevronDownIcon } from '@radix-ui/react-icons'
+import { Card, Flex, Text, Spinner, Box, IconButton } from '@radix-ui/themes'
+import { Cross2Icon, MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useCallback, useMemo } from 'react'
 import { useDashboardStore } from '~/store'
@@ -17,7 +17,7 @@ interface ClimateCardProps {
 const SUPPORT_TARGET_TEMPERATURE = 1
 const SUPPORT_TARGET_TEMPERATURE_RANGE = 2
 // const SUPPORT_TARGET_HUMIDITY = 4
-const SUPPORT_FAN_MODE = 8
+// const SUPPORT_FAN_MODE = 8
 // const SUPPORT_PRESET_MODE = 16
 // const SUPPORT_SWING_MODE = 32
 // const SUPPORT_AUX_HEAT = 64
@@ -59,6 +59,27 @@ interface ClimateAttributes {
   temperature_unit?: string
 }
 
+// Helper function to create SVG arc path
+function createArcPath(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number
+): string {
+  const startRad = (startAngle * Math.PI) / 180
+  const endRad = (endAngle * Math.PI) / 180
+
+  const x1 = centerX + radius * Math.cos(startRad)
+  const y1 = centerY + radius * Math.sin(startRad)
+  const x2 = centerX + radius * Math.cos(endRad)
+  const y2 = centerY + radius * Math.sin(endRad)
+
+  const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0
+
+  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`
+}
+
 function ClimateCardComponent({
   entityId,
   size = 'medium',
@@ -77,7 +98,7 @@ function ClimateCardComponent({
   // Check supported features
   const supportsTargetTemp = supportedFeatures & SUPPORT_TARGET_TEMPERATURE
   const supportsTargetTempRange = supportedFeatures & SUPPORT_TARGET_TEMPERATURE_RANGE
-  const supportsFanMode = supportedFeatures & SUPPORT_FAN_MODE
+  // const supportsFanMode = supportedFeatures & SUPPORT_FAN_MODE
   // const supportsPresetMode = supportedFeatures & SUPPORT_PRESET_MODE
   // const supportsSwingMode = supportedFeatures & SUPPORT_SWING_MODE
   // const supportsAuxHeat = supportedFeatures & SUPPORT_AUX_HEAT
@@ -95,7 +116,7 @@ function ClimateCardComponent({
   // Get current state
   const hvacMode = climateAttributes?.hvac_mode ?? 'off'
   const hvacAction = climateAttributes?.hvac_action
-  const fanMode = climateAttributes?.fan_mode
+  // const fanMode = climateAttributes?.fan_mode
   // const presetMode = climateAttributes?.preset_mode
 
   const handleHvacModeChange = useCallback(
@@ -161,21 +182,21 @@ function ClimateCardComponent({
     ]
   )
 
-  const handleFanModeChange = useCallback(
-    async (newMode: string) => {
-      if (isLoading) return
-      if (error) clearError()
-      await callService({
-        domain: 'climate',
-        service: 'set_fan_mode',
-        entityId,
-        data: {
-          fan_mode: newMode,
-        },
-      })
-    },
-    [entityId, callService, isLoading, error, clearError]
-  )
+  // const handleFanModeChange = useCallback(
+  //   async (newMode: string) => {
+  //     if (isLoading) return
+  //     if (error) clearError()
+  //     await callService({
+  //       domain: 'climate',
+  //       service: 'set_fan_mode',
+  //       entityId,
+  //       data: {
+  //         fan_mode: newMode,
+  //       },
+  //     })
+  //   },
+  //   [entityId, callService, isLoading, error, clearError]
+  // )
 
   const getStatusColor = useMemo(() => {
     if (hvacAction === 'heating') return 'orange'
@@ -185,6 +206,13 @@ function ClimateCardComponent({
     if (hvacMode !== 'off') return HVAC_MODES[hvacMode as keyof typeof HVAC_MODES]?.color ?? 'gray'
     return 'gray'
   }, [hvacMode, hvacAction])
+
+  // Calculate temperature percentage for arc display
+  const tempPercentage = useMemo(() => {
+    if (hvacMode === 'off' || !targetTemp) return 0
+    const range = maxTemp - minTemp
+    return ((targetTemp - minTemp) / range) * 100
+  }, [targetTemp, minTemp, maxTemp, hvacMode])
 
   if (!entity || !isConnected) {
     return (
@@ -223,21 +251,33 @@ function ClimateCardComponent({
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
 
+  // Arc parameters
+  const arcRadius = size === 'large' ? 90 : size === 'medium' ? 70 : 50
+  const strokeWidth = 8
+  const centerX = arcRadius + strokeWidth
+  const centerY = arcRadius + strokeWidth
+  const svgSize = (arcRadius + strokeWidth) * 2
+
+  // Convert percentage to angle (130 to 410 degrees for 280 degree arc)
+  const startAngle = 130
+  const endAngle = 410
+  const currentAngle = startAngle + (tempPercentage / 100) * (endAngle - startAngle)
+
   return (
     <Card
       variant="classic"
       className="climate-card"
       style={{
         cursor: isEditMode ? 'move' : 'default',
-        backgroundColor: isSelected ? 'var(--blue-3)' : undefined,
+        backgroundColor: isSelected ? 'var(--blue-3)' : 'var(--gray-2)',
         borderColor: isSelected
           ? 'var(--blue-6)'
           : error
             ? 'var(--red-6)'
             : isStale
               ? 'var(--orange-6)'
-              : `var(--${getStatusColor}-6)`,
-        borderWidth: isSelected || error || isStale || hvacMode !== 'off' ? '2px' : '1px',
+              : 'transparent',
+        borderWidth: isSelected || error || isStale ? '2px' : '1px',
         borderStyle: isStale ? 'dashed' : 'solid',
         transition: 'all 0.2s ease',
         opacity: isStale ? 0.8 : 1,
@@ -275,8 +315,9 @@ function ClimateCardComponent({
       <Flex
         p={cardSize.p}
         direction="column"
-        gap="3"
-        style={{ minHeight: size === 'large' ? '200px' : size === 'medium' ? '180px' : '160px' }}
+        align="center"
+        gap="2"
+        style={{ minHeight: size === 'large' ? '320px' : size === 'medium' ? '280px' : '220px' }}
       >
         {/* Name */}
         <Text
@@ -288,108 +329,239 @@ function ClimateCardComponent({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            marginBottom: '8px',
           }}
         >
           {friendlyName}
         </Text>
 
-        {/* Temperature display */}
-        <Flex direction="column" align="center" gap="2">
-          {currentTemp !== undefined && (
-            <Text
-              size="5"
-              weight="bold"
-              color={
-                getStatusColor as
-                  | 'gray'
-                  | 'orange'
-                  | 'blue'
-                  | 'green'
-                  | 'indigo'
-                  | 'yellow'
-                  | 'cyan'
-              }
-            >
-              {currentTemp.toFixed(1)}
-              {tempUnit}
-            </Text>
-          )}
+        {/* Circular temperature display */}
+        <Box style={{ position: 'relative', width: `${svgSize}px`, height: `${svgSize}px` }}>
+          {/* SVG Arc */}
+          <svg width={svgSize} height={svgSize} style={{ position: 'absolute', top: 0, left: 0 }}>
+            {/* Background arc */}
+            <path
+              d={createArcPath(centerX, centerY, arcRadius, startAngle, endAngle)}
+              fill="none"
+              stroke="var(--gray-6)"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
 
-          {/* Target temperature display and controls */}
-          {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && (
-            <Flex align="center" gap="3">
-              <IconButton
-                size="2"
-                variant="soft"
-                onClick={() => handleTemperatureChange((targetTemp ?? 20) - tempStep)}
-                disabled={isLoading || (targetTemp ?? 20) <= minTemp}
-                aria-label="Decrease temperature"
-              >
-                <ChevronDownIcon />
-              </IconButton>
+            {/* Temperature arc */}
+            {hvacMode !== 'off' && (
+              <path
+                d={createArcPath(centerX, centerY, arcRadius, startAngle, currentAngle)}
+                fill="none"
+                stroke={`var(--${getStatusColor}-9)`}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+              />
+            )}
 
-              <Text size="3" color="gray">
-                {supportsTargetTempRange && hvacMode === 'heat_cool'
-                  ? `${targetTempLow?.toFixed(1)} - ${targetTempHigh?.toFixed(1)}${tempUnit}`
-                  : `${targetTemp?.toFixed(1)}${tempUnit}`}
-              </Text>
+            {/* Temperature indicator dot */}
+            {hvacMode !== 'off' && (
+              <circle
+                cx={centerX + arcRadius * Math.cos((currentAngle * Math.PI) / 180)}
+                cy={centerY + arcRadius * Math.sin((currentAngle * Math.PI) / 180)}
+                r={strokeWidth / 2 + 2}
+                fill="white"
+                stroke={`var(--${getStatusColor}-9)`}
+                strokeWidth="2"
+              />
+            )}
+          </svg>
 
-              <IconButton
-                size="2"
-                variant="soft"
-                onClick={() => handleTemperatureChange((targetTemp ?? 20) + tempStep)}
-                disabled={isLoading || (targetTemp ?? 20) >= maxTemp}
-                aria-label="Increase temperature"
-              >
-                <ChevronUpIcon />
-              </IconButton>
-            </Flex>
-          )}
-        </Flex>
-
-        {/* HVAC mode selector */}
-        {!isEditMode && climateAttributes?.hvac_modes && (
-          <Select.Root value={hvacMode} onValueChange={handleHvacModeChange} disabled={isLoading}>
-            <Select.Trigger style={{ width: '100%' }} />
-            <Select.Content>
-              {climateAttributes.hvac_modes.map((mode) => (
-                <Select.Item key={mode} value={mode}>
-                  {HVAC_MODES[mode as keyof typeof HVAC_MODES]?.label ?? mode}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-        )}
-
-        {/* Fan mode selector */}
-        {!isEditMode && supportsFanMode && climateAttributes?.fan_modes && fanMode && (
-          <Select.Root value={fanMode} onValueChange={handleFanModeChange} disabled={isLoading}>
-            <Select.Trigger style={{ width: '100%' }} />
-            <Select.Content>
-              {climateAttributes.fan_modes.map((mode) => (
-                <Select.Item key={mode} value={mode}>
-                  {mode.charAt(0).toUpperCase() + mode.slice(1).replace(/_/g, ' ')}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-        )}
-
-        {/* Status */}
-        {hvacAction && (
-          <Text
-            size="1"
-            color={
-              getStatusColor as 'gray' | 'orange' | 'blue' | 'green' | 'indigo' | 'yellow' | 'cyan'
-            }
-            weight="medium"
+          {/* Center content */}
+          <Flex
+            direction="column"
             align="center"
+            justify="center"
             style={{
-              textTransform: 'uppercase',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              textAlign: 'center',
             }}
           >
-            {hvacAction.replace(/_/g, ' ')}
-          </Text>
+            {/* Status text */}
+            {hvacAction && (
+              <Text
+                size="1"
+                color={
+                  getStatusColor as
+                    | 'gray'
+                    | 'orange'
+                    | 'blue'
+                    | 'green'
+                    | 'indigo'
+                    | 'yellow'
+                    | 'cyan'
+                }
+                weight="medium"
+                style={{ textTransform: 'capitalize', marginBottom: '4px' }}
+              >
+                {hvacAction.replace(/_/g, ' ')}
+              </Text>
+            )}
+
+            {/* Current temperature */}
+            {currentTemp !== undefined && (
+              <Text
+                size={size === 'large' ? '8' : size === 'medium' ? '7' : '6'}
+                weight="bold"
+                style={{ lineHeight: 1 }}
+              >
+                {Math.round(currentTemp)}
+                <Text
+                  size={size === 'large' ? '5' : '4'}
+                  as="span"
+                  style={{ verticalAlign: 'super' }}
+                >
+                  {tempUnit}
+                </Text>
+              </Text>
+            )}
+
+            {/* Target temperature */}
+            {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && (
+              <Flex align="center" gap="1" style={{ marginTop: '4px' }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--blue-9)">
+                  <path
+                    d="M8 3v10M4 9l4-4 4 4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </svg>
+                <Text size="2" color="blue">
+                  {supportsTargetTempRange && hvacMode === 'heat_cool' && targetTempLow && targetTempHigh
+                    ? `${targetTempLow.toFixed(1)} - ${targetTempHigh.toFixed(1)}${tempUnit}`
+                    : `${targetTemp?.toFixed(1)}${tempUnit}`}
+                </Text>
+              </Flex>
+            )}
+          </Flex>
+        </Box>
+
+        {/* Temperature controls */}
+        {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && (
+          <Flex align="center" gap="4" style={{ marginTop: '16px' }}>
+            <IconButton
+              size="3"
+              variant="outline"
+              radius="full"
+              onClick={() => handleTemperatureChange((targetTemp ?? 20) - tempStep)}
+              disabled={isLoading || (targetTemp ?? 20) <= minTemp}
+              aria-label="Decrease temperature"
+              style={{
+                width: '48px',
+                height: '48px',
+                backgroundColor: 'var(--gray-2)',
+                borderColor: 'var(--gray-6)',
+              }}
+            >
+              <MinusIcon width="20" height="20" />
+            </IconButton>
+
+            <IconButton
+              size="3"
+              variant="outline"
+              radius="full"
+              onClick={() => handleTemperatureChange((targetTemp ?? 20) + tempStep)}
+              disabled={isLoading || (targetTemp ?? 20) >= maxTemp}
+              aria-label="Increase temperature"
+              style={{
+                width: '48px',
+                height: '48px',
+                backgroundColor: 'var(--gray-2)',
+                borderColor: 'var(--gray-6)',
+              }}
+            >
+              <PlusIcon width="20" height="20" />
+            </IconButton>
+          </Flex>
+        )}
+
+        {/* HVAC Mode buttons */}
+        {!isEditMode && climateAttributes?.hvac_modes && (
+          <Flex gap="2" wrap="wrap" justify="center" style={{ marginTop: 'auto' }}>
+            {climateAttributes.hvac_modes.map((mode) => {
+              const modeConfig = HVAC_MODES[mode as keyof typeof HVAC_MODES]
+              if (!modeConfig) return null
+
+              return (
+                <IconButton
+                  key={mode}
+                  size="2"
+                  variant={hvacMode === mode ? 'solid' : 'soft'}
+                  color={
+                    hvacMode === mode
+                      ? (modeConfig.color as
+                          | 'orange'
+                          | 'blue'
+                          | 'green'
+                          | 'indigo'
+                          | 'yellow'
+                          | 'cyan'
+                          | 'gray')
+                      : 'gray'
+                  }
+                  onClick={() => handleHvacModeChange(mode)}
+                  disabled={isLoading}
+                  style={{
+                    minWidth: '80px',
+                  }}
+                >
+                  {mode === 'off' ? (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <circle
+                        cx="8"
+                        cy="8"
+                        r="6"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                  ) : mode === 'heat' ? (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <path
+                        d="M8 2C6 2 5 4 5 6c0 1.5.5 3 1.5 4S8 12 8 12s.5-.5 1.5-1.5S11 7.5 11 6c0-2-1-4-3-4z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        fill="none"
+                      />
+                    </svg>
+                  ) : mode === 'cool' ? (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <path
+                        d="M8 1v14M1 8h14M3.5 3.5l9 9M12.5 3.5l-9 9"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  ) : mode === 'auto' ? (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <path
+                        d="M3 8a5 5 0 1110 0M8 3v3M8 10v3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  ) : (
+                    <Text size="1">{modeConfig.label}</Text>
+                  )}
+                </IconButton>
+              )
+            })}
+          </Flex>
         )}
 
         {/* Loading indicator */}
