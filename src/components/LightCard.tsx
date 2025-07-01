@@ -30,6 +30,8 @@ interface LightAttributes {
   effect_list?: string[]
   effect?: string
   supported_features?: number
+  supported_color_modes?: string[]
+  color_mode?: string
 }
 
 function LightCardComponent({
@@ -71,8 +73,19 @@ function LightCardComponent({
 
   const lightAttributes = entity?.attributes as LightAttributes | undefined
   const supportsBrightness = useMemo(() => {
+    // Modern Home Assistant uses supported_color_modes
+    if (lightAttributes?.supported_color_modes) {
+      return lightAttributes.supported_color_modes.includes('brightness') ||
+             lightAttributes.supported_color_modes.includes('color_temp') ||
+             lightAttributes.supported_color_modes.includes('hs') ||
+             lightAttributes.supported_color_modes.includes('xy') ||
+             lightAttributes.supported_color_modes.includes('rgb') ||
+             lightAttributes.supported_color_modes.includes('rgbw') ||
+             lightAttributes.supported_color_modes.includes('rgbww')
+    }
+    // Fallback to old supported_features check
     return (lightAttributes?.supported_features ?? 0) & SUPPORT_BRIGHTNESS
-  }, [lightAttributes?.supported_features])
+  }, [lightAttributes?.supported_features, lightAttributes?.supported_color_modes])
 
   // These will be used for color picker implementation
   // const supportsColor = useMemo(() => {
