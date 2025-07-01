@@ -51,32 +51,24 @@ describe('ScreenConfigDialog', () => {
   })
 
   it('should not render when screenId is not provided', () => {
-    const { container } = render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} />
-    )
+    const { container } = render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} />)
     expect(container.firstChild).toBeNull()
   })
 
   it('should render dialog when open with valid screenId', () => {
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     expect(screen.getByText('Configure Screen')).toBeInTheDocument()
-    expect(screen.getByText('Customize the screen settings including name and grid resolution')).toBeInTheDocument()
+    expect(
+      screen.getByText('Customize the screen settings including name and grid resolution')
+    ).toBeInTheDocument()
   })
 
   it('should display current screen values', () => {
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     const nameInput = screen.getByPlaceholderText('Enter screen name') as HTMLInputElement
@@ -84,20 +76,16 @@ describe('ScreenConfigDialog', () => {
 
     // Find inputs by their type and value since Radix UI doesn't properly associate labels
     const numberInputs = screen.getAllByRole('spinbutton') as HTMLInputElement[]
-    const columnsInput = numberInputs.find(input => input.value === '12')
-    const rowsInput = numberInputs.find(input => input.value === '8')
-    
+    const columnsInput = numberInputs.find((input) => input.value === '12')
+    const rowsInput = numberInputs.find((input) => input.value === '8')
+
     expect(columnsInput).toBeDefined()
     expect(rowsInput).toBeDefined()
   })
 
   it('should display preset selector', () => {
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     // Just verify the preset selector is present
@@ -109,11 +97,7 @@ describe('ScreenConfigDialog', () => {
     const user = userEvent.setup()
 
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     const nameInput = screen.getByPlaceholderText('Enter screen name')
@@ -123,7 +107,8 @@ describe('ScreenConfigDialog', () => {
     const saveButton = screen.getByRole('button', { name: 'Save Changes' })
     await user.click(saveButton)
 
-    expect(dashboardActions.updateScreen).toHaveBeenCalledWith('test-screen', 
+    expect(dashboardActions.updateScreen).toHaveBeenCalledWith(
+      'test-screen',
       expect.objectContaining({
         name: 'Updated Screen',
         slug: 'updated-screen',
@@ -136,11 +121,7 @@ describe('ScreenConfigDialog', () => {
     const user = userEvent.setup()
 
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     const duplicateButton = screen.getByRole('button', { name: /duplicate screen/i })
@@ -161,11 +142,7 @@ describe('ScreenConfigDialog', () => {
     const user = userEvent.setup()
 
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' })
@@ -177,18 +154,14 @@ describe('ScreenConfigDialog', () => {
 
   it('should display validation constraints', () => {
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     // Check that the inputs have proper constraints
     const numberInputs = screen.getAllByRole('spinbutton') as HTMLInputElement[]
     const columnsInput = numberInputs[0]
     const rowsInput = numberInputs[1]
-    
+
     expect(columnsInput).toHaveAttribute('min', '1')
     expect(columnsInput).toHaveAttribute('max', '24')
     expect(rowsInput).toHaveAttribute('min', '1')
@@ -197,11 +170,7 @@ describe('ScreenConfigDialog', () => {
 
   it('should show grid preview', () => {
     render(
-      <ScreenConfigDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        screenId="test-screen"
-      />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
     )
 
     expect(screen.getByText('Grid Preview')).toBeInTheDocument()

@@ -187,8 +187,8 @@ describe('ViewTabs', () => {
       // Look for the Box containing Cross2Icon (the remove button)
       const removeButtons = livingRoomTab.querySelectorAll('[style*="cursor: pointer"]')
       // The Cross2Icon button will be the one containing an svg with specific path for Cross2Icon
-      const removeButton = Array.from(removeButtons).find(btn => 
-        btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
+      const removeButton = Array.from(removeButtons).find(
+        (btn) => btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
       )
 
       await user.click(removeButton!)
@@ -228,8 +228,8 @@ describe('ViewTabs', () => {
       // First remove the kitchen screen
       const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ })
       const kitchenRemoveButtons = kitchenTab.querySelectorAll('[style*="cursor: pointer"]')
-      const kitchenRemoveButton = Array.from(kitchenRemoveButtons).find(btn => 
-        btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
+      const kitchenRemoveButton = Array.from(kitchenRemoveButtons).find(
+        (btn) => btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
       )
       await user.click(kitchenRemoveButton!)
 
@@ -241,8 +241,8 @@ describe('ViewTabs', () => {
       // Now try to find remove button on the last screen
       const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ })
       const livingRoomButtons = livingRoomTab.querySelectorAll('[style*="cursor: pointer"]')
-      const livingRoomRemoveButton = Array.from(livingRoomButtons).find(btn => 
-        btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
+      const livingRoomRemoveButton = Array.from(livingRoomButtons).find(
+        (btn) => btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
       )
 
       // Since there's only one screen left, there should be no remove button
