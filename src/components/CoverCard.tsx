@@ -96,23 +96,43 @@ function CoverCardComponent({
 
   const isMoving = coverState === 'opening' || coverState === 'closing'
 
+  // Visual state color based on position and state
+  const stateColor = useMemo(() => {
+    if (isMoving) return 'blue'
+    if (coverState === 'open' || currentPosition > 50) return 'green'
+    if (coverState === 'closed' || currentPosition === 0) return 'gray'
+    return 'orange'
+  }, [coverState, currentPosition, isMoving])
+
   // Service call handlers
   const handleOpen = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService('cover', 'open_cover', { entity_id: entityId })
+    await callService({
+      domain: 'cover',
+      service: 'open_cover',
+      entityId,
+    })
   }, [callService, entityId, error, isLoading, clearError])
 
   const handleClose = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService('cover', 'close_cover', { entity_id: entityId })
+    await callService({
+      domain: 'cover',
+      service: 'close_cover',
+      entityId,
+    })
   }, [callService, entityId, error, isLoading, clearError])
 
   const handleStop = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService('cover', 'stop_cover', { entity_id: entityId })
+    await callService({
+      domain: 'cover',
+      service: 'stop_cover',
+      entityId,
+    })
   }, [callService, entityId, error, isLoading, clearError])
 
   const handlePositionChange = useCallback((value: number[]) => {
@@ -122,9 +142,11 @@ function CoverCardComponent({
   const handlePositionCommit = useCallback(
     async (value: number[]) => {
       setIsDraggingPosition(false)
-      await callService('cover', 'set_cover_position', {
-        entity_id: entityId,
-        position: value[0],
+      await callService({
+        domain: 'cover',
+        service: 'set_cover_position',
+        entityId,
+        data: { position: value[0] },
       })
       setLocalPosition(null)
     },
@@ -138,9 +160,11 @@ function CoverCardComponent({
   const handleTiltCommit = useCallback(
     async (value: number[]) => {
       setIsDraggingTilt(false)
-      await callService('cover', 'set_cover_tilt_position', {
-        entity_id: entityId,
-        tilt_position: value[0],
+      await callService({
+        domain: 'cover',
+        service: 'set_cover_tilt_position',
+        entityId,
+        data: { tilt_position: value[0] },
       })
       setLocalTiltPosition(null)
     },
@@ -150,13 +174,21 @@ function CoverCardComponent({
   const handleOpenTilt = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService('cover', 'open_cover_tilt', { entity_id: entityId })
+    await callService({
+      domain: 'cover',
+      service: 'open_cover_tilt',
+      entityId,
+    })
   }, [callService, entityId, error, isLoading, clearError])
 
   const handleCloseTilt = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService('cover', 'close_cover_tilt', { entity_id: entityId })
+    await callService({
+      domain: 'cover',
+      service: 'close_cover_tilt',
+      entityId,
+    })
   }, [callService, entityId, error, isLoading, clearError])
 
   if (!entity || !isConnected) {
@@ -195,15 +227,6 @@ function CoverCardComponent({
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
-  const deviceClass = coverAttributes?.device_class || 'cover'
-
-  // Visual state color based on position and state
-  const stateColor = useMemo(() => {
-    if (isMoving) return 'blue'
-    if (coverState === 'open' || currentPosition > 50) return 'green'
-    if (coverState === 'closed' || currentPosition === 0) return 'gray'
-    return 'orange'
-  }, [coverState, currentPosition, isMoving])
 
   return (
     <Card
@@ -357,22 +380,12 @@ function CoverCardComponent({
               {/* Tilt buttons */}
               <Flex gap="2" justify="center">
                 {supportsOpenTilt && (
-                  <Button
-                    size="1"
-                    variant="soft"
-                    onClick={handleOpenTilt}
-                    disabled={isLoading}
-                  >
+                  <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
                     <ChevronRightIcon />
                   </Button>
                 )}
                 {supportsCloseTilt && (
-                  <Button
-                    size="1"
-                    variant="soft"
-                    onClick={handleCloseTilt}
-                    disabled={isLoading}
-                  >
+                  <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
                     <ChevronLeftIcon />
                   </Button>
                 )}
@@ -419,11 +432,7 @@ function CoverCardComponent({
               }
             />
           )}
-          <Text
-            size="1"
-            color={error ? 'red' : stateColor}
-            weight="medium"
-          >
+          <Text size="1" color={error ? 'red' : stateColor} weight="medium">
             {error
               ? 'ERROR'
               : isMoving
