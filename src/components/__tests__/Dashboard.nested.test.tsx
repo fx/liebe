@@ -58,7 +58,7 @@ describe('Dashboard - Nested Views', () => {
     // Should show the nested view information
     expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument()
-    expect(screen.getByText(/No sections added yet/)).toBeInTheDocument()
+    expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
   })
 
   it('should handle deeply nested views', () => {
@@ -84,7 +84,7 @@ describe('Dashboard - Nested Views', () => {
       createTestScreen({
         id: 'room-1',
         name: 'TV Room',
-        grid: { resolution: { columns: 10, rows: 6 }, sections: [] },
+        grid: { resolution: { columns: 10, rows: 6 }, items: [] },
       }),
       'area-1'
     )
@@ -112,7 +112,7 @@ describe('Dashboard - Nested Views', () => {
       createTestScreen({
         id: 'nested-1',
         name: 'Kitchen',
-        grid: { resolution: { columns: 8, rows: 6 }, sections: [] },
+        grid: { resolution: { columns: 8, rows: 6 }, items: [] },
       }),
       'top-1'
     )
