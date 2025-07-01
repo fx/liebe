@@ -55,10 +55,10 @@ homeassistant:
   auth_providers:
     - type: trusted_networks
       trusted_networks:
-        - 192.168.1.100/32  # Replace with your testing machine's IP
+        - 192.168.1.100/32 # Replace with your testing machine's IP
       trusted_users:
-        192.168.1.100:      # Replace with your testing machine's IP
-          - user_id_here    # Replace with the user ID to auto-login as
+        192.168.1.100: # Replace with your testing machine's IP
+          - user_id_here # Replace with the user ID to auto-login as
       allow_bypass_login: true
     - type: homeassistant
 ```

@@ -66,7 +66,7 @@ export function useRemoteHass(): HomeAssistant | null {
         } as HomeAssistant
 
         setHass(proxyHass)
-        
+
         // Also update entity store with new states
         if (event.data.hass.states) {
           // Trigger a custom event to update the entity store
