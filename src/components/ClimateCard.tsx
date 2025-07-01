@@ -1,7 +1,7 @@
 import { Card, Flex, Text, Spinner, Box, IconButton } from '@radix-ui/themes'
 import { Cross2Icon, MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import { useDashboardStore } from '~/store'
 import './ClimateCard.css'
 
@@ -92,6 +92,12 @@ function ClimateCardComponent({
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
+  // Drag state for temperature control
+  const [isDragging, setIsDragging] = useState<'heat' | 'cool' | null>(null)
+  const [dragTempLow, setDragTempLow] = useState<number | null>(null)
+  const [dragTempHigh, setDragTempHigh] = useState<number | null>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
+
   const climateAttributes = entity?.attributes as ClimateAttributes | undefined
   const supportedFeatures = climateAttributes?.supported_features ?? 0
 
@@ -103,6 +109,10 @@ function ClimateCardComponent({
   // const supportsSwingMode = supportedFeatures & SUPPORT_SWING_MODE
   // const supportsAuxHeat = supportedFeatures & SUPPORT_AUX_HEAT
 
+  // Get current state - Home Assistant stores HVAC mode in entity.state
+  const hvacMode = entity?.state ?? 'off'
+  const hvacAction = climateAttributes?.hvac_action
+
   // Get temperature settings
   const currentTemp = climateAttributes?.current_temperature
   const targetTemp = climateAttributes?.temperature
@@ -113,9 +123,6 @@ function ClimateCardComponent({
   const tempStep = climateAttributes?.target_temp_step ?? 0.5
   const tempUnit = climateAttributes?.temperature_unit ?? '°C'
 
-  // Get current state - Home Assistant stores HVAC mode in entity.state
-  const hvacMode = entity?.state ?? 'off'
-  const hvacAction = climateAttributes?.hvac_action
   // const fanMode = climateAttributes?.fan_mode
   // const presetMode = climateAttributes?.preset_mode
 
@@ -143,19 +150,9 @@ function ClimateCardComponent({
       const clampedTemp = Math.max(minTemp, Math.min(maxTemp, newTemp))
 
       if (supportsTargetTempRange && hvacMode === 'heat_cool') {
-        // For heat_cool mode, adjust the appropriate temperature
-        const midpoint =
-          targetTempLow && targetTempHigh ? (targetTempLow + targetTempHigh) / 2 : clampedTemp
-
-        await callService({
-          domain: 'climate',
-          service: 'set_temperature',
-          entityId,
-          data: {
-            target_temp_low: Math.min(clampedTemp, midpoint),
-            target_temp_high: Math.max(clampedTemp, midpoint),
-          },
-        })
+        // For heat_cool mode, this shouldn't be called directly
+        // Use the separate heat/cool controls instead
+        return
       } else {
         await callService({
           domain: 'climate',
@@ -177,6 +174,42 @@ function ClimateCardComponent({
       maxTemp,
       supportsTargetTempRange,
       hvacMode,
+    ]
+  )
+
+  const handleHeatCoolTemperatureChange = useCallback(
+    async (newLow?: number, newHigh?: number) => {
+      if (isLoading) return
+      if (error) clearError()
+
+      const clampedLow =
+        newLow !== undefined ? Math.max(minTemp, Math.min(maxTemp, newLow)) : (targetTempLow ?? 20)
+      const clampedHigh =
+        newHigh !== undefined
+          ? Math.max(minTemp, Math.min(maxTemp, newHigh))
+          : (targetTempHigh ?? 24)
+
+      // Ensure low is less than high
+      if (clampedLow >= clampedHigh) return
+
+      await callService({
+        domain: 'climate',
+        service: 'set_temperature',
+        entityId,
+        data: {
+          target_temp_low: clampedLow,
+          target_temp_high: clampedHigh,
+        },
+      })
+    },
+    [
+      entityId,
+      callService,
+      isLoading,
+      error,
+      clearError,
+      minTemp,
+      maxTemp,
       targetTempLow,
       targetTempHigh,
     ]
@@ -207,12 +240,183 @@ function ClimateCardComponent({
     return 'gray'
   }, [hvacMode, hvacAction])
 
-  // Calculate temperature percentage for arc display
-  const tempPercentage = useMemo(() => {
-    if (hvacMode === 'off' || !targetTemp) return 0
+  // Calculate temperature percentages for arc display
+  const tempPercentages = useMemo(() => {
     const range = maxTemp - minTemp
-    return ((targetTemp - minTemp) / range) * 100
-  }, [targetTemp, minTemp, maxTemp, hvacMode])
+
+    if (hvacMode === 'off') return { heat: 0, cool: 0 }
+
+    if (hvacMode === 'heat_cool') {
+      const lowTemp = dragTempLow ?? targetTempLow
+      const highTemp = dragTempHigh ?? targetTempHigh
+      if (lowTemp && highTemp) {
+        return {
+          heat: ((lowTemp - minTemp) / range) * 100,
+          cool: ((highTemp - minTemp) / range) * 100,
+        }
+      }
+    }
+
+    if (targetTemp) {
+      const percentage = ((targetTemp - minTemp) / range) * 100
+      return {
+        heat: hvacMode === 'heat' ? percentage : 0,
+        cool: hvacMode === 'cool' ? percentage : 0,
+      }
+    }
+
+    return { heat: 0, cool: 0 }
+  }, [
+    targetTemp,
+    targetTempLow,
+    targetTempHigh,
+    minTemp,
+    maxTemp,
+    hvacMode,
+    dragTempLow,
+    dragTempHigh,
+  ])
+
+  // Arc parameters
+  const arcRadius = size === 'large' ? 90 : size === 'medium' ? 70 : 50
+  const strokeWidth = 8
+  const centerX = arcRadius + strokeWidth
+  const centerY = arcRadius + strokeWidth
+  const svgSize = (arcRadius + strokeWidth) * 2
+
+  // Convert percentages to angles
+  const arcStartAngle = 130
+  const arcEndAngle = 410
+  const arcRange = arcEndAngle - arcStartAngle
+
+  // For heat/cool mode: heat goes from left (130°), cool goes from right (410°)
+  const heatAngle = arcStartAngle + (tempPercentages.heat / 100) * arcRange
+  const coolAngle = arcEndAngle - ((100 - tempPercentages.cool) / 100) * arcRange
+
+  // Convert angle to temperature
+  const angleToTemp = useCallback(
+    (angle: number): number => {
+      const normalizedAngle = angle - arcStartAngle
+      const percentage = normalizedAngle / arcRange
+      return minTemp + percentage * (maxTemp - minTemp)
+    },
+    [arcStartAngle, arcRange, minTemp, maxTemp]
+  )
+
+  // Get angle from mouse/touch position
+  const getAngleFromPosition = useCallback(
+    (clientX: number, clientY: number): number => {
+      if (!svgRef.current) return 0
+
+      const rect = svgRef.current.getBoundingClientRect()
+      const x = clientX - rect.left - centerX
+      const y = clientY - rect.top - centerY
+
+      let angle = Math.atan2(y, x) * (180 / Math.PI)
+      // Convert to 0-360 range
+      if (angle < 0) angle += 360
+
+      // Our arc goes from 130° to 410° (which is 50° in the next rotation)
+      // Handle the wraparound
+      if (angle < 90) angle += 360 // Convert angles like 50° to 410°
+
+      // Clamp to our arc range
+      angle = Math.max(arcStartAngle, Math.min(arcEndAngle, angle))
+
+      return angle
+    },
+    [centerX, centerY, arcStartAngle, arcEndAngle]
+  )
+
+  // Handle drag start
+  const handleDragStart = useCallback(
+    (type: 'heat' | 'cool', event: React.MouseEvent | React.TouchEvent) => {
+      if (isEditMode || hvacMode !== 'heat_cool') return
+      event.preventDefault()
+      setIsDragging(type)
+      // Initialize drag temperatures
+      setDragTempLow(targetTempLow ?? 20)
+      setDragTempHigh(targetTempHigh ?? 24)
+    },
+    [isEditMode, hvacMode, targetTempLow, targetTempHigh]
+  )
+
+  // Handle drag move
+  const handleDragMove = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      if (!isDragging || hvacMode !== 'heat_cool') return
+
+      const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
+      const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
+
+      const angle = getAngleFromPosition(clientX, clientY)
+      const temp = angleToTemp(angle)
+
+      if (isDragging === 'heat') {
+        const newLow = Math.round(temp / tempStep) * tempStep
+        const currentHigh = dragTempHigh ?? targetTempHigh ?? 24
+        if (newLow < currentHigh - tempStep) {
+          setDragTempLow(newLow)
+        }
+      } else if (isDragging === 'cool') {
+        const newHigh = Math.round(temp / tempStep) * tempStep
+        const currentLow = dragTempLow ?? targetTempLow ?? 20
+        if (newHigh > currentLow + tempStep) {
+          setDragTempHigh(newHigh)
+        }
+      }
+    },
+    [
+      isDragging,
+      hvacMode,
+      getAngleFromPosition,
+      angleToTemp,
+      tempStep,
+      targetTempHigh,
+      targetTempLow,
+      dragTempLow,
+      dragTempHigh,
+    ]
+  )
+
+  // Handle drag end
+  const handleDragEnd = useCallback(() => {
+    if (isDragging && (dragTempLow !== null || dragTempHigh !== null)) {
+      // Call the API with the final temperatures
+      handleHeatCoolTemperatureChange(dragTempLow ?? targetTempLow, dragTempHigh ?? targetTempHigh)
+    }
+    setIsDragging(null)
+    setDragTempLow(null)
+    setDragTempHigh(null)
+  }, [
+    isDragging,
+    dragTempLow,
+    dragTempHigh,
+    targetTempLow,
+    targetTempHigh,
+    handleHeatCoolTemperatureChange,
+  ])
+
+  // Set up drag event listeners
+  useEffect(() => {
+    if (isDragging) {
+      const handleMouseMove = (e: MouseEvent) => handleDragMove(e)
+      const handleTouchMove = (e: TouchEvent) => handleDragMove(e)
+      const handleEnd = () => handleDragEnd()
+
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('touchmove', handleTouchMove)
+      document.addEventListener('mouseup', handleEnd)
+      document.addEventListener('touchend', handleEnd)
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('touchmove', handleTouchMove)
+        document.removeEventListener('mouseup', handleEnd)
+        document.removeEventListener('touchend', handleEnd)
+      }
+    }
+  }, [isDragging, handleDragMove, handleDragEnd])
 
   if (!entity || !isConnected) {
     return (
@@ -250,18 +454,6 @@ function ClimateCardComponent({
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
-
-  // Arc parameters
-  const arcRadius = size === 'large' ? 90 : size === 'medium' ? 70 : 50
-  const strokeWidth = 8
-  const centerX = arcRadius + strokeWidth
-  const centerY = arcRadius + strokeWidth
-  const svgSize = (arcRadius + strokeWidth) * 2
-
-  // Convert percentage to angle (130 to 410 degrees for 280 degree arc)
-  const startAngle = 130
-  const endAngle = 410
-  const currentAngle = startAngle + (tempPercentage / 100) * (endAngle - startAngle)
 
   return (
     <Card
@@ -338,38 +530,160 @@ function ClimateCardComponent({
         {/* Circular temperature display */}
         <Box style={{ position: 'relative', width: `${svgSize}px`, height: `${svgSize}px` }}>
           {/* SVG Arc */}
-          <svg width={svgSize} height={svgSize} style={{ position: 'absolute', top: 0, left: 0 }}>
+          <svg
+            ref={svgRef}
+            width={svgSize}
+            height={svgSize}
+            style={{ position: 'absolute', top: 0, left: 0 }}
+          >
             {/* Background arc */}
             <path
-              d={createArcPath(centerX, centerY, arcRadius, startAngle, endAngle)}
+              d={createArcPath(centerX, centerY, arcRadius, arcStartAngle, arcEndAngle)}
               fill="none"
               stroke="var(--gray-6)"
               strokeWidth={strokeWidth}
               strokeLinecap="round"
             />
 
-            {/* Temperature arc */}
-            {hvacMode !== 'off' && (
-              <path
-                d={createArcPath(centerX, centerY, arcRadius, startAngle, currentAngle)}
-                fill="none"
-                stroke={`var(--${getStatusColor}-9)`}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-              />
-            )}
+            {/* Temperature arcs */}
+            {hvacMode === 'heat_cool' && targetTempLow && targetTempHigh ? (
+              <>
+                {/* Heat arc (from left) */}
+                <path
+                  d={createArcPath(centerX, centerY, arcRadius, arcStartAngle, heatAngle)}
+                  fill="none"
+                  stroke="var(--orange-9)"
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                />
 
-            {/* Temperature indicator dot */}
-            {hvacMode !== 'off' && (
-              <circle
-                cx={centerX + arcRadius * Math.cos((currentAngle * Math.PI) / 180)}
-                cy={centerY + arcRadius * Math.sin((currentAngle * Math.PI) / 180)}
-                r={strokeWidth / 2 + 2}
-                fill="white"
-                stroke={`var(--${getStatusColor}-9)`}
-                strokeWidth="2"
-              />
-            )}
+                {/* Cool arc (from right) */}
+                <path
+                  d={createArcPath(centerX, centerY, arcRadius, coolAngle, arcEndAngle)}
+                  fill="none"
+                  stroke="var(--blue-9)"
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                />
+
+                {/* Heat indicator dot */}
+                <circle
+                  cx={centerX + arcRadius * Math.cos((heatAngle * Math.PI) / 180)}
+                  cy={centerY + arcRadius * Math.sin((heatAngle * Math.PI) / 180)}
+                  r={strokeWidth / 2 + 4}
+                  fill="white"
+                  stroke="var(--orange-9)"
+                  strokeWidth="3"
+                  style={{
+                    cursor: isEditMode ? 'default' : 'grab',
+                    filter:
+                      isDragging === 'heat' ? 'drop-shadow(0 0 8px var(--orange-9))' : undefined,
+                  }}
+                  onMouseDown={(e) => handleDragStart('heat', e)}
+                  onTouchStart={(e) => handleDragStart('heat', e)}
+                />
+
+                {/* Cool indicator dot */}
+                <circle
+                  cx={centerX + arcRadius * Math.cos((coolAngle * Math.PI) / 180)}
+                  cy={centerY + arcRadius * Math.sin((coolAngle * Math.PI) / 180)}
+                  r={strokeWidth / 2 + 4}
+                  fill="white"
+                  stroke="var(--blue-9)"
+                  strokeWidth="3"
+                  style={{
+                    cursor: isEditMode ? 'default' : 'grab',
+                    filter:
+                      isDragging === 'cool' ? 'drop-shadow(0 0 8px var(--blue-9))' : undefined,
+                  }}
+                  onMouseDown={(e) => handleDragStart('cool', e)}
+                  onTouchStart={(e) => handleDragStart('cool', e)}
+                />
+
+                {/* Temperature labels */}
+                {(dragTempLow ?? targetTempLow) !== undefined && (
+                  <text
+                    x={centerX + (arcRadius - 20) * Math.cos((heatAngle * Math.PI) / 180)}
+                    y={centerY + (arcRadius - 20) * Math.sin((heatAngle * Math.PI) / 180)}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="var(--orange-9)"
+                    fontSize="12"
+                    fontWeight="600"
+                  >
+                    {(dragTempLow ?? targetTempLow)?.toFixed(1)}°
+                  </text>
+                )}
+                {(dragTempHigh ?? targetTempHigh) !== undefined && (
+                  <text
+                    x={centerX + (arcRadius - 20) * Math.cos((coolAngle * Math.PI) / 180)}
+                    y={centerY + (arcRadius - 20) * Math.sin((coolAngle * Math.PI) / 180)}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="var(--blue-9)"
+                    fontSize="12"
+                    fontWeight="600"
+                  >
+                    {(dragTempHigh ?? targetTempHigh)?.toFixed(1)}°
+                  </text>
+                )}
+              </>
+            ) : hvacMode !== 'off' && (targetTemp || targetTempLow || targetTempHigh) ? (
+              <>
+                {/* Single temperature arc */}
+                <path
+                  d={createArcPath(
+                    centerX,
+                    centerY,
+                    arcRadius,
+                    arcStartAngle,
+                    hvacMode === 'heat'
+                      ? heatAngle
+                      : hvacMode === 'cool'
+                        ? coolAngle
+                        : arcStartAngle
+                  )}
+                  fill="none"
+                  stroke={`var(--${getStatusColor}-9)`}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                />
+
+                {/* Temperature indicator dot */}
+                <circle
+                  cx={
+                    centerX +
+                    arcRadius *
+                      Math.cos(
+                        ((hvacMode === 'heat'
+                          ? heatAngle
+                          : hvacMode === 'cool'
+                            ? coolAngle
+                            : arcStartAngle) *
+                          Math.PI) /
+                          180
+                      )
+                  }
+                  cy={
+                    centerY +
+                    arcRadius *
+                      Math.sin(
+                        ((hvacMode === 'heat'
+                          ? heatAngle
+                          : hvacMode === 'cool'
+                            ? coolAngle
+                            : arcStartAngle) *
+                          Math.PI) /
+                          180
+                      )
+                  }
+                  r={strokeWidth / 2 + 2}
+                  fill="white"
+                  stroke={`var(--${getStatusColor}-9)`}
+                  strokeWidth="2"
+                />
+              </>
+            ) : null}
           </svg>
 
           {/* Center content */}
@@ -440,9 +754,9 @@ function ClimateCardComponent({
                 <Text size="2" color="blue">
                   {supportsTargetTempRange &&
                   hvacMode === 'heat_cool' &&
-                  targetTempLow &&
-                  targetTempHigh
-                    ? `${targetTempLow.toFixed(1)} - ${targetTempHigh.toFixed(1)}${tempUnit}`
+                  (dragTempLow ?? targetTempLow) &&
+                  (dragTempHigh ?? targetTempHigh)
+                    ? `${(dragTempLow ?? targetTempLow)?.toFixed(1)} - ${(dragTempHigh ?? targetTempHigh)?.toFixed(1)}${tempUnit}`
                     : `${targetTemp?.toFixed(1)}${tempUnit}`}
                 </Text>
               </Flex>
@@ -451,7 +765,7 @@ function ClimateCardComponent({
         </Box>
 
         {/* Temperature controls */}
-        {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && (
+        {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && hvacMode !== 'heat_cool' && (
           <Flex align="center" gap="4" style={{ marginTop: '16px' }}>
             <IconButton
               size="3"
@@ -487,6 +801,13 @@ function ClimateCardComponent({
               <PlusIcon width="20" height="20" />
             </IconButton>
           </Flex>
+        )}
+
+        {/* Instructions for heat/cool mode */}
+        {!isEditMode && hvacMode === 'heat_cool' && (
+          <Text size="1" color="gray" align="center" style={{ marginTop: '8px' }}>
+            Drag the orange and blue dots to adjust temperatures
+          </Text>
         )}
 
         {/* HVAC Mode buttons */}

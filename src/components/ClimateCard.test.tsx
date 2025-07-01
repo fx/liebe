@@ -77,6 +77,7 @@ describe('ClimateCard', () => {
 
     it('shows target temperature when not off', () => {
       const entity = createMockClimateEntity({
+        state: 'heat', // HVAC mode is in entity.state
         attributes: {
           hvac_mode: 'heat',
           temperature: 23,
@@ -125,6 +126,7 @@ describe('ClimateCard', () => {
   describe('Temperature Controls', () => {
     it('increases temperature on up button click', async () => {
       const entity = createMockClimateEntity({
+        state: 'heat', // HVAC mode is in entity.state
         attributes: {
           hvac_mode: 'heat',
           temperature: 21,
@@ -155,6 +157,7 @@ describe('ClimateCard', () => {
 
     it('decreases temperature on down button click', async () => {
       const entity = createMockClimateEntity({
+        state: 'heat', // HVAC mode is in entity.state
         attributes: {
           hvac_mode: 'heat',
           temperature: 21,
@@ -185,6 +188,7 @@ describe('ClimateCard', () => {
 
     it('respects min/max temperature limits', async () => {
       const entity = createMockClimateEntity({
+        state: 'heat', // HVAC mode is in entity.state
         attributes: {
           hvac_mode: 'heat',
           temperature: 7, // At minimum
@@ -207,6 +211,7 @@ describe('ClimateCard', () => {
 
     it('handles temperature range for heat_cool mode', async () => {
       const entity = createMockClimateEntity({
+        state: 'heat_cool',
         attributes: {
           hvac_mode: 'heat_cool',
           target_temp_low: 20,
@@ -224,12 +229,18 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('20.0 - 24.0°C')).toBeInTheDocument()
+
+      // Check for drag instructions instead of buttons
+      expect(
+        screen.getByText('Drag the orange and blue dots to adjust temperatures')
+      ).toBeInTheDocument()
     })
   })
 
   describe('HVAC Mode Selection', () => {
     it('changes HVAC mode via icon buttons', async () => {
       const entity = createMockClimateEntity({
+        state: 'off', // HVAC mode is in entity.state
         attributes: {
           hvac_mode: 'off',
           hvac_modes: ['off', 'heat', 'cool'],
@@ -277,6 +288,7 @@ describe('ClimateCard', () => {
   describe('Visual States', () => {
     it('shows heating action with orange color', () => {
       const entity = createMockClimateEntity({
+        state: 'heat', // HVAC mode is in entity.state
         attributes: {
           friendly_name: 'Test Thermostat',
           hvac_mode: 'heat',
@@ -299,6 +311,7 @@ describe('ClimateCard', () => {
 
     it('shows cooling action with blue color', () => {
       const entity = createMockClimateEntity({
+        state: 'cool', // HVAC mode is in entity.state
         attributes: {
           friendly_name: 'Test Thermostat',
           hvac_mode: 'cool',
@@ -353,6 +366,7 @@ describe('ClimateCard', () => {
 
     it('hides controls in edit mode', () => {
       const entity = createMockClimateEntity({
+        state: 'heat', // HVAC mode is in entity.state
         attributes: {
           hvac_mode: 'heat',
           temperature: 21,
@@ -454,6 +468,7 @@ describe('ClimateCard', () => {
   describe('Temperature Units', () => {
     it('displays Fahrenheit when configured', () => {
       const entity = createMockClimateEntity({
+        state: 'cool', // HVAC mode is in entity.state
         attributes: {
           current_temperature: 72.5,
           temperature: 70,
