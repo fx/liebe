@@ -37,7 +37,7 @@ export function ConfigurationMenu() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `liebe-dashboard-${new Date().toISOString().split('T')[0]}.yaml`
+      link.download = `liebe-${new Date().toISOString().split('T')[0]}.yaml`
       link.click()
       URL.revokeObjectURL(url)
     } catch (error) {

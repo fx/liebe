@@ -90,7 +90,7 @@ describe('ConfigurationMenu', () => {
     await user.click(screen.getByText('Export as YAML'))
 
     expect(persistence.exportConfigurationAsYAML).toHaveBeenCalled()
-    expect(mockLink!.download).toMatch(/^liebe-dashboard-.*\.yaml$/)
+    expect(mockLink!.download).toMatch(/^liebe-.*\.yaml$/)
     expect(mockLink!.click).toHaveBeenCalled()
   })
 
