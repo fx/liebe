@@ -1,0 +1,115 @@
+/* Light Card styles */
+.light-card {
+  user-select: none;
+}
+
+/* Toggle area hover effect */
+.light-toggle-area:hover {
+  background-color: var(--gray-a3);
+}
+
+/* Slider styles */
+.SliderRoot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  touch-action: none;
+  height: 20px;
+  min-width: 100px;
+}
+
+.SliderTrack {
+  background-color: var(--gray-a5);
+  position: relative;
+  flex-grow: 1;
+  border-radius: 9999px;
+  height: 6px;
+}
+
+.SliderRange {
+  position: absolute;
+  background-color: var(--amber-9);
+  border-radius: 9999px;
+  height: 100%;
+}
+
+.SliderThumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  box-shadow: 0 2px 10px var(--gray-a7);
+  border-radius: 10px;
+  cursor: grab;
+  outline: none;
+}
+
+.SliderThumb:hover {
+  background-color: var(--gray-1);
+  box-shadow: 0 2px 10px var(--gray-a8);
+}
+
+.SliderThumb:focus {
+  box-shadow: 0 0 0 3px var(--amber-a5);
+}
+
+.SliderThumb:active {
+  cursor: grabbing;
+}
+
+/* Animation for loading state */
+@keyframes pulse-border {
+  0% {
+    border-color: var(--amber-6);
+  }
+  50% {
+    border-color: var(--amber-8);
+  }
+  100% {
+    border-color: var(--amber-6);
+  }
+}
+
+@keyframes pulse-border-error {
+  0% {
+    border-color: var(--red-6);
+  }
+  50% {
+    border-color: var(--red-8);
+  }
+  100% {
+    border-color: var(--red-6);
+  }
+}
+
+/* Drag handle for edit mode */
+.grid-item-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  cursor: move;
+  background: linear-gradient(to bottom, var(--gray-a3) 0%, transparent 100%);
+  border-radius: var(--radius-2) var(--radius-2) 0 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.light-card:hover .grid-item-drag-handle {
+  opacity: 1;
+}
+
+.grid-item-drag-handle::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 4px;
+  background: var(--gray-a6);
+  border-radius: 2px;
+  box-shadow: 0 6px 0 var(--gray-a6);
+}
