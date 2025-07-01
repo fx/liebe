@@ -3,22 +3,17 @@ export interface GridResolution {
   rows: number
 }
 
+export type GridItemType = 'entity' | 'separator'
+
 export interface GridItem {
   id: string
-  entityId: string
+  type: GridItemType
+  entityId?: string // Only required for entity type
+  title?: string // Optional title for separators
   x: number
   y: number
   width: number
   height: number
-}
-
-export interface SectionConfig {
-  id: string
-  title: string
-  order: number
-  width: 'full' | 'half' | 'third' | 'quarter'
-  collapsed?: boolean
-  items: GridItem[]
 }
 
 export interface ScreenConfig {
@@ -30,7 +25,7 @@ export interface ScreenConfig {
   children?: ScreenConfig[]
   grid?: {
     resolution: GridResolution
-    sections: SectionConfig[]
+    items: GridItem[]
   }
 }
 
@@ -58,17 +53,9 @@ export interface StoreActions {
   addScreen: (screen: ScreenConfig, parentId?: string) => void
   updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => void
   removeScreen: (screenId: string) => void
-  addSection: (screenId: string, section: SectionConfig) => void
-  updateSection: (screenId: string, sectionId: string, updates: Partial<SectionConfig>) => void
-  removeSection: (screenId: string, sectionId: string) => void
-  addGridItem: (screenId: string, sectionId: string, item: GridItem) => void
-  updateGridItem: (
-    screenId: string,
-    sectionId: string,
-    itemId: string,
-    updates: Partial<GridItem>
-  ) => void
-  removeGridItem: (screenId: string, sectionId: string, itemId: string) => void
+  addGridItem: (screenId: string, item: GridItem) => void
+  updateGridItem: (screenId: string, itemId: string, updates: Partial<GridItem>) => void
+  removeGridItem: (screenId: string, itemId: string) => void
   setTheme: (theme: 'light' | 'dark' | 'auto') => void
   setGridResolution: (resolution: GridResolution) => void
   loadConfiguration: (config: DashboardConfig) => void

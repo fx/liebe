@@ -34,7 +34,7 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
       type: 'grid',
       grid: {
         resolution: { columns: 12, rows: 8 },
-        sections: [],
+        items: [],
       },
     }
 

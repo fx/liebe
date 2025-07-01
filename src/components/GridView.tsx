@@ -1,0 +1,141 @@
+import { useState, useEffect } from 'react'
+import { Box } from '@radix-ui/themes'
+import { ButtonCard } from './ButtonCard'
+import { Separator } from './Separator'
+import { DeleteConfirmDialog } from './DeleteConfirmDialog'
+import { GridLayoutSection } from './GridLayoutSection'
+import { GridItem } from '../store/types'
+import { dashboardActions, useDashboardStore } from '../store'
+import './GridLayoutSection.css'
+
+interface GridViewProps {
+  screenId: string
+  items: GridItem[]
+  resolution: { columns: number; rows: number }
+}
+
+export function GridView({ screenId, items, resolution }: GridViewProps) {
+  const mode = useDashboardStore((state) => state.mode)
+  const isEditMode = mode === 'edit'
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null)
+  const [bulkDeletePending, setBulkDeletePending] = useState(false)
+
+  const handleDeleteItem = (itemId: string) => {
+    setItemToDelete(itemId)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (bulkDeletePending && selectedItems.size > 0) {
+      // Bulk delete selected items
+      selectedItems.forEach((itemId) => {
+        dashboardActions.removeGridItem(screenId, itemId)
+      })
+      setSelectedItems(new Set())
+      setBulkDeletePending(false)
+    } else if (itemToDelete) {
+      // Single item delete
+      dashboardActions.removeGridItem(screenId, itemToDelete)
+      setSelectedItems((prev) => {
+        const next = new Set(prev)
+        next.delete(itemToDelete)
+        return next
+      })
+      setItemToDelete(null)
+    }
+  }
+
+  const handleSelectItem = (itemId: string, selected: boolean) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev)
+      if (selected) {
+        next.add(itemId)
+      } else {
+        next.delete(itemId)
+      }
+      return next
+    })
+  }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isEditMode) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete key to delete selected items
+      if (e.key === 'Delete' && selectedItems.size > 0) {
+        e.preventDefault()
+        setBulkDeletePending(true)
+        setDeleteDialogOpen(true)
+      }
+      // Escape to clear selection
+      else if (e.key === 'Escape' && selectedItems.size > 0) {
+        e.preventDefault()
+        setSelectedItems(new Set())
+      }
+      // Ctrl/Cmd + A to select all
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault()
+        const allItemIds = new Set<string>(items.map((item) => item.id))
+        setSelectedItems(allItemIds)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isEditMode, selectedItems.size, items])
+
+  return (
+    <Box style={{ width: '100%' }}>
+      <GridLayoutSection
+        screenId={screenId}
+        items={items}
+        isEditMode={isEditMode}
+        resolution={resolution}
+      >
+        {(item) => {
+          if (item.type === 'separator') {
+            return (
+              <Separator
+                title={item.title}
+                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+                isSelected={selectedItems.has(item.id)}
+                onSelect={
+                  isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                }
+              />
+            )
+          } else {
+            return (
+              <ButtonCard
+                entityId={item.entityId!}
+                size="medium"
+                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+                isSelected={selectedItems.has(item.id)}
+                onSelect={
+                  isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                }
+              />
+            )
+          }
+        }}
+      </GridLayoutSection>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) {
+            setBulkDeletePending(false)
+            setItemToDelete(null)
+          }
+        }}
+        onConfirm={confirmDelete}
+        itemCount={bulkDeletePending ? selectedItems.size : 1}
+      />
+    </Box>
+  )
+}
