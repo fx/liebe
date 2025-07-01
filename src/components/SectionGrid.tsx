@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Box, Grid } from '@radix-ui/themes'
+import { Box } from '@radix-ui/themes'
 import { Section } from './Section'
 import { ButtonCard } from './ButtonCard'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
+import { GridLayoutSection } from './GridLayoutSection'
 import { SectionConfig, GridItem } from '../store/types'
 import { dashboardActions, useDashboardStore } from '../store'
 import './SectionGrid.css'
+import './GridLayoutSection.css'
 
 interface SectionGridProps {
   screenId: string
@@ -220,19 +222,15 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
           >
             {/* Entity items grid */}
             {section.items.length > 0 && (
-              <Grid
-                columns={{
-                  initial: '2',
-                  xs: '3',
-                  sm: '4',
-                  md: '6',
-                }}
-                gap="3"
-                width="100%"
+              <GridLayoutSection
+                screenId={screenId}
+                sectionId={section.id}
+                items={section.items}
+                isEditMode={isEditMode}
+                resolution={{ columns: 12, rows: 8 }} // Using default resolution for now
               >
-                {section.items.map((item) => (
+                {(item) => (
                   <ButtonCard
-                    key={item.id}
                     entityId={item.entityId}
                     size="medium"
                     onDelete={isEditMode ? () => handleDeleteItem(section.id, item.id) : undefined}
@@ -241,8 +239,8 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
                       isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
                     }
                   />
-                ))}
-              </Grid>
+                )}
+              </GridLayoutSection>
             )}
           </Section>
         </Box>
