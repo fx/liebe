@@ -7,6 +7,7 @@ class LiebePanel extends HTMLElement {
     this._hass = null
     this.iframe = null
     this.stateChangeUnsubscribe = null
+    this._currentRoute = '/'
   }
 
   set hass(hass) {
@@ -67,6 +68,14 @@ class LiebePanel extends HTMLElement {
     // Send initial hass object once iframe loads
     this.iframe.addEventListener('load', () => {
       this.sendHassToIframe()
+      
+      // If we have a stored route, send it to the iframe
+      if (this._currentRoute && this._currentRoute !== '/') {
+        this.iframe.contentWindow.postMessage(
+          { type: 'navigate-to', path: this._currentRoute },
+          '*'
+        )
+      }
     })
   }
 
@@ -122,21 +131,20 @@ class LiebePanel extends HTMLElement {
           )
         })
     } else if (event.data.type === 'route-change') {
-      // Update the URL in Home Assistant
+      // Handle route changes within the panel
       const path = event.data.path
-      if (path) {
-        const basePath = window.location.pathname.split('/').slice(0, -1).join('/')
-        const newPath = `${basePath}${path}`
-        history.pushState(null, '', newPath)
+      if (path && path !== '/') {
+        // Store the sub-route in the panel's state
+        this._currentRoute = path
         
-        // Notify Home Assistant about the URL change
-        this.dispatchEvent(
-          new CustomEvent('location-changed', {
-            bubbles: true,
-            composed: true,
-            detail: { path: newPath },
-          })
-        )
+        // Update URL without triggering Home Assistant navigation
+        // We'll use replaceState instead of pushState to avoid adding to history
+        const basePath = window.location.pathname
+        const newPath = `${basePath}${path}`
+        history.replaceState({ panelRoute: path }, '', newPath)
+        
+        // Don't dispatch location-changed event for sub-routes
+        // This prevents Home Assistant from trying to load non-existent panels
       }
     }
   }
