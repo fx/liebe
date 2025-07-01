@@ -37,7 +37,7 @@ describe('persistence', () => {
         type: 'grid',
         grid: {
           resolution: { columns: 12, rows: 8 },
-          sections: [],
+          items: [],
         },
       },
     ],
@@ -95,7 +95,7 @@ describe('persistence', () => {
       expect(loaded).toBeNull()
     })
 
-    it('should migrate old format with items to sections', () => {
+    it('should migrate old format with sections to items', () => {
       const oldConfig = {
         version: '1.0.0',
         screens: [
@@ -105,7 +105,22 @@ describe('persistence', () => {
             type: 'grid',
             grid: {
               resolution: { columns: 12, rows: 8 },
-              items: [{ id: 'item-1' }], // Old format
+              sections: [
+                {
+                  id: 'section-1',
+                  title: 'Section 1',
+                  order: 0,
+                  width: 'full',
+                  items: [{ id: 'item-1', entityId: 'light.test' }],
+                },
+                {
+                  id: 'section-2',
+                  title: 'Section 2',
+                  order: 1,
+                  width: 'half',
+                  items: [{ id: 'item-2', entityId: 'switch.test' }],
+                },
+              ],
             },
           },
         ],
@@ -116,11 +131,10 @@ describe('persistence', () => {
 
       const loaded = loadDashboardConfig()
 
-      expect(loaded?.screens[0].grid?.sections).toEqual([])
-      interface OldGridFormat {
-        items?: unknown[]
-      }
-      expect((loaded?.screens[0].grid as unknown as OldGridFormat).items).toBeUndefined()
+      // Should have migrated all items to flat structure
+      expect(loaded?.screens[0].grid?.items).toHaveLength(2)
+      expect(loaded?.screens[0].grid?.items?.[0]).toEqual({ id: 'item-1', entityId: 'light.test' })
+      expect(loaded?.screens[0].grid?.items?.[1]).toEqual({ id: 'item-2', entityId: 'switch.test' })
     })
 
     it('should handle parse errors gracefully', () => {
@@ -220,22 +234,32 @@ describe('persistence', () => {
       expect(yaml).toContain('name: "Test Screen"')
     })
 
-    it('should include sections in YAML', () => {
-      const configWithSections: DashboardConfig = {
+    it('should include items in YAML', () => {
+      const configWithItems: DashboardConfig = {
         ...mockConfig,
         screens: [
           {
             ...mockConfig.screens[0],
             grid: {
               resolution: { columns: 12, rows: 8 },
-              sections: [
+              items: [
                 {
-                  id: 'section-1',
-                  title: 'Test Section',
-                  order: 0,
-                  width: 'full',
-                  collapsed: false,
-                  items: [],
+                  id: 'item-1',
+                  type: 'entity',
+                  entityId: 'light.test',
+                  x: 0,
+                  y: 0,
+                  width: 2,
+                  height: 2,
+                },
+                {
+                  id: 'sep-1',
+                  type: 'separator',
+                  title: 'Living Room',
+                  x: 0,
+                  y: 2,
+                  width: 4,
+                  height: 1,
                 },
               ],
             },
@@ -243,13 +267,15 @@ describe('persistence', () => {
         ],
       }
 
-      dashboardActions.loadConfiguration(configWithSections)
+      dashboardActions.loadConfiguration(configWithItems)
 
       const yaml = exportConfigurationAsYAML()
 
-      expect(yaml).toContain('sections:')
-      expect(yaml).toContain('title: "Test Section"')
-      expect(yaml).toContain('width: full')
+      expect(yaml).toContain('items:')
+      expect(yaml).toContain('type: entity')
+      expect(yaml).toContain('entityId: "light.test"')
+      expect(yaml).toContain('type: separator')
+      expect(yaml).toContain('title: "Living Room"')
     })
   })
 
@@ -279,15 +305,16 @@ describe('persistence', () => {
             name: 'X'.repeat(50000), // Large string to fill storage
             grid: {
               resolution: { columns: 12, rows: 8 },
-              sections: Array(10)
+              items: Array(10)
                 .fill(null)
                 .map((_, j) => ({
-                  id: `section-${i}-${j}`,
-                  title: 'Y'.repeat(10000),
-                  order: j,
-                  width: 'full' as const,
-                  collapsed: false,
-                  items: [],
+                  id: `item-${i}-${j}`,
+                  type: 'entity' as const,
+                  entityId: `light.test_${i}_${j}`,
+                  x: j,
+                  y: 0,
+                  width: 1,
+                  height: 1,
                 })),
             },
           })),

@@ -4,7 +4,6 @@ import type {
   DashboardState,
   DashboardMode,
   ScreenConfig,
-  SectionConfig,
   GridItem,
   GridResolution,
   DashboardConfig,
@@ -169,7 +168,7 @@ export const dashboardActions = {
     })
   },
 
-  addSection: (screenId: string, section: SectionConfig) => {
+  addGridItem: (screenId: string, item: GridItem) => {
     dashboardStore.setState((state) => {
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
         return screens.map((screen) => {
@@ -178,7 +177,7 @@ export const dashboardActions = {
               ...screen,
               grid: {
                 ...screen.grid,
-                sections: [...screen.grid.sections, section],
+                items: [...screen.grid.items, item],
               },
             }
           }
@@ -200,7 +199,7 @@ export const dashboardActions = {
     })
   },
 
-  updateSection: (screenId: string, sectionId: string, updates: Partial<SectionConfig>) => {
+  updateGridItem: (screenId: string, itemId: string, updates: Partial<GridItem>) => {
     dashboardStore.setState((state) => {
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
         return screens.map((screen) => {
@@ -209,8 +208,8 @@ export const dashboardActions = {
               ...screen,
               grid: {
                 ...screen.grid,
-                sections: screen.grid.sections.map((section) =>
-                  section.id === sectionId ? { ...section, ...updates } : section
+                items: screen.grid.items.map((item) =>
+                  item.id === itemId ? { ...item, ...updates } : item
                 ),
               },
             }
@@ -233,7 +232,7 @@ export const dashboardActions = {
     })
   },
 
-  removeSection: (screenId: string, sectionId: string) => {
+  removeGridItem: (screenId: string, itemId: string) => {
     dashboardStore.setState((state) => {
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
         return screens.map((screen) => {
@@ -242,125 +241,7 @@ export const dashboardActions = {
               ...screen,
               grid: {
                 ...screen.grid,
-                sections: screen.grid.sections.filter((section) => section.id !== sectionId),
-              },
-            }
-          }
-          if (screen.children) {
-            return {
-              ...screen,
-              children: updateInTree(screen.children),
-            }
-          }
-          return screen
-        })
-      }
-
-      return {
-        ...state,
-        screens: updateInTree(state.screens),
-        isDirty: true,
-      }
-    })
-  },
-
-  addGridItem: (screenId: string, sectionId: string, item: GridItem) => {
-    dashboardStore.setState((state) => {
-      const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
-        return screens.map((screen) => {
-          if (screen.id === screenId && screen.grid) {
-            return {
-              ...screen,
-              grid: {
-                ...screen.grid,
-                sections: screen.grid.sections.map((section) =>
-                  section.id === sectionId
-                    ? { ...section, items: [...section.items, item] }
-                    : section
-                ),
-              },
-            }
-          }
-          if (screen.children) {
-            return {
-              ...screen,
-              children: updateInTree(screen.children),
-            }
-          }
-          return screen
-        })
-      }
-
-      return {
-        ...state,
-        screens: updateInTree(state.screens),
-        isDirty: true,
-      }
-    })
-  },
-
-  updateGridItem: (
-    screenId: string,
-    sectionId: string,
-    itemId: string,
-    updates: Partial<GridItem>
-  ) => {
-    dashboardStore.setState((state) => {
-      const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
-        return screens.map((screen) => {
-          if (screen.id === screenId && screen.grid) {
-            return {
-              ...screen,
-              grid: {
-                ...screen.grid,
-                sections: screen.grid.sections.map((section) =>
-                  section.id === sectionId
-                    ? {
-                        ...section,
-                        items: section.items.map((item) =>
-                          item.id === itemId ? { ...item, ...updates } : item
-                        ),
-                      }
-                    : section
-                ),
-              },
-            }
-          }
-          if (screen.children) {
-            return {
-              ...screen,
-              children: updateInTree(screen.children),
-            }
-          }
-          return screen
-        })
-      }
-
-      return {
-        ...state,
-        screens: updateInTree(state.screens),
-        isDirty: true,
-      }
-    })
-  },
-
-  removeGridItem: (screenId: string, sectionId: string, itemId: string) => {
-    dashboardStore.setState((state) => {
-      const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
-        return screens.map((screen) => {
-          if (screen.id === screenId && screen.grid) {
-            return {
-              ...screen,
-              grid: {
-                ...screen.grid,
-                sections: screen.grid.sections.map((section) =>
-                  section.id === sectionId
-                    ? {
-                        ...section,
-                        items: section.items.filter((item) => item.id !== itemId),
-                      }
-                    : section
-                ),
+                items: screen.grid.items.filter((item) => item.id !== itemId),
               },
             }
           }

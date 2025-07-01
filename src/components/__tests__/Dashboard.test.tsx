@@ -172,7 +172,7 @@ describe('Dashboard', () => {
 
       expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument()
-      expect(screen.getByText(/No sections added yet/)).toBeInTheDocument()
+      expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
     })
 
     it('should show entity message in edit mode', async () => {
@@ -181,7 +181,7 @@ describe('Dashboard', () => {
 
       await user.click(screen.getByText('Edit'))
 
-      expect(screen.getByText(/No sections added yet/)).toBeInTheDocument()
+      expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
     })
   })
 })

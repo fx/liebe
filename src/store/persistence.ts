@@ -34,14 +34,17 @@ export const loadDashboardMode = (): 'view' | 'edit' => {
   return 'view' // Default to view mode
 }
 
-// Migrate old screen format to new format with sections and slugs
+// Migrate old screen format to new format with items and slugs
 const migrateScreenConfig = (config: unknown): DashboardConfig => {
   const allSlugs: string[] = []
 
   interface ScreenToMigrate {
     grid?: {
       items?: unknown[]
-      sections?: unknown[]
+      sections?: Array<{
+        id: string
+        items: unknown[]
+      }>
     }
     slug?: string
     name?: string
@@ -51,10 +54,22 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
 
   const migrateScreen = (screen: unknown): ScreenToMigrate => {
     const screenObj = screen as ScreenToMigrate
-    // If screen has grid with items instead of sections, migrate it
-    if (screenObj.grid && 'items' in screenObj.grid && !screenObj.grid.sections) {
-      screenObj.grid.sections = []
-      delete screenObj.grid.items
+
+    // If screen has grid with sections, migrate to flat items structure
+    if (screenObj.grid && 'sections' in screenObj.grid && screenObj.grid.sections) {
+      const allItems: unknown[] = []
+      screenObj.grid.sections.forEach((section) => {
+        if (section.items && Array.isArray(section.items)) {
+          allItems.push(...section.items)
+        }
+      })
+      screenObj.grid.items = allItems
+      delete screenObj.grid.sections
+    }
+
+    // Ensure grid has items array if it exists
+    if (screenObj.grid && !screenObj.grid.items) {
+      screenObj.grid.items = []
     }
 
     // Add slug if it doesn't exist
@@ -231,7 +246,16 @@ export const exportConfigurationAsYAML = (): string => {
     type: string
     grid?: {
       resolution: { columns: number; rows: number }
-      sections?: unknown[]
+      items?: Array<{
+        id: string
+        type: string
+        entityId?: string
+        title?: string
+        x: number
+        y: number
+        width: number
+        height: number
+      }>
     }
     children?: ScreenToSerialize[]
   }
@@ -249,21 +273,21 @@ export const exportConfigurationAsYAML = (): string => {
       yamlLines.push(`${prefix}      columns: ${screen.grid.resolution.columns}`)
       yamlLines.push(`${prefix}      rows: ${screen.grid.resolution.rows}`)
 
-      if (screen.grid.sections && screen.grid.sections.length > 0) {
-        yamlLines.push(`${prefix}    sections:`)
-        screen.grid.sections.forEach((section: unknown) => {
-          const sectionObj = section as {
-            id: string
-            title: string
-            order: number
-            width: string
-            collapsed?: boolean
+      if (screen.grid.items && screen.grid.items.length > 0) {
+        yamlLines.push(`${prefix}    items:`)
+        screen.grid.items.forEach((item) => {
+          yamlLines.push(`${prefix}      - id: "${item.id}"`)
+          yamlLines.push(`${prefix}        type: ${item.type}`)
+          if (item.entityId) {
+            yamlLines.push(`${prefix}        entityId: "${item.entityId}"`)
           }
-          yamlLines.push(`${prefix}      - id: "${sectionObj.id}"`)
-          yamlLines.push(`${prefix}        title: "${sectionObj.title}"`)
-          yamlLines.push(`${prefix}        order: ${sectionObj.order}`)
-          yamlLines.push(`${prefix}        width: ${sectionObj.width}`)
-          yamlLines.push(`${prefix}        collapsed: ${sectionObj.collapsed || false}`)
+          if (item.title) {
+            yamlLines.push(`${prefix}        title: "${item.title}"`)
+          }
+          yamlLines.push(`${prefix}        x: ${item.x}`)
+          yamlLines.push(`${prefix}        y: ${item.y}`)
+          yamlLines.push(`${prefix}        width: ${item.width}`)
+          yamlLines.push(`${prefix}        height: ${item.height}`)
         })
       }
     }

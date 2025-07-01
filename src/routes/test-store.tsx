@@ -25,7 +25,7 @@ function StoreTestPage() {
       type: 'grid' as const,
       grid: {
         resolution: { columns: 12, rows: 8 },
-        sections: [],
+        items: [],
       },
     }
     dashboardActions.addScreen(newScreen)
@@ -145,7 +145,7 @@ function StoreTestPage() {
               <Card>
                 <pre style={{ fontSize: '12px', margin: 0 }}>
                   {JSON.stringify(
-                    screens.find((s) => s.id === currentScreenId)?.grid?.sections || [],
+                    screens.find((s) => s.id === currentScreenId)?.grid?.items || [],
                     null,
                     2
                   )}

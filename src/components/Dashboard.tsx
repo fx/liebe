@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Box, Flex, Card, Text, Button } from '@radix-ui/themes'
 import { ViewTabs } from './ViewTabs'
 import { AddViewDialog } from './AddViewDialog'
-import { SectionGrid } from './SectionGrid'
-import { AddSectionButton } from './AddSectionButton'
+import { GridView } from './GridView'
+import { AddItemButton } from './AddItemButton'
 import { ConfigurationMenu } from './ConfigurationMenu'
 import { ConnectionStatus } from './ConnectionStatus'
 import { ModeToggle } from './ModeToggle'
@@ -76,23 +76,22 @@ export function Dashboard() {
                   {currentScreen.grid?.resolution.rows}
                 </Text>
               </Flex>
-              {mode === 'edit' && (
-                <AddSectionButton
-                  screenId={currentScreen.id}
-                  existingSectionsCount={currentScreen.grid?.sections?.length || 0}
-                />
-              )}
+              {mode === 'edit' && <AddItemButton screenId={currentScreen.id} />}
             </Flex>
 
-            {/* Sections Grid */}
-            {currentScreen.grid?.sections && currentScreen.grid.sections.length > 0 ? (
-              <SectionGrid screenId={currentScreen.id} sections={currentScreen.grid.sections} />
+            {/* Grid View */}
+            {currentScreen.grid?.items && currentScreen.grid.items.length > 0 ? (
+              <GridView
+                screenId={currentScreen.id}
+                items={currentScreen.grid.items}
+                resolution={currentScreen.grid.resolution}
+              />
             ) : (
               <Card>
                 <Flex align="center" justify="center" p="6">
                   <Text color="gray" size="2">
-                    No sections added yet.{' '}
-                    {mode === 'edit' && 'Click "Add Section" to start organizing your dashboard.'}
+                    No items added yet.{' '}
+                    {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
                   </Text>
                 </Flex>
               </Card>

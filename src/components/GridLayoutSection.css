@@ -1,0 +1,242 @@
+/* Grid Layout Section Styles */
+
+/* Override react-grid-layout styles for better Radix UI integration */
+.react-grid-layout {
+  position: relative;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item.resizing {
+  z-index: 1;
+  will-change: width, height;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+  cursor: move;
+}
+
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent-3);
+  opacity: 0.5;
+  transition-duration: 100ms;
+  z-index: 2;
+  border-radius: var(--radius-3);
+  border: 2px dashed var(--accent-7);
+}
+
+/* Grid item container */
+.grid-item {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Resize handles */
+.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: transparent;
+  z-index: 1;
+}
+
+.react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  border: 2px solid var(--accent-9);
+  background: var(--color-background);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.react-grid-item:hover .react-resizable-handle::after {
+  opacity: 1;
+}
+
+/* Corner handles */
+.react-resizable-handle-se,
+.react-resizable-handle-sw,
+.react-resizable-handle-ne,
+.react-resizable-handle-nw {
+  width: 20px;
+  height: 20px;
+}
+
+.react-resizable-handle-se::after,
+.react-resizable-handle-sw::after,
+.react-resizable-handle-ne::after,
+.react-resizable-handle-nw::after {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.react-resizable-handle-se {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+.react-resizable-handle-se::after {
+  bottom: 4px;
+  right: 4px;
+}
+
+.react-resizable-handle-sw {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+
+.react-resizable-handle-sw::after {
+  bottom: 4px;
+  left: 4px;
+}
+
+.react-resizable-handle-ne {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+}
+
+.react-resizable-handle-ne::after {
+  top: 4px;
+  right: 4px;
+}
+
+.react-resizable-handle-nw {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+
+.react-resizable-handle-nw::after {
+  top: 4px;
+  left: 4px;
+}
+
+/* Edge handles */
+.react-resizable-handle-e,
+.react-resizable-handle-w {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 40px;
+}
+
+.react-resizable-handle-e::after,
+.react-resizable-handle-w::after {
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.react-resizable-handle-e {
+  right: 0;
+  cursor: e-resize;
+}
+
+.react-resizable-handle-e::after {
+  right: 6px;
+}
+
+.react-resizable-handle-w {
+  left: 0;
+  cursor: w-resize;
+}
+
+.react-resizable-handle-w::after {
+  left: 6px;
+}
+
+.react-resizable-handle-n,
+.react-resizable-handle-s {
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 20px;
+}
+
+.react-resizable-handle-n::after,
+.react-resizable-handle-s::after {
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.react-resizable-handle-n {
+  top: 0;
+  cursor: n-resize;
+}
+
+.react-resizable-handle-n::after {
+  top: 6px;
+}
+
+.react-resizable-handle-s {
+  bottom: 0;
+  cursor: s-resize;
+}
+
+.react-resizable-handle-s::after {
+  bottom: 6px;
+}
+
+/* Touch-friendly drag handle */
+.grid-item-drag-handle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-3);
+  border-radius: var(--radius-2);
+  cursor: move;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+
+.grid-item:hover .grid-item-drag-handle {
+  opacity: 1;
+}
+
+.grid-item-drag-handle:hover {
+  background: var(--accent-4);
+}
+
+.grid-item-drag-handle::before {
+  content: '⋮⋮';
+  font-size: 12px;
+  color: var(--accent-11);
+  letter-spacing: -2px;
+}
+
+/* Ensure ButtonCard fills the grid item */
+.grid-item > * {
+  width: 100%;
+  height: 100%;
+}
