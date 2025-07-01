@@ -223,7 +223,8 @@ describe('InputTextCard', () => {
 
     // Wait for edit mode and check the password input
     await waitFor(() => {
-      const input = screen.getByRole('textbox')
+      // Password inputs don't have role="textbox", find by type
+      const input = screen.getByDisplayValue('secret123')
       expect(input).toBeInTheDocument()
       expect(input).toHaveAttribute('type', 'password')
     })

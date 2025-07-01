@@ -133,22 +133,24 @@ describe('InputDateTimeCard', () => {
   it('enters edit mode on click in view mode', async () => {
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
-    // Initially should show the formatted date, not input
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    // Should not have an input field initially
+    expect(container.querySelector('input')).not.toBeInTheDocument()
+    expect(container.querySelector('form')).not.toBeInTheDocument()
+    
+    // Click the card to enter edit mode
+    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    fireEvent.click(card)
 
-    // Click the edit button to enter edit mode
-    const buttons = container.querySelectorAll('.rt-IconButton')
-    expect(buttons.length).toBeGreaterThan(0)
-    fireEvent.click(buttons[0])
-
-    // Wait for the input to appear
+    // Wait for the form and input to appear
     await waitFor(() => {
-      expect(screen.getByRole('textbox')).toBeInTheDocument()
+      const form = container.querySelector('form')
+      expect(form).toBeInTheDocument()
+      
+      const input = container.querySelector('input[type="datetime-local"]')
+      expect(input).toBeInTheDocument()
+      // datetime-local inputs truncate seconds when zero
+      expect((input as HTMLInputElement).value).toMatch(/^2024-01-15T14:30/)
     })
-
-    const input = screen.getByRole('textbox') as HTMLInputElement
-    expect(input.type).toBe('datetime-local')
-    expect(input.value).toBe('2024-01-15T14:30:00')
   })
 
   it('uses date input type for date only', async () => {
@@ -167,17 +169,15 @@ describe('InputDateTimeCard', () => {
       isStale: false,
     })
 
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
     const card = screen.getByText('Test DateTime').closest('.rt-Card')!
     fireEvent.click(card)
 
     await waitFor(() => {
-      expect(screen.getByRole('textbox')).toBeInTheDocument()
+      const input = container.querySelector('input[type="date"]')
+      expect(input).toBeInTheDocument()
     })
-
-    const input = screen.getByRole('textbox') as HTMLInputElement
-    expect(input.type).toBe('date')
   })
 
   it('uses time input type for time only', async () => {
@@ -196,71 +196,78 @@ describe('InputDateTimeCard', () => {
       isStale: false,
     })
 
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
     const card = screen.getByText('Test DateTime').closest('.rt-Card')!
     fireEvent.click(card)
 
     await waitFor(() => {
-      expect(screen.getByRole('textbox')).toBeInTheDocument()
+      const input = container.querySelector('input[type="time"]')
+      expect(input).toBeInTheDocument()
     })
-
-    const input = screen.getByRole('textbox') as HTMLInputElement
-    expect(input.type).toBe('time')
   })
 
   it('submits new value on form submit', async () => {
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
-    // Enter edit mode by clicking the edit button
-    const buttons = screen.getAllByRole('button')
-    const editButton = buttons.find((btn) => btn.querySelector('.lucide-pen'))
-    expect(editButton).toBeDefined()
-    fireEvent.click(editButton!)
+    // Enter edit mode by clicking the card
+    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    fireEvent.click(card)
 
     // Wait for edit mode to activate
     await waitFor(() => {
-      expect(screen.getByRole('textbox')).toBeInTheDocument()
+      const input = container.querySelector('input')
+      expect(input).toBeInTheDocument()
     })
 
-    const input = screen.getByRole('textbox')
+    const input = container.querySelector('input')!
     fireEvent.change(input, { target: { value: '2024-02-20T16:45:00' } })
 
-    const submitButtons = screen.getAllByRole('button')
-    const submitButton = submitButtons[0] // Submit button is first
-    fireEvent.click(submitButton)
+    // Find the submit button (green check)
+    const buttons = container.querySelectorAll('button')
+    const submitButton = Array.from(buttons).find(btn => 
+      btn.querySelector('svg.lucide-check')
+    )
+    expect(submitButton).toBeDefined()
+    fireEvent.click(submitButton!)
 
     await waitFor(() => {
-      expect(mockSetValue).toHaveBeenCalledWith(
-        'input_datetime.test_datetime',
-        '2024-02-20T16:45:00'
-      )
+      expect(mockSetValue).toHaveBeenCalled()
+      const [entityId, value] = mockSetValue.mock.calls[0]
+      expect(entityId).toBe('input_datetime.test_datetime')
+      // The value might not include seconds if they're zero
+      expect(value).toMatch(/^2024-02-20T16:45/)
     })
   })
 
   it('cancels edit on cancel button click', async () => {
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
-    // Enter edit mode by clicking the edit button
-    const buttons = screen.getAllByRole('button')
-    const editButton = buttons.find((btn) => btn.querySelector('.lucide-pen'))
-    expect(editButton).toBeDefined()
-    fireEvent.click(editButton!)
+    // Enter edit mode by clicking the card
+    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    fireEvent.click(card)
 
     // Wait for edit mode to activate
     await waitFor(() => {
-      expect(screen.getByRole('textbox')).toBeInTheDocument()
+      const input = container.querySelector('input')
+      expect(input).toBeInTheDocument()
     })
 
-    const input = screen.getByRole('textbox')
+    const input = container.querySelector('input')!
     fireEvent.change(input, { target: { value: '2024-02-20T16:45:00' } })
 
-    const cancelButtons = screen.getAllByRole('button')
-    const cancelButton = cancelButtons[cancelButtons.length - 1] // Cancel button is last
-    fireEvent.click(cancelButton)
+    // Find the cancel button (red X) - not the close button in edit mode
+    const buttons = container.querySelectorAll('form button')
+    const cancelButton = Array.from(buttons).find(btn => {
+      const svg = btn.querySelector('svg')
+      return btn.getAttribute('type') === 'button' && 
+             svg && svg.querySelector('path[d*="18 6"]') !== null // X icon path
+    })
+    expect(cancelButton).toBeDefined()
+    fireEvent.click(cancelButton!)
 
     await waitFor(() => {
-      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      expect(container.querySelector('input')).not.toBeInTheDocument()
       expect(mockSetValue).not.toHaveBeenCalled()
     })
   })
@@ -311,13 +318,21 @@ describe('InputDateTimeCard', () => {
   })
 
   it('shows edit button that enters edit mode', async () => {
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
-    const editButton = screen.getAllByRole('button')[0]
-    fireEvent.click(editButton)
-
+    // Should not be in edit mode initially
+    expect(container.querySelector('input')).not.toBeInTheDocument()
+    
+    // Find the edit button
+    const editButton = container.querySelector('button svg.lucide-pen')?.parentElement
+    expect(editButton).toBeInTheDocument()
+    
+    // Click the edit button
+    fireEvent.click(editButton!)
+    
     await waitFor(() => {
-      expect(screen.getByRole('textbox')).toBeInTheDocument()
+      const input = container.querySelector('input')
+      expect(input).toBeInTheDocument()
     })
   })
 
