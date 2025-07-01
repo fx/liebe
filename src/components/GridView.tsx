@@ -3,6 +3,7 @@ import { Box } from '@radix-ui/themes'
 import { ButtonCard } from './ButtonCard'
 import { LightCard } from './LightCard'
 import { SensorCard } from './SensorCard'
+import { CoverCard } from './CoverCard'
 import { InputBooleanCard } from './InputBooleanCard'
 import { InputNumberCard } from './InputNumberCard'
 import { InputSelectCard } from './InputSelectCard'
@@ -46,6 +47,16 @@ function EntityCard({
     case 'light':
       return (
         <LightCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'cover':
+      return (
+        <CoverCard
           entityId={entityId}
           size={size}
           onDelete={onDelete}
