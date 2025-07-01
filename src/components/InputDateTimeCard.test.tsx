@@ -136,7 +136,7 @@ describe('InputDateTimeCard', () => {
     // Should not have an input field initially
     expect(container.querySelector('input')).not.toBeInTheDocument()
     expect(container.querySelector('form')).not.toBeInTheDocument()
-    
+
     // Click the card to enter edit mode
     const card = screen.getByText('Test DateTime').closest('.rt-Card')!
     fireEvent.click(card)
@@ -145,7 +145,7 @@ describe('InputDateTimeCard', () => {
     await waitFor(() => {
       const form = container.querySelector('form')
       expect(form).toBeInTheDocument()
-      
+
       const input = container.querySelector('input[type="datetime-local"]')
       expect(input).toBeInTheDocument()
       // datetime-local inputs truncate seconds when zero
@@ -225,9 +225,7 @@ describe('InputDateTimeCard', () => {
 
     // Find the submit button (green check)
     const buttons = container.querySelectorAll('button')
-    const submitButton = Array.from(buttons).find(btn => 
-      btn.querySelector('svg.lucide-check')
-    )
+    const submitButton = Array.from(buttons).find((btn) => btn.querySelector('svg.lucide-check'))
     expect(submitButton).toBeDefined()
     fireEvent.click(submitButton!)
 
@@ -258,10 +256,13 @@ describe('InputDateTimeCard', () => {
 
     // Find the cancel button (red X) - not the close button in edit mode
     const buttons = container.querySelectorAll('form button')
-    const cancelButton = Array.from(buttons).find(btn => {
+    const cancelButton = Array.from(buttons).find((btn) => {
       const svg = btn.querySelector('svg')
-      return btn.getAttribute('type') === 'button' && 
-             svg && svg.querySelector('path[d*="18 6"]') !== null // X icon path
+      return (
+        btn.getAttribute('type') === 'button' &&
+        svg &&
+        svg.querySelector('path[d*="18 6"]') !== null
+      ) // X icon path
     })
     expect(cancelButton).toBeDefined()
     fireEvent.click(cancelButton!)
@@ -322,14 +323,14 @@ describe('InputDateTimeCard', () => {
 
     // Should not be in edit mode initially
     expect(container.querySelector('input')).not.toBeInTheDocument()
-    
+
     // Find the edit button
     const editButton = container.querySelector('button svg.lucide-pen')?.parentElement
     expect(editButton).toBeInTheDocument()
-    
+
     // Click the edit button
     fireEvent.click(editButton!)
-    
+
     await waitFor(() => {
       const input = container.querySelector('input')
       expect(input).toBeInTheDocument()
