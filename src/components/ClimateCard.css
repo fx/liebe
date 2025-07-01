@@ -1,0 +1,104 @@
+/* ClimateCard specific styles */
+.climate-card {
+  user-select: none;
+  overflow: hidden;
+}
+
+.climate-card .grid-item-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  cursor: move;
+  background: linear-gradient(
+    to bottom,
+    var(--gray-a3) 0%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.climate-card:hover .grid-item-drag-handle {
+  opacity: 0.5;
+}
+
+.climate-card .grid-item-drag-handle::before {
+  content: '⋮⋮';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--gray-9);
+  letter-spacing: 2px;
+}
+
+/* Temperature controls hover effect */
+.climate-card button[aria-label*="temperature"] {
+  transition: all 0.2s ease;
+}
+
+.climate-card button[aria-label*="temperature"]:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+.climate-card button[aria-label*="temperature"]:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* Select dropdown styling */
+.climate-card [data-radix-select-trigger] {
+  transition: all 0.2s ease;
+}
+
+.climate-card [data-radix-select-trigger]:hover:not(:disabled) {
+  border-color: var(--gray-7);
+}
+
+/* Animation for loading state */
+@keyframes pulse-border {
+  0% {
+    box-shadow: 0 0 0 0 var(--gray-6);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--gray-a3);
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--gray-6);
+  }
+}
+
+@keyframes pulse-border-error {
+  0% {
+    box-shadow: 0 0 0 0 var(--red-6);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--red-a3);
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--red-6);
+  }
+}
+
+/* Status colors */
+.climate-card[data-status="heating"] {
+  background-color: var(--orange-a2);
+}
+
+.climate-card[data-status="cooling"] {
+  background-color: var(--blue-a2);
+}
+
+.climate-card[data-status="idle"] {
+  background-color: var(--gray-a2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .climate-card button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
