@@ -5,21 +5,33 @@ import {
   UploadIcon,
   ResetIcon,
   FileIcon,
-  CodeIcon,
   ExclamationTriangleIcon,
+  CopyIcon,
+  DownloadIcon,
 } from '@radix-ui/react-icons'
 import {
   exportConfigurationToFile,
-  exportConfigurationAsYAML,
+  exportConfigurationToYAMLFile,
+  copyYAMLToClipboard,
   importConfigurationFromFile,
   clearDashboardConfig,
   getStorageInfo,
+  restoreConfigurationFromBackup,
+  parseConfigurationFromFile,
 } from '../store/persistence'
+import { ImportPreviewDialog } from './ImportPreviewDialog'
+import type { DashboardConfig } from '../store/types'
 
 export function ConfigurationMenu() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [importSuccess, setImportSuccess] = useState<string | null>(null)
   const [showStorageWarning, setShowStorageWarning] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+  const [previewConfig, setPreviewConfig] = useState<DashboardConfig | null>(null)
+  const [previewVersionMessage, setPreviewVersionMessage] = useState<string | undefined>()
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExportJSON = () => {
@@ -32,16 +44,19 @@ export function ConfigurationMenu() {
 
   const handleExportYAML = () => {
     try {
-      const yaml = exportConfigurationAsYAML()
-      const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `liebe-${new Date().toISOString().split('T')[0]}.yaml`
-      link.click()
-      URL.revokeObjectURL(url)
+      exportConfigurationToYAMLFile()
     } catch (error) {
       console.error('YAML export failed:', error)
+    }
+  }
+
+  const handleCopyYAML = async () => {
+    try {
+      await copyYAMLToClipboard()
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (error) {
+      console.error('Copy to clipboard failed:', error)
     }
   }
 
@@ -55,13 +70,14 @@ export function ConfigurationMenu() {
 
     try {
       setImportError(null)
-      await importConfigurationFromFile(file)
+      setImportSuccess(null)
 
-      // Check storage after import
-      const storageInfo = getStorageInfo()
-      if (!storageInfo.available) {
-        setShowStorageWarning(true)
-      }
+      // Parse the file and show preview
+      const { config, versionMessage } = await parseConfigurationFromFile(file)
+      setPreviewConfig(config)
+      setPreviewVersionMessage(versionMessage)
+      setPendingFile(file)
+      setPreviewDialogOpen(true)
     } catch (error) {
       setImportError((error as Error).message)
     }
@@ -70,6 +86,36 @@ export function ConfigurationMenu() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+  }
+
+  const handleConfirmImport = async () => {
+    if (!pendingFile) return
+
+    try {
+      await importConfigurationFromFile(pendingFile)
+
+      // Check storage after import
+      const storageInfo = getStorageInfo()
+      if (!storageInfo.available) {
+        setShowStorageWarning(true)
+      }
+
+      setImportSuccess('Configuration imported successfully!')
+      setTimeout(() => setImportSuccess(null), 3000)
+      setPreviewDialogOpen(false)
+      setPendingFile(null)
+    } catch (error) {
+      setImportError((error as Error).message)
+      setPreviewDialogOpen(false)
+      setPendingFile(null)
+    }
+  }
+
+  const handleCancelImport = () => {
+    setPreviewDialogOpen(false)
+    setPendingFile(null)
+    setPreviewConfig(null)
+    setPreviewVersionMessage(undefined)
   }
 
   const handleReset = () => {
@@ -102,8 +148,12 @@ export function ConfigurationMenu() {
             Export as JSON
           </DropdownMenu.Item>
           <DropdownMenu.Item onClick={handleExportYAML}>
-            <CodeIcon />
-            Export as YAML
+            <DownloadIcon />
+            Download as YAML
+          </DropdownMenu.Item>
+          <DropdownMenu.Item onClick={handleCopyYAML}>
+            <CopyIcon />
+            {copySuccess ? 'Copied!' : 'Copy YAML to Clipboard'}
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator />
@@ -111,7 +161,7 @@ export function ConfigurationMenu() {
           <DropdownMenu.Label>Import Configuration</DropdownMenu.Label>
           <DropdownMenu.Item onClick={handleImport}>
             <UploadIcon />
-            Import from File
+            Import from File (JSON/YAML)
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator />
@@ -136,7 +186,7 @@ export function ConfigurationMenu() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json"
+        accept=".json,.yaml,.yml"
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
@@ -147,7 +197,33 @@ export function ConfigurationMenu() {
           <Callout.Icon>
             <ExclamationTriangleIcon />
           </Callout.Icon>
-          <Callout.Text>{importError}</Callout.Text>
+          <Callout.Text>
+            {importError}
+            {importError.includes('backup') && (
+              <Button
+                size="1"
+                variant="soft"
+                ml="2"
+                onClick={() => {
+                  try {
+                    restoreConfigurationFromBackup()
+                    window.location.reload()
+                  } catch (error) {
+                    console.error('Failed to restore backup:', error)
+                  }
+                }}
+              >
+                Restore Backup
+              </Button>
+            )}
+          </Callout.Text>
+        </Callout.Root>
+      )}
+
+      {/* Import success callout */}
+      {importSuccess && (
+        <Callout.Root color="green" mt="2">
+          <Callout.Text>{importSuccess}</Callout.Text>
         </Callout.Root>
       )}
 
@@ -186,6 +262,16 @@ export function ConfigurationMenu() {
           </Flex>
         </AlertDialog.Content>
       </AlertDialog.Root>
+
+      {/* Import preview dialog */}
+      <ImportPreviewDialog
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        config={previewConfig}
+        versionMessage={previewVersionMessage}
+        onConfirm={handleConfirmImport}
+        onCancel={handleCancelImport}
+      />
     </>
   )
 }

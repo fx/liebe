@@ -205,7 +205,7 @@ describe('persistence', () => {
       const file = new File(['invalid json'], 'config.json', { type: 'application/json' })
 
       await expect(importConfigurationFromFile(file)).rejects.toThrow(
-        'Failed to import configuration: Invalid file format'
+        'Failed to parse JSON:' // Error message now comes directly from parseConfigurationFromFile
       )
     })
 
@@ -216,7 +216,7 @@ describe('persistence', () => {
       })
 
       await expect(importConfigurationFromFile(file)).rejects.toThrow(
-        'Failed to import configuration: Invalid file format'
+        'Failed to import configuration: Invalid configuration format'
       )
     })
   })
@@ -227,11 +227,12 @@ describe('persistence', () => {
 
       const yaml = exportConfigurationAsYAML()
 
-      expect(yaml).toContain('# Liebe Dashboard Configuration')
-      expect(yaml).toContain('version: "1.0.0"')
+      // js-yaml output format differs from manual format
+      expect(yaml).toContain('Liebe Dashboard Configuration')
+      expect(yaml).toContain('version: 1.0.0') // js-yaml doesn't quote numbers
       expect(yaml).toContain('theme: auto')
       expect(yaml).toContain('screens:')
-      expect(yaml).toContain('name: "Test Screen"')
+      expect(yaml).toContain('name: Test Screen') // js-yaml doesn't quote unless necessary
     })
 
     it('should include items in YAML', () => {
@@ -273,9 +274,9 @@ describe('persistence', () => {
 
       expect(yaml).toContain('items:')
       expect(yaml).toContain('type: entity')
-      expect(yaml).toContain('entityId: "light.test"')
+      expect(yaml).toContain('entityId: light.test') // js-yaml doesn't quote unless necessary
       expect(yaml).toContain('type: separator')
-      expect(yaml).toContain('title: "Living Room"')
+      expect(yaml).toContain('title: Living Room') // js-yaml doesn't quote unless necessary
     })
   })
 
