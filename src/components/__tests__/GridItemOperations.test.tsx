@@ -105,7 +105,7 @@ describe('GridItemOperations', () => {
     it('should delete item when confirmed', async () => {
       const user = userEvent.setup()
       dashboardActions.setMode('edit')
-      
+
       // Create a screen first
       dashboardActions.addScreen({
         id: 'test-screen',
@@ -119,7 +119,12 @@ describe('GridItemOperations', () => {
       })
       dashboardActions.setCurrentScreen('test-screen')
 
-      renderWithTheme(<SectionGrid screenId="test-screen" sections={dashboardStore.state.screens[0]?.grid?.sections || []} />)
+      renderWithTheme(
+        <SectionGrid
+          screenId="test-screen"
+          sections={dashboardStore.state.screens[0]?.grid?.sections || []}
+        />
+      )
 
       // Click delete button
       const deleteButtons = screen.getAllByLabelText('Delete entity')
@@ -172,7 +177,7 @@ describe('GridItemOperations', () => {
     it('should delete selected items with Delete key', async () => {
       const user = userEvent.setup()
       dashboardActions.setMode('edit')
-      
+
       // Create a screen first
       dashboardActions.addScreen({
         id: 'test-screen',
@@ -186,7 +191,12 @@ describe('GridItemOperations', () => {
       })
       dashboardActions.setCurrentScreen('test-screen')
 
-      renderWithTheme(<SectionGrid screenId="test-screen" sections={dashboardStore.state.screens[0]?.grid?.sections || []} />)
+      renderWithTheme(
+        <SectionGrid
+          screenId="test-screen"
+          sections={dashboardStore.state.screens[0]?.grid?.sections || []}
+        />
+      )
 
       // Select an item
       const cards = screen.getAllByText(/living room|outlet/i)
@@ -223,16 +233,24 @@ describe('GridItemOperations', () => {
       await user.click(cards[1])
 
       // Both should be selected
-      expect(cards[0].closest('[style*="background"]')).toHaveStyle({ backgroundColor: 'var(--blue-3)' })
-      expect(cards[1].closest('[style*="background"]')).toHaveStyle({ backgroundColor: 'var(--blue-3)' })
+      expect(cards[0].closest('[style*="background"]')).toHaveStyle({
+        backgroundColor: 'var(--blue-3)',
+      })
+      expect(cards[1].closest('[style*="background"]')).toHaveStyle({
+        backgroundColor: 'var(--blue-3)',
+      })
 
       // Press Escape
       fireEvent.keyDown(window, { key: 'Escape' })
 
       // Selection should be cleared
       await waitFor(() => {
-        expect(cards[0].closest('[style*="background"]')).not.toHaveStyle({ backgroundColor: 'var(--blue-3)' })
-        expect(cards[1].closest('[style*="background"]')).not.toHaveStyle({ backgroundColor: 'var(--blue-3)' })
+        expect(cards[0].closest('[style*="background"]')).not.toHaveStyle({
+          backgroundColor: 'var(--blue-3)',
+        })
+        expect(cards[1].closest('[style*="background"]')).not.toHaveStyle({
+          backgroundColor: 'var(--blue-3)',
+        })
       })
     })
 
@@ -246,8 +264,10 @@ describe('GridItemOperations', () => {
       // All items should be selected
       await waitFor(() => {
         const cards = screen.getAllByText(/living room|outlet/i)
-        cards.forEach(card => {
-          expect(card.closest('[style*="background"]')).toHaveStyle({ backgroundColor: 'var(--blue-3)' })
+        cards.forEach((card) => {
+          expect(card.closest('[style*="background"]')).toHaveStyle({
+            backgroundColor: 'var(--blue-3)',
+          })
         })
       })
     })
@@ -257,7 +277,7 @@ describe('GridItemOperations', () => {
     it('should delete multiple selected items', async () => {
       const user = userEvent.setup()
       dashboardActions.setMode('edit')
-      
+
       // Create a screen first
       dashboardActions.addScreen({
         id: 'test-screen',
@@ -271,7 +291,12 @@ describe('GridItemOperations', () => {
       })
       dashboardActions.setCurrentScreen('test-screen')
 
-      renderWithTheme(<SectionGrid screenId="test-screen" sections={dashboardStore.state.screens[0]?.grid?.sections || []} />)
+      renderWithTheme(
+        <SectionGrid
+          screenId="test-screen"
+          sections={dashboardStore.state.screens[0]?.grid?.sections || []}
+        />
+      )
 
       // Select both items
       const cards = screen.getAllByText(/living room|outlet/i)
