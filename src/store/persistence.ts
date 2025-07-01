@@ -2,9 +2,12 @@ import { useEffect } from 'react'
 import { dashboardStore, dashboardActions } from './dashboardStore'
 import type { DashboardConfig } from './types'
 import { generateSlug, ensureUniqueSlug } from '../utils/slug'
+import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
 const MODE_STORAGE_KEY = 'liebe-mode'
+const BACKUP_STORAGE_KEY = 'liebe-config-backup'
+const CURRENT_VERSION = '1.0.0'
 
 export const saveDashboardConfig = (config: DashboardConfig): void => {
   try {
@@ -186,7 +189,7 @@ export const exportConfigurationToFile = (): void => {
   }
 }
 
-// Import configuration from JSON file
+// Import configuration from JSON or YAML file
 export const importConfigurationFromFile = (file: File): Promise<void> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -198,15 +201,36 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
           throw new Error('Invalid file content')
         }
 
-        const config = JSON.parse(content) as DashboardConfig
+        let config: DashboardConfig
+
+        // Determine file type and parse accordingly
+        if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
+          config = yaml.load(content) as DashboardConfig
+        } else if (file.name.endsWith('.json')) {
+          config = JSON.parse(content) as DashboardConfig
+        } else {
+          throw new Error('Unsupported file format. Please use .json, .yaml, or .yml files.')
+        }
 
         // Validate basic structure
         if (!config.version || !Array.isArray(config.screens)) {
           throw new Error('Invalid configuration format')
         }
 
+        // Check version compatibility
+        const versionCheck = checkVersionCompatibility(config.version)
+        if (!versionCheck.compatible) {
+          throw new Error(versionCheck.message)
+        }
+
+        // Backup current configuration before import
+        backupCurrentConfiguration()
+
         // Apply migration if needed
         const migratedConfig = migrateScreenConfig(config)
+
+        // Update version to current
+        migratedConfig.version = CURRENT_VERSION
 
         // Load the configuration
         dashboardActions.loadConfiguration(migratedConfig)
@@ -217,7 +241,17 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
         resolve()
       } catch (error) {
         console.error('Failed to import configuration:', error)
-        reject(new Error('Failed to import configuration: Invalid file format'))
+        if (error instanceof yaml.YAMLException) {
+          reject(new Error(`Failed to parse YAML: ${error.message}`))
+        } else if (error instanceof SyntaxError) {
+          reject(new Error(`Failed to parse JSON: ${error.message}`))
+        } else {
+          reject(
+            new Error(
+              `Failed to import configuration: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          )
+        }
       }
     }
 
@@ -232,75 +266,173 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
 // Export configuration as YAML string
 export const exportConfigurationAsYAML = (): string => {
   const config = dashboardActions.exportConfiguration()
-
-  // Simple YAML serialization (could be enhanced with a proper YAML library)
-  const yamlLines: string[] = ['# Liebe Dashboard Configuration']
-  yamlLines.push(`version: "${config.version}"`)
-  yamlLines.push(`theme: ${config.theme || 'auto'}`)
-  yamlLines.push('screens:')
-
-  interface ScreenToSerialize {
-    id: string
-    name: string
-    slug: string
-    type: string
-    grid?: {
-      resolution: { columns: number; rows: number }
-      items?: Array<{
-        id: string
-        type: string
-        entityId?: string
-        title?: string
-        x: number
-        y: number
-        width: number
-        height: number
-      }>
-    }
-    children?: ScreenToSerialize[]
+  const yamlConfig = {
+    '# Liebe Dashboard Configuration': null,
+    '# Generated': new Date().toISOString(),
+    version: config.version,
+    theme: config.theme || 'auto',
+    screens: config.screens,
   }
 
-  const serializeScreen = (screen: ScreenToSerialize, indent: number = 2): void => {
-    const prefix = ' '.repeat(indent)
-    yamlLines.push(`${prefix}- id: "${screen.id}"`)
-    yamlLines.push(`${prefix}  name: "${screen.name}"`)
-    yamlLines.push(`${prefix}  slug: "${screen.slug}"`)
-    yamlLines.push(`${prefix}  type: ${screen.type}`)
+  return yaml.dump(yamlConfig, {
+    indent: 2,
+    lineWidth: -1,
+    noRefs: true,
+    sortKeys: false,
+    quotingType: '"',
+    forceQuotes: false,
+  })
+}
 
-    if (screen.grid) {
-      yamlLines.push(`${prefix}  grid:`)
-      yamlLines.push(`${prefix}    resolution:`)
-      yamlLines.push(`${prefix}      columns: ${screen.grid.resolution.columns}`)
-      yamlLines.push(`${prefix}      rows: ${screen.grid.resolution.rows}`)
+// Export configuration to YAML file
+export const exportConfigurationToYAMLFile = (): void => {
+  try {
+    const yamlStr = exportConfigurationAsYAML()
+    const dataUri = 'data:application/x-yaml;charset=utf-8,' + encodeURIComponent(yamlStr)
 
-      if (screen.grid.items && screen.grid.items.length > 0) {
-        yamlLines.push(`${prefix}    items:`)
-        screen.grid.items.forEach((item) => {
-          yamlLines.push(`${prefix}      - id: "${item.id}"`)
-          yamlLines.push(`${prefix}        type: ${item.type}`)
-          if (item.entityId) {
-            yamlLines.push(`${prefix}        entityId: "${item.entityId}"`)
-          }
-          if (item.title) {
-            yamlLines.push(`${prefix}        title: "${item.title}"`)
-          }
-          yamlLines.push(`${prefix}        x: ${item.x}`)
-          yamlLines.push(`${prefix}        y: ${item.y}`)
-          yamlLines.push(`${prefix}        width: ${item.width}`)
-          yamlLines.push(`${prefix}        height: ${item.height}`)
+    const exportFileDefaultName = `liebe-${new Date().toISOString().split('T')[0]}.yaml`
+
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', exportFileDefaultName)
+    linkElement.click()
+    linkElement.remove()
+  } catch (error) {
+    console.error('Failed to export YAML configuration:', error)
+    throw new Error('Failed to export YAML configuration')
+  }
+}
+
+// Backup current configuration
+export const backupCurrentConfiguration = (): void => {
+  try {
+    const currentConfig = localStorage.getItem(STORAGE_KEY)
+    if (currentConfig) {
+      localStorage.setItem(BACKUP_STORAGE_KEY, currentConfig)
+    }
+  } catch (error) {
+    console.error('Failed to backup configuration:', error)
+    throw new Error('Failed to backup configuration')
+  }
+}
+
+// Restore configuration from backup
+export const restoreConfigurationFromBackup = (): void => {
+  try {
+    const backup = localStorage.getItem(BACKUP_STORAGE_KEY)
+    if (backup) {
+      localStorage.setItem(STORAGE_KEY, backup)
+      const config = JSON.parse(backup) as DashboardConfig
+      dashboardActions.loadConfiguration(config)
+    } else {
+      throw new Error('No backup found')
+    }
+  } catch (error) {
+    console.error('Failed to restore configuration from backup:', error)
+    throw new Error('Failed to restore configuration from backup')
+  }
+}
+
+// Check version compatibility
+export const checkVersionCompatibility = (
+  version: string
+): { compatible: boolean; message?: string } => {
+  const [importMajor] = version.split('.').map(Number)
+  const [currentMajor] = CURRENT_VERSION.split('.').map(Number)
+
+  if (importMajor > currentMajor) {
+    return {
+      compatible: false,
+      message: `This configuration requires version ${version} or higher. Current version is ${CURRENT_VERSION}.`,
+    }
+  }
+
+  if (importMajor < currentMajor) {
+    return {
+      compatible: true,
+      message: `This configuration is from an older version (${version}). It will be upgraded to version ${CURRENT_VERSION}.`,
+    }
+  }
+
+  return { compatible: true }
+}
+
+// Parse configuration from file without importing
+export const parseConfigurationFromFile = (
+  file: File
+): Promise<{ config: DashboardConfig; versionMessage?: string }> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result
+        if (typeof content !== 'string') {
+          throw new Error('Invalid file content')
+        }
+
+        let config: DashboardConfig
+
+        // Determine file type and parse accordingly
+        if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
+          config = yaml.load(content) as DashboardConfig
+        } else if (file.name.endsWith('.json')) {
+          config = JSON.parse(content) as DashboardConfig
+        } else {
+          throw new Error('Unsupported file format. Please use .json, .yaml, or .yml files.')
+        }
+
+        // Validate basic structure
+        if (!config.version || !Array.isArray(config.screens)) {
+          throw new Error('Invalid configuration format')
+        }
+
+        // Check version compatibility
+        const versionCheck = checkVersionCompatibility(config.version)
+        if (!versionCheck.compatible) {
+          throw new Error(versionCheck.message)
+        }
+
+        // Apply migration if needed (for preview)
+        const migratedConfig = migrateScreenConfig(config)
+
+        resolve({
+          config: migratedConfig,
+          versionMessage: versionCheck.message,
         })
+      } catch (error) {
+        console.error('Failed to parse configuration:', error)
+        if (error instanceof yaml.YAMLException) {
+          reject(new Error(`Failed to parse YAML: ${error.message}`))
+        } else if (error instanceof SyntaxError) {
+          reject(new Error(`Failed to parse JSON: ${error.message}`))
+        } else {
+          reject(
+            new Error(
+              `Failed to parse configuration: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          )
+        }
       }
     }
 
-    if (screen.children && screen.children.length > 0) {
-      yamlLines.push(`${prefix}  children:`)
-      screen.children.forEach((child) => serializeScreen(child, indent + 4))
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'))
     }
+
+    reader.readAsText(file)
+  })
+}
+
+// Copy YAML configuration to clipboard
+export const copyYAMLToClipboard = async (): Promise<void> => {
+  try {
+    const yamlStr = exportConfigurationAsYAML()
+    await navigator.clipboard.writeText(yamlStr)
+  } catch (error) {
+    console.error('Failed to copy YAML to clipboard:', error)
+    throw new Error('Failed to copy YAML to clipboard')
   }
-
-  config.screens.forEach((screen) => serializeScreen(screen))
-
-  return yamlLines.join('\n')
 }
 
 // Check storage usage
