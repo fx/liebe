@@ -1,25 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { GridLayoutSection } from '~/components/GridLayoutSection'
 import { dashboardActions } from '~/store'
 import type { GridItem } from '~/store/types'
+import * as React from 'react'
 
 // Mock react-grid-layout
 vi.mock('react-grid-layout', () => {
-  const React = require('react')
   return {
-    default: ({ 
-      children, 
-      layout, 
-      onLayoutChange, 
-      isDraggable, 
-      isResizable, 
-      draggableHandle 
+    default: ({
+      children,
+      layout,
+      onLayoutChange,
+      isDraggable,
+      isResizable,
+      draggableHandle,
     }: {
       children: React.ReactNode[]
       layout: Array<{ i: string; x: number; y: number; w: number; h: number }>
-      onLayoutChange?: (layout: any[]) => void
+      onLayoutChange?: (
+        layout: Array<{ i: string; x: number; y: number; w: number; h: number }>
+      ) => void
       isDraggable?: boolean
       isResizable?: boolean
       draggableHandle?: string
@@ -33,7 +34,7 @@ vi.mock('react-grid-layout', () => {
           'data-resizable': isResizable,
           'data-handle': draggableHandle,
         },
-        layout.map((item: any, index: number) =>
+        layout.map((item, index) =>
           React.createElement(
             'div',
             {
