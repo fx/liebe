@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ScreenConfigDialog } from '../ScreenConfigDialog'
 import { useDashboardStore, dashboardActions } from '../../store'
 import { createTestScreen } from '../../test-utils/screen-helpers'
+import type { DashboardState } from '../../store/types'
 
 vi.mock('../../store', () => ({
   useDashboardStore: vi.fn(),
@@ -29,10 +30,20 @@ describe('ScreenConfigDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useDashboardStore).mockImplementation((selector) => {
-      const state = {
+      const state: DashboardState = {
+        mode: 'edit',
         screens: [testScreen],
+        currentScreenId: 'test-screen',
+        configuration: {
+          version: '1.0.0',
+          screens: [testScreen],
+          theme: 'auto',
+        },
+        gridResolution: { columns: 12, rows: 8 },
+        theme: 'auto',
+        isDirty: false,
       }
-      return selector(state)
+      return selector ? selector(state) : state
     })
     // Reset actions
     vi.mocked(dashboardActions.updateScreen).mockImplementation(() => {})
