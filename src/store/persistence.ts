@@ -4,6 +4,7 @@ import type { DashboardConfig } from './types'
 import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 
 const STORAGE_KEY = 'liebe-config'
+const MODE_STORAGE_KEY = 'liebe-mode'
 
 export const saveDashboardConfig = (config: DashboardConfig): void => {
   try {
@@ -11,6 +12,26 @@ export const saveDashboardConfig = (config: DashboardConfig): void => {
   } catch (error) {
     console.error('Failed to save dashboard configuration:', error)
   }
+}
+
+export const saveDashboardMode = (mode: 'view' | 'edit'): void => {
+  try {
+    localStorage.setItem(MODE_STORAGE_KEY, mode)
+  } catch (error) {
+    console.error('Failed to save dashboard mode:', error)
+  }
+}
+
+export const loadDashboardMode = (): 'view' | 'edit' => {
+  try {
+    const stored = localStorage.getItem(MODE_STORAGE_KEY)
+    if (stored === 'edit' || stored === 'view') {
+      return stored
+    }
+  } catch (error) {
+    console.error('Failed to load dashboard mode:', error)
+  }
+  return 'view' // Default to view mode
 }
 
 // Migrate old screen format to new format with sections and slugs
@@ -89,6 +110,9 @@ export const initializeDashboard = () => {
   if (savedConfig) {
     dashboardActions.loadConfiguration(savedConfig)
   }
+  // Load saved mode
+  const savedMode = loadDashboardMode()
+  dashboardActions.setMode(savedMode)
 }
 
 // Initialize immediately when module loads
