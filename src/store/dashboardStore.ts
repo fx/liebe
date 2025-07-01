@@ -7,6 +7,7 @@ import type {
   GridItem,
   GridResolution,
   DashboardConfig,
+  WidgetConfig,
 } from './types'
 import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug'
 
@@ -27,6 +28,12 @@ const initialState: DashboardState = {
   gridResolution: DEFAULT_GRID_RESOLUTION,
   theme: 'auto',
   isDirty: false,
+  sidebarOpen: false,
+  sidebarWidgets: [
+    { id: '1', type: 'clock', position: 0 },
+    { id: '2', type: 'weather', position: 1 },
+    { id: '3', type: 'quick-controls', position: 2 },
+  ],
 }
 
 export const dashboardStore = new Store<DashboardState>(initialState)
@@ -308,6 +315,37 @@ export const dashboardActions = {
     dashboardStore.setState((state) => ({
       ...state,
       isDirty: false,
+    }))
+  },
+
+  toggleSidebar: (open?: boolean) => {
+    dashboardStore.setState((state) => ({
+      ...state,
+      sidebarOpen: open !== undefined ? open : !state.sidebarOpen,
+    }))
+  },
+
+  updateSidebarWidgets: (widgets: WidgetConfig[]) => {
+    dashboardStore.setState((state) => ({
+      ...state,
+      sidebarWidgets: widgets,
+      isDirty: true,
+    }))
+  },
+
+  addSidebarWidget: (widget: WidgetConfig) => {
+    dashboardStore.setState((state) => ({
+      ...state,
+      sidebarWidgets: [...state.sidebarWidgets, widget],
+      isDirty: true,
+    }))
+  },
+
+  removeSidebarWidget: (widgetId: string) => {
+    dashboardStore.setState((state) => ({
+      ...state,
+      sidebarWidgets: state.sidebarWidgets.filter((w) => w.id !== widgetId),
+      isDirty: true,
     }))
   },
 }

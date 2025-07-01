@@ -7,8 +7,11 @@ import { AddItemButton } from './AddItemButton'
 import { ConfigurationMenu } from './ConfigurationMenu'
 import { ConnectionStatus } from './ConnectionStatus'
 import { ModeToggle } from './ModeToggle'
+import { Sidebar, SidebarTrigger } from './Sidebar'
+import { SidebarWidgets } from './SidebarWidgets'
 import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
+import '../components/Sidebar.css'
 
 export function Dashboard() {
   const [addViewOpen, setAddViewOpen] = useState(false)
@@ -47,6 +50,7 @@ export function Dashboard() {
         style={{ borderBottom: '1px solid var(--gray-a5)' }}
       >
         <Flex align="center" gap="3">
+          <SidebarTrigger />
           <Text size="5" weight="bold">
             Liebe Dashboard
           </Text>
@@ -113,6 +117,11 @@ export function Dashboard() {
 
       {/* Add View Dialog */}
       <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />
+
+      {/* Sidebar */}
+      <Sidebar>
+        <SidebarWidgets />
+      </Sidebar>
     </Box>
   )
 }

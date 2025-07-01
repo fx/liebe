@@ -37,6 +37,15 @@ export interface DashboardConfig {
 
 export type DashboardMode = 'view' | 'edit'
 
+export type WidgetType = 'clock' | 'weather' | 'quick-controls'
+
+export interface WidgetConfig {
+  id: string
+  type: WidgetType
+  position: number
+  config?: Record<string, any>
+}
+
 export interface DashboardState {
   mode: DashboardMode
   screens: ScreenConfig[]
@@ -45,6 +54,8 @@ export interface DashboardState {
   gridResolution: GridResolution
   theme: 'light' | 'dark' | 'auto'
   isDirty: boolean
+  sidebarOpen: boolean
+  sidebarWidgets: WidgetConfig[]
 }
 
 export interface StoreActions {
