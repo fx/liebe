@@ -184,7 +184,12 @@ describe('ViewTabs', () => {
 
       // Find the remove button within the Living Room tab
       const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ })
-      const removeButton = livingRoomTab.querySelector('[style*="cursor: pointer"]')
+      // Look for the Box containing Cross2Icon (the remove button)
+      const removeButtons = livingRoomTab.querySelectorAll('[style*="cursor: pointer"]')
+      // The Cross2Icon button will be the one containing an svg with specific path for Cross2Icon
+      const removeButton = Array.from(removeButtons).find(
+        (btn) => btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
+      )
 
       await user.click(removeButton!)
 
@@ -222,7 +227,10 @@ describe('ViewTabs', () => {
 
       // First remove the kitchen screen
       const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ })
-      const kitchenRemoveButton = kitchenTab.querySelector('[style*="cursor: pointer"]')
+      const kitchenRemoveButtons = kitchenTab.querySelectorAll('[style*="cursor: pointer"]')
+      const kitchenRemoveButton = Array.from(kitchenRemoveButtons).find(
+        (btn) => btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
+      )
       await user.click(kitchenRemoveButton!)
 
       // Wait for first removal
@@ -230,12 +238,15 @@ describe('ViewTabs', () => {
         expect(dashboardStore.state.screens.length).toBe(1)
       })
 
-      // Now remove the last screen
+      // Now try to find remove button on the last screen
       const livingRoomTab = screen.getByRole('tab', { name: /Living Room/ })
-      const livingRoomRemoveButton = livingRoomTab.querySelector('[style*="cursor: pointer"]')
+      const livingRoomButtons = livingRoomTab.querySelectorAll('[style*="cursor: pointer"]')
+      const livingRoomRemoveButton = Array.from(livingRoomButtons).find(
+        (btn) => btn.querySelector('svg path[d*="M11.7816"]') // Part of Cross2Icon path
+      )
 
       // Since there's only one screen left, there should be no remove button
-      expect(livingRoomRemoveButton).toBeNull()
+      expect(livingRoomRemoveButton).toBeUndefined()
 
       // This test actually verifies that we DON'T allow removing the last screen
       // The UI should not show a remove button when there's only one screen left
