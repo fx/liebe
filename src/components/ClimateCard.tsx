@@ -438,7 +438,10 @@ function ClimateCardComponent({
                   />
                 </svg>
                 <Text size="2" color="blue">
-                  {supportsTargetTempRange && hvacMode === 'heat_cool' && targetTempLow && targetTempHigh
+                  {supportsTargetTempRange &&
+                  hvacMode === 'heat_cool' &&
+                  targetTempLow &&
+                  targetTempHigh
                     ? `${targetTempLow.toFixed(1)} - ${targetTempHigh.toFixed(1)}${tempUnit}`
                     : `${targetTemp?.toFixed(1)}${tempUnit}`}
                 </Text>
@@ -494,71 +497,155 @@ function ClimateCardComponent({
               if (!modeConfig) return null
 
               return (
-                <IconButton
-                  key={mode}
-                  size="2"
-                  variant={hvacMode === mode ? 'solid' : 'soft'}
-                  color={
-                    hvacMode === mode
-                      ? (modeConfig.color as
-                          | 'orange'
-                          | 'blue'
-                          | 'green'
-                          | 'indigo'
-                          | 'yellow'
-                          | 'cyan'
-                          | 'gray')
-                      : 'gray'
-                  }
-                  onClick={() => handleHvacModeChange(mode)}
-                  disabled={isLoading}
-                  style={{
-                    minWidth: '80px',
-                  }}
-                >
-                  {mode === 'off' ? (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                      <circle
-                        cx="8"
-                        cy="8"
-                        r="6"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      />
-                    </svg>
-                  ) : mode === 'heat' ? (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                      <path
-                        d="M8 2C6 2 5 4 5 6c0 1.5.5 3 1.5 4S8 12 8 12s.5-.5 1.5-1.5S11 7.5 11 6c0-2-1-4-3-4z"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        fill="none"
-                      />
-                    </svg>
-                  ) : mode === 'cool' ? (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                      <path
-                        d="M8 1v14M1 8h14M3.5 3.5l9 9M12.5 3.5l-9 9"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  ) : mode === 'auto' ? (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                      <path
-                        d="M3 8a5 5 0 1110 0M8 3v3M8 10v3"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        fill="none"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  ) : (
-                    <Text size="1">{modeConfig.label}</Text>
-                  )}
-                </IconButton>
+                <Flex key={mode} direction="column" align="center" gap="1">
+                  <IconButton
+                    size="3"
+                    variant={hvacMode === mode ? 'solid' : 'outline'}
+                    color={
+                      hvacMode === mode
+                        ? (modeConfig.color as
+                            | 'orange'
+                            | 'blue'
+                            | 'green'
+                            | 'indigo'
+                            | 'yellow'
+                            | 'cyan'
+                            | 'gray')
+                        : 'gray'
+                    }
+                    onClick={() => handleHvacModeChange(mode)}
+                    disabled={isLoading}
+                    style={{
+                      width: '56px',
+                      height: '56px',
+                      borderWidth: hvacMode === mode ? '2px' : '1px',
+                    }}
+                    radius="full"
+                  >
+                    {mode === 'off' ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M8 8l8 8"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    ) : mode === 'heat' ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M12 3C9 3 7 6 7 9c0 2.5 1 4.5 2.5 6S12 18 12 18s1-.5 2.5-1.5S17 11.5 17 9c0-3-2-6-5-6z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          fill="none"
+                        />
+                      </svg>
+                    ) : mode === 'cool' ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    ) : mode === 'auto' ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="8"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M12 8v8M8 12h8"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                        <text
+                          x="12"
+                          y="12"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="8"
+                          fill="currentColor"
+                          fontWeight="bold"
+                        >
+                          A
+                        </text>
+                      </svg>
+                    ) : mode === 'heat_cool' ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M12 3C9 3 7 6 7 9c0 2.5 1 4.5 2.5 6S12 18 12 18"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          fill="none"
+                        />
+                        <path
+                          d="M12 2v20M12 12h10M14 7l7 7M21 7l-7 7"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    ) : mode === 'dry' ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M12 3l-5 9h10L12 3zM7 14c0 2.8 2.2 5 5 5s5-2.2 5-5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : mode === 'fan_only' ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="12" r="3" fill="currentColor" />
+                        <path
+                          d="M12 2c0 3-2 4-2 4s4-1 4 2-2 4-2 4 4-1 4 2-2 4-2 4 4-1 4 2M12 22c0-3-2-4-2-4s4 1 4-2-2-4-2-4 4 1 4-2-2-4-2-4 4 1 4-2"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          fill="none"
+                        />
+                      </svg>
+                    ) : (
+                      <Text size="2" weight="bold">
+                        {modeConfig.label.substring(0, 2)}
+                      </Text>
+                    )}
+                  </IconButton>
+                  <Text
+                    size="1"
+                    color={
+                      hvacMode === mode
+                        ? (modeConfig.color as
+                            | 'orange'
+                            | 'blue'
+                            | 'green'
+                            | 'indigo'
+                            | 'yellow'
+                            | 'cyan'
+                            | 'gray')
+                        : 'gray'
+                    }
+                    weight={hvacMode === mode ? 'bold' : 'regular'}
+                  >
+                    {modeConfig.label}
+                  </Text>
+                </Flex>
               )
             })}
           </Flex>

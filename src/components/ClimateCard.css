@@ -56,6 +56,13 @@
   transform: scale(1.1);
 }
 
+/* Active mode button styling */
+.climate-card button[data-state='checked'] {
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px currentColor;
+}
+
 /* Animation for loading state */
 @keyframes pulse-opacity {
   0% {
@@ -111,5 +118,11 @@
   .climate-card button[aria-label*='temperature'] {
     width: 44px !important;
     height: 44px !important;
+  }
+
+  /* Smaller mode buttons on mobile */
+  .climate-card button[aria-label*='mode'] {
+    width: 48px !important;
+    height: 48px !important;
   }
 }

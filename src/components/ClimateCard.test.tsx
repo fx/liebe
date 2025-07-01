@@ -245,9 +245,14 @@ describe('ClimateCard', () => {
 
       // Find all mode buttons - there should be 3 (off, heat, cool)
       const buttons = screen.getAllByRole('button')
-      // Filter to just the mode buttons (they have min-width: 80px)
-      const modeButtons = buttons.filter(btn => btn.style.minWidth === '80px')
+      // Filter to just the mode buttons (they have width: 56px)
+      const modeButtons = buttons.filter((btn) => btn.style.width === '56px')
       expect(modeButtons).toHaveLength(3)
+
+      // The mode buttons have labels now
+      expect(screen.getByText('Off')).toBeInTheDocument()
+      expect(screen.getByText('Heat')).toBeInTheDocument()
+      expect(screen.getByText('Cool')).toBeInTheDocument()
 
       // Click the heat button (second button)
       await userEvent.click(modeButtons[1])
@@ -364,8 +369,12 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       // Temperature controls should not be visible
-      expect(screen.queryByRole('button', { name: /increase temperature/i })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /decrease temperature/i })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /increase temperature/i })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /decrease temperature/i })
+      ).not.toBeInTheDocument()
     })
 
     it('handles selection in edit mode', async () => {
