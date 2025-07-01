@@ -4,6 +4,7 @@ import { ButtonCard } from './ButtonCard'
 import { LightCard } from './LightCard'
 import { SensorCard } from './SensorCard'
 import { CoverCard } from './CoverCard'
+import { ClimateCard } from './ClimateCard'
 import { InputBooleanCard } from './InputBooleanCard'
 import { InputNumberCard } from './InputNumberCard'
 import { InputSelectCard } from './InputSelectCard'
@@ -57,6 +58,16 @@ function EntityCard({
     case 'cover':
       return (
         <CoverCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'climate':
+      return (
+        <ClimateCard
           entityId={entityId}
           size={size}
           onDelete={onDelete}
