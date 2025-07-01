@@ -5,6 +5,11 @@ import { ModeToggle } from '../ModeToggle'
 import { dashboardStore, dashboardActions } from '../../store/dashboardStore'
 import { Theme } from '@radix-ui/themes'
 
+// Mock the persistence module to avoid async import issues in tests
+vi.mock('../../store/persistence', () => ({
+  saveDashboardMode: vi.fn(),
+}))
+
 describe('ModeToggle', () => {
   beforeEach(() => {
     // Reset to view mode before each test

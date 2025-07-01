@@ -5,10 +5,22 @@ import { Theme } from '@radix-ui/themes'
 import { ConfigurationMenu } from '../ConfigurationMenu'
 import * as persistence from '../../store/persistence'
 
+// Mock ImportPreviewDialog
+vi.mock('../ImportPreviewDialog', () => ({
+  ImportPreviewDialog: ({ open, onConfirm }: { open: boolean; onConfirm: () => void }) =>
+    open ? (
+      <div>
+        <button onClick={onConfirm}>Import</button>
+      </div>
+    ) : null,
+}))
+
 // Mock persistence functions
 vi.mock('../../store/persistence', () => ({
   exportConfigurationToFile: vi.fn(),
   exportConfigurationAsYAML: vi.fn().mockReturnValue('mock yaml'),
+  exportConfigurationToYAMLFile: vi.fn(),
+  copyYAMLToClipboard: vi.fn(),
   importConfigurationFromFile: vi.fn(),
   clearDashboardConfig: vi.fn(),
   getStorageInfo: vi.fn().mockReturnValue({
@@ -16,6 +28,8 @@ vi.mock('../../store/persistence', () => ({
     available: true,
     percentage: 10,
   }),
+  restoreConfigurationFromBackup: vi.fn(),
+  parseConfigurationFromFile: vi.fn(),
 }))
 
 // Mock window.location.reload
@@ -72,36 +86,37 @@ describe('ConfigurationMenu', () => {
 
   it('should export configuration as YAML', async () => {
     const user = userEvent.setup()
-    const originalCreateElement = document.createElement.bind(document)
-    let mockLink: HTMLAnchorElement | undefined
-
-    vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
-      if (tagName === 'a') {
-        mockLink = originalCreateElement('a')
-        mockLink.click = vi.fn()
-        return mockLink
-      }
-      return originalCreateElement(tagName)
-    })
-
     renderWithTheme(<ConfigurationMenu />)
 
     await user.click(screen.getByRole('button', { name: /configuration/i }))
-    await user.click(screen.getByText('Export as YAML'))
+    await user.click(screen.getByText('Download as YAML'))
 
-    expect(persistence.exportConfigurationAsYAML).toHaveBeenCalled()
-    expect(mockLink!.download).toMatch(/^liebe-.*\.yaml$/)
-    expect(mockLink!.click).toHaveBeenCalled()
+    expect(persistence.exportConfigurationToYAMLFile).toHaveBeenCalled()
+  })
+
+  it('should copy YAML to clipboard', async () => {
+    const user = userEvent.setup()
+    vi.mocked(persistence.copyYAMLToClipboard).mockResolvedValueOnce(undefined)
+    renderWithTheme(<ConfigurationMenu />)
+
+    await user.click(screen.getByRole('button', { name: /configuration/i }))
+    await user.click(screen.getByText('Copy YAML to Clipboard'))
+
+    expect(persistence.copyYAMLToClipboard).toHaveBeenCalled()
   })
 
   it('should handle file import', async () => {
     const user = userEvent.setup()
+    vi.mocked(persistence.parseConfigurationFromFile).mockResolvedValueOnce({
+      config: { version: '1.0.0', screens: [], theme: 'auto' },
+      versionMessage: undefined,
+    })
     vi.mocked(persistence.importConfigurationFromFile).mockResolvedValueOnce(undefined)
 
     renderWithTheme(<ConfigurationMenu />)
 
     await user.click(screen.getByRole('button', { name: /configuration/i }))
-    await user.click(screen.getByText('Import from File'))
+    await user.click(screen.getByText('Import from File (JSON/YAML)'))
 
     // File input should exist but be hidden
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
@@ -119,20 +134,28 @@ describe('ConfigurationMenu', () => {
     })
 
     await waitFor(() => {
+      expect(persistence.parseConfigurationFromFile).toHaveBeenCalledWith(file)
+    })
+
+    // Simulate clicking confirm in the preview dialog
+    const confirmButton = await screen.findByRole('button', { name: 'Import' })
+    await user.click(confirmButton)
+
+    await waitFor(() => {
       expect(persistence.importConfigurationFromFile).toHaveBeenCalledWith(file)
     })
   })
 
   it('should show import error', async () => {
     const user = userEvent.setup()
-    vi.mocked(persistence.importConfigurationFromFile).mockRejectedValueOnce(
+    vi.mocked(persistence.parseConfigurationFromFile).mockRejectedValueOnce(
       new Error('Invalid file format')
     )
 
     renderWithTheme(<ConfigurationMenu />)
 
     await user.click(screen.getByRole('button', { name: /configuration/i }))
-    await user.click(screen.getByText('Import from File'))
+    await user.click(screen.getByText('Import from File (JSON/YAML)'))
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
     const file = new File(['invalid'], 'config.json', { type: 'application/json' })
@@ -165,12 +188,16 @@ describe('ConfigurationMenu', () => {
       available: false,
       percentage: 95,
     })
+    vi.mocked(persistence.parseConfigurationFromFile).mockResolvedValueOnce({
+      config: { version: '1.0.0', screens: [], theme: 'auto' },
+      versionMessage: undefined,
+    })
     vi.mocked(persistence.importConfigurationFromFile).mockResolvedValueOnce(undefined)
 
     renderWithTheme(<ConfigurationMenu />)
 
     await user.click(screen.getByRole('button', { name: /configuration/i }))
-    await user.click(screen.getByText('Import from File'))
+    await user.click(screen.getByText('Import from File (JSON/YAML)'))
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
     const file = new File(['{}'], 'config.json', { type: 'application/json' })
@@ -181,6 +208,14 @@ describe('ConfigurationMenu', () => {
         files: [file],
       },
     })
+
+    await waitFor(() => {
+      expect(persistence.parseConfigurationFromFile).toHaveBeenCalledWith(file)
+    })
+
+    // Simulate clicking confirm in the preview dialog
+    const confirmButton = await screen.findByRole('button', { name: 'Import' })
+    await user.click(confirmButton)
 
     await waitFor(() => {
       expect(screen.getByText(/Storage is nearly full/)).toBeInTheDocument()
