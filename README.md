@@ -1,6 +1,6 @@
-# Liebe Dashboard
+# Liebe
 
-A custom Home Assistant dashboard built with TanStack Start and React in SPA mode.
+A custom Home Assistant panel built with TanStack Start and React in SPA mode.
 
 ## Features
 
@@ -20,57 +20,55 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-## Building for Home Assistant
-
-```bash
-# Build the custom panel
-npm run build:ha
-
-# Copy to Home Assistant
-cp -r dist/liebe-dashboard /config/www/
-```
-
-Add to your `configuration.yaml`:
+Then add to your Home Assistant `configuration.yaml`:
 
 ```yaml
 panel_custom:
-  - name: liebe-dashboard-panel
-    sidebar_title: Liebe Dashboard
-    sidebar_icon: mdi:view-dashboard
-    url_path: liebe
-    module_url: /local/liebe-dashboard/custom-panel.js
-```
-
-Restart Home Assistant and find "Liebe Dashboard" in the sidebar.
-
-## Development with Home Assistant
-
-Start the development server:
-
-```bash
-npm run dev
-```
-
-Add to your Home Assistant `configuration.yaml`:
-
-```yaml
-panel_custom:
-  - name: liebe-dashboard-dev
+  - name: liebe-panel
     sidebar_title: Liebe Dev
-    sidebar_icon: mdi:react
-    url_path: liebe-dev
-    module_url: http://localhost:3000/dev-entry.js
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: http://localhost:3000/panel.js
 ```
 
-**Restart Home Assistant** (required after adding/changing panel_custom).
+## Production
 
-This loads a wrapper that embeds your dev server in an iframe while providing access to the hass object via postMessage.
+Host Liebe on any web server and add to your `configuration.yaml`:
+
+```yaml
+panel_custom:
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: https://your-server.com/liebe/panel.js
+```
+
+Restart Home Assistant and find "Liebe" in the sidebar.
+
+## Testing with Automation Tools
+
+When testing Liebe with automation tools like Playwright, you may encounter authentication issues. To bypass authentication for testing purposes, you can configure Home Assistant to use trusted networks:
+
+```yaml
+homeassistant:
+  auth_providers:
+    - type: trusted_networks
+      trusted_networks:
+        - 192.168.1.100/32 # Replace with your testing machine's IP
+      trusted_users:
+        192.168.1.100: # Replace with your testing machine's IP
+          - user_id_here # Replace with the user ID to auto-login as
+      allow_bypass_login: true
+    - type: homeassistant
+```
+
+**⚠️ Security Warning**: Only use trusted networks in secure, controlled environments. This bypasses authentication for specified IP addresses.
 
 ## Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build SPA application
-- `npm run build:ha` - Build custom panel for Home Assistant
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier

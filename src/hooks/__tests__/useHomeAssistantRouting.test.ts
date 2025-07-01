@@ -125,71 +125,7 @@ describe('useHomeAssistantRouting', () => {
     it('should listen for navigation messages', () => {
       renderHook(() => useHomeAssistantRouting())
 
-      expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.any(Function))
       expect(addEventListenerSpy).toHaveBeenCalledWith('liebe-navigate', expect.any(Function))
-    })
-
-    it('should navigate when receiving navigate-to message', () => {
-      renderHook(() => useHomeAssistantRouting())
-
-      // Get the message handler
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const messageCall = addEventListenerSpy.mock.calls.find((call: any) => call[0] === 'message')
-      const messageHandler = messageCall![1] as EventListener
-
-      // Simulate message event
-      messageHandler(
-        new MessageEvent('message', {
-          data: {
-            type: 'navigate-to',
-            path: '/new-path',
-          },
-        })
-      )
-
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/new-path' })
-    })
-
-    it('should navigate when receiving current-route message', () => {
-      renderHook(() => useHomeAssistantRouting())
-
-      // Get the message handler
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const messageCall = addEventListenerSpy.mock.calls.find((call: any) => call[0] === 'message')
-      const messageHandler = messageCall![1] as EventListener
-
-      // Simulate message event with different route
-      messageHandler(
-        new MessageEvent('message', {
-          data: {
-            type: 'current-route',
-            path: '/parent-route',
-          },
-        })
-      )
-
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/parent-route' })
-    })
-
-    it('should not navigate if current-route is same as current', () => {
-      renderHook(() => useHomeAssistantRouting())
-
-      // Get the message handler
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const messageCall = addEventListenerSpy.mock.calls.find((call: any) => call[0] === 'message')
-      const messageHandler = messageCall![1] as EventListener
-
-      // Simulate message event with same route
-      messageHandler(
-        new MessageEvent('message', {
-          data: {
-            type: 'current-route',
-            path: '/test-path', // Same as mockRouterState.location.pathname
-          },
-        })
-      )
-
-      expect(mockNavigate).not.toHaveBeenCalled()
     })
 
     it('should handle liebe-navigate custom event', () => {
@@ -236,7 +172,6 @@ describe('useHomeAssistantRouting', () => {
 
       unmount()
 
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('message', expect.any(Function))
       expect(removeEventListenerSpy).toHaveBeenCalledWith('liebe-navigate', expect.any(Function))
     })
   })
@@ -248,13 +183,18 @@ describe('useHomeAssistantRouting', () => {
         value: { pathname: '/some-other-path' },
         writable: true,
       })
+
+      // Mock that we're not in an iframe
+      Object.defineProperty(window, 'parent', {
+        value: window,
+        writable: true,
+      })
     })
 
     it('should not set up any listeners', () => {
       renderHook(() => useHomeAssistantRouting())
 
       expect(mockSubscribe).not.toHaveBeenCalled()
-      expect(addEventListenerSpy).not.toHaveBeenCalledWith('message', expect.any(Function))
       expect(addEventListenerSpy).not.toHaveBeenCalledWith('liebe-navigate', expect.any(Function))
     })
   })

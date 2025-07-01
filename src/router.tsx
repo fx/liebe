@@ -5,20 +5,12 @@ import { NotFound } from './components/NotFound'
 
 export function createRouter() {
   // Determine base path for Home Assistant custom panel
-  // In HA, the panel is served at /liebe/ (production) or /liebe-dev/ (development)
+  // In HA, the panel is served at /liebe/
   let basepath: string | undefined = undefined
 
   if (typeof window !== 'undefined') {
-    // Only use base path if we're NOT in an iframe
-    // In iframe mode, we handle routing differently
-    const isInIframe = window.parent !== window
-
-    if (!isInIframe) {
-      if (window.location.pathname.includes('/liebe-dev')) {
-        basepath = '/liebe-dev'
-      } else if (window.location.pathname.includes('/liebe')) {
-        basepath = '/liebe'
-      }
+    if (window.location.pathname.includes('/liebe')) {
+      basepath = '/liebe'
     }
   }
 

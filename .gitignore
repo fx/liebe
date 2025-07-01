@@ -49,3 +49,6 @@ lerna-debug.log*
 
 # Misc
 .env.sentry-build-plugin
+
+# Claude settings
+.claude/settings.local.json
