@@ -39,6 +39,10 @@ export const dashboardActions = {
       mode,
       isDirty: true,
     }))
+    // Import is deferred to avoid circular dependency
+    import('./persistence').then(({ saveDashboardMode }) => {
+      saveDashboardMode(mode)
+    })
   },
 
   setCurrentScreen: (screenId: string) => {
