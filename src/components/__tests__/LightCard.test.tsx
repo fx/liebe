@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LightCard } from '../LightCard'
 import * as hooks from '~/hooks'
 import { useDashboardStore } from '~/store'
 import { HassEntity } from '~/store/entityTypes'
+import type { DashboardState } from '~/store/types'
 
 // Mock the hooks
 vi.mock('~/hooks', () => ({
@@ -14,7 +15,7 @@ vi.mock('~/hooks', () => ({
 
 // Mock the store
 vi.mock('~/store', () => ({
-  useDashboardStore: vi.fn((selector) => selector({ mode: 'view' })),
+  useDashboardStore: vi.fn(),
 }))
 
 describe('LightCard', () => {
@@ -48,12 +49,20 @@ describe('LightCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(hooks.useEntity as any).mockReturnValue({
+
+    // Default mock implementation for useDashboardStore
+    vi.mocked(useDashboardStore).mockImplementation((selector) => {
+      const state = { mode: 'view' } as Pick<DashboardState, 'mode'>
+      return selector ? selector(state as DashboardState) : state
+    })
+
+    vi.mocked(hooks.useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
+      isLoading: false,
       isStale: false,
     })
-    ;(hooks.useServiceCall as any).mockReturnValue(mockServiceCallHandlers)
+    vi.mocked(hooks.useServiceCall).mockReturnValue(mockServiceCallHandlers)
   })
 
   it('renders light entity with brightness slider', () => {
@@ -65,9 +74,10 @@ describe('LightCard', () => {
   })
 
   it('renders light entity without brightness slider when off', () => {
-    ;(hooks.useEntity as any).mockReturnValue({
+    vi.mocked(hooks.useEntity).mockReturnValue({
       entity: { ...mockEntity, state: 'off' },
       isConnected: true,
+      isLoading: false,
       isStale: false,
     })
 
@@ -89,12 +99,13 @@ describe('LightCard', () => {
   })
 
   it('shows different brightness levels', () => {
-    ;(hooks.useEntity as any).mockReturnValue({
+    vi.mocked(hooks.useEntity).mockReturnValue({
       entity: {
         ...mockEntity,
         attributes: { ...mockEntity.attributes, brightness: 128 }, // 50%
       },
       isConnected: true,
+      isLoading: false,
       isStale: false,
     })
 
@@ -103,19 +114,22 @@ describe('LightCard', () => {
     // Status should show percentage (there are two 50% texts - one in slider, one in status)
     const allPercentageTexts = screen.getAllByText('50%')
     expect(allPercentageTexts).toHaveLength(2) // One in slider label, one in status
-    
+
     // The status element is the one with weight-medium class
-    const statusElement = allPercentageTexts.find(el => el.classList.contains('rt-r-weight-medium'))
+    const statusElement = allPercentageTexts.find((el) =>
+      el.classList.contains('rt-r-weight-medium')
+    )
     expect(statusElement).toBeInTheDocument()
   })
 
   it('hides brightness slider for lights without brightness support', () => {
-    ;(hooks.useEntity as any).mockReturnValue({
+    vi.mocked(hooks.useEntity).mockReturnValue({
       entity: {
         ...mockEntity,
         attributes: { ...mockEntity.attributes, supported_features: 0 }, // No brightness support
       },
       isConnected: true,
+      isLoading: false,
       isStale: false,
     })
 
@@ -131,7 +145,7 @@ describe('LightCard', () => {
     // Click on the icon area to toggle
     const toggleArea = container.querySelector('.light-toggle-area')
     expect(toggleArea).toBeInTheDocument()
-    
+
     if (toggleArea) {
       await user.click(toggleArea)
     }
@@ -140,9 +154,10 @@ describe('LightCard', () => {
   })
 
   it('shows unavailable state', () => {
-    ;(hooks.useEntity as any).mockReturnValue({
+    vi.mocked(hooks.useEntity).mockReturnValue({
       entity: { ...mockEntity, state: 'unavailable' },
       isConnected: true,
+      isLoading: false,
       isStale: false,
     })
 
@@ -153,9 +168,10 @@ describe('LightCard', () => {
   })
 
   it('shows disconnected state', () => {
-    ;(hooks.useEntity as any).mockReturnValue({
-      entity: null,
+    vi.mocked(hooks.useEntity).mockReturnValue({
+      entity: undefined,
       isConnected: false,
+      isLoading: false,
       isStale: false,
     })
 
@@ -165,7 +181,7 @@ describe('LightCard', () => {
   })
 
   it('shows loading state', () => {
-    ;(hooks.useServiceCall as any).mockReturnValue({
+    vi.mocked(hooks.useServiceCall).mockReturnValue({
       ...mockServiceCallHandlers,
       loading: true,
     })
@@ -174,14 +190,14 @@ describe('LightCard', () => {
 
     // Check for spinner element
     expect(container.querySelector('.rt-Spinner')).toBeInTheDocument()
-    
+
     // Card should have loading cursor
     const card = container.querySelector('.light-card')
     expect(card).toHaveStyle('cursor: wait')
   })
 
   it('shows error state', () => {
-    ;(hooks.useServiceCall as any).mockReturnValue({
+    vi.mocked(hooks.useServiceCall).mockReturnValue({
       ...mockServiceCallHandlers,
       error: 'Failed to toggle light',
     })
@@ -192,9 +208,10 @@ describe('LightCard', () => {
   })
 
   it('shows stale data indicator', () => {
-    ;(hooks.useEntity as any).mockReturnValue({
+    vi.mocked(hooks.useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
+      isLoading: false,
       isStale: true,
     })
 
@@ -208,9 +225,10 @@ describe('LightCard', () => {
     const onDelete = vi.fn()
     const onSelect = vi.fn()
 
-    vi.mocked(useDashboardStore as any).mockImplementation(
-      (selector: any) => selector({ mode: 'edit' })
-    )
+    vi.mocked(useDashboardStore).mockImplementation((selector) => {
+      const state = { mode: 'edit' } as Pick<DashboardState, 'mode'>
+      return selector ? selector(state as DashboardState) : state
+    })
 
     render(
       <LightCard
