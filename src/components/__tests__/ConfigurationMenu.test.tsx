@@ -7,7 +7,7 @@ import * as persistence from '../../store/persistence'
 
 // Mock ImportPreviewDialog
 vi.mock('../ImportPreviewDialog', () => ({
-  ImportPreviewDialog: ({ open, onConfirm }: any) => 
+  ImportPreviewDialog: ({ open, onConfirm }: { open: boolean; onConfirm: () => void }) =>
     open ? (
       <div>
         <button onClick={onConfirm}>Import</button>
