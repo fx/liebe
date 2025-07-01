@@ -287,7 +287,8 @@ export const dashboardActions = {
   },
 
   loadConfiguration: (config: DashboardConfig) => {
-    dashboardStore.setState(() => ({
+    dashboardStore.setState((state) => ({
+      ...state,
       mode: 'view',
       screens: config.screens,
       currentScreenId: config.screens.length > 0 ? config.screens[0].id : null,

@@ -13,7 +13,7 @@ export function Sidebar({ children }: SidebarProps) {
   const sidebarOpen = useStore(dashboardStore, (state) => state.sidebarOpen)
 
   return (
-    <Dialog.Root open={sidebarOpen} onOpenChange={(open) => dashboardStore.setState(() => ({ sidebarOpen: open }))}>
+    <Dialog.Root open={sidebarOpen} onOpenChange={(open) => dashboardStore.setState((state) => ({ ...state, sidebarOpen: open }))}>
       <Dialog.Portal>
         <Dialog.Overlay className="sidebar-overlay" />
         <Dialog.Content className="sidebar-content">
@@ -46,7 +46,7 @@ export function SidebarTrigger() {
     <IconButton
       size="3"
       variant="soft"
-      onClick={() => dashboardStore.setState(() => ({ sidebarOpen: true }))}
+      onClick={() => dashboardStore.setState((state) => ({ ...state, sidebarOpen: true }))}
       aria-label="Open sidebar"
       style={{ minWidth: '44px', minHeight: '44px' }}
     >

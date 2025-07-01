@@ -69,13 +69,13 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
         <Flex justify="between" align="center">
           <Flex direction="column">
             <Text size="6" weight="bold">
-              {temperature}°
+              {temperature !== undefined ? `${temperature}°` : '--°'}
             </Text>
-            {humidity && (
+            {humidity !== undefined ? (
               <Text size="1" color="gray">
                 {humidity}% humidity
               </Text>
-            )}
+            ) : null}
           </Flex>
         </Flex>
       </Flex>
