@@ -16,11 +16,11 @@ interface ClimateCardProps {
 // Climate supported features bit flags from Home Assistant
 const SUPPORT_TARGET_TEMPERATURE = 1
 const SUPPORT_TARGET_TEMPERATURE_RANGE = 2
-const SUPPORT_TARGET_HUMIDITY = 4
+// const SUPPORT_TARGET_HUMIDITY = 4
 const SUPPORT_FAN_MODE = 8
-const SUPPORT_PRESET_MODE = 16
-const SUPPORT_SWING_MODE = 32
-const SUPPORT_AUX_HEAT = 64
+// const SUPPORT_PRESET_MODE = 16
+// const SUPPORT_SWING_MODE = 32
+// const SUPPORT_AUX_HEAT = 64
 
 // HVAC modes
 const HVAC_MODES = {
@@ -78,9 +78,9 @@ function ClimateCardComponent({
   const supportsTargetTemp = supportedFeatures & SUPPORT_TARGET_TEMPERATURE
   const supportsTargetTempRange = supportedFeatures & SUPPORT_TARGET_TEMPERATURE_RANGE
   const supportsFanMode = supportedFeatures & SUPPORT_FAN_MODE
-  const supportsPresetMode = supportedFeatures & SUPPORT_PRESET_MODE
-  const supportsSwingMode = supportedFeatures & SUPPORT_SWING_MODE
-  const supportsAuxHeat = supportedFeatures & SUPPORT_AUX_HEAT
+  // const supportsPresetMode = supportedFeatures & SUPPORT_PRESET_MODE
+  // const supportsSwingMode = supportedFeatures & SUPPORT_SWING_MODE
+  // const supportsAuxHeat = supportedFeatures & SUPPORT_AUX_HEAT
 
   // Get temperature settings
   const currentTemp = climateAttributes?.current_temperature
@@ -96,15 +96,19 @@ function ClimateCardComponent({
   const hvacMode = climateAttributes?.hvac_mode ?? 'off'
   const hvacAction = climateAttributes?.hvac_action
   const fanMode = climateAttributes?.fan_mode
-  const presetMode = climateAttributes?.preset_mode
+  // const presetMode = climateAttributes?.preset_mode
 
   const handleHvacModeChange = useCallback(
     async (newMode: string) => {
       if (isLoading) return
       if (error) clearError()
-      await callService('climate', 'set_hvac_mode', {
-        entity_id: entityId,
-        hvac_mode: newMode,
+      await callService({
+        domain: 'climate',
+        service: 'set_hvac_mode',
+        entityId,
+        data: {
+          hvac_mode: newMode,
+        },
       })
     },
     [entityId, callService, isLoading, error, clearError]
@@ -114,37 +118,60 @@ function ClimateCardComponent({
     async (newTemp: number) => {
       if (isLoading) return
       if (error) clearError()
-      
+
       const clampedTemp = Math.max(minTemp, Math.min(maxTemp, newTemp))
-      
+
       if (supportsTargetTempRange && hvacMode === 'heat_cool') {
         // For heat_cool mode, adjust the appropriate temperature
-        const midpoint = targetTempLow && targetTempHigh 
-          ? (targetTempLow + targetTempHigh) / 2 
-          : clampedTemp
-        
-        await callService('climate', 'set_temperature', {
-          entity_id: entityId,
-          target_temp_low: Math.min(clampedTemp, midpoint),
-          target_temp_high: Math.max(clampedTemp, midpoint),
+        const midpoint =
+          targetTempLow && targetTempHigh ? (targetTempLow + targetTempHigh) / 2 : clampedTemp
+
+        await callService({
+          domain: 'climate',
+          service: 'set_temperature',
+          entityId,
+          data: {
+            target_temp_low: Math.min(clampedTemp, midpoint),
+            target_temp_high: Math.max(clampedTemp, midpoint),
+          },
         })
       } else {
-        await callService('climate', 'set_temperature', {
-          entity_id: entityId,
-          temperature: clampedTemp,
+        await callService({
+          domain: 'climate',
+          service: 'set_temperature',
+          entityId,
+          data: {
+            temperature: clampedTemp,
+          },
         })
       }
     },
-    [entityId, callService, isLoading, error, clearError, minTemp, maxTemp, supportsTargetTempRange, hvacMode, targetTempLow, targetTempHigh]
+    [
+      entityId,
+      callService,
+      isLoading,
+      error,
+      clearError,
+      minTemp,
+      maxTemp,
+      supportsTargetTempRange,
+      hvacMode,
+      targetTempLow,
+      targetTempHigh,
+    ]
   )
 
   const handleFanModeChange = useCallback(
     async (newMode: string) => {
       if (isLoading) return
       if (error) clearError()
-      await callService('climate', 'set_fan_mode', {
-        entity_id: entityId,
-        fan_mode: newMode,
+      await callService({
+        domain: 'climate',
+        service: 'set_fan_mode',
+        entityId,
+        data: {
+          fan_mode: newMode,
+        },
       })
     },
     [entityId, callService, isLoading, error, clearError]
@@ -269,11 +296,25 @@ function ClimateCardComponent({
         {/* Temperature display */}
         <Flex direction="column" align="center" gap="2">
           {currentTemp !== undefined && (
-            <Text size="5" weight="bold" color={getStatusColor as any}>
-              {currentTemp.toFixed(1)}{tempUnit}
+            <Text
+              size="5"
+              weight="bold"
+              color={
+                getStatusColor as
+                  | 'gray'
+                  | 'orange'
+                  | 'blue'
+                  | 'green'
+                  | 'indigo'
+                  | 'yellow'
+                  | 'cyan'
+              }
+            >
+              {currentTemp.toFixed(1)}
+              {tempUnit}
             </Text>
           )}
-          
+
           {/* Target temperature display and controls */}
           {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && (
             <Flex align="center" gap="3">
@@ -282,22 +323,23 @@ function ClimateCardComponent({
                 variant="soft"
                 onClick={() => handleTemperatureChange((targetTemp ?? 20) - tempStep)}
                 disabled={isLoading || (targetTemp ?? 20) <= minTemp}
+                aria-label="Decrease temperature"
               >
                 <ChevronDownIcon />
               </IconButton>
-              
+
               <Text size="3" color="gray">
-                {supportsTargetTempRange && hvacMode === 'heat_cool' 
+                {supportsTargetTempRange && hvacMode === 'heat_cool'
                   ? `${targetTempLow?.toFixed(1)} - ${targetTempHigh?.toFixed(1)}${tempUnit}`
-                  : `${targetTemp?.toFixed(1)}${tempUnit}`
-                }
+                  : `${targetTemp?.toFixed(1)}${tempUnit}`}
               </Text>
-              
+
               <IconButton
                 size="2"
                 variant="soft"
                 onClick={() => handleTemperatureChange((targetTemp ?? 20) + tempStep)}
                 disabled={isLoading || (targetTemp ?? 20) >= maxTemp}
+                aria-label="Increase temperature"
               >
                 <ChevronUpIcon />
               </IconButton>
@@ -337,7 +379,9 @@ function ClimateCardComponent({
         {hvacAction && (
           <Text
             size="1"
-            color={getStatusColor as any}
+            color={
+              getStatusColor as 'gray' | 'orange' | 'blue' | 'green' | 'indigo' | 'yellow' | 'cyan'
+            }
             weight="medium"
             align="center"
             style={{

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Theme } from '@radix-ui/themes'
 import { ClimateCard } from './ClimateCard'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore } from '~/store'
@@ -15,6 +16,11 @@ vi.mock('~/hooks', () => ({
 vi.mock('~/store', () => ({
   useDashboardStore: vi.fn(),
 }))
+
+// Helper to render with Theme
+const renderWithTheme = (ui: React.ReactElement) => {
+  return render(<Theme>{ui}</Theme>)
+}
 
 describe('ClimateCard', () => {
   const mockCallService = vi.fn()
@@ -61,7 +67,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('Test Thermostat')).toBeInTheDocument()
       expect(screen.getByText('22.5°C')).toBeInTheDocument()
@@ -82,7 +88,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('23.0°C')).toBeInTheDocument()
     })
@@ -95,7 +101,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
     })
@@ -107,7 +113,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('Disconnected')).toBeInTheDocument()
     })
@@ -129,9 +135,9 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      const upButton = screen.getByRole('button', { name: /chevron.*up/i })
+      const upButton = screen.getByRole('button', { name: /increase temperature/i })
       await userEvent.click(upButton)
 
       expect(mockCallService).toHaveBeenCalledWith('climate', 'set_temperature', {
@@ -155,9 +161,9 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      const downButton = screen.getByRole('button', { name: /chevron.*down/i })
+      const downButton = screen.getByRole('button', { name: /decrease temperature/i })
       await userEvent.click(downButton)
 
       expect(mockCallService).toHaveBeenCalledWith('climate', 'set_temperature', {
@@ -182,9 +188,9 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      const downButton = screen.getByRole('button', { name: /chevron.*down/i })
+      const downButton = screen.getByRole('button', { name: /decrease temperature/i })
       expect(downButton).toBeDisabled()
     })
 
@@ -204,7 +210,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('20.0 - 24.0°C')).toBeInTheDocument()
     })
@@ -224,7 +230,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       // Open select
       const trigger = screen.getByRole('combobox')
@@ -256,7 +262,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       const fanSelects = screen.getAllByRole('combobox')
       expect(fanSelects).toHaveLength(2) // HVAC mode + fan mode
@@ -276,7 +282,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       // Get the second select (fan mode)
       const selects = screen.getAllByRole('combobox')
@@ -306,9 +312,9 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      expect(screen.getByText('HEATING')).toBeInTheDocument()
+      expect(screen.getByText('heating')).toBeInTheDocument()
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       expect(card).toHaveStyle({ borderColor: 'var(--orange-6)' })
     })
@@ -326,9 +332,9 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      expect(screen.getByText('COOLING')).toBeInTheDocument()
+      expect(screen.getByText('cooling')).toBeInTheDocument()
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       expect(card).toHaveStyle({ borderColor: 'var(--blue-6)' })
     })
@@ -344,7 +350,7 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue('edit')
 
-      render(<ClimateCard entityId="climate.test_thermostat" onDelete={mockOnDelete} />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" onDelete={mockOnDelete} />)
 
       expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
     })
@@ -358,7 +364,7 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue('edit')
 
-      render(<ClimateCard entityId="climate.test_thermostat" onDelete={mockOnDelete} />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" onDelete={mockOnDelete} />)
 
       await userEvent.click(screen.getByRole('button', { name: /delete/i }))
 
@@ -380,7 +386,7 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue('edit')
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       // Temperature controls should not be visible
       expect(screen.queryByRole('button', { name: /chevron.*up/i })).not.toBeInTheDocument()
@@ -396,7 +402,7 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue('edit')
 
-      render(<ClimateCard entityId="climate.test_thermostat" onSelect={mockOnSelect} />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" onSelect={mockOnSelect} />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       await userEvent.click(card!)
@@ -420,7 +426,7 @@ describe('ClimateCard', () => {
         clearError: mockClearError,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByRole('status')).toBeInTheDocument()
     })
@@ -439,7 +445,7 @@ describe('ClimateCard', () => {
         clearError: mockClearError,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       expect(card).toHaveStyle({ borderColor: 'var(--red-6)' })
@@ -453,7 +459,7 @@ describe('ClimateCard', () => {
         isStale: true,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       expect(card).toHaveStyle({ borderStyle: 'dashed' })
@@ -477,7 +483,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      render(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       expect(screen.getByText('72.5°F')).toBeInTheDocument()
       expect(screen.getByText('70.0°F')).toBeInTheDocument()

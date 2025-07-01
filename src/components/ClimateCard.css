@@ -11,11 +11,7 @@
   right: 0;
   height: 20px;
   cursor: move;
-  background: linear-gradient(
-    to bottom,
-    var(--gray-a3) 0%,
-    transparent 100%
-  );
+  background: linear-gradient(to bottom, var(--gray-a3) 0%, transparent 100%);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -36,15 +32,15 @@
 }
 
 /* Temperature controls hover effect */
-.climate-card button[aria-label*="temperature"] {
+.climate-card button[aria-label*='temperature'] {
   transition: all 0.2s ease;
 }
 
-.climate-card button[aria-label*="temperature"]:hover:not(:disabled) {
+.climate-card button[aria-label*='temperature']:hover:not(:disabled) {
   transform: scale(1.1);
 }
 
-.climate-card button[aria-label*="temperature"]:active:not(:disabled) {
+.climate-card button[aria-label*='temperature']:active:not(:disabled) {
   transform: scale(0.95);
 }
 
@@ -83,15 +79,15 @@
 }
 
 /* Status colors */
-.climate-card[data-status="heating"] {
+.climate-card[data-status='heating'] {
   background-color: var(--orange-a2);
 }
 
-.climate-card[data-status="cooling"] {
+.climate-card[data-status='cooling'] {
   background-color: var(--blue-a2);
 }
 
-.climate-card[data-status="idle"] {
+.climate-card[data-status='idle'] {
   background-color: var(--gray-a2);
 }
 
