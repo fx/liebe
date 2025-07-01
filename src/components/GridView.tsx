@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Box } from '@radix-ui/themes'
 import { ButtonCard } from './ButtonCard'
 import { LightCard } from './LightCard'
+import { SensorCard } from './SensorCard'
 import { Separator } from './Separator'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
@@ -35,29 +36,41 @@ function EntityCard({
   // Determine entity domain
   const domain = entityId.split('.')[0]
 
-  // Use LightCard for light entities, ButtonCard for others
-  if (domain === 'light') {
-    return (
-      <LightCard
-        entityId={entityId}
-        size={size}
-        onDelete={onDelete}
-        isSelected={isSelected}
-        onSelect={onSelect}
-      />
-    )
+  // Use specific card based on entity domain
+  switch (domain) {
+    case 'light':
+      return (
+        <LightCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'sensor':
+    case 'binary_sensor':
+      return (
+        <SensorCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    default:
+      // Default to ButtonCard for switches, input_booleans, and other entities
+      return (
+        <ButtonCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
   }
-
-  // Default to ButtonCard for switches, input_booleans, and other entities
-  return (
-    <ButtonCard
-      entityId={entityId}
-      size={size}
-      onDelete={onDelete}
-      isSelected={isSelected}
-      onSelect={onSelect}
-    />
-  )
 }
 
 export function GridView({ screenId, items, resolution }: GridViewProps) {
