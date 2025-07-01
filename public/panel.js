@@ -78,15 +78,17 @@ class LiebePanel extends HTMLElement {
       this.sendHassToIframe()
       
       // If we have a stored route, send it to the iframe
+      // We need to wait for the iframe app to be fully ready
       if (this._currentRoute && this._currentRoute !== '/') {
-        console.log('Sending initial route to iframe:', this._currentRoute)
+        console.log('Will send initial route to iframe:', this._currentRoute)
+        // Use a longer delay to ensure the React app is mounted and ready
         setTimeout(() => {
-          // Delay to ensure iframe is ready
+          console.log('Sending initial route to iframe NOW:', this._currentRoute)
           this.iframe.contentWindow.postMessage(
             { type: 'navigate-to', path: this._currentRoute },
             '*'
           )
-        }, 100)
+        }, 500)
       }
     })
   }
@@ -142,6 +144,13 @@ class LiebePanel extends HTMLElement {
             '*'
           )
         })
+    } else if (event.data.type === 'get-route') {
+      // Iframe app is requesting the current route
+      console.log('Iframe requesting current route, sending:', this._currentRoute)
+      event.source.postMessage(
+        { type: 'navigate-to', path: this._currentRoute },
+        '*'
+      )
     } else if (event.data.type === 'route-change') {
       // Handle route changes within the panel
       const path = event.data.path

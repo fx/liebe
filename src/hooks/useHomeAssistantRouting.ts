@@ -48,6 +48,15 @@ export function useHomeAssistantRouting() {
 
     window.addEventListener('liebe-navigate', handleNavigate)
 
+    // If in iframe, request current route from parent
+    if (isInIframe) {
+      // Small delay to ensure everything is set up
+      setTimeout(() => {
+        console.log('Requesting current route from parent')
+        window.parent.postMessage({ type: 'get-route' }, '*')
+      }, 100)
+    }
+
     return () => {
       unsubscribe()
       window.removeEventListener('liebe-navigate', handleNavigate)
