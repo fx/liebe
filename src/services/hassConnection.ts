@@ -117,8 +117,10 @@ export class HassConnectionManager {
       
       const handleStatesUpdate = (event: CustomEvent) => {
         if (event.detail?.states) {
-          // Update all states at once
-          entityStoreActions.setEntities(event.detail.states)
+          // Convert states object to array of entities
+          const entities = Object.values(event.detail.states) as HassEntity[]
+          entityStoreActions.updateEntities(entities)
+          entityStoreActions.setInitialLoading(false)
         }
       }
       
