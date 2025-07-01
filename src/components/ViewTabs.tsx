@@ -1,9 +1,10 @@
 import { Tabs, Button, Flex, IconButton, ScrollArea, DropdownMenu, Box } from '@radix-ui/themes'
-import { Cross2Icon, PlusIcon, HamburgerMenuIcon } from '@radix-ui/react-icons'
+import { Cross2Icon, PlusIcon, HamburgerMenuIcon, GearIcon } from '@radix-ui/react-icons'
 import { useDashboardStore, dashboardActions } from '../store'
 import type { ScreenConfig } from '../store/types'
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { ScreenConfigDialog } from './ScreenConfigDialog'
 
 interface ViewTabsProps {
   onAddView?: () => void
@@ -14,6 +15,7 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const mode = useDashboardStore((state) => state.mode)
   const [isMobile, setIsMobile] = useState(false)
+  const [configScreenId, setConfigScreenId] = useState<string | undefined>()
   const navigate = useNavigate()
 
   // Helper function to find screen by ID
@@ -72,29 +74,58 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
         <Tabs.Trigger key={screen.id} value={screen.id} style={{ paddingLeft: `${level * 20}px` }}>
           <Flex align="center" gap="2" style={{ width: '100%' }}>
             <span style={{ flex: 1 }}>{screen.name}</span>
-            {mode === 'edit' && screens.length > 1 && (
-              <Box
-                onClick={(e) => handleRemoveView(screen.id, e)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  color: 'var(--gray-11)',
-                  transition: 'background-color 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--gray-a3)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                }}
-              >
-                <Cross2Icon width="14" height="14" />
-              </Box>
+            {mode === 'edit' && (
+              <Flex gap="1">
+                <Box
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setConfigScreenId(screen.id)
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    color: 'var(--gray-11)',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--gray-a3)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                  }}
+                >
+                  <GearIcon width="14" height="14" />
+                </Box>
+                {screens.length > 1 && (
+                  <Box
+                    onClick={(e) => handleRemoveView(screen.id, e)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      color: 'var(--gray-11)',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--gray-a3)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }}
+                  >
+                    <Cross2Icon width="14" height="14" />
+                  </Box>
+                )}
+              </Flex>
             )}
           </Flex>
         </Tabs.Trigger>
@@ -129,6 +160,14 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
           {screen.name}
           {currentScreenId === screen.id && ' ✓'}
         </DropdownMenu.Item>
+        {mode === 'edit' && (
+          <DropdownMenu.Item
+            onSelect={() => setConfigScreenId(screen.id)}
+            style={{ paddingLeft: `${20 + level * 20}px` }}
+          >
+            <GearIcon /> Configure {screen.name}
+          </DropdownMenu.Item>
+        )}
         {screen.children &&
           screen.children.length > 0 &&
           renderDropdownItems(screen.children, level + 1)}
@@ -142,43 +181,57 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
 
   if (isMobile) {
     return (
-      <Flex align="center" gap="2" p="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Button variant="soft" size="2">
-              <HamburgerMenuIcon />
-              {currentScreenName}
-            </Button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            {renderDropdownItems(screens)}
-            {mode === 'edit' && (
-              <>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={() => onAddView?.()}>
-                  <PlusIcon />
-                  Add New View
-                </DropdownMenu.Item>
-              </>
-            )}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      </Flex>
+      <>
+        <Flex align="center" gap="2" p="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <Button variant="soft" size="2">
+                <HamburgerMenuIcon />
+                {currentScreenName}
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              {renderDropdownItems(screens)}
+              {mode === 'edit' && (
+                <>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item onSelect={() => onAddView?.()}>
+                    <PlusIcon />
+                    Add New View
+                  </DropdownMenu.Item>
+                </>
+              )}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </Flex>
+        <ScreenConfigDialog
+          open={!!configScreenId}
+          onOpenChange={(open) => !open && setConfigScreenId(undefined)}
+          screenId={configScreenId}
+        />
+      </>
     )
   }
 
   return (
-    <Tabs.Root value={currentScreenId || ''} onValueChange={handleTabChange}>
-      <Flex align="center" gap="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
-        <ScrollArea type="hover" scrollbars="horizontal" style={{ flex: 1 }}>
-          <Tabs.List>{renderScreenTabs(screens)}</Tabs.List>
-        </ScrollArea>
-        {mode === 'edit' && (
-          <IconButton size="2" variant="soft" onClick={onAddView} style={{ marginRight: '8px' }}>
-            <PlusIcon />
-          </IconButton>
-        )}
-      </Flex>
-    </Tabs.Root>
+    <>
+      <Tabs.Root value={currentScreenId || ''} onValueChange={handleTabChange}>
+        <Flex align="center" gap="2" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
+          <ScrollArea type="hover" scrollbars="horizontal" style={{ flex: 1 }}>
+            <Tabs.List>{renderScreenTabs(screens)}</Tabs.List>
+          </ScrollArea>
+          {mode === 'edit' && (
+            <IconButton size="2" variant="soft" onClick={onAddView} style={{ marginRight: '8px' }}>
+              <PlusIcon />
+            </IconButton>
+          )}
+        </Flex>
+      </Tabs.Root>
+      <ScreenConfigDialog
+        open={!!configScreenId}
+        onOpenChange={(open) => !open && setConfigScreenId(undefined)}
+        screenId={configScreenId}
+      />
+    </>
   )
 }
