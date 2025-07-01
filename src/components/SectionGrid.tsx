@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Box, Grid } from '@radix-ui/themes'
 import { Section } from './Section'
 import { ButtonCard } from './ButtonCard'
+import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { SectionConfig, GridItem } from '../store/types'
 import { dashboardActions, useDashboardStore } from '../store'
 import './SectionGrid.css'
@@ -16,6 +17,12 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
   const isEditMode = mode === 'edit'
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null)
   const [dragOverSectionId, setDragOverSectionId] = useState<string | null>(null)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<{ sectionId: string; itemId: string } | null>(
+    null
+  )
+  const [bulkDeletePending, setBulkDeletePending] = useState(false)
 
   const handleUpdateSection = (sectionId: string, updates: Partial<SectionConfig>) => {
     dashboardActions.updateSection(screenId, sectionId, updates)
@@ -37,6 +44,47 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
         height: 1,
       }
       dashboardActions.addGridItem(screenId, sectionId, newItem)
+    })
+  }
+
+  const handleDeleteItem = (sectionId: string, itemId: string) => {
+    setItemToDelete({ sectionId, itemId })
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (bulkDeletePending && selectedItems.size > 0) {
+      // Bulk delete selected items
+      sections.forEach((section) => {
+        section.items.forEach((item) => {
+          if (selectedItems.has(item.id)) {
+            dashboardActions.removeGridItem(screenId, section.id, item.id)
+          }
+        })
+      })
+      setSelectedItems(new Set())
+      setBulkDeletePending(false)
+    } else if (itemToDelete) {
+      // Single item delete
+      dashboardActions.removeGridItem(screenId, itemToDelete.sectionId, itemToDelete.itemId)
+      setSelectedItems((prev) => {
+        const next = new Set(prev)
+        next.delete(itemToDelete.itemId)
+        return next
+      })
+      setItemToDelete(null)
+    }
+  }
+
+  const handleSelectItem = (itemId: string, selected: boolean) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev)
+      if (selected) {
+        next.add(itemId)
+      } else {
+        next.delete(itemId)
+      }
+      return next
     })
   }
 
@@ -105,6 +153,39 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
     setDragOverSectionId(null)
   }
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isEditMode) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete key to delete selected items
+      if (e.key === 'Delete' && selectedItems.size > 0) {
+        e.preventDefault()
+        setBulkDeletePending(true)
+        setDeleteDialogOpen(true)
+      }
+      // Escape to clear selection
+      else if (e.key === 'Escape' && selectedItems.size > 0) {
+        e.preventDefault()
+        setSelectedItems(new Set())
+      }
+      // Ctrl/Cmd + A to select all
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault()
+        const allItemIds = new Set<string>()
+        sections.forEach((section) => {
+          section.items.forEach((item) => {
+            allItemIds.add(item.id)
+          })
+        })
+        setSelectedItems(allItemIds)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isEditMode, selectedItems.size, sections])
+
   // Sort sections by order
   const sortedSections = [...sections].sort((a, b) => a.order - b.order)
 
@@ -150,13 +231,36 @@ export function SectionGrid({ screenId, sections }: SectionGridProps) {
                 width="100%"
               >
                 {section.items.map((item) => (
-                  <ButtonCard key={item.id} entityId={item.entityId} size="medium" />
+                  <ButtonCard
+                    key={item.id}
+                    entityId={item.entityId}
+                    size="medium"
+                    onDelete={isEditMode ? () => handleDeleteItem(section.id, item.id) : undefined}
+                    isSelected={selectedItems.has(item.id)}
+                    onSelect={
+                      isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                    }
+                  />
                 ))}
               </Grid>
             )}
           </Section>
         </Box>
       ))}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) {
+            setBulkDeletePending(false)
+            setItemToDelete(null)
+          }
+        }}
+        onConfirm={confirmDelete}
+        itemCount={bulkDeletePending ? selectedItems.size : 1}
+      />
     </Box>
   )
 }
