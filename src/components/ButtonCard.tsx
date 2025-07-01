@@ -1,13 +1,17 @@
-import { Card, Flex, Text, Spinner, Box } from '@radix-ui/themes'
-import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons'
+import { Card, Flex, Text, Spinner, Box, IconButton } from '@radix-ui/themes'
+import { LightningBoltIcon, SunIcon, CheckIcon, Cross2Icon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
 import { memo } from 'react'
+import { useDashboardStore } from '~/store'
 import './ButtonCard.css'
 
 interface ButtonCardProps {
   entityId: string
   size?: 'small' | 'medium' | 'large'
+  onDelete?: () => void
+  isSelected?: boolean
+  onSelect?: (selected: boolean) => void
 }
 
 const getEntityIcon = (entity: HassEntity) => {
@@ -25,9 +29,17 @@ const getEntityIcon = (entity: HassEntity) => {
   }
 }
 
-function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
+function ButtonCardComponent({
+  entityId,
+  size = 'medium',
+  onDelete,
+  isSelected = false,
+  onSelect,
+}: ButtonCardProps) {
   const { entity, isConnected, isStale } = useEntity(entityId)
   const { loading: isLoading, error, toggle, clearError } = useServiceCall()
+  const mode = useDashboardStore((state) => state.mode)
+  const isEditMode = mode === 'edit'
 
   if (!entity || !isConnected) {
     return (
@@ -84,15 +96,17 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
       variant="classic"
       style={{
         cursor: isLoading ? 'wait' : 'pointer',
-        backgroundColor: isOn ? 'var(--amber-3)' : undefined,
-        borderColor: error
-          ? 'var(--red-6)'
-          : isStale
-            ? 'var(--orange-6)'
-            : isOn
-              ? 'var(--amber-6)'
-              : undefined,
-        borderWidth: error || isOn || isStale ? '2px' : '1px',
+        backgroundColor: isSelected ? 'var(--blue-3)' : isOn ? 'var(--amber-3)' : undefined,
+        borderColor: isSelected
+          ? 'var(--blue-6)'
+          : error
+            ? 'var(--red-6)'
+            : isStale
+              ? 'var(--orange-6)'
+              : isOn
+                ? 'var(--amber-6)'
+                : undefined,
+        borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
         borderStyle: isStale ? 'dashed' : 'solid',
         transition: 'all 0.2s ease',
         transform: isLoading ? 'scale(0.98)' : undefined,
@@ -100,10 +114,34 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
           ? (error ? 'pulse-border-error' : 'pulse-border') + ' 1.5s ease-in-out infinite'
           : undefined,
         opacity: isStale ? 0.8 : 1,
+        position: 'relative',
       }}
-      onClick={handleClick}
+      onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : handleClick}
       title={error || (isStale ? 'Entity data may be outdated' : undefined)}
     >
+      {/* Delete button in edit mode */}
+      {isEditMode && onDelete && (
+        <IconButton
+          size="1"
+          variant="soft"
+          color="red"
+          style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            opacity: isSelected ? 1 : 0.7,
+            transition: 'opacity 0.2s ease',
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          aria-label="Delete entity"
+        >
+          <Cross2Icon />
+        </IconButton>
+      )}
+
       <Flex
         p={cardSize.p}
         direction="column"
@@ -187,6 +225,12 @@ function ButtonCardComponent({ entityId, size = 'medium' }: ButtonCardProps) {
 
 // Memoize the component to prevent unnecessary re-renders
 export const ButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
-  // Only re-render if entityId or size changes
-  return prevProps.entityId === nextProps.entityId && prevProps.size === nextProps.size
+  // Re-render if any of these props change
+  return (
+    prevProps.entityId === nextProps.entityId &&
+    prevProps.size === nextProps.size &&
+    prevProps.onDelete === nextProps.onDelete &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.onSelect === nextProps.onSelect
+  )
 })
