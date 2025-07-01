@@ -113,11 +113,24 @@ function ClimateCardComponent({
   const tempStep = climateAttributes?.target_temp_step ?? 0.5
   const tempUnit = climateAttributes?.temperature_unit ?? '°C'
 
-  // Get current state
-  const hvacMode = climateAttributes?.hvac_mode ?? 'off'
+  // Get current state - Home Assistant stores HVAC mode in entity.state
+  const hvacMode = entity?.state ?? 'off'
   const hvacAction = climateAttributes?.hvac_action
   // const fanMode = climateAttributes?.fan_mode
   // const presetMode = climateAttributes?.preset_mode
+
+  // Debug logging
+  console.log('ClimateCard Debug:', {
+    entityId,
+    entityState: entity?.state,
+    hvacMode,
+    hvacAction,
+    availableModes: climateAttributes?.hvac_modes,
+    currentTemp,
+    targetTemp,
+    supportedFeatures,
+    attributes: climateAttributes,
+  })
 
   const handleHvacModeChange = useCallback(
     async (newMode: string) => {
