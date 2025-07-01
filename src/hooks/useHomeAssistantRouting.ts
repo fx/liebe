@@ -52,7 +52,6 @@ export function useHomeAssistantRouting() {
     if (isInIframe) {
       // Small delay to ensure everything is set up
       setTimeout(() => {
-        console.log('Requesting current route from parent')
         window.parent.postMessage({ type: 'get-route' }, '*')
       }, 100)
     }

@@ -77,19 +77,7 @@ class LiebePanel extends HTMLElement {
     this.iframe.addEventListener('load', () => {
       this.sendHassToIframe()
       
-      // If we have a stored route, send it to the iframe
-      // We need to wait for the iframe app to be fully ready
-      if (this._currentRoute && this._currentRoute !== '/') {
-        console.log('Will send initial route to iframe:', this._currentRoute)
-        // Use a longer delay to ensure the React app is mounted and ready
-        setTimeout(() => {
-          console.log('Sending initial route to iframe NOW:', this._currentRoute)
-          this.iframe.contentWindow.postMessage(
-            { type: 'navigate-to', path: this._currentRoute },
-            '*'
-          )
-        }, 500)
-      }
+      // The iframe app will request the route when it's ready
     })
   }
 
@@ -146,7 +134,6 @@ class LiebePanel extends HTMLElement {
         })
     } else if (event.data.type === 'get-route') {
       // Iframe app is requesting the current route
-      console.log('Iframe requesting current route, sending:', this._currentRoute)
       event.source.postMessage(
         { type: 'navigate-to', path: this._currentRoute },
         '*'
@@ -155,21 +142,16 @@ class LiebePanel extends HTMLElement {
       // Handle route changes within the panel
       const path = event.data.path
       if (path) {
-        console.log('Route change received:', path)
-        console.log('Current URL:', window.location.pathname)
-        
         // Store the sub-route in the panel's state
         this._currentRoute = path
         
         // Update URL without triggering Home Assistant navigation
         // Get the base path (should be /liebe)
         const pathParts = window.location.pathname.split('/')
-        const basePath = '/' + pathParts[1] // This should be /liebe
+        const basePath = '/' + pathParts[1]
         
         // Create the new path
         const newPath = path === '/' ? basePath : basePath + path
-        
-        console.log('New URL will be:', newPath)
         
         // Use replaceState to avoid adding to history
         history.replaceState({ panelRoute: path }, '', newPath)
