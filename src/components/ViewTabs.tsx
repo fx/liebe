@@ -46,17 +46,6 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     if (screen) {
       // Navigate to the new screen using slug
       navigate({ to: '/$slug', params: { slug: screen.slug } })
-
-      // If we're in an iframe, notify the parent window
-      if (window.parent !== window) {
-        window.parent.postMessage(
-          {
-            type: 'route-change',
-            path: `/${screen.slug}`,
-          },
-          '*'
-        )
-      }
     }
   }
 

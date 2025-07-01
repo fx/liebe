@@ -1,16 +1,13 @@
 import { useContext } from 'react'
 import { Card, Flex, Text, Switch, Heading } from '@radix-ui/themes'
 import { HomeAssistantContext } from '~/contexts/HomeAssistantContext'
-import { useDevHass } from '~/hooks/useDevHass'
 
 interface EntityCardProps {
   entityId: string
 }
 
 export function EntityCard({ entityId }: EntityCardProps) {
-  const hassFromContext = useContext(HomeAssistantContext)
-  const hassFromDev = useDevHass()
-  const hass = hassFromContext || hassFromDev
+  const hass = useContext(HomeAssistantContext)
 
   if (!hass) {
     return (

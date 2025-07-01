@@ -6,11 +6,11 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/custom-panel.ts'),
-      name: 'LiebeDashboard',
-      fileName: 'custom-panel',
+      name: 'Liebe',
+      fileName: 'panel',
       formats: ['iife'],
     },
-    outDir: 'dist/liebe-dashboard',
+    outDir: 'dist/liebe',
     emptyOutDir: true,
     rollupOptions: {
       external: [],

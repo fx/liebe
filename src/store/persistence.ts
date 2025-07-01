@@ -3,7 +3,7 @@ import { dashboardStore, dashboardActions } from './dashboardStore'
 import type { DashboardConfig } from './types'
 import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 
-const STORAGE_KEY = 'liebe-dashboard-config'
+const STORAGE_KEY = 'liebe-config'
 
 export const saveDashboardConfig = (config: DashboardConfig): void => {
   try {
@@ -134,7 +134,7 @@ export const exportConfigurationToFile = (): void => {
     const dataStr = JSON.stringify(config, null, 2)
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
 
-    const exportFileDefaultName = `liebe-dashboard-${new Date().toISOString().split('T')[0]}.json`
+    const exportFileDefaultName = `liebe-${new Date().toISOString().split('T')[0]}.json`
 
     const linkElement = document.createElement('a')
     linkElement.setAttribute('href', dataUri)

@@ -353,7 +353,7 @@ describe('ViewTabs', () => {
       })
     })
 
-    it('should send postMessage when navigating in iframe', async () => {
+    it('should navigate to correct route when clicking tab', async () => {
       const screen1 = createTestScreen({
         id: 'screen-1',
         name: 'Living Room',
@@ -376,13 +376,11 @@ describe('ViewTabs', () => {
       const kitchenTab = screen.getByRole('tab', { name: /Kitchen/ })
       await user.click(kitchenTab)
 
-      expect(window.parent.postMessage).toHaveBeenCalledWith(
-        {
-          type: 'route-change',
-          path: '/kitchen',
-        },
-        '*'
-      )
+      // Check that navigation was called with the correct route
+      expect(mockNavigate).toHaveBeenCalledWith({
+        to: '/$slug',
+        params: { slug: 'kitchen' },
+      })
     })
   })
 })
