@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { Box, Flex, Card, Text, Button, Badge } from '@radix-ui/themes'
+import { Box, Flex, Card, Text, Button } from '@radix-ui/themes'
 import { ViewTabs } from './ViewTabs'
 import { AddViewDialog } from './AddViewDialog'
 import { SectionGrid } from './SectionGrid'
 import { AddSectionButton } from './AddSectionButton'
 import { ConfigurationMenu } from './ConfigurationMenu'
 import { ConnectionStatus } from './ConnectionStatus'
-import { useDashboardStore, dashboardActions } from '../store'
+import { ModeToggle } from './ModeToggle'
+import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
 
 export function Dashboard() {
@@ -36,10 +37,6 @@ export function Dashboard() {
 
   const currentScreen = currentScreenId ? findScreenById(screens, currentScreenId) : undefined
 
-  const handleToggleMode = () => {
-    dashboardActions.setMode(mode === 'view' ? 'edit' : 'view')
-  }
-
   return (
     <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -53,16 +50,11 @@ export function Dashboard() {
           <Text size="5" weight="bold">
             Liebe Dashboard
           </Text>
-          <Badge color={mode === 'edit' ? 'orange' : 'blue'} size="2">
-            {mode} mode
-          </Badge>
           <ConnectionStatus />
         </Flex>
-        <Flex align="center" gap="2">
+        <Flex align="center" gap="3">
           <ConfigurationMenu />
-          <Button variant="soft" onClick={handleToggleMode}>
-            {mode === 'view' ? 'Edit' : 'Done'}
-          </Button>
+          <ModeToggle />
         </Flex>
       </Flex>
 

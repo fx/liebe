@@ -44,7 +44,10 @@ describe('Dashboard', () => {
 
     it('should start in view mode', () => {
       renderWithTheme(<Dashboard />)
-      expect(screen.getByText('view mode')).toBeInTheDocument()
+      // Check that the mode toggle switch is not checked (view mode)
+      const modeSwitch = screen.getByRole('switch', { name: /toggle edit mode/i })
+      expect(modeSwitch).toBeInTheDocument()
+      expect(modeSwitch.getAttribute('aria-checked')).toBe('false')
     })
   })
 
@@ -53,16 +56,19 @@ describe('Dashboard', () => {
       const user = userEvent.setup()
       renderWithTheme(<Dashboard />)
 
-      const editButton = screen.getByText('Edit')
-      expect(editButton).toBeInTheDocument()
+      const modeSwitch = screen.getByRole('switch', { name: /toggle edit mode/i })
+      expect(modeSwitch).toBeInTheDocument()
+      expect(modeSwitch.getAttribute('aria-checked')).toBe('false')
 
-      await user.click(editButton)
-      expect(screen.getByText('edit mode')).toBeInTheDocument()
-      expect(screen.getByText('Done')).toBeInTheDocument()
+      // Click to switch to edit mode
+      await user.click(modeSwitch)
+      expect(modeSwitch.getAttribute('aria-checked')).toBe('true')
+      expect(dashboardStore.state.mode).toBe('edit')
 
-      await user.click(screen.getByText('Done'))
-      expect(screen.getByText('view mode')).toBeInTheDocument()
-      expect(screen.getByText('Edit')).toBeInTheDocument()
+      // Click to switch back to view mode
+      await user.click(modeSwitch)
+      expect(modeSwitch.getAttribute('aria-checked')).toBe('false')
+      expect(dashboardStore.state.mode).toBe('view')
     })
   })
 
