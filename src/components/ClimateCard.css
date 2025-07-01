@@ -1,0 +1,128 @@
+/* ClimateCard specific styles */
+.climate-card {
+  user-select: none;
+  overflow: hidden;
+  background: var(--gray-1);
+  border-radius: var(--radius-3);
+}
+
+.climate-card .grid-item-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  cursor: move;
+  background: linear-gradient(to bottom, var(--gray-a3) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.climate-card:hover .grid-item-drag-handle {
+  opacity: 0.5;
+}
+
+.climate-card .grid-item-drag-handle::before {
+  content: '⋮⋮';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--gray-9);
+  letter-spacing: 2px;
+}
+
+/* Temperature controls hover effect */
+.climate-card button[aria-label*='temperature'] {
+  transition: all 0.2s ease;
+}
+
+.climate-card button[aria-label*='temperature']:hover:not(:disabled) {
+  transform: scale(1.05);
+  border-color: var(--gray-8);
+}
+
+.climate-card button[aria-label*='temperature']:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* HVAC mode buttons */
+.climate-card button svg {
+  transition: transform 0.2s ease;
+}
+
+.climate-card button:hover:not(:disabled) svg {
+  transform: scale(1.1);
+}
+
+/* Active mode button styling */
+.climate-card button[data-state='checked'] {
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px currentColor;
+}
+
+/* Animation for loading state */
+@keyframes pulse-opacity {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+.climate-card[data-loading='true'] {
+  animation: pulse-opacity 1.5s ease-in-out infinite;
+}
+
+/* Arc transitions */
+.climate-card svg path {
+  transition:
+    stroke 0.3s ease,
+    d 0.3s ease;
+}
+
+.climate-card svg circle {
+  transition: all 0.3s ease;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .climate-card {
+    background: var(--gray-2);
+  }
+
+  .climate-card button[aria-label*='temperature'] {
+    background-color: var(--gray-3);
+    border-color: var(--gray-7);
+  }
+
+  .climate-card button[aria-label*='temperature']:hover:not(:disabled) {
+    background-color: var(--gray-4);
+    border-color: var(--gray-8);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .climate-card button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .climate-card button[aria-label*='temperature'] {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  /* Smaller mode buttons on mobile */
+  .climate-card button[aria-label*='mode'] {
+    width: 48px !important;
+    height: 48px !important;
+  }
+}
