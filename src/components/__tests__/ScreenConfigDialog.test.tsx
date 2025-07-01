@@ -28,7 +28,7 @@ describe('ScreenConfigDialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useDashboardStore).mockImplementation((selector: any) => {
+    vi.mocked(useDashboardStore).mockImplementation((selector) => {
       const state = {
         screens: [testScreen],
       }
