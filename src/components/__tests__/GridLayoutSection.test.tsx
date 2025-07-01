@@ -9,7 +9,21 @@ import type { GridItem } from '~/store/types'
 vi.mock('react-grid-layout', () => {
   const React = require('react')
   return {
-    default: ({ children, layout, onLayoutChange, isDraggable, isResizable, draggableHandle }) => {
+    default: ({ 
+      children, 
+      layout, 
+      onLayoutChange, 
+      isDraggable, 
+      isResizable, 
+      draggableHandle 
+    }: {
+      children: React.ReactNode[]
+      layout: Array<{ i: string; x: number; y: number; w: number; h: number }>
+      onLayoutChange?: (layout: any[]) => void
+      isDraggable?: boolean
+      isResizable?: boolean
+      draggableHandle?: string
+    }) => {
       return React.createElement(
         'div',
         {
@@ -19,7 +33,7 @@ vi.mock('react-grid-layout', () => {
           'data-resizable': isResizable,
           'data-handle': draggableHandle,
         },
-        layout.map((item, index) =>
+        layout.map((item: any, index: number) =>
           React.createElement(
             'div',
             {
