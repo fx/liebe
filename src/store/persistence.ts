@@ -246,7 +246,16 @@ export const exportConfigurationAsYAML = (): string => {
     type: string
     grid?: {
       resolution: { columns: number; rows: number }
-      sections?: unknown[]
+      items?: Array<{
+        id: string
+        type: string
+        entityId?: string
+        title?: string
+        x: number
+        y: number
+        width: number
+        height: number
+      }>
     }
     children?: ScreenToSerialize[]
   }
@@ -264,21 +273,21 @@ export const exportConfigurationAsYAML = (): string => {
       yamlLines.push(`${prefix}      columns: ${screen.grid.resolution.columns}`)
       yamlLines.push(`${prefix}      rows: ${screen.grid.resolution.rows}`)
 
-      if (screen.grid.sections && screen.grid.sections.length > 0) {
-        yamlLines.push(`${prefix}    sections:`)
-        screen.grid.sections.forEach((section: unknown) => {
-          const sectionObj = section as {
-            id: string
-            title: string
-            order: number
-            width: string
-            collapsed?: boolean
+      if (screen.grid.items && screen.grid.items.length > 0) {
+        yamlLines.push(`${prefix}    items:`)
+        screen.grid.items.forEach((item) => {
+          yamlLines.push(`${prefix}      - id: "${item.id}"`)
+          yamlLines.push(`${prefix}        type: ${item.type}`)
+          if (item.entityId) {
+            yamlLines.push(`${prefix}        entityId: "${item.entityId}"`)
           }
-          yamlLines.push(`${prefix}      - id: "${sectionObj.id}"`)
-          yamlLines.push(`${prefix}        title: "${sectionObj.title}"`)
-          yamlLines.push(`${prefix}        order: ${sectionObj.order}`)
-          yamlLines.push(`${prefix}        width: ${sectionObj.width}`)
-          yamlLines.push(`${prefix}        collapsed: ${sectionObj.collapsed || false}`)
+          if (item.title) {
+            yamlLines.push(`${prefix}        title: "${item.title}"`)
+          }
+          yamlLines.push(`${prefix}        x: ${item.x}`)
+          yamlLines.push(`${prefix}        y: ${item.y}`)
+          yamlLines.push(`${prefix}        width: ${item.width}`)
+          yamlLines.push(`${prefix}        height: ${item.height}`)
         })
       }
     }
