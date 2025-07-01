@@ -122,10 +122,22 @@ class LiebePanel extends HTMLElement {
           )
         })
     } else if (event.data.type === 'route-change') {
-      // Route changes are handled internally in the iframe
-      // We don't update the Home Assistant URL to avoid navigation issues
-      // TODO: Implement proper sub-route handling with Home Assistant
-      console.log('Route change in iframe:', event.data.path)
+      // Update the URL in Home Assistant
+      const path = event.data.path
+      if (path) {
+        const basePath = window.location.pathname.split('/').slice(0, -1).join('/')
+        const newPath = `${basePath}${path}`
+        history.pushState(null, '', newPath)
+        
+        // Notify Home Assistant about the URL change
+        this.dispatchEvent(
+          new CustomEvent('location-changed', {
+            bubbles: true,
+            composed: true,
+            detail: { path: newPath },
+          })
+        )
+      }
     }
   }
 
