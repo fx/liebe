@@ -12,6 +12,12 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
 }))
 
+// Mock the responsive utilities
+let mockIsMobile = false
+vi.mock('../../../app/utils/responsive', () => ({
+  useIsMobile: () => mockIsMobile,
+}))
+
 // Mock window.matchMedia for responsive behavior
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -290,11 +296,17 @@ describe('ViewTabs', () => {
   describe('Mobile View', () => {
     beforeEach(() => {
       // Mock mobile viewport before component renders
+      mockIsMobile = true
       Object.defineProperty(window, 'innerWidth', {
         writable: true,
         configurable: true,
         value: 500,
       })
+    })
+    
+    afterEach(() => {
+      // Reset to desktop after each test
+      mockIsMobile = false
     })
 
     it('should render dropdown menu on mobile', () => {
