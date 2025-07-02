@@ -7,7 +7,7 @@
 }
 
 .sidebar-open {
-  width: 320px;
+  width: var(--sidebar-width);
 }
 
 .sidebar-closed {
@@ -15,23 +15,17 @@
 }
 
 /* Mobile adjustments */
-@media (max-width: 768px) {
-  .sidebar-open {
-    width: 280px;
-  }
-}
-
-@media (max-width: 480px) {
+@media (max-width: 767px) {
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
     height: 100vh;
-    z-index: 999;
+    z-index: var(--z-modal);
   }
 
   .sidebar-open {
-    width: 100vw;
+    width: var(--sidebar-width);
     box-shadow: var(--shadow-6);
   }
 }
@@ -39,4 +33,14 @@
 /* Ensure proper scrolling on mobile */
 .sidebar {
   -webkit-overflow-scrolling: touch;
+}
+
+/* Fade in animation for overlay */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

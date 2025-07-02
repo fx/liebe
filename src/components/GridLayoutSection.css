@@ -240,3 +240,73 @@
   width: 100%;
   height: 100%;
 }
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  /* Smaller resize handles for mobile */
+  .react-resizable-handle {
+    width: 24px;
+    height: 24px;
+  }
+
+  .react-resizable-handle-se,
+  .react-resizable-handle-sw,
+  .react-resizable-handle-ne,
+  .react-resizable-handle-nw {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Larger drag handle for touch */
+  .grid-item-drag-handle {
+    width: 44px;
+    height: 44px;
+    opacity: 1; /* Always visible on mobile */
+  }
+
+  /* Disable hover effects on touch devices */
+  @media (pointer: coarse) {
+    .react-grid-item:hover .react-resizable-handle::after {
+      opacity: 0;
+    }
+
+    /* Show resize handles when in edit mode */
+    .react-grid-item.react-draggable .react-resizable-handle::after {
+      opacity: 1;
+    }
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablet adjustments */
+  .grid-item-drag-handle {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Touch-friendly adjustments */
+@media (pointer: coarse) {
+  /* Larger touch targets for resize handles */
+  .react-resizable-handle {
+    width: 32px;
+    height: 32px;
+  }
+
+  .react-resizable-handle-e,
+  .react-resizable-handle-w {
+    width: 32px;
+    height: 60px;
+  }
+
+  .react-resizable-handle-n,
+  .react-resizable-handle-s {
+    width: 60px;
+    height: 32px;
+  }
+
+  /* Always show drag handle on touch devices */
+  .grid-item-drag-handle {
+    opacity: 1;
+  }
+}
