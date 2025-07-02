@@ -1,4 +1,4 @@
-import { Card, Flex, Text, Heading, Grid, Separator } from '@radix-ui/themes'
+import { Card, Flex, Text, Heading, Grid, Separator, ScrollArea } from '@radix-ui/themes'
 import { useStore } from '@tanstack/react-store'
 import { entityStore } from '../../store/entityStore'
 import {
@@ -12,6 +12,7 @@ import {
   Droplets,
   Eye,
   Gauge,
+  Navigation,
 } from 'lucide-react'
 import type { WidgetConfig } from '../../store/types'
 
@@ -34,14 +35,22 @@ interface WeatherAttributes {
   uv_index?: number
   visibility?: number
   visibility_unit?: string
-  forecast?: Array<{
-    datetime: string
-    temperature: number
-    templow: number
-    condition: string
-    precipitation?: number
-    precipitation_probability?: number
-  }>
+  forecast?: Array<ForecastDay>
+}
+
+interface ForecastDay {
+  datetime: string
+  temperature: number
+  templow?: number
+  condition: string
+  precipitation?: number
+  precipitation_probability?: number
+  wind_speed?: number
+  wind_bearing?: number
+}
+
+interface ForecastData {
+  forecast: Array<ForecastDay>
 }
 
 function getWeatherIcon(condition: string) {
@@ -77,8 +86,11 @@ function getWindDirection(bearing: number) {
   return directions[index]
 }
 
-function formatDate(datetime: string) {
+function formatDate(datetime: string, type: 'daily' | 'hourly' = 'daily') {
   const date = new Date(datetime)
+  if (type === 'hourly') {
+    return date.toLocaleTimeString(undefined, { hour: 'numeric' })
+  }
   return date.toLocaleDateString(undefined, { weekday: 'short' })
 }
 
@@ -109,7 +121,9 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
   const precipitation = attributes?.precipitation
   const uvIndex = attributes?.uv_index
   const visibility = attributes?.visibility
-  const forecast = attributes?.forecast?.slice(0, 5) || []
+  // For now, use forecast from attributes (Home Assistant typically includes it)
+  // In the future, we can enhance this to use the get_forecasts service
+  const forecast = attributes?.forecast?.slice(0, 8) || []
 
   const WeatherIcon = getWeatherIcon(weatherEntity.state)
 
@@ -138,6 +152,15 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
           <Text size="3" style={{ textTransform: 'capitalize' }}>
             {weatherEntity.state}
           </Text>
+          {/* Today's high/low from forecast */}
+          {forecast.length > 0 && forecast[0] && (
+            <Flex gap="2" align="center">
+              <Text size="2">H: {Math.round(forecast[0].temperature)}°</Text>
+              {forecast[0].templow !== undefined && (
+                <Text size="2">L: {Math.round(forecast[0].templow)}°</Text>
+              )}
+            </Flex>
+          )}
         </Flex>
 
         {/* Current details */}
@@ -152,9 +175,20 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
             <Flex align="center" gap="1">
               <Wind size={14} />
               <Text size="1">
-                {Math.round(windSpeed)} {attributes.wind_speed_unit || 'km/h'}
-                {windBearing !== undefined && ` ${getWindDirection(windBearing)}`}
+                {Math.round(windSpeed)} {attributes.wind_speed_unit || 'mph'}
               </Text>
+              {windBearing !== undefined && (
+                <Flex align="center" gap="1">
+                  <Navigation
+                    size={12}
+                    style={{
+                      transform: `rotate(${windBearing}deg)`,
+                      transformOrigin: 'center',
+                    }}
+                  />
+                  <Text size="1">{getWindDirection(windBearing)}</Text>
+                </Flex>
+              )}
             </Flex>
           )}
           {pressure !== undefined && (
@@ -195,39 +229,54 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
             <Separator size="4" />
             <Flex direction="column" gap="2">
               <Text size="2" weight="bold">
-                5-Day Forecast
+                {forecast.length}-Day Forecast
               </Text>
-              <Flex gap="2" wrap="wrap">
-                {forecast.map((day, index) => {
-                  const DayIcon = getWeatherIcon(day.condition)
-                  return (
-                    <Flex
-                      key={index}
-                      direction="column"
-                      align="center"
-                      gap="1"
-                      style={{ flex: '1 1 20%', minWidth: '50px' }}
-                    >
-                      <Text size="1" color="gray">
-                        {formatDate(day.datetime)}
-                      </Text>
-                      <DayIcon size={20} />
-                      <Text size="1" weight="bold">
-                        {Math.round(day.temperature)}°
-                      </Text>
-                      <Text size="1" color="gray">
-                        {Math.round(day.templow)}°
-                      </Text>
-                      {day.precipitation_probability !== undefined &&
-                        day.precipitation_probability > 0 && (
-                          <Text size="1" color="blue">
-                            {day.precipitation_probability}%
+              <ScrollArea type="hover" scrollbars="horizontal" style={{ width: '100%' }}>
+                <Flex gap="2" style={{ minWidth: 'max-content', paddingBottom: '8px' }}>
+                  {forecast.map((day, index) => {
+                    const DayIcon = getWeatherIcon(day.condition)
+                    const hasLowTemp = day.templow !== undefined
+                    return (
+                      <Flex
+                        key={index}
+                        direction="column"
+                        align="center"
+                        gap="1"
+                        style={{ minWidth: '60px' }}
+                      >
+                        <Text size="1" color="gray">
+                          {formatDate(day.datetime)}
+                        </Text>
+                        <DayIcon size={20} />
+                        <Flex direction="column" align="center" gap="0">
+                          <Text size="1" weight="bold">
+                            {Math.round(day.temperature)}°
                           </Text>
+                          {hasLowTemp && (
+                            <Text size="1" color="gray">
+                              {Math.round(day.templow || 0)}°
+                            </Text>
+                          )}
+                        </Flex>
+                        {day.precipitation_probability !== undefined &&
+                          day.precipitation_probability > 0 && (
+                            <Text size="1" color="blue">
+                              {day.precipitation_probability}%
+                            </Text>
+                          )}
+                        {day.wind_speed !== undefined && day.wind_speed > 10 && (
+                          <Flex align="center" gap="1">
+                            <Wind size={10} />
+                            <Text size="1" color="gray">
+                              {Math.round(day.wind_speed)}
+                            </Text>
+                          </Flex>
                         )}
-                    </Flex>
-                  )
-                })}
-              </Flex>
+                      </Flex>
+                    )
+                  })}
+                </Flex>
+              </ScrollArea>
             </Flex>
           </>
         )}
