@@ -126,3 +126,33 @@
     height: 48px !important;
   }
 }
+
+/* Touch-friendly adjustments */
+@media (pointer: coarse) {
+  /* Ensure all buttons meet minimum touch target */
+  .climate-card button {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Better touch feedback */
+  .climate-card button:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+
+  /* Larger drag handle for touch */
+  .climate-card .grid-item-drag-handle {
+    height: 30px;
+    opacity: 1;
+  }
+
+  /* Disable hover effects on touch devices */
+  .climate-card button:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .climate-card button:hover:not(:disabled) svg {
+    transform: none;
+  }
+}

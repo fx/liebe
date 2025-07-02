@@ -11,10 +11,12 @@ import { Sidebar, SidebarTrigger } from './Sidebar'
 import { SidebarWidgets } from './SidebarWidgets'
 import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
+import { useIsMobile } from '../../app/utils/responsive'
 import '../components/Sidebar.css'
 
 export function Dashboard() {
   const [addViewOpen, setAddViewOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   // Enable entity connection
   useEntityConnection()
@@ -44,19 +46,25 @@ export function Dashboard() {
     <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <Flex
-        p="3"
+        p={isMobile ? '2' : '3'}
         align="center"
         justify="between"
-        style={{ borderBottom: '1px solid var(--gray-a5)' }}
+        style={{
+          borderBottom: '1px solid var(--gray-a5)',
+          minHeight: 'var(--header-height)',
+        }}
       >
-        <Flex align="center" gap="3">
+        <Flex align="center" gap={isMobile ? '2' : '3'}>
           <SidebarTrigger />
-          <Text size="5" weight="bold">
+          <Text size={isMobile ? '3' : '5'} weight="bold" className="desktop-up">
             Liebe Dashboard
+          </Text>
+          <Text size="3" weight="bold" className="mobile-only">
+            Liebe
           </Text>
           <ConnectionStatus />
         </Flex>
-        <Flex align="center" gap="3">
+        <Flex align="center" gap={isMobile ? '2' : '3'}>
           <ConfigurationMenu />
           <ModeToggle />
         </Flex>
@@ -75,9 +83,15 @@ export function Dashboard() {
           <ViewTabs onAddView={() => setAddViewOpen(true)} />
 
           {/* Main Content Area */}
-          <Box style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
+          <Box
+            style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: 'var(--container-padding)',
+            }}
+          >
             {currentScreen ? (
-              <Flex direction="column" gap="4">
+              <Flex direction="column" gap={isMobile ? '3' : '4'}>
                 {/* Screen Header */}
                 <Flex align="center" justify="between">
                   <Flex direction="column" gap="1">
