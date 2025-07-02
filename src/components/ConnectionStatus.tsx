@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Badge, Flex, Text, Popover, Box, Separator } from '@radix-ui/themes'
+import { Button, Flex, Text, Popover, Box, Separator } from '@radix-ui/themes'
 import {
   InfoCircledIcon,
   CheckCircledIcon,
@@ -56,24 +56,28 @@ export function ConnectionStatus() {
 
   const statusConfig = {
     'no-hass': {
+      variant: 'soft' as const,
       color: 'gray' as const,
       icon: <InfoCircledIcon />,
       text: 'No Home Assistant',
       description: 'Home Assistant connection not available',
     },
     disconnected: {
+      variant: 'soft' as const,
       color: 'red' as const,
       icon: <CrossCircledIcon />,
       text: 'Disconnected',
       description: 'Not connected to Home Assistant',
     },
     error: {
+      variant: 'soft' as const,
       color: 'red' as const,
       icon: <CrossCircledIcon />,
       text: 'Error',
       description: lastError || 'Connection error',
     },
     connected: {
+      variant: 'soft' as const,
       color: 'green' as const,
       icon: <CheckCircledIcon />,
       text: 'Connected',
@@ -86,13 +90,11 @@ export function ConnectionStatus() {
   return (
     <Popover.Root>
       <Popover.Trigger>
-        <Badge color={config.color} size="2" style={{ cursor: 'pointer' }} aria-label={config.text}>
-          <Flex align="center" gap="1">
-            {isUpdating && <UpdateIcon className="spin" />}
-            {!isUpdating && config.icon}
-            {!isMobile && config.text}
-          </Flex>
-        </Badge>
+        <Button variant={config.variant} color={config.color} size="2" aria-label={config.text}>
+          {isUpdating && <UpdateIcon className="spin" />}
+          {!isUpdating && config.icon}
+          {!isMobile && config.text}
+        </Button>
       </Popover.Trigger>
 
       <Popover.Content style={{ width: '280px', maxWidth: 'calc(100vw - 32px)' }}>

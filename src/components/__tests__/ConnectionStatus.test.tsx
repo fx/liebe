@@ -13,6 +13,11 @@ vi.mock('~/contexts/HomeAssistantContext', () => ({
   useHomeAssistantOptional: vi.fn(),
 }))
 
+// Mock responsive utilities
+vi.mock('../../../app/utils/responsive', () => ({
+  useIsMobile: () => false, // Default to desktop
+}))
+
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
 
 describe('ConnectionStatus', () => {
