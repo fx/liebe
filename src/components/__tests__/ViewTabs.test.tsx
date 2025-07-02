@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
@@ -10,6 +10,12 @@ import { createTestScreen } from '~/test-utils/screen-helpers'
 const mockNavigate = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
+}))
+
+// Mock the responsive utilities
+let mockIsMobile = false
+vi.mock('../../../app/utils/responsive', () => ({
+  useIsMobile: () => mockIsMobile,
 }))
 
 // Mock window.matchMedia for responsive behavior
@@ -290,11 +296,17 @@ describe('ViewTabs', () => {
   describe('Mobile View', () => {
     beforeEach(() => {
       // Mock mobile viewport before component renders
+      mockIsMobile = true
       Object.defineProperty(window, 'innerWidth', {
         writable: true,
         configurable: true,
         value: 500,
       })
+    })
+
+    afterEach(() => {
+      // Reset to desktop after each test
+      mockIsMobile = false
     })
 
     it('should render dropdown menu on mobile', () => {

@@ -35,3 +35,132 @@ body {
 .using-mouse * {
   outline: none !important;
 }
+
+/* Responsive CSS Variables */
+:root {
+  /* Spacing Scale */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+  --spacing-4xl: 48px;
+
+  /* Touch Target Sizes */
+  --touch-target-min: 44px;
+
+  /* Container Padding */
+  --container-padding: var(--spacing-lg);
+
+  /* Grid Margins */
+  --grid-margin: var(--spacing-lg);
+
+  /* Header Height */
+  --header-height: 64px;
+
+  /* Sidebar Width */
+  --sidebar-width: 320px;
+
+  /* Z-index Scale */
+  --z-header: 10;
+  --z-sidebar: 20;
+  --z-modal-backdrop: 50;
+  --z-modal: 60;
+  --z-tooltip: 100;
+}
+
+/* Mobile-specific variables */
+@media (max-width: 767px) {
+  :root {
+    --container-padding: var(--spacing-sm);
+    --grid-margin: var(--spacing-sm);
+    --header-height: 56px;
+    --sidebar-width: 100vw;
+  }
+}
+
+/* Tablet-specific variables */
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --container-padding: var(--spacing-md);
+    --grid-margin: var(--spacing-md);
+    --sidebar-width: 280px;
+  }
+}
+
+/* Desktop and up */
+@media (min-width: 1024px) {
+  :root {
+    --sidebar-width: 320px;
+  }
+}
+
+/* Wide screens */
+@media (min-width: 1440px) {
+  :root {
+    --container-padding: var(--spacing-xl);
+    --grid-margin: var(--spacing-lg);
+    --sidebar-width: 360px;
+  }
+}
+
+/* Utility Classes */
+.mobile-only {
+  display: none;
+}
+
+.tablet-up {
+  display: initial;
+}
+
+.desktop-up {
+  display: initial;
+}
+
+@media (max-width: 767px) {
+  .mobile-only {
+    display: initial;
+  }
+
+  .tablet-up {
+    display: none;
+  }
+
+  .desktop-up {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .mobile-only {
+    display: none;
+  }
+
+  .desktop-up {
+    display: none;
+  }
+}
+
+/* Responsive Typography */
+.responsive-text {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+.responsive-heading {
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  a,
+  input,
+  select,
+  textarea {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  }
+}

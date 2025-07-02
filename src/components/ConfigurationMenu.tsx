@@ -12,6 +12,7 @@ import {
   MoonIcon,
   DesktopIcon,
 } from '@radix-ui/react-icons'
+import { useIsMobile } from '../../app/utils/responsive'
 import {
   exportConfigurationToFile,
   exportConfigurationToYAMLFile,
@@ -28,6 +29,7 @@ import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
 
 export function ConfigurationMenu() {
   const theme = useDashboardStore((state) => state.theme)
+  const isMobile = useIsMobile()
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
@@ -140,9 +142,9 @@ export function ConfigurationMenu() {
     <>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          <Button variant="soft" size="2">
+          <Button variant="soft" size="2" aria-label="Configuration menu">
             <GearIcon />
-            Configuration
+            {!isMobile && 'Configuration'}
           </Button>
         </DropdownMenu.Trigger>
 
