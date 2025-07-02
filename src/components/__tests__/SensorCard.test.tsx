@@ -172,7 +172,7 @@ describe('SensorCard', () => {
     it('handles missing entity', () => {
       vi.mocked(useEntity).mockReturnValue({
         entity: undefined,
-        isConnected: true,
+        isConnected: false,
         isLoading: false,
         isStale: false,
       })
@@ -183,7 +183,9 @@ describe('SensorCard', () => {
         </Theme>
       )
 
-      expect(screen.getByText('Entity not found')).toBeInTheDocument()
+      // When not connected, it shows disconnected state
+      expect(screen.getByText('Disconnected')).toBeInTheDocument()
+      expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
     })
 
     it('handles disconnected state', () => {
@@ -201,6 +203,7 @@ describe('SensorCard', () => {
       )
 
       expect(screen.getByText('Disconnected')).toBeInTheDocument()
+      expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
     })
   })
 
@@ -440,6 +443,25 @@ describe('SensorCard', () => {
 
         expect(screen.getByText(expected)).toBeInTheDocument()
       })
+    })
+
+    it('shows skeleton when entity is undefined but connected', () => {
+      vi.mocked(useEntity).mockReturnValue({
+        entity: undefined,
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      const { container } = render(
+        <Theme>
+          <SensorCard entityId="sensor.test" />
+        </Theme>
+      )
+
+      // Should show skeleton card
+      const skeleton = container.querySelector('.rt-Skeleton')
+      expect(skeleton).toBeInTheDocument()
     })
   })
 })

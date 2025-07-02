@@ -4,6 +4,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
 import { memo } from 'react'
 import { useDashboardStore } from '~/store'
+import { SkeletonCard, ErrorDisplay } from './ui'
 import './ButtonCard.css'
 
 interface ButtonCardProps {
@@ -36,20 +37,25 @@ function ButtonCardComponent({
   isSelected = false,
   onSelect,
 }: ButtonCardProps) {
-  const { entity, isConnected, isStale } = useEntity(entityId)
+  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, toggle, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
+  // Show skeleton while loading initial data
+  if (isEntityLoading || (!entity && isConnected)) {
+    return <SkeletonCard size={size} showIcon={true} lines={2} />
+  }
+
+  // Show error state when disconnected or entity not found
   if (!entity || !isConnected) {
     return (
-      <Card variant="classic" style={{ opacity: 0.5 }}>
-        <Flex p="3" align="center" justify="center">
-          <Text size="2" color="gray">
-            {!isConnected ? 'Disconnected' : 'Entity not found'}
-          </Text>
-        </Flex>
-      </Card>
+      <ErrorDisplay
+        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        variant="card"
+        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
+        onRetry={!isConnected ? () => window.location.reload() : undefined}
+      />
     )
   }
 

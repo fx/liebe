@@ -9,6 +9,7 @@ import { ConnectionStatus } from './ConnectionStatus'
 import { ModeToggle } from './ModeToggle'
 import { Sidebar, SidebarTrigger } from './Sidebar'
 import { SidebarWidgets } from './SidebarWidgets'
+import { ErrorBoundary } from './ui'
 import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
 import { useIsMobile } from '../../app/utils/responsive'
@@ -109,22 +110,24 @@ export function Dashboard() {
                 </Flex>
 
                 {/* Grid View */}
-                {currentScreen.grid?.items && currentScreen.grid.items.length > 0 ? (
-                  <GridView
-                    screenId={currentScreen.id}
-                    items={currentScreen.grid.items}
-                    resolution={currentScreen.grid.resolution}
-                  />
-                ) : (
-                  <Card>
-                    <Flex align="center" justify="center" p="6">
-                      <Text color="gray" size="2">
-                        No items added yet.{' '}
-                        {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
-                      </Text>
-                    </Flex>
-                  </Card>
-                )}
+                <ErrorBoundary>
+                  {currentScreen.grid?.items && currentScreen.grid.items.length > 0 ? (
+                    <GridView
+                      screenId={currentScreen.id}
+                      items={currentScreen.grid.items}
+                      resolution={currentScreen.grid.resolution}
+                    />
+                  ) : (
+                    <Card>
+                      <Flex align="center" justify="center" p="6">
+                        <Text color="gray" size="2">
+                          No items added yet.{' '}
+                          {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
+                        </Text>
+                      </Flex>
+                    </Card>
+                  )}
+                </ErrorBoundary>
               </Flex>
             ) : (
               <Flex align="center" justify="center" style={{ height: '100%' }}>
