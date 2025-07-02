@@ -5,8 +5,8 @@ export * from '@radix-ui/themes'
 export { Modal } from './Modal'
 export { AlertModal } from './AlertModal'
 
-// Export loading components
-export { Loading, LoadingDots, LoadingPulse, SkeletonCard } from './Loading'
+// Export skeleton component
+export { SkeletonCard } from './SkeletonCard'
 
 // Export error components
 export { ErrorDisplay, ConnectionError } from './ErrorDisplay'
