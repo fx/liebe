@@ -10,6 +10,7 @@ import { InputNumberCard } from './InputNumberCard'
 import { InputSelectCard } from './InputSelectCard'
 import { InputTextCard } from './InputTextCard'
 import { InputDateTimeCard } from './InputDateTimeCard'
+import { WeatherCard } from './WeatherCard'
 import { Separator } from './Separator'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
@@ -80,6 +81,16 @@ function EntityCard({
     case 'binary_sensor':
       return (
         <SensorCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'weather':
+      return (
+        <WeatherCard
           entityId={entityId}
           size={size}
           onDelete={onDelete}

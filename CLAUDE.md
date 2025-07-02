@@ -607,6 +607,37 @@ GitHub has a specific feature for linking issues as sub-issues to epics. This is
 
 **Note:** Simply updating the epic's description with issue numbers (e.g., `- [ ] #7`) creates task references but may not create the proper sub-issue relationship that appears in GitHub's UI.
 
+## Entity Card Registration
+
+When creating new entity card components:
+
+1. **Create the card component** in `/workspace/src/components/`
+   - Follow the pattern of existing cards (ButtonCard, LightCard, etc.)
+   - Include proper TypeScript types
+   - Use ErrorBoundary wrapper
+   - Support size variants (small, medium, large)
+   - Handle edit mode with delete button and selection
+
+2. **Register in GridView.tsx**
+   - Import the new card component
+   - Add a case in the EntityCard switch statement for the entity domain
+   - Map the domain to the appropriate card component
+
+3. **Update EntityBrowser if needed**
+   - Add domain to friendly name mapping in `getFriendlyDomain`
+   - Remove from `SYSTEM_DOMAINS` if it should be visible
+
+Example:
+
+```typescript
+// In GridView.tsx
+import { WeatherCard } from './WeatherCard'
+
+// In EntityCard switch statement
+case 'weather':
+  return <WeatherCard entityId={entityId} ... />
+```
+
 ## Important Reminders
 
 1. **Never commit sensitive data** (tokens, passwords, URLs)
