@@ -181,7 +181,10 @@ export function ConfigurationMenu() {
           <DropdownMenu.Separator />
 
           <DropdownMenu.Label>Theme</DropdownMenu.Label>
-          <DropdownMenu.RadioGroup value={theme} onValueChange={(value) => dashboardActions.setTheme(value as 'light' | 'dark' | 'auto')}>
+          <DropdownMenu.RadioGroup
+            value={theme}
+            onValueChange={(value) => dashboardActions.setTheme(value as 'light' | 'dark' | 'auto')}
+          >
             <DropdownMenu.RadioItem value="light">
               <SunIcon />
               Light

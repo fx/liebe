@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfigurationMenu } from '../ConfigurationMenu'
@@ -13,7 +13,7 @@ describe('Theme Toggle', () => {
 
   it('should display current theme in menu', async () => {
     const user = userEvent.setup()
-    
+
     render(
       <Theme>
         <ConfigurationMenu />
@@ -32,7 +32,7 @@ describe('Theme Toggle', () => {
 
   it('should change theme when selecting light mode', async () => {
     const user = userEvent.setup()
-    
+
     render(
       <Theme>
         <ConfigurationMenu />
@@ -48,7 +48,7 @@ describe('Theme Toggle', () => {
       const lightOption = screen.getByText('Light')
       expect(lightOption).toBeInTheDocument()
     })
-    
+
     const lightOption = screen.getByText('Light')
     await user.click(lightOption)
 
@@ -58,7 +58,7 @@ describe('Theme Toggle', () => {
 
   it('should change theme when selecting dark mode', async () => {
     const user = userEvent.setup()
-    
+
     render(
       <Theme>
         <ConfigurationMenu />
@@ -74,7 +74,7 @@ describe('Theme Toggle', () => {
       const darkOption = screen.getByText('Dark')
       expect(darkOption).toBeInTheDocument()
     })
-    
+
     const darkOption = screen.getByText('Dark')
     await user.click(darkOption)
 
@@ -84,10 +84,10 @@ describe('Theme Toggle', () => {
 
   it('should change theme when selecting system mode', async () => {
     const user = userEvent.setup()
-    
+
     // Set to light first
     dashboardActions.setTheme('light')
-    
+
     render(
       <Theme>
         <ConfigurationMenu />
@@ -103,7 +103,7 @@ describe('Theme Toggle', () => {
       const systemOption = screen.getByText('System')
       expect(systemOption).toBeInTheDocument()
     })
-    
+
     const systemOption = screen.getByText('System')
     await user.click(systemOption)
 
