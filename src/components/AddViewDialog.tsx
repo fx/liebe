@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Dialog, Button, TextField, Flex, Text, Select } from '@radix-ui/themes'
+import { TextField, Flex, Text, Select, Modal } from '~/components/ui'
 import { dashboardActions, useDashboardStore } from '../store'
 import type { ScreenConfig } from '../store/types'
 import { useNavigate } from '@tanstack/react-router'
@@ -69,78 +69,77 @@ export function AddViewDialog({ open, onOpenChange }: AddViewDialogProps) {
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content style={{ maxWidth: 450 }}>
-        <Dialog.Title>Add New View</Dialog.Title>
-        <Dialog.Description size="2" mb="4">
-          Create a new view to organize your dashboard
-        </Dialog.Description>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Add New View"
+      description="Create a new view to organize your dashboard"
+      size="small"
+      actions={{
+        primary: {
+          label: 'Add View',
+          onClick: () => {
+            const form = document.querySelector('form')
+            form?.requestSubmit()
+          },
+          disabled: !viewName.trim(),
+        },
+        showCancel: true,
+      }}
+    >
+      <form onSubmit={handleSubmit}>
+        <Flex direction="column" gap="3">
+          <label>
+            <Text as="div" size="2" mb="1" weight="bold">
+              View Name
+            </Text>
+            <TextField.Root
+              placeholder="Living Room"
+              value={viewName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const newName = e.target.value
+                setViewName(newName)
+                // Auto-generate slug if user hasn't manually edited it
+                if (!viewSlug || generateSlug(viewName) === viewSlug) {
+                  setViewSlug(generateSlug(newName))
+                }
+              }}
+              autoFocus
+            />
+          </label>
 
-        <form onSubmit={handleSubmit}>
-          <Flex direction="column" gap="3">
+          <label>
+            <Text as="div" size="2" mb="1" weight="bold">
+              URL Slug
+            </Text>
+            <TextField.Root
+              placeholder="living-room"
+              value={viewSlug}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViewSlug(e.target.value)}
+            />
+            <Text as="div" size="1" color="gray" mt="1">
+              This will be used in the URL: /{viewSlug || 'living-room'}
+            </Text>
+          </label>
+
+          {screens.length > 0 && (
             <label>
               <Text as="div" size="2" mb="1" weight="bold">
-                View Name
+                Parent View (Optional)
               </Text>
-              <TextField.Root
-                placeholder="Living Room"
-                value={viewName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const newName = e.target.value
-                  setViewName(newName)
-                  // Auto-generate slug if user hasn't manually edited it
-                  if (!viewSlug || generateSlug(viewName) === viewSlug) {
-                    setViewSlug(generateSlug(newName))
-                  }
-                }}
-                autoFocus
-              />
+              <Select.Root value={parentId} onValueChange={setParentId}>
+                <Select.Trigger placeholder="Select parent view..." />
+                <Select.Content>
+                  <Select.Item value="none">
+                    <em>None (Top Level)</em>
+                  </Select.Item>
+                  {getScreenOptions(screens)}
+                </Select.Content>
+              </Select.Root>
             </label>
-
-            <label>
-              <Text as="div" size="2" mb="1" weight="bold">
-                URL Slug
-              </Text>
-              <TextField.Root
-                placeholder="living-room"
-                value={viewSlug}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViewSlug(e.target.value)}
-              />
-              <Text as="div" size="1" color="gray" mt="1">
-                This will be used in the URL: /{viewSlug || 'living-room'}
-              </Text>
-            </label>
-
-            {screens.length > 0 && (
-              <label>
-                <Text as="div" size="2" mb="1" weight="bold">
-                  Parent View (Optional)
-                </Text>
-                <Select.Root value={parentId} onValueChange={setParentId}>
-                  <Select.Trigger placeholder="Select parent view..." />
-                  <Select.Content>
-                    <Select.Item value="none">
-                      <em>None (Top Level)</em>
-                    </Select.Item>
-                    {getScreenOptions(screens)}
-                  </Select.Content>
-                </Select.Root>
-              </label>
-            )}
-          </Flex>
-
-          <Flex gap="3" mt="4" justify="end">
-            <Dialog.Close>
-              <Button variant="soft" color="gray">
-                Cancel
-              </Button>
-            </Dialog.Close>
-            <Button type="submit" disabled={!viewName.trim()}>
-              Add View
-            </Button>
-          </Flex>
-        </form>
-      </Dialog.Content>
-    </Dialog.Root>
+          )}
+        </Flex>
+      </form>
+    </Modal>
   )
 }
