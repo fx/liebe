@@ -50,6 +50,8 @@ describe('ViewTabs', () => {
       gridResolution: { columns: 12, rows: 8 },
       theme: 'auto',
       isDirty: false,
+      sidebarOpen: false,
+      sidebarWidgets: [],
     })
     // Clear mock calls
     mockNavigate.mockClear()
