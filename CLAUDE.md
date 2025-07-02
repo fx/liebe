@@ -253,6 +253,35 @@ gh issue view <issue-number>
    )"
    ```
 
+### Closing Epics
+
+When completing the final sub-issue of an epic, close the epic in the same pull request:
+
+1. **In the PR body**, add both the sub-issue and epic:
+
+   ```
+   Closes #<sub-issue-number>
+   Closes #<epic-number>
+   ```
+
+2. **Verify all sub-issues are complete** before closing:
+
+   ```bash
+   # Check all issues linked to an epic
+   gh issue list --repo fx/liebe --search "Epic: #<epic-number>"
+   ```
+
+3. **Example PR body for final sub-issue**:
+
+   ```
+   ## Summary
+   - Implements the final weather widget enhancements
+
+   ## Related Issues
+   Closes #69  # The sub-issue
+   Closes #6   # The epic (if this is the last sub-issue)
+   ```
+
 ## Technical Guidelines
 
 ### TanStack Start SPA Configuration
