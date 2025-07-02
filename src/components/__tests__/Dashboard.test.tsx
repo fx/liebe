@@ -44,10 +44,10 @@ describe('Dashboard', () => {
 
     it('should start in view mode', () => {
       renderWithTheme(<Dashboard />)
-      // Check that the mode toggle switch is not checked (view mode)
-      const modeSwitch = screen.getByRole('switch', { name: /toggle edit mode/i })
-      expect(modeSwitch).toBeInTheDocument()
-      expect(modeSwitch.getAttribute('aria-checked')).toBe('false')
+      // Check that the mode toggle button shows "View Mode"
+      const modeButton = screen.getByRole('button', { name: 'View Mode' })
+      expect(modeButton).toBeInTheDocument()
+      expect(dashboardStore.state.mode).toBe('view')
     })
   })
 
@@ -56,18 +56,20 @@ describe('Dashboard', () => {
       const user = userEvent.setup()
       renderWithTheme(<Dashboard />)
 
-      const modeSwitch = screen.getByRole('switch', { name: /toggle edit mode/i })
-      expect(modeSwitch).toBeInTheDocument()
-      expect(modeSwitch.getAttribute('aria-checked')).toBe('false')
+      let modeButton = screen.getByRole('button', { name: 'View Mode' })
+      expect(modeButton).toBeInTheDocument()
+      expect(dashboardStore.state.mode).toBe('view')
 
       // Click to switch to edit mode
-      await user.click(modeSwitch)
-      expect(modeSwitch.getAttribute('aria-checked')).toBe('true')
+      await user.click(modeButton)
+      modeButton = screen.getByRole('button', { name: 'Edit Mode' })
+      expect(modeButton).toBeInTheDocument()
       expect(dashboardStore.state.mode).toBe('edit')
 
       // Click to switch back to view mode
-      await user.click(modeSwitch)
-      expect(modeSwitch.getAttribute('aria-checked')).toBe('false')
+      await user.click(modeButton)
+      modeButton = screen.getByRole('button', { name: 'View Mode' })
+      expect(modeButton).toBeInTheDocument()
       expect(dashboardStore.state.mode).toBe('view')
     })
   })
@@ -92,7 +94,7 @@ describe('Dashboard', () => {
       renderWithTheme(<Dashboard />)
 
       // Switch to edit mode
-      await user.click(screen.getByText('Edit'))
+      await user.click(screen.getByRole('button', { name: 'View Mode' }))
 
       // There should be an "Add First View" button since no views exist
       const addButton = screen.getByText('Add First View')
@@ -179,7 +181,7 @@ describe('Dashboard', () => {
       const user = userEvent.setup()
       renderWithTheme(<Dashboard />)
 
-      await user.click(screen.getByText('Edit'))
+      await user.click(screen.getByRole('button', { name: 'View Mode' }))
 
       expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
     })
