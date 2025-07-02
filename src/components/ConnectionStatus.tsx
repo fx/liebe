@@ -93,7 +93,7 @@ export function ConnectionStatus() {
         </Badge>
       </Popover.Trigger>
 
-      <Popover.Content style={{ width: '300px' }}>
+      <Popover.Content style={{ width: '280px', maxWidth: 'calc(100vw - 32px)' }}>
         <Flex direction="column" gap="3">
           {/* Status Header */}
           <Flex align="center" gap="2">
