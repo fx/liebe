@@ -62,66 +62,72 @@ export function Dashboard() {
         </Flex>
       </Flex>
 
-      {/* View Tabs */}
-      <ViewTabs onAddView={() => setAddViewOpen(true)} />
+      {/* Main Layout with Sidebar */}
+      <Flex style={{ flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar */}
+        <Sidebar>
+          <SidebarWidgets />
+        </Sidebar>
 
-      {/* Main Content Area */}
-      <Box style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
-        {currentScreen ? (
-          <Flex direction="column" gap="4">
-            {/* Screen Header */}
-            <Flex align="center" justify="between">
-              <Flex direction="column" gap="1">
-                <Text size="4" weight="bold">
-                  {currentScreen.name}
-                </Text>
-                <Text color="gray" size="2">
-                  Grid: {currentScreen.grid?.resolution.columns} ×{' '}
-                  {currentScreen.grid?.resolution.rows}
-                </Text>
-              </Flex>
-              {mode === 'edit' && <AddItemButton screenId={currentScreen.id} />}
-            </Flex>
+        {/* Content Area */}
+        <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* View Tabs */}
+          <ViewTabs onAddView={() => setAddViewOpen(true)} />
 
-            {/* Grid View */}
-            {currentScreen.grid?.items && currentScreen.grid.items.length > 0 ? (
-              <GridView
-                screenId={currentScreen.id}
-                items={currentScreen.grid.items}
-                resolution={currentScreen.grid.resolution}
-              />
-            ) : (
-              <Card>
-                <Flex align="center" justify="center" p="6">
-                  <Text color="gray" size="2">
-                    No items added yet.{' '}
-                    {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
-                  </Text>
+          {/* Main Content Area */}
+          <Box style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
+            {currentScreen ? (
+              <Flex direction="column" gap="4">
+                {/* Screen Header */}
+                <Flex align="center" justify="between">
+                  <Flex direction="column" gap="1">
+                    <Text size="4" weight="bold">
+                      {currentScreen.name}
+                    </Text>
+                    <Text color="gray" size="2">
+                      Grid: {currentScreen.grid?.resolution.columns} ×{' '}
+                      {currentScreen.grid?.resolution.rows}
+                    </Text>
+                  </Flex>
+                  {mode === 'edit' && <AddItemButton screenId={currentScreen.id} />}
                 </Flex>
-              </Card>
-            )}
-          </Flex>
-        ) : (
-          <Flex align="center" justify="center" style={{ height: '100%' }}>
-            <Card>
-              <Flex direction="column" align="center" gap="3" p="4">
-                <Text size="3" color="gray">
-                  No views created yet
-                </Text>
-                <Button onClick={() => setAddViewOpen(true)}>Create Your First View</Button>
+
+                {/* Grid View */}
+                {currentScreen.grid?.items && currentScreen.grid.items.length > 0 ? (
+                  <GridView
+                    screenId={currentScreen.id}
+                    items={currentScreen.grid.items}
+                    resolution={currentScreen.grid.resolution}
+                  />
+                ) : (
+                  <Card>
+                    <Flex align="center" justify="center" p="6">
+                      <Text color="gray" size="2">
+                        No items added yet.{' '}
+                        {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
+                      </Text>
+                    </Flex>
+                  </Card>
+                )}
               </Flex>
-            </Card>
-          </Flex>
-        )}
-      </Box>
+            ) : (
+              <Flex align="center" justify="center" style={{ height: '100%' }}>
+                <Card>
+                  <Flex direction="column" align="center" gap="3" p="4">
+                    <Text size="3" color="gray">
+                      No views created yet
+                    </Text>
+                    <Button onClick={() => setAddViewOpen(true)}>Create Your First View</Button>
+                  </Flex>
+                </Card>
+              </Flex>
+            )}
+          </Box>
+        </Box>
+      </Flex>
 
       {/* Add View Dialog */}
       <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />
-
-      {/* Sidebar */}
-      <Sidebar>
-        <SidebarWidgets />
-      </Sidebar>
     </Box>
   )
 }

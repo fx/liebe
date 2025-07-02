@@ -1,5 +1,4 @@
 import React from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
 import { Box, Flex, IconButton, ScrollArea, Separator, Text } from '@radix-ui/themes'
 import { Cross2Icon, HamburgerMenuIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
@@ -13,38 +12,45 @@ export function Sidebar({ children }: SidebarProps) {
   const sidebarOpen = useStore(dashboardStore, (state) => state.sidebarOpen)
 
   return (
-    <Dialog.Root
-      open={sidebarOpen}
-      onOpenChange={(open) => dashboardStore.setState((state) => ({ ...state, sidebarOpen: open }))}
+    <Box
+      className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}
+      style={{
+        backgroundColor: 'var(--color-panel-solid)',
+        borderRight: '1px solid var(--gray-a5)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className="sidebar-overlay" />
-        <Dialog.Content className="sidebar-content">
-          <Flex direction="column" height="100%">
-            <Flex justify="between" align="center" p="4" pb="3">
-              <Text size="5" weight="bold">
-                Dashboard
-              </Text>
-              <Dialog.Close asChild>
-                <IconButton size="3" variant="ghost" color="gray">
-                  <Cross2Icon width="22" height="22" />
-                </IconButton>
-              </Dialog.Close>
-            </Flex>
+      <Flex justify="between" align="center" p="4" pb="3">
+        <Text size="5" weight="bold">
+          Widgets
+        </Text>
+        <IconButton
+          size="3"
+          variant="ghost"
+          color="gray"
+          onClick={() => dashboardStore.setState((state) => ({ ...state, sidebarOpen: false }))}
+          aria-label="Close sidebar"
+        >
+          <Cross2Icon width="22" height="22" />
+        </IconButton>
+      </Flex>
 
-            <Separator size="4" />
+      <Separator size="4" />
 
-            <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
-              <Box p="4">{children}</Box>
-            </ScrollArea>
-          </Flex>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
+        <Box p="4">{children}</Box>
+      </ScrollArea>
+    </Box>
   )
 }
 
 export function SidebarTrigger() {
+  const sidebarOpen = useStore(dashboardStore, (state) => state.sidebarOpen)
+  
+  if (sidebarOpen) return null
+  
   return (
     <IconButton
       size="3"
