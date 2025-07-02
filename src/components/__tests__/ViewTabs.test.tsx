@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
@@ -303,7 +303,7 @@ describe('ViewTabs', () => {
         value: 500,
       })
     })
-    
+
     afterEach(() => {
       // Reset to desktop after each test
       mockIsMobile = false
