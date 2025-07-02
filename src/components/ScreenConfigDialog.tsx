@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
 import {
-  Dialog,
   Flex,
   Text,
   TextField,
@@ -10,7 +9,8 @@ import {
   Box,
   Card,
   Separator,
-} from '@radix-ui/themes'
+  Modal,
+} from '~/components/ui'
 import { CopyIcon, EyeOpenIcon, EyeNoneIcon } from '@radix-ui/react-icons'
 import { useDashboardStore, dashboardActions } from '../store'
 import type { ScreenConfig } from '../store/types'
@@ -143,119 +143,115 @@ export function ScreenConfigDialog({ open, onOpenChange, screenId }: ScreenConfi
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content maxWidth="600px">
-        <Dialog.Title>Configure Screen</Dialog.Title>
-        <Dialog.Description>
-          Customize the screen settings including name and grid resolution
-        </Dialog.Description>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Configure Screen"
+      description="Customize the screen settings including name and grid resolution"
+      size="medium"
+      actions={{
+        primary: {
+          label: 'Save Changes',
+          onClick: handleSave,
+        },
+      }}
+    >
+      <Flex direction="column" gap="4" mt="4">
+        {/* Screen Name */}
+        <Box>
+          <Text as="label" size="2" weight="medium" mb="1">
+            Screen Name
+          </Text>
+          <TextField.Root
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter screen name"
+          />
+        </Box>
 
-        <Flex direction="column" gap="4" mt="4">
-          {/* Screen Name */}
-          <Box>
-            <Text as="label" size="2" weight="medium" mb="1">
-              Screen Name
-            </Text>
-            <TextField.Root
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter screen name"
-            />
-          </Box>
+        <Separator size="4" />
 
-          <Separator size="4" />
+        {/* Grid Resolution */}
+        <Box>
+          <Text as="div" size="2" weight="medium" mb="2">
+            Grid Resolution
+          </Text>
 
-          {/* Grid Resolution */}
-          <Box>
-            <Text as="div" size="2" weight="medium" mb="2">
-              Grid Resolution
-            </Text>
+          {/* Presets */}
+          <Select.Root onValueChange={handlePresetSelect}>
+            <Select.Trigger placeholder="Choose a preset" />
+            <Select.Content>
+              {GRID_PRESETS.map((preset) => (
+                <Select.Item key={preset.label} value={preset.label}>
+                  {preset.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
 
-            {/* Presets */}
-            <Select.Root onValueChange={handlePresetSelect}>
-              <Select.Trigger placeholder="Choose a preset" />
-              <Select.Content>
-                {GRID_PRESETS.map((preset) => (
-                  <Select.Item key={preset.label} value={preset.label}>
-                    {preset.label}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-
-            {/* Custom Resolution */}
-            <Grid columns="2" gap="3" mt="3">
-              <Box>
-                <Text as="label" size="1" color="gray" mb="1">
-                  Columns (1-24)
-                </Text>
-                <TextField.Root
-                  type="number"
-                  min="1"
-                  max="24"
-                  value={columns.toString()}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10)
-                    if (val >= 1 && val <= 24) setColumns(val)
-                  }}
-                />
-              </Box>
-              <Box>
-                <Text as="label" size="1" color="gray" mb="1">
-                  Rows (1-20)
-                </Text>
-                <TextField.Root
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={rows.toString()}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10)
-                    if (val >= 1 && val <= 20) setRows(val)
-                  }}
-                />
-              </Box>
-            </Grid>
-
-            {/* Grid Preview */}
-            <Box mt="3">
-              <GridPreview />
+          {/* Custom Resolution */}
+          <Grid columns="2" gap="3" mt="3">
+            <Box>
+              <Text as="label" size="1" color="gray" mb="1">
+                Columns (1-24)
+              </Text>
+              <TextField.Root
+                type="number"
+                min="1"
+                max="24"
+                value={columns.toString()}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10)
+                  if (val >= 1 && val <= 24) setColumns(val)
+                }}
+              />
             </Box>
+            <Box>
+              <Text as="label" size="1" color="gray" mb="1">
+                Rows (1-20)
+              </Text>
+              <TextField.Root
+                type="number"
+                min="1"
+                max="20"
+                value={rows.toString()}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10)
+                  if (val >= 1 && val <= 20) setRows(val)
+                }}
+              />
+            </Box>
+          </Grid>
+
+          {/* Grid Preview */}
+          <Box mt="3">
+            <GridPreview />
           </Box>
+        </Box>
 
-          <Separator size="4" />
+        <Separator size="4" />
 
-          {/* Screen Actions */}
-          <Box>
-            <Text as="div" size="2" weight="medium" mb="2">
-              Screen Actions
-            </Text>
-            <Flex gap="2">
-              <Button variant="soft" onClick={handleDuplicate}>
-                <CopyIcon />
-                Duplicate Screen
-              </Button>
-              <Button
-                variant="soft"
-                color={isVisible ? 'gray' : 'orange'}
-                onClick={() => setIsVisible(!isVisible)}
-              >
-                {isVisible ? <EyeOpenIcon /> : <EyeNoneIcon />}
-                {isVisible ? 'Visible' : 'Hidden'}
-              </Button>
-            </Flex>
-          </Box>
-        </Flex>
-
-        <Flex gap="3" mt="5" justify="end">
-          <Dialog.Close>
-            <Button variant="soft" color="gray">
-              Cancel
+        {/* Screen Actions */}
+        <Box>
+          <Text as="div" size="2" weight="medium" mb="2">
+            Screen Actions
+          </Text>
+          <Flex gap="2">
+            <Button variant="soft" onClick={handleDuplicate}>
+              <CopyIcon />
+              Duplicate Screen
             </Button>
-          </Dialog.Close>
-          <Button onClick={handleSave}>Save Changes</Button>
-        </Flex>
-      </Dialog.Content>
-    </Dialog.Root>
+            <Button
+              variant="soft"
+              color={isVisible ? 'gray' : 'orange'}
+              onClick={() => setIsVisible(!isVisible)}
+            >
+              {isVisible ? <EyeOpenIcon /> : <EyeNoneIcon />}
+              {isVisible ? 'Visible' : 'Hidden'}
+            </Button>
+          </Flex>
+        </Box>
+      </Flex>
+    </Modal>
   )
 }
