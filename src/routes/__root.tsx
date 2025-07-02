@@ -10,7 +10,7 @@ import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
 import { RemoteHomeAssistantProvider } from '~/components/RemoteHomeAssistantProvider'
 import { useHomeAssistantRouting } from '~/hooks/useHomeAssistantRouting'
-import { useDashboardPersistence } from '~/store'
+import { useDashboardPersistence, useDashboardStore } from '~/store'
 import '~/styles/app.css'
 
 export const Route = createRootRoute({
@@ -26,12 +26,44 @@ function RootComponent() {
   // Enable Home Assistant routing sync
   useHomeAssistantRouting()
 
+  // Get theme from dashboard store
+  const theme = useDashboardStore((state) => state.theme)
+  const [systemPrefersDark, setSystemPrefersDark] = React.useState(false)
+
+  // Listen for system theme changes
+  React.useEffect(() => {
+    if (theme !== 'auto' || typeof window === 'undefined') return
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    setSystemPrefersDark(mediaQuery.matches)
+
+    const handler = (e: MediaQueryListEvent) => {
+      setSystemPrefersDark(e.matches)
+    }
+
+    mediaQuery.addEventListener('change', handler)
+    return () => mediaQuery.removeEventListener('change', handler)
+  }, [theme])
+
   // Check if we're running in an iframe (remote mode)
   const isInIframe = typeof window !== 'undefined' && window.parent !== window
 
+  // Determine the appearance based on theme setting
+  const getAppearance = () => {
+    if (theme === 'light' || theme === 'dark') {
+      return theme
+    }
+    // For 'auto', use system preference
+    if (theme === 'auto') {
+      return systemPrefersDark ? 'dark' : 'light'
+    }
+    // Default to light
+    return 'light'
+  }
+
   const content = (
     <>
-      <Theme>
+      <Theme appearance={getAppearance()}>
         <Outlet />
         <TanStackRouterDevtools position="bottom-right" />
       </Theme>
