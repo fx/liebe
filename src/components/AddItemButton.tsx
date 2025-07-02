@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, DropdownMenu } from '@radix-ui/themes'
 import { PlusIcon } from '@radix-ui/react-icons'
-import { EntityBrowser } from './EntityBrowser'
+import { EntityPickerModal } from './EntityPickerModal'
 import { dashboardActions } from '../store'
 import type { GridItem } from '../store/types'
 
@@ -58,10 +58,12 @@ export function AddItemButton({ screenId }: AddItemButtonProps) {
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
-      <EntityBrowser
+      <EntityPickerModal
         open={browserOpen}
         onOpenChange={setBrowserOpen}
         onEntitiesSelected={handleAddEntities}
+        title="Add Entities"
+        description="Select entities to add to your dashboard"
       />
     </>
   )
