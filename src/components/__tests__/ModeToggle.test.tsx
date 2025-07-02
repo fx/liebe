@@ -133,7 +133,7 @@ describe('ModeToggle', () => {
     // The button should have tooltip trigger
     const buttonElement = screen.getByRole('button')
     expect(buttonElement).toBeDefined()
-    
+
     // Tooltip content should be accessible via aria-describedby or similar
     const tooltipTrigger = container.querySelector('[data-radix-tooltip-trigger]')
     expect(tooltipTrigger).toBeDefined()
@@ -155,16 +155,16 @@ describe('ModeToggle', () => {
   it('renders icon only on mobile', () => {
     // Mock mobile viewport
     vi.mocked(useIsMobile).mockReturnValue(true)
-    
+
     renderModeToggle()
 
     // Should have button with icon but no text
     const buttonElement = screen.getByRole('button', { name: /View Mode/i })
     expect(buttonElement).toBeDefined()
-    
+
     // Should not show text on mobile
     expect(screen.queryByText('View Mode')).toBeNull()
-    
+
     // Reset mock
     vi.mocked(useIsMobile).mockReturnValue(false)
   })
