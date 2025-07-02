@@ -24,9 +24,7 @@ export function SidebarWidgets() {
 
   return (
     <Flex direction="column" gap="3">
-      {sidebarWidgets
-        .sort((a, b) => a.position - b.position)
-        .map((widget) => renderWidget(widget))}
+      {sidebarWidgets.sort((a, b) => a.position - b.position).map((widget) => renderWidget(widget))}
     </Flex>
   )
 }

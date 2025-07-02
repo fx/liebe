@@ -29,7 +29,7 @@
     height: 100vh;
     z-index: 999;
   }
-  
+
   .sidebar-open {
     width: 100vw;
     box-shadow: var(--shadow-6);

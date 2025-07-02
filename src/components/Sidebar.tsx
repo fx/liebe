@@ -48,9 +48,9 @@ export function Sidebar({ children }: SidebarProps) {
 
 export function SidebarTrigger() {
   const sidebarOpen = useStore(dashboardStore, (state) => state.sidebarOpen)
-  
+
   if (sidebarOpen) return null
-  
+
   return (
     <IconButton
       size="3"

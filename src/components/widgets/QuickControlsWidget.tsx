@@ -13,7 +13,7 @@ export function QuickControlsWidget({ widget: _widget }: QuickControlsWidgetProp
         <Heading size="4" weight="bold">
           Quick Controls
         </Heading>
-        
+
         <Flex direction="column" gap="2">
           <LightCard entityId="light.living_room" size="small" />
           <LightCard entityId="light.bedroom" size="small" />
