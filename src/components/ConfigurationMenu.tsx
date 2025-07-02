@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { DropdownMenu, Button, AlertDialog, Text, Flex, Callout } from '@radix-ui/themes'
+import { DropdownMenu, Button, Callout, AlertModal, Text } from '~/components/ui'
 import {
   GearIcon,
   UploadIcon,
@@ -266,28 +266,15 @@ export function ConfigurationMenu() {
       )}
 
       {/* Reset confirmation dialog */}
-      <AlertDialog.Root open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
-        <AlertDialog.Content maxWidth="450px">
-          <AlertDialog.Title>Reset Configuration</AlertDialog.Title>
-          <AlertDialog.Description size="2">
-            Are you sure you want to reset all configuration? This will delete all views, sections,
-            and settings. This action cannot be undone.
-          </AlertDialog.Description>
-
-          <Flex gap="3" mt="4" justify="end">
-            <AlertDialog.Cancel>
-              <Button variant="soft" color="gray">
-                Cancel
-              </Button>
-            </AlertDialog.Cancel>
-            <AlertDialog.Action>
-              <Button variant="solid" color="red" onClick={handleReset}>
-                Reset Everything
-              </Button>
-            </AlertDialog.Action>
-          </Flex>
-        </AlertDialog.Content>
-      </AlertDialog.Root>
+      <AlertModal
+        open={resetDialogOpen}
+        onOpenChange={setResetDialogOpen}
+        title="Reset Configuration"
+        description="Are you sure you want to reset all configuration? This will delete all views, sections, and settings. This action cannot be undone."
+        confirmLabel="Reset Everything"
+        onConfirm={handleReset}
+        variant="danger"
+      />
 
       {/* Import preview dialog */}
       <ImportPreviewDialog

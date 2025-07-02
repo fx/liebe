@@ -1,4 +1,4 @@
-import { AlertDialog, Button, Flex } from '@radix-ui/themes'
+import { AlertModal } from '~/components/ui'
 
 interface DeleteConfirmDialogProps {
   open: boolean
@@ -17,36 +17,21 @@ export function DeleteConfirmDialog({
   description = 'Are you sure you want to remove this entity from the dashboard?',
   itemCount = 1,
 }: DeleteConfirmDialogProps) {
-  const handleConfirm = () => {
-    onConfirm()
-    onOpenChange(false)
-  }
+  const finalTitle = itemCount > 1 ? `Delete ${itemCount} Entities` : title
+  const finalDescription =
+    itemCount > 1
+      ? `Are you sure you want to remove ${itemCount} entities from the dashboard? This action cannot be undone.`
+      : description
 
   return (
-    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
-      <AlertDialog.Content maxWidth="450px">
-        <AlertDialog.Title>
-          {itemCount > 1 ? `Delete ${itemCount} Entities` : title}
-        </AlertDialog.Title>
-        <AlertDialog.Description size="2">
-          {itemCount > 1
-            ? `Are you sure you want to remove ${itemCount} entities from the dashboard? This action cannot be undone.`
-            : description}
-        </AlertDialog.Description>
-
-        <Flex gap="3" mt="4" justify="end">
-          <AlertDialog.Cancel>
-            <Button variant="soft" color="gray">
-              Cancel
-            </Button>
-          </AlertDialog.Cancel>
-          <AlertDialog.Action>
-            <Button variant="solid" color="red" onClick={handleConfirm}>
-              Delete {itemCount > 1 && `(${itemCount})`}
-            </Button>
-          </AlertDialog.Action>
-        </Flex>
-      </AlertDialog.Content>
-    </AlertDialog.Root>
+    <AlertModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={finalTitle}
+      description={finalDescription}
+      confirmLabel={`Delete${itemCount > 1 ? ` (${itemCount})` : ''}`}
+      onConfirm={onConfirm}
+      variant="danger"
+    />
   )
 }
