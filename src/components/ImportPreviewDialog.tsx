@@ -1,5 +1,5 @@
-import { Dialog, Button, Text, Flex, Box, ScrollArea, Badge, Callout } from '@radix-ui/themes'
-import { InfoCircledIcon, CheckCircledIcon } from '@radix-ui/react-icons'
+import { Text, Flex, Box, ScrollArea, Badge, Callout, Modal } from '~/components/ui'
+import { InfoCircledIcon } from '@radix-ui/react-icons'
 import type { DashboardConfig } from '../store/types'
 
 interface ImportPreviewDialogProps {
@@ -39,85 +39,81 @@ export function ImportPreviewDialog({
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content maxWidth="600px">
-        <Dialog.Title>Import Preview</Dialog.Title>
-        <Dialog.Description>
-          Review the configuration before importing. Your current configuration will be backed up
-          automatically.
-        </Dialog.Description>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Import Preview"
+      description="Review the configuration before importing. Your current configuration will be backed up automatically."
+      size="medium"
+      actions={{
+        primary: {
+          label: 'Import Configuration',
+          onClick: onConfirm,
+        },
+        secondary: {
+          label: 'Cancel',
+          onClick: onCancel,
+        },
+      }}
+    >
+      {versionMessage && (
+        <Callout.Root color="blue" mt="3">
+          <Callout.Icon>
+            <InfoCircledIcon />
+          </Callout.Icon>
+          <Callout.Text>{versionMessage}</Callout.Text>
+        </Callout.Root>
+      )}
 
-        {versionMessage && (
-          <Callout.Root color="blue" mt="3">
-            <Callout.Icon>
-              <InfoCircledIcon />
-            </Callout.Icon>
-            <Callout.Text>{versionMessage}</Callout.Text>
-          </Callout.Root>
-        )}
-
-        <Box mt="4">
-          <Flex direction="column" gap="3">
-            <Flex align="center" gap="2">
-              <Text size="2" weight="medium">
-                Version:
-              </Text>
-              <Badge>{config.version}</Badge>
-            </Flex>
-
-            <Flex align="center" gap="2">
-              <Text size="2" weight="medium">
-                Theme:
-              </Text>
-              <Badge variant="outline">{config.theme || 'auto'}</Badge>
-            </Flex>
-
-            <Flex align="center" gap="2">
-              <Text size="2" weight="medium">
-                Total Screens:
-              </Text>
-              <Badge color="blue">{totalScreens}</Badge>
-            </Flex>
-
-            <Flex align="center" gap="2">
-              <Text size="2" weight="medium">
-                Total Grid Items:
-              </Text>
-              <Badge color="green">{totalGridItems}</Badge>
-            </Flex>
+      <Box mt="4">
+        <Flex direction="column" gap="3">
+          <Flex align="center" gap="2">
+            <Text size="2" weight="medium">
+              Version:
+            </Text>
+            <Badge>{config.version}</Badge>
           </Flex>
-        </Box>
 
-        <Box mt="4">
-          <Text size="2" weight="medium" mb="2">
-            Screen Structure:
-          </Text>
-          <ScrollArea style={{ maxHeight: '200px' }}>
-            <Box
-              p="3"
-              style={{
-                backgroundColor: 'var(--gray-a2)',
-                borderRadius: 'var(--radius-2)',
-              }}
-            >
-              {renderScreenTree(config.screens)}
-            </Box>
-          </ScrollArea>
-        </Box>
+          <Flex align="center" gap="2">
+            <Text size="2" weight="medium">
+              Theme:
+            </Text>
+            <Badge variant="outline">{config.theme || 'auto'}</Badge>
+          </Flex>
 
-        <Flex gap="3" mt="4" justify="end">
-          <Dialog.Close>
-            <Button variant="soft" color="gray" onClick={onCancel}>
-              Cancel
-            </Button>
-          </Dialog.Close>
-          <Button variant="solid" onClick={onConfirm}>
-            <CheckCircledIcon />
-            Import Configuration
-          </Button>
+          <Flex align="center" gap="2">
+            <Text size="2" weight="medium">
+              Total Screens:
+            </Text>
+            <Badge color="blue">{totalScreens}</Badge>
+          </Flex>
+
+          <Flex align="center" gap="2">
+            <Text size="2" weight="medium">
+              Total Grid Items:
+            </Text>
+            <Badge color="green">{totalGridItems}</Badge>
+          </Flex>
         </Flex>
-      </Dialog.Content>
-    </Dialog.Root>
+      </Box>
+
+      <Box mt="4">
+        <Text size="2" weight="medium" mb="2">
+          Screen Structure:
+        </Text>
+        <ScrollArea style={{ maxHeight: '200px' }}>
+          <Box
+            p="3"
+            style={{
+              backgroundColor: 'var(--gray-a2)',
+              borderRadius: 'var(--radius-2)',
+            }}
+          >
+            {renderScreenTree(config.screens)}
+          </Box>
+        </ScrollArea>
+      </Box>
+    </Modal>
   )
 }
 
