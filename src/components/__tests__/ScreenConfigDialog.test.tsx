@@ -42,6 +42,8 @@ describe('ScreenConfigDialog', () => {
         gridResolution: { columns: 12, rows: 8 },
         theme: 'auto',
         isDirty: false,
+        sidebarOpen: false,
+        sidebarWidgets: [],
       }
       return selector ? selector(state) : state
     })
