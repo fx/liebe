@@ -4,6 +4,7 @@ import { Archive, ChevronDown, List, X } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
+import { SkeletonCard, ErrorDisplay } from './ui'
 
 interface InputSelectCardProps {
   entityId: string
@@ -26,7 +27,7 @@ export const InputSelectCard = memo(function InputSelectCard({
   isSelected = false,
   onSelect,
 }: InputSelectCardProps) {
-  const { entity, isConnected } = useEntity(entityId)
+  const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
@@ -53,37 +54,20 @@ export const InputSelectCard = memo(function InputSelectCard({
     [entity, isEditMode, setValue]
   )
 
-  // Handle loading/error states
-  if (!isConnected || !entity) {
+  // Show skeleton while loading initial data
+  if (isEntityLoading || (!entity && isConnected)) {
+    return <SkeletonCard size={size} showIcon={true} lines={2} />
+  }
+
+  // Show error state when disconnected or entity not found
+  if (!entity || !isConnected) {
     return (
-      <Card
-        className={`
-          relative flex items-center justify-center
-          ${isEditMode ? 'cursor-move' : 'cursor-pointer'}
-          border-2 border-dashed border-red-500
-          ${size === 'small' ? 'p-2' : size === 'large' ? 'p-4' : 'p-3'}
-        `}
-        style={{
-          borderStyle: 'dashed',
-          borderColor: 'var(--red-8)',
-          animation: 'pulse-border 2s ease-in-out infinite',
-        }}
-      >
-        <style>{`
-          @keyframes pulse-border {
-            0%,
-            100% {
-              opacity: 0.5;
-            }
-            50% {
-              opacity: 1;
-            }
-          }
-        `}</style>
-        <Text size="1" color="red">
-          {!isConnected ? 'Disconnected' : 'Entity not found'}
-        </Text>
-      </Card>
+      <ErrorDisplay
+        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        variant="card"
+        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
+        onRetry={!isConnected ? () => window.location.reload() : undefined}
+      />
     )
   }
 
