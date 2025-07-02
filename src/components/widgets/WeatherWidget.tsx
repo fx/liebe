@@ -49,10 +49,6 @@ interface ForecastDay {
   wind_bearing?: number
 }
 
-interface ForecastData {
-  forecast: Array<ForecastDay>
-}
-
 function getWeatherIcon(condition: string) {
   const lowerCondition = condition.toLowerCase()
   if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return Sun
