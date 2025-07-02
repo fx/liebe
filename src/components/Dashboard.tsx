@@ -7,13 +7,13 @@ import { AddItemButton } from './AddItemButton'
 import { ConfigurationMenu } from './ConfigurationMenu'
 import { ConnectionStatus } from './ConnectionStatus'
 import { ModeToggle } from './ModeToggle'
-import { Sidebar, SidebarTrigger } from './Sidebar'
+import { TabSidebar } from './TabSidebar'
 import { SidebarWidgets } from './SidebarWidgets'
 import { ErrorBoundary } from './ui'
 import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
 import { useIsMobile } from '../../app/utils/responsive'
-import '../components/Sidebar.css'
+import '../components/TabSidebar.css'
 import './Dashboard.css'
 
 export function Dashboard() {
@@ -58,7 +58,6 @@ export function Dashboard() {
         }}
       >
         <Flex align="center" gap={isMobile ? '2' : '3'} style={{ minWidth: 0, flex: '1 1 auto' }}>
-          <SidebarTrigger />
           <Text size={isMobile ? '3' : '5'} weight="bold" className="desktop-up dashboard-title">
             Liebe Dashboard
           </Text>
@@ -73,15 +72,15 @@ export function Dashboard() {
         </Flex>
       </Flex>
 
-      {/* Main Layout with Sidebar */}
-      <Flex style={{ flex: 1, overflow: 'hidden' }}>
-        {/* Sidebar */}
-        <Sidebar>
+      {/* Main Layout */}
+      <Box style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {/* Tab Sidebar */}
+        <TabSidebar>
           <SidebarWidgets />
-        </Sidebar>
+        </TabSidebar>
 
         {/* Content Area */}
-        <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
           {/* View Tabs */}
           <ViewTabs onAddView={() => setAddViewOpen(true)} />
 
@@ -143,7 +142,7 @@ export function Dashboard() {
             )}
           </Box>
         </Box>
-      </Flex>
+      </Box>
 
       {/* Add View Dialog */}
       <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />
