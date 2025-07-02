@@ -85,19 +85,21 @@ describe('ButtonCard', () => {
   it('should render entity not found when entity is null', () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: undefined,
-      isConnected: true,
+      isConnected: false,
       isLoading: false,
       isStale: false,
     })
 
     render(<ButtonCard entityId="unknown.entity" />)
 
-    expect(screen.getByText('Entity not found')).toBeInTheDocument()
+    // When not connected, it shows disconnected state instead of entity not found
+    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
   })
 
   it('should render disconnected when not connected', () => {
     vi.mocked(useEntity).mockReturnValue({
-      entity: mockEntity,
+      entity: undefined,
       isConnected: false,
       isLoading: false,
       isStale: false,
@@ -106,6 +108,7 @@ describe('ButtonCard', () => {
     render(<ButtonCard entityId="light.living_room" />)
 
     expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
   })
 
   it('should render entity with friendly name and state', () => {
@@ -351,5 +354,20 @@ describe('ButtonCard', () => {
     expect(card).toHaveStyle({
       borderWidth: '2px',
     })
+  })
+
+  it('should render skeleton when entity is undefined but connected', () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: undefined,
+      isConnected: true,
+      isLoading: false,
+      isStale: false,
+    })
+
+    const { container } = render(<ButtonCard entityId="unknown.entity" />)
+
+    // Should show skeleton card
+    const skeleton = container.querySelector('.rt-Skeleton')
+    expect(skeleton).toBeInTheDocument()
   })
 })
