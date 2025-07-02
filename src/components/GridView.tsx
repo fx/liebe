@@ -13,6 +13,7 @@ import { InputDateTimeCard } from './InputDateTimeCard'
 import { Separator } from './Separator'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
+import { EntityErrorBoundary } from './ui'
 import { GridItem } from '../store/types'
 import { dashboardActions, useDashboardStore } from '../store'
 import './GridLayoutSection.css'
@@ -245,15 +246,17 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
             )
           } else {
             return (
-              <EntityCard
-                entityId={item.entityId!}
-                size="medium"
-                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
-                isSelected={selectedItems.has(item.id)}
-                onSelect={
-                  isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
-                }
-              />
+              <EntityErrorBoundary entityId={item.entityId}>
+                <EntityCard
+                  entityId={item.entityId!}
+                  size="medium"
+                  onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+                  isSelected={selectedItems.has(item.id)}
+                  onSelect={
+                    isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                  }
+                />
+              </EntityErrorBoundary>
             )
           }
         }}
