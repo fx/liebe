@@ -8,6 +8,9 @@ import {
   ExclamationTriangleIcon,
   CopyIcon,
   DownloadIcon,
+  SunIcon,
+  MoonIcon,
+  DesktopIcon,
 } from '@radix-ui/react-icons'
 import {
   exportConfigurationToFile,
@@ -21,8 +24,10 @@ import {
 } from '../store/persistence'
 import { ImportPreviewDialog } from './ImportPreviewDialog'
 import type { DashboardConfig } from '../store/types'
+import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
 
 export function ConfigurationMenu() {
+  const theme = useDashboardStore((state) => state.theme)
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
@@ -172,6 +177,27 @@ export function ConfigurationMenu() {
               {(storageInfo.used / 1024).toFixed(1)} KB used ({storageInfo.percentage.toFixed(1)}%)
             </Text>
           </DropdownMenu.Item>
+
+          <DropdownMenu.Separator />
+
+          <DropdownMenu.Label>Theme</DropdownMenu.Label>
+          <DropdownMenu.RadioGroup
+            value={theme}
+            onValueChange={(value) => dashboardActions.setTheme(value as 'light' | 'dark' | 'auto')}
+          >
+            <DropdownMenu.RadioItem value="light">
+              <SunIcon />
+              Light
+            </DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value="dark">
+              <MoonIcon />
+              Dark
+            </DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value="auto">
+              <DesktopIcon />
+              System
+            </DropdownMenu.RadioItem>
+          </DropdownMenu.RadioGroup>
 
           <DropdownMenu.Separator />
 
