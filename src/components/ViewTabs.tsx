@@ -2,9 +2,10 @@ import { Tabs, Button, Flex, IconButton, ScrollArea, DropdownMenu, Box } from '@
 import { Cross2Icon, PlusIcon, HamburgerMenuIcon, GearIcon } from '@radix-ui/react-icons'
 import { useDashboardStore, dashboardActions } from '../store'
 import type { ScreenConfig } from '../store/types'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { ScreenConfigDialog } from './ScreenConfigDialog'
+import { useIsMobile } from '../../app/utils/responsive'
 
 interface ViewTabsProps {
   onAddView?: () => void
@@ -14,7 +15,7 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
   const screens = useDashboardStore((state) => state.screens)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const mode = useDashboardStore((state) => state.mode)
-  const [isMobile, setIsMobile] = useState(false)
+  const isMobile = useIsMobile()
   const [configScreenId, setConfigScreenId] = useState<string | undefined>()
   const navigate = useNavigate()
 
@@ -29,16 +30,6 @@ export function ViewTabs({ onAddView }: ViewTabsProps) {
     }
     return undefined
   }
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
 
   const handleTabChange = (value: string) => {
     // Update the store state immediately for responsiveness

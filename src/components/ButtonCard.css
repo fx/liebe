@@ -36,3 +36,20 @@
     transform: rotate(360deg);
   }
 }
+
+/* Touch-friendly button card */
+@media (pointer: coarse) {
+  .rt-Card {
+    /* Ensure minimum touch target size */
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+
+    /* Better touch feedback */
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .rt-Card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+}

@@ -3,6 +3,7 @@ import { Box, Flex, IconButton, ScrollArea, Separator, Text } from '@radix-ui/th
 import { Cross2Icon, HamburgerMenuIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore } from '../store/dashboardStore'
+import { useIsMobile } from '../../app/utils/responsive'
 
 interface SidebarProps {
   children?: React.ReactNode
@@ -10,39 +11,64 @@ interface SidebarProps {
 
 export function Sidebar({ children }: SidebarProps) {
   const sidebarOpen = useStore(dashboardStore, (state) => state.sidebarOpen)
+  const isMobile = useIsMobile()
+
+  const handleClose = () => {
+    dashboardStore.setState((state) => ({ ...state, sidebarOpen: false }))
+  }
 
   return (
-    <Box
-      className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}
-      style={{
-        backgroundColor: 'var(--color-panel-solid)',
-        borderRight: '1px solid var(--gray-a5)',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <Flex justify="between" align="center" p="4" pb="3">
-        <Text size="5" weight="bold">
-          Widgets
-        </Text>
-        <IconButton
-          size="3"
-          variant="ghost"
-          color="gray"
-          onClick={() => dashboardStore.setState((state) => ({ ...state, sidebarOpen: false }))}
-          aria-label="Close sidebar"
-        >
-          <Cross2Icon width="22" height="22" />
-        </IconButton>
-      </Flex>
+    <>
+      {/* Mobile overlay backdrop */}
+      {isMobile && sidebarOpen && (
+        <Box
+          className="sidebar-overlay"
+          onClick={handleClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--black-a8)',
+            zIndex: 'var(--z-modal-backdrop)',
+            animation: 'fadeIn 200ms ease-out',
+          }}
+        />
+      )}
 
-      <Separator size="4" />
+      {/* Sidebar */}
+      <Box
+        className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}
+        style={{
+          backgroundColor: 'var(--color-panel-solid)',
+          borderRight: '1px solid var(--gray-a5)',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: isMobile ? 'var(--z-modal)' : undefined,
+        }}
+      >
+        <Flex justify="between" align="center" p={isMobile ? '3' : '4'} pb="3">
+          <Text size={isMobile ? '4' : '5'} weight="bold">
+            Widgets
+          </Text>
+          <IconButton
+            size="3"
+            variant="ghost"
+            color="gray"
+            onClick={handleClose}
+            aria-label="Close sidebar"
+            style={{ minWidth: '44px', minHeight: '44px' }}
+          >
+            <Cross2Icon width="22" height="22" />
+          </IconButton>
+        </Flex>
 
-      <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
-        <Box p="4">{children}</Box>
-      </ScrollArea>
-    </Box>
+        <Separator size="4" />
+
+        <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
+          <Box p={isMobile ? '3' : '4'}>{children}</Box>
+        </ScrollArea>
+      </Box>
+    </>
   )
 }
 

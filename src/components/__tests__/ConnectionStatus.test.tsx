@@ -13,6 +13,11 @@ vi.mock('~/contexts/HomeAssistantContext', () => ({
   useHomeAssistantOptional: vi.fn(),
 }))
 
+// Mock responsive utilities
+vi.mock('../../../app/utils/responsive', () => ({
+  useIsMobile: () => false, // Default to desktop
+}))
+
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
 
 describe('ConnectionStatus', () => {
@@ -106,9 +111,9 @@ describe('ConnectionStatus', () => {
 
     render(<ConnectionStatus />)
 
-    // Click on the status badge
-    const badge = screen.getByText('Connected')
-    await user.click(badge)
+    // Click on the status button
+    const button = screen.getByRole('button', { name: 'Connected' })
+    await user.click(button)
 
     // Check popover content
     expect(screen.getByText('Home Assistant:')).toBeInTheDocument()
