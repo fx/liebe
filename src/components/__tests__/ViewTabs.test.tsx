@@ -57,6 +57,7 @@ describe('ViewTabs', () => {
       theme: 'auto',
       isDirty: false,
       sidebarOpen: false,
+      sidebarPinned: false,
       sidebarWidgets: [],
     })
     // Clear mock calls

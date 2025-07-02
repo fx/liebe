@@ -29,6 +29,7 @@ const initialState: DashboardState = {
   theme: 'auto',
   isDirty: false,
   sidebarOpen: false,
+  sidebarPinned: false,
   sidebarWidgets: [
     { id: '1', type: 'clock', position: 0 },
     { id: '2', type: 'weather', position: 1 },

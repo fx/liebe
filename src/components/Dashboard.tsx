@@ -26,6 +26,8 @@ export function Dashboard() {
   const mode = useDashboardStore((state) => state.mode)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const screens = useDashboardStore((state) => state.screens)
+  const sidebarOpen = useDashboardStore((state) => state.sidebarOpen)
+  const sidebarPinned = useDashboardStore((state) => state.sidebarPinned)
 
   // Helper function to find screen in tree structure
   const findScreenById = (
@@ -73,14 +75,22 @@ export function Dashboard() {
       </Flex>
 
       {/* Main Layout */}
-      <Box style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <Flex style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {/* Tab Sidebar */}
         <TabSidebar>
           <SidebarWidgets />
         </TabSidebar>
 
         {/* Content Area */}
-        <Box style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            marginLeft: sidebarOpen && sidebarPinned ? 'calc(var(--sidebar-width) + 48px)' : '0',
+            transition: 'margin-left 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
           {/* View Tabs */}
           <ViewTabs onAddView={() => setAddViewOpen(true)} />
 
@@ -142,7 +152,7 @@ export function Dashboard() {
             )}
           </Box>
         </Box>
-      </Box>
+      </Flex>
 
       {/* Add View Dialog */}
       <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />

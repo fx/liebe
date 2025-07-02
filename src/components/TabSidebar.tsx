@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Box, Flex, IconButton, ScrollArea, Separator, Text } from '@radix-ui/themes'
 import { Cross2Icon, HeartFilledIcon, HeartIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
@@ -12,17 +12,17 @@ interface TabSidebarProps {
 
 export function TabSidebar({ children }: TabSidebarProps) {
   const sidebarOpen = useStore(dashboardStore, (state) => state.sidebarOpen)
+  const sidebarPinned = useStore(dashboardStore, (state) => state.sidebarPinned)
   const isMobile = useIsMobile()
-  const [isPinned, setIsPinned] = useState(false)
 
   const handleClose = () => {
-    if (!isPinned) {
+    if (!sidebarPinned) {
       dashboardStore.setState((state) => ({ ...state, sidebarOpen: false }))
     }
   }
 
   const handleTogglePin = () => {
-    setIsPinned(!isPinned)
+    dashboardStore.setState((state) => ({ ...state, sidebarPinned: !state.sidebarPinned }))
   }
 
   return (
@@ -43,20 +43,24 @@ export function TabSidebar({ children }: TabSidebarProps) {
       )}
 
       {/* Overlay backdrop */}
-      {sidebarOpen && !isPinned && <Box className="tab-sidebar-overlay" onClick={handleClose} />}
+      {sidebarOpen && !sidebarPinned && (
+        <Box className="tab-sidebar-overlay" onClick={handleClose} />
+      )}
 
       {/* Sidebar */}
-      <Box className={`tab-sidebar ${sidebarOpen ? 'tab-sidebar-open' : 'tab-sidebar-closed'}`}>
+      <Box
+        className={`tab-sidebar ${sidebarOpen ? 'tab-sidebar-open' : 'tab-sidebar-closed'} ${sidebarPinned ? 'tab-sidebar-pinned' : ''}`}
+      >
         {/* Tab strip on the side */}
         <Box className="tab-sidebar-tabs">
           <IconButton
             size="3"
-            variant={isPinned ? 'solid' : 'soft'}
+            variant={sidebarPinned ? 'solid' : 'soft'}
             onClick={handleTogglePin}
-            aria-label={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+            aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
             className="tab-heart-button"
           >
-            {isPinned ? (
+            {sidebarPinned ? (
               <HeartFilledIcon width="20" height="20" />
             ) : (
               <HeartIcon width="20" height="20" />
@@ -70,7 +74,7 @@ export function TabSidebar({ children }: TabSidebarProps) {
             <Text size={isMobile ? '4' : '5'} weight="bold">
               Dashboard
             </Text>
-            {!isPinned && (
+            {!sidebarPinned && (
               <IconButton
                 size="3"
                 variant="ghost"

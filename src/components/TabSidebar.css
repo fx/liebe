@@ -42,6 +42,11 @@
   transform: translateX(0);
 }
 
+/* When pinned, sidebar should not have modal z-index */
+.tab-sidebar-pinned {
+  z-index: var(--z-sidebar);
+}
+
 /* Tab strip */
 .tab-sidebar-tabs {
   width: 48px;
@@ -75,17 +80,6 @@
     top: calc(var(--header-height) + 20px);
     transform: translateY(0);
   }
-}
-
-/* Pinned state */
-.tab-sidebar.pinned {
-  position: relative;
-  transform: translateX(0);
-  z-index: auto;
-}
-
-.tab-sidebar.pinned .tab-sidebar-overlay {
-  display: none;
 }
 
 /* Animation */
