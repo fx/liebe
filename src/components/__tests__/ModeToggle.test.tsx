@@ -5,10 +5,18 @@ import { ModeToggle } from '../ModeToggle'
 import { dashboardStore, dashboardActions } from '../../store/dashboardStore'
 import { Theme } from '@radix-ui/themes'
 
+// Mock the responsive hook
+vi.mock('../../../app/utils/responsive', () => ({
+  useIsMobile: vi.fn(() => false),
+}))
+
 // Mock the persistence module to avoid async import issues in tests
 vi.mock('../../store/persistence', () => ({
   saveDashboardMode: vi.fn(),
 }))
+
+// Import the mocked function after vi.mock
+import { useIsMobile } from '../../../app/utils/responsive'
 
 describe('ModeToggle', () => {
   beforeEach(() => {
@@ -27,37 +35,35 @@ describe('ModeToggle', () => {
   it('renders with correct initial state', () => {
     renderModeToggle()
 
-    const switchElement = screen.getByRole('switch', { name: /toggle edit mode/i })
-    expect(switchElement).toBeDefined()
-    expect(switchElement.getAttribute('aria-checked')).toBe('false')
-
-    expect(screen.getByText('View')).toBeDefined()
-    expect(screen.getByText('Edit')).toBeDefined()
+    const buttonElement = screen.getByRole('button', { name: /View Mode/i })
+    expect(buttonElement).toBeDefined()
+    expect(screen.getByText('View Mode')).toBeDefined()
   })
 
   it('toggles between view and edit mode when clicked', async () => {
     renderModeToggle()
 
-    const switchElement = screen.getByRole('switch', { name: /toggle edit mode/i })
+    let buttonElement = screen.getByRole('button', { name: /View Mode/i })
 
     // Initially in view mode
     expect(dashboardStore.state.mode).toBe('view')
-    expect(switchElement.getAttribute('aria-checked')).toBe('false')
 
     // Click to switch to edit mode
-    await userEvent.click(switchElement)
+    await userEvent.click(buttonElement)
 
     await waitFor(() => {
       expect(dashboardStore.state.mode).toBe('edit')
-      expect(switchElement.getAttribute('aria-checked')).toBe('true')
+      buttonElement = screen.getByRole('button', { name: /Edit Mode/i })
+      expect(buttonElement).toBeDefined()
     })
 
     // Click to switch back to view mode
-    await userEvent.click(switchElement)
+    await userEvent.click(buttonElement)
 
     await waitFor(() => {
       expect(dashboardStore.state.mode).toBe('view')
-      expect(switchElement.getAttribute('aria-checked')).toBe('false')
+      buttonElement = screen.getByRole('button', { name: /View Mode/i })
+      expect(buttonElement).toBeDefined()
     })
   })
 
@@ -124,7 +130,11 @@ describe('ModeToggle', () => {
   it('shows tooltip with keyboard shortcut hint', async () => {
     const { container } = renderModeToggle()
 
-    // The tooltip content should be accessible
+    // The button should have tooltip trigger
+    const buttonElement = screen.getByRole('button')
+    expect(buttonElement).toBeDefined()
+    
+    // Tooltip content should be accessible via aria-describedby or similar
     const tooltipTrigger = container.querySelector('[data-radix-tooltip-trigger]')
     expect(tooltipTrigger).toBeDefined()
   })
@@ -140,5 +150,22 @@ describe('ModeToggle', () => {
     expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function))
 
     removeEventListenerSpy.mockRestore()
+  })
+
+  it('renders icon only on mobile', () => {
+    // Mock mobile viewport
+    vi.mocked(useIsMobile).mockReturnValue(true)
+    
+    renderModeToggle()
+
+    // Should have button with icon but no text
+    const buttonElement = screen.getByRole('button', { name: /View Mode/i })
+    expect(buttonElement).toBeDefined()
+    
+    // Should not show text on mobile
+    expect(screen.queryByText('View Mode')).toBeNull()
+    
+    // Reset mock
+    vi.mocked(useIsMobile).mockReturnValue(false)
   })
 })

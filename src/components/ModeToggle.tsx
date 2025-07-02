@@ -1,9 +1,12 @@
 import { useEffect } from 'react'
-import { Switch, Text, Flex, Tooltip } from '@radix-ui/themes'
+import { Button, Tooltip } from '@radix-ui/themes'
+import { Pencil1Icon, EyeOpenIcon } from '@radix-ui/react-icons'
 import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
+import { useIsMobile } from '../../app/utils/responsive'
 
 export function ModeToggle() {
   const mode = useDashboardStore((state) => state.mode)
+  const isMobile = useIsMobile()
   const isEditMode = mode === 'edit'
 
   const handleToggle = () => {
@@ -24,22 +27,21 @@ export function ModeToggle() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [mode])
 
+  const buttonLabel = isEditMode ? 'Edit Mode' : 'View Mode'
+  const buttonIcon = isEditMode ? <Pencil1Icon /> : <EyeOpenIcon />
+  const tooltipContent = `${isEditMode ? 'Switch to view mode' : 'Switch to edit mode'} (Ctrl/⌘ + E)`
+
   return (
-    <Tooltip content="Toggle edit mode (Ctrl/⌘ + E)">
-      <Flex align="center" gap="2">
-        <Text size="2" color="gray">
-          View
-        </Text>
-        <Switch
-          size="3"
-          checked={isEditMode}
-          onCheckedChange={handleToggle}
-          aria-label="Toggle edit mode"
-        />
-        <Text size="2" color={isEditMode ? undefined : 'gray'}>
-          Edit
-        </Text>
-      </Flex>
+    <Tooltip content={tooltipContent}>
+      <Button
+        variant={isEditMode ? 'solid' : 'soft'}
+        size="2"
+        onClick={handleToggle}
+        aria-label={buttonLabel}
+      >
+        {buttonIcon}
+        {!isMobile && buttonLabel}
+      </Button>
     </Tooltip>
   )
 }

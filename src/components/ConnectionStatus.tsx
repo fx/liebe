@@ -9,10 +9,12 @@ import {
 import { useStore } from '@tanstack/react-store'
 import { entityStore } from '~/store/entityStore'
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { useIsMobile } from '../../app/utils/responsive'
 import './ConnectionStatus.css'
 
 export function ConnectionStatus() {
   const hass = useHomeAssistantOptional()
+  const isMobile = useIsMobile()
   const isConnected = useStore(entityStore, (state) => state.isConnected)
   const lastError = useStore(entityStore, (state) => state.lastError)
   const entities = useStore(entityStore, (state) => state.entities)
@@ -84,11 +86,11 @@ export function ConnectionStatus() {
   return (
     <Popover.Root>
       <Popover.Trigger>
-        <Badge color={config.color} size="2" style={{ cursor: 'pointer' }}>
+        <Badge color={config.color} size="2" style={{ cursor: 'pointer' }} aria-label={config.text}>
           <Flex align="center" gap="1">
             {isUpdating && <UpdateIcon className="spin" />}
             {!isUpdating && config.icon}
-            {config.text}
+            {!isMobile && config.text}
           </Flex>
         </Badge>
       </Popover.Trigger>
