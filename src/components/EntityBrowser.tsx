@@ -49,12 +49,13 @@ const getFriendlyDomain = (domain: string): string => {
     input_text: 'Input Text',
     input_select: 'Input Select',
     input_datetime: 'Input DateTime',
+    weather: 'Weather',
   }
   return domainMap[domain] || domain.charAt(0).toUpperCase() + domain.slice(1)
 }
 
 // Domains to filter out by default
-const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'weather', 'zone']
+const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
 
 export function EntityBrowser({
   open,
