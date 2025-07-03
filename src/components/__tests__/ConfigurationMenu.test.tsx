@@ -5,6 +5,14 @@ import { Theme } from '@radix-ui/themes'
 import { ConfigurationMenu } from '../ConfigurationMenu'
 import * as persistence from '../../store/persistence'
 
+// Mock the store
+vi.mock('../../store/dashboardStore', () => ({
+  useDashboardStore: vi.fn(() => 'auto'),
+  dashboardActions: {
+    setTheme: vi.fn(),
+  },
+}))
+
 // Mock ImportPreviewDialog
 vi.mock('../ImportPreviewDialog', () => ({
   ImportPreviewDialog: ({ open, onConfirm }: { open: boolean; onConfirm: () => void }) =>
@@ -53,8 +61,16 @@ describe('ConfigurationMenu', () => {
     vi.clearAllMocks()
   })
 
-  it('should render configuration button', () => {
-    renderWithTheme(<ConfigurationMenu />)
+  it('should render configuration button as icon when showText is false', () => {
+    renderWithTheme(<ConfigurationMenu showText={false} />)
+
+    const button = screen.getByRole('button', { name: /configuration/i })
+    expect(button).toBeInTheDocument()
+    expect(screen.queryByText('Configuration')).not.toBeInTheDocument()
+  })
+
+  it('should render configuration button with text when showText is true', () => {
+    renderWithTheme(<ConfigurationMenu showText />)
 
     const button = screen.getByRole('button', { name: /configuration/i })
     expect(button).toBeInTheDocument()
