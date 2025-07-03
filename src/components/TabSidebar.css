@@ -52,7 +52,6 @@
 
 /* Tab strip */
 .tab-sidebar-tabs {
-  width: 56px;
   background-color: var(--color-panel-solid);
   border-right: 1px solid var(--gray-a5);
   display: flex;
