@@ -34,7 +34,6 @@ export interface DashboardConfig {
   screens: ScreenConfig[]
   theme?: 'light' | 'dark' | 'auto'
   sidebarOpen?: boolean
-  sidebarPinned?: boolean
 }
 
 export type DashboardMode = 'view' | 'edit'
@@ -57,7 +56,6 @@ export interface DashboardState {
   theme: 'light' | 'dark' | 'auto'
   isDirty: boolean
   sidebarOpen: boolean
-  sidebarPinned: boolean
   sidebarWidgets: WidgetConfig[]
 }
 

@@ -1,53 +1,36 @@
 /* Tab Sidebar Styles */
 
-/* Tab trigger when sidebar is closed */
-.tab-sidebar-trigger {
-  position: fixed;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: var(--z-sticky);
-  transition: transform 200ms ease-out;
-}
-
-.tab-trigger-button {
-  border-radius: 0 var(--radius-3) var(--radius-3) 0;
-  min-width: 44px;
-  min-height: 60px;
-  box-shadow: none;
-}
-
-/* Overlay backdrop */
-.tab-sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: var(--black-a8);
-  z-index: var(--z-modal-backdrop);
-  animation: fadeIn 200ms ease-out;
-}
-
-/* Main sidebar container */
+/* Main sidebar wrapper */
 .tab-sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
+  position: relative;
   height: 100vh;
   display: flex;
-  z-index: var(--z-modal);
-  transform: translateX(-100%);
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.tab-sidebar-open {
-  transform: translateX(0);
-}
-
-/* When pinned, sidebar should participate in normal layout flow */
-.tab-sidebar-pinned {
+/* Sidebar container that includes tabs and content */
+.tab-sidebar-container {
+  display: flex;
+  height: 100%;
   position: relative;
-  z-index: var(--z-sidebar);
-  height: 100vh;
-  transform: translateX(0) !important;
+  transition: none;
+}
+
+/* Content area slides in/out */
+.tab-sidebar-closed .tab-sidebar-content {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    width 120ms cubic-bezier(0.4, 0, 0.6, 1),
+    opacity 100ms ease-out;
+}
+
+.tab-sidebar-open .tab-sidebar-content {
+  width: var(--sidebar-width);
+  opacity: 1;
+  transition:
+    width 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 120ms ease-out 20ms;
 }
 
 /* Tab strip */
@@ -67,6 +50,16 @@
   border-radius: var(--radius-3);
 }
 
+/* Screen icon buttons when collapsed */
+.tab-screen-button {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Content area */
 .tab-sidebar-content {
   width: var(--sidebar-width);
@@ -78,19 +71,16 @@
 }
 
 /* Responsive adjustments */
-@media (min-width: 768px) {
-  .tab-sidebar-trigger {
-    top: calc(var(--header-height) + 20px);
-    transform: translateY(0);
-  }
-}
-
-/* Animation */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+@media (max-width: 768px) {
+  /* On mobile, sidebar content takes full screen when open */
+  .tab-sidebar-open .tab-sidebar-content {
+    position: fixed;
+    left: 56px; /* Width of tab strip */
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: calc(100vw - 56px);
+    background-color: var(--color-panel-solid);
+    z-index: var(--z-modal);
   }
 }

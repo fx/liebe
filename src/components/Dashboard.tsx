@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Box, Flex, Card, Text, Button } from '@radix-ui/themes'
-import { ViewTabs } from './ViewTabs'
 import { AddViewDialog } from './AddViewDialog'
 import { GridView } from './GridView'
 import { AddItemButton } from './AddItemButton'
@@ -26,6 +25,15 @@ export function Dashboard() {
   const mode = useDashboardStore((state) => state.mode)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const screens = useDashboardStore((state) => state.screens)
+
+  // Listen for add screen events from sidebar
+  useEffect(() => {
+    const handleAddScreen = () => {
+      setAddViewOpen(true)
+    }
+    window.addEventListener('addScreen', handleAddScreen)
+    return () => window.removeEventListener('addScreen', handleAddScreen)
+  }, [])
 
   // Helper function to find screen in tree structure
   const findScreenById = (
@@ -87,9 +95,6 @@ export function Dashboard() {
             flexDirection: 'column',
           }}
         >
-          {/* View Tabs */}
-          <ViewTabs onAddView={() => setAddViewOpen(true)} />
-
           {/* Main Content Area */}
           <Box
             style={{
