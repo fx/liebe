@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { dashboardStore, dashboardActions } from '../dashboardStore'
-import { saveDashboardConfig, loadDashboardConfig } from '../persistence'
+import { saveDashboardConfig } from '../persistence'
 import type { DashboardConfig } from '../types'
 
 // Mock localStorage
