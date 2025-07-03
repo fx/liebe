@@ -91,7 +91,7 @@ describe('Dashboard', () => {
 
     it('should open AddViewDialog when clicking + button in edit mode', async () => {
       const user = userEvent.setup()
-      
+
       // Add a test screen first so there's a current screen
       dashboardActions.addScreen(
         createTestScreen({
@@ -100,7 +100,7 @@ describe('Dashboard', () => {
         })
       )
       dashboardActions.setCurrentScreen('test-screen')
-      
+
       renderWithTheme(<Dashboard />)
 
       // Switch to edit mode
