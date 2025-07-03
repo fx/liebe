@@ -65,6 +65,7 @@ body {
 
   /* Z-index Scale */
   --z-header: 10;
+  --z-sticky: 15;
   --z-sidebar: 20;
   --z-modal-backdrop: 50;
   --z-modal: 60;
