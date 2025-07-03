@@ -1,6 +1,6 @@
 import { Card, Flex, Text, Spinner, Box, IconButton, Select } from '@radix-ui/themes'
 import { Cross2Icon } from '@radix-ui/react-icons'
-import { Fan } from 'lucide-react'
+import { Fan, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback } from 'react'
 import { useDashboardStore } from '~/store'
@@ -161,7 +161,8 @@ function FanCardComponent({
     if (isOn) {
       await turnOff(entity.entity_id)
     } else {
-      await turnOn(entity.entity_id)
+      // Turn on at medium speed (66%) by default
+      await turnOn(entity.entity_id, supportsSpeed ? { percentage: 66 } : undefined)
     }
   }
 
@@ -289,12 +290,7 @@ function FanCardComponent({
 
         {/* Speed controls when on and supports speed */}
         {isOn && !isEditMode && (supportsSpeed || supportsPresetMode) && (
-          <Flex
-            gap="2"
-            align="center"
-            style={{ width: '100%', maxWidth: '160px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
             {supportsPresetMode &&
             fanAttributes.preset_modes &&
             fanAttributes.preset_modes.length > 0 ? (
@@ -303,7 +299,7 @@ function FanCardComponent({
                 onValueChange={handlePresetModeChange}
                 disabled={isLoading || isChangingSpeed}
               >
-                <Select.Trigger style={{ flex: 1 }} aria-label="Select fan preset mode" />
+                <Select.Trigger style={{ width: '100%' }} aria-label="Select fan preset mode" />
                 <Select.Content>
                   {fanAttributes.preset_modes.map((mode) => (
                     <Select.Item key={mode} value={mode}>
@@ -314,22 +310,51 @@ function FanCardComponent({
               </Select.Root>
             ) : (
               supportsSpeed && (
-                <Select.Root
-                  value={currentPercentage.toString()}
-                  onValueChange={handleSpeedChange}
-                  disabled={isLoading || isChangingSpeed}
-                >
-                  <Select.Trigger style={{ flex: 1 }} aria-label="Select fan speed" />
-                  <Select.Content>
-                    <Select.Item value="0">Off</Select.Item>
-                    <Select.Item value="33">Low</Select.Item>
-                    <Select.Item value="66">Medium</Select.Item>
-                    <Select.Item value="100">High</Select.Item>
-                  </Select.Content>
-                </Select.Root>
+                <Flex gap="1" align="center" justify="center">
+                  <IconButton
+                    size="2"
+                    variant={currentPercentage === 0 ? 'solid' : 'soft'}
+                    color={currentPercentage === 0 ? 'gray' : 'cyan'}
+                    onClick={() => handleSpeedChange('0')}
+                    disabled={isLoading || isChangingSpeed}
+                    aria-label="Turn off"
+                  >
+                    <Wind size="14" style={{ opacity: 0.5 }} />
+                  </IconButton>
+                  <IconButton
+                    size="2"
+                    variant={currentPercentage > 0 && currentPercentage <= 33 ? 'solid' : 'soft'}
+                    color="cyan"
+                    onClick={() => handleSpeedChange('33')}
+                    disabled={isLoading || isChangingSpeed}
+                    aria-label="Low speed"
+                  >
+                    <Wind size="14" />
+                  </IconButton>
+                  <IconButton
+                    size="2"
+                    variant={currentPercentage > 33 && currentPercentage <= 66 ? 'solid' : 'soft'}
+                    color="cyan"
+                    onClick={() => handleSpeedChange('66')}
+                    disabled={isLoading || isChangingSpeed}
+                    aria-label="Medium speed"
+                  >
+                    <Wind size="16" />
+                  </IconButton>
+                  <IconButton
+                    size="2"
+                    variant={currentPercentage > 66 ? 'solid' : 'soft'}
+                    color="cyan"
+                    onClick={() => handleSpeedChange('100')}
+                    disabled={isLoading || isChangingSpeed}
+                    aria-label="High speed"
+                  >
+                    <Wind size="18" />
+                  </IconButton>
+                </Flex>
               )
             )}
-          </Flex>
+          </Box>
         )}
 
         {/* Status text */}
