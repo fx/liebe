@@ -26,8 +26,6 @@ export function Dashboard() {
   const mode = useDashboardStore((state) => state.mode)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const screens = useDashboardStore((state) => state.screens)
-  const sidebarOpen = useDashboardStore((state) => state.sidebarOpen)
-  const sidebarPinned = useDashboardStore((state) => state.sidebarPinned)
 
   // Helper function to find screen in tree structure
   const findScreenById = (
@@ -87,8 +85,6 @@ export function Dashboard() {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            marginLeft: sidebarOpen && sidebarPinned ? 'calc(var(--sidebar-width) + 48px)' : '0',
-            transition: 'margin-left 200ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
           {/* View Tabs */}

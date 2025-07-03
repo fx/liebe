@@ -42,9 +42,12 @@
   transform: translateX(0);
 }
 
-/* When pinned, sidebar should not have modal z-index */
+/* When pinned, sidebar should participate in normal layout flow */
 .tab-sidebar-pinned {
+  position: relative;
   z-index: var(--z-sidebar);
+  height: 100vh;
+  transform: translateX(0) !important;
 }
 
 /* Tab strip */
