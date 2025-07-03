@@ -43,7 +43,6 @@ describe('ScreenConfigDialog', () => {
         theme: 'auto',
         isDirty: false,
         sidebarOpen: false,
-        sidebarPinned: false,
         sidebarWidgets: [],
       }
       return selector ? selector(state) : state

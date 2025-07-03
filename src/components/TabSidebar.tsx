@@ -1,13 +1,6 @@
 import React from 'react'
 import { Box, Flex, IconButton, ScrollArea, Button, Separator, Text } from '@radix-ui/themes'
-import {
-  Cross2Icon,
-  HeartFilledIcon,
-  HeartIcon,
-  PlusIcon,
-  HomeIcon,
-  ViewGridIcon,
-} from '@radix-ui/react-icons'
+import { HeartFilledIcon, HeartIcon, PlusIcon, HomeIcon, ViewGridIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore, dashboardActions } from '../store/dashboardStore'
 import { useIsMobile } from '../../app/utils/responsive'
@@ -21,21 +14,14 @@ interface TabSidebarProps {
 
 export function TabSidebar({ children }: TabSidebarProps) {
   const sidebarOpen = useStore(dashboardStore, (state) => state.sidebarOpen)
-  const sidebarPinned = useStore(dashboardStore, (state) => state.sidebarPinned)
   const screens = useStore(dashboardStore, (state) => state.screens)
   const currentScreenId = useStore(dashboardStore, (state) => state.currentScreenId)
   const mode = useStore(dashboardStore, (state) => state.mode)
   const isMobile = useIsMobile()
   const navigate = useNavigate()
 
-  const handleClose = () => {
-    if (!sidebarPinned) {
-      dashboardActions.toggleSidebar(false)
-    }
-  }
-
-  const handleTogglePin = () => {
-    dashboardActions.toggleSidebarPin()
+  const handleToggleSidebar = () => {
+    dashboardActions.toggleSidebar()
   }
 
   // Helper function to find screen by ID
@@ -88,41 +74,21 @@ export function TabSidebar({ children }: TabSidebarProps) {
   }
 
   return (
-    <>
-      {/* Tab trigger when sidebar is closed */}
-      {!sidebarOpen && (
-        <Box className="tab-sidebar-trigger">
-          <IconButton
-            size="3"
-            variant="soft"
-            onClick={() => dashboardActions.toggleSidebar(true)}
-            aria-label="Open sidebar"
-            className="tab-trigger-button"
-          >
-            <HeartIcon width="20" height="20" />
-          </IconButton>
-        </Box>
-      )}
-
-      {/* Overlay backdrop */}
-      {sidebarOpen && !sidebarPinned && (
-        <Box className="tab-sidebar-overlay" onClick={handleClose} />
-      )}
-
-      {/* Sidebar */}
+    <Box className="tab-sidebar">
+      {/* Sidebar container */}
       <Box
-        className={`tab-sidebar ${sidebarOpen ? 'tab-sidebar-open' : 'tab-sidebar-closed'} ${sidebarPinned ? 'tab-sidebar-pinned' : ''}`}
+        className={`tab-sidebar-container ${sidebarOpen ? 'tab-sidebar-open' : 'tab-sidebar-closed'}`}
       >
         {/* Tab strip on the side */}
         <Box className="tab-sidebar-tabs">
           <IconButton
             size="3"
-            variant={sidebarPinned ? 'solid' : 'soft'}
-            onClick={handleTogglePin}
-            aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+            variant={sidebarOpen ? 'solid' : 'soft'}
+            onClick={handleToggleSidebar}
+            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
             className="tab-heart-button"
           >
-            {sidebarPinned ? (
+            {sidebarOpen ? (
               <HeartFilledIcon width="20" height="20" />
             ) : (
               <HeartIcon width="20" height="20" />
@@ -152,23 +118,8 @@ export function TabSidebar({ children }: TabSidebarProps) {
 
         {/* Content area */}
         <Box className="tab-sidebar-content">
-          {!sidebarPinned && (
-            <Flex justify="end" p={isMobile ? '3' : '4'}>
-              <IconButton
-                size="3"
-                variant="ghost"
-                color="gray"
-                onClick={handleClose}
-                aria-label="Close sidebar"
-                style={{ minWidth: '44px', minHeight: '44px' }}
-              >
-                <Cross2Icon width="22" height="22" />
-              </IconButton>
-            </Flex>
-          )}
-
           <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
-            <Box p={isMobile ? '3' : '4'} pt={sidebarPinned ? (isMobile ? '3' : '4') : '0'}>
+            <Box p={isMobile ? '3' : '4'}>
               {/* Screen Navigation */}
               <Flex direction="column" gap="2" mb="4">
                 <Text
@@ -210,6 +161,6 @@ export function TabSidebar({ children }: TabSidebarProps) {
           </ScrollArea>
         </Box>
       </Box>
-    </>
+    </Box>
   )
 }
