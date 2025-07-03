@@ -91,10 +91,23 @@ describe('Dashboard', () => {
 
     it('should open AddViewDialog when clicking + button in edit mode', async () => {
       const user = userEvent.setup()
+
+      // Add a test screen first so there's a current screen
+      dashboardActions.addScreen(
+        createTestScreen({
+          id: 'test-screen',
+          name: 'Test Screen',
+        })
+      )
+      dashboardActions.setCurrentScreen('test-screen')
+
       renderWithTheme(<Dashboard />)
 
       // Switch to edit mode
       await user.click(screen.getByRole('button', { name: 'View Mode' }))
+
+      // Expand the taskbar to see the button text
+      await user.click(screen.getByRole('button', { name: 'Expand' }))
 
       // There should be an "Add Screen" button in the tab strip
       const addButton = screen.getByRole('button', { name: 'Add Screen' })
@@ -141,7 +154,8 @@ describe('Dashboard', () => {
       await waitFor(() => {
         expect(screen.queryByText('No views created yet')).not.toBeInTheDocument()
       })
-      expect(screen.getAllByText('Test View').length).toBeGreaterThanOrEqual(1)
+      // The screen name should be visible in the taskbar button
+      expect(screen.getByRole('button', { name: 'Test View' })).toBeInTheDocument()
     })
 
     it('should not create a view with empty name', async () => {
@@ -172,8 +186,9 @@ describe('Dashboard', () => {
     it('should display current view information', () => {
       renderWithTheme(<Dashboard />)
 
-      expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1)
-      expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument()
+      // Screen name should be shown in taskbar button
+      expect(screen.getByRole('button', { name: 'Living Room' })).toBeInTheDocument()
+      // Grid size is no longer displayed
       expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
     })
 

@@ -3,11 +3,12 @@ import { Box, IconButton, Separator, Flex } from '@radix-ui/themes'
 import {
   HeartFilledIcon,
   HeartIcon,
-  PlusIcon,
   HomeIcon,
   ViewGridIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
+  CardStackPlusIcon,
+  PlusCircledIcon,
 } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore, dashboardActions } from '../store/dashboardStore'
@@ -95,23 +96,41 @@ export function AppTaskbar() {
           />
         ))}
 
-        {/* Add Screen button in edit mode */}
-        {mode === 'edit' && (
-          <TaskbarButton
-            icon={<PlusIcon />}
-            label="Add Screen"
-            variant="ghost"
-            onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
-            showText={tabsExpanded}
-            ariaLabel="Add Screen"
-          />
-        )}
-
         {/* Spacer */}
         <Box style={{ flex: '1 1 auto' }} />
 
         {/* Bottom controls */}
-        <Separator size="4" />
+        {mode === 'edit' && currentScreenId && (
+          <>
+            <Flex gap="2" direction={tabsExpanded ? 'row' : 'column'} style={{ width: '100%' }}>
+              <TaskbarButton
+                icon={<CardStackPlusIcon />}
+                label="Add Screen"
+                variant="soft"
+                onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
+                showText={false}
+                ariaLabel="Add Screen"
+                title="Add Screen"
+                style={tabsExpanded ? { flex: 1 } : undefined}
+              />
+              <TaskbarButton
+                icon={<PlusCircledIcon />}
+                label="Add Item"
+                variant="soft"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('addItem', { detail: { screenId: currentScreenId } })
+                  )
+                }
+                showText={false}
+                ariaLabel="Add Item"
+                title="Add Item"
+                style={tabsExpanded ? { flex: 1 } : undefined}
+              />
+            </Flex>
+            <Separator size="4" />
+          </>
+        )}
         <ConnectionStatus showText={tabsExpanded} />
         <ModeToggle showText={tabsExpanded} />
         <ConfigurationMenu showText={tabsExpanded} />
