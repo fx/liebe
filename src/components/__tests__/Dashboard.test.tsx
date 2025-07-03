@@ -96,8 +96,8 @@ describe('Dashboard', () => {
       // Switch to edit mode
       await user.click(screen.getByRole('button', { name: 'View Mode' }))
 
-      // There should be an "Add Screen" button in the sidebar
-      const addButton = screen.getByText('Add Screen')
+      // There should be an "Add Screen" button in the tab strip
+      const addButton = screen.getByRole('button', { name: 'Add Screen' })
       await user.click(addButton)
 
       await waitFor(() => {
