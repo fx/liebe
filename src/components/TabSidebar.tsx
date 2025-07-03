@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Flex, IconButton, ScrollArea } from '@radix-ui/themes'
 import { Cross2Icon, HeartFilledIcon, HeartIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
-import { dashboardStore } from '../store/dashboardStore'
+import { dashboardStore, dashboardActions } from '../store/dashboardStore'
 import { useIsMobile } from '../../app/utils/responsive'
 import './TabSidebar.css'
 
@@ -17,12 +17,12 @@ export function TabSidebar({ children }: TabSidebarProps) {
 
   const handleClose = () => {
     if (!sidebarPinned) {
-      dashboardStore.setState((state) => ({ ...state, sidebarOpen: false }))
+      dashboardActions.toggleSidebar(false)
     }
   }
 
   const handleTogglePin = () => {
-    dashboardStore.setState((state) => ({ ...state, sidebarPinned: !state.sidebarPinned }))
+    dashboardActions.toggleSidebarPin()
   }
 
   return (
@@ -33,7 +33,7 @@ export function TabSidebar({ children }: TabSidebarProps) {
           <IconButton
             size="3"
             variant="soft"
-            onClick={() => dashboardStore.setState((state) => ({ ...state, sidebarOpen: true }))}
+            onClick={() => dashboardActions.toggleSidebar(true)}
             aria-label="Open sidebar"
             className="tab-trigger-button"
           >

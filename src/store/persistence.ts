@@ -271,6 +271,8 @@ export const exportConfigurationAsYAML = (): string => {
     '# Generated': new Date().toISOString(),
     version: config.version,
     theme: config.theme || 'auto',
+    sidebarOpen: config.sidebarOpen,
+    sidebarPinned: config.sidebarPinned,
     screens: config.screens,
   }
 

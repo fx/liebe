@@ -33,6 +33,8 @@ export interface DashboardConfig {
   version: string
   screens: ScreenConfig[]
   theme?: 'light' | 'dark' | 'auto'
+  sidebarOpen?: boolean
+  sidebarPinned?: boolean
 }
 
 export type DashboardMode = 'view' | 'edit'
