@@ -9,7 +9,6 @@ import {
   ChevronRightIcon,
   ChevronLeftIcon,
   FileIcon,
-  GridIcon,
 } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore, dashboardActions } from '../store/dashboardStore'
