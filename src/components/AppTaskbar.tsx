@@ -102,28 +102,36 @@ export function AppTaskbar() {
         {/* Bottom controls */}
         {mode === 'edit' && currentScreenId && (
           <>
-            <TaskbarButton
-              icon={<CardStackPlusIcon />}
-              label="Add Screen"
-              variant="soft"
-              onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
-              showText={false}
-              ariaLabel="Add Screen"
-              title="Add Screen"
-            />
-            <TaskbarButton
-              icon={<PlusCircledIcon />}
-              label="Add Item"
-              variant="soft"
-              onClick={() =>
-                window.dispatchEvent(
-                  new CustomEvent('addItem', { detail: { screenId: currentScreenId } })
-                )
-              }
-              showText={false}
-              ariaLabel="Add Item"
-              title="Add Item"
-            />
+            <Flex 
+              gap="2" 
+              direction={tabsExpanded ? "row" : "column"}
+              style={{ width: '100%' }}
+            >
+              <TaskbarButton
+                icon={<CardStackPlusIcon />}
+                label="Add Screen"
+                variant="soft"
+                onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
+                showText={false}
+                ariaLabel="Add Screen"
+                title="Add Screen"
+                style={tabsExpanded ? { flex: 1 } : undefined}
+              />
+              <TaskbarButton
+                icon={<PlusCircledIcon />}
+                label="Add Item"
+                variant="soft"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('addItem', { detail: { screenId: currentScreenId } })
+                  )
+                }
+                showText={false}
+                ariaLabel="Add Item"
+                title="Add Item"
+                style={tabsExpanded ? { flex: 1 } : undefined}
+              />
+            </Flex>
             <Separator size="4" />
           </>
         )}
