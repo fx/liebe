@@ -3,12 +3,12 @@ import { Box, IconButton, Separator, Flex } from '@radix-ui/themes'
 import {
   HeartFilledIcon,
   HeartIcon,
-  PlusIcon,
   HomeIcon,
   ViewGridIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
-  ComponentPlaceholderIcon,
+  CardStackPlusIcon,
+  PlusCircledIcon,
 } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore, dashboardActions } from '../store/dashboardStore'
@@ -103,7 +103,7 @@ export function AppTaskbar() {
         {mode === 'edit' && currentScreenId && (
           <>
             <TaskbarButton
-              icon={<PlusIcon />}
+              icon={<CardStackPlusIcon />}
               label="Add Screen"
               variant="soft"
               onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
@@ -112,7 +112,7 @@ export function AppTaskbar() {
               title="Add Screen"
             />
             <TaskbarButton
-              icon={<ComponentPlaceholderIcon />}
+              icon={<PlusCircledIcon />}
               label="Add Item"
               variant="soft"
               onClick={() =>
