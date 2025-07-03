@@ -76,8 +76,8 @@ function FanCardComponent({
         setOptimisticSpeed(null)
       } finally {
         setIsChangingSpeed(false)
-        // Clear optimistic state after a short delay to allow entity state to update
-        setTimeout(() => setOptimisticSpeed(null), 500)
+        // Clear optimistic state immediately - let the entity state be the source of truth
+        setOptimisticSpeed(null)
       }
     },
     [entity, callService, turnOff, error, clearError, isChangingSpeed]
@@ -160,6 +160,16 @@ function FanCardComponent({
 
   // Use optimistic speed if available, otherwise use actual speed
   const displayPercentage = optimisticSpeed !== null ? optimisticSpeed : currentPercentage
+
+  // Map actual percentage to our button values for display consistency
+  const getSelectedButton = (percentage: number) => {
+    if (percentage === 0) return '0'
+    if (percentage <= 40) return '33' // Low: 1-40%
+    if (percentage <= 80) return '66' // Medium: 41-80%
+    return '100' // High: 81-100%
+  }
+
+  const selectedButton = getSelectedButton(displayPercentage)
 
   // Determine animation speed class based on percentage
   const getAnimationClass = () => {
@@ -307,7 +317,12 @@ function FanCardComponent({
 
         {/* Speed controls when on and supports speed */}
         {isOn && !isEditMode && (supportsSpeed || supportsPresetMode) && (
-          <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
+          <Box
+            style={{ width: '100%', maxWidth: '200px' }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
             {supportsPresetMode &&
             fanAttributes.preset_modes &&
             fanAttributes.preset_modes.length > 0 ? (
@@ -327,7 +342,15 @@ function FanCardComponent({
               </Select.Root>
             ) : (
               supportsSpeed && (
-                <Flex gap="1" align="center" justify="center" style={{ position: 'relative' }}>
+                <Flex
+                  gap="1"
+                  align="center"
+                  justify="center"
+                  style={{ position: 'relative' }}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
                   {isChangingSpeed && (
                     <Box
                       style={{
@@ -346,12 +369,15 @@ function FanCardComponent({
                   )}
                   <IconButton
                     size="2"
-                    variant={displayPercentage === 0 ? 'solid' : 'soft'}
-                    color={displayPercentage === 0 ? 'gray' : 'cyan'}
+                    variant={selectedButton === '0' ? 'solid' : 'soft'}
+                    color={selectedButton === '0' ? 'gray' : 'cyan'}
                     onClick={(e) => {
+                      e.preventDefault()
                       e.stopPropagation()
                       handleSpeedChange('0')
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
                     aria-label="Turn off"
                     style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
@@ -360,42 +386,51 @@ function FanCardComponent({
                   </IconButton>
                   <IconButton
                     size="2"
-                    variant={displayPercentage > 0 && displayPercentage <= 33 ? 'solid' : 'soft'}
+                    variant={selectedButton === '33' ? 'solid' : 'soft'}
                     color="cyan"
                     onClick={(e) => {
+                      e.preventDefault()
                       e.stopPropagation()
                       handleSpeedChange('33')
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
-                    aria-label="Low speed"
+                    aria-label="Low speed (33%)"
                     style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
                   >
                     <Wind size="14" />
                   </IconButton>
                   <IconButton
                     size="2"
-                    variant={displayPercentage > 33 && displayPercentage <= 66 ? 'solid' : 'soft'}
+                    variant={selectedButton === '66' ? 'solid' : 'soft'}
                     color="cyan"
                     onClick={(e) => {
+                      e.preventDefault()
                       e.stopPropagation()
                       handleSpeedChange('66')
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
-                    aria-label="Medium speed"
+                    aria-label="Medium speed (66%)"
                     style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
                   >
                     <Wind size="16" />
                   </IconButton>
                   <IconButton
                     size="2"
-                    variant={displayPercentage > 66 ? 'solid' : 'soft'}
+                    variant={selectedButton === '100' ? 'solid' : 'soft'}
                     color="cyan"
                     onClick={(e) => {
+                      e.preventDefault()
                       e.stopPropagation()
                       handleSpeedChange('100')
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
-                    aria-label="High speed"
+                    aria-label="High speed (100%)"
                     style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
                   >
                     <Wind size="18" />
