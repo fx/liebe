@@ -29,7 +29,6 @@ const initialState: DashboardState = {
   theme: 'auto',
   isDirty: false,
   sidebarOpen: false,
-  sidebarPinned: false,
   sidebarWidgets: [
     { id: '1', type: 'clock', position: 0 },
     { id: '2', type: 'weather', position: 1 },
@@ -297,7 +296,6 @@ export const dashboardActions = {
       gridResolution: DEFAULT_GRID_RESOLUTION,
       theme: config.theme || 'auto',
       sidebarOpen: config.sidebarOpen ?? state.sidebarOpen,
-      sidebarPinned: config.sidebarPinned ?? state.sidebarPinned,
       isDirty: false,
     }))
   },
@@ -309,7 +307,6 @@ export const dashboardActions = {
       screens: state.screens,
       theme: state.theme,
       sidebarOpen: state.sidebarOpen,
-      sidebarPinned: state.sidebarPinned,
     }
   },
 
@@ -328,14 +325,6 @@ export const dashboardActions = {
     dashboardStore.setState((state) => ({
       ...state,
       sidebarOpen: open !== undefined ? open : !state.sidebarOpen,
-      isDirty: true,
-    }))
-  },
-
-  toggleSidebarPin: () => {
-    dashboardStore.setState((state) => ({
-      ...state,
-      sidebarPinned: !state.sidebarPinned,
       isDirty: true,
     }))
   },

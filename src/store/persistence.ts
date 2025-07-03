@@ -272,7 +272,6 @@ export const exportConfigurationAsYAML = (): string => {
     version: config.version,
     theme: config.theme || 'auto',
     sidebarOpen: config.sidebarOpen,
-    sidebarPinned: config.sidebarPinned,
     screens: config.screens,
   }
 
