@@ -24,14 +24,12 @@ describe('Sidebar State Persistence', () => {
   it('should include sidebar state in exported configuration', () => {
     // Set sidebar state
     dashboardActions.toggleSidebar(true)
-    dashboardActions.toggleSidebarPin()
 
     // Export configuration
     const config = dashboardActions.exportConfiguration()
 
     // Check that sidebar state is included
     expect(config.sidebarOpen).toBe(true)
-    expect(config.sidebarPinned).toBe(true)
   })
 
   it('should restore sidebar state from configuration', () => {
@@ -41,7 +39,6 @@ describe('Sidebar State Persistence', () => {
       screens: [],
       theme: 'auto',
       sidebarOpen: true,
-      sidebarPinned: true,
     }
 
     // Load the configuration
@@ -50,7 +47,6 @@ describe('Sidebar State Persistence', () => {
     // Check that sidebar state was restored
     const state = dashboardStore.state
     expect(state.sidebarOpen).toBe(true)
-    expect(state.sidebarPinned).toBe(true)
   })
 
   it('should persist sidebar state changes to localStorage', () => {
@@ -60,7 +56,6 @@ describe('Sidebar State Persistence', () => {
       screens: [],
       theme: 'auto',
       sidebarOpen: true,
-      sidebarPinned: false,
     }
 
     // Save configuration
@@ -85,15 +80,14 @@ describe('Sidebar State Persistence', () => {
     dashboardActions.markClean()
     expect(dashboardStore.state.isDirty).toBe(false)
 
-    // Toggle pin
-    dashboardActions.toggleSidebarPin()
+    // Toggle sidebar again
+    dashboardActions.toggleSidebar(false)
     expect(dashboardStore.state.isDirty).toBe(true)
   })
 
   it('should preserve sidebar state when not specified in config', () => {
     // Set initial sidebar state
     dashboardActions.toggleSidebar(true)
-    dashboardActions.toggleSidebarPin()
     dashboardActions.markClean()
 
     // Load config without sidebar state
@@ -107,7 +101,6 @@ describe('Sidebar State Persistence', () => {
     // Sidebar state should be preserved
     const state = dashboardStore.state
     expect(state.sidebarOpen).toBe(true)
-    expect(state.sidebarPinned).toBe(true)
     expect(state.theme).toBe('dark') // Theme should be updated
   })
 })
