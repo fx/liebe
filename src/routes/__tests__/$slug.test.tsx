@@ -33,6 +33,7 @@ describe('Slug Route Logic', () => {
       theme: 'auto',
       isDirty: false,
       sidebarOpen: false,
+      sidebarPinned: false,
       sidebarWidgets: [],
     })
   })

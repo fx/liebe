@@ -55,6 +55,7 @@ export interface DashboardState {
   theme: 'light' | 'dark' | 'auto'
   isDirty: boolean
   sidebarOpen: boolean
+  sidebarPinned: boolean
   sidebarWidgets: WidgetConfig[]
 }
 
