@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Flex, IconButton, ScrollArea, Button, Separator, Text } from '@radix-ui/themes'
+import { Box, IconButton, ScrollArea, Separator } from '@radix-ui/themes'
 import { HeartFilledIcon, HeartIcon, PlusIcon, HomeIcon, ViewGridIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore, dashboardActions } from '../store/dashboardStore'
@@ -44,35 +44,6 @@ export function TabSidebar({ children }: TabSidebarProps) {
     }
   }
 
-  // Render screens recursively with indentation
-  const renderScreenButtons = (screenList: ScreenConfig[], level = 0): React.ReactNode[] => {
-    const buttons: React.ReactNode[] = []
-
-    screenList.forEach((screen) => {
-      buttons.push(
-        <Button
-          key={screen.id}
-          variant={currentScreenId === screen.id ? 'solid' : 'soft'}
-          size="2"
-          onClick={() => handleScreenClick(screen.id)}
-          style={{
-            justifyContent: 'flex-start',
-            width: '100%',
-            paddingLeft: `${12 + level * 16}px`,
-          }}
-        >
-          {screen.name}
-        </Button>
-      )
-
-      if (screen.children) {
-        buttons.push(...renderScreenButtons(screen.children, level + 1))
-      }
-    })
-
-    return buttons
-  }
-
   return (
     <Box className="tab-sidebar">
       {/* Sidebar container */}
@@ -114,47 +85,27 @@ export function TabSidebar({ children }: TabSidebarProps) {
               )}
             </IconButton>
           ))}
+
+          {/* Add Screen button in edit mode */}
+          {mode === 'edit' && (
+            <IconButton
+              size="2"
+              variant="ghost"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('addScreen'))
+              }}
+              aria-label="Add Screen"
+              className="tab-screen-button"
+            >
+              <PlusIcon width="18" height="18" />
+            </IconButton>
+          )}
         </Box>
 
         {/* Content area */}
         <Box className="tab-sidebar-content">
           <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
             <Box p={isMobile ? '3' : '4'}>
-              {/* Screen Navigation */}
-              <Flex direction="column" gap="2" mb="4">
-                <Text
-                  size="2"
-                  weight="bold"
-                  color="gray"
-                  style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                >
-                  Screens
-                </Text>
-                <Flex direction="column" gap="1">
-                  {renderScreenButtons(screens)}
-                  {mode === 'edit' && (
-                    <Button
-                      variant="ghost"
-                      size="2"
-                      onClick={() => {
-                        // This will be handled by parent component
-                        // For now, we'll emit a custom event
-                        window.dispatchEvent(new CustomEvent('addScreen'))
-                      }}
-                      style={{
-                        justifyContent: 'flex-start',
-                        width: '100%',
-                      }}
-                    >
-                      <PlusIcon />
-                      Add Screen
-                    </Button>
-                  )}
-                </Flex>
-              </Flex>
-
-              <Separator size="4" mb="4" />
-
               {/* Widgets */}
               {children}
             </Box>
