@@ -3,9 +3,6 @@ import { Box, Flex, Card, Text, Button } from '@radix-ui/themes'
 import { AddViewDialog } from './AddViewDialog'
 import { GridView } from './GridView'
 import { AddItemButton } from './AddItemButton'
-import { ConfigurationMenu } from './ConfigurationMenu'
-import { ConnectionStatus } from './ConnectionStatus'
-import { ModeToggle } from './ModeToggle'
 import { TabSidebar } from './TabSidebar'
 import { SidebarWidgets } from './SidebarWidgets'
 import { ErrorBoundary } from './ui'
@@ -53,33 +50,7 @@ export function Dashboard() {
   const currentScreen = currentScreenId ? findScreenById(screens, currentScreenId) : undefined
 
   return (
-    <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <Flex
-        p={isMobile ? '2' : '3'}
-        align="center"
-        justify="between"
-        className="dashboard-header"
-        style={{
-          borderBottom: '1px solid var(--gray-a5)',
-          minHeight: 'var(--header-height)',
-        }}
-      >
-        <Flex align="center" gap={isMobile ? '2' : '3'} style={{ minWidth: 0, flex: '1 1 auto' }}>
-          <Text size={isMobile ? '3' : '5'} weight="bold" className="desktop-up dashboard-title">
-            Liebe Dashboard
-          </Text>
-          <Text size="3" weight="bold" className="mobile-only dashboard-title">
-            Liebe
-          </Text>
-          <ConnectionStatus />
-        </Flex>
-        <Flex align="center" gap={isMobile ? '2' : '3'} style={{ flexShrink: 0 }}>
-          <ConfigurationMenu />
-          <ModeToggle />
-        </Flex>
-      </Flex>
-
+    <Box style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
       {/* Main Layout */}
       <Flex style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {/* Tab Sidebar */}

@@ -1,10 +1,13 @@
 import React from 'react'
-import { Box, IconButton, ScrollArea, Separator } from '@radix-ui/themes'
+import { Box, IconButton, ScrollArea, Separator, Flex } from '@radix-ui/themes'
 import { HeartFilledIcon, HeartIcon, PlusIcon, HomeIcon, ViewGridIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore, dashboardActions } from '../store/dashboardStore'
 import { useIsMobile } from '../../app/utils/responsive'
 import { useNavigate } from '@tanstack/react-router'
+import { ConnectionStatus } from './ConnectionStatus'
+import { ModeToggle } from './ModeToggle'
+import { ConfigurationMenu } from './ConfigurationMenu'
 import type { ScreenConfig } from '../store/types'
 import './TabSidebar.css'
 
@@ -104,12 +107,28 @@ export function TabSidebar({ children }: TabSidebarProps) {
 
         {/* Content area */}
         <Box className="tab-sidebar-content">
-          <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
-            <Box p={isMobile ? '3' : '4'}>
-              {/* Widgets */}
-              {children}
+          <Flex direction="column" style={{ height: '100%' }}>
+            {/* Header controls - previously in Dashboard header */}
+            <Box p={isMobile ? '3' : '4'} style={{ borderBottom: '1px solid var(--gray-a5)' }}>
+              <Flex direction="column" gap={isMobile ? '2' : '3'}>
+                {/* Connection status */}
+                <ConnectionStatus />
+                {/* Mode toggle and configuration */}
+                <Flex align="center" gap="2">
+                  <ModeToggle />
+                  <ConfigurationMenu />
+                </Flex>
+              </Flex>
             </Box>
-          </ScrollArea>
+
+            {/* Original content area */}
+            <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
+              <Box p={isMobile ? '3' : '4'}>
+                {/* Widgets */}
+                {children}
+              </Box>
+            </ScrollArea>
+          </Flex>
         </Box>
       </Box>
     </Box>
