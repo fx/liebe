@@ -102,11 +102,7 @@ export function AppTaskbar() {
         {/* Bottom controls */}
         {mode === 'edit' && currentScreenId && (
           <>
-            <Flex 
-              gap="2" 
-              direction={tabsExpanded ? "row" : "column"}
-              style={{ width: '100%' }}
-            >
+            <Flex gap="2" direction={tabsExpanded ? 'row' : 'column'} style={{ width: '100%' }}>
               <TaskbarButton
                 icon={<CardStackPlusIcon />}
                 label="Add Screen"
