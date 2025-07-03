@@ -8,10 +8,11 @@ interface TaskbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   color?: 'gray' | 'green' | 'red'
   showText?: boolean
   ariaLabel: string
+  title?: string
 }
 
 export const TaskbarButton = React.forwardRef<HTMLButtonElement, TaskbarButtonProps>(
-  ({ icon, label, onClick, variant = 'soft', color, showText, ariaLabel, ...props }, ref) => {
+  ({ icon, label, onClick, variant = 'soft', color, showText, ariaLabel, title, ...props }, ref) => {
     if (showText && label) {
       return (
         <Button
@@ -21,6 +22,7 @@ export const TaskbarButton = React.forwardRef<HTMLButtonElement, TaskbarButtonPr
           color={color}
           onClick={onClick}
           aria-label={ariaLabel}
+          title={title}
           style={{
             width: '100%',
             justifyContent: 'flex-start',
@@ -45,6 +47,7 @@ export const TaskbarButton = React.forwardRef<HTMLButtonElement, TaskbarButtonPr
         color={color}
         onClick={onClick}
         aria-label={ariaLabel}
+        title={title}
         {...props}
       >
         {icon}
