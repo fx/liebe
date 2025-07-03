@@ -296,6 +296,8 @@ export const dashboardActions = {
       configuration: config,
       gridResolution: DEFAULT_GRID_RESOLUTION,
       theme: config.theme || 'auto',
+      sidebarOpen: config.sidebarOpen ?? state.sidebarOpen,
+      sidebarPinned: config.sidebarPinned ?? state.sidebarPinned,
       isDirty: false,
     }))
   },
@@ -306,6 +308,8 @@ export const dashboardActions = {
       version: state.configuration.version,
       screens: state.screens,
       theme: state.theme,
+      sidebarOpen: state.sidebarOpen,
+      sidebarPinned: state.sidebarPinned,
     }
   },
 
@@ -324,6 +328,15 @@ export const dashboardActions = {
     dashboardStore.setState((state) => ({
       ...state,
       sidebarOpen: open !== undefined ? open : !state.sidebarOpen,
+      isDirty: true,
+    }))
+  },
+
+  toggleSidebarPin: () => {
+    dashboardStore.setState((state) => ({
+      ...state,
+      sidebarPinned: !state.sidebarPinned,
+      isDirty: true,
     }))
   },
 
