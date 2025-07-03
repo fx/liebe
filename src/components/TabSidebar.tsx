@@ -64,7 +64,9 @@ export function TabSidebar({ children }: TabSidebarProps) {
     <Box className="tab-sidebar">
       {/* Sidebar container */}
       <Box
-        className={`tab-sidebar-container ${sidebarOpen ? 'tab-sidebar-open' : 'tab-sidebar-closed'} ${tabsExpanded ? 'tabs-expanded' : 'tabs-collapsed'}`}
+        className={`tab-sidebar-container ${sidebarOpen ? 'tab-sidebar-open' : 'tab-sidebar-closed'} ${
+          tabsExpanded ? 'tabs-expanded' : 'tabs-collapsed'
+        }`}
       >
         {/* Tab strip on the side */}
         <Box className="tab-sidebar-tabs">
@@ -75,7 +77,6 @@ export function TabSidebar({ children }: TabSidebarProps) {
               variant="ghost"
               onClick={handleToggleExpanded}
               aria-label={tabsExpanded ? 'Collapse tabs' : 'Expand tabs'}
-              className="tab-expand-button"
             >
               {tabsExpanded ? (
                 <ChevronLeftIcon width="18" height="18" />
@@ -87,20 +88,16 @@ export function TabSidebar({ children }: TabSidebarProps) {
             <Separator size="3" style={{ width: '100%' }} />
 
             {/* Top section with heart and screens */}
-            <Box style={{ flex: '0 0 auto' }}>
+            <Flex direction="column" gap="2" style={{ flex: '0 0 auto' }}>
+              {/* Sidebar toggle */}
               {tabsExpanded ? (
                 <Button
                   size="3"
                   variant={sidebarOpen ? 'solid' : 'soft'}
                   onClick={handleToggleSidebar}
                   aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-                  className="tab-heart-button expanded"
                 >
-                  {sidebarOpen ? (
-                    <HeartFilledIcon width="20" height="20" />
-                  ) : (
-                    <HeartIcon width="20" height="20" />
-                  )}
+                  {sidebarOpen ? <HeartFilledIcon /> : <HeartIcon />}
                   <Text size="2">Sidebar</Text>
                 </Button>
               ) : (
@@ -109,19 +106,14 @@ export function TabSidebar({ children }: TabSidebarProps) {
                   variant={sidebarOpen ? 'solid' : 'soft'}
                   onClick={handleToggleSidebar}
                   aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-                  className="tab-heart-button"
                 >
-                  {sidebarOpen ? (
-                    <HeartFilledIcon width="20" height="20" />
-                  ) : (
-                    <HeartIcon width="20" height="20" />
-                  )}
+                  {sidebarOpen ? <HeartFilledIcon /> : <HeartIcon />}
                 </IconButton>
               )}
 
               <Separator size="3" style={{ width: '100%' }} />
 
-              {/* Screen icons - show only root level screens */}
+              {/* Screen navigation */}
               {screens.map((screen, index) =>
                 tabsExpanded ? (
                   <Button
@@ -130,13 +122,8 @@ export function TabSidebar({ children }: TabSidebarProps) {
                     variant={currentScreenId === screen.id ? 'solid' : 'soft'}
                     onClick={() => handleScreenClick(screen.id)}
                     aria-label={screen.name}
-                    className="tab-screen-button expanded"
                   >
-                    {index === 0 ? (
-                      <HomeIcon width="18" height="18" />
-                    ) : (
-                      <ViewGridIcon width="18" height="18" />
-                    )}
+                    {index === 0 ? <HomeIcon /> : <ViewGridIcon />}
                     <Text size="2">{screen.name}</Text>
                   </Button>
                 ) : (
@@ -146,13 +133,8 @@ export function TabSidebar({ children }: TabSidebarProps) {
                     variant={currentScreenId === screen.id ? 'solid' : 'soft'}
                     onClick={() => handleScreenClick(screen.id)}
                     aria-label={screen.name}
-                    className="tab-screen-button"
                   >
-                    {index === 0 ? (
-                      <HomeIcon width="18" height="18" />
-                    ) : (
-                      <ViewGridIcon width="18" height="18" />
-                    )}
+                    {index === 0 ? <HomeIcon /> : <ViewGridIcon />}
                   </IconButton>
                 )
               )}
@@ -167,9 +149,8 @@ export function TabSidebar({ children }: TabSidebarProps) {
                       window.dispatchEvent(new CustomEvent('addScreen'))
                     }}
                     aria-label="Add Screen"
-                    className="tab-screen-button expanded"
                   >
-                    <PlusIcon width="18" height="18" />
+                    <PlusIcon />
                     <Text size="2">Add Screen</Text>
                   </Button>
                 ) : (
@@ -180,12 +161,11 @@ export function TabSidebar({ children }: TabSidebarProps) {
                       window.dispatchEvent(new CustomEvent('addScreen'))
                     }}
                     aria-label="Add Screen"
-                    className="tab-screen-button"
                   >
-                    <PlusIcon width="18" height="18" />
+                    <PlusIcon />
                   </IconButton>
                 ))}
-            </Box>
+            </Flex>
 
             {/* Spacer */}
             <Box style={{ flex: '1 1 auto' }} />
@@ -195,34 +175,13 @@ export function TabSidebar({ children }: TabSidebarProps) {
               <Separator size="3" style={{ width: '100%' }} />
 
               {/* Connection Status */}
-              <Box className="tab-control-wrapper">
-                <ConnectionStatus />
-                {tabsExpanded && (
-                  <Text size="2" className="tab-control-label">
-                    Connection
-                  </Text>
-                )}
-              </Box>
+              <ConnectionStatus />
 
               {/* Mode Toggle */}
-              <Box className="tab-control-wrapper">
-                <ModeToggle />
-                {tabsExpanded && (
-                  <Text size="2" className="tab-control-label">
-                    {mode === 'edit' ? 'Edit Mode' : 'View Mode'}
-                  </Text>
-                )}
-              </Box>
+              <ModeToggle />
 
               {/* Configuration Menu */}
-              <Box className="tab-control-wrapper">
-                <ConfigurationMenu />
-                {tabsExpanded && (
-                  <Text size="2" className="tab-control-label">
-                    Configuration
-                  </Text>
-                )}
-              </Box>
+              <ConfigurationMenu />
             </Flex>
           </Flex>
         </Box>
