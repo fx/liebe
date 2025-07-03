@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Button, Flex, Text, Popover, Box, Separator } from '@radix-ui/themes'
+import { Flex, Text, Popover, Box, Separator } from '@radix-ui/themes'
 import {
   InfoCircledIcon,
   CheckCircledIcon,
@@ -9,12 +9,15 @@ import {
 import { useStore } from '@tanstack/react-store'
 import { entityStore } from '~/store/entityStore'
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
-import { useIsMobile } from '../../app/utils/responsive'
+import { TaskbarButton } from './TaskbarButton'
 import './ConnectionStatus.css'
 
-export function ConnectionStatus() {
+interface ConnectionStatusProps {
+  showText?: boolean
+}
+
+export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
   const hass = useHomeAssistantOptional()
-  const isMobile = useIsMobile()
   const isConnected = useStore(entityStore, (state) => state.isConnected)
   const lastError = useStore(entityStore, (state) => state.lastError)
   const entities = useStore(entityStore, (state) => state.entities)
@@ -90,11 +93,14 @@ export function ConnectionStatus() {
   return (
     <Popover.Root>
       <Popover.Trigger>
-        <Button variant={config.variant} color={config.color} size="2" aria-label={config.text}>
-          {isUpdating && <UpdateIcon className="spin" />}
-          {!isUpdating && config.icon}
-          {!isMobile && config.text}
-        </Button>
+        <TaskbarButton
+          icon={isUpdating ? <UpdateIcon className="spin" /> : config.icon}
+          label={config.text}
+          variant={config.variant}
+          color={config.color}
+          showText={showText}
+          ariaLabel={config.text}
+        />
       </Popover.Trigger>
 
       <Popover.Content style={{ width: '280px', maxWidth: 'calc(100vw - 32px)' }}>

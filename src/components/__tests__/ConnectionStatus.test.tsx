@@ -38,7 +38,7 @@ describe('ConnectionStatus', () => {
   it('should show "No Home Assistant" when hass is not available', () => {
     vi.mocked(useHomeAssistantOptional).mockReturnValue(null)
 
-    render(<ConnectionStatus />)
+    render(<ConnectionStatus showText />)
 
     expect(screen.getByText('No Home Assistant')).toBeInTheDocument()
   })
@@ -60,7 +60,7 @@ describe('ConnectionStatus', () => {
       },
     }))
 
-    render(<ConnectionStatus />)
+    render(<ConnectionStatus showText />)
 
     expect(screen.getByText('Connected')).toBeInTheDocument()
   })
@@ -72,7 +72,7 @@ describe('ConnectionStatus', () => {
       isConnected: false,
     }))
 
-    render(<ConnectionStatus />)
+    render(<ConnectionStatus showText />)
 
     expect(screen.getByText('Disconnected')).toBeInTheDocument()
   })
@@ -85,7 +85,7 @@ describe('ConnectionStatus', () => {
       lastError: 'Connection failed',
     }))
 
-    render(<ConnectionStatus />)
+    render(<ConnectionStatus showText />)
 
     expect(screen.getByText('Disconnected')).toBeInTheDocument()
   })
@@ -124,5 +124,32 @@ describe('ConnectionStatus', () => {
     const entityCounts = screen.getAllByText('1')
     expect(entityCounts).toHaveLength(2) // Total entities and subscribed count
     expect(screen.getByText('Subscribed:')).toBeInTheDocument()
+  })
+
+  it('should render as icon button when showText is false', () => {
+    vi.mocked(useHomeAssistantOptional).mockReturnValue({} as HomeAssistant)
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: true,
+    }))
+
+    render(<ConnectionStatus showText={false} />)
+
+    const button = screen.getByRole('button', { name: 'Connected' })
+    expect(button).toBeInTheDocument()
+    // Should not show text
+    expect(screen.queryByText('Connected')).not.toBeInTheDocument()
+  })
+
+  it('should render as text button when showText is true', () => {
+    vi.mocked(useHomeAssistantOptional).mockReturnValue({} as HomeAssistant)
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: true,
+    }))
+
+    render(<ConnectionStatus showText />)
+
+    expect(screen.getByText('Connected')).toBeInTheDocument()
   })
 })

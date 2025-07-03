@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, IconButton, Separator, Flex, Button } from '@radix-ui/themes'
+import { Box, IconButton, Separator, Flex } from '@radix-ui/themes'
 import {
   HeartFilledIcon,
   HeartIcon,
@@ -15,6 +15,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { ConnectionStatus } from './ConnectionStatus'
 import { ModeToggle } from './ModeToggle'
 import { ConfigurationMenu } from './ConfigurationMenu'
+import { TaskbarButton } from './TaskbarButton'
 import type { ScreenConfig } from '../store/types'
 import './AppTaskbar.css'
 
@@ -59,7 +60,7 @@ export function AppTaskbar() {
       <Flex direction="column" align="center" gap="2" style={{ height: '100%' }}>
         {/* Expand/Collapse arrow */}
         <IconButton
-          size="2"
+          size="3"
           variant="ghost"
           onClick={handleToggleExpanded}
           aria-label={tabsExpanded ? 'Collapse' : 'Expand'}
@@ -70,88 +71,51 @@ export function AppTaskbar() {
         <Separator size="4" />
 
         {/* Sidebar toggle */}
-        {tabsExpanded ? (
-          <Button
-            size="3"
-            variant={sidebarOpen ? 'solid' : 'soft'}
-            onClick={handleToggleSidebar}
-            className="taskbar-button"
-          >
-            {sidebarOpen ? <HeartFilledIcon /> : <HeartIcon />}
-            <span>Sidebar</span>
-          </Button>
-        ) : (
-          <IconButton
-            size="3"
-            variant={sidebarOpen ? 'solid' : 'soft'}
-            onClick={handleToggleSidebar}
-            aria-label="Toggle sidebar"
-          >
-            {sidebarOpen ? <HeartFilledIcon /> : <HeartIcon />}
-          </IconButton>
-        )}
+        <TaskbarButton
+          icon={sidebarOpen ? <HeartFilledIcon /> : <HeartIcon />}
+          label="Sidebar"
+          variant={sidebarOpen ? 'solid' : 'soft'}
+          onClick={handleToggleSidebar}
+          showText={tabsExpanded}
+          ariaLabel="Toggle sidebar"
+        />
 
         <Separator size="4" />
 
         {/* Screen buttons */}
-        {screens.map((screen, index) =>
-          tabsExpanded ? (
-            <Button
-              key={screen.id}
-              size="2"
-              variant={currentScreenId === screen.id ? 'solid' : 'soft'}
-              onClick={() => handleScreenClick(screen.id)}
-              className="taskbar-button"
-            >
-              {index === 0 ? <HomeIcon /> : <ViewGridIcon />}
-              <span>{screen.name}</span>
-            </Button>
-          ) : (
-            <IconButton
-              key={screen.id}
-              size="2"
-              variant={currentScreenId === screen.id ? 'solid' : 'soft'}
-              onClick={() => handleScreenClick(screen.id)}
-              aria-label={screen.name}
-            >
-              {index === 0 ? <HomeIcon /> : <ViewGridIcon />}
-            </IconButton>
-          )
-        )}
+        {screens.map((screen, index) => (
+          <TaskbarButton
+            key={screen.id}
+            icon={index === 0 ? <HomeIcon /> : <ViewGridIcon />}
+            label={screen.name}
+            variant={currentScreenId === screen.id ? 'solid' : 'soft'}
+            onClick={() => handleScreenClick(screen.id)}
+            showText={tabsExpanded}
+            ariaLabel={screen.name}
+          />
+        ))}
 
         {/* Add Screen button in edit mode */}
-        {mode === 'edit' &&
-          (tabsExpanded ? (
-            <Button
-              size="2"
-              variant="ghost"
-              onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
-              className="taskbar-button"
-            >
-              <PlusIcon />
-              <span>Add Screen</span>
-            </Button>
-          ) : (
-            <IconButton
-              size="2"
-              variant="ghost"
-              onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
-              aria-label="Add Screen"
-            >
-              <PlusIcon />
-            </IconButton>
-          ))}
+        {mode === 'edit' && (
+          <TaskbarButton
+            icon={<PlusIcon />}
+            label="Add Screen"
+            variant="ghost"
+            onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
+            showText={tabsExpanded}
+            ariaLabel="Add Screen"
+          />
+        )}
 
         {/* Spacer */}
         <Box style={{ flex: '1 1 auto' }} />
 
         {/* Bottom controls */}
         <Separator size="4" />
-        <ConnectionStatus />
-        <ModeToggle />
-        <ConfigurationMenu />
+        <ConnectionStatus showText={tabsExpanded} />
+        <ModeToggle showText={tabsExpanded} />
+        <ConfigurationMenu showText={tabsExpanded} />
       </Flex>
     </Box>
   )
 }
-
