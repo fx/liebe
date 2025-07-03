@@ -55,80 +55,86 @@ export function TabSidebar({ children }: TabSidebarProps) {
       >
         {/* Tab strip on the side */}
         <Box className="tab-sidebar-tabs">
-          <IconButton
-            size="3"
-            variant={sidebarOpen ? 'solid' : 'soft'}
-            onClick={handleToggleSidebar}
-            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            className="tab-heart-button"
-          >
-            {sidebarOpen ? (
-              <HeartFilledIcon width="20" height="20" />
-            ) : (
-              <HeartIcon width="20" height="20" />
-            )}
-          </IconButton>
+          <Flex direction="column" style={{ height: '100%' }}>
+            {/* Top section with heart and screens */}
+            <Box style={{ flex: '0 0 auto' }}>
+              <IconButton
+                size="3"
+                variant={sidebarOpen ? 'solid' : 'soft'}
+                onClick={handleToggleSidebar}
+                aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+                className="tab-heart-button"
+              >
+                {sidebarOpen ? (
+                  <HeartFilledIcon width="20" height="20" />
+                ) : (
+                  <HeartIcon width="20" height="20" />
+                )}
+              </IconButton>
 
-          <Separator size="3" style={{ width: '100%' }} />
+              <Separator size="3" style={{ width: '100%' }} />
 
-          {/* Screen icons - show only root level screens */}
-          {screens.map((screen, index) => (
-            <IconButton
-              key={screen.id}
-              size="2"
-              variant={currentScreenId === screen.id ? 'solid' : 'soft'}
-              onClick={() => handleScreenClick(screen.id)}
-              aria-label={screen.name}
-              className="tab-screen-button"
-            >
-              {index === 0 ? (
-                <HomeIcon width="18" height="18" />
-              ) : (
-                <ViewGridIcon width="18" height="18" />
+              {/* Screen icons - show only root level screens */}
+              {screens.map((screen, index) => (
+                <IconButton
+                  key={screen.id}
+                  size="2"
+                  variant={currentScreenId === screen.id ? 'solid' : 'soft'}
+                  onClick={() => handleScreenClick(screen.id)}
+                  aria-label={screen.name}
+                  className="tab-screen-button"
+                >
+                  {index === 0 ? (
+                    <HomeIcon width="18" height="18" />
+                  ) : (
+                    <ViewGridIcon width="18" height="18" />
+                  )}
+                </IconButton>
+              ))}
+
+              {/* Add Screen button in edit mode */}
+              {mode === 'edit' && (
+                <IconButton
+                  size="2"
+                  variant="ghost"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('addScreen'))
+                  }}
+                  aria-label="Add Screen"
+                  className="tab-screen-button"
+                >
+                  <PlusIcon width="18" height="18" />
+                </IconButton>
               )}
-            </IconButton>
-          ))}
+            </Box>
 
-          {/* Add Screen button in edit mode */}
-          {mode === 'edit' && (
-            <IconButton
-              size="2"
-              variant="ghost"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('addScreen'))
-              }}
-              aria-label="Add Screen"
-              className="tab-screen-button"
-            >
-              <PlusIcon width="18" height="18" />
-            </IconButton>
-          )}
+            {/* Spacer */}
+            <Box style={{ flex: '1 1 auto' }} />
+
+            {/* Bottom section with controls */}
+            <Flex direction="column" gap="2" style={{ flex: '0 0 auto' }}>
+              <Separator size="3" style={{ width: '100%' }} />
+
+              {/* Connection Status */}
+              <ConnectionStatus />
+
+              {/* Mode Toggle */}
+              <ModeToggle />
+
+              {/* Configuration Menu */}
+              <ConfigurationMenu />
+            </Flex>
+          </Flex>
         </Box>
 
         {/* Content area */}
         <Box className="tab-sidebar-content">
-          <Flex direction="column" style={{ height: '100%' }}>
-            {/* Header controls - previously in Dashboard header */}
-            <Box p={isMobile ? '3' : '4'} style={{ borderBottom: '1px solid var(--gray-a5)' }}>
-              <Flex direction="column" gap={isMobile ? '2' : '3'}>
-                {/* Connection status */}
-                <ConnectionStatus />
-                {/* Mode toggle and configuration */}
-                <Flex align="center" gap="2">
-                  <ModeToggle />
-                  <ConfigurationMenu />
-                </Flex>
-              </Flex>
+          <ScrollArea scrollbars="vertical" style={{ height: '100%' }}>
+            <Box p={isMobile ? '3' : '4'}>
+              {/* Widgets */}
+              {children}
             </Box>
-
-            {/* Original content area */}
-            <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
-              <Box p={isMobile ? '3' : '4'}>
-                {/* Widgets */}
-                {children}
-              </Box>
-            </ScrollArea>
-          </Flex>
+          </ScrollArea>
         </Box>
       </Box>
     </Box>

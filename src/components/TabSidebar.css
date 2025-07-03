@@ -60,6 +60,19 @@
   justify-content: center;
 }
 
+/* Control buttons in tabs (connection, mode, config) */
+.tab-sidebar-tabs .rt-Button {
+  width: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+/* Hide text labels in tab strip buttons */
+.tab-sidebar-tabs .rt-Button > span:not(:has(svg)) {
+  display: none;
+}
+
 /* Content area */
 .tab-sidebar-content {
   width: var(--sidebar-width);
