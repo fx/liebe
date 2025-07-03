@@ -91,10 +91,23 @@ describe('Dashboard', () => {
 
     it('should open AddViewDialog when clicking + button in edit mode', async () => {
       const user = userEvent.setup()
+      
+      // Add a test screen first so there's a current screen
+      dashboardActions.addScreen(
+        createTestScreen({
+          id: 'test-screen',
+          name: 'Test Screen',
+        })
+      )
+      dashboardActions.setCurrentScreen('test-screen')
+      
       renderWithTheme(<Dashboard />)
 
       // Switch to edit mode
       await user.click(screen.getByRole('button', { name: 'View Mode' }))
+
+      // Expand the taskbar to see the button text
+      await user.click(screen.getByRole('button', { name: 'Expand' }))
 
       // There should be an "Add Screen" button in the tab strip
       const addButton = screen.getByRole('button', { name: 'Add Screen' })
