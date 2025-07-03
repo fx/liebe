@@ -15,19 +15,16 @@ vi.mock('../../store/persistence', () => ({
   saveDashboardMode: vi.fn(),
 }))
 
-// Import the mocked function after vi.mock
-import { useIsMobile } from '../../../app/utils/responsive'
-
 describe('ModeToggle', () => {
   beforeEach(() => {
     // Reset to view mode before each test
     dashboardActions.setMode('view')
   })
 
-  const renderModeToggle = () => {
+  const renderModeToggle = (showText = true) => {
     return render(
       <Theme>
-        <ModeToggle />
+        <ModeToggle showText={showText} />
       </Theme>
     )
   }
@@ -152,20 +149,14 @@ describe('ModeToggle', () => {
     removeEventListenerSpy.mockRestore()
   })
 
-  it('renders icon only on mobile', () => {
-    // Mock mobile viewport
-    vi.mocked(useIsMobile).mockReturnValue(true)
-
-    renderModeToggle()
+  it('renders icon only when showText is false', () => {
+    renderModeToggle(false)
 
     // Should have button with icon but no text
     const buttonElement = screen.getByRole('button', { name: /View Mode/i })
     expect(buttonElement).toBeDefined()
 
-    // Should not show text on mobile
+    // Should not show text
     expect(screen.queryByText('View Mode')).toBeNull()
-
-    // Reset mock
-    vi.mocked(useIsMobile).mockReturnValue(false)
   })
 })

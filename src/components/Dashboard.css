@@ -1,28 +1,3 @@
 /* Dashboard-specific styles */
 
-/* Prevent horizontal scrolling on mobile */
-.dashboard-header {
-  overflow-x: hidden;
-  width: 100%;
-}
-
-/* Ensure flex items don't push beyond viewport */
-.dashboard-header > * {
-  min-width: 0;
-  flex-shrink: 1;
-}
-
-/* Mobile-specific adjustments */
-@media (max-width: 767px) {
-  .dashboard-header {
-    /* Ensure header content doesn't overflow */
-    max-width: 100vw;
-  }
-
-  /* Prevent text from causing overflow */
-  .dashboard-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
+/* Currently no dashboard-specific styles needed */

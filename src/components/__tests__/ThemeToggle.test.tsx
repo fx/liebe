@@ -16,7 +16,7 @@ describe('Theme Toggle', () => {
 
     render(
       <Theme>
-        <ConfigurationMenu />
+        <ConfigurationMenu showText />
       </Theme>
     )
 
@@ -35,7 +35,7 @@ describe('Theme Toggle', () => {
 
     render(
       <Theme>
-        <ConfigurationMenu />
+        <ConfigurationMenu showText />
       </Theme>
     )
 
@@ -61,7 +61,7 @@ describe('Theme Toggle', () => {
 
     render(
       <Theme>
-        <ConfigurationMenu />
+        <ConfigurationMenu showText />
       </Theme>
     )
 
@@ -90,7 +90,7 @@ describe('Theme Toggle', () => {
 
     render(
       <Theme>
-        <ConfigurationMenu />
+        <ConfigurationMenu showText />
       </Theme>
     )
 

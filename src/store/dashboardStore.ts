@@ -29,6 +29,7 @@ const initialState: DashboardState = {
   theme: 'auto',
   isDirty: false,
   sidebarOpen: false,
+  tabsExpanded: false,
   sidebarWidgets: [
     { id: '1', type: 'clock', position: 0 },
     { id: '2', type: 'weather', position: 1 },
@@ -296,6 +297,7 @@ export const dashboardActions = {
       gridResolution: DEFAULT_GRID_RESOLUTION,
       theme: config.theme || 'auto',
       sidebarOpen: config.sidebarOpen ?? state.sidebarOpen,
+      tabsExpanded: config.tabsExpanded ?? state.tabsExpanded,
       isDirty: false,
     }))
   },
@@ -307,6 +309,7 @@ export const dashboardActions = {
       screens: state.screens,
       theme: state.theme,
       sidebarOpen: state.sidebarOpen,
+      tabsExpanded: state.tabsExpanded,
     }
   },
 
@@ -349,6 +352,14 @@ export const dashboardActions = {
     dashboardStore.setState((state) => ({
       ...state,
       sidebarWidgets: state.sidebarWidgets.filter((w) => w.id !== widgetId),
+      isDirty: true,
+    }))
+  },
+
+  toggleTabsExpanded: (expanded?: boolean) => {
+    dashboardStore.setState((state) => ({
+      ...state,
+      tabsExpanded: expanded !== undefined ? expanded : !state.tabsExpanded,
       isDirty: true,
     }))
   },

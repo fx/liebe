@@ -12,7 +12,7 @@ import {
   MoonIcon,
   DesktopIcon,
 } from '@radix-ui/react-icons'
-import { useIsMobile } from '../../app/utils/responsive'
+import { TaskbarButton } from './TaskbarButton'
 import {
   exportConfigurationToFile,
   exportConfigurationToYAMLFile,
@@ -27,9 +27,12 @@ import { ImportPreviewDialog } from './ImportPreviewDialog'
 import type { DashboardConfig } from '../store/types'
 import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
 
-export function ConfigurationMenu() {
+interface ConfigurationMenuProps {
+  showText?: boolean
+}
+
+export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
   const theme = useDashboardStore((state) => state.theme)
-  const isMobile = useIsMobile()
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
@@ -142,10 +145,13 @@ export function ConfigurationMenu() {
     <>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          <Button variant="soft" size="2" aria-label="Configuration menu">
-            <GearIcon />
-            {!isMobile && 'Configuration'}
-          </Button>
+          <TaskbarButton
+            icon={<GearIcon />}
+            label="Configuration"
+            variant="soft"
+            showText={showText}
+            ariaLabel="Configuration menu"
+          />
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Content>
