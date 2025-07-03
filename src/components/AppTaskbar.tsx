@@ -8,6 +8,8 @@ import {
   ViewGridIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
+  FileIcon,
+  GridIcon,
 } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore, dashboardActions } from '../store/dashboardStore'
@@ -95,39 +97,64 @@ export function AppTaskbar() {
           />
         ))}
 
-        {/* Add Screen button in edit mode */}
-        {mode === 'edit' && (
-          <>
-            <TaskbarButton
-              icon={<PlusIcon />}
-              label="Add Screen"
-              variant="ghost"
-              onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
-              showText={tabsExpanded}
-              ariaLabel="Add Screen"
-            />
-            {currentScreenId && (
-              <TaskbarButton
-                icon={<PlusIcon />}
-                label="Add Item"
-                variant="ghost"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent('addItem', { detail: { screenId: currentScreenId } })
-                  )
-                }
-                showText={tabsExpanded}
-                ariaLabel="Add Item"
-              />
-            )}
-          </>
-        )}
-
         {/* Spacer */}
         <Box style={{ flex: '1 1 auto' }} />
 
         {/* Bottom controls */}
-        <Separator size="4" />
+        {mode === 'edit' && currentScreenId && (
+          <>
+            {tabsExpanded ? (
+              <Flex gap="2" style={{ width: '100%' }}>
+                <TaskbarButton
+                  icon={<FileIcon />}
+                  label="Add Screen"
+                  variant="soft"
+                  onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
+                  showText={true}
+                  ariaLabel="Add Screen"
+                  style={{ flex: 1 }}
+                />
+                <TaskbarButton
+                  icon={<PlusIcon />}
+                  label="Add Item"
+                  variant="soft"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('addItem', { detail: { screenId: currentScreenId } })
+                    )
+                  }
+                  showText={true}
+                  ariaLabel="Add Item"
+                  style={{ flex: 1 }}
+                />
+              </Flex>
+            ) : (
+              <>
+                <TaskbarButton
+                  icon={<FileIcon />}
+                  label="Add Screen"
+                  variant="soft"
+                  onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
+                  showText={false}
+                  ariaLabel="Add Screen"
+                />
+                <TaskbarButton
+                  icon={<PlusIcon />}
+                  label="Add Item"
+                  variant="soft"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('addItem', { detail: { screenId: currentScreenId } })
+                    )
+                  }
+                  showText={false}
+                  ariaLabel="Add Item"
+                />
+              </>
+            )}
+            <Separator size="4" />
+          </>
+        )}
         <ConnectionStatus showText={tabsExpanded} />
         <ModeToggle showText={tabsExpanded} />
         <ConfigurationMenu showText={tabsExpanded} />

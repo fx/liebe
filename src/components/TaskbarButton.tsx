@@ -21,7 +21,14 @@ export const TaskbarButton = React.forwardRef<HTMLButtonElement, TaskbarButtonPr
           color={color}
           onClick={onClick}
           aria-label={ariaLabel}
-          style={{ width: '100%', justifyContent: 'flex-start' }}
+          style={{ 
+            width: '100%', 
+            justifyContent: 'flex-start',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+            overflow: 'hidden',
+            ...props.style
+          }}
           {...props}
         >
           {icon}
