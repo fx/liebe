@@ -20,7 +20,8 @@ const findScreenBySlug = (screenList: ScreenConfig[], targetSlug: string): Scree
 describe('Slug Route Logic', () => {
   beforeEach(() => {
     // Reset store to initial state
-    dashboardStore.setState({
+    dashboardStore.setState((state) => ({
+      ...state,
       mode: 'view',
       screens: [],
       currentScreenId: null,
@@ -33,8 +34,9 @@ describe('Slug Route Logic', () => {
       theme: 'auto',
       isDirty: false,
       sidebarOpen: false,
+      tabsExpanded: false,
       sidebarWidgets: [],
-    })
+    }))
   })
 
   it('should find screen by slug', () => {

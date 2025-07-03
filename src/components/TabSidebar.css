@@ -42,12 +42,34 @@
   align-items: center;
   padding: var(--space-3);
   gap: var(--space-2);
+  width: var(--tabs-width, 56px);
+  transition: width 120ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Expanded tabs */
+.tabs-expanded .tab-sidebar-tabs {
+  --tabs-width: 200px;
+  align-items: stretch;
 }
 
 .tab-heart-button {
   min-width: 44px;
   min-height: 44px;
   border-radius: var(--radius-3);
+}
+
+.tab-heart-button.expanded {
+  width: 100%;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+/* Expand/collapse button */
+.tab-expand-button {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-3);
+  align-self: center;
 }
 
 /* Screen icon buttons when collapsed */
@@ -60,17 +82,44 @@
   justify-content: center;
 }
 
+.tab-screen-button.expanded {
+  width: 100%;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
 /* Control buttons in tabs (connection, mode, config) */
 .tab-sidebar-tabs .rt-Button {
-  width: 100%;
   min-width: 44px;
   min-height: 44px;
   justify-content: center;
 }
 
-/* Hide text labels in tab strip buttons */
-.tab-sidebar-tabs .rt-Button > span:not(:has(svg)) {
+/* Hide text labels in collapsed state */
+.tabs-collapsed .tab-sidebar-tabs .rt-Button > span:not(:has(svg)) {
   display: none;
+}
+
+/* Control wrapper for expanded state */
+.tab-control-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.tabs-expanded .tab-control-wrapper {
+  align-items: stretch;
+}
+
+.tab-control-label {
+  text-align: center;
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Content area */
@@ -88,12 +137,17 @@
   /* On mobile, sidebar content takes full screen when open */
   .tab-sidebar-open .tab-sidebar-content {
     position: fixed;
-    left: 56px; /* Width of tab strip */
+    left: var(--tabs-width, 56px); /* Width of tab strip */
     top: 0;
     right: 0;
     height: 100%;
-    width: calc(100vw - 56px);
+    width: calc(100vw - var(--tabs-width, 56px));
     background-color: var(--color-panel-solid);
     z-index: var(--z-modal);
+  }
+
+  /* On mobile, expanded tabs should not be too wide */
+  .tabs-expanded .tab-sidebar-tabs {
+    --tabs-width: 160px;
   }
 }
