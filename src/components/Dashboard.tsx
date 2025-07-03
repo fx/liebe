@@ -2,19 +2,20 @@ import { useState, useEffect } from 'react'
 import { Box, Flex, Card, Text, Button } from '@radix-ui/themes'
 import { AddViewDialog } from './AddViewDialog'
 import { GridView } from './GridView'
-import { AddItemButton } from './AddItemButton'
 import { AppTaskbar } from './AppTaskbar'
 import { Sidebar } from './Sidebar'
 import { SidebarWidgets } from './SidebarWidgets'
+import { EntityBrowser } from './EntityBrowser'
 import { ErrorBoundary } from './ui'
-import { useDashboardStore } from '../store'
+import { useDashboardStore, dashboardActions } from '../store'
 import { useEntityConnection } from '../hooks'
-import { useIsMobile } from '../../app/utils/responsive'
+import type { GridItem } from '../store/types'
 import './Dashboard.css'
 
 export function Dashboard() {
   const [addViewOpen, setAddViewOpen] = useState(false)
-  const isMobile = useIsMobile()
+  const [addItemOpen, setAddItemOpen] = useState(false)
+  const [addItemScreenId, setAddItemScreenId] = useState<string | null>(null)
 
   // Enable entity connection
   useEntityConnection()
@@ -23,13 +24,24 @@ export function Dashboard() {
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const screens = useDashboardStore((state) => state.screens)
 
-  // Listen for add screen events from sidebar
+  // Listen for add screen and add item events from taskbar
   useEffect(() => {
     const handleAddScreen = () => {
       setAddViewOpen(true)
     }
+    const handleAddItem = (event: CustomEvent) => {
+      const screenId = event.detail?.screenId
+      if (screenId) {
+        setAddItemScreenId(screenId)
+        setAddItemOpen(true)
+      }
+    }
     window.addEventListener('addScreen', handleAddScreen)
-    return () => window.removeEventListener('addScreen', handleAddScreen)
+    window.addEventListener('addItem', handleAddItem as EventListener)
+    return () => {
+      window.removeEventListener('addScreen', handleAddScreen)
+      window.removeEventListener('addItem', handleAddItem as EventListener)
+    }
   }, [])
 
   // Helper function to find screen in tree structure
@@ -68,22 +80,8 @@ export function Dashboard() {
         }}
       >
         {currentScreen ? (
-          <Flex direction="column" gap={isMobile ? '3' : '4'}>
-            {/* Screen Header */}
-            <Flex align="center" justify="between">
-              <Flex direction="column" gap="1">
-                <Text size="4" weight="bold">
-                  {currentScreen.name}
-                </Text>
-                <Text color="gray" size="2">
-                  Grid: {currentScreen.grid?.resolution.columns} ×{' '}
-                  {currentScreen.grid?.resolution.rows}
-                </Text>
-              </Flex>
-              {mode === 'edit' && <AddItemButton screenId={currentScreen.id} />}
-            </Flex>
-
-            {/* Grid View */}
+          <>
+            {/* Grid View - no header, just the grid */}
             <ErrorBoundary>
               {currentScreen.grid?.items && currentScreen.grid.items.length > 0 ? (
                 <GridView
@@ -102,7 +100,7 @@ export function Dashboard() {
                 </Card>
               )}
             </ErrorBoundary>
-          </Flex>
+          </>
         ) : (
           <Flex align="center" justify="center" style={{ height: '100%' }}>
             <Card>
@@ -119,6 +117,31 @@ export function Dashboard() {
 
       {/* Add View Dialog */}
       <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />
+
+      {/* Entity Browser for Add Item */}
+      <EntityBrowser
+        open={addItemOpen}
+        onOpenChange={setAddItemOpen}
+        onEntitiesSelected={(entityIds) => {
+          if (addItemScreenId) {
+            // Create GridItem for each entity
+            entityIds.forEach((entityId, index) => {
+              const newItem: GridItem = {
+                id: `${Date.now()}-${index}`,
+                type: 'entity',
+                entityId,
+                x: 0,
+                y: 0,
+                width: 2,
+                height: 2,
+              }
+              dashboardActions.addGridItem(addItemScreenId, newItem)
+            })
+          }
+          setAddItemOpen(false)
+          setAddItemScreenId(null)
+        }}
+      />
     </Box>
   )
 }

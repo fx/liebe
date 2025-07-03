@@ -97,14 +97,30 @@ export function AppTaskbar() {
 
         {/* Add Screen button in edit mode */}
         {mode === 'edit' && (
-          <TaskbarButton
-            icon={<PlusIcon />}
-            label="Add Screen"
-            variant="ghost"
-            onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
-            showText={tabsExpanded}
-            ariaLabel="Add Screen"
-          />
+          <>
+            <TaskbarButton
+              icon={<PlusIcon />}
+              label="Add Screen"
+              variant="ghost"
+              onClick={() => window.dispatchEvent(new CustomEvent('addScreen'))}
+              showText={tabsExpanded}
+              ariaLabel="Add Screen"
+            />
+            {currentScreenId && (
+              <TaskbarButton
+                icon={<PlusIcon />}
+                label="Add Item"
+                variant="ghost"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('addItem', { detail: { screenId: currentScreenId } })
+                  )
+                }
+                showText={tabsExpanded}
+                ariaLabel="Add Item"
+              />
+            )}
+          </>
         )}
 
         {/* Spacer */}
