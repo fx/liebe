@@ -141,7 +141,8 @@ describe('Dashboard', () => {
       await waitFor(() => {
         expect(screen.queryByText('No views created yet')).not.toBeInTheDocument()
       })
-      expect(screen.getAllByText('Test View').length).toBeGreaterThanOrEqual(1)
+      // The screen name should be visible in the taskbar button
+      expect(screen.getByRole('button', { name: 'Test View' })).toBeInTheDocument()
     })
 
     it('should not create a view with empty name', async () => {
@@ -172,8 +173,9 @@ describe('Dashboard', () => {
     it('should display current view information', () => {
       renderWithTheme(<Dashboard />)
 
-      expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1)
-      expect(screen.getByText('Grid: 12 × 8')).toBeInTheDocument()
+      // Screen name should be shown in taskbar button
+      expect(screen.getByRole('button', { name: 'Living Room' })).toBeInTheDocument()
+      // Grid size is no longer displayed
       expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
     })
 
