@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Flex, IconButton, ScrollArea, Separator, Text } from '@radix-ui/themes'
+import { Box, Flex, IconButton, ScrollArea } from '@radix-ui/themes'
 import { Cross2Icon, HeartFilledIcon, HeartIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore } from '../store/dashboardStore'
@@ -70,11 +70,8 @@ export function TabSidebar({ children }: TabSidebarProps) {
 
         {/* Content area */}
         <Box className="tab-sidebar-content">
-          <Flex justify="between" align="center" p={isMobile ? '3' : '4'} pb="3">
-            <Text size={isMobile ? '4' : '5'} weight="bold">
-              Dashboard
-            </Text>
-            {!sidebarPinned && (
+          {!sidebarPinned && (
+            <Flex justify="end" p={isMobile ? '3' : '4'}>
               <IconButton
                 size="3"
                 variant="ghost"
@@ -85,13 +82,13 @@ export function TabSidebar({ children }: TabSidebarProps) {
               >
                 <Cross2Icon width="22" height="22" />
               </IconButton>
-            )}
-          </Flex>
-
-          <Separator size="4" />
+            </Flex>
+          )}
 
           <ScrollArea scrollbars="vertical" style={{ flex: 1 }}>
-            <Box p={isMobile ? '3' : '4'}>{children}</Box>
+            <Box p={isMobile ? '3' : '4'} pt={sidebarPinned ? (isMobile ? '3' : '4') : '0'}>
+              {children}
+            </Box>
           </ScrollArea>
         </Box>
       </Box>
