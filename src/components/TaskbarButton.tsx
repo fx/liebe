@@ -12,7 +12,10 @@ interface TaskbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const TaskbarButton = React.forwardRef<HTMLButtonElement, TaskbarButtonProps>(
-  ({ icon, label, onClick, variant = 'soft', color, showText, ariaLabel, title, ...props }, ref) => {
+  (
+    { icon, label, onClick, variant = 'soft', color, showText, ariaLabel, title, ...props },
+    ref
+  ) => {
     if (showText && label) {
       return (
         <Button
