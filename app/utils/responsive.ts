@@ -104,26 +104,26 @@ export const gridConfig = {
   mobile: {
     columns: 4,
     rows: 12,
-    margin: [8, 8] as [number, number],
-    containerPadding: [8, 8] as [number, number],
+    margin: [12, 12] as [number, number], // Consistent with Radix p="3" (12px)
+    containerPadding: [12, 12] as [number, number], // Consistent with sidebar padding
   },
   tablet: {
     columns: 8,
     rows: 10,
-    margin: [12, 12] as [number, number],
-    containerPadding: [12, 12] as [number, number],
+    margin: [16, 16] as [number, number], // Consistent with Radix p="4" (16px)
+    containerPadding: [16, 16] as [number, number], // Consistent with sidebar padding
   },
   desktop: {
     columns: 12,
     rows: 8,
-    margin: [16, 16] as [number, number],
-    containerPadding: [16, 16] as [number, number],
+    margin: [16, 16] as [number, number], // Consistent with Radix p="4" (16px)
+    containerPadding: [16, 16] as [number, number], // Consistent with sidebar padding
   },
   wide: {
     columns: 16,
     rows: 8,
-    margin: [16, 16] as [number, number],
-    containerPadding: [20, 20] as [number, number],
+    margin: [16, 16] as [number, number], // Consistent with Radix p="4" (16px)
+    containerPadding: [16, 16] as [number, number], // Consistent with sidebar padding
   },
 } as const
 
