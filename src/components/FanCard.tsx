@@ -2,7 +2,7 @@ import { Card, Flex, Text, Spinner, Box, IconButton, Select } from '@radix-ui/th
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { Fan, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
-import { memo, useState, useCallback } from 'react'
+import React, { memo, useState, useCallback, useEffect } from 'react'
 import { useDashboardStore } from '~/store'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import './FanCard.css'
@@ -39,6 +39,18 @@ function FanCardComponent({
   onSelect,
 }: FanCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+
+  // Log entity updates
+  useEffect(() => {
+    if (entity) {
+      console.log('🔥 ENTITY UPDATE:', {
+        entityId: entity.entity_id,
+        state: entity.state,
+        percentage: entity.attributes.percentage,
+        timestamp: new Date().toISOString(),
+      })
+    }
+  }, [entity?.state, entity?.attributes.percentage])
   const { loading: isLoading, error, turnOn, turnOff, callService, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
@@ -53,6 +65,15 @@ function FanCardComponent({
 
       const percentageNum = parseInt(percentage, 10)
 
+      console.log('🔥 FAN CLICK:', {
+        entityId: entity.entity_id,
+        clickedPercentage: percentageNum,
+        currentPercentage: entity.attributes.percentage,
+        currentState: entity.state,
+        optimisticSpeed: optimisticSpeed,
+        isChangingSpeed: isChangingSpeed,
+      })
+
       // Set optimistic speed immediately
       setOptimisticSpeed(percentageNum)
       setIsChangingSpeed(true)
@@ -60,8 +81,10 @@ function FanCardComponent({
 
       try {
         if (percentageNum === 0) {
+          console.log('🔥 Calling turnOff for', entity.entity_id)
           await turnOff(entity.entity_id)
         } else {
+          console.log('🔥 Calling set_percentage for', entity.entity_id, 'to', percentageNum)
           await callService({
             domain: 'fan',
             service: 'set_percentage',
@@ -71,16 +94,19 @@ function FanCardComponent({
             },
           })
         }
-      } catch {
+        console.log('🔥 Service call completed successfully')
+      } catch (err) {
+        console.log('🔥 Service call failed:', err)
         // On error, clear optimistic update
         setOptimisticSpeed(null)
       } finally {
         setIsChangingSpeed(false)
         // Clear optimistic state immediately - let the entity state be the source of truth
         setOptimisticSpeed(null)
+        console.log('🔥 handleSpeedChange completed')
       }
     },
-    [entity, callService, turnOff, error, clearError, isChangingSpeed]
+    [entity, callService, turnOff, error, clearError, isChangingSpeed, optimisticSpeed]
   )
 
   const handlePresetModeChange = useCallback(
@@ -170,6 +196,17 @@ function FanCardComponent({
   }
 
   const selectedButton = getSelectedButton(displayPercentage)
+
+  // Log display state changes
+  console.log('🔥 FAN DISPLAY:', {
+    entityId: entity?.entity_id,
+    currentPercentage,
+    optimisticSpeed,
+    displayPercentage,
+    selectedButton,
+    entityState: entity?.state,
+    isOn,
+  })
 
   // Determine animation speed class based on percentage
   const getAnimationClass = () => {
