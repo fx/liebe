@@ -96,8 +96,8 @@ describe('Dashboard', () => {
       // Switch to edit mode
       await user.click(screen.getByRole('button', { name: 'View Mode' }))
 
-      // There should be an "Add First View" button since no views exist
-      const addButton = screen.getByText('Add First View')
+      // There should be an "Add Screen" button in the sidebar
+      const addButton = screen.getByText('Add Screen')
       await user.click(addButton)
 
       await waitFor(() => {
