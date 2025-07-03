@@ -1,0 +1,24 @@
+/* App Taskbar - Windows taskbar-like styling */
+
+.app-taskbar {
+  background-color: var(--color-panel-solid);
+  border-right: 1px solid var(--gray-a5);
+  padding: var(--space-3);
+  height: 100%;
+  transition: width 150ms ease-out;
+}
+
+/* Collapsed state - just icons */
+.app-taskbar.collapsed {
+  width: auto;
+}
+
+/* Expanded state - icons + text */
+.app-taskbar.expanded {
+  width: 200px;
+}
+
+/* Ensure separators span full width */
+.app-taskbar .rt-Separator {
+  width: 100%;
+}

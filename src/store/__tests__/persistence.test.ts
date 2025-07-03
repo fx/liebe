@@ -55,7 +55,7 @@ describe('persistence', () => {
       theme: 'auto',
       isDirty: false,
       sidebarOpen: false,
-      sidebarPinned: false,
+      tabsExpanded: false,
       sidebarWidgets: [],
     }))
   })

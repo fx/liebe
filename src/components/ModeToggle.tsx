@@ -1,12 +1,15 @@
 import { useEffect } from 'react'
-import { Button, Tooltip } from '@radix-ui/themes'
+import { Tooltip } from '@radix-ui/themes'
 import { Pencil1Icon, EyeOpenIcon } from '@radix-ui/react-icons'
 import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
-import { useIsMobile } from '../../app/utils/responsive'
+import { TaskbarButton } from './TaskbarButton'
 
-export function ModeToggle() {
+interface ModeToggleProps {
+  showText?: boolean
+}
+
+export function ModeToggle({ showText }: ModeToggleProps = {}) {
   const mode = useDashboardStore((state) => state.mode)
-  const isMobile = useIsMobile()
   const isEditMode = mode === 'edit'
 
   const handleToggle = () => {
@@ -33,15 +36,14 @@ export function ModeToggle() {
 
   return (
     <Tooltip content={tooltipContent}>
-      <Button
+      <TaskbarButton
+        icon={buttonIcon}
+        label={buttonLabel}
         variant={isEditMode ? 'solid' : 'soft'}
-        size="2"
         onClick={handleToggle}
-        aria-label={buttonLabel}
-      >
-        {buttonIcon}
-        {!isMobile && buttonLabel}
-      </Button>
+        showText={showText}
+        ariaLabel={buttonLabel}
+      />
     </Tooltip>
   )
 }
