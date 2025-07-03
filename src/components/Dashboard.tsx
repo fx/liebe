@@ -76,7 +76,6 @@ export function Dashboard() {
         style={{
           flex: 1,
           overflow: 'auto',
-          padding: 'var(--container-padding)',
         }}
       >
         {currentScreen ? (
@@ -90,19 +89,21 @@ export function Dashboard() {
                   resolution={currentScreen.grid.resolution}
                 />
               ) : (
-                <Card>
-                  <Flex align="center" justify="center" p="6">
-                    <Text color="gray" size="2">
-                      No items added yet.{' '}
-                      {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
-                    </Text>
-                  </Flex>
-                </Card>
+                <Box p="4">
+                  <Card>
+                    <Flex align="center" justify="center" p="6">
+                      <Text color="gray" size="2">
+                        No items added yet.{' '}
+                        {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
+                      </Text>
+                    </Flex>
+                  </Card>
+                </Box>
               )}
             </ErrorBoundary>
           </>
         ) : (
-          <Flex align="center" justify="center" style={{ height: '100%' }}>
+          <Flex align="center" justify="center" style={{ height: '100%' }} p="4">
             <Card>
               <Flex direction="column" align="center" gap="3" p="4">
                 <Text size="3" color="gray">
