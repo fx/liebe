@@ -123,9 +123,9 @@ function ButtonCardComponent({
         </GridCard.Title>
 
         <GridCard.Status>
-          <Text 
-            size="1" 
-            color={error ? 'red' : isOn ? 'amber' : 'gray'} 
+          <Text
+            size="1"
+            color={error ? 'red' : isOn ? 'amber' : 'gray'}
             weight="medium"
             style={{
               opacity: isLoading ? 0.5 : 1,
