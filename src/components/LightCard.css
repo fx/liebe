@@ -83,33 +83,4 @@
   }
 }
 
-/* Drag handle for edit mode */
-.grid-item-drag-handle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 30px;
-  cursor: move;
-  background: linear-gradient(to bottom, var(--gray-a3) 0%, transparent 100%);
-  border-radius: var(--radius-2) var(--radius-2) 0 0;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.light-card:hover .grid-item-drag-handle {
-  opacity: 1;
-}
-
-.grid-item-drag-handle::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 30px;
-  height: 4px;
-  background: var(--gray-a6);
-  border-radius: 2px;
-  box-shadow: 0 6px 0 var(--gray-a6);
-}
+/* Light card specific styles - removed drag handle styles that conflict with global styles */

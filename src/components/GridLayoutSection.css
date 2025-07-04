@@ -214,8 +214,9 @@
   border-radius: var(--radius-2);
   cursor: move;
   opacity: 0;
-  transition: none;
+  transition: opacity 0.2s ease;
   z-index: 10;
+  pointer-events: auto;
 }
 
 .grid-item:hover .grid-item-drag-handle {
@@ -260,6 +261,7 @@
     width: 44px;
     height: 44px;
     opacity: 1; /* Always visible on mobile */
+    pointer-events: auto;
   }
 
   /* Disable hover effects on touch devices */

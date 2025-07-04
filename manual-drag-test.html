@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drag Handle Test</title>
+    <style>
+        /* Copy the exact styles from GridLayoutSection.css */
+        .grid-item {
+            position: relative;
+            border: 1px solid #ccc;
+            width: 200px;
+            height: 150px;
+            margin: 20px;
+        }
+        
+        .grid-item-drag-handle {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0e0e0;
+            border-radius: 4px;
+            cursor: move;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 10;
+            pointer-events: auto;
+        }
+        
+        .grid-item:hover .grid-item-drag-handle {
+            opacity: 1;
+        }
+        
+        .grid-item-drag-handle:hover {
+            background: #d0d0d0;
+        }
+        
+        .grid-item-drag-handle::before {
+            content: '⋮⋮';
+            font-size: 12px;
+            color: #666;
+            letter-spacing: -2px;
+        }
+        
+        .card-content {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Drag Handle Visibility Test</h1>
+    <p>Hover over the cards to see the drag handles appear in the top-left corner.</p>
+    
+    <div class="grid-item">
+        <div class="grid-item-drag-handle"></div>
+        <div class="card-content">
+            <h3>Test Card 1</h3>
+            <p>This card has a drag handle</p>
+        </div>
+    </div>
+    
+    <div class="grid-item">
+        <div class="grid-item-drag-handle"></div>
+        <div class="card-content">
+            <h3>Test Card 2</h3>
+            <p>This card also has a drag handle</p>
+        </div>
+    </div>
+    
+    <script>
+        // Test that drag handles are interactive
+        document.querySelectorAll('.grid-item-drag-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                console.log('Drag handle clicked!', e.target);
+                e.target.style.background = '#f00';
+            });
+            
+            handle.addEventListener('mouseup', (e) => {
+                e.target.style.background = '';
+            });
+        });
+    </script>
+</body>
+</html>
