@@ -5,11 +5,10 @@ import { GridView } from './GridView'
 import { AppTaskbar } from './AppTaskbar'
 import { Sidebar } from './Sidebar'
 import { SidebarWidgets } from './SidebarWidgets'
-import { EntityBrowser } from './EntityBrowser'
+import { ItemBrowser } from './ItemBrowser'
 import { ErrorBoundary } from './ui'
-import { useDashboardStore, dashboardActions } from '../store'
+import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
-import type { GridItem } from '../store/types'
 import './Dashboard.css'
 
 export function Dashboard() {
@@ -119,29 +118,16 @@ export function Dashboard() {
       {/* Add View Dialog */}
       <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />
 
-      {/* Entity Browser for Add Item */}
-      <EntityBrowser
+      {/* Item Browser for Add Item */}
+      <ItemBrowser
         open={addItemOpen}
-        onOpenChange={setAddItemOpen}
-        onEntitiesSelected={(entityIds) => {
-          if (addItemScreenId) {
-            // Create GridItem for each entity
-            entityIds.forEach((entityId, index) => {
-              const newItem: GridItem = {
-                id: `${Date.now()}-${index}`,
-                type: 'entity',
-                entityId,
-                x: 0,
-                y: 0,
-                width: 2,
-                height: 2,
-              }
-              dashboardActions.addGridItem(addItemScreenId, newItem)
-            })
+        onOpenChange={(open) => {
+          setAddItemOpen(open)
+          if (!open) {
+            setAddItemScreenId(null)
           }
-          setAddItemOpen(false)
-          setAddItemScreenId(null)
         }}
+        screenId={addItemScreenId}
       />
     </Box>
   )
