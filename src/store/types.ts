@@ -3,13 +3,16 @@ export interface GridResolution {
   rows: number
 }
 
-export type GridItemType = 'entity' | 'separator'
+export type GridItemType = 'entity' | 'separator' | 'text'
 
 export interface GridItem {
   id: string
   type: GridItemType
   entityId?: string // Only required for entity type
   title?: string // Optional title for separators
+  content?: string // For text cards
+  alignment?: 'left' | 'center' | 'right' // For text cards
+  textSize?: 'small' | 'medium' | 'large' // For text cards
   x: number
   y: number
   width: number
