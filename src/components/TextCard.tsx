@@ -1,5 +1,5 @@
-import { Card, Flex, Text as RadixText, IconButton, Box, TextArea, Button } from '@radix-ui/themes'
-import { Cross2Icon, CheckIcon, Cross1Icon } from '@radix-ui/react-icons'
+import { Card, Flex, Text as RadixText, IconButton, Box, TextArea } from '@radix-ui/themes'
+import { Cross2Icon } from '@radix-ui/react-icons'
 import { memo, useState, useCallback, useRef, useEffect } from 'react'
 import { useDashboardStore, dashboardActions } from '~/store'
 import ReactMarkdown from 'react-markdown'
@@ -28,7 +28,6 @@ function TextCardComponent({
 }: TextCardProps) {
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
-  const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(content)
   const textAreaRef = useRef<HTMLTextAreaElement>(null)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
@@ -46,11 +45,15 @@ function TextCardComponent({
   }[textSize]
 
   useEffect(() => {
-    if (isEditing && textAreaRef.current) {
+    if (isEditMode && textAreaRef.current) {
       textAreaRef.current.focus()
-      textAreaRef.current.select()
     }
-  }, [isEditing])
+  }, [isEditMode])
+
+  useEffect(() => {
+    // Update edit content when content prop changes
+    setEditContent(content)
+  }, [content])
 
   const handleClick = useCallback(() => {
     if (isEditMode && onSelect) {
@@ -58,84 +61,71 @@ function TextCardComponent({
     }
   }, [isEditMode, onSelect, isSelected])
 
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (!isEditMode) {
-      e.stopPropagation()
-      setIsEditing(true)
-      setEditContent(content)
-    }
-  }, [isEditMode, content])
-
-  const handleSave = useCallback(() => {
+  const handleContentChange = useCallback((newContent: string) => {
+    setEditContent(newContent)
     if (currentScreenId) {
-      // Find the grid item ID from the entityId prop
-      const screens = dashboardActions.getState().screens
-      const findScreen = (screenList: any[]): any => {
-        for (const screen of screenList) {
-          if (screen.id === currentScreenId) return screen
-          if (screen.children) {
-            const found = findScreen(screen.children)
-            if (found) return found
-          }
-        }
-      }
-      const currentScreen = findScreen(screens)
-      const gridItem = currentScreen?.grid?.items?.find((item: any) => item.id === _entityId)
-      
-      if (gridItem) {
-        dashboardActions.updateGridItem(currentScreenId, _entityId, {
-          content: editContent
-        })
-      }
+      // Update the content in real-time
+      dashboardActions.updateGridItem(currentScreenId, _entityId, {
+        content: newContent
+      })
     }
-    setIsEditing(false)
-  }, [editContent, currentScreenId, _entityId])
+  }, [currentScreenId, _entityId])
 
-  const handleCancel = useCallback(() => {
-    setEditContent(content)
-    setIsEditing(false)
-  }, [content])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleCancel()
-    } else if (e.key === 'Enter' && e.metaKey) {
-      handleSave()
-    }
-  }, [handleCancel, handleSave])
-
-  if (isEditing) {
+  if (isEditMode) {
     return (
       <Card
         variant="classic"
         style={{
           position: 'relative',
           height: '100%',
+          backgroundColor: isSelected ? 'var(--blue-3)' : undefined,
+          borderColor: isSelected ? 'var(--blue-6)' : undefined,
+          borderWidth: isSelected ? '2px' : '1px',
+          borderStyle: 'solid',
+          transition: 'all 0.2s ease',
         }}
+        onClick={handleClick}
       >
+        {/* Drag handle in edit mode */}
+        <div className="grid-item-drag-handle" />
+
+        {/* Delete button in edit mode */}
+        {onDelete && (
+          <IconButton
+            size="1"
+            variant="soft"
+            color="red"
+            style={{
+              position: 'absolute',
+              top: '4px',
+              right: '4px',
+              opacity: isSelected ? 1 : 0.7,
+              transition: 'opacity 0.2s ease',
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+            aria-label="Delete text card"
+          >
+            <Cross2Icon />
+          </IconButton>
+        )}
+
         <Flex direction="column" p={cardSize.p} gap="2" style={{ height: '100%' }}>
           <TextArea
             ref={textAreaRef}
             value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onChange={(e) => handleContentChange(e.target.value)}
             placeholder="Enter text (supports markdown)"
             style={{
               flex: 1,
               minHeight: '100px',
               fontFamily: 'var(--code-font-family)',
+              resize: 'none',
             }}
+            onClick={(e) => e.stopPropagation()}
           />
-          <Flex gap="2" justify="end">
-            <Button size="1" variant="soft" color="gray" onClick={handleCancel}>
-              <Cross1Icon />
-              Cancel
-            </Button>
-            <Button size="1" onClick={handleSave}>
-              <CheckIcon />
-              Save
-            </Button>
-          </Flex>
         </Flex>
       </Card>
     )
@@ -145,47 +135,10 @@ function TextCardComponent({
     <Card
       variant="classic"
       style={{
-        cursor: isEditMode ? 'pointer' : 'text',
-        backgroundColor: isSelected ? 'var(--blue-3)' : undefined,
-        borderColor: isSelected ? 'var(--blue-6)' : undefined,
-        borderWidth: isSelected ? '2px' : '1px',
-        borderStyle: 'solid',
-        transition: 'all 0.2s ease',
+        cursor: 'default',
         position: 'relative',
       }}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
     >
-      {/* Drag handle in edit mode */}
-      {isEditMode && (
-        <div 
-          className="grid-item-drag-handle" 
-          onDoubleClick={(e) => e.stopPropagation()}
-        />
-      )}
-
-      {/* Delete button in edit mode */}
-      {isEditMode && onDelete && (
-        <IconButton
-          size="1"
-          variant="soft"
-          color="red"
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            opacity: isSelected ? 1 : 0.7,
-            transition: 'opacity 0.2s ease',
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          aria-label="Delete text card"
-        >
-          <Cross2Icon />
-        </IconButton>
-      )}
 
       <Flex
         p={cardSize.p}
@@ -200,7 +153,6 @@ function TextCardComponent({
             textAlign: alignment,
             width: '100%',
           }}
-          title={!isEditMode ? "Double-click to edit" : undefined}
         >
           <ReactMarkdown
             components={{
