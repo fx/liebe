@@ -2,7 +2,7 @@ import { Card, Flex, Text, Spinner, Box, IconButton, Select } from '@radix-ui/th
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { Fan, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
-import React, { memo, useState, useCallback, useEffect } from 'react'
+import React, { memo, useCallback, useEffect, useRef } from 'react'
 import { useDashboardStore } from '~/store'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import './FanCard.css'
@@ -39,29 +39,32 @@ function FanCardComponent({
   onSelect,
 }: FanCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-
-  // Log entity updates
-  useEffect(() => {
-    if (entity) {
-      console.log('🔥 ENTITY UPDATE:', {
-        entityId: entity.entity_id,
-        state: entity.state,
-        percentage: entity.attributes.percentage,
-        timestamp: new Date().toISOString(),
-      })
-    }
-  }, [entity?.state, entity?.attributes.percentage])
   const { loading: isLoading, error, turnOn, turnOff, callService, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
-  // Local state for speed selection
-  const [isChangingSpeed, setIsChangingSpeed] = useState(false)
-  const [optimisticSpeed, setOptimisticSpeed] = useState<number | null>(null)
+  // Only log display state on significant changes (not every render)
+  const prevDisplayRef = useRef({ displayPercentage: 0, selectedButton: '0' })
+
+  // Log entity updates (debounced)
+  useEffect(() => {
+    if (entity) {
+      const timeoutId = setTimeout(() => {
+        console.log('🔥 ENTITY UPDATE:', {
+          entityId: entity.entity_id,
+          state: entity.state,
+          percentage: entity.attributes.percentage,
+        })
+      }, 500)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [entity?.state, entity?.attributes.percentage, entity])
+
+  // No separate loading state - use main card loading
 
   const handleSpeedChange = useCallback(
     async (percentage: string) => {
-      if (!entity || isChangingSpeed) return
+      if (!entity || isLoading) return
 
       const percentageNum = parseInt(percentage, 10)
 
@@ -70,50 +73,34 @@ function FanCardComponent({
         clickedPercentage: percentageNum,
         currentPercentage: entity.attributes.percentage,
         currentState: entity.state,
-        optimisticSpeed: optimisticSpeed,
-        isChangingSpeed: isChangingSpeed,
+        isLoading: isLoading,
       })
 
-      // Set optimistic speed immediately
-      setOptimisticSpeed(percentageNum)
-      setIsChangingSpeed(true)
       if (error) clearError()
 
-      try {
-        if (percentageNum === 0) {
-          console.log('🔥 Calling turnOff for', entity.entity_id)
-          await turnOff(entity.entity_id)
-        } else {
-          console.log('🔥 Calling set_percentage for', entity.entity_id, 'to', percentageNum)
-          await callService({
-            domain: 'fan',
-            service: 'set_percentage',
-            data: {
-              entity_id: entity.entity_id,
-              percentage: percentageNum,
-            },
-          })
-        }
-        console.log('🔥 Service call completed successfully')
-      } catch (err) {
-        console.log('🔥 Service call failed:', err)
-        // On error, clear optimistic update
-        setOptimisticSpeed(null)
-      } finally {
-        setIsChangingSpeed(false)
-        // Clear optimistic state immediately - let the entity state be the source of truth
-        setOptimisticSpeed(null)
-        console.log('🔥 handleSpeedChange completed')
+      if (percentageNum === 0) {
+        console.log('🔥 Calling turnOff for', entity.entity_id)
+        await turnOff(entity.entity_id)
+      } else {
+        console.log('🔥 Calling set_percentage for', entity.entity_id, 'to', percentageNum)
+        await callService({
+          domain: 'fan',
+          service: 'set_percentage',
+          data: {
+            entity_id: entity.entity_id,
+            percentage: percentageNum,
+          },
+        })
       }
+      console.log('🔥 Service call completed')
     },
-    [entity, callService, turnOff, error, clearError, isChangingSpeed, optimisticSpeed]
+    [entity, callService, turnOff, error, clearError, isLoading]
   )
 
   const handlePresetModeChange = useCallback(
     async (presetMode: string) => {
       if (!entity) return
 
-      setIsChangingSpeed(true)
       if (error) clearError()
 
       await callService({
@@ -124,7 +111,6 @@ function FanCardComponent({
           preset_mode: presetMode,
         },
       })
-      setIsChangingSpeed(false)
     },
     [entity, callService, error, clearError]
   )
@@ -184,33 +170,37 @@ function FanCardComponent({
   const currentPercentage = fanAttributes.percentage ?? 0
   const currentPresetMode = fanAttributes.preset_mode
 
-  // Use optimistic speed if available, otherwise use actual speed
-  const displayPercentage = optimisticSpeed !== null ? optimisticSpeed : currentPercentage
+  // Use actual speed from entity
+  const displayPercentage = currentPercentage
 
-  // Map actual percentage to our button values for display consistency
+  // Map actual percentage to our button values based on what the fan actually returns
   const getSelectedButton = (percentage: number) => {
-    if (percentage === 0) return '0'
-    if (percentage <= 40) return '33' // Low: 1-40%
-    if (percentage <= 80) return '66' // Medium: 41-80%
-    return '100' // High: 81-100%
+    if (percentage === 0) return '0' // Off state (handled by card toggle)
+    // Based on your fan's actual behavior:
+    if (percentage <= 37) return '25' // Low: 25% and below
+    if (percentage <= 62) return '50' // Medium-Low: 50%
+    if (percentage <= 87) return '75' // Medium-High: 75%
+    return '100' // High: 100%
   }
 
   const selectedButton = getSelectedButton(displayPercentage)
-
-  // Log display state changes
-  console.log('🔥 FAN DISPLAY:', {
-    entityId: entity?.entity_id,
-    currentPercentage,
-    optimisticSpeed,
-    displayPercentage,
-    selectedButton,
-    entityState: entity?.state,
-    isOn,
-  })
+  if (
+    prevDisplayRef.current.displayPercentage !== displayPercentage ||
+    prevDisplayRef.current.selectedButton !== selectedButton
+  ) {
+    console.log('🔥 FAN DISPLAY CHANGE:', {
+      entityId: entity?.entity_id,
+      currentPercentage,
+      displayPercentage,
+      selectedButton,
+      isOn,
+    })
+    prevDisplayRef.current = { displayPercentage, selectedButton }
+  }
 
   // Determine animation speed class based on percentage
   const getAnimationClass = () => {
-    if (!isOn && optimisticSpeed === null) return ''
+    if (!isOn) return ''
     const speed = displayPercentage
     if (speed === 0) return ''
     if (speed >= 66) return 'fan-spin-fast'
@@ -225,8 +215,8 @@ function FanCardComponent({
     if (isOn) {
       await turnOff(entity.entity_id)
     } else {
-      // Turn on at medium speed (66%) by default
-      await turnOn(entity.entity_id, supportsSpeed ? { percentage: 66 } : undefined)
+      // Turn on at medium speed (50%) by default
+      await turnOn(entity.entity_id, supportsSpeed ? { percentage: 50 } : undefined)
     }
   }
 
@@ -247,8 +237,6 @@ function FanCardComponent({
                 : undefined,
         borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
         borderStyle: isStale ? 'dashed' : 'solid',
-        transition: 'all 0.2s ease',
-        transform: isLoading ? 'scale(0.98)' : undefined,
         animation: isLoading
           ? (error ? 'pulse-border-error' : 'pulse-border') + ' 1.5s ease-in-out infinite'
           : undefined,
@@ -300,37 +288,29 @@ function FanCardComponent({
             justifyContent: 'center',
           }}
         >
-          <Box
-            className={getAnimationClass()}
-            style={{
-              color: isStale ? 'var(--orange-9)' : isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
-              opacity: isLoading || isChangingSpeed ? 0.3 : isStale ? 0.6 : 1,
-              transition: 'opacity 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Fan size={parseInt(cardSize.iconSize)} />
-          </Box>
-          {(isLoading || isChangingSpeed) && (
+          {isLoading ? (
+            <Spinner
+              size={cardSize.fontSize as '1' | '2' | '3'}
+              style={
+                {
+                  '--spinner-track-color': 'var(--gray-a6)',
+                  '--spinner-fill-color': isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
+                } as React.CSSProperties
+              }
+            />
+          ) : (
             <Box
+              className={getAnimationClass()}
               style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
+                color: isStale ? 'var(--orange-9)' : isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
+                opacity: isStale ? 0.6 : 1,
+                transition: 'opacity 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              <Spinner
-                size={cardSize.fontSize as '1' | '2' | '3'}
-                style={
-                  {
-                    '--spinner-track-color': 'var(--gray-a6)',
-                    '--spinner-fill-color': isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
-                  } as React.CSSProperties
-                }
-              />
+              <Fan size={parseInt(cardSize.iconSize)} />
             </Box>
           )}
         </Box>
@@ -354,19 +334,14 @@ function FanCardComponent({
 
         {/* Speed controls when on and supports speed */}
         {isOn && !isEditMode && (supportsSpeed || supportsPresetMode) && (
-          <Box
-            style={{ width: '100%', maxWidth: '200px' }}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-          >
+          <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
             {supportsPresetMode &&
             fanAttributes.preset_modes &&
             fanAttributes.preset_modes.length > 0 ? (
               <Select.Root
                 value={currentPresetMode || fanAttributes.preset_modes[0]}
                 onValueChange={handlePresetModeChange}
-                disabled={isLoading || isChangingSpeed}
+                disabled={isLoading}
               >
                 <Select.Trigger style={{ width: '100%' }} aria-label="Select fan preset mode" />
                 <Select.Content>
@@ -385,73 +360,46 @@ function FanCardComponent({
                   justify="center"
                   style={{ position: 'relative' }}
                   onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
                 >
-                  {isChangingSpeed && (
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'var(--black-a8)',
-                        borderRadius: 'var(--radius-2)',
-                        zIndex: 1,
-                      }}
-                    >
-                      <Spinner size="2" />
-                    </Box>
-                  )}
                   <IconButton
                     size="2"
-                    variant={selectedButton === '0' ? 'solid' : 'soft'}
-                    color={selectedButton === '0' ? 'gray' : 'cyan'}
+                    variant={selectedButton === '25' ? 'solid' : 'soft'}
+                    color="cyan"
                     onClick={(e) => {
-                      e.preventDefault()
                       e.stopPropagation()
-                      handleSpeedChange('0')
+                      handleSpeedChange('25')
                     }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
-                    aria-label="Turn off"
-                    style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
+                    aria-label="Low speed (25%)"
+                    style={{ opacity: isLoading ? 0.7 : 1 }}
                   >
-                    <Wind size="14" style={{ opacity: 0.5 }} />
+                    <Wind size="12" />
                   </IconButton>
                   <IconButton
                     size="2"
-                    variant={selectedButton === '33' ? 'solid' : 'soft'}
+                    variant={selectedButton === '50' ? 'solid' : 'soft'}
                     color="cyan"
                     onClick={(e) => {
-                      e.preventDefault()
                       e.stopPropagation()
-                      handleSpeedChange('33')
+                      handleSpeedChange('50')
                     }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
-                    aria-label="Low speed (33%)"
-                    style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
+                    aria-label="Medium-low speed (50%)"
+                    style={{ opacity: isLoading ? 0.7 : 1 }}
                   >
                     <Wind size="14" />
                   </IconButton>
                   <IconButton
                     size="2"
-                    variant={selectedButton === '66' ? 'solid' : 'soft'}
+                    variant={selectedButton === '75' ? 'solid' : 'soft'}
                     color="cyan"
                     onClick={(e) => {
-                      e.preventDefault()
                       e.stopPropagation()
-                      handleSpeedChange('66')
+                      handleSpeedChange('75')
                     }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
-                    aria-label="Medium speed (66%)"
-                    style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
+                    aria-label="Medium-high speed (75%)"
+                    style={{ opacity: isLoading ? 0.7 : 1 }}
                   >
                     <Wind size="16" />
                   </IconButton>
@@ -460,15 +408,12 @@ function FanCardComponent({
                     variant={selectedButton === '100' ? 'solid' : 'soft'}
                     color="cyan"
                     onClick={(e) => {
-                      e.preventDefault()
                       e.stopPropagation()
                       handleSpeedChange('100')
                     }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
                     disabled={isLoading}
                     aria-label="High speed (100%)"
-                    style={{ opacity: isChangingSpeed ? 0.7 : 1 }}
+                    style={{ opacity: isLoading ? 0.7 : 1 }}
                   >
                     <Wind size="18" />
                   </IconButton>
@@ -490,7 +435,7 @@ function FanCardComponent({
         >
           {error
             ? 'ERROR'
-            : isOn || optimisticSpeed !== null
+            : isOn
               ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
               : 'OFF'}
         </Text>
