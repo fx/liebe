@@ -1,0 +1,53 @@
+/* TextCard specific styles */
+.text-card-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+}
+
+.text-card-content p:last-child {
+  margin-bottom: 0;
+}
+
+.text-card-content h1:last-child,
+.text-card-content h2:last-child,
+.text-card-content h3:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive text sizing */
+@media (max-width: 640px) {
+  .text-card-content {
+    font-size: 0.9em;
+  }
+}
+
+/* Animation for edit mode */
+.text-card-edit-indicator {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  background-color: var(--blue-9);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.text-card-edit-mode .text-card-edit-indicator {
+  opacity: 1;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}

@@ -12,6 +12,7 @@ import { InputTextCard } from './InputTextCard'
 import { InputDateTimeCard } from './InputDateTimeCard'
 import { WeatherCard } from './WeatherCard'
 import { FanCard } from './FanCard'
+import { TextCard } from './TextCard'
 import { Separator } from './Separator'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
@@ -259,6 +260,21 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
             return (
               <Separator
                 title={item.title}
+                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+                isSelected={selectedItems.has(item.id)}
+                onSelect={
+                  isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                }
+              />
+            )
+          } else if (item.type === 'text') {
+            return (
+              <TextCard
+                entityId={item.id}
+                size="medium"
+                content={item.content}
+                alignment={item.alignment}
+                textSize={item.textSize}
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
                 isSelected={selectedItems.has(item.id)}
                 onSelect={
