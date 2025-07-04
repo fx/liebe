@@ -1,10 +1,9 @@
-import { Card, Flex, Text, Spinner, Box, IconButton, Select } from '@radix-ui/themes'
-import { Cross2Icon } from '@radix-ui/react-icons'
+import { Flex, Text, Box, IconButton, Select } from '@radix-ui/themes'
 import { Fan, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
 import React, { memo, useCallback, useEffect, useRef } from 'react'
-import { useDashboardStore } from '~/store'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { GridCardWithComponents as GridCard } from './GridCard'
 import './FanCard.css'
 
 interface FanCardProps {
@@ -40,8 +39,6 @@ function FanCardComponent({
 }: FanCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, turnOn, turnOff, callService, clearError } = useServiceCall()
-  const mode = useDashboardStore((state) => state.mode)
-  const isEditMode = mode === 'edit'
 
   // Only log display state on significant changes (not every render)
   const prevDisplayRef = useRef({ displayPercentage: 0, selectedButton: '0' })
@@ -132,29 +129,45 @@ function FanCardComponent({
     )
   }
 
-  const cardSize = {
-    small: { p: '2', iconSize: '20', fontSize: '1' },
-    medium: { p: '3', iconSize: '28', fontSize: '2' },
-    large: { p: '4', iconSize: '36', fontSize: '3' },
-  }[size]
+  const iconScale = size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8
 
   // Handle unavailable state
   const isUnavailable = entity.state === 'unavailable'
   if (isUnavailable) {
     return (
-      <Card variant="classic" style={{ opacity: 0.6, borderStyle: 'dotted' }}>
-        <Flex p={cardSize.p} direction="column" align="center" justify="center" gap="2">
-          <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
-            <Fan size={cardSize.iconSize} />
-          </Box>
-          <Text size={cardSize.fontSize as '1' | '2' | '3'} color="gray" align="center">
-            {entity.attributes.friendly_name || entity.entity_id}
-          </Text>
-          <Text size="1" color="gray" weight="medium">
-            UNAVAILABLE
-          </Text>
+      <GridCard
+        size={size}
+        isUnavailable={true}
+        onSelect={() => onSelect?.(!isSelected)}
+        onDelete={onDelete}
+      >
+        <Flex direction="column" align="center" justify="center" gap="2">
+          <GridCard.Icon>
+            <span
+              style={{
+                color: 'var(--gray-9)',
+                opacity: 0.5,
+                transform: `scale(${iconScale})`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Fan size={24} />
+            </span>
+          </GridCard.Icon>
+          <GridCard.Title>
+            <Text color="gray">
+              {entity.attributes.friendly_name || entity.entity_id}
+            </Text>
+          </GridCard.Title>
+          <GridCard.Status>
+            <Text size="1" color="gray" weight="medium">
+              UNAVAILABLE
+            </Text>
+          </GridCard.Status>
         </Flex>
-      </Card>
+      </GridCard>
     )
   }
 
@@ -221,129 +234,62 @@ function FanCardComponent({
   }
 
   return (
-    <Card
-      variant="classic"
-      style={{
-        cursor: isLoading ? 'wait' : 'pointer',
-        backgroundColor: isSelected ? 'var(--blue-3)' : isOn ? 'var(--cyan-3)' : undefined,
-        borderColor: isSelected
-          ? 'var(--blue-6)'
-          : error
-            ? 'var(--red-6)'
-            : isStale
-              ? 'var(--orange-6)'
-              : isOn
-                ? 'var(--cyan-6)'
-                : undefined,
-        borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
-        borderStyle: isStale ? 'dashed' : 'solid',
-        animation: isLoading
-          ? (error ? 'pulse-border-error' : 'pulse-border') + ' 1.5s ease-in-out infinite'
-          : undefined,
-        opacity: isStale ? 0.8 : 1,
-        position: 'relative',
-      }}
-      onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : handleToggle}
+    <GridCard
+      size={size}
+      isLoading={isLoading}
+      isError={!!error}
+      isStale={isStale}
+      isSelected={isSelected}
+      isOn={isOn}
+      onSelect={() => onSelect?.(!isSelected)}
+      onDelete={onDelete}
+      onClick={handleToggle}
       title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+      style={{
+        backgroundColor: isOn && !isSelected && !error ? 'var(--cyan-3)' : undefined,
+        borderColor: isOn && !isSelected && !error && !isStale ? 'var(--cyan-6)' : undefined,
+        borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
+      }}
     >
-      {/* Drag handle in edit mode */}
-      {isEditMode && <div className="grid-item-drag-handle" />}
-
-      {/* Delete button in edit mode */}
-      {isEditMode && onDelete && (
-        <IconButton
-          size="1"
-          variant="soft"
-          color="red"
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            opacity: isSelected ? 1 : 0.7,
-            transition: 'opacity 0.2s ease',
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          aria-label="Delete entity"
-        >
-          <Cross2Icon />
-        </IconButton>
-      )}
-
       <Flex
-        p={cardSize.p}
         direction="column"
         align="center"
         justify="center"
         gap="2"
         style={{ minHeight: size === 'large' ? '140px' : size === 'medium' ? '120px' : '100px' }}
       >
-        <Box
-          style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {isLoading ? (
-            <Box
-              style={{
-                width: `${cardSize.iconSize}px`,
-                height: `${cardSize.iconSize}px`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Spinner
-                size={cardSize.fontSize as '1' | '2' | '3'}
-                style={
-                  {
-                    '--spinner-track-color': 'var(--gray-a6)',
-                    '--spinner-fill-color': isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
-                  } as React.CSSProperties
-                }
-              />
-            </Box>
-          ) : (
-            <Box
-              className={getAnimationClass()}
-              style={{
-                color: isStale ? 'var(--orange-9)' : isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
-                opacity: isStale ? 0.6 : 1,
-                transition: 'opacity 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Fan size={parseInt(cardSize.iconSize)} />
-            </Box>
-          )}
-        </Box>
+        <GridCard.Icon>
+          <span
+            className={getAnimationClass()}
+            style={{
+              color: isStale ? 'var(--orange-9)' : isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
+              opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
+              transform: `scale(${iconScale})`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'opacity 0.2s ease',
+            }}
+          >
+            <Fan size={24} />
+          </span>
+        </GridCard.Icon>
 
-        <Text
-          size={cardSize.fontSize as '1' | '2' | '3'}
-          weight={isOn ? 'medium' : 'regular'}
-          align="center"
-          style={{
-            color: isOn ? 'var(--cyan-11)' : undefined,
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            opacity: isLoading ? 0.7 : 1,
-            transition: 'opacity 0.2s ease',
-          }}
-        >
-          {friendlyName}
-        </Text>
+        <GridCard.Title>
+          <Text
+            weight={isOn ? 'medium' : 'regular'}
+            style={{
+              color: isOn ? 'var(--cyan-11)' : undefined,
+              opacity: isLoading ? 0.7 : 1,
+              transition: 'opacity 0.2s ease',
+            }}
+          >
+            {friendlyName}
+          </Text>
+        </GridCard.Title>
 
         {/* Speed controls when on and supports speed */}
-        {isOn && !isEditMode && (supportsSpeed || supportsPresetMode) && (
+        {isOn && (supportsSpeed || supportsPresetMode) && (
           <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
             {supportsPresetMode &&
             fanAttributes.preset_modes &&
@@ -434,23 +380,25 @@ function FanCardComponent({
         )}
 
         {/* Status text */}
-        <Text
-          size="1"
-          color={error ? 'red' : isOn ? 'cyan' : 'gray'}
-          weight="medium"
-          style={{
-            opacity: isLoading ? 0.5 : 1,
-            transition: 'opacity 0.2s ease',
-          }}
-        >
-          {error
-            ? 'ERROR'
-            : isOn
-              ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
-              : 'OFF'}
-        </Text>
+        <GridCard.Status>
+          <Text
+            size="1"
+            color={error ? 'red' : isOn ? 'cyan' : 'gray'}
+            weight="medium"
+            style={{
+              opacity: isLoading ? 0.5 : 1,
+              transition: 'opacity 0.2s ease',
+            }}
+          >
+            {error
+              ? 'ERROR'
+              : isOn
+                ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
+                : 'OFF'}
+          </Text>
+        </GridCard.Status>
       </Flex>
-    </Card>
+    </GridCard>
   )
 }
 
