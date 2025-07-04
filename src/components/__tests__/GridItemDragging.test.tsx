@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { GridView } from '../GridView'
 import { ButtonCard } from '../ButtonCard'
 import { TextCard } from '../TextCard'
@@ -18,12 +18,14 @@ vi.mock('~/store', () => ({
     updateGridItem: vi.fn(),
     deleteGridItem: vi.fn(),
     getState: vi.fn(() => ({
-      screens: [{
-        id: 'test-screen',
-        grid: {
-          items: []
-        }
-      }]
+      screens: [
+        {
+          id: 'test-screen',
+          grid: {
+            items: [],
+          },
+        },
+      ],
     })),
   },
 }))
@@ -85,16 +87,12 @@ describe('Grid Item Dragging', () => {
 
   it('should render drag handles for all grid items in edit mode', () => {
     render(
-      <GridView
-        screenId="test-screen"
-        items={mockItems}
-        resolution={{ columns: 12, rows: 8 }}
-      />
+      <GridView screenId="test-screen" items={mockItems} resolution={{ columns: 12, rows: 8 }} />
     )
 
     // Wait for grid items to render
     expect(screen.getByText('Test Light')).toBeTruthy()
-    
+
     // Check for drag handles
     const dragHandles = document.querySelectorAll('.grid-item-drag-handle')
     expect(dragHandles.length).toBe(2)
@@ -113,7 +111,7 @@ describe('Grid Item Dragging', () => {
 
     const dragHandle = container.querySelector('.grid-item-drag-handle')
     expect(dragHandle).toBeTruthy()
-    
+
     // Check that it's positioned absolutely
     const styles = window.getComputedStyle(dragHandle!)
     expect(styles.position).toBe('absolute')
@@ -134,12 +132,12 @@ describe('Grid Item Dragging', () => {
 
     const gridItem = container.querySelector('.grid-item')
     const dragHandle = container.querySelector('.grid-item-drag-handle')
-    
+
     expect(dragHandle).toBeTruthy()
-    
+
     // Simulate hover on grid item
     fireEvent.mouseEnter(gridItem!)
-    
+
     // In a real browser, CSS would handle the opacity change
     // Here we just verify the structure is correct
     expect(dragHandle?.classList.contains('grid-item-drag-handle')).toBe(true)

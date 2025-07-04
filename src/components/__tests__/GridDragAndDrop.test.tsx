@@ -1,19 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { GridLayoutSection } from '../GridLayoutSection'
-import { GridView } from '../GridView'
-import { dashboardStore } from '~/store'
 import type { GridItem } from '~/store/types'
 
 // Mock react-grid-layout
 vi.mock('react-grid-layout', () => ({
-  default: vi.fn(({ children, layout, onLayoutChange, draggableHandle }) => {
+  default: vi.fn(({ children, layout, draggableHandle }) => {
     // Simple mock that renders children and tracks layout changes
     return (
       <div data-testid="grid-layout" data-draggable-handle={draggableHandle}>
-        {children.map((child: any, index: number) => (
-          <div 
-            key={index} 
+        {children.map((child: React.ReactNode, index: number) => (
+          <div
+            key={index}
             data-testid={`grid-item-${layout[index]?.i}`}
             style={{
               position: 'absolute',
@@ -35,12 +33,14 @@ vi.mock('~/store', () => ({
     const state = {
       mode: 'edit',
       currentScreenId: 'test-screen',
-      screens: [{
-        id: 'test-screen',
-        grid: {
-          items: []
-        }
-      }]
+      screens: [
+        {
+          id: 'test-screen',
+          grid: {
+            items: [],
+          },
+        },
+      ],
     }
     return selector(state)
   }),
@@ -143,7 +143,7 @@ describe('Grid Drag and Drop', () => {
         isEditMode={true}
         resolution={{ columns: 12, rows: 8 }}
       >
-        {(item) => <div>Test</div>}
+        {(_item) => <div>Test</div>}
       </GridLayoutSection>
     )
 
@@ -163,7 +163,7 @@ describe('Grid Drag and Drop', () => {
 
     const dragHandle = screen.getByTestId('drag-handle')
     expect(dragHandle).toBeTruthy()
-    
+
     // The drag handle should have the class
     expect(dragHandle.classList.contains('grid-item-drag-handle')).toBe(true)
   })

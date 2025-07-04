@@ -61,15 +61,18 @@ function TextCardComponent({
     }
   }, [isEditMode, onSelect, isSelected])
 
-  const handleContentChange = useCallback((newContent: string) => {
-    setEditContent(newContent)
-    if (currentScreenId) {
-      // Update the content in real-time
-      dashboardActions.updateGridItem(currentScreenId, _entityId, {
-        content: newContent
-      })
-    }
-  }, [currentScreenId, _entityId])
+  const handleContentChange = useCallback(
+    (newContent: string) => {
+      setEditContent(newContent)
+      if (currentScreenId) {
+        // Update the content in real-time
+        dashboardActions.updateGridItem(currentScreenId, _entityId, {
+          content: newContent,
+        })
+      }
+    },
+    [currentScreenId, _entityId]
+  )
 
   if (isEditMode) {
     return (
@@ -139,7 +142,6 @@ function TextCardComponent({
         position: 'relative',
       }}
     >
-
       <Flex
         p={cardSize.p}
         direction="column"
