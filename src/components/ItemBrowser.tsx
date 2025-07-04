@@ -312,42 +312,34 @@ export function ItemBrowser({ open, onOpenChange, screenId }: ItemBrowserProps) 
                   Add special cards to your dashboard
                 </Text>
 
-                {/* Card options */}
-                <Flex direction="column" gap="2">
-                  <Card asChild>
-                    <Button
-                      variant="soft"
-                      size="3"
-                      onClick={handleAddText}
-                      style={{ justifyContent: 'flex-start' }}
-                    >
-                      <TextIcon width="20" height="20" />
-                      <Flex direction="column" align="start" gap="1" style={{ flex: 1 }}>
-                        <Text weight="medium">Text Card</Text>
-                        <Text size="1" color="gray">
-                          Add formatted text with markdown support
-                        </Text>
-                      </Flex>
-                    </Button>
-                  </Card>
+                {/* Card options grid */}
+                <Box
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                    gap: '12px',
+                  }}
+                >
+                  <IconButton
+                    size="4"
+                    variant="soft"
+                    onClick={handleAddText}
+                    style={{ aspectRatio: '1', width: '100%', height: '80px' }}
+                    title="Text Card - Add formatted text with markdown support"
+                  >
+                    <TextIcon width="24" height="24" />
+                  </IconButton>
 
-                  <Card asChild>
-                    <Button
-                      variant="soft"
-                      size="3"
-                      onClick={handleAddSeparator}
-                      style={{ justifyContent: 'flex-start' }}
-                    >
-                      <DividerHorizontalIcon width="20" height="20" />
-                      <Flex direction="column" align="start" gap="1" style={{ flex: 1 }}>
-                        <Text weight="medium">Separator</Text>
-                        <Text size="1" color="gray">
-                          Add a visual divider between sections
-                        </Text>
-                      </Flex>
-                    </Button>
-                  </Card>
-                </Flex>
+                  <IconButton
+                    size="4"
+                    variant="soft"
+                    onClick={handleAddSeparator}
+                    style={{ aspectRatio: '1', width: '100%', height: '80px' }}
+                    title="Separator - Add a visual divider between sections"
+                  >
+                    <DividerHorizontalIcon width="24" height="24" />
+                  </IconButton>
+                </Box>
               </Flex>
             </Tabs.Content>
           </Box>

@@ -2,44 +2,38 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { TextCard } from '../TextCard'
 
-// Mock the store first
-vi.mock('~/store', () => {
-  let mockState = {
-    mode: 'view',
-    currentScreenId: 'test-screen',
-  }
-  
-  return {
-    useDashboardStore: vi.fn((selector) => selector(mockState)),
-    dashboardActions: {
-      getState: vi.fn(() => ({
-        screens: [{
-          id: 'test-screen',
-          grid: {
-            items: [{
-              id: 'test-text-1',
-              type: 'text',
-              content: 'Test content',
-            }]
-          }
-        }]
-      })),
-      updateGridItem: vi.fn(),
-    },
-    // Export function to update mock state in tests
-    __setMockState: (newState: any) => {
-      mockState = { ...mockState, ...newState }
-    }
-  }
-})
+// Create state management outside of mock
+let mockState = {
+  mode: 'view',
+  currentScreenId: 'test-screen',
+}
 
-// Import the mocked module
-import { __setMockState, dashboardActions } from '~/store'
+const mockUpdateGridItem = vi.fn()
+
+// Mock the store first
+vi.mock('~/store', () => ({
+  useDashboardStore: vi.fn((selector) => selector(mockState)),
+  dashboardActions: {
+    getState: vi.fn(() => ({
+      screens: [{
+        id: 'test-screen',
+        grid: {
+          items: [{
+            id: 'test-text-1',
+            type: 'text',
+            content: 'Test content',
+          }]
+        }
+      }]
+    })),
+    updateGridItem: mockUpdateGridItem,
+  },
+}))
 
 describe('TextCard', () => {
   beforeEach(() => {
     // Reset to default state before each test
-    __setMockState({ mode: 'view', currentScreenId: 'test-screen' })
+    mockState = { mode: 'view', currentScreenId: 'test-screen' }
     vi.clearAllMocks()
   })
 
@@ -62,7 +56,7 @@ describe('TextCard', () => {
 
   it('should show textarea in edit mode', () => {
     // Change mode to edit
-    __setMockState({ mode: 'edit' })
+    mockState = { mode: 'edit', currentScreenId: 'test-screen' }
 
     render(
       <TextCard
@@ -82,7 +76,7 @@ describe('TextCard', () => {
   })
 
   it('should update content in real-time when typing in edit mode', () => {
-    __setMockState({ mode: 'edit' })
+    mockState = { mode: 'edit', currentScreenId: 'test-screen' }
 
     render(
       <TextCard
@@ -97,7 +91,7 @@ describe('TextCard', () => {
     fireEvent.change(textarea, { target: { value: 'Updated content' } })
 
     // Should call updateGridItem with new content
-    expect(dashboardActions.updateGridItem).toHaveBeenCalledWith(
+    expect(mockUpdateGridItem).toHaveBeenCalledWith(
       'test-screen',
       'test-text-1',
       { content: 'Updated content' }
@@ -105,7 +99,7 @@ describe('TextCard', () => {
   })
 
   it('should show delete button in edit mode', () => {
-    __setMockState({ mode: 'edit' })
+    mockState = { mode: 'edit', currentScreenId: 'test-screen' }
     const onDelete = vi.fn()
 
     render(
