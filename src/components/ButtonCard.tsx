@@ -87,8 +87,9 @@ function ButtonCardComponent({
       onClick={handleClick}
       title={error || (isStale ? 'Entity data may be outdated' : undefined)}
       style={{
-        backgroundColor: isOn && !isSelected ? 'var(--amber-3)' : undefined,
+        backgroundColor: isOn && !isSelected && !error ? 'var(--amber-3)' : undefined,
         borderColor: isOn && !isSelected && !error && !isStale ? 'var(--amber-6)' : undefined,
+        borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
       }}
     >
       <Flex direction="column" align="center" justify="center" gap="2">
@@ -100,6 +101,8 @@ function ButtonCardComponent({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
+              transition: 'opacity 0.2s ease',
             }}
           >
             {getEntityIcon(entity)}
@@ -111,6 +114,8 @@ function ButtonCardComponent({
             weight={isOn ? 'medium' : 'regular'}
             style={{
               color: isOn ? 'var(--amber-11)' : undefined,
+              opacity: isLoading ? 0.7 : 1,
+              transition: 'opacity 0.2s ease',
             }}
           >
             {friendlyName}
@@ -118,7 +123,15 @@ function ButtonCardComponent({
         </GridCard.Title>
 
         <GridCard.Status>
-          <Text size="1" color={error ? 'red' : isOn ? 'amber' : 'gray'} weight="medium">
+          <Text 
+            size="1" 
+            color={error ? 'red' : isOn ? 'amber' : 'gray'} 
+            weight="medium"
+            style={{
+              opacity: isLoading ? 0.5 : 1,
+              transition: 'opacity 0.2s ease',
+            }}
+          >
             {error ? 'ERROR' : entity.state.toUpperCase()}
           </Text>
         </GridCard.Status>

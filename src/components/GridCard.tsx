@@ -74,7 +74,7 @@ export const GridCard = React.memo(
       let borderStyle: React.CSSProperties = {}
       if (isError) {
         borderStyle = {
-          borderColor: 'var(--red-7)',
+          borderColor: 'var(--red-6)',
           borderWidth: '2px',
         }
       } else if (isStale) {
@@ -128,10 +128,11 @@ export const GridCard = React.memo(
             style={{
               minHeight,
               padding: `var(--space-${padding})`,
-              cursor: isEditMode ? 'move' : onClick ? 'pointer' : 'default',
+              cursor: isLoading ? 'wait' : isEditMode ? 'move' : onClick ? 'pointer' : 'default',
               backgroundColor,
-              ...borderStyle,
+              transform: isLoading ? 'scale(0.98)' : undefined,
               ...style,
+              ...borderStyle,
             }}
           >
             {/* Drag Handle */}
