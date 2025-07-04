@@ -448,13 +448,11 @@ function ClimateCardComponent({
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
-        onSelect={onSelect}
+        onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
         <Flex direction="column" align="center" justify="center" gap="2">
-          <GridCard.Title>
-            {entity.attributes.friendly_name || entity.entity_id}
-          </GridCard.Title>
+          <GridCard.Title>{entity.attributes.friendly_name || entity.entity_id}</GridCard.Title>
           <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
@@ -470,7 +468,7 @@ function ClimateCardComponent({
       isError={!!error}
       isStale={isStale}
       isSelected={isSelected}
-      onSelect={onSelect}
+      onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       title={error || (isStale ? 'Entity data may be outdated' : undefined)}
       className="climate-card"
@@ -941,7 +939,6 @@ function ClimateCardComponent({
             })}
           </Flex>
         )}
-
       </Flex>
     </GridCard>
   )

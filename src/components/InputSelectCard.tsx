@@ -66,7 +66,7 @@ export const InputSelectCard = memo(function InputSelectCard({
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
-        onSelect={onSelect}
+        onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
         <Flex direction="column" align="center" gap="2">
@@ -94,7 +94,7 @@ export const InputSelectCard = memo(function InputSelectCard({
       isError={!!error}
       isStale={isStale}
       isSelected={isSelected}
-      onSelect={onSelect}
+      onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleClick}
       title={error || undefined}
@@ -115,7 +115,9 @@ export const InputSelectCard = memo(function InputSelectCard({
             >
               <Select.Trigger variant="soft" style={{ width: '100%' }}>
                 <Flex align="center" justify="between" style={{ width: '100%' }}>
-                  <Text size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}>{currentValue}</Text>
+                  <Text size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}>
+                    {currentValue}
+                  </Text>
                   <ChevronDown size={16} />
                 </Flex>
               </Select.Trigger>

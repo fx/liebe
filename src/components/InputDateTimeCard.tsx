@@ -141,7 +141,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
-        onSelect={onSelect}
+        onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
         <Flex direction="column" align="center" gap="2">
@@ -173,7 +173,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
       isError={!!error}
       isStale={isStale}
       isSelected={isSelected}
-      onSelect={onSelect}
+      onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={!isEditing ? handleClick : undefined}
       title={error || undefined}
@@ -228,7 +228,9 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
                   textAlign: 'center',
                 }}
               >
-                <Text size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}>{displayValue}</Text>
+                <Text size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}>
+                  {displayValue}
+                </Text>
               </Box>
               <IconButton
                 size={cardSize.buttonSize as '1' | '2' | '3'}
@@ -243,15 +245,9 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
             </Flex>
           )}
         </GridCard.Controls>
-        {hasDate && hasTime && (
-          <GridCard.Status>Date & Time</GridCard.Status>
-        )}
-        {hasDate && !hasTime && (
-          <GridCard.Status>Date Only</GridCard.Status>
-        )}
-        {!hasDate && hasTime && (
-          <GridCard.Status>Time Only</GridCard.Status>
-        )}
+        {hasDate && hasTime && <GridCard.Status>Date & Time</GridCard.Status>}
+        {hasDate && !hasTime && <GridCard.Status>Date Only</GridCard.Status>}
+        {!hasDate && hasTime && <GridCard.Status>Time Only</GridCard.Status>}
       </Flex>
     </GridCard>
   )

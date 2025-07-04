@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react'
-import { Box, Flex, Switch, Text } from '@radix-ui/themes'
+import { Flex, Switch } from '@radix-ui/themes'
 import { Archive, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
@@ -63,7 +63,7 @@ export const InputBooleanCard = memo(function InputBooleanCard({
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
-        onSelect={onSelect}
+        onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
         <Flex direction="column" align="center" gap="2">
@@ -93,7 +93,7 @@ export const InputBooleanCard = memo(function InputBooleanCard({
       isStale={isStale}
       isSelected={isSelected}
       isOn={isOn}
-      onSelect={onSelect}
+      onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleClick}
       title={error || undefined}

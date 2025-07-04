@@ -125,7 +125,7 @@ export const InputTextCard = memo(function InputTextCard({
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
-        onSelect={onSelect}
+        onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
         <Flex direction="column" align="center" gap="2">
@@ -155,7 +155,7 @@ export const InputTextCard = memo(function InputTextCard({
       isError={!!error}
       isStale={isStale}
       isSelected={isSelected}
-      onSelect={onSelect}
+      onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={!isEditing ? handleClick : undefined}
       title={error || undefined}

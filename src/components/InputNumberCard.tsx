@@ -111,13 +111,10 @@ export const InputNumberCard = memo(function InputNumberCard({
     [entity, localValue, setValue]
   )
 
-  const handleFieldClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation()
-      setIsEditing(true)
-    },
-    []
-  )
+  const handleFieldClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsEditing(true)
+  }, [])
 
   const handleFieldBlur = useCallback(() => {
     if (entity) {
@@ -156,7 +153,7 @@ export const InputNumberCard = memo(function InputNumberCard({
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
-        onSelect={onSelect}
+        onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
         <Flex direction="column" align="center" gap="2">
@@ -188,7 +185,7 @@ export const InputNumberCard = memo(function InputNumberCard({
       isError={!!error}
       isStale={isStale}
       isSelected={isSelected}
-      onSelect={onSelect}
+      onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleClick}
       title={error || undefined}
