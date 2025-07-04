@@ -289,15 +289,25 @@ function FanCardComponent({
           }}
         >
           {isLoading ? (
-            <Spinner
-              size={cardSize.fontSize as '1' | '2' | '3'}
-              style={
-                {
-                  '--spinner-track-color': 'var(--gray-a6)',
-                  '--spinner-fill-color': isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
-                } as React.CSSProperties
-              }
-            />
+            <Box
+              style={{
+                width: `${cardSize.iconSize}px`,
+                height: `${cardSize.iconSize}px`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Spinner
+                size={cardSize.fontSize as '1' | '2' | '3'}
+                style={
+                  {
+                    '--spinner-track-color': 'var(--gray-a6)',
+                    '--spinner-fill-color': isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
+                  } as React.CSSProperties
+                }
+              />
+            </Box>
           ) : (
             <Box
               className={getAnimationClass()}
