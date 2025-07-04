@@ -1,7 +1,7 @@
-import { Card, Flex, Text as RadixText, IconButton, Box } from '@radix-ui/themes'
-import { Cross2Icon } from '@radix-ui/react-icons'
-import { memo } from 'react'
-import { useDashboardStore } from '~/store'
+import { Card, Flex, Text as RadixText, IconButton, Box, TextArea, Button } from '@radix-ui/themes'
+import { Cross2Icon, CheckIcon, Cross1Icon } from '@radix-ui/react-icons'
+import { memo, useState, useCallback, useRef, useEffect } from 'react'
+import { useDashboardStore, dashboardActions } from '~/store'
 import ReactMarkdown from 'react-markdown'
 import './TextCard.css'
 
@@ -28,6 +28,10 @@ function TextCardComponent({
 }: TextCardProps) {
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(content)
+  const textAreaRef = useRef<HTMLTextAreaElement>(null)
+  const currentScreenId = useDashboardStore((state) => state.currentScreenId)
 
   const cardSize = {
     small: { p: '2' },
@@ -41,17 +45,107 @@ function TextCardComponent({
     large: '3' as const,
   }[textSize]
 
-  const handleClick = () => {
+  useEffect(() => {
+    if (isEditing && textAreaRef.current) {
+      textAreaRef.current.focus()
+      textAreaRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleClick = useCallback(() => {
     if (isEditMode && onSelect) {
       onSelect(!isSelected)
     }
+  }, [isEditMode, onSelect, isSelected])
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (!isEditMode) {
+      e.stopPropagation()
+      setIsEditing(true)
+      setEditContent(content)
+    }
+  }, [isEditMode, content])
+
+  const handleSave = useCallback(() => {
+    if (currentScreenId) {
+      // Find the grid item ID from the entityId prop
+      const screens = dashboardActions.getState().screens
+      const findScreen = (screenList: any[]): any => {
+        for (const screen of screenList) {
+          if (screen.id === currentScreenId) return screen
+          if (screen.children) {
+            const found = findScreen(screen.children)
+            if (found) return found
+          }
+        }
+      }
+      const currentScreen = findScreen(screens)
+      const gridItem = currentScreen?.grid?.items?.find((item: any) => item.id === _entityId)
+      
+      if (gridItem) {
+        dashboardActions.updateGridItem(currentScreenId, _entityId, {
+          content: editContent
+        })
+      }
+    }
+    setIsEditing(false)
+  }, [editContent, currentScreenId, _entityId])
+
+  const handleCancel = useCallback(() => {
+    setEditContent(content)
+    setIsEditing(false)
+  }, [content])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      handleCancel()
+    } else if (e.key === 'Enter' && e.metaKey) {
+      handleSave()
+    }
+  }, [handleCancel, handleSave])
+
+  if (isEditing) {
+    return (
+      <Card
+        variant="classic"
+        style={{
+          position: 'relative',
+          height: '100%',
+        }}
+      >
+        <Flex direction="column" p={cardSize.p} gap="2" style={{ height: '100%' }}>
+          <TextArea
+            ref={textAreaRef}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter text (supports markdown)"
+            style={{
+              flex: 1,
+              minHeight: '100px',
+              fontFamily: 'var(--code-font-family)',
+            }}
+          />
+          <Flex gap="2" justify="end">
+            <Button size="1" variant="soft" color="gray" onClick={handleCancel}>
+              <Cross1Icon />
+              Cancel
+            </Button>
+            <Button size="1" onClick={handleSave}>
+              <CheckIcon />
+              Save
+            </Button>
+          </Flex>
+        </Flex>
+      </Card>
+    )
   }
 
   return (
     <Card
       variant="classic"
       style={{
-        cursor: isEditMode ? 'pointer' : 'default',
+        cursor: isEditMode ? 'pointer' : 'text',
         backgroundColor: isSelected ? 'var(--blue-3)' : undefined,
         borderColor: isSelected ? 'var(--blue-6)' : undefined,
         borderWidth: isSelected ? '2px' : '1px',
@@ -60,9 +154,15 @@ function TextCardComponent({
         position: 'relative',
       }}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
     >
       {/* Drag handle in edit mode */}
-      {isEditMode && <div className="grid-item-drag-handle" />}
+      {isEditMode && (
+        <div 
+          className="grid-item-drag-handle" 
+          onDoubleClick={(e) => e.stopPropagation()}
+        />
+      )}
 
       {/* Delete button in edit mode */}
       {isEditMode && onDelete && (
@@ -100,6 +200,7 @@ function TextCardComponent({
             textAlign: alignment,
             width: '100%',
           }}
+          title={!isEditMode ? "Double-click to edit" : undefined}
         >
           <ReactMarkdown
             components={{
@@ -194,16 +295,4 @@ function TextCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const TextCard = memo(TextCardComponent, (prevProps, nextProps) => {
-  // Re-render if any of these props change
-  return (
-    prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
-    prevProps.onDelete === nextProps.onDelete &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onSelect === nextProps.onSelect &&
-    prevProps.content === nextProps.content &&
-    prevProps.alignment === nextProps.alignment &&
-    prevProps.textSize === nextProps.textSize
-  )
-})
+export const TextCard = memo(TextCardComponent)
