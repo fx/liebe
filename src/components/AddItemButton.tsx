@@ -41,6 +41,21 @@ export function AddItemButton({ screenId }: AddItemButtonProps) {
     dashboardActions.addGridItem(screenId, newItem)
   }
 
+  const handleAddText = () => {
+    const newItem: GridItem = {
+      id: `text-${Date.now()}`,
+      type: 'text',
+      content: '# Text Card\n\nDouble-click to edit this text.',
+      alignment: 'left',
+      textSize: 'medium',
+      x: 0,
+      y: 0,
+      width: 3,
+      height: 2,
+    }
+    dashboardActions.addGridItem(screenId, newItem)
+  }
+
   return (
     <>
       <DropdownMenu.Root>
@@ -55,6 +70,7 @@ export function AddItemButton({ screenId }: AddItemButtonProps) {
             Add Entities...
           </DropdownMenu.Item>
           <DropdownMenu.Item onClick={handleAddSeparator}>Add Separator</DropdownMenu.Item>
+          <DropdownMenu.Item onClick={handleAddText}>Add Text</DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 

@@ -55,8 +55,8 @@
   transform: scale(1.15);
 }
 
-/* Reuse grid item drag handle from existing styles */
-.grid-item-drag-handle {
+/* Cover card specific drag pattern overlay - DO NOT use .grid-item-drag-handle class */
+.cover-card-drag-pattern {
   position: absolute;
   top: 50%;
   left: 50%;
