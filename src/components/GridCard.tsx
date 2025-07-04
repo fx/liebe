@@ -99,7 +99,7 @@ export const GridCard = React.memo(
       // Background for selected/on states
       const backgroundColor =
         isSelected && isEditMode
-          ? 'var(--blue-2)'
+          ? 'var(--blue-3)'
           : isOn && !isEditMode
             ? 'var(--accent-3)'
             : undefined
@@ -157,6 +157,7 @@ export const GridCard = React.memo(
                 }}
                 className="absolute top-1 right-1"
                 style={{ zIndex: 10 }}
+                aria-label="Delete entity"
               >
                 <X size={14} />
               </IconButton>

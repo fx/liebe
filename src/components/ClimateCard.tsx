@@ -1,8 +1,8 @@
-import { Card, Flex, Text, Spinner, Box, IconButton } from '@radix-ui/themes'
-import { Cross2Icon, MinusIcon, PlusIcon } from '@radix-ui/react-icons'
+import { Flex, Text, Box, IconButton } from '@radix-ui/themes'
+import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react'
-import { useDashboardStore } from '~/store'
+import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import './ClimateCard.css'
 
@@ -90,8 +90,6 @@ function ClimateCardComponent({
 }: ClimateCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, callService, clearError } = useServiceCall()
-  const mode = useDashboardStore((state) => state.mode)
-  const isEditMode = mode === 'edit'
 
   // Drag state for temperature control
   const [isDragging, setIsDragging] = useState<'heat' | 'cool' | null>(null)
@@ -332,14 +330,14 @@ function ClimateCardComponent({
   // Handle drag start
   const handleDragStart = useCallback(
     (type: 'heat' | 'cool', event: React.MouseEvent | React.TouchEvent) => {
-      if (isEditMode || hvacMode !== 'heat_cool') return
+      if (hvacMode !== 'heat_cool') return
       event.preventDefault()
       setIsDragging(type)
       // Initialize drag temperatures
       setDragTempLow(targetTempLow ?? 20)
       setDragTempHigh(targetTempHigh ?? 24)
     },
-    [isEditMode, hvacMode, targetTempLow, targetTempHigh]
+    [hvacMode, targetTempLow, targetTempHigh]
   )
 
   // Handle drag move
@@ -446,72 +444,38 @@ function ClimateCardComponent({
   const isUnavailable = entity.state === 'unavailable'
   if (isUnavailable) {
     return (
-      <Card variant="classic" style={{ opacity: 0.6, borderStyle: 'dotted' }}>
-        <Flex p={cardSize.p} direction="column" align="center" justify="center" gap="2">
-          <Text size={cardSize.fontSize as '1' | '2' | '3'} color="gray" align="center">
+      <GridCard
+        size={size}
+        isUnavailable={true}
+        isSelected={isSelected}
+        onSelect={onSelect}
+        onDelete={onDelete}
+      >
+        <Flex direction="column" align="center" justify="center" gap="2">
+          <GridCard.Title>
             {entity.attributes.friendly_name || entity.entity_id}
-          </Text>
-          <Text size="1" color="gray" weight="medium">
-            UNAVAILABLE
-          </Text>
+          </GridCard.Title>
+          <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
-      </Card>
+      </GridCard>
     )
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
 
   return (
-    <Card
-      variant="classic"
-      className="climate-card"
-      style={{
-        cursor: isEditMode ? 'move' : 'default',
-        backgroundColor: isSelected ? 'var(--blue-3)' : 'var(--gray-2)',
-        borderColor: isSelected
-          ? 'var(--blue-6)'
-          : error
-            ? 'var(--red-6)'
-            : isStale
-              ? 'var(--orange-6)'
-              : 'transparent',
-        borderWidth: isSelected || error || isStale ? '2px' : '1px',
-        borderStyle: isStale ? 'dashed' : 'solid',
-        transition: 'all 0.2s ease',
-        opacity: isStale ? 0.8 : 1,
-        position: 'relative',
-      }}
-      onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : undefined}
+    <GridCard
+      size={size}
+      isLoading={isLoading}
+      isError={!!error}
+      isStale={isStale}
+      isSelected={isSelected}
+      onSelect={onSelect}
+      onDelete={onDelete}
       title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+      className="climate-card"
     >
-      {/* Drag handle in edit mode */}
-      {isEditMode && <div className="grid-item-drag-handle" />}
-
-      {/* Delete button in edit mode */}
-      {isEditMode && onDelete && (
-        <IconButton
-          size="1"
-          variant="soft"
-          color="red"
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            opacity: isSelected ? 1 : 0.7,
-            transition: 'opacity 0.2s ease',
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          aria-label="Delete entity"
-        >
-          <Cross2Icon />
-        </IconButton>
-      )}
-
       <Flex
-        p={cardSize.p}
         direction="column"
         align="center"
         gap="2"
@@ -581,7 +545,7 @@ function ClimateCardComponent({
                   stroke="var(--orange-9)"
                   strokeWidth="3"
                   style={{
-                    cursor: isEditMode ? 'default' : 'grab',
+                    cursor: 'grab',
                     filter:
                       isDragging === 'heat' ? 'drop-shadow(0 0 8px var(--orange-9))' : undefined,
                   }}
@@ -598,7 +562,7 @@ function ClimateCardComponent({
                   stroke="var(--blue-9)"
                   strokeWidth="3"
                   style={{
-                    cursor: isEditMode ? 'default' : 'grab',
+                    cursor: 'grab',
                     filter:
                       isDragging === 'cool' ? 'drop-shadow(0 0 8px var(--blue-9))' : undefined,
                   }}
@@ -745,7 +709,7 @@ function ClimateCardComponent({
             )}
 
             {/* Target temperature */}
-            {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && (
+            {supportsTargetTemp && hvacMode !== 'off' && (
               <Flex align="center" gap="1" style={{ marginTop: '4px' }}>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--blue-9)">
                   <path
@@ -771,7 +735,7 @@ function ClimateCardComponent({
         </Box>
 
         {/* Temperature controls */}
-        {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && hvacMode !== 'heat_cool' && (
+        {supportsTargetTemp && hvacMode !== 'off' && hvacMode !== 'heat_cool' && (
           <Flex align="center" gap="4" style={{ marginTop: '16px' }}>
             <IconButton
               size="3"
@@ -810,14 +774,14 @@ function ClimateCardComponent({
         )}
 
         {/* Instructions for heat/cool mode */}
-        {!isEditMode && hvacMode === 'heat_cool' && (
+        {hvacMode === 'heat_cool' && (
           <Text size="1" color="gray" align="center" style={{ marginTop: '8px' }}>
             Drag the orange and blue dots to adjust temperatures
           </Text>
         )}
 
         {/* HVAC Mode buttons */}
-        {!isEditMode && climateAttributes?.hvac_modes && (
+        {climateAttributes?.hvac_modes && (
           <Flex gap="2" wrap="wrap" justify="center" style={{ marginTop: 'auto' }}>
             {climateAttributes.hvac_modes.map((mode) => {
               const modeConfig = HVAC_MODES[mode as keyof typeof HVAC_MODES]
@@ -978,29 +942,8 @@ function ClimateCardComponent({
           </Flex>
         )}
 
-        {/* Loading indicator */}
-        {isLoading && (
-          <Box
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <Spinner
-              size={cardSize.fontSize as '1' | '2' | '3'}
-              style={
-                {
-                  '--spinner-track-color': 'var(--gray-a6)',
-                  '--spinner-fill-color': `var(--${getStatusColor}-9)`,
-                } as React.CSSProperties
-              }
-            />
-          </Box>
-        )}
       </Flex>
-    </Card>
+    </GridCard>
   )
 }
 

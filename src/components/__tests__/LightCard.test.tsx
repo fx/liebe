@@ -142,12 +142,12 @@ describe('LightCard', () => {
     const user = userEvent.setup()
     const { container } = render(<LightCard entityId="light.living_room" />)
 
-    // Click on the icon area to toggle
-    const toggleArea = container.querySelector('.light-toggle-area')
-    expect(toggleArea).toBeInTheDocument()
+    // Click on the card to toggle
+    const card = container.querySelector('.grid-card')
+    expect(card).toBeInTheDocument()
 
-    if (toggleArea) {
-      await user.click(toggleArea)
+    if (card) {
+      await user.click(card)
     }
 
     expect(mockServiceCallHandlers.turnOff).toHaveBeenCalledWith('light.living_room')
