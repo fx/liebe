@@ -1,0 +1,47 @@
+/* Fan spinning animations - different speeds based on fan speed setting */
+@keyframes fan-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Slow speed - 33% or lower */
+.fan-spin-slow {
+  animation: fan-spin 3s linear infinite;
+}
+
+/* Medium speed - 34% to 66% */
+.fan-spin-medium {
+  animation: fan-spin 1.5s linear infinite;
+}
+
+/* Fast speed - 67% to 100% */
+.fan-spin-fast {
+  animation: fan-spin 0.8s linear infinite;
+}
+
+/* Pulse animations for loading states (same as ButtonCard) */
+@keyframes pulse-border {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes pulse-border-error {
+  0%,
+  100% {
+    opacity: 1;
+    border-color: var(--red-6);
+  }
+  50% {
+    opacity: 0.7;
+    border-color: var(--red-8);
+  }
+}
