@@ -164,7 +164,6 @@ function LightCardComponent({
         borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
       }}
     >
-
       <Flex direction="column" align="center" justify="center" gap="3">
         <GridCard.Icon>
           <SunIcon

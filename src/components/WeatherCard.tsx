@@ -92,9 +92,7 @@ function WeatherCardContent({
             </span>
           </GridCard.Icon>
           <GridCard.Title>
-            <Text color="gray">
-              {entity.attributes?.friendly_name || entityId}
-            </Text>
+            <Text color="gray">{entity.attributes?.friendly_name || entityId}</Text>
           </GridCard.Title>
           <GridCard.Status>
             <Text size="1" color="gray" weight="medium">

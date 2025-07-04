@@ -157,9 +157,7 @@ function FanCardComponent({
             </span>
           </GridCard.Icon>
           <GridCard.Title>
-            <Text color="gray">
-              {entity.attributes.friendly_name || entity.entity_id}
-            </Text>
+            <Text color="gray">{entity.attributes.friendly_name || entity.entity_id}</Text>
           </GridCard.Title>
           <GridCard.Status>
             <Text size="1" color="gray" weight="medium">

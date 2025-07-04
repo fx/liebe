@@ -224,9 +224,7 @@ function CoverCardComponent({
       >
         <Flex direction="column" align="center" justify="center" gap="2">
           <GridCard.Title>
-            <Text color="gray">
-              {entity.attributes.friendly_name || entity.entity_id}
-            </Text>
+            <Text color="gray">{entity.attributes.friendly_name || entity.entity_id}</Text>
           </GridCard.Title>
           <GridCard.Status>
             <Text size="1" color="gray" weight="medium">
@@ -265,9 +263,7 @@ function CoverCardComponent({
       >
         {/* Name */}
         <GridCard.Title>
-          <Text weight="medium">
-            {friendlyName}
-          </Text>
+          <Text weight="medium">{friendlyName}</Text>
         </GridCard.Title>
 
         {/* Control buttons */}
