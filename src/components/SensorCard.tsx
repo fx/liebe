@@ -1,4 +1,4 @@
-import { Card, Flex, Text, Box, IconButton } from '@radix-ui/themes'
+import { Flex, Text, Box } from '@radix-ui/themes'
 import {
   ValueIcon,
   CircleIcon,
@@ -7,14 +7,12 @@ import {
   HomeIcon,
   ClockIcon,
   MixIcon,
-  Cross2Icon,
 } from '@radix-ui/react-icons'
 import { useEntity } from '~/hooks'
 import { memo } from 'react'
-import { useDashboardStore } from '~/store'
 import type { HassEntity } from '~/store/entityTypes'
 import { SkeletonCard, ErrorDisplay } from './ui'
-import './ButtonCard.css'
+import { GridCardWithComponents as GridCard } from './GridCard'
 
 interface SensorCardProps {
   entityId: string
@@ -127,8 +125,6 @@ function SensorCardComponent({
   onSelect,
 }: SensorCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-  const mode = useDashboardStore((state) => state.mode)
-  const isEditMode = mode === 'edit'
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -147,11 +143,11 @@ function SensorCardComponent({
     )
   }
 
-  const cardSize = {
-    small: { p: '2', iconSize: '16', fontSize: '1', valueFontSize: '2' },
-    medium: { p: '3', iconSize: '20', fontSize: '2', valueFontSize: '3' },
-    large: { p: '4', iconSize: '24', fontSize: '3', valueFontSize: '4' },
-  }[size]
+  const valueFontSize = {
+    small: '2',
+    medium: '3',
+    large: '4',
+  }[size] as '2' | '3' | '4'
 
   const attributes = entity.attributes as SensorAttributes
   const friendlyName = attributes.friendly_name || entity.entity_id
@@ -159,55 +155,19 @@ function SensorCardComponent({
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
 
   return (
-    <Card
-      variant="classic"
-      style={{
-        cursor: isEditMode ? 'move' : 'default',
-        backgroundColor: isSelected ? 'var(--blue-3)' : undefined,
-        borderColor: isSelected
-          ? 'var(--blue-6)'
-          : isStale
-            ? 'var(--orange-6)'
-            : isUnavailable
-              ? 'var(--gray-6)'
-              : undefined,
-        borderWidth: isSelected || isStale ? '2px' : '1px',
-        borderStyle: isStale || isUnavailable ? 'dashed' : 'solid',
-        transition: 'all 0.2s ease',
-        opacity: isStale || isUnavailable ? 0.7 : 1,
-        position: 'relative',
-      }}
-      onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : undefined}
+    <GridCard
+      size={size}
+      isStale={isStale}
+      isSelected={isSelected}
+      isUnavailable={isUnavailable}
+      onSelect={() => onSelect?.(!isSelected)}
+      onDelete={onDelete}
       title={isStale ? 'Sensor data may be outdated' : undefined}
+      style={{
+        borderWidth: isSelected || isStale ? '2px' : '1px',
+      }}
     >
-      {/* Drag handle in edit mode */}
-      {isEditMode && <div className="grid-item-drag-handle" />}
-
-      {/* Delete button in edit mode */}
-      {isEditMode && onDelete && (
-        <IconButton
-          size="1"
-          variant="soft"
-          color="red"
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            opacity: isSelected ? 1 : 0.7,
-            transition: 'opacity 0.2s ease',
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          aria-label="Delete entity"
-        >
-          <Cross2Icon />
-        </IconButton>
-      )}
-
       <Flex
-        p={cardSize.p}
         direction="column"
         align="center"
         justify="center"
@@ -215,22 +175,27 @@ function SensorCardComponent({
         style={{ minHeight: size === 'large' ? '120px' : size === 'medium' ? '100px' : '80px' }}
       >
         {/* Icon */}
-        <Box
-          style={{
-            color: isStale
-              ? 'var(--orange-9)'
-              : isUnavailable
-                ? 'var(--gray-9)'
-                : 'var(--accent-9)',
-            opacity: isStale ? 0.6 : 1,
-          }}
-        >
-          {getSensorIcon(entity, size)}
-        </Box>
+        <GridCard.Icon>
+          <span
+            style={{
+              color: isStale
+                ? 'var(--orange-9)'
+                : isUnavailable
+                  ? 'var(--gray-9)'
+                  : 'var(--accent-9)',
+              opacity: isStale ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {getSensorIcon(entity, size)}
+          </span>
+        </GridCard.Icon>
 
         {/* Value */}
         <Text
-          size={cardSize.valueFontSize as '2' | '3' | '4'}
+          size={valueFontSize}
           weight="medium"
           align="center"
           style={{
@@ -245,21 +210,21 @@ function SensorCardComponent({
         </Text>
 
         {/* Name */}
-        <Text
-          size={cardSize.fontSize as '1' | '2' | '3'}
-          color="gray"
-          align="center"
-          style={{
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {friendlyName}
-        </Text>
+        <GridCard.Title>
+          <Text
+            color="gray"
+            style={{
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {friendlyName}
+          </Text>
+        </GridCard.Title>
       </Flex>
-    </Card>
+    </GridCard>
   )
 }
 
