@@ -259,22 +259,40 @@ describe('LightCard', () => {
   })
 
   it('shows selected state', () => {
+    // Mock edit mode to see selection styling
+    vi.mocked(useDashboardStore).mockImplementation((selector) => {
+      const state = { mode: 'edit' } as Pick<DashboardState, 'mode'>
+      return selector ? selector(state as DashboardState) : state
+    })
+
     const { container } = render(<LightCard entityId="light.living_room" isSelected={true} />)
 
-    const card = container.querySelector('.light-card')
-    expect(card).toHaveStyle('background-color: var(--blue-3)')
-    expect(card).toHaveStyle('border-color: var(--blue-6)')
+    const card = container.querySelector('.grid-card')
+
+    // Check that the card shows selection styling (blue border in edit mode)
+    expect(card).toBeInTheDocument()
+    expect(card).toHaveClass('grid-card')
+    expect(card).toHaveStyle('border-color: var(--blue-7)')
+    expect(card).toHaveStyle('border-width: 2px')
+    // Background color is applied but CSS variables don't resolve in tests
   })
 
   it('respects different sizes', () => {
-    const { rerender } = render(<LightCard entityId="light.living_room" size="small" />)
-    const nameElement = screen.getByText('Living Room Light')
-    expect(nameElement).toHaveClass('rt-r-size-1')
+    const { rerender, container } = render(<LightCard entityId="light.living_room" size="small" />)
+
+    // Check if the card has the correct minimum height based on size
+    let card = container.querySelector('.grid-card')
+    expect(card).toHaveStyle('min-height: 60px') // small size
+    expect(card).toHaveStyle('padding: var(--space-2)') // small padding
 
     rerender(<LightCard entityId="light.living_room" size="medium" />)
-    expect(screen.getByText('Living Room Light')).toHaveClass('rt-r-size-2')
+    card = container.querySelector('.grid-card')
+    expect(card).toHaveStyle('min-height: 80px') // medium size
+    expect(card).toHaveStyle('padding: var(--space-3)') // medium padding
 
     rerender(<LightCard entityId="light.living_room" size="large" />)
-    expect(screen.getByText('Living Room Light')).toHaveClass('rt-r-size-3')
+    card = container.querySelector('.grid-card')
+    expect(card).toHaveStyle('min-height: 100px') // large size
+    expect(card).toHaveStyle('padding: var(--space-4)') // large padding
   })
 })

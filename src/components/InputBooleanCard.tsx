@@ -5,6 +5,7 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { useDashboardStore } from '../store'
 
 interface InputBooleanCardProps {
   entityId: string
@@ -113,7 +114,9 @@ export const InputBooleanCard = memo(function InputBooleanCard({
             disabled={loading}
             style={{ cursor: 'pointer' }}
           />
-        </GridCard.Controls>
+          </GridCard.Controls>
+        )}
+        {isEditMode && <GridCard.Status>{isOn ? 'ON' : 'OFF'}</GridCard.Status>}
       </Flex>
     </GridCard>
   )

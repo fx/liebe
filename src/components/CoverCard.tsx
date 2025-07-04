@@ -11,7 +11,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import './CoverCard.css'
+import { useDashboardStore } from '~/store'
 
 interface CoverCardProps {
   entityId: string
@@ -307,9 +307,10 @@ function CoverCardComponent({
             )}
           </Flex>
         </GridCard.Controls>
+        )}
 
         {/* Position slider */}
-        {supportsSetPosition && (
+        {!isEditMode && supportsSetPosition && (
           <Box style={{ width: '100%' }}>
             <Flex align="center" gap="2">
               <Text size="1" color="gray" style={{ minWidth: '35px' }}>

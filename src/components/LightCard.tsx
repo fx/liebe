@@ -5,7 +5,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import './LightCard.css'
+import { useDashboardStore } from '~/store'
 
 interface LightCardProps {
   entityId: string
@@ -44,6 +44,8 @@ function LightCardComponent({
 }: LightCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, turnOn, turnOff, clearError } = useServiceCall()
+  const { mode } = useDashboardStore()
+  const isEditMode = mode === 'edit'
 
   // Local state for slider while dragging
   const [localBrightness, setLocalBrightness] = useState<number | null>(null)
@@ -190,7 +192,7 @@ function LightCardComponent({
           </Text>
         </GridCard.Title>
 
-        {isOn && supportsBrightness && (
+        {!isEditMode && isOn && supportsBrightness && (
           <GridCard.Controls>
             <Box style={{ width: '100%' }}>
               <Flex align="center" gap="2">
