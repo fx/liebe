@@ -4,7 +4,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
 import { memo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
-import { GridCard } from './GridCard'
+import { GridCardWithComponents as GridCard } from './GridCard'
 
 interface ButtonCardProps {
   entityId: string
@@ -118,11 +118,7 @@ function ButtonCardComponent({
         </GridCard.Title>
 
         <GridCard.Status>
-          <Text
-            size="1"
-            color={error ? 'red' : isOn ? 'amber' : 'gray'}
-            weight="medium"
-          >
+          <Text size="1" color={error ? 'red' : isOn ? 'amber' : 'gray'} weight="medium">
             {error ? 'ERROR' : entity.state.toUpperCase()}
           </Text>
         </GridCard.Status>

@@ -1,9 +1,7 @@
 import * as React from 'react'
-import { Card, Flex, IconButton, Spinner } from '@radix-ui/themes'
+import { Card, IconButton, Spinner } from '@radix-ui/themes'
 import { X, GripVertical } from 'lucide-react'
-import type { HassEntity } from '../types/homeassistant'
-import { useDashboardStore } from '../stores/dashboardStore'
-import { cn } from '../lib/utils'
+import { useDashboardStore } from '~/store'
 
 // Types
 export interface GridCardProps {
@@ -99,11 +97,12 @@ export const GridCard = React.memo(
       }
 
       // Background for selected/on states
-      const backgroundColor = isSelected && isEditMode
-        ? 'var(--blue-2)'
-        : isOn && !isEditMode
-        ? 'var(--accent-3)'
-        : undefined
+      const backgroundColor =
+        isSelected && isEditMode
+          ? 'var(--blue-2)'
+          : isOn && !isEditMode
+            ? 'var(--accent-3)'
+            : undefined
 
       const handleClick = (e: React.MouseEvent) => {
         if (isEditMode && onSelect) {
@@ -116,10 +115,7 @@ export const GridCard = React.memo(
         }
       }
 
-      const contextValue = React.useMemo(
-        () => ({ size, isLoading }),
-        [size, isLoading]
-      )
+      const contextValue = React.useMemo(() => ({ size, isLoading }), [size, isLoading])
 
       return (
         <GridCardContext.Provider value={contextValue}>
@@ -128,15 +124,7 @@ export const GridCard = React.memo(
             variant="classic"
             onClick={handleClick}
             title={title}
-            className={cn(
-              'grid-card',
-              'relative',
-              'transition-all duration-200',
-              isLoading && 'grid-card-loading',
-              isError && 'grid-card-error animate-pulse-once',
-              isUnavailable && 'opacity-50',
-              className
-            )}
+            className={`grid-card relative transition-all duration-200 ${isLoading ? 'grid-card-loading' : ''} ${isError ? 'grid-card-error animate-pulse-once' : ''} ${isUnavailable ? 'opacity-50' : ''} ${className || ''}`}
             style={{
               minHeight,
               padding: `var(--space-${padding})`,
@@ -203,7 +191,7 @@ export const GridCardIcon = React.memo(({ children, className }: GridCardIconPro
 
   return (
     <div
-      className={cn('grid-card-icon', 'relative flex items-center justify-center', className)}
+      className={`grid-card-icon relative flex items-center justify-center ${className || ''}`}
       style={{
         width: iconSize,
         height: iconSize,
@@ -245,7 +233,7 @@ export const GridCardTitle = React.memo(({ children, className }: GridCardTitleP
 
   return (
     <div
-      className={cn('grid-card-title', 'truncate font-medium', className)}
+      className={`grid-card-title truncate font-medium ${className || ''}`}
       style={{
         fontSize: `var(--font-size-${fontSize})`,
       }}
@@ -265,7 +253,7 @@ interface GridCardControlsProps {
 
 export const GridCardControls = React.memo(({ children, className }: GridCardControlsProps) => {
   return (
-    <div className={cn('grid-card-controls', 'flex items-center gap-2', className)}>
+    <div className={`grid-card-controls flex items-center gap-2 ${className || ''}`}>
       {children}
     </div>
   )
@@ -290,7 +278,7 @@ export const GridCardStatus = React.memo(({ children, className }: GridCardStatu
 
   return (
     <div
-      className={cn('grid-card-status', 'text-gray-500', className)}
+      className={`grid-card-status text-gray-500 ${className || ''}`}
       style={{
         fontSize: `var(--font-size-${fontSize})`,
       }}
@@ -302,11 +290,13 @@ export const GridCardStatus = React.memo(({ children, className }: GridCardStatu
 
 GridCardStatus.displayName = 'GridCardStatus'
 
-// Export compound components as properties
-GridCard.Icon = GridCardIcon
-GridCard.Title = GridCardTitle
-GridCard.Controls = GridCardControls
-GridCard.Status = GridCardStatus
+// Create a typed compound component
+export const GridCardWithComponents = Object.assign(GridCard, {
+  Icon: GridCardIcon,
+  Title: GridCardTitle,
+  Controls: GridCardControls,
+  Status: GridCardStatus,
+})
 
 // CSS for animations
 const styles = `
