@@ -27,6 +27,11 @@ export class HassConnectionManager {
   }
 
   connect(hass: HomeAssistant): void {
+    // If already connected with the same hass object, skip
+    if (this.hass === hass && this.isConnected()) {
+      return
+    }
+
     this.hass = hass
     this.reconnectAttempts = 0
 

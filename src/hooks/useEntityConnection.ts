@@ -11,8 +11,10 @@ export function useEntityConnection() {
 
   useEffect(() => {
     if (hass) {
-      // Connect to Home Assistant
-      hassConnectionManager.connect(hass)
+      // Only connect if not already connected
+      if (!hassConnectionManager.isConnected()) {
+        hassConnectionManager.connect(hass)
+      }
 
       // Cleanup on unmount
       return () => {

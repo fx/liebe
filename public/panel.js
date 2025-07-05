@@ -132,6 +132,38 @@ class LiebePanel extends HTMLElement {
             '*'
           )
         })
+    } else if (event.data.type === 'websocket-message') {
+      // Handle WebSocket messages
+      const { message, id } = event.data
+      console.log('[Panel] Received WebSocket message:', message)
+      
+      if (this._hass && this._hass.connection && this._hass.connection.sendMessagePromise) {
+        console.log('[Panel] Forwarding to Home Assistant WebSocket')
+        this._hass.connection.sendMessagePromise(message)
+          .then((response) => {
+            console.log('[Panel] WebSocket response:', response)
+            event.source.postMessage(
+              { type: 'websocket-response', success: true, response, id },
+              '*'
+            )
+          })
+          .catch((error) => {
+            console.error('[Panel] WebSocket error:', error)
+            event.source.postMessage(
+              { type: 'websocket-response', success: false, error: error.message, id },
+              '*'
+            )
+          })
+      } else {
+        console.warn('[Panel] WebSocket not available - hass:', !!this._hass, 'connection:', !!this._hass?.connection, 'sendMessagePromise:', !!this._hass?.connection?.sendMessagePromise)
+        event.source.postMessage(
+          { type: 'websocket-response', success: false, error: 'WebSocket not available', id },
+          '*'
+        )
+      }
+    } else if (event.data.type === 'get-hass') {
+      // Iframe app is requesting the hass object
+      this.sendHassToIframe()
     } else if (event.data.type === 'get-route') {
       // Iframe app is requesting the current route
       event.source.postMessage(

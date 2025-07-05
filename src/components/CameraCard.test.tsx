@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { CameraCard } from './CameraCard'
 import { useEntity, useRemoteHass } from '~/hooks'
 import { useDashboardStore } from '~/store'
@@ -15,20 +15,14 @@ vi.mock('~/store', () => ({
   useDashboardStore: vi.fn(),
 }))
 
-// Mock HLS.js
-vi.mock('hls.js', () => {
-  const mockHls = vi.fn()
-  mockHls.prototype.loadSource = vi.fn()
-  mockHls.prototype.attachMedia = vi.fn()
-  mockHls.prototype.destroy = vi.fn()
-  mockHls.prototype.on = vi.fn()
-  ;(mockHls as { isSupported?: () => boolean }).isSupported = vi.fn(() => true)
-  ;(mockHls as { Events?: Record<string, string> }).Events = {
-    ERROR: 'hlsError',
-    MANIFEST_PARSED: 'hlsManifestParsed',
-  }
-  return { default: mockHls }
-})
+// Mock the SimpleCameraCard
+vi.mock('./SimpleCameraCard', () => ({
+  SimpleCameraCard: ({ entityId }: { entityId: string }) => (
+    <div data-testid="simple-camera-card" data-entity-id={entityId}>
+      Simple Camera Card Mock
+    </div>
+  ),
+}))
 
 describe('CameraCard', () => {
   const mockEntity = {
@@ -36,31 +30,30 @@ describe('CameraCard', () => {
     state: 'idle',
     attributes: {
       friendly_name: 'Front Door Camera',
-      entity_picture: '/api/camera_proxy/camera.front_door',
-      supported_features: 2, // SUPPORT_STREAM
+      supported_features: 2, // Stream support
     },
     last_changed: '2024-01-01T00:00:00Z',
     last_updated: '2024-01-01T00:00:00Z',
     context: {
-      id: 'test-context-id',
+      id: '123',
       parent_id: null,
       user_id: null,
     },
   }
 
+  const mockStreamEntity = {
+    ...mockEntity,
+    attributes: {
+      ...mockEntity.attributes,
+      frontend_stream_type: 'hls',
+    },
+  }
+
   const mockHass = {
-    connection: {
-      subscribeEvents: vi.fn(),
+    states: {
+      'camera.front_door': mockEntity,
     },
-    callService: vi.fn(),
-    states: {},
-    user: {
-      name: 'Test User',
-      id: 'test-user',
-      is_admin: true,
-    },
-    themes: {},
-    language: 'en',
+    services: {},
     config: {
       latitude: 0,
       longitude: 0,
@@ -68,6 +61,7 @@ describe('CameraCard', () => {
       unit_system: {
         length: 'km',
         mass: 'kg',
+        pressure: 'Pa',
         temperature: 'C',
         volume: 'L',
       },
@@ -98,12 +92,11 @@ describe('CameraCard', () => {
     vi.mocked(useDashboardStore).mockReturnValue({ mode: 'view' })
   })
 
-  it('renders camera with snapshot', () => {
+  it('renders camera with Simple Camera Card', () => {
     render(<CameraCard {...defaultProps} />)
 
-    expect(screen.getByText('Front Door Camera')).toBeInTheDocument()
-    const img = screen.getByAltText('Front Door Camera')
-    expect(img).toHaveAttribute('src', '/api/camera_proxy/camera.front_door')
+    const simpleCard = screen.getByTestId('simple-camera-card')
+    expect(simpleCard).toBeInTheDocument()
   })
 
   it('shows loading skeleton while entity is loading', () => {
@@ -120,7 +113,7 @@ describe('CameraCard', () => {
     expect(document.querySelector('[data-inline-skeleton]')).toBeInTheDocument()
   })
 
-  it('shows error when entity is not found', () => {
+  it('shows skeleton when entity is being loaded', () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: undefined,
       isConnected: true,
@@ -130,12 +123,11 @@ describe('CameraCard', () => {
 
     render(<CameraCard {...defaultProps} />)
 
-    // ErrorDisplay is rendered - in this case it's a skeleton
-    // When entity is not found while connected, we show skeleton
+    // SkeletonCard is rendered for undefined entity when connected
     expect(document.querySelector('[data-inline-skeleton]')).toBeInTheDocument()
   })
 
-  it('shows disconnected state when not connected', () => {
+  it('shows error when disconnected', () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: undefined,
       isConnected: false,
@@ -160,32 +152,14 @@ describe('CameraCard', () => {
 
     render(<CameraCard {...defaultProps} />)
 
-    expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+    // The card is rendered but with unavailable state styling
+    const card = document.querySelector('.grid-card')
+    expect(card).toHaveStyle({ borderStyle: 'dotted' })
   })
 
-  it('shows play button for stream-capable cameras', () => {
-    render(<CameraCard {...defaultProps} />)
-
-    const playButton = screen.getByRole('button')
-    expect(playButton).toBeInTheDocument()
-    expect(playButton).not.toBeDisabled()
-  })
-
-  it('does not show play button for small size cards', () => {
-    render(<CameraCard {...defaultProps} size="small" />)
-
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
-  })
-
-  it('does not show play button for cameras without stream support', () => {
+  it('shows advanced camera card for stream-capable cameras', () => {
     vi.mocked(useEntity).mockReturnValue({
-      entity: {
-        ...mockEntity,
-        attributes: {
-          ...mockEntity.attributes,
-          supported_features: 0, // No stream support
-        },
-      },
+      entity: mockStreamEntity,
       isConnected: true,
       isStale: false,
       isLoading: false,
@@ -193,78 +167,76 @@ describe('CameraCard', () => {
 
     render(<CameraCard {...defaultProps} />)
 
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    const advancedCard = screen.getByTestId('simple-camera-card')
+    expect(advancedCard).toBeInTheDocument()
   })
 
-  it('starts stream when play button is clicked', async () => {
-    render(<CameraCard {...defaultProps} />)
-
-    const playButton = screen.getByRole('button')
-    fireEvent.click(playButton)
-
-    // Wait for stream to start
-    await waitFor(() => {
-      // Check that video element is displayed
-      const video = document.querySelector('video')
-      expect(video).toBeInTheDocument()
-      expect(video).toHaveStyle({ display: 'block' })
+  it('renders advanced camera card for all sizes', () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: mockStreamEntity,
+      isConnected: true,
+      isStale: false,
+      isLoading: false,
     })
+
+    const { rerender } = render(<CameraCard {...defaultProps} size="small" />)
+    expect(screen.getByTestId('simple-camera-card')).toBeInTheDocument()
+
+    rerender(<CameraCard {...defaultProps} size="medium" />)
+    expect(screen.getByTestId('simple-camera-card')).toBeInTheDocument()
+
+    rerender(<CameraCard {...defaultProps} size="large" />)
+    expect(screen.getByTestId('simple-camera-card')).toBeInTheDocument()
   })
 
-  it('shows error when stream fails to load', async () => {
-    // Mock HLS.js to simulate an error
-    const Hls = (await import('hls.js')).default
-    const mockHlsInstance = {
-      loadSource: vi.fn(),
-      attachMedia: vi.fn(),
-      destroy: vi.fn(),
-      on: vi.fn((event, callback) => {
-        if (event === 'hlsError') {
-          // Simulate error immediately
-          setTimeout(() => callback({}, { fatal: true }), 0)
-        }
-      }),
-    }
-    vi.mocked(Hls).mockImplementation(() => mockHlsInstance as unknown as InstanceType<typeof Hls>)
+  it('passes correct config to advanced camera card', () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: mockStreamEntity,
+      isConnected: true,
+      isStale: false,
+      isLoading: false,
+    })
 
     render(<CameraCard {...defaultProps} />)
 
-    const playButton = screen.getByRole('button')
-    fireEvent.click(playButton)
-
-    await waitFor(() => {
-      expect(screen.getByText('Stream playback error')).toBeInTheDocument()
-    })
+    const advancedCard = screen.getByTestId('simple-camera-card')
+    expect(advancedCard).toHaveAttribute('data-entity-id', 'camera.front_door')
   })
 
-  it('hides play button in edit mode', () => {
+  it('renders in edit mode', () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: mockStreamEntity,
+      isConnected: true,
+      isStale: false,
+      isLoading: false,
+    })
     vi.mocked(useDashboardStore).mockReturnValue({ mode: 'edit' })
 
     render(<CameraCard {...defaultProps} />)
 
-    // In edit mode, play button should not be shown, but delete button might be
-    const playButton = screen.queryByRole('button', { name: /play|pause/i })
-    expect(playButton).not.toBeInTheDocument()
+    // Advanced camera card is still rendered in edit mode
+    expect(screen.getByTestId('simple-camera-card')).toBeInTheDocument()
   })
 
-  it('handles image load error gracefully', () => {
+  it('renders advanced camera card wrapper', () => {
     render(<CameraCard {...defaultProps} />)
 
-    const img = screen.getByAltText('Front Door Camera')
-    fireEvent.error(img)
-
-    expect(img).toHaveStyle({ display: 'none' })
+    // Verify the advanced camera card is rendered
+    const advancedCard = screen.getByTestId('simple-camera-card')
+    expect(advancedCard).toBeInTheDocument()
   })
 
-  it('uses entity picture URL when available', () => {
-    vi.mocked(useEntity).mockReturnValue({
-      entity: {
-        ...mockEntity,
-        attributes: {
-          ...mockEntity.attributes,
-          entity_picture: '/local/camera_snapshot.jpg',
-        },
+  it('handles entity with custom attributes', () => {
+    const entityWithPicture = {
+      ...mockEntity,
+      attributes: {
+        ...mockEntity.attributes,
+        entity_picture: '/local/custom-camera.jpg',
       },
+    }
+
+    vi.mocked(useEntity).mockReturnValue({
+      entity: entityWithPicture,
       isConnected: true,
       isStale: false,
       isLoading: false,
@@ -272,8 +244,9 @@ describe('CameraCard', () => {
 
     render(<CameraCard {...defaultProps} />)
 
-    const img = screen.getByAltText('Front Door Camera')
-    expect(img).toHaveAttribute('src', '/local/camera_snapshot.jpg')
+    // The advanced camera card handles all entity attributes
+    const advancedCard = screen.getByTestId('simple-camera-card')
+    expect(advancedCard).toBeInTheDocument()
   })
 
   it('shows stale indicator when entity data is stale', () => {
@@ -284,27 +257,35 @@ describe('CameraCard', () => {
       isLoading: false,
     })
 
-    const { container } = render(<CameraCard {...defaultProps} />)
+    render(<CameraCard {...defaultProps} />)
 
-    expect(container.querySelector('.camera-card')).toHaveAttribute(
-      'title',
-      'Entity data may be outdated'
-    )
+    // Check that the card has stale styling
+    const card = document.querySelector('.grid-card')
+    expect(card).toHaveStyle({ borderWidth: '2px' })
   })
 
   it('calls onDelete when delete button is clicked', () => {
+    // Set to edit mode to show delete button
+    vi.mocked(useDashboardStore).mockReturnValue({ mode: 'edit' })
+
     render(<CameraCard {...defaultProps} />)
 
-    // The delete button is part of GridCard and is tested there
-    // This test ensures the prop is passed correctly
-    expect(defaultProps.onDelete).toBeDefined()
+    const deleteButton = screen.getByLabelText('Delete entity')
+    fireEvent.click(deleteButton)
+
+    expect(defaultProps.onDelete).toHaveBeenCalled()
   })
 
   it('calls onSelect when selection changes', () => {
-    render(<CameraCard {...defaultProps} />)
+    const onSelect = vi.fn()
+    // Set to edit mode to enable selection
+    vi.mocked(useDashboardStore).mockReturnValue({ mode: 'edit' })
 
-    // The selection is part of GridCard and is tested there
-    // This test ensures the prop is passed correctly
-    expect(defaultProps.onSelect).toBeDefined()
+    render(<CameraCard {...defaultProps} onSelect={onSelect} />)
+
+    const card = document.querySelector('.grid-card')
+    fireEvent.click(card!)
+
+    expect(onSelect).toHaveBeenCalledWith(true)
   })
 })

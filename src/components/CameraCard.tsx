@@ -1,11 +1,8 @@
-import { Flex, Text } from '@radix-ui/themes'
-import { CameraIcon, PlayIcon, PauseIcon } from '@radix-ui/react-icons'
-import { useEntity, useRemoteHass, useHassUrl } from '~/hooks'
-import { memo, useState, useCallback, useRef, useEffect } from 'react'
+import { useEntity } from '~/hooks'
+import { memo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import { useDashboardStore } from '~/store'
-import type Hls from 'hls.js'
+import { SimpleCameraCard } from './SimpleCameraCard'
 
 interface CameraCardProps {
   entityId: string
@@ -15,19 +12,6 @@ interface CameraCardProps {
   onSelect?: (selected: boolean) => void
 }
 
-interface CameraAttributes {
-  friendly_name?: string
-  entity_picture?: string
-  access_token?: string
-  frontend_stream_type?: string
-  supported_features?: number
-  stream_source?: string
-  stream_url?: string
-}
-
-// Camera supported features bit flags from Home Assistant
-const SUPPORT_STREAM = 2
-
 function CameraCardComponent({
   entityId,
   size = 'medium',
@@ -36,223 +20,6 @@ function CameraCardComponent({
   onSelect,
 }: CameraCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-  const { mode } = useDashboardStore()
-  const isEditMode = mode === 'edit'
-  const hass = useRemoteHass()
-  const { toAbsoluteUrl } = useHassUrl()
-
-  // Stream state
-  const [isStreamLoading, setIsStreamLoading] = useState(false)
-  const [streamError, setStreamError] = useState<string | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [streamUrl, setStreamUrl] = useState<string | null>(null)
-
-  // Refs for video element and HLS instance
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const hlsRef = useRef<Hls | null>(null)
-
-  const cameraAttributes = entity?.attributes as CameraAttributes | undefined
-  const supportsStream = (cameraAttributes?.supported_features ?? 0) & SUPPORT_STREAM
-
-  // Debug logging
-  useEffect(() => {
-    if (entity) {
-      console.log(`Camera ${entityId}:`, {
-        state: entity.state,
-        supported_features: cameraAttributes?.supported_features,
-        supportsStream,
-        frontend_stream_type: cameraAttributes?.frontend_stream_type,
-        entity_picture: cameraAttributes?.entity_picture,
-        stream_source: cameraAttributes?.stream_source,
-        stream_url: cameraAttributes?.stream_url,
-        hasStreamSource: !!cameraAttributes?.stream_source,
-      })
-    }
-  }, [entity, entityId, cameraAttributes, supportsStream])
-
-  // Get camera snapshot URL
-  const getCameraSnapshotUrl = useCallback(() => {
-    if (!hass || !entity) return null
-
-    // Use entity_picture if available
-    if (cameraAttributes?.entity_picture) {
-      return toAbsoluteUrl(cameraAttributes.entity_picture)
-    }
-
-    // Otherwise use the standard camera proxy endpoint
-    // Home Assistant will handle authentication automatically in custom panel mode
-    return toAbsoluteUrl(`/api/camera_proxy/${entityId}`)
-  }, [hass, entity, entityId, cameraAttributes, toAbsoluteUrl])
-
-  // Get camera stream URL
-  const getCameraStreamUrl = useCallback(async () => {
-    if (!hass || !entity || !supportsStream) return null
-
-    try {
-      setIsStreamLoading(true)
-      setStreamError(null)
-
-      // Try to get stream URL from camera attributes first
-      // Some cameras provide a stream URL in their attributes
-      const streamAttribute = (entity.attributes as any).stream_url
-      if (streamAttribute) {
-        console.log(`Using stream URL from attributes for ${entityId}:`, streamAttribute)
-        return toAbsoluteUrl(streamAttribute)
-      }
-
-      // Try the standard camera_proxy_stream endpoint
-      // This should work for most cameras with stream support
-      const streamUrl = toAbsoluteUrl(`/api/camera_proxy_stream/${entityId}/master.m3u8`)
-
-      console.log(`Requesting camera stream for ${entityId}:`, streamUrl)
-
-      // Test if the stream endpoint exists by making a HEAD request
-      try {
-        const response = await fetch(streamUrl, {
-          method: 'HEAD',
-          credentials: 'same-origin',
-        })
-
-        if (!response.ok) {
-          console.error(`Stream endpoint returned ${response.status} for ${entityId}`)
-          throw new Error(`Stream not available (${response.status})`)
-        }
-      } catch (fetchError) {
-        console.error('Failed to verify stream endpoint:', fetchError)
-        // Continue anyway - some browsers block HEAD requests
-      }
-
-      return streamUrl
-    } catch (error) {
-      console.error('Failed to get camera stream:', error)
-      setStreamError('Failed to load camera stream')
-      return null
-    } finally {
-      setIsStreamLoading(false)
-    }
-  }, [hass, entity, entityId, supportsStream, toAbsoluteUrl])
-
-  // Update snapshot URL when entity changes
-  useEffect(() => {
-    if (entity && isConnected) {
-      const url = getCameraSnapshotUrl()
-      setImageUrl(url)
-    }
-  }, [entity, isConnected, getCameraSnapshotUrl])
-
-  // Initialize/cleanup HLS stream
-  useEffect(() => {
-    const initializeStream = async () => {
-      if (!streamUrl || !videoRef.current || size === 'small') return
-
-      // Dynamically import HLS.js
-      try {
-        const Hls = (await import('hls.js')).default
-
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-          })
-
-          hlsRef.current = hls
-
-          hls.on(Hls.Events.ERROR, (_event: unknown, data: any) => {
-            console.error('HLS error:', data)
-            if (data.fatal) {
-              switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                  if (data.response?.code === 404) {
-                    setStreamError(
-                      'Camera stream not available - check if stream integration is enabled'
-                    )
-                  } else {
-                    setStreamError('Network error loading stream')
-                  }
-                  break
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                  setStreamError('Media format error')
-                  break
-                default:
-                  setStreamError('Stream playback error')
-                  break
-              }
-              setIsPlaying(false)
-            }
-          })
-
-          hls.loadSource(streamUrl)
-          hls.attachMedia(videoRef.current)
-
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            if (isPlaying && videoRef.current) {
-              videoRef.current.play().catch((err) => {
-                console.error('Failed to play video:', err)
-                setStreamError('Failed to play stream')
-                setIsPlaying(false)
-              })
-            }
-          })
-        } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-          // Native HLS support (Safari)
-          videoRef.current.src = streamUrl
-          if (isPlaying) {
-            videoRef.current.play().catch((err) => {
-              console.error('Failed to play video:', err)
-              setStreamError('Failed to play stream')
-              setIsPlaying(false)
-            })
-          }
-        } else {
-          setStreamError('HLS not supported')
-        }
-      } catch (error) {
-        console.error('Failed to load HLS.js:', error)
-        setStreamError('Failed to load video player')
-      }
-    }
-
-    initializeStream()
-
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy()
-        hlsRef.current = null
-      }
-    }
-  }, [streamUrl, isPlaying, size])
-
-  // Handle play/pause toggle
-  const handlePlayPause = useCallback(async () => {
-    if (isStreamLoading) return
-
-    if (!isPlaying) {
-      // Start playing
-      if (!streamUrl) {
-        const url = await getCameraStreamUrl()
-        if (url) {
-          setStreamUrl(url)
-          setIsPlaying(true)
-        }
-      } else {
-        setIsPlaying(true)
-        if (videoRef.current) {
-          videoRef.current.play().catch((err) => {
-            console.error('Failed to play video:', err)
-            setStreamError('Failed to play stream')
-            setIsPlaying(false)
-          })
-        }
-      }
-    } else {
-      // Pause
-      setIsPlaying(false)
-      if (videoRef.current) {
-        videoRef.current.pause()
-      }
-    }
-  }, [isPlaying, streamUrl, getCameraStreamUrl, isStreamLoading])
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -272,165 +39,27 @@ function CameraCardComponent({
   }
 
   const isUnavailable = entity.state === 'unavailable'
-  const friendlyName = cameraAttributes?.friendly_name || entity.entity_id
-
-  // For small cards, clicking should show the snapshot in a larger view (future enhancement)
-  const handleClick = size === 'small' ? undefined : undefined
 
   return (
     <GridCard
       size={size}
-      isLoading={isStreamLoading}
-      isError={!!streamError}
+      isLoading={false}
+      isError={false}
       isStale={isStale}
       isSelected={isSelected}
       isOn={false}
       isUnavailable={isUnavailable}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
-      onClick={handleClick}
-      title={streamError || (isStale ? 'Entity data may be outdated' : undefined)}
+      title={isStale ? 'Entity data may be outdated' : undefined}
       className="camera-card"
       style={{
-        borderWidth: isSelected || streamError || isStale ? '2px' : '1px',
+        borderWidth: isSelected || isStale ? '2px' : '1px',
         overflow: 'hidden',
         padding: 0,
       }}
     >
-      <Flex
-        direction="column"
-        align="center"
-        justify="center"
-        style={{ width: '100%', height: '100%', position: 'relative' }}
-      >
-        {/* Show snapshot for small size or when not playing */}
-        {(size === 'small' || !isPlaying) && imageUrl && (
-          <img
-            src={imageUrl}
-            alt={friendlyName}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-            }}
-            onError={(e) => {
-              console.error('Failed to load camera snapshot')
-              e.currentTarget.style.display = 'none'
-            }}
-          />
-        )}
-
-        {/* Video element for live stream (medium/large sizes) */}
-        {size !== 'small' && (
-          <video
-            ref={videoRef}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              display: isPlaying ? 'block' : 'none',
-            }}
-            muted
-            playsInline
-          />
-        )}
-
-        {/* Overlay content */}
-        <Flex
-          direction="column"
-          align="center"
-          justify="between"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            padding: 'var(--space-3)',
-            background:
-              'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 50%, rgba(0,0,0,0.3) 100%)',
-          }}
-        >
-          {/* Camera icon for error/unavailable states */}
-          {(isUnavailable || (!imageUrl && !isPlaying)) && (
-            <Flex align="center" justify="center" style={{ flex: 1 }}>
-              <CameraIcon
-                style={{
-                  width: 40,
-                  height: 40,
-                  color: 'var(--gray-8)',
-                  opacity: 0.5,
-                }}
-              />
-            </Flex>
-          )}
-
-          {/* Bottom controls */}
-          <Flex direction="column" align="center" gap="2" style={{ width: '100%' }}>
-            {/* Play/Pause button for medium/large sizes */}
-            {!isEditMode && size !== 'small' && supportsStream && (
-              <button
-                onClick={handlePlayPause}
-                disabled={isStreamLoading}
-                style={{
-                  background: 'rgba(0, 0, 0, 0.5)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: 44,
-                  height: 44,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: isStreamLoading ? 'not-allowed' : 'pointer',
-                  opacity: isStreamLoading ? 0.5 : 1,
-                  transition: 'opacity 0.2s ease',
-                }}
-                title={isPlaying ? 'Pause stream' : 'Play live stream'}
-              >
-                {isPlaying ? (
-                  <PauseIcon style={{ width: 20, height: 20, color: 'white' }} />
-                ) : (
-                  <PlayIcon style={{ width: 20, height: 20, color: 'white' }} />
-                )}
-              </button>
-            )}
-
-            {/* Camera name */}
-            <Text
-              size="2"
-              weight="medium"
-              style={{
-                color: 'white',
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
-              }}
-            >
-              {friendlyName}
-            </Text>
-
-            {/* Status text */}
-            {(streamError || isUnavailable || (!supportsStream && size !== 'small')) && (
-              <Text
-                size="1"
-                weight="medium"
-                style={{
-                  color: streamError || isUnavailable ? 'var(--red-9)' : 'var(--gray-9)',
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                }}
-              >
-                {streamError || (isUnavailable ? 'UNAVAILABLE' : 'NO STREAM SUPPORT')}
-              </Text>
-            )}
-          </Flex>
-        </Flex>
-      </Flex>
+      <SimpleCameraCard entity={entity} entityId={entityId} />
     </GridCard>
   )
 }
