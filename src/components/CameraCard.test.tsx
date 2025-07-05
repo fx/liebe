@@ -22,8 +22,8 @@ vi.mock('hls.js', () => {
   mockHls.prototype.attachMedia = vi.fn()
   mockHls.prototype.destroy = vi.fn()
   mockHls.prototype.on = vi.fn()
-  mockHls.isSupported = vi.fn(() => true)
-  mockHls.Events = {
+  ;(mockHls as { isSupported?: () => boolean }).isSupported = vi.fn(() => true)
+  ;(mockHls as { Events?: Record<string, string> }).Events = {
     ERROR: 'hlsError',
     MANIFEST_PARSED: 'hlsManifestParsed',
   }
@@ -225,7 +225,7 @@ describe('CameraCard', () => {
         }
       }),
     }
-    vi.mocked(Hls).mockImplementation(() => mockHlsInstance as any)
+    vi.mocked(Hls).mockImplementation(() => mockHlsInstance as unknown as InstanceType<typeof Hls>)
 
     render(<CameraCard {...defaultProps} />)
 
