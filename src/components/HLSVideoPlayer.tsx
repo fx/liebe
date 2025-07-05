@@ -74,8 +74,18 @@ export function HLSVideoPlayer({
         enableWorker: true,
         startLevel: -1, // Auto quality selection
         debug: false,
-        lowLatencyMode: true,
+        lowLatencyMode: false, // Disable aggressive playlist polling
         backBufferLength: 90,
+        // Control playlist loading behavior
+        manifestLoadingTimeOut: 10000,
+        manifestLoadingMaxRetry: 3,
+        manifestLoadingRetryDelay: 1000,
+        levelLoadingTimeOut: 10000,
+        levelLoadingMaxRetry: 4,
+        levelLoadingRetryDelay: 1000,
+        // Control live stream behavior - reload playlist after 3 segments
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 10,
       })
 
       hlsRef.current = hls
