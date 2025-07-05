@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { useRemoteHass } from '~/hooks/useRemoteHass'
 
@@ -12,6 +12,16 @@ interface RemoteHomeAssistantProviderProps {
  */
 export function RemoteHomeAssistantProvider({ children }: RemoteHomeAssistantProviderProps) {
   const hass = useRemoteHass()
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // During SSR, always render children to avoid hydration mismatch
+  if (!isMounted) {
+    return <HomeAssistantProvider hass={null}>{children}</HomeAssistantProvider>
+  }
 
   if (!hass) {
     // Show loading state while waiting for hass object

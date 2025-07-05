@@ -7,6 +7,8 @@ class LiebePanel extends HTMLElement {
     this._hass = null
     this.iframe = null
     this.stateChangeUnsubscribe = null
+    this.messageHandlers = new Map()
+    this.messageId = 0
     
     // Extract initial route from current URL
     const pathParts = window.location.pathname.split('/')
@@ -113,9 +115,58 @@ class LiebePanel extends HTMLElement {
     }
   }
 
+  /**
+   * Creates a promise-based WebSocket message handler
+   * @param {number} id - The message ID
+   * @returns {Promise} A promise that resolves with the response
+   */
+  createMessagePromise(id) {
+    return new Promise((resolve, reject) => {
+      // Set a timeout to prevent hanging promises
+      const timeout = setTimeout(() => {
+        this.messageHandlers.delete(id)
+        reject(new Error('WebSocket message timeout'))
+      }, 30000) // 30 second timeout
+
+      this.messageHandlers.set(id, {
+        resolve: (response) => {
+          clearTimeout(timeout)
+          this.messageHandlers.delete(id)
+          resolve(response)
+        },
+        reject: (error) => {
+          clearTimeout(timeout)
+          this.messageHandlers.delete(id)
+          reject(error)
+        }
+      })
+    })
+  }
+
   handleMessage(event) {
-    // Only accept messages from our iframe
-    if (event.source !== this.iframe.contentWindow) return
+    // Ignore messages without a type (not from our app)
+    if (!event.data || !event.data.type) {
+      return
+    }
+    
+    // Get the expected origin from the iframe
+    let expectedOrigin = null
+    try {
+      expectedOrigin = new URL(this.iframe.src).origin
+    } catch (e) {
+      console.error('[Panel] Failed to parse iframe URL:', e)
+    }
+    
+    // Check if the message is from our iframe
+    // In some cases, event.source might not match exactly due to cross-origin restrictions
+    // So we also check the origin
+    const isFromOurIframe = event.source === this.iframe.contentWindow || 
+                           (expectedOrigin && event.origin === expectedOrigin)
+    
+    if (!isFromOurIframe) {
+      // Silently ignore messages from non-iframe sources
+      return
+    }
 
     if (event.data.type === 'call-service') {
       const { domain, service, serviceData } = event.data
@@ -133,34 +184,56 @@ class LiebePanel extends HTMLElement {
           )
         })
     } else if (event.data.type === 'websocket-message') {
-      // Handle WebSocket messages
+      // Handle WebSocket messages with robust error handling
       const { message, id } = event.data
-      console.log('[Panel] Received WebSocket message:', message)
       
-      if (this._hass && this._hass.connection && this._hass.connection.sendMessagePromise) {
-        console.log('[Panel] Forwarding to Home Assistant WebSocket')
-        this._hass.connection.sendMessagePromise(message)
-          .then((response) => {
-            console.log('[Panel] WebSocket response:', response)
-            event.source.postMessage(
-              { type: 'websocket-response', success: true, response, id },
-              '*'
-            )
-          })
-          .catch((error) => {
-            console.error('[Panel] WebSocket error:', error)
-            event.source.postMessage(
-              { type: 'websocket-response', success: false, error: error.message, id },
-              '*'
-            )
-          })
-      } else {
-        console.warn('[Panel] WebSocket not available - hass:', !!this._hass, 'connection:', !!this._hass?.connection, 'sendMessagePromise:', !!this._hass?.connection?.sendMessagePromise)
+      // Check if we have all required components
+      if (!this._hass) {
         event.source.postMessage(
-          { type: 'websocket-response', success: false, error: 'WebSocket not available', id },
+          { type: 'websocket-response', success: false, error: 'No hass object available', id },
           '*'
         )
+        return
       }
+
+      if (!this._hass.connection) {
+        event.source.postMessage(
+          { type: 'websocket-response', success: false, error: 'No connection available', id },
+          '*'
+        )
+        return
+      }
+
+      if (!this._hass.connection.sendMessagePromise) {
+        event.source.postMessage(
+          { type: 'websocket-response', success: false, error: 'No sendMessagePromise method available', id },
+          '*'
+        )
+        return
+      }
+      
+      // Send the message and handle the response
+      this._hass.connection.sendMessagePromise(message)
+        .then((response) => {
+          event.source.postMessage(
+            { type: 'websocket-response', success: true, response, id },
+            '*'
+          )
+        })
+        .catch((error) => {
+          // Send detailed error information
+          const errorMessage = error?.message || error?.toString() || 'Unknown error'
+          const errorDetails = {
+            message: errorMessage,
+            code: error?.code,
+            type: error?.type,
+            stack: error?.stack
+          }
+          event.source.postMessage(
+            { type: 'websocket-response', success: false, error: errorMessage, errorDetails, id },
+            '*'
+          )
+        })
     } else if (event.data.type === 'get-hass') {
       // Iframe app is requesting the hass object
       this.sendHassToIframe()
@@ -234,6 +307,12 @@ class LiebePanel extends HTMLElement {
       this.stateChangeUnsubscribe()
       this.stateChangeUnsubscribe = null
     }
+
+    // Clean up any pending message handlers
+    for (const [id, handler] of this.messageHandlers) {
+      handler.reject(new Error('Panel disconnected'))
+    }
+    this.messageHandlers.clear()
   }
 }
 

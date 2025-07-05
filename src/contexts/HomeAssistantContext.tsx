@@ -22,6 +22,7 @@ export interface HomeAssistant {
   ) => Promise<void>
   connection: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => () => void
+    sendMessagePromise?: (message: Record<string, unknown>) => Promise<unknown>
   }
   user: {
     name: string

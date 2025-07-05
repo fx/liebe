@@ -27,7 +27,7 @@ const hlsUrlMap = new WeakMap<Hls, string>()
 export function HLSVideoPlayer({
   url,
   poster,
-  autoPlay = true,
+  autoPlay = false,
   muted = true,
   controls = true,
   onError,
@@ -36,12 +36,13 @@ export function HLSVideoPlayer({
 }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
-  const [isPlaying, setIsPlaying] = useState(autoPlay)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(muted)
   const [volume, setVolume] = useState(muted ? 0 : 1)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showControls, setShowControls] = useState(false)
+  const [hasStarted, setHasStarted] = useState(false)
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize HLS
@@ -99,12 +100,7 @@ export function HLSVideoPlayer({
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false)
-        if (autoPlay) {
-          video.play().catch((e) => {
-            console.error('Auto-play failed:', e)
-            setIsPlaying(false)
-          })
-        }
+        // Don't auto-play, wait for user interaction
       })
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -148,6 +144,62 @@ export function HLSVideoPlayer({
     }
   }, [url, autoPlay, onError, onStreamExpired])
 
+  // Smart play method with auto-mute fallback
+  const playVideo = useCallback(async () => {
+    const video = videoRef.current
+    if (!video) return
+
+    try {
+      await video.play()
+      setHasStarted(true)
+    } catch (err: unknown) {
+      const error = err as Error
+      if (error.name === 'NotAllowedError' && !video.muted) {
+        // Try playing muted if unmuted playback is blocked
+        console.log('Playback blocked, trying muted playback')
+        video.muted = true
+        setIsMuted(true)
+        try {
+          await video.play()
+          setHasStarted(true)
+        } catch (e) {
+          console.error('Muted playback also failed:', e)
+          setError('Failed to play video')
+        }
+      } else {
+        console.error('Play failed:', error)
+        setError('Failed to play video')
+      }
+    }
+  }, [])
+
+  // Handle visibility changes to pause/resume video
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const video = videoRef.current
+      if (!video || !hasStarted) return
+
+      if (document.hidden) {
+        // Save current playing state and pause
+        if (!video.paused) {
+          video.pause()
+          console.log('[HLSVideoPlayer] Paused due to tab becoming hidden')
+        }
+      } else {
+        // Resume if was playing before
+        if (isPlaying && video.paused) {
+          playVideo()
+          console.log('[HLSVideoPlayer] Resuming playback after tab became visible')
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [hasStarted, isPlaying, playVideo])
+
   // Handle play/pause
   const togglePlay = useCallback(() => {
     const video = videoRef.current
@@ -156,12 +208,9 @@ export function HLSVideoPlayer({
     if (isPlaying) {
       video.pause()
     } else {
-      video.play().catch((e) => {
-        console.error('Play failed:', e)
-        setError('Failed to play video')
-      })
+      playVideo()
     }
-  }, [isPlaying])
+  }, [isPlaying, playVideo])
 
   // Handle mute/unmute
   const toggleMute = useCallback(() => {
@@ -248,8 +297,8 @@ export function HLSVideoPlayer({
       <video
         ref={videoRef}
         poster={poster}
-        muted={muted}
-        autoPlay={autoPlay}
+        muted={isMuted}
+        autoPlay={false}
         playsInline
         style={{
           width: '100%',
@@ -277,6 +326,37 @@ export function HLSVideoPlayer({
           }}
         >
           <div style={{ color: 'white' }}>Loading stream...</div>
+        </Flex>
+      )}
+
+      {/* Play button overlay when not started */}
+      {!isLoading && !hasStarted && !isPlaying && (
+        <Flex
+          align="center"
+          justify="center"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            cursor: 'pointer',
+          }}
+          onClick={playVideo}
+        >
+          <IconButton
+            size="4"
+            variant="soft"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              color: 'var(--gray-12)',
+              width: '60px',
+              height: '60px',
+            }}
+          >
+            <PlayIcon style={{ width: '30px', height: '30px' }} />
+          </IconButton>
         </Flex>
       )}
 

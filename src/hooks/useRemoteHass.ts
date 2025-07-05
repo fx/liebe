@@ -12,8 +12,16 @@ export function useRemoteHass(): HomeAssistant | null {
   useEffect(() => {
     // Check if we're running inside an iframe (remote mode)
     const isInIframe = window.parent !== window
+    console.log('[useRemoteHass] Iframe detection:', {
+      isInIframe,
+      windowParent: window.parent,
+      window: window,
+      isSame: window.parent === window,
+      location: window.location.href,
+    })
 
     if (!isInIframe) {
+      console.log('[useRemoteHass] Not in iframe mode, skipping remote hass setup')
       return
     }
 
@@ -87,6 +95,13 @@ export function useRemoteHass(): HomeAssistant | null {
                 const id = Math.random().toString(36).substr(2, 9)
 
                 const responseHandler = (responseEvent: MessageEvent) => {
+                  console.log('[useRemoteHass] Received message event:', {
+                    type: responseEvent.data?.type,
+                    id: responseEvent.data?.id,
+                    expectedId: id,
+                    origin: responseEvent.origin,
+                  })
+
                   if (
                     responseEvent.data.type === 'websocket-response' &&
                     responseEvent.data.id === id
@@ -94,12 +109,18 @@ export function useRemoteHass(): HomeAssistant | null {
                     window.removeEventListener('message', responseHandler)
                     if (responseEvent.data.success) {
                       console.log(
-                        '[useRemoteHass] WebSocket response received:',
+                        '[useRemoteHass] WebSocket response SUCCESS:',
                         responseEvent.data.response
                       )
                       resolve(responseEvent.data.response)
                     } else {
                       console.error('[useRemoteHass] WebSocket error:', responseEvent.data.error)
+                      if (responseEvent.data.errorDetails) {
+                        console.error(
+                          '[useRemoteHass] Error details:',
+                          responseEvent.data.errorDetails
+                        )
+                      }
                       reject(new Error(responseEvent.data.error || 'WebSocket call failed'))
                     }
                   }
@@ -107,22 +128,44 @@ export function useRemoteHass(): HomeAssistant | null {
 
                 window.addEventListener('message', responseHandler)
 
-                console.log('[useRemoteHass] Posting WebSocket message to parent')
-                window.parent.postMessage(
-                  {
-                    type: 'websocket-message',
-                    message,
-                    id,
-                  },
-                  '*'
-                )
+                console.log('[useRemoteHass] Posting WebSocket message to parent:', {
+                  type: 'websocket-message',
+                  message,
+                  id,
+                  targetOrigin: '*',
+                  isInIframe: window.parent !== window,
+                  parentAvailable: !!window.parent,
+                })
 
-                // Timeout after 10 seconds
+                // Ensure we're in an iframe
+                if (window.parent === window) {
+                  console.error('[useRemoteHass] Not in iframe, cannot send WebSocket message')
+                  reject(new Error('Not in iframe'))
+                  return
+                }
+
+                // Try to send the message
+                try {
+                  window.parent.postMessage(
+                    {
+                      type: 'websocket-message',
+                      message,
+                      id,
+                    },
+                    '*'
+                  )
+                  console.log('[useRemoteHass] WebSocket message SENT successfully')
+                } catch (error) {
+                  console.error('[useRemoteHass] Failed to send WebSocket message:', error)
+                  reject(error)
+                }
+
+                // Timeout after 30 seconds to match panel.js
                 setTimeout(() => {
                   window.removeEventListener('message', responseHandler)
-                  console.error('[useRemoteHass] WebSocket call timeout')
+                  console.error('[useRemoteHass] WebSocket call timeout for message:', message)
                   reject(new Error('WebSocket call timeout'))
-                }, 10000)
+                }, 30000)
               })
             },
           },

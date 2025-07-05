@@ -48,6 +48,18 @@ function RootComponent() {
   // Check if we're running in an iframe (remote mode)
   const isInIframe = typeof window !== 'undefined' && window.parent !== window
 
+  // Debug iframe detection
+  React.useEffect(() => {
+    console.log('[Root] Iframe detection:', {
+      isInIframe,
+      windowParent: window.parent,
+      window: window,
+      isSame: window.parent === window,
+      location: window.location.href,
+      willUseRemoteProvider: isInIframe,
+    })
+  }, [isInIframe])
+
   // Determine the appearance based on theme setting
   const getAppearance = () => {
     if (theme === 'light' || theme === 'dark') {

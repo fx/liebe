@@ -699,6 +699,129 @@ case 'weather':
   return <WeatherCard entityId={entityId} ... />
 ```
 
+## Camera Streaming Requirements
+
+### CRITICAL: WebSocket camera/stream API
+
+**DO NOT use `/api/camera_proxy_stream` for video streaming.** This endpoint bypasses proper authentication and will not work correctly in production.
+
+**MUST use the WebSocket `camera/stream` message** to get authenticated HLS URLs:
+
+```javascript
+// CORRECT approach - uses WebSocket
+const result = await hass.connection.sendMessagePromise({
+  type: 'camera/stream',
+  entity_id: entityId,
+})
+const hlsUrl = result.url
+
+// WRONG approach - DO NOT USE
+const hlsUrl = `/api/camera_proxy_stream/${entityId}/master.m3u8`
+```
+
+The WebSocket approach:
+
+- Provides properly authenticated URLs with tokens
+- Handles stream lifecycle correctly
+- Works with all camera integrations
+- Respects user permissions
+
+### HLS.js Configuration for Home Assistant
+
+When using HLS.js for camera streaming, use these optimized settings to prevent buffering:
+
+```javascript
+const hls = new Hls({
+  debug: false, // Disable in production to reduce log spam
+  liveDurationInfinity: true,
+  liveBackBufferLength: 30,
+  maxBufferLength: 30,
+  maxMaxBufferLength: 600,
+  lowLatencyMode: true,
+  backBufferLength: 90,
+  maxBufferHole: 0.5,
+  maxFragLookUpTolerance: 0.25,
+  nudgeOffset: 0.1,
+  nudgeMaxRetry: 10,
+  startFragPrefetch: true,
+  progressive: true,
+  testBandwidth: false,
+  // XHR setup for CORS
+  xhrSetup: function (xhr) {
+    xhr.withCredentials = false
+  },
+})
+```
+
+### Important HLS Implementation Notes:
+
+- Always destroy existing HLS instances before creating new ones to prevent memory leaks
+- Handle non-fatal buffer stalled errors gracefully (they auto-recover)
+- Set video element to muted for autoplay to work in browsers
+- React StrictMode will cause double mounting in development - ensure proper cleanup in useEffect
+- Use error recovery for network and media errors before giving up
+
+## Camera Streaming with go2rtc
+
+The camera card supports both WebRTC (ultra-low latency) and HLS streaming. WebRTC is preferred when go2rtc is available.
+
+### go2rtc Setup
+
+1. **Install go2rtc** - Starting with Home Assistant 2024.11, go2rtc is built into Docker installations
+2. **Configure cameras** in go2rtc (if needed):
+   ```yaml
+   # go2rtc.yaml
+   streams:
+     camera_name:
+       - rtsp://camera_url
+   ```
+
+### WebRTC vs HLS
+
+- **WebRTC** (default):
+  - Ultra-low latency (< 0.5 seconds)
+  - No transcoding required
+  - Direct UDP streaming
+  - Requires go2rtc
+- **HLS** (fallback):
+  - Higher latency (5-10 seconds)
+  - CPU-intensive transcoding
+  - HTTP-based streaming
+  - Works without go2rtc
+
+### Implementation Details
+
+The SimpleCameraCard automatically:
+
+1. Tries WebRTC first (if go2rtc is available)
+2. Falls back to HLS if WebRTC fails
+3. Provides a toggle to switch between stream types
+4. Uses WebSocket authentication for secure streaming
+
+### WebRTC Player Configuration
+
+The WebRTC player connects to go2rtc via WebSocket:
+
+- Default port: 1984
+- WebSocket URL: `ws://[ha-host]:1984/api/ws?src=[camera_name]`
+- Uses standard WebRTC signaling (offer/answer/ICE candidates)
+
+### Troubleshooting
+
+If WebRTC doesn't work:
+
+1. Ensure go2rtc is installed and running
+2. Check that the camera entity name matches the go2rtc stream name
+3. Verify port 1984 is accessible for WebSocket connections
+4. Check browser console for specific error messages
+
+### go2rtc Benefits
+
+- **Zero CPU usage** - Direct packet repackaging
+- **Multiple codec support** - H264, H265, AAC
+- **Two-way audio** - If camera supports it
+- **Multiple viewers** - No stream limit
+
 ## Important Reminders
 
 1. **Never commit sensitive data** (tokens, passwords, URLs)
@@ -714,3 +837,5 @@ case 'weather':
    - Create all sub-issues with "Epic: #<number>" in description
    - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
 10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
+11. **Camera streaming** - ALWAYS use WebSocket `camera/stream` message, NEVER use direct `/api/camera_proxy_stream` URLs
+12. **go2rtc integration** - Prefer WebRTC for ultra-low latency streaming when go2rtc is available
