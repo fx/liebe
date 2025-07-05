@@ -52,6 +52,19 @@ function CameraCardComponent({
 
   const cameraAttributes = entity?.attributes as CameraAttributes | undefined
   const supportsStream = (cameraAttributes?.supported_features ?? 0) & SUPPORT_STREAM
+  
+  // Debug logging
+  useEffect(() => {
+    if (entity) {
+      console.log(`Camera ${entityId}:`, {
+        state: entity.state,
+        supported_features: cameraAttributes?.supported_features,
+        supportsStream,
+        frontend_stream_type: cameraAttributes?.frontend_stream_type,
+        entity_picture: cameraAttributes?.entity_picture,
+      })
+    }
+  }, [entity, entityId, cameraAttributes, supportsStream])
 
   // Get camera snapshot URL
   const getCameraSnapshotUrl = useCallback(() => {
@@ -75,17 +88,16 @@ function CameraCardComponent({
       setIsStreamLoading(true)
       setStreamError(null)
 
-      // First, we need to create the stream using Home Assistant's service
-      // This tells HA to start converting the RTSP stream to HLS
-      await hass.callService('camera', 'create_stream', {
-        entity_id: entityId,
-      })
-
-      // Wait a moment for the stream to initialize
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Now we can access the HLS stream endpoint
-      return toAbsoluteUrl(`/api/camera_proxy_stream/${entityId}/master.m3u8`)
+      // Home Assistant automatically creates the stream when accessed
+      // The stream integration converts RTSP to HLS on-demand
+      const streamUrl = toAbsoluteUrl(`/api/camera_proxy_stream/${entityId}/master.m3u8`)
+      
+      console.log(`Requesting camera stream for ${entityId}:`, streamUrl)
+      
+      // Add a small delay to ensure the stream is ready
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      
+      return streamUrl
     } catch (error) {
       console.error('Failed to get camera stream:', error)
       setStreamError('Failed to load camera stream')
@@ -120,10 +132,24 @@ function CameraCardComponent({
 
           hlsRef.current = hls
 
-          hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
+          hls.on(Hls.Events.ERROR, (_event: unknown, data: any) => {
+            console.error('HLS error:', data)
             if (data.fatal) {
-              console.error('HLS fatal error:', data)
-              setStreamError('Stream playback error')
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  if (data.response?.code === 404) {
+                    setStreamError('Camera stream not available - check if stream integration is enabled')
+                  } else {
+                    setStreamError('Network error loading stream')
+                  }
+                  break
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  setStreamError('Media format error')
+                  break
+                default:
+                  setStreamError('Stream playback error')
+                  break
+              }
               setIsPlaying(false)
             }
           })
