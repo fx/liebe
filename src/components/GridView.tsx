@@ -13,6 +13,7 @@ import { InputDateTimeCard } from './InputDateTimeCard'
 import { WeatherCard } from './WeatherCard'
 import { FanCard } from './FanCard'
 import { TextCard } from './TextCard'
+import { CameraCard } from './CameraCard'
 import { Separator } from './Separator'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
@@ -153,6 +154,16 @@ function EntityCard({
     case 'input_datetime':
       return (
         <InputDateTimeCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+        />
+      )
+    case 'camera':
+      return (
+        <CameraCard
           entityId={entityId}
           size={size}
           onDelete={onDelete}

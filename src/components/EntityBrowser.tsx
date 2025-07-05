@@ -50,6 +50,7 @@ const getFriendlyDomain = (domain: string): string => {
     input_select: 'Input Select',
     input_datetime: 'Input DateTime',
     weather: 'Weather',
+    camera: 'Camera',
   }
   return domainMap[domain] || domain.charAt(0).toUpperCase() + domain.slice(1)
 }
