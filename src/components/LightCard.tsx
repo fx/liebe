@@ -195,7 +195,7 @@ function LightCardComponent({
         {!isEditMode && isOn && supportsBrightness && (
           <GridCard.Controls>
             <Box style={{ width: '100%' }}>
-              <Flex align="center" gap="2">
+              <Flex align="center" gap="2" style={{ display: 'flex', width: '100%' }}>
                 <Text size="1" color="gray" style={{ minWidth: '35px' }}>
                   {displayBrightness}%
                 </Text>
@@ -209,7 +209,7 @@ function LightCardComponent({
                   max={100}
                   step={1}
                   aria-label="Brightness"
-                  style={{ flex: 1 }}
+                  style={{ flex: '1 1 auto', minWidth: 0 }}
                 >
                   <Slider.Track className="SliderTrack">
                     <Slider.Range className="SliderRange" />

@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
+import '../styles/app.css'
+import '@radix-ui/themes/styles.css'
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -25,3 +27,16 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
 
 // Mock scrollIntoView
 Element.prototype.scrollIntoView = vi.fn()
+
+// Mock pointer capture methods for Radix UI Slider
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = vi.fn()
+}
+
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = vi.fn()
+}
+
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = vi.fn(() => false)
+}
