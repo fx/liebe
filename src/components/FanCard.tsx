@@ -4,7 +4,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import React, { memo, useCallback, useEffect, useRef } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import './FanCard.css'
+import { useDashboardStore } from '~/store'
 
 interface FanCardProps {
   entityId: string
@@ -39,23 +39,11 @@ function FanCardComponent({
 }: FanCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, turnOn, turnOff, callService, clearError } = useServiceCall()
+  const { mode } = useDashboardStore()
+  const isEditMode = mode === 'edit'
 
-  // Only log display state on significant changes (not every render)
+  // Only track display state on significant changes (not every render)
   const prevDisplayRef = useRef({ displayPercentage: 0, selectedButton: '0' })
-
-  // Log entity updates (debounced)
-  useEffect(() => {
-    if (entity) {
-      const timeoutId = setTimeout(() => {
-        console.log('🔥 ENTITY UPDATE:', {
-          entityId: entity.entity_id,
-          state: entity.state,
-          percentage: entity.attributes.percentage,
-        })
-      }, 500)
-      return () => clearTimeout(timeoutId)
-    }
-  }, [entity?.state, entity?.attributes.percentage, entity])
 
   // No separate loading state - use main card loading
 
@@ -65,21 +53,11 @@ function FanCardComponent({
 
       const percentageNum = parseInt(percentage, 10)
 
-      console.log('🔥 FAN CLICK:', {
-        entityId: entity.entity_id,
-        clickedPercentage: percentageNum,
-        currentPercentage: entity.attributes.percentage,
-        currentState: entity.state,
-        isLoading: isLoading,
-      })
-
       if (error) clearError()
 
       if (percentageNum === 0) {
-        console.log('🔥 Calling turnOff for', entity.entity_id)
         await turnOff(entity.entity_id)
       } else {
-        console.log('🔥 Calling set_percentage for', entity.entity_id, 'to', percentageNum)
         await callService({
           domain: 'fan',
           service: 'set_percentage',
@@ -199,13 +177,6 @@ function FanCardComponent({
     prevDisplayRef.current.displayPercentage !== displayPercentage ||
     prevDisplayRef.current.selectedButton !== selectedButton
   ) {
-    console.log('🔥 FAN DISPLAY CHANGE:', {
-      entityId: entity?.entity_id,
-      currentPercentage,
-      displayPercentage,
-      selectedButton,
-      isOn,
-    })
     prevDisplayRef.current = { displayPercentage, selectedButton }
   }
 
@@ -287,7 +258,7 @@ function FanCardComponent({
         </GridCard.Title>
 
         {/* Speed controls when on and supports speed */}
-        {isOn && (supportsSpeed || supportsPresetMode) && (
+        {!isEditMode && isOn && (supportsSpeed || supportsPresetMode) && (
           <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
             {supportsPresetMode &&
             fanAttributes.preset_modes &&

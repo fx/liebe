@@ -4,7 +4,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
-import './ClimateCard.css'
+import { useDashboardStore } from '~/store'
 
 interface ClimateCardProps {
   entityId: string
@@ -90,6 +90,8 @@ function ClimateCardComponent({
 }: ClimateCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, callService, clearError } = useServiceCall()
+  const { mode } = useDashboardStore()
+  const isEditMode = mode === 'edit'
 
   // Drag state for temperature control
   const [isDragging, setIsDragging] = useState<'heat' | 'cool' | null>(null)
@@ -733,7 +735,7 @@ function ClimateCardComponent({
         </Box>
 
         {/* Temperature controls */}
-        {supportsTargetTemp && hvacMode !== 'off' && hvacMode !== 'heat_cool' && (
+        {!isEditMode && supportsTargetTemp && hvacMode !== 'off' && hvacMode !== 'heat_cool' && (
           <Flex align="center" gap="4" style={{ marginTop: '16px' }}>
             <IconButton
               size="3"
@@ -772,14 +774,14 @@ function ClimateCardComponent({
         )}
 
         {/* Instructions for heat/cool mode */}
-        {hvacMode === 'heat_cool' && (
+        {!isEditMode && hvacMode === 'heat_cool' && (
           <Text size="1" color="gray" align="center" style={{ marginTop: '8px' }}>
             Drag the orange and blue dots to adjust temperatures
           </Text>
         )}
 
         {/* HVAC Mode buttons */}
-        {climateAttributes?.hvac_modes && (
+        {!isEditMode && climateAttributes?.hvac_modes && (
           <Flex gap="2" wrap="wrap" justify="center" style={{ marginTop: 'auto' }}>
             {climateAttributes.hvac_modes.map((mode) => {
               const modeConfig = HVAC_MODES[mode as keyof typeof HVAC_MODES]
