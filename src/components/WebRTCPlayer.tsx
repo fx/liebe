@@ -1,181 +1,140 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { Flex, Text } from '@radix-ui/themes'
+import { useHomeAssistant } from '~/hooks'
 
 interface WebRTCPlayerProps {
   entityId: string
-  go2rtcUrl?: string // Base URL for go2rtc, defaults to same host as HA
   onError?: (error: Error) => void
 }
 
-export function WebRTCPlayer({ entityId, go2rtcUrl, onError }: WebRTCPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const pcRef = useRef<RTCPeerConnection | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
+interface HassEntity {
+  entity_id: string
+  state: string
+  attributes: {
+    stream_source?: string
+    camera_stream_source?: string
+    stream_url?: string
+    entity_picture?: string
+    [key: string]: unknown
+  }
+}
+
+// Configuration for go2rtc URL patterns
+// Users can set GO2RTC_URL in their environment or we'll try common patterns
+const GO2RTC_PATTERNS = [
+  // Pattern 1: Direct port access (most reliable if port is exposed)
+  (hostname: string, streamSource: string) =>
+    `http://${hostname}:1984/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`,
+
+  // Pattern 2: Common add-on ingress pattern (requires knowing the ingress path)
+  (hostname: string, streamSource: string, protocol: string = 'http') =>
+    `${protocol}://${hostname}/api/hassio_ingress/a889b5a8_go2rtc/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`,
+]
+
+export function WebRTCPlayer({ entityId, onError }: WebRTCPlayerProps) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>('')
+  const [currentPatternIndex, setCurrentPatternIndex] = useState(0)
+  const hass = useHomeAssistant()
 
-  // Extract camera name from entity ID (remove domain prefix)
-  const cameraName = entityId.split('.')[1]
+  // Get the stream URL based on entity
+  const streamUrl = useMemo(() => {
+    if (!hass || !entityId) return null
+
+    const entity = hass.states[entityId] as HassEntity | undefined
+    if (!entity) return null
+
+    // Try to get stream source from various entity attributes
+    // Priority: stream_source > camera_stream_source > entity_picture (for RTSP URLs) > entity name
+    let streamSource =
+      entity.attributes.stream_source ||
+      entity.attributes.camera_stream_source ||
+      entity.attributes.stream_url
+
+    // If no explicit stream source, check if entity_picture contains an RTSP URL
+    if (!streamSource && entity.attributes.entity_picture) {
+      const entityPicture = entity.attributes.entity_picture
+      if (
+        typeof entityPicture === 'string' &&
+        (entityPicture.startsWith('rtsp://') ||
+          entityPicture.startsWith('rtsps://') ||
+          entityPicture.startsWith('http://') ||
+          entityPicture.startsWith('https://'))
+      ) {
+        streamSource = entityPicture
+      }
+    }
+
+    // Fallback to entity name (camera.name -> name)
+    if (!streamSource) {
+      streamSource = entityId.split('.')[1]
+    }
+
+    console.log('[WebRTCPlayer] Stream source for', entityId, ':', streamSource)
+
+    // Build URL using current pattern
+    try {
+      const pattern = GO2RTC_PATTERNS[currentPatternIndex]
+      if (!pattern) return null
+
+      const hostname = window.location.hostname
+      const protocol = window.location.protocol.replace(':', '')
+
+      // Call pattern with appropriate arguments
+      const url =
+        pattern.length === 3
+          ? pattern(hostname, streamSource, protocol)
+          : pattern(hostname, streamSource)
+
+      console.log('[WebRTCPlayer] Trying go2rtc URL pattern', currentPatternIndex + 1, ':', url)
+      return url
+    } catch (error) {
+      console.error('[WebRTCPlayer] Error building stream URL:', error)
+      return null
+    }
+  }, [hass, entityId, currentPatternIndex])
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video || !cameraName) return
-
-    console.log('[WebRTCPlayer] Initializing WebRTC for camera:', cameraName)
-
-    // Clean up previous connections
-    if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
-    }
-    if (pcRef.current) {
-      pcRef.current.close()
-      pcRef.current = null
-    }
-
-    // Determine go2rtc WebSocket URL
-    const baseUrl = go2rtcUrl || window.location.origin
-    const wsUrl = `${baseUrl.replace(/^http/, 'ws')}:1984/api/ws?src=${cameraName}`
-
-    console.log('[WebRTCPlayer] Connecting to go2rtc WebSocket:', wsUrl)
-
-    try {
-      // Create WebSocket connection for signaling
-      const ws = new WebSocket(wsUrl)
-      wsRef.current = ws
-
-      // Create peer connection
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      })
-      pcRef.current = pc
-
-      // Handle incoming tracks
-      pc.ontrack = (event) => {
-        console.log('[WebRTCPlayer] Received track:', event.track.kind)
-        if (event.track.kind === 'video' && video) {
-          video.srcObject = event.streams[0]
-          setIsLoading(false)
-        }
-      }
-
-      // Handle ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate && ws.readyState === WebSocket.OPEN) {
-          console.log('[WebRTCPlayer] Sending ICE candidate')
-          ws.send(
-            JSON.stringify({
-              type: 'webrtc/candidate',
-              value: event.candidate.candidate,
-            })
-          )
-        }
-      }
-
-      // Handle connection state changes
-      pc.onconnectionstatechange = () => {
-        console.log('[WebRTCPlayer] Connection state:', pc.connectionState)
-        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          setHasError(true)
-          setErrorMessage('WebRTC connection failed')
-          onError?.(new Error('WebRTC connection failed'))
-        }
-      }
-
-      // WebSocket event handlers
-      ws.onopen = async () => {
-        console.log('[WebRTCPlayer] WebSocket connected, creating offer')
-
-        // Add transceivers for receiving video/audio
-        pc.addTransceiver('video', { direction: 'recvonly' })
-        pc.addTransceiver('audio', { direction: 'recvonly' })
-
-        // Create and send offer
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-
-        ws.send(
-          JSON.stringify({
-            type: 'webrtc/offer',
-            value: offer.sdp,
-          })
-        )
-      }
-
-      ws.onmessage = async (event) => {
-        const msg = JSON.parse(event.data)
-        console.log('[WebRTCPlayer] Received message:', msg.type)
-
-        if (msg.type === 'webrtc/answer') {
-          await pc.setRemoteDescription(
-            new RTCSessionDescription({
-              type: 'answer',
-              sdp: msg.value,
-            })
-          )
-        } else if (msg.type === 'webrtc/candidate') {
-          await pc.addIceCandidate({
-            candidate: msg.value,
-            sdpMid: '0',
-          })
-        } else if (msg.type === 'error') {
-          console.error('[WebRTCPlayer] Error from server:', msg.value)
-          setHasError(true)
-          setErrorMessage(msg.value || 'Stream error')
-          onError?.(new Error(msg.value))
-        }
-      }
-
-      ws.onerror = (error) => {
-        console.error('[WebRTCPlayer] WebSocket error:', error)
-        setHasError(true)
-        setErrorMessage('WebSocket connection failed')
-        onError?.(new Error('WebSocket connection failed'))
-      }
-
-      ws.onclose = () => {
-        console.log('[WebRTCPlayer] WebSocket closed')
-      }
-    } catch (error) {
-      console.error('[WebRTCPlayer] Setup error:', error)
+    if (!streamUrl) {
       setHasError(true)
-      setErrorMessage('Failed to initialize WebRTC')
-      onError?.(error as Error)
+      setErrorMessage('Unable to determine stream URL')
+      onError?.(new Error('Unable to determine stream URL'))
     }
+  }, [streamUrl, onError])
 
-    // Cleanup function
-    return () => {
-      console.log('[WebRTCPlayer] Cleaning up WebRTC connections')
+  const handleIframeLoad = () => {
+    console.log('[WebRTCPlayer] go2rtc iframe loaded successfully')
+    setIsLoading(false)
+    setHasError(false)
+  }
 
-      if (wsRef.current) {
-        wsRef.current.close()
-        wsRef.current = null
-      }
+  const handleIframeError = () => {
+    console.error(
+      '[WebRTCPlayer] go2rtc iframe failed to load with pattern',
+      currentPatternIndex + 1
+    )
 
-      if (pcRef.current) {
-        pcRef.current.close()
-        pcRef.current = null
-      }
-
-      if (video && video.srcObject) {
-        const stream = video.srcObject as MediaStream
-        stream.getTracks().forEach((track) => track.stop())
-        video.srcObject = null
-      }
-    }
-  }, [cameraName, go2rtcUrl, onError])
-
-  const handleVideoError = useCallback(
-    (e: React.SyntheticEvent<HTMLVideoElement>) => {
-      const video = e.currentTarget
-      console.error('[WebRTCPlayer] Video error:', video.error)
+    // Try next pattern
+    if (currentPatternIndex < GO2RTC_PATTERNS.length - 1) {
+      console.log('[WebRTCPlayer] Trying next URL pattern...')
+      setCurrentPatternIndex((prev) => prev + 1)
+    } else {
+      // All patterns failed
       setHasError(true)
-      setErrorMessage('Video playback error')
-      onError?.(new Error('Video playback error'))
-    },
-    [onError]
-  )
+      setErrorMessage('Failed to connect to go2rtc. Make sure go2rtc is installed and accessible.')
+      setIsLoading(false)
+      onError?.(new Error('Failed to connect to go2rtc'))
+    }
+  }
+
+  // Reset state when entity changes
+  useEffect(() => {
+    setIsLoading(true)
+    setHasError(false)
+    setCurrentPatternIndex(0)
+  }, [entityId])
 
   return (
     <Flex
@@ -184,30 +143,29 @@ export function WebRTCPlayer({ entityId, go2rtcUrl, onError }: WebRTCPlayerProps
         height: '100%',
         position: 'relative',
         backgroundColor: '#000',
+        overflow: 'hidden',
       }}
       align="center"
       justify="center"
     >
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        controls
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          display: hasError ? 'none' : 'block',
-        }}
-        onError={handleVideoError}
-        onLoadedMetadata={() => {
-          console.log('[WebRTCPlayer] Video metadata loaded')
-          videoRef.current?.play().catch((e) => {
-            console.error('[WebRTCPlayer] Autoplay failed:', e)
-          })
-        }}
-      />
+      {streamUrl && (
+        <iframe
+          key={`${entityId}-${currentPatternIndex}`} // Force reload on pattern change
+          ref={iframeRef}
+          src={streamUrl}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            display: isLoading ? 'none' : 'block',
+          }}
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+          allow="camera; microphone; autoplay; fullscreen"
+          // Remove sandbox to allow all features needed by go2rtc
+          title={`go2rtc stream for ${entityId}`}
+        />
+      )}
 
       {isLoading && !hasError && (
         <Flex
@@ -219,12 +177,12 @@ export function WebRTCPlayer({ entityId, go2rtcUrl, onError }: WebRTCPlayerProps
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
             pointerEvents: 'none',
           }}
         >
           <Text size="2" style={{ color: 'white' }}>
-            Connecting to WebRTC stream...
+            Connecting to go2rtc...
           </Text>
         </Flex>
       )}
@@ -236,22 +194,22 @@ export function WebRTCPlayer({ entityId, go2rtcUrl, onError }: WebRTCPlayerProps
           justify="center"
           gap="2"
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
             padding: 'var(--space-4)',
+            maxWidth: '400px',
           }}
         >
           <Text size="3" weight="medium" style={{ color: 'var(--red-9)' }}>
-            Stream Error
+            WebRTC Stream Error
           </Text>
-          <Text size="2" style={{ color: 'var(--gray-11)' }}>
+          <Text size="2" style={{ color: 'var(--gray-11)', textAlign: 'center' }}>
             {errorMessage}
           </Text>
-          <Text size="1" style={{ color: 'var(--gray-10)', marginTop: 'var(--space-2)' }}>
-            Make sure go2rtc is installed and the camera is configured
+          <Text
+            size="1"
+            style={{ color: 'var(--gray-10)', marginTop: 'var(--space-2)', textAlign: 'center' }}
+          >
+            Ensure go2rtc is installed and your camera is properly configured in go2rtc. The stream
+            source must match the go2rtc configuration.
           </Text>
         </Flex>
       )}

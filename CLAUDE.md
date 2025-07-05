@@ -800,11 +800,18 @@ The SimpleCameraCard automatically:
 
 ### WebRTC Player Configuration
 
-The WebRTC player connects to go2rtc via WebSocket:
+The WebRTC player uses go2rtc's web interface via iframe:
 
-- Default port: 1984
-- WebSocket URL: `ws://[ha-host]:1984/api/ws?src=[camera_name]`
-- Uses standard WebRTC signaling (offer/answer/ICE candidates)
+- Embeds go2rtc's `stream.html` page with WebRTC mode
+- Tries multiple URL patterns automatically:
+  1. Direct access on port 1984: `http://[ha-host]:1984/stream.html?src=[stream_source]&mode=webrtc`
+  2. Through HA ingress (for add-ons): `/api/hassio_ingress/[addon_id]/stream.html?src=[stream_source]&mode=webrtc`
+- Stream source detection (in priority order):
+  1. `entity.attributes.stream_source`
+  2. `entity.attributes.camera_stream_source`
+  3. `entity.attributes.stream_url`
+  4. RTSP URL from `entity.attributes.entity_picture`
+  5. Entity name (fallback)
 
 ### Troubleshooting
 
@@ -821,6 +828,14 @@ If WebRTC doesn't work:
 - **Multiple codec support** - H264, H265, AAC
 - **Two-way audio** - If camera supports it
 - **Multiple viewers** - No stream limit
+
+### Important Implementation Notes
+
+- The iframe approach is simpler and more reliable than direct WebRTC connections
+- go2rtc's web interface handles all WebRTC complexity
+- Stream source is automatically detected from entity attributes
+- Falls back between different URL patterns to find working go2rtc instance
+- No need to manage WebRTC connections or media streams directly
 
 ## Important Reminders
 

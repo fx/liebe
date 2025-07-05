@@ -204,7 +204,12 @@ function SimpleCameraCardComponent({ entity, entityId }: SimpleCameraCardProps) 
         )}
 
         {/* Bottom controls */}
-        <Flex direction="column" align="center" gap="2" style={{ width: '100%', pointerEvents: 'auto' }}>
+        <Flex
+          direction="column"
+          align="center"
+          gap="2"
+          style={{ width: '100%', pointerEvents: 'auto' }}
+        >
           {/* Camera name */}
           <Text
             size="2"
