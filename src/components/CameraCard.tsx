@@ -21,6 +21,8 @@ interface CameraAttributes {
   access_token?: string
   frontend_stream_type?: string
   supported_features?: number
+  stream_source?: string
+  stream_url?: string
 }
 
 // Camera supported features bit flags from Home Assistant
@@ -52,7 +54,7 @@ function CameraCardComponent({
 
   const cameraAttributes = entity?.attributes as CameraAttributes | undefined
   const supportsStream = (cameraAttributes?.supported_features ?? 0) & SUPPORT_STREAM
-  
+
   // Debug logging
   useEffect(() => {
     if (entity) {
@@ -62,6 +64,9 @@ function CameraCardComponent({
         supportsStream,
         frontend_stream_type: cameraAttributes?.frontend_stream_type,
         entity_picture: cameraAttributes?.entity_picture,
+        stream_source: cameraAttributes?.stream_source,
+        stream_url: cameraAttributes?.stream_url,
+        hasStreamSource: !!cameraAttributes?.stream_source,
       })
     }
   }, [entity, entityId, cameraAttributes, supportsStream])
@@ -88,15 +93,36 @@ function CameraCardComponent({
       setIsStreamLoading(true)
       setStreamError(null)
 
-      // Home Assistant automatically creates the stream when accessed
-      // The stream integration converts RTSP to HLS on-demand
+      // Try to get stream URL from camera attributes first
+      // Some cameras provide a stream URL in their attributes
+      const streamAttribute = (entity.attributes as any).stream_url
+      if (streamAttribute) {
+        console.log(`Using stream URL from attributes for ${entityId}:`, streamAttribute)
+        return toAbsoluteUrl(streamAttribute)
+      }
+
+      // Try the standard camera_proxy_stream endpoint
+      // This should work for most cameras with stream support
       const streamUrl = toAbsoluteUrl(`/api/camera_proxy_stream/${entityId}/master.m3u8`)
-      
+
       console.log(`Requesting camera stream for ${entityId}:`, streamUrl)
-      
-      // Add a small delay to ensure the stream is ready
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      
+
+      // Test if the stream endpoint exists by making a HEAD request
+      try {
+        const response = await fetch(streamUrl, {
+          method: 'HEAD',
+          credentials: 'same-origin',
+        })
+
+        if (!response.ok) {
+          console.error(`Stream endpoint returned ${response.status} for ${entityId}`)
+          throw new Error(`Stream not available (${response.status})`)
+        }
+      } catch (fetchError) {
+        console.error('Failed to verify stream endpoint:', fetchError)
+        // Continue anyway - some browsers block HEAD requests
+      }
+
       return streamUrl
     } catch (error) {
       console.error('Failed to get camera stream:', error)
@@ -138,7 +164,9 @@ function CameraCardComponent({
               switch (data.type) {
                 case Hls.ErrorTypes.NETWORK_ERROR:
                   if (data.response?.code === 404) {
-                    setStreamError('Camera stream not available - check if stream integration is enabled')
+                    setStreamError(
+                      'Camera stream not available - check if stream integration is enabled'
+                    )
                   } else {
                     setStreamError('Network error loading stream')
                   }
@@ -363,6 +391,7 @@ function CameraCardComponent({
                   opacity: isStreamLoading ? 0.5 : 1,
                   transition: 'opacity 0.2s ease',
                 }}
+                title={isPlaying ? 'Pause stream' : 'Play live stream'}
               >
                 {isPlaying ? (
                   <PauseIcon style={{ width: 20, height: 20, color: 'white' }} />
@@ -385,18 +414,18 @@ function CameraCardComponent({
             </Text>
 
             {/* Status text */}
-            {(streamError || isUnavailable) && (
+            {(streamError || isUnavailable || (!supportsStream && size !== 'small')) && (
               <Text
                 size="1"
                 weight="medium"
                 style={{
-                  color: 'var(--red-9)',
+                  color: streamError || isUnavailable ? 'var(--red-9)' : 'var(--gray-9)',
                   background: 'rgba(255, 255, 255, 0.9)',
                   padding: '2px 8px',
                   borderRadius: '4px',
                 }}
               >
-                {streamError || 'UNAVAILABLE'}
+                {streamError || (isUnavailable ? 'UNAVAILABLE' : 'NO STREAM SUPPORT')}
               </Text>
             )}
           </Flex>
