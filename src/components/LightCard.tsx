@@ -1,4 +1,4 @@
-import { Flex, Text, Box } from '@radix-ui/themes'
+import { Flex, Text } from '@radix-ui/themes'
 import * as Slider from '@radix-ui/react-slider'
 import { SunIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
@@ -194,30 +194,26 @@ function LightCardComponent({
 
         {!isEditMode && isOn && supportsBrightness && (
           <GridCard.Controls>
-            <Box style={{ width: '100%' }}>
-              <Flex align="center" gap="2" style={{ display: 'flex', width: '100%' }}>
-                <Text size="1" color="gray" style={{ minWidth: '35px' }}>
-                  {displayBrightness}%
-                </Text>
-                <Slider.Root
-                  className="SliderRoot"
-                  value={[displayBrightness]}
-                  onValueChange={handleBrightnessChange}
-                  onValueCommit={handleBrightnessCommit}
-                  onPointerDown={() => setIsDragging(true)}
-                  onPointerUp={() => setIsDragging(false)}
-                  max={100}
-                  step={1}
-                  aria-label="Brightness"
-                  style={{ flex: '1 1 auto', minWidth: 0 }}
-                >
-                  <Slider.Track className="SliderTrack">
-                    <Slider.Range className="SliderRange" />
-                  </Slider.Track>
-                  <Slider.Thumb className="SliderThumb" />
-                </Slider.Root>
-              </Flex>
-            </Box>
+            <Text size="1" color="gray" style={{ minWidth: '35px' }}>
+              {displayBrightness}%
+            </Text>
+            <Slider.Root
+              className="SliderRoot"
+              value={[displayBrightness]}
+              onValueChange={handleBrightnessChange}
+              onValueCommit={handleBrightnessCommit}
+              onPointerDown={() => setIsDragging(true)}
+              onPointerUp={() => setIsDragging(false)}
+              max={100}
+              step={1}
+              aria-label="Brightness"
+              style={{ flex: '1' }}
+            >
+              <Slider.Track className="SliderTrack">
+                <Slider.Range className="SliderRange" />
+              </Slider.Track>
+              <Slider.Thumb className="SliderThumb" />
+            </Slider.Root>
           </GridCard.Controls>
         )}
 

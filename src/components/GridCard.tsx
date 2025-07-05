@@ -255,7 +255,10 @@ interface GridCardControlsProps {
 
 export const GridCardControls = React.memo(({ children, className }: GridCardControlsProps) => {
   return (
-    <div className={`grid-card-controls flex items-center gap-2 ${className || ''}`}>
+    <div
+      className={`grid-card-controls flex items-center gap-2 ${className || ''}`}
+      style={{ width: '100%' }}
+    >
       {children}
     </div>
   )

@@ -111,18 +111,15 @@ describe('LightCard Slider Usability', () => {
     const controls = container.querySelector('.grid-card-controls')
     expect(controls).toBeInTheDocument()
 
-    // The Box containing the slider should have width: 100%
-    const box = container.querySelector('.grid-card-controls [style*="width: 100%"]')
-    expect(box).toBeInTheDocument()
+    // The controls should have width: 100%
+    expect(controls).toHaveStyle({ width: '100%' })
 
-    // The Flex container should properly layout the percentage and slider
-    const flexContainer = container.querySelector('.grid-card-controls .rt-Flex')
-    expect(flexContainer).toBeInTheDocument()
-
-    // The slider root should have flex: 1 to take remaining space
-    const sliderRoot = container.querySelector('.SliderRoot')
+    // The slider root should be a direct child of controls
+    const sliderRoot = controls?.querySelector('.SliderRoot')
     expect(sliderRoot).toBeInTheDocument()
-    expect(sliderRoot).toHaveStyle({ flex: '1 1 auto' })
+
+    // The slider should have flex: 1 to expand
+    expect(sliderRoot).toHaveStyle({ flex: '1' })
   })
 
   it('does not show slider in edit mode', () => {
