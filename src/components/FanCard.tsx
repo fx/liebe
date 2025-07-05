@@ -1,7 +1,7 @@
 import { Flex, Text, Box, IconButton, Select } from '@radix-ui/themes'
 import { Fan, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
-import React, { memo, useCallback, useEffect, useRef } from 'react'
+import React, { memo, useCallback, useRef } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore } from '~/store'

@@ -48,6 +48,8 @@ function CoverCardComponent({
 }: CoverCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, callService, clearError } = useServiceCall()
+  const { mode } = useDashboardStore()
+  const isEditMode = mode === 'edit'
 
   // Local state for sliders while dragging
   const [localPosition, setLocalPosition] = useState<number | null>(null)
@@ -269,45 +271,45 @@ function CoverCardComponent({
         {/* Control buttons */}
         {!isEditMode && (
           <GridCard.Controls>
-          <Flex gap="2" align="center">
-            {supportsOpen && (
-              <IconButton
-                size={buttonSize}
-                variant="soft"
-                color={stateColor}
-                onClick={handleOpen}
-                disabled={isLoading || coverState === 'open' || currentPosition === 100}
-                aria-label="Open cover"
-              >
-                <CaretUpIcon />
-              </IconButton>
-            )}
-            {supportsStop && (
-              <IconButton
-                size={buttonSize}
-                variant="soft"
-                color={isMoving ? 'red' : stateColor}
-                onClick={handleStop}
-                disabled={isLoading || !isMoving}
-                aria-label="Stop cover"
-              >
-                <PauseIcon />
-              </IconButton>
-            )}
-            {supportsClose && (
-              <IconButton
-                size={buttonSize}
-                variant="soft"
-                color={stateColor}
-                onClick={handleClose}
-                disabled={isLoading || coverState === 'closed' || currentPosition === 0}
-                aria-label="Close cover"
-              >
-                <CaretDownIcon />
-              </IconButton>
-            )}
-          </Flex>
-        </GridCard.Controls>
+            <Flex gap="2" align="center">
+              {supportsOpen && (
+                <IconButton
+                  size={buttonSize}
+                  variant="soft"
+                  color={stateColor}
+                  onClick={handleOpen}
+                  disabled={isLoading || coverState === 'open' || currentPosition === 100}
+                  aria-label="Open cover"
+                >
+                  <CaretUpIcon />
+                </IconButton>
+              )}
+              {supportsStop && (
+                <IconButton
+                  size={buttonSize}
+                  variant="soft"
+                  color={isMoving ? 'red' : stateColor}
+                  onClick={handleStop}
+                  disabled={isLoading || !isMoving}
+                  aria-label="Stop cover"
+                >
+                  <PauseIcon />
+                </IconButton>
+              )}
+              {supportsClose && (
+                <IconButton
+                  size={buttonSize}
+                  variant="soft"
+                  color={stateColor}
+                  onClick={handleClose}
+                  disabled={isLoading || coverState === 'closed' || currentPosition === 0}
+                  aria-label="Close cover"
+                >
+                  <CaretDownIcon />
+                </IconButton>
+              )}
+            </Flex>
+          </GridCard.Controls>
         )}
 
         {/* Position slider */}

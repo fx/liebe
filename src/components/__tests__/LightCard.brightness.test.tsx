@@ -51,33 +51,33 @@ describe('LightCard Brightness Slider', () => {
 
     // Default mock implementations
     vi.mocked(useDashboardStore).mockReturnValue({ mode: 'view' })
-    
+
     vi.mocked(hooks.useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
       isStale: false,
     })
-    
+
     vi.mocked(hooks.useServiceCall).mockReturnValue(mockServiceCallHandlers)
   })
 
   it('shows brightness slider when light is on with brightness support in view mode', () => {
     render(<LightCard entityId="light.test_light" />)
-    
+
     // Should show the brightness slider
     const slider = screen.getByLabelText('Brightness')
     expect(slider).toBeInTheDocument()
-    
+
     // Should show the percentage
     expect(screen.getByText('100%')).toBeInTheDocument()
   })
 
   it('hides brightness slider when in edit mode', () => {
     vi.mocked(useDashboardStore).mockReturnValue({ mode: 'edit' })
-    
+
     render(<LightCard entityId="light.test_light" />)
-    
+
     // Should NOT show the brightness slider
     expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
   })
@@ -89,9 +89,9 @@ describe('LightCard Brightness Slider', () => {
       isLoading: false,
       isStale: false,
     })
-    
+
     render(<LightCard entityId="light.test_light" />)
-    
+
     // Should NOT show the brightness slider
     expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
   })
@@ -110,9 +110,9 @@ describe('LightCard Brightness Slider', () => {
       isLoading: false,
       isStale: false,
     })
-    
+
     render(<LightCard entityId="light.test_light" />)
-    
+
     // Should NOT show the brightness slider
     expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
   })
@@ -132,26 +132,26 @@ describe('LightCard Brightness Slider', () => {
       isLoading: false,
       isStale: false,
     })
-    
+
     render(<LightCard entityId="light.test_light" />)
-    
+
     // Should show the brightness slider even with legacy flag
     expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
   })
 
   it('renders slider with correct CSS classes', () => {
     const { container } = render(<LightCard entityId="light.test_light" />)
-    
+
     // Check for Radix UI Slider structure
     const sliderRoot = container.querySelector('.SliderRoot')
     expect(sliderRoot).toBeInTheDocument()
-    
+
     const sliderTrack = container.querySelector('.SliderTrack')
     expect(sliderTrack).toBeInTheDocument()
-    
+
     const sliderRange = container.querySelector('.SliderRange')
     expect(sliderRange).toBeInTheDocument()
-    
+
     const sliderThumb = container.querySelector('.SliderThumb')
     expect(sliderThumb).toBeInTheDocument()
   })

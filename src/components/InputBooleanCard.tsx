@@ -24,6 +24,8 @@ export const InputBooleanCard = memo(function InputBooleanCard({
 }: InputBooleanCardProps) {
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { toggle, loading, error } = useServiceCall()
+  const { mode } = useDashboardStore()
+  const isEditMode = mode === 'edit'
 
   const handleClick = useCallback(() => {
     if (entity) {
@@ -106,14 +108,15 @@ export const InputBooleanCard = memo(function InputBooleanCard({
         <GridCard.Title>
           {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
         </GridCard.Title>
-        <GridCard.Controls>
-          <Switch
-            size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}
-            checked={isOn}
-            onCheckedChange={handleSwitchChange}
-            disabled={loading}
-            style={{ cursor: 'pointer' }}
-          />
+        {!isEditMode && (
+          <GridCard.Controls>
+            <Switch
+              size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}
+              checked={isOn}
+              onCheckedChange={handleSwitchChange}
+              disabled={loading}
+              style={{ cursor: 'pointer' }}
+            />
           </GridCard.Controls>
         )}
         {isEditMode && <GridCard.Status>{isOn ? 'ON' : 'OFF'}</GridCard.Status>}
