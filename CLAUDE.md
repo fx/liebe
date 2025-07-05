@@ -836,6 +836,8 @@ If WebRTC doesn't work:
 - Stream source is automatically detected from entity attributes
 - Falls back between different URL patterns to find working go2rtc instance
 - No need to manage WebRTC connections or media streams directly
+- By default, only requests `autoplay` permission to avoid browser warnings
+- Two-way audio (camera/microphone) can be enabled via `enableTwoWayAudio` prop if needed
 
 ## Important Reminders
 

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { Flex, Text } from '@radix-ui/themes'
-import { useHomeAssistant } from '~/hooks'
+import { useHomeAssistant, useHassUrl } from '~/hooks'
 
 interface WebRTCPlayerProps {
   entityId: string
   onError?: (error: Error) => void
+  enableTwoWayAudio?: boolean // Enable camera/microphone for two-way communication
 }
 
 interface HassEntity {
@@ -20,28 +21,42 @@ interface HassEntity {
 }
 
 // Configuration for go2rtc URL patterns
-// Users can set GO2RTC_URL in their environment or we'll try common patterns
-const GO2RTC_PATTERNS = [
-  // Pattern 1: Direct port access (most reliable if port is exposed)
-  (hostname: string, streamSource: string) =>
-    `http://${hostname}:1984/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`,
+const buildGo2rtcPatterns = (hassUrl: string, streamSource: string) => {
+  // The ingress token is dynamic and specific to each HA installation
+  // Common add-on slugs to try (user may need to configure the correct one)
+  const commonIngressSlugs = [
+    'a889b5a8_go2rtc', // Common go2rtc add-on slug
+    'go2rtc', // Alternative slug
+    // TODO: Allow user configuration of custom ingress token
+  ]
 
-  // Pattern 2: Common add-on ingress pattern (requires knowing the ingress path)
-  (hostname: string, streamSource: string, protocol: string = 'http') =>
-    `${protocol}://${hostname}/api/hassio_ingress/a889b5a8_go2rtc/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`,
-]
+  const patterns = [
+    // Pattern 1: Direct port access (if go2rtc port is exposed)
+    `${hassUrl.replace(/:\d+$/, '')}:1984/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`,
+  ]
 
-export function WebRTCPlayer({ entityId, onError }: WebRTCPlayerProps) {
+  // Pattern 2: Through HA ingress (try common slugs)
+  commonIngressSlugs.forEach((slug) => {
+    patterns.push(
+      `${hassUrl}/api/hassio_ingress/${slug}/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`
+    )
+  })
+
+  return patterns
+}
+
+export function WebRTCPlayer({ entityId, onError, enableTwoWayAudio = false }: WebRTCPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [currentPatternIndex, setCurrentPatternIndex] = useState(0)
   const hass = useHomeAssistant()
+  const { hassUrl } = useHassUrl()
 
   // Get the stream URL based on entity
   const streamUrl = useMemo(() => {
-    if (!hass || !entityId) return null
+    if (!hass || !entityId || !hassUrl) return null
 
     const entity = hass.states[entityId] as HassEntity | undefined
     if (!entity) return null
@@ -76,17 +91,10 @@ export function WebRTCPlayer({ entityId, onError }: WebRTCPlayerProps) {
 
     // Build URL using current pattern
     try {
-      const pattern = GO2RTC_PATTERNS[currentPatternIndex]
-      if (!pattern) return null
+      const patterns = buildGo2rtcPatterns(hassUrl, streamSource)
+      const url = patterns[currentPatternIndex]
 
-      const hostname = window.location.hostname
-      const protocol = window.location.protocol.replace(':', '')
-
-      // Call pattern with appropriate arguments
-      const url =
-        pattern.length === 3
-          ? pattern(hostname, streamSource, protocol)
-          : pattern(hostname, streamSource)
+      if (!url) return null
 
       console.log('[WebRTCPlayer] Trying go2rtc URL pattern', currentPatternIndex + 1, ':', url)
       return url
@@ -94,7 +102,7 @@ export function WebRTCPlayer({ entityId, onError }: WebRTCPlayerProps) {
       console.error('[WebRTCPlayer] Error building stream URL:', error)
       return null
     }
-  }, [hass, entityId, currentPatternIndex])
+  }, [hass, entityId, hassUrl, currentPatternIndex])
 
   useEffect(() => {
     if (!streamUrl) {
@@ -116,17 +124,21 @@ export function WebRTCPlayer({ entityId, onError }: WebRTCPlayerProps) {
       currentPatternIndex + 1
     )
 
-    // Try next pattern
-    if (currentPatternIndex < GO2RTC_PATTERNS.length - 1) {
-      console.log('[WebRTCPlayer] Trying next URL pattern...')
-      setCurrentPatternIndex((prev) => prev + 1)
-    } else {
-      // All patterns failed
-      setHasError(true)
-      setErrorMessage('Failed to connect to go2rtc. Make sure go2rtc is installed and accessible.')
-      setIsLoading(false)
-      onError?.(new Error('Failed to connect to go2rtc'))
+    // Try next pattern - check if we have more patterns to try
+    if (hassUrl) {
+      const patterns = buildGo2rtcPatterns(hassUrl, 'dummy') // Just to get length
+      if (currentPatternIndex < patterns.length - 1) {
+        console.log('[WebRTCPlayer] Trying next URL pattern...')
+        setCurrentPatternIndex((prev) => prev + 1)
+        return
+      }
     }
+
+    // All patterns failed
+    setHasError(true)
+    setErrorMessage('Failed to connect to go2rtc. Make sure go2rtc is installed and accessible.')
+    setIsLoading(false)
+    onError?.(new Error('Failed to connect to go2rtc'))
   }
 
   // Reset state when entity changes
@@ -161,8 +173,8 @@ export function WebRTCPlayer({ entityId, onError }: WebRTCPlayerProps) {
           }}
           onLoad={handleIframeLoad}
           onError={handleIframeError}
-          allow="camera; microphone; autoplay; fullscreen"
-          // Remove sandbox to allow all features needed by go2rtc
+          // Request permissions based on functionality needed
+          allow={enableTwoWayAudio ? 'autoplay; camera; microphone' : 'autoplay'}
           title={`go2rtc stream for ${entityId}`}
         />
       )}
@@ -210,6 +222,11 @@ export function WebRTCPlayer({ entityId, onError }: WebRTCPlayerProps) {
           >
             Ensure go2rtc is installed and your camera is properly configured in go2rtc. The stream
             source must match the go2rtc configuration.
+            {!enableTwoWayAudio && (
+              <span style={{ display: 'block', marginTop: 'var(--space-1)' }}>
+                Two-way audio is disabled to avoid permission warnings.
+              </span>
+            )}
           </Text>
         </Flex>
       )}
