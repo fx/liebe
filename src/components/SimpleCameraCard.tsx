@@ -186,6 +186,7 @@ function SimpleCameraCardComponent({ entity, entityId }: SimpleCameraCardProps) 
           padding: 'var(--space-3)',
           background:
             'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 50%, rgba(0,0,0,0.3) 100%)',
+          pointerEvents: 'none',
         }}
       >
         {/* Camera icon for error/unavailable states */}
@@ -203,7 +204,7 @@ function SimpleCameraCardComponent({ entity, entityId }: SimpleCameraCardProps) 
         )}
 
         {/* Bottom controls */}
-        <Flex direction="column" align="center" gap="2" style={{ width: '100%' }}>
+        <Flex direction="column" align="center" gap="2" style={{ width: '100%', pointerEvents: 'auto' }}>
           {/* Camera name */}
           <Text
             size="2"
@@ -252,9 +253,11 @@ function SimpleCameraCardComponent({ entity, entityId }: SimpleCameraCardProps) 
                       getStreamUrl()
                     }
                   }}
-                  size="1"
+                  size="2"
                   style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    position: 'relative',
+                    zIndex: 10,
                   }}
                 >
                   <SegmentedControl.Item value="webrtc">WebRTC</SegmentedControl.Item>
