@@ -75,9 +75,16 @@ function CameraCardComponent({
       setIsStreamLoading(true)
       setStreamError(null)
 
-      // For now, we'll use the standard HLS stream endpoint
-      // Home Assistant will create the stream when accessed
-      // This follows the pattern from Home Assistant's frontend
+      // First, we need to create the stream using Home Assistant's service
+      // This tells HA to start converting the RTSP stream to HLS
+      await hass.callService('camera', 'create_stream', {
+        entity_id: entityId,
+      })
+
+      // Wait a moment for the stream to initialize
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Now we can access the HLS stream endpoint
       return toAbsoluteUrl(`/api/camera_proxy_stream/${entityId}/master.m3u8`)
     } catch (error) {
       console.error('Failed to get camera stream:', error)
