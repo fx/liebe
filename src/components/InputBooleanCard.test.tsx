@@ -4,6 +4,7 @@ import { InputBooleanCard } from './InputBooleanCard'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
+import type { DashboardState } from '../store/types'
 
 // Mock the hooks
 vi.mock('../hooks/useEntity')
@@ -49,7 +50,9 @@ describe('InputBooleanCard', () => {
       clearError: vi.fn(),
     })
 
-    vi.mocked(useDashboardStore).mockReturnValue('view')
+    vi.mocked(useDashboardStore).mockReturnValue({
+      mode: 'view',
+    } as Partial<DashboardState> as DashboardState)
   })
 
   it('renders input boolean with friendly name', () => {
@@ -74,7 +77,7 @@ describe('InputBooleanCard', () => {
     expect(screen.getByText('test_toggle')).toBeInTheDocument()
   })
 
-  it('shows on state with amber styling', () => {
+  it('shows on state with accent styling', () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: {
         ...defaultEntity,
@@ -88,7 +91,7 @@ describe('InputBooleanCard', () => {
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
     const card = container.querySelector('.rt-Card')
 
-    expect(card).toHaveStyle({ backgroundColor: 'var(--amber-3)' })
+    expect(card).toHaveStyle({ backgroundColor: 'var(--accent-3)' })
     expect(screen.getByRole('switch')).toBeChecked()
   })
 
@@ -115,7 +118,9 @@ describe('InputBooleanCard', () => {
   })
 
   it('selects card in edit mode', async () => {
-    vi.mocked(useDashboardStore).mockReturnValue('edit')
+    vi.mocked(useDashboardStore).mockReturnValue({
+      mode: 'edit',
+    } as Partial<DashboardState> as DashboardState)
 
     render(
       <InputBooleanCard
@@ -139,21 +144,30 @@ describe('InputBooleanCard', () => {
   })
 
   it('shows selected state styling', () => {
+    vi.mocked(useDashboardStore).mockReturnValue({
+      mode: 'edit',
+    } as Partial<DashboardState> as DashboardState)
+
     const { container } = render(
       <InputBooleanCard entityId="input_boolean.test_toggle" isSelected={true} />
     )
 
     const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('ring-2', 'ring-blue-500')
-    expect(card).toHaveStyle({ backgroundColor: 'var(--blue-2)' })
+    expect(card).toHaveStyle({
+      backgroundColor: 'var(--blue-3)',
+      borderColor: 'var(--blue-7)',
+      borderWidth: '2px',
+    })
   })
 
   it('shows delete button in edit mode', () => {
-    vi.mocked(useDashboardStore).mockReturnValue('edit')
+    vi.mocked(useDashboardStore).mockReturnValue({
+      mode: 'edit',
+    } as Partial<DashboardState> as DashboardState)
 
     render(<InputBooleanCard entityId="input_boolean.test_toggle" onDelete={mockOnDelete} />)
 
-    const deleteButton = screen.getByRole('button')
+    const deleteButton = screen.getByLabelText('Delete entity')
     fireEvent.click(deleteButton)
 
     expect(mockOnDelete).toHaveBeenCalled()
@@ -173,11 +187,9 @@ describe('InputBooleanCard', () => {
 
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
-    // Check for spinner
-    const spinner = container.querySelector('[style*="animation: spin"]')
-    expect(spinner).toBeInTheDocument()
-
-    // Switch should be disabled during loading
+    // Check for loading class and disabled switch
+    const card = container.querySelector('.rt-Card')
+    expect(card).toHaveClass('grid-card-loading')
     expect(screen.getByRole('switch')).toBeDisabled()
   })
 
@@ -196,8 +208,12 @@ describe('InputBooleanCard', () => {
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
     const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('border-2', 'border-red-500')
-    expect(screen.getByText('Failed to toggle')).toBeInTheDocument()
+    expect(card).toHaveClass('grid-card-error')
+    expect(card).toHaveStyle({
+      borderColor: 'var(--red-6)',
+      borderWidth: '2px',
+    })
+    expect(card).toHaveAttribute('title', 'Failed to toggle')
   })
 
   it('shows stale data indicator', () => {
@@ -217,8 +233,11 @@ describe('InputBooleanCard', () => {
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
     const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('border-2', 'border-orange-400')
-    expect(card).toHaveStyle({ borderStyle: 'dashed' })
+    expect(card).toHaveStyle({
+      borderColor: 'var(--orange-7)',
+      borderWidth: '2px',
+      borderStyle: 'dashed',
+    })
   })
 
   it('shows disconnected state', () => {
@@ -266,30 +285,36 @@ describe('InputBooleanCard', () => {
 
   describe('size variants', () => {
     it('renders small size', () => {
-      render(<InputBooleanCard entityId="input_boolean.test_toggle" size="small" />)
+      const { container } = render(
+        <InputBooleanCard entityId="input_boolean.test_toggle" size="small" />
+      )
 
-      const text = screen.getByText('Test Toggle')
-      expect(text).toHaveClass('rt-r-size-1')
+      const card = container.querySelector('.rt-Card')
+      expect(card).toHaveStyle({ minHeight: '60px' })
 
       const switchElement = screen.getByRole('switch')
       expect(switchElement).toHaveClass('rt-r-size-1')
     })
 
     it('renders medium size', () => {
-      render(<InputBooleanCard entityId="input_boolean.test_toggle" size="medium" />)
+      const { container } = render(
+        <InputBooleanCard entityId="input_boolean.test_toggle" size="medium" />
+      )
 
-      const text = screen.getByText('Test Toggle')
-      expect(text).toHaveClass('rt-r-size-2')
+      const card = container.querySelector('.rt-Card')
+      expect(card).toHaveStyle({ minHeight: '80px' })
 
       const switchElement = screen.getByRole('switch')
       expect(switchElement).toHaveClass('rt-r-size-2')
     })
 
     it('renders large size', () => {
-      render(<InputBooleanCard entityId="input_boolean.test_toggle" size="large" />)
+      const { container } = render(
+        <InputBooleanCard entityId="input_boolean.test_toggle" size="large" />
+      )
 
-      const text = screen.getByText('Test Toggle')
-      expect(text).toHaveClass('rt-r-size-3')
+      const card = container.querySelector('.rt-Card')
+      expect(card).toHaveStyle({ minHeight: '100px' })
 
       const switchElement = screen.getByRole('switch')
       expect(switchElement).toHaveClass('rt-r-size-3')

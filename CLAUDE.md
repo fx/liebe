@@ -1,5 +1,17 @@
 # CLAUDE.md - Project-Specific Instructions
 
+## 🚨 CRITICAL: Pull Request Requirements 🚨
+
+**ALL PULL REQUESTS MUST HAVE PASSING TESTS TO BE MERGED**
+
+Before creating ANY pull request:
+
+1. Run `npm test` and ensure ALL tests pass
+2. Run `npm run lint` and ensure no linting errors
+3. Run `npm run typecheck` and ensure no TypeScript errors
+
+This is a hard requirement. Pull requests with failing tests will be automatically rejected by CI/CD and cannot be merged. Testing is NOT optional.
+
 ## Project Overview
 
 You are working on a custom Home Assistant dashboard project that integrates as a native panel within Home Assistant. This project uses TanStack Start with React in SPA mode and Radix UI Theme for components.
@@ -221,19 +233,35 @@ gh issue view <issue-number>
 
 1. **Pre-commit Checklist**
    - [ ] All TypeScript errors resolved
-   - [ ] Linting passes
+   - [ ] Linting passes (`npm run lint`)
+   - [ ] **ALL TESTS PASS** (`npm test`) - **MANDATORY**
    - [ ] Manual testing completed
    - [ ] Todo items marked as completed
 
-2. **Commit and Push**
+2. **CRITICAL: Test Requirements**
+
+   **YOU MUST NOT PUSH CODE OR CREATE PULL REQUESTS UNLESS:**
+   - ✅ All tests pass locally (`npm test`)
+   - ✅ Linting passes (`npm run lint`)
+   - ✅ TypeScript checks pass (`npm run typecheck`)
+
+   **Pull requests with failing tests WILL NOT BE MERGED. This is non-negotiable.**
+
+3. **Commit and Push**
 
    ```bash
+   # ALWAYS run tests before committing
+   npm test
+   npm run lint
+   npm run typecheck
+
+   # Only if ALL checks pass:
    git add .
    git commit -m "<type>(<scope>): <subject>"
    git push -u origin <branch-name>
    ```
 
-3. **Create Pull Request**
+4. **Create Pull Request**
 
    ```bash
    gh pr create --title "<type>(<scope>): <subject>" \
@@ -245,10 +273,14 @@ gh issue view <issue-number>
    Closes #<issue-number>
 
    ## Testing
+   - [ ] All tests pass locally (`npm test`)
+   - [ ] Linting passes (`npm run lint`)
+   - [ ] TypeScript checks pass (`npm run typecheck`)
    - [ ] Tested in development
    - [ ] Tested in Home Assistant
-   - [ ] TypeScript checks pass
-   - [ ] Linting passes
+
+   ## Test Evidence
+   [Paste test output showing all tests passing]
    EOF
    )"
    ```
