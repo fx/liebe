@@ -267,7 +267,8 @@ function CoverCardComponent({
         </GridCard.Title>
 
         {/* Control buttons */}
-        <GridCard.Controls>
+        {!isEditMode && (
+          <GridCard.Controls>
           <Flex gap="2" align="center">
             {supportsOpen && (
               <IconButton
@@ -338,7 +339,7 @@ function CoverCardComponent({
         )}
 
         {/* Tilt controls */}
-        {supportsTilt && (
+        {!isEditMode && supportsTilt && (
           <Box style={{ width: '100%' }}>
             <Flex direction="column" gap="2">
               <Text size="1" color="gray">
@@ -358,7 +359,7 @@ function CoverCardComponent({
                 )}
               </Flex>
               {/* Tilt position slider */}
-              {supportsSetTiltPosition && (
+              {!isEditMode && supportsSetTiltPosition && (
                 <Flex align="center" gap="2">
                   <Text size="1" color="gray" style={{ minWidth: '35px' }}>
                     {displayTiltPosition}%
