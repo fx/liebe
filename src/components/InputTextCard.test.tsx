@@ -4,6 +4,7 @@ import { InputTextCard } from './InputTextCard'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
+import type { DashboardState } from '../store/types'
 
 // Mock the hooks
 vi.mock('../hooks/useEntity')
@@ -50,7 +51,9 @@ describe('InputTextCard', () => {
       clearError: vi.fn(),
     })
 
-    vi.mocked(useDashboardStore).mockReturnValue('view')
+    vi.mocked(useDashboardStore).mockReturnValue({
+      mode: 'view',
+    } as Partial<DashboardState> as DashboardState)
   })
 
   it('renders input text with friendly name and value', () => {
@@ -257,7 +260,9 @@ describe('InputTextCard', () => {
   })
 
   it('selects card in edit mode', async () => {
-    vi.mocked(useDashboardStore).mockReturnValue('edit')
+    vi.mocked(useDashboardStore).mockReturnValue({
+      mode: 'edit',
+    } as Partial<DashboardState> as DashboardState)
 
     render(
       <InputTextCard entityId="input_text.test_text" onSelect={mockOnSelect} isSelected={false} />
@@ -289,9 +294,9 @@ describe('InputTextCard', () => {
 
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
 
-    // Check for spinner
-    const spinner = container.querySelector('[style*="animation: spin"]')
-    expect(spinner).toBeInTheDocument()
+    // Check for loading class
+    const card = container.querySelector('.rt-Card')
+    expect(card).toHaveClass('grid-card-loading')
   })
 
   it('shows error state', () => {
@@ -309,30 +314,34 @@ describe('InputTextCard', () => {
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
 
     const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('border-2', 'border-red-500')
-    expect(screen.getByText('Failed to set value')).toBeInTheDocument()
+    expect(card).toHaveClass('grid-card-error')
+    expect(card).toHaveStyle({
+      borderColor: 'var(--red-6)',
+      borderWidth: '2px',
+    })
+    expect(card).toHaveAttribute('title', 'Failed to set value')
   })
 
   describe('size variants', () => {
     it('renders small size', () => {
-      render(<InputTextCard entityId="input_text.test_text" size="small" />)
+      const { container } = render(<InputTextCard entityId="input_text.test_text" size="small" />)
 
-      const text = screen.getByText('Test Text')
-      expect(text).toHaveClass('rt-r-size-1')
+      const card = container.querySelector('.rt-Card')
+      expect(card).toHaveStyle({ minHeight: '60px' })
     })
 
     it('renders medium size', () => {
-      render(<InputTextCard entityId="input_text.test_text" size="medium" />)
+      const { container } = render(<InputTextCard entityId="input_text.test_text" size="medium" />)
 
-      const text = screen.getByText('Test Text')
-      expect(text).toHaveClass('rt-r-size-2')
+      const card = container.querySelector('.rt-Card')
+      expect(card).toHaveStyle({ minHeight: '80px' })
     })
 
     it('renders large size', () => {
-      render(<InputTextCard entityId="input_text.test_text" size="large" />)
+      const { container } = render(<InputTextCard entityId="input_text.test_text" size="large" />)
 
-      const text = screen.getByText('Test Text')
-      expect(text).toHaveClass('rt-r-size-3')
+      const card = container.querySelector('.rt-Card')
+      expect(card).toHaveStyle({ minHeight: '100px' })
     })
   })
 })
