@@ -46,6 +46,45 @@ panel_custom:
 
 Restart Home Assistant and find "Liebe" in the sidebar.
 
+### CORS Configuration for Remote Hosting
+
+When hosting Liebe on a separate domain from your Home Assistant instance, certain features (like camera streams) require CORS to be configured. You have two options:
+
+#### Option 1: Configure Home Assistant
+
+Add to your Home Assistant `configuration.yaml`:
+
+```yaml
+http:
+  cors_allowed_origins:
+    - https://your-server.com
+    - https://liebe.yourdomain.com
+```
+
+#### Option 2: Configure Your Reverse Proxy
+
+If using Caddy as a reverse proxy for Home Assistant:
+
+```caddyfile
+hass.yourdomain.com {
+    header {
+        Access-Control-Allow-Origin "https://your-server.com"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "*"
+        Access-Control-Allow-Credentials "true"
+    }
+    
+    @options method OPTIONS
+    handle @options {
+        respond "" 204
+    }
+    
+    reverse_proxy localhost:8123
+}
+```
+
+**Note**: Without CORS configuration, camera snapshots will still work (loaded as images), but live camera streams and some API calls will be blocked by the browser.
+
 ## Testing with Automation Tools
 
 When testing Liebe with automation tools like Playwright, you may encounter authentication issues. To bypass authentication for testing purposes, you can configure Home Assistant to use trusted networks:
