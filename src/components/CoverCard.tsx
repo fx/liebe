@@ -1,7 +1,6 @@
-import { Card, Flex, Text, Spinner, Box, IconButton, Button } from '@radix-ui/themes'
+import { Flex, Text, Box, IconButton, Button } from '@radix-ui/themes'
 import * as Slider from '@radix-ui/react-slider'
 import {
-  Cross2Icon,
   CaretUpIcon,
   CaretDownIcon,
   PauseIcon,
@@ -10,9 +9,9 @@ import {
 } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
-import { useDashboardStore } from '~/store'
 import { SkeletonCard, ErrorDisplay } from './ui'
-import './CoverCard.css'
+import { GridCardWithComponents as GridCard } from './GridCard'
+import { useDashboardStore } from '~/store'
 
 interface CoverCardProps {
   entityId: string
@@ -49,7 +48,7 @@ function CoverCardComponent({
 }: CoverCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, callService, clearError } = useServiceCall()
-  const mode = useDashboardStore((state) => state.mode)
+  const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
   // Local state for sliders while dragging
@@ -209,82 +208,55 @@ function CoverCardComponent({
     )
   }
 
-  const cardSize = {
-    small: { p: '2', iconSize: '16', fontSize: '1', buttonSize: '1' },
-    medium: { p: '3', iconSize: '20', fontSize: '2', buttonSize: '2' },
-    large: { p: '4', iconSize: '24', fontSize: '3', buttonSize: '3' },
-  }[size]
+  const buttonSize = {
+    small: '1',
+    medium: '2',
+    large: '3',
+  }[size] as '1' | '2' | '3'
 
   // Handle unavailable state
   const isUnavailable = entity.state === 'unavailable'
   if (isUnavailable) {
     return (
-      <Card variant="classic" style={{ opacity: 0.6, borderStyle: 'dotted' }}>
-        <Flex p={cardSize.p} direction="column" align="center" justify="center" gap="2">
-          <Text size={cardSize.fontSize as '1' | '2' | '3'} color="gray" align="center">
-            {entity.attributes.friendly_name || entity.entity_id}
-          </Text>
-          <Text size="1" color="gray" weight="medium">
-            UNAVAILABLE
-          </Text>
+      <GridCard
+        size={size}
+        isUnavailable={true}
+        onSelect={() => onSelect?.(!isSelected)}
+        onDelete={onDelete}
+      >
+        <Flex direction="column" align="center" justify="center" gap="2">
+          <GridCard.Title>
+            <Text color="gray">{entity.attributes.friendly_name || entity.entity_id}</Text>
+          </GridCard.Title>
+          <GridCard.Status>
+            <Text size="1" color="gray" weight="medium">
+              UNAVAILABLE
+            </Text>
+          </GridCard.Status>
         </Flex>
-      </Card>
+      </GridCard>
     )
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
 
   return (
-    <Card
-      variant="classic"
+    <GridCard
+      size={size}
+      isLoading={isLoading}
+      isError={!!error}
+      isStale={isStale}
+      isSelected={isSelected}
+      isOn={coverState === 'open' || currentPosition > 0}
+      onSelect={() => onSelect?.(!isSelected)}
+      onDelete={onDelete}
+      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
       className="cover-card"
       style={{
-        cursor: isEditMode ? 'move' : 'default',
-        backgroundColor: isSelected ? 'var(--blue-3)' : undefined,
-        borderColor: isSelected
-          ? 'var(--blue-6)'
-          : error
-            ? 'var(--red-6)'
-            : isStale
-              ? 'var(--orange-6)'
-              : undefined,
         borderWidth: isSelected || error || isStale ? '2px' : '1px',
-        borderStyle: isStale ? 'dashed' : 'solid',
-        transition: 'all 0.2s ease',
-        opacity: isStale ? 0.8 : 1,
-        position: 'relative',
       }}
-      onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : undefined}
-      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
     >
-      {/* Drag handle in edit mode */}
-      {isEditMode && <div className="grid-item-drag-handle" />}
-
-      {/* Delete button in edit mode */}
-      {isEditMode && onDelete && (
-        <IconButton
-          size="1"
-          variant="soft"
-          color="red"
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            opacity: isSelected ? 1 : 0.7,
-            transition: 'opacity 0.2s ease',
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          aria-label="Delete entity"
-        >
-          <Cross2Icon />
-        </IconButton>
-      )}
-
       <Flex
-        p={cardSize.p}
         direction="column"
         align="center"
         justify="center"
@@ -292,64 +264,56 @@ function CoverCardComponent({
         style={{ minHeight: size === 'large' ? '200px' : size === 'medium' ? '180px' : '160px' }}
       >
         {/* Name */}
-        <Text
-          size={cardSize.fontSize as '1' | '2' | '3'}
-          weight="medium"
-          align="center"
-          style={{
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {friendlyName}
-        </Text>
+        <GridCard.Title>
+          <Text weight="medium">{friendlyName}</Text>
+        </GridCard.Title>
 
         {/* Control buttons */}
         {!isEditMode && (
-          <Flex gap="2" align="center">
-            {supportsOpen && (
-              <IconButton
-                size={cardSize.buttonSize as '1' | '2' | '3'}
-                variant="soft"
-                color={stateColor}
-                onClick={handleOpen}
-                disabled={isLoading || coverState === 'open' || currentPosition === 100}
-                aria-label="Open cover"
-              >
-                <CaretUpIcon />
-              </IconButton>
-            )}
-            {supportsStop && (
-              <IconButton
-                size={cardSize.buttonSize as '1' | '2' | '3'}
-                variant="soft"
-                color={isMoving ? 'red' : stateColor}
-                onClick={handleStop}
-                disabled={isLoading || !isMoving}
-                aria-label="Stop cover"
-              >
-                <PauseIcon />
-              </IconButton>
-            )}
-            {supportsClose && (
-              <IconButton
-                size={cardSize.buttonSize as '1' | '2' | '3'}
-                variant="soft"
-                color={stateColor}
-                onClick={handleClose}
-                disabled={isLoading || coverState === 'closed' || currentPosition === 0}
-                aria-label="Close cover"
-              >
-                <CaretDownIcon />
-              </IconButton>
-            )}
-          </Flex>
+          <GridCard.Controls>
+            <Flex gap="2" align="center">
+              {supportsOpen && (
+                <IconButton
+                  size={buttonSize}
+                  variant="soft"
+                  color={stateColor}
+                  onClick={handleOpen}
+                  disabled={isLoading || coverState === 'open' || currentPosition === 100}
+                  aria-label="Open cover"
+                >
+                  <CaretUpIcon />
+                </IconButton>
+              )}
+              {supportsStop && (
+                <IconButton
+                  size={buttonSize}
+                  variant="soft"
+                  color={isMoving ? 'red' : stateColor}
+                  onClick={handleStop}
+                  disabled={isLoading || !isMoving}
+                  aria-label="Stop cover"
+                >
+                  <PauseIcon />
+                </IconButton>
+              )}
+              {supportsClose && (
+                <IconButton
+                  size={buttonSize}
+                  variant="soft"
+                  color={stateColor}
+                  onClick={handleClose}
+                  disabled={isLoading || coverState === 'closed' || currentPosition === 0}
+                  aria-label="Close cover"
+                >
+                  <CaretDownIcon />
+                </IconButton>
+              )}
+            </Flex>
+          </GridCard.Controls>
         )}
 
         {/* Position slider */}
-        {supportsSetPosition && !isEditMode && (
+        {!isEditMode && supportsSetPosition && (
           <Box style={{ width: '100%' }}>
             <Flex align="center" gap="2">
               <Text size="1" color="gray" style={{ minWidth: '35px' }}>
@@ -377,7 +341,7 @@ function CoverCardComponent({
         )}
 
         {/* Tilt controls */}
-        {supportsTilt && !isEditMode && (
+        {!isEditMode && supportsTilt && (
           <Box style={{ width: '100%' }}>
             <Flex direction="column" gap="2">
               <Text size="1" color="gray">
@@ -397,7 +361,7 @@ function CoverCardComponent({
                 )}
               </Flex>
               {/* Tilt position slider */}
-              {supportsSetTiltPosition && (
+              {!isEditMode && supportsSetTiltPosition && (
                 <Flex align="center" gap="2">
                   <Text size="1" color="gray" style={{ minWidth: '35px' }}>
                     {displayTiltPosition}%
@@ -425,19 +389,8 @@ function CoverCardComponent({
           </Box>
         )}
 
-        {/* Status with loading spinner */}
-        <Flex align="center" gap="2">
-          {isLoading && (
-            <Spinner
-              size="1"
-              style={
-                {
-                  '--spinner-track-color': 'var(--gray-a6)',
-                  '--spinner-fill-color': `var(--${stateColor}-9)`,
-                } as React.CSSProperties
-              }
-            />
-          )}
+        {/* Status */}
+        <GridCard.Status>
           <Text size="1" color={error ? 'red' : stateColor} weight="medium">
             {error
               ? 'ERROR'
@@ -447,9 +400,9 @@ function CoverCardComponent({
                   ? `${currentPosition}% OPEN`
                   : coverState.toUpperCase()}
           </Text>
-        </Flex>
+        </GridCard.Status>
       </Flex>
-    </Card>
+    </GridCard>
   )
 }
 
