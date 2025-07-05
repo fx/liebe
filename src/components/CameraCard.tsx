@@ -1,6 +1,6 @@
 import { Flex, Text } from '@radix-ui/themes'
 import { CameraIcon, PlayIcon, PauseIcon } from '@radix-ui/react-icons'
-import { useEntity, useRemoteHass } from '~/hooks'
+import { useEntity, useRemoteHass, useHassUrl } from '~/hooks'
 import { memo, useState, useCallback, useRef, useEffect } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
@@ -37,6 +37,7 @@ function CameraCardComponent({
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
   const hass = useRemoteHass()
+  const { toAbsoluteUrl } = useHassUrl()
 
   // Stream state
   const [isStreamLoading, setIsStreamLoading] = useState(false)
@@ -58,13 +59,13 @@ function CameraCardComponent({
 
     // Use entity_picture if available
     if (cameraAttributes?.entity_picture) {
-      return cameraAttributes.entity_picture
+      return toAbsoluteUrl(cameraAttributes.entity_picture)
     }
 
     // Otherwise use the standard camera proxy endpoint
     // Home Assistant will handle authentication automatically in custom panel mode
-    return `/api/camera_proxy/${entityId}`
-  }, [hass, entity, entityId, cameraAttributes])
+    return toAbsoluteUrl(`/api/camera_proxy/${entityId}`)
+  }, [hass, entity, entityId, cameraAttributes, toAbsoluteUrl])
 
   // Get camera stream URL
   const getCameraStreamUrl = useCallback(async () => {
@@ -77,7 +78,7 @@ function CameraCardComponent({
       // For now, we'll use the standard HLS stream endpoint
       // Home Assistant will create the stream when accessed
       // This follows the pattern from Home Assistant's frontend
-      return `/api/camera_proxy_stream/${entityId}/master.m3u8`
+      return toAbsoluteUrl(`/api/camera_proxy_stream/${entityId}/master.m3u8`)
     } catch (error) {
       console.error('Failed to get camera stream:', error)
       setStreamError('Failed to load camera stream')
@@ -85,7 +86,7 @@ function CameraCardComponent({
     } finally {
       setIsStreamLoading(false)
     }
-  }, [hass, entity, entityId, supportsStream])
+  }, [hass, entity, entityId, supportsStream, toAbsoluteUrl])
 
   // Update snapshot URL when entity changes
   useEffect(() => {

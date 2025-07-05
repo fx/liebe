@@ -45,6 +45,11 @@ export interface HomeAssistant {
     components: string[]
     version: string
   }
+  auth?: {
+    data: {
+      hassUrl: string
+    }
+  }
 }
 
 const HomeAssistantContext = createContext<HomeAssistant | null>(null)

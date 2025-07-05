@@ -46,13 +46,13 @@ panel_custom:
 
 Restart Home Assistant and find "Liebe" in the sidebar.
 
-### CORS Configuration for Remote Hosting
+### Cross-Origin Resource Sharing (CORS) Configuration for Remote Hosting
 
-When hosting Liebe on a separate domain from your Home Assistant instance, certain features (like camera streams) require CORS to be configured. You have two options:
+When Liebe is hosted on a different domain than your Home Assistant instance, features like live camera streams require proper CORS configuration. Configure CORS either directly in Home Assistant or through your reverse proxy:
 
-#### Option 1: Configure Home Assistant
+#### In Home Assistant Configuration
 
-Add to your Home Assistant `configuration.yaml`:
+Add the following to your Home Assistant `configuration.yaml`:
 
 ```yaml
 http:
@@ -61,9 +61,9 @@ http:
     - https://liebe.yourdomain.com
 ```
 
-#### Option 2: Configure Your Reverse Proxy
+#### In Your Reverse Proxy (e.g., Caddy)
 
-If using Caddy as a reverse proxy for Home Assistant:
+If Home Assistant is behind a reverse proxy like Caddy, you can configure CORS there instead:
 
 ```caddyfile
 hass.yourdomain.com {
@@ -73,17 +73,17 @@ hass.yourdomain.com {
         Access-Control-Allow-Headers "*"
         Access-Control-Allow-Credentials "true"
     }
-    
+
     @options method OPTIONS
     handle @options {
         respond "" 204
     }
-    
+
     reverse_proxy localhost:8123
 }
 ```
 
-**Note**: Without CORS configuration, camera snapshots will still work (loaded as images), but live camera streams and some API calls will be blocked by the browser.
+**Note**: Without proper CORS configuration, camera snapshots will function normally (loaded as static images), but live camera streams and certain API calls will be blocked by browser security policies.
 
 ## Testing with Automation Tools
 
