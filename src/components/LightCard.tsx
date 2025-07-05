@@ -194,7 +194,7 @@ function LightCardComponent({
 
         {!isEditMode && isOn && supportsBrightness && (
           <GridCard.Controls>
-            <Box style={{ width: '100%' }}>
+            <Box style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
               <Flex align="center" gap="2">
                 <Text size="1" color="gray" style={{ minWidth: '35px' }}>
                   {displayBrightness}%
@@ -204,8 +204,14 @@ function LightCardComponent({
                   value={[displayBrightness]}
                   onValueChange={handleBrightnessChange}
                   onValueCommit={handleBrightnessCommit}
-                  onPointerDown={() => setIsDragging(true)}
-                  onPointerUp={() => setIsDragging(false)}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    setIsDragging(true)
+                  }}
+                  onPointerUp={(e) => {
+                    e.stopPropagation()
+                    setIsDragging(false)
+                  }}
                   max={100}
                   step={1}
                   aria-label="Brightness"
