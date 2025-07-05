@@ -126,6 +126,7 @@ function SimpleCameraCardComponent({ entity, entityId }: SimpleCameraCardProps) 
         streamType === 'webrtc' ? (
           <WebRTCPlayer
             entityId={entityId}
+            go2rtcIngressToken="rw6P8Ee9-Rqw58W8lnFUPy2RztvUUb1ieq_rxix9XsI"
             onError={(error) => {
               console.error('[CameraCard] WebRTC error:', error)
               // Try falling back to HLS

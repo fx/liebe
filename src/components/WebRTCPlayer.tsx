@@ -6,6 +6,7 @@ interface WebRTCPlayerProps {
   entityId: string
   onError?: (error: Error) => void
   enableTwoWayAudio?: boolean // Enable camera/microphone for two-way communication
+  go2rtcIngressToken?: string // Custom go2rtc ingress token if different from default
 }
 
 interface HassEntity {
@@ -21,21 +22,31 @@ interface HassEntity {
 }
 
 // Configuration for go2rtc URL patterns
-const buildGo2rtcPatterns = (hassUrl: string, streamSource: string) => {
-  // The ingress token is dynamic and specific to each HA installation
-  // Common add-on slugs to try (user may need to configure the correct one)
+const buildGo2rtcPatterns = (
+  hassUrl: string,
+  streamSource: string,
+  customIngressToken?: string
+) => {
+  const patterns = []
+
+  // Pattern 1: Custom ingress token if provided (highest priority)
+  if (customIngressToken) {
+    patterns.push(
+      `${hassUrl}/api/hassio_ingress/${customIngressToken}/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`
+    )
+  }
+
+  // Pattern 2: Direct port access (if go2rtc port is exposed)
+  patterns.push(
+    `${hassUrl.replace(/:\d+$/, '')}:1984/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`
+  )
+
+  // Pattern 3: Common ingress slugs as fallback
   const commonIngressSlugs = [
     'a889b5a8_go2rtc', // Common go2rtc add-on slug
     'go2rtc', // Alternative slug
-    // TODO: Allow user configuration of custom ingress token
   ]
 
-  const patterns = [
-    // Pattern 1: Direct port access (if go2rtc port is exposed)
-    `${hassUrl.replace(/:\d+$/, '')}:1984/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`,
-  ]
-
-  // Pattern 2: Through HA ingress (try common slugs)
   commonIngressSlugs.forEach((slug) => {
     patterns.push(
       `${hassUrl}/api/hassio_ingress/${slug}/stream.html?src=${encodeURIComponent(streamSource)}&mode=webrtc`
@@ -45,7 +56,12 @@ const buildGo2rtcPatterns = (hassUrl: string, streamSource: string) => {
   return patterns
 }
 
-export function WebRTCPlayer({ entityId, onError, enableTwoWayAudio = false }: WebRTCPlayerProps) {
+export function WebRTCPlayer({
+  entityId,
+  onError,
+  enableTwoWayAudio = false,
+  go2rtcIngressToken,
+}: WebRTCPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -91,7 +107,7 @@ export function WebRTCPlayer({ entityId, onError, enableTwoWayAudio = false }: W
 
     // Build URL using current pattern
     try {
-      const patterns = buildGo2rtcPatterns(hassUrl, streamSource)
+      const patterns = buildGo2rtcPatterns(hassUrl, streamSource, go2rtcIngressToken)
       const url = patterns[currentPatternIndex]
 
       if (!url) return null
@@ -102,7 +118,7 @@ export function WebRTCPlayer({ entityId, onError, enableTwoWayAudio = false }: W
       console.error('[WebRTCPlayer] Error building stream URL:', error)
       return null
     }
-  }, [hass, entityId, hassUrl, currentPatternIndex])
+  }, [hass, entityId, hassUrl, currentPatternIndex, go2rtcIngressToken])
 
   useEffect(() => {
     if (!streamUrl) {
@@ -126,7 +142,7 @@ export function WebRTCPlayer({ entityId, onError, enableTwoWayAudio = false }: W
 
     // Try next pattern - check if we have more patterns to try
     if (hassUrl) {
-      const patterns = buildGo2rtcPatterns(hassUrl, 'dummy') // Just to get length
+      const patterns = buildGo2rtcPatterns(hassUrl, 'dummy', go2rtcIngressToken) // Just to get length
       if (currentPatternIndex < patterns.length - 1) {
         console.log('[WebRTCPlayer] Trying next URL pattern...')
         setCurrentPatternIndex((prev) => prev + 1)
