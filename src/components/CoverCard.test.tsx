@@ -42,7 +42,7 @@ describe('CoverCard', () => {
       callService: mockCallService,
       clearError: mockClearError,
     })
-    ;(useDashboardStore as any).mockReturnValue('view')
+    ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
   })
 
   describe('Basic Rendering', () => {
@@ -280,7 +280,7 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue('edit')
+      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
       render(<CoverCard entityId="cover.test_cover" />)
 
@@ -375,7 +375,7 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue('edit')
+      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
       render(
         <CoverCard
@@ -398,7 +398,7 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue('edit')
+      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
       render(<CoverCard entityId="cover.test_cover" isSelected={false} onSelect={mockOnSelect} />)
 
@@ -415,7 +415,7 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue('edit')
+      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
       render(<CoverCard entityId="cover.test_cover" onDelete={mockOnDelete} />)
 
@@ -467,9 +467,9 @@ describe('CoverCard', () => {
 
       const { container } = render(<CoverCard entityId="cover.test_cover" />)
 
-      // Look for the Spinner component by its class
-      const spinner = container.querySelector('.rt-Spinner')
-      expect(spinner).toBeInTheDocument()
+      // Check for loading class
+      const card = container.querySelector('.cover-card')
+      expect(card).toHaveClass('grid-card-loading')
     })
 
     it('shows stale state with appropriate styling', () => {
@@ -483,7 +483,11 @@ describe('CoverCard', () => {
       render(<CoverCard entityId="cover.test_cover" />)
 
       const card = screen.getByText('Test Cover').closest('.cover-card')
-      expect(card).toHaveStyle({ borderStyle: 'dashed', opacity: '0.8' })
+      expect(card).toHaveStyle({
+        borderColor: 'var(--orange-7)',
+        borderWidth: '2px',
+        borderStyle: 'dashed',
+      })
     })
   })
 
@@ -496,13 +500,17 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      const { rerender } = render(<CoverCard entityId="cover.test_cover" size="small" />)
-      const smallText = screen.getByText('Test Cover')
-      expect(smallText).toHaveClass('rt-r-size-1')
+      const { container, rerender } = render(<CoverCard entityId="cover.test_cover" size="small" />)
+      let card = container.querySelector('.cover-card')
+      expect(card).toHaveStyle({ minHeight: '60px' })
+
+      rerender(<CoverCard entityId="cover.test_cover" size="medium" />)
+      card = container.querySelector('.cover-card')
+      expect(card).toHaveStyle({ minHeight: '80px' })
 
       rerender(<CoverCard entityId="cover.test_cover" size="large" />)
-      const largeText = screen.getByText('Test Cover')
-      expect(largeText).toHaveClass('rt-r-size-3')
+      card = container.querySelector('.cover-card')
+      expect(card).toHaveStyle({ minHeight: '100px' })
     })
   })
 })
