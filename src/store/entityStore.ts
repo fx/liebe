@@ -13,12 +13,45 @@ const initialState: EntityState = {
 
 export const entityStore = new Store<EntityState>(initialState)
 
+// Connection state debouncing
+let connectionDebounceTimer: NodeJS.Timeout | null = null
+
 export const entityStoreActions: EntityStoreActions = {
   setConnected: (connected: boolean) => {
-    entityStore.setState((state) => ({
-      ...state,
-      isConnected: connected,
-    }))
+    const currentState = entityStore.state
+
+    // Clear any existing debounce timer
+    if (connectionDebounceTimer) {
+      clearTimeout(connectionDebounceTimer)
+      connectionDebounceTimer = null
+    }
+
+    // If going from disconnected to connected, apply immediately
+    if (connected && !currentState.isConnected) {
+      entityStore.setState((state) => ({
+        ...state,
+        isConnected: true,
+      }))
+      return
+    }
+
+    // If going from connected to disconnected, debounce for 500ms
+    if (!connected && currentState.isConnected) {
+      connectionDebounceTimer = setTimeout(() => {
+        // Double-check the intended state hasn't changed during the timeout
+        const latestState = entityStore.state
+        if (latestState.isConnected) {
+          entityStore.setState((state) => ({
+            ...state,
+            isConnected: false,
+          }))
+        }
+        connectionDebounceTimer = null
+      }, 500)
+      return
+    }
+
+    // For all other cases (no change or repeated calls), do nothing
   },
 
   setInitialLoading: (loading: boolean) => {
@@ -104,6 +137,11 @@ export const entityStoreActions: EntityStoreActions = {
   },
 
   reset: () => {
+    // Clear any pending connection debounce timer
+    if (connectionDebounceTimer) {
+      clearTimeout(connectionDebounceTimer)
+      connectionDebounceTimer = null
+    }
     entityStore.setState(() => initialState)
   },
 

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { Card, IconButton, Spinner } from '@radix-ui/themes'
 import { X, GripVertical } from 'lucide-react'
 import { useDashboardStore } from '~/store'
@@ -19,6 +20,9 @@ export interface GridCardProps {
   title?: string
   className?: string
   style?: React.CSSProperties
+  isFullscreen?: boolean
+  onFullscreenChange?: (fullscreen: boolean) => void
+  fullscreenContent?: React.ReactNode
 }
 
 interface GridCardContextValue {
@@ -51,11 +55,28 @@ export const GridCard = React.memo(
         title,
         className,
         style,
+        isFullscreen = false,
+        onFullscreenChange,
+        fullscreenContent,
       },
       ref
     ) => {
       const { mode } = useDashboardStore()
       const isEditMode = mode === 'edit'
+
+      // Handle ESC key press to exit fullscreen
+      React.useEffect(() => {
+        const handleKeyPress = (event: KeyboardEvent) => {
+          if (event.key === 'Escape' && isFullscreen) {
+            onFullscreenChange?.(false)
+          }
+        }
+
+        if (isFullscreen) {
+          document.addEventListener('keydown', handleKeyPress)
+          return () => document.removeEventListener('keydown', handleKeyPress)
+        }
+      }, [isFullscreen, onFullscreenChange])
 
       // Size-based dimensions
       const minHeight = {
@@ -135,8 +156,8 @@ export const GridCard = React.memo(
               ...borderStyle,
             }}
           >
-            {/* Drag Handle */}
-            {isEditMode && (
+            {/* Drag Handle - hide in fullscreen */}
+            {isEditMode && !isFullscreen && (
               <div
                 className="grid-item-drag-handle absolute top-1 left-1 cursor-move text-gray-400 hover:text-gray-600"
                 style={{ zIndex: 10 }}
@@ -145,8 +166,8 @@ export const GridCard = React.memo(
               </div>
             )}
 
-            {/* Delete Button */}
-            {isEditMode && onDelete && (
+            {/* Delete Button - hide in fullscreen */}
+            {isEditMode && onDelete && !isFullscreen && (
               <IconButton
                 size="1"
                 variant="ghost"
@@ -166,6 +187,50 @@ export const GridCard = React.memo(
             {/* Content */}
             {children}
           </Card>
+
+          {/* Portal-based fullscreen overlay that escapes shadow DOM */}
+          {isFullscreen &&
+            fullscreenContent &&
+            createPortal(
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  backgroundColor: 'black',
+                  zIndex: 9999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+                onClick={() => onFullscreenChange?.(false)}
+              >
+                {fullscreenContent}
+
+                {/* Close indicator */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backdropFilter: 'blur(4px)',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  Click or press ESC to exit
+                </div>
+              </div>,
+              document.body
+            )}
         </GridCardContext.Provider>
       )
     }

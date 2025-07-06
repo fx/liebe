@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ButtonCard } from '../ButtonCard'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
-import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 
 // Mock the hooks
 vi.mock('~/hooks', () => ({
@@ -38,35 +38,9 @@ describe('ButtonCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    const mockHass: HomeAssistant = {
+    const mockHass = createMockHomeAssistant({
       callService: mockCallService,
-      states: {},
-      connection: {
-        subscribeEvents: vi.fn(),
-      },
-      user: {
-        name: 'Test User',
-        id: 'test-user',
-        is_admin: true,
-      },
-      themes: {},
-      language: 'en',
-      config: {
-        latitude: 0,
-        longitude: 0,
-        elevation: 0,
-        unit_system: {
-          length: 'km',
-          mass: 'kg',
-          temperature: '°C',
-          volume: 'L',
-        },
-        location_name: 'Home',
-        time_zone: 'UTC',
-        components: [],
-        version: '2024.1.0',
-      },
-    }
+    })
     vi.mocked(useHomeAssistantOptional).mockReturnValue(mockHass)
 
     // Default mock for useServiceCall

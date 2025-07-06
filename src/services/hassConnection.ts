@@ -16,7 +16,7 @@ export interface StateChangedEvent {
 
 export class HassConnectionManager {
   private hass: HomeAssistant | null = null
-  private stateChangeUnsubscribe: (() => void) | null = null
+  private stateChangeUnsubscribe: (() => void | Promise<void>) | null = null
   private reconnectTimer: NodeJS.Timeout | null = null
   private reconnectAttempts = 0
   private readonly MAX_RECONNECT_ATTEMPTS = 10
@@ -26,12 +26,12 @@ export class HassConnectionManager {
     this.handleStateChanged = this.handleStateChanged.bind(this)
   }
 
-  connect(hass: HomeAssistant): void {
+  async connect(hass: HomeAssistant): Promise<void> {
     this.hass = hass
     this.reconnectAttempts = 0
 
     // Clear any existing connections
-    this.disconnect()
+    await this.disconnect()
 
     try {
       // Mark as connected
@@ -42,7 +42,7 @@ export class HassConnectionManager {
       this.loadInitialStates()
 
       // Subscribe to state changes
-      this.subscribeToStateChanges()
+      await this.subscribeToStateChanges()
 
       // Start monitoring for stale entities
       staleEntityMonitor.start()
@@ -53,7 +53,7 @@ export class HassConnectionManager {
     }
   }
 
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     // Clear reconnect timer
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
@@ -63,7 +63,17 @@ export class HassConnectionManager {
     // Unsubscribe from state changes
     if (this.stateChangeUnsubscribe) {
       if (typeof this.stateChangeUnsubscribe === 'function') {
-        this.stateChangeUnsubscribe()
+        try {
+          const result = this.stateChangeUnsubscribe()
+          if (result instanceof Promise) {
+            await result
+          }
+        } catch (error) {
+          // Ignore "subscription not found" errors during cleanup
+          if (error && typeof error === 'object' && 'code' in error && error.code !== 'not_found') {
+            console.error('Error unsubscribing from state changes:', error)
+          }
+        }
       }
       this.stateChangeUnsubscribe = null
     }
@@ -105,7 +115,7 @@ export class HassConnectionManager {
     }
   }
 
-  private subscribeToStateChanges(): void {
+  private async subscribeToStateChanges(): Promise<void> {
     // Check if we have a WebSocket connection
     if (!this.hass?.connection) {
       console.warn('No WebSocket connection available')
@@ -113,7 +123,8 @@ export class HassConnectionManager {
     }
 
     try {
-      this.stateChangeUnsubscribe = this.hass.connection.subscribeEvents(
+      // subscribeEvents returns a promise that resolves to an unsubscribe function
+      this.stateChangeUnsubscribe = await this.hass.connection.subscribeEvents(
         (event: unknown) => this.handleStateChanged(event as StateChangedEvent),
         'state_changed'
       )
