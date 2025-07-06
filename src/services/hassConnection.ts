@@ -62,7 +62,9 @@ export class HassConnectionManager {
 
     // Unsubscribe from state changes
     if (this.stateChangeUnsubscribe) {
-      this.stateChangeUnsubscribe()
+      if (typeof this.stateChangeUnsubscribe === 'function') {
+        this.stateChangeUnsubscribe()
+      }
       this.stateChangeUnsubscribe = null
     }
 

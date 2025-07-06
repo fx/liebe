@@ -3,34 +3,37 @@ import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 import { resolve } from 'path'
 
-// Custom plugin to handle panel.js compilation
+import { readFileSync, existsSync } from 'fs'
+
+// Custom plugin to serve /panel.js from /dist/panel.js
 function panelPlugin() {
   return {
     name: 'panel-plugin',
     configureServer(server) {
-      server.middlewares.use('/panel.js', async (req, res, next) => {
-        try {
-          // Use Vite's built-in transformation for the panel entry
-          const panelPath = '/src/custom-panel.ts'
-          const result = await server.transformRequest(panelPath)
-          
-          if (result) {
+      server.middlewares.use('/panel.js', (req, res, next) => {
+        const panelPath = resolve(__dirname, 'dist/panel.js')
+        
+        if (existsSync(panelPath)) {
+          try {
+            const content = readFileSync(panelPath, 'utf-8')
             res.setHeader('Content-Type', 'application/javascript')
             res.setHeader('Access-Control-Allow-Origin', '*')
-            res.end(result.code)
-          } else {
-            res.statusCode = 404
-            res.end('Panel not found')
+            res.setHeader('Cache-Control', 'no-cache')
+            res.end(content)
+            return
+          } catch (error) {
+            console.error('Error reading panel.js:', error)
           }
-        } catch (error) {
-          console.error('Panel compilation error:', error)
-          res.statusCode = 500
-          res.end(`console.error('Panel compilation failed: ${error.message}')`)
         }
+        
+        // If file doesn't exist, return helpful message
+        res.setHeader('Content-Type', 'application/javascript')
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.end(`console.error('Panel not built. Run: npm run build:ha');`)
       })
       
-      server.middlewares.use('/panel', async (req, res, next) => {
-        // Redirect /panel to /panel.js
+      server.middlewares.use('/panel', (req, res, next) => {
+        // Redirect /panel to /panel.js for consistency
         res.writeHead(302, { Location: '/panel.js' })
         res.end()
       })
@@ -41,11 +44,14 @@ function panelPlugin() {
 export default defineConfig({
   server: {
     port: 3000,
-    cors: true,
+    cors: {
+      origin: '*',
+      credentials: false,
+    },
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Cross-Origin-Embedder-Policy': 'credentialless',
-      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Access-Control-Allow-Methods': '*',
+      'Access-Control-Allow-Headers': '*',
     },
   },
   optimizeDeps: {

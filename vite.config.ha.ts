@@ -3,11 +3,19 @@ import tsConfigPaths from 'vite-tsconfig-paths'
 import { resolve } from 'path'
 
 export default defineConfig({
+  mode: 'development',
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('development'),
+    'process.env': JSON.stringify({}),
+    'process': JSON.stringify({ env: {} }),
+  },
   build: {
+    minify: false,
+    sourcemap: true,
     lib: {
       entry: resolve(__dirname, 'src/custom-panel.ts'),
       name: 'Liebe',
-      fileName: 'panel',
+      fileName: () => 'panel.js',
       formats: ['iife'],
     },
     outDir: 'dist',
