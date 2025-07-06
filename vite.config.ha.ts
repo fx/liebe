@@ -24,6 +24,7 @@ export default defineConfig({
       external: [],
       output: {
         globals: {},
+        assetFileNames: '[name][extname]',
       },
     },
   },

@@ -2,10 +2,13 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { RouterProvider } from '@tanstack/react-router'
-import { panelRouter } from './panel-router'
 import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
+import { PanelApp } from './components/PanelApp'
 import type { HomeAssistant } from './contexts/HomeAssistantContext'
+
+// Import styles
+import '@radix-ui/themes/styles.css'
+import './index.css'
 
 interface PanelConfig {
   route?: string
@@ -53,6 +56,14 @@ class LiebePanel extends HTMLElement {
       container.style.height = '100%'
       this.appendChild(container)
       this.root = ReactDOM.createRoot(container)
+      
+      // Load CSS file if not already loaded
+      if (!document.querySelector('link[href*="panel.css"]')) {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = new URL('/panel.css', import.meta.url).href
+        document.head.appendChild(link)
+      }
     }
     this.render()
   }
@@ -73,7 +84,7 @@ class LiebePanel extends HTMLElement {
         // eslint-disable-next-line react/no-children-prop
         React.createElement(HomeAssistantProvider, {
           hass: this._hass,
-          children: React.createElement(RouterProvider, { router: panelRouter }),
+          children: React.createElement(PanelApp),
         })
       )
     )

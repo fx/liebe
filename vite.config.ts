@@ -32,6 +32,27 @@ function panelPlugin() {
         res.end(`console.error('Panel not built. Run: npm run build:ha');`)
       })
       
+      // Also serve the CSS file
+      server.middlewares.use('/panel.css', (req, res, next) => {
+        const cssPath = resolve(__dirname, 'dist/panel.css')
+        
+        if (existsSync(cssPath)) {
+          try {
+            const content = readFileSync(cssPath, 'utf-8')
+            res.setHeader('Content-Type', 'text/css')
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            res.setHeader('Cache-Control', 'no-cache')
+            res.end(content)
+            return
+          } catch (error) {
+            console.error('Error reading panel.css:', error)
+          }
+        }
+        
+        res.statusCode = 404
+        res.end()
+      })
+      
       server.middlewares.use('/panel', (req, res, next) => {
         // Redirect /panel to /panel.js for consistency
         res.writeHead(302, { Location: '/panel.js' })
