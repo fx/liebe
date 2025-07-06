@@ -116,7 +116,7 @@ function CameraCardComponent({
           >
             {streamError ? (
               <Flex direction="column" align="center" gap="2" style={{ padding: '12px' }}>
-                {streamError.includes('additional setup') ? (
+                {streamError.includes('not yet fully implemented') ? (
                   <>
                     <Text size="2" weight="medium" style={{ textAlign: 'center' }}>
                       Camera Configuration Required

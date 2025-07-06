@@ -76,16 +76,31 @@ export function useWebRTC({
       await pc.setLocalDescription(offer)
 
       // TODO: Implement WebRTC offer/answer exchange with Home Assistant
-      // This will require either:
-      // 1. A custom component that provides WebRTC endpoints
-      // 2. Integration with go2rtc addon
-      // 3. Direct RTSP URL from camera entity attributes
-      //
-      // Will use _entityId parameter when implementing the actual WebRTC connection
+      // The hass object in custom panels doesn't have direct WebSocket access
+      // We need to either:
+      // 1. Use the hass-ws connection if available
+      // 2. Call a service that returns WebRTC credentials
+      // 3. Use the camera's stream URL directly with go2rtc
 
-      // For now, we'll throw an error indicating the feature is not yet implemented
+      // For now, check if camera supports WebRTC by looking at attributes
+      const entity = hass.states[_entityId]
+      if (!entity) {
+        throw new Error('Camera entity not found')
+      }
+
+      // Check if this is a go2rtc stream or has WebRTC support
+      const attributes = entity.attributes as any
+      const streamSource = attributes.stream_source || attributes.entity_picture
+
+      if (!streamSource) {
+        throw new Error(
+          'No stream source available. Ensure your camera is properly configured in Home Assistant.'
+        )
+      }
+
+      // Provide helpful setup message
       throw new Error(
-        'Camera streaming requires additional setup. The camera needs to be configured in your streaming service (go2rtc, Frigate, etc.) before it can be displayed here.'
+        'WebRTC streaming is not yet fully implemented. Camera entities need to be configured in go2rtc with WebRTC support enabled.'
       )
     } catch (err) {
       console.error('WebRTC initialization failed:', err)
