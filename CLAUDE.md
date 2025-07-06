@@ -804,3 +804,45 @@ When testing changes:
 - [ ] Interactions work as expected
 - [ ] No console errors
 - [ ] Screenshots captured for reference
+
+## Screenshots Directory
+
+### Screenshot Storage Guidelines
+
+All screenshots taken during development and testing MUST be saved in the `/workspace/screenshots/` directory. This ensures:
+
+1. **Organization**: All visual documentation is in one place
+2. **Version Control**: Screenshots can be tracked in git
+3. **Documentation**: Visual proof of features and fixes
+
+### Screenshot Naming Convention
+
+Use descriptive names that include:
+- Feature/component name
+- Date (YYYY-MM-DD format)
+- Description of what's shown
+
+Examples:
+- `connection-status-popover-2025-01-06-fixed.png`
+- `entity-browser-2025-01-06-dark-mode.png`
+- `grid-layout-2025-01-06-edit-mode.png`
+
+### Taking Screenshots
+
+When using MCP browser tools to take screenshots:
+
+```javascript
+// Always save to the screenshots directory
+mcp__playwright__browser_take_screenshot({
+  element: "Description of element",
+  ref: "element_ref",
+  filename: "screenshots/feature-name-YYYY-MM-DD-description.png"
+})
+```
+
+### Directory Setup
+
+The `/workspace/screenshots/` directory should:
+- Contain a `.gitkeep` file to ensure it's tracked in version control
+- Be committed to the repository
+- Store all development and testing screenshots
