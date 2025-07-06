@@ -50,9 +50,9 @@ function CameraCardComponent({
   // Memoize the enabled flag to prevent unnecessary WebRTC re-initializations
   const hasEntity = !!entity
   const webRTCEnabled = useMemo(() => {
-    const enabled = !isEditMode && hasEntity && isConnected && supportsStream
+    const enabled = hasEntity && isConnected && supportsStream
     return enabled
-  }, [isEditMode, hasEntity, isConnected, supportsStream])
+  }, [hasEntity, isConnected, supportsStream])
 
   // Use WebRTC hook for streaming
   const {
@@ -115,7 +115,7 @@ function CameraCardComponent({
       }}
     >
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-        {!isEditMode && supportsStream ? (
+        {supportsStream ? (
           <div
             style={{
               width: '100%',
