@@ -9,18 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PanelIndexRouteImport } from './routes/panel-index'
 import { Route as TestStoreRouteImport } from './routes/test-store'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PanelIndexRouteImport } from './routes/panel.index'
 
-const PanelIndexRoute = PanelIndexRouteImport.update({
-  id: '/panel-index',
-  path: '/panel-index',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TestStoreRoute = TestStoreRouteImport.update({
   id: '/test-store',
   path: '/test-store',
@@ -41,70 +34,43 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PanelIndexRoute = PanelIndexRouteImport.update({
-  id: '/panel/',
-  path: '/panel/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/$slug': typeof SlugRoute
-  '/panel-index': typeof PanelIndexRoute
   '/test-store': typeof TestStoreRoute
-  '/panel': typeof PanelIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/$slug': typeof SlugRoute
-  '/panel-index': typeof PanelIndexRoute
   '/test-store': typeof TestStoreRoute
-  '/panel': typeof PanelIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/$slug': typeof SlugRoute
-  '/panel-index': typeof PanelIndexRoute
   '/test-store': typeof TestStoreRoute
-  '/panel/': typeof PanelIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/$slug' | '/panel-index' | '/test-store' | '/panel'
+  fullPaths: '/' | '/$' | '/$slug' | '/test-store'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/$slug' | '/panel-index' | '/test-store' | '/panel'
-  id:
-    | '__root__'
-    | '/'
-    | '/$'
-    | '/$slug'
-    | '/panel-index'
-    | '/test-store'
-    | '/panel/'
+  to: '/' | '/$' | '/$slug' | '/test-store'
+  id: '__root__' | '/' | '/$' | '/$slug' | '/test-store'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   SlugRoute: typeof SlugRoute
-  PanelIndexRoute: typeof PanelIndexRoute
   TestStoreRoute: typeof TestStoreRoute
-  PanelIndexRoute: typeof PanelIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/panel-index': {
-      id: '/panel-index'
-      path: '/panel-index'
-      fullPath: '/panel-index'
-      preLoaderRoute: typeof PanelIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/test-store': {
       id: '/test-store'
       path: '/test-store'
@@ -133,13 +99,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/panel/': {
-      id: '/panel/'
-      path: '/panel'
-      fullPath: '/panel'
-      preLoaderRoute: typeof PanelIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -147,9 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   SlugRoute: SlugRoute,
-  PanelIndexRoute: PanelIndexRoute,
   TestStoreRoute: TestStoreRoute,
-  PanelIndexRoute: PanelIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -54,20 +54,27 @@ class LiebePanel extends HTMLElement {
 
   connectedCallback() {
     if (!this.root) {
+      // Create shadow DOM
+      const shadow = this.attachShadow({ mode: 'open' })
+      
+      // Create container for React
       const container = document.createElement('div')
       container.style.height = '100%'
-      this.appendChild(container)
-      this.root = ReactDOM.createRoot(container)
+      shadow.appendChild(container)
       
-      // Load CSS file if not already loaded
-      if (!document.querySelector('link[href*="panel.css"]')) {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        // Get the base URL from where this script was loaded
-        const scriptUrl = new URL(import.meta.url)
+      // Load CSS into shadow DOM
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      // Get the URL from the script tag that loaded this panel
+      const currentScript = document.currentScript || document.querySelector('script[src*="panel.js"]')
+      if (currentScript && 'src' in currentScript) {
+        const scriptUrl = new URL(currentScript.src)
         link.href = `${scriptUrl.origin}/panel.css`
-        document.head.appendChild(link)
+        shadow.appendChild(link)
       }
+      
+      // Create React root in shadow DOM
+      this.root = ReactDOM.createRoot(container)
     }
     this.render()
   }
