@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { Card, IconButton, Spinner } from '@radix-ui/themes'
-import { X, GripVertical } from 'lucide-react'
+import { X, GripVertical, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
 
 // Types
@@ -17,6 +17,8 @@ export interface GridCardProps {
   onSelect?: () => void
   onDelete?: () => void
   onClick?: () => void
+  onConfigure?: () => void
+  hasConfiguration?: boolean
   title?: string
   className?: string
   style?: React.CSSProperties
@@ -52,6 +54,8 @@ export const GridCard = React.memo(
         onSelect,
         onDelete,
         onClick,
+        onConfigure,
+        hasConfiguration = false,
         title,
         className,
         style,
@@ -166,6 +170,24 @@ export const GridCard = React.memo(
               </div>
             )}
 
+            {/* Configuration Button - hide in fullscreen */}
+            {isEditMode && hasConfiguration && onConfigure && !isFullscreen && (
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onConfigure()
+                }}
+                className="absolute top-1 right-1"
+                style={{ zIndex: 10 }}
+                aria-label="Configure card"
+              >
+                <Settings size={14} />
+              </IconButton>
+            )}
+
             {/* Delete Button - hide in fullscreen */}
             {isEditMode && onDelete && !isFullscreen && (
               <IconButton
@@ -176,8 +198,11 @@ export const GridCard = React.memo(
                   e.stopPropagation()
                   onDelete()
                 }}
-                className="absolute top-1 right-1"
-                style={{ zIndex: 10 }}
+                className="absolute top-1"
+                style={{ 
+                  zIndex: 10,
+                  right: hasConfiguration && onConfigure ? '28px' : '4px'
+                }}
                 aria-label="Delete entity"
               >
                 <X size={14} />

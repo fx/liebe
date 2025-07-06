@@ -35,12 +35,14 @@ function EntityCard({
   onDelete,
   isSelected,
   onSelect,
+  item,
 }: {
   entityId: string
   size?: 'small' | 'medium' | 'large'
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  item?: GridItem
 }) {
   // We only need the entityId to determine the domain
   // The actual entity data will be fetched by the card component
@@ -58,6 +60,7 @@ function EntityCard({
           onDelete={onDelete}
           isSelected={isSelected}
           onSelect={onSelect}
+          item={item}
         />
       )
     case 'cover':
@@ -306,6 +309,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                   onSelect={
                     isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
                   }
+                  item={item}
                 />
               </EntityErrorBoundary>
             )

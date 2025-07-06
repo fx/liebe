@@ -5,7 +5,10 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import { useDashboardStore } from '~/store'
+import { useDashboardStore, dashboardActions } from '~/store'
+import { CardConfigurationModal } from './CardConfigurationModal'
+import { LightCardConfig } from './configurations'
+import type { GridItem } from '~/store/types'
 
 interface LightCardProps {
   entityId: string
@@ -13,6 +16,7 @@ interface LightCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  item?: GridItem
 }
 
 // Light supported features bit flags from Home Assistant
@@ -41,15 +45,20 @@ function LightCardComponent({
   onDelete,
   isSelected = false,
   onSelect,
+  item,
 }: LightCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, turnOn, turnOff, clearError } = useServiceCall()
-  const { mode } = useDashboardStore()
+  const { mode, screens, currentScreenId } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
   // Local state for slider while dragging
   const [localBrightness, setLocalBrightness] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
+
+  // Get config from item
+  const config = item?.config || {}
 
   const handleBrightnessChange = useCallback((value: number[]) => {
     setLocalBrightness(value[0])
@@ -146,18 +155,34 @@ function LightCardComponent({
     }
   }
 
+  const handleConfigSave = (updates: Partial<GridItem>) => {
+    if (item && currentScreenId) {
+      const screen = screens.find((s) => s.id === currentScreenId)
+      if (screen) {
+        dashboardActions.updateGridItem(currentScreenId, item.id, updates)
+      }
+    }
+  }
+
+  // Apply configuration
+  const showBrightness = config.showBrightness !== false
+  const showColorPicker = config.showColorPicker !== false
+
   return (
-    <GridCard
-      size={size}
-      isLoading={isLoading}
-      isError={!!error}
-      isStale={isStale}
-      isSelected={isSelected}
-      isOn={isOn}
-      isUnavailable={isUnavailable}
-      onSelect={() => onSelect?.(!isSelected)}
-      onDelete={onDelete}
-      onClick={isDragging ? undefined : handleToggle}
+    <>
+      <GridCard
+        size={size}
+        isLoading={isLoading}
+        isError={!!error}
+        isStale={isStale}
+        isSelected={isSelected}
+        isOn={isOn}
+        isUnavailable={isUnavailable}
+        onSelect={() => onSelect?.(!isSelected)}
+        onDelete={onDelete}
+        onClick={isDragging ? undefined : handleToggle}
+        onConfigure={() => setConfigOpen(true)}
+        hasConfiguration={true}
       title={error || (isStale ? 'Entity data may be outdated' : undefined)}
       className="light-card"
       style={{
@@ -192,7 +217,7 @@ function LightCardComponent({
           </Text>
         </GridCard.Title>
 
-        {!isEditMode && isOn && supportsBrightness && (
+        {!isEditMode && isOn && supportsBrightness && showBrightness && (
           <GridCard.Controls>
             <Text size="1" color="gray" style={{ minWidth: '35px' }}>
               {displayBrightness}%
@@ -236,6 +261,18 @@ function LightCardComponent({
         </GridCard.Status>
       </Flex>
     </GridCard>
+
+      {item && (
+        <CardConfigurationModal
+          open={configOpen}
+          onOpenChange={setConfigOpen}
+          item={item}
+          onSave={handleConfigSave}
+        >
+          <LightCardConfig />
+        </CardConfigurationModal>
+      )}
+    </>
   )
 }
 
@@ -247,6 +284,7 @@ export const LightCard = memo(LightCardComponent, (prevProps, nextProps) => {
     prevProps.size === nextProps.size &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onSelect === nextProps.onSelect
+    prevProps.onSelect === nextProps.onSelect &&
+    prevProps.item === nextProps.item
   )
 })
