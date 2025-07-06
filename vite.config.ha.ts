@@ -13,7 +13,7 @@ export default defineConfig({
     minify: false,
     sourcemap: true,
     lib: {
-      entry: resolve(__dirname, 'src/custom-panel.ts'),
+      entry: resolve(__dirname, 'src/panel.ts'),
       name: 'Liebe',
       fileName: () => 'panel.js',
       formats: ['iife'],

@@ -1,4 +1,3 @@
-/* Custom Panel Entry for Home Assistant */
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'

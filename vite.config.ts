@@ -22,7 +22,7 @@ function panelPlugin() {
         logLevel: 'error',
         build: {
           lib: {
-            entry: resolve(__dirname, 'src/custom-panel.ts'),
+            entry: resolve(__dirname, 'src/panel.ts'),
             name: 'LiebePanel',
             formats: ['iife'],
             fileName: () => 'panel.js',
