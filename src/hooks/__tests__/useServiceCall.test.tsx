@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { useServiceCall } from '../useServiceCall'
 import { hassService } from '../../services/hassService'
 import { HomeAssistantProvider } from '../../contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext'
 
 vi.mock('../../services/hassService', () => ({
@@ -18,35 +19,14 @@ describe('useServiceCall', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    mockHass = {
+    mockHass = createMockHomeAssistant({
       callService: vi.fn(),
-      states: {},
-      connection: {
-        subscribeEvents: vi.fn(),
-      },
       user: {
         name: 'Test User',
         id: '123',
         is_admin: true,
       },
-      themes: {},
-      language: 'en',
-      config: {
-        latitude: 0,
-        longitude: 0,
-        elevation: 0,
-        unit_system: {
-          length: 'km',
-          mass: 'kg',
-          temperature: 'C',
-          volume: 'L',
-        },
-        location_name: 'Test',
-        time_zone: 'UTC',
-        components: [],
-        version: '2024.1.0',
-      },
-    }
+    })
   })
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (

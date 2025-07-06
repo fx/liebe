@@ -14,7 +14,8 @@ describe('entityStore', () => {
       expect(entityStore.state.isConnected).toBe(true)
 
       entityStoreActions.setConnected(false)
-      expect(entityStore.state.isConnected).toBe(false)
+      // Due to debouncing, disconnection is delayed 500ms, so it should still be true immediately
+      expect(entityStore.state.isConnected).toBe(true)
     })
 
     it('should set initial loading state', () => {

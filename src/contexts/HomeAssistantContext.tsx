@@ -1,4 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react'
+import type { Connection } from 'home-assistant-js-websocket'
 
 export interface HomeAssistantState {
   entity_id: string
@@ -20,9 +21,8 @@ export interface HomeAssistant {
     service: string,
     serviceData?: Record<string, unknown>
   ) => Promise<void>
-  connection: {
-    subscribeEvents: (callback: (event: unknown) => void, eventType: string) => () => void
-  }
+  callWS: <T = unknown>(message: Record<string, unknown>) => Promise<T>
+  connection: Connection
   user: {
     name: string
     id: string
