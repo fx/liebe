@@ -119,21 +119,35 @@ function CameraCardComponent({
                 {streamError.includes('additional setup') ? (
                   <>
                     <Text size="2" weight="medium" style={{ textAlign: 'center' }}>
-                      Camera Streaming Setup Required
+                      Camera Configuration Required
                     </Text>
-                    <Text size="1" color="gray" style={{ textAlign: 'center', maxWidth: '280px' }}>
-                      To view camera streams, install one of these add-ons from the Home Assistant
-                      Add-on Store:
+                    <Text size="1" color="gray" style={{ textAlign: 'center', maxWidth: '300px' }}>
+                      This camera needs to be configured for streaming.
                     </Text>
-                    <Flex direction="column" gap="1" style={{ marginTop: '4px' }}>
-                      <Text size="1" color="gray">
-                        • go2rtc
+                    <Flex direction="column" gap="2" align="center" style={{ marginTop: '8px' }}>
+                      <Text size="1" color="gray" style={{ textAlign: 'center' }}>
+                        If you have go2rtc installed:
                       </Text>
-                      <Text size="1" color="gray">
-                        • RTSPtoWebRTC
-                      </Text>
-                      <Text size="1" color="gray">
-                        • Frigate (with WebRTC)
+                      <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">
+                          1. Open go2rtc web UI (port 1984)
+                        </Text>
+                        <Text size="1" color="gray">
+                          2. Add your camera&apos;s RTSP stream
+                        </Text>
+                        <Text size="1" color="gray">
+                          3. Configure WebRTC for the stream
+                        </Text>
+                      </Flex>
+                      <Text
+                        size="1"
+                        color="blue"
+                        style={{ textDecoration: 'underline', cursor: 'pointer' }}
+                        onClick={() =>
+                          window.open('https://github.com/AlexxIT/go2rtc#quick-start', '_blank')
+                        }
+                      >
+                        View go2rtc setup guide →
                       </Text>
                     </Flex>
                   </>

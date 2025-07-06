@@ -85,7 +85,7 @@ export function useWebRTC({
 
       // For now, we'll throw an error indicating the feature is not yet implemented
       throw new Error(
-        'Camera streaming requires additional setup. Please install the go2rtc add-on from the Home Assistant Add-on Store, or use a camera integration that supports WebRTC (like Frigate or RTSPtoWebRTC).'
+        'Camera streaming requires additional setup. The camera needs to be configured in your streaming service (go2rtc, Frigate, etc.) before it can be displayed here.'
       )
     } catch (err) {
       console.error('WebRTC initialization failed:', err)
