@@ -1,0 +1,212 @@
+import { Flex, Text, Button } from '@radix-ui/themes'
+import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
+import { useEntity, useWebRTC } from '~/hooks'
+import { memo } from 'react'
+import { SkeletonCard, ErrorDisplay } from './ui'
+import { GridCardWithComponents as GridCard } from './GridCard'
+import { useDashboardStore } from '~/store'
+
+interface CameraCardProps {
+  entityId: string
+  size?: 'small' | 'medium' | 'large'
+  onDelete?: () => void
+  isSelected?: boolean
+  onSelect?: (selected: boolean) => void
+}
+
+interface CameraAttributes {
+  access_token?: string
+  entity_picture?: string
+  frontend_stream_type?: string
+  friendly_name?: string
+  supported_features?: number
+}
+
+// Camera supported features bit flags from Home Assistant
+const SUPPORT_STREAM = 2
+
+function CameraCardComponent({
+  entityId,
+  size = 'medium',
+  onDelete,
+  isSelected = false,
+  onSelect,
+}: CameraCardProps) {
+  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const { mode } = useDashboardStore()
+  const isEditMode = mode === 'edit'
+
+  const cameraAttributes = entity?.attributes as CameraAttributes | undefined
+  const supportsStream = !!((cameraAttributes?.supported_features ?? 0) & SUPPORT_STREAM)
+
+  // Use WebRTC hook for streaming
+  const {
+    videoRef,
+    isStreaming,
+    error: streamError,
+    retry: retryStream,
+  } = useWebRTC({
+    entityId,
+    enabled: !isEditMode && !!entity && isConnected && supportsStream,
+  })
+
+  // Show skeleton while loading initial data
+  if (isEntityLoading || (!entity && isConnected)) {
+    return <SkeletonCard size={size} showIcon={true} lines={2} />
+  }
+
+  // Show error state when disconnected or entity not found
+  if (!entity || !isConnected) {
+    return (
+      <ErrorDisplay
+        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        variant="card"
+        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
+        onRetry={!isConnected ? () => window.location.reload() : undefined}
+      />
+    )
+  }
+
+  const isUnavailable = entity.state === 'unavailable'
+  const friendlyName = entity.attributes.friendly_name || entity.entity_id
+  const isRecording = entity.state === 'recording'
+  const isIdle = entity.state === 'idle'
+  const isStreaming_ = entity.state === 'streaming'
+
+  return (
+    <GridCard
+      size={size}
+      isLoading={false}
+      isError={!!streamError}
+      isStale={isStale}
+      isSelected={isSelected}
+      isOn={isRecording || isStreaming_}
+      isUnavailable={isUnavailable}
+      onSelect={() => onSelect?.(!isSelected)}
+      onDelete={onDelete}
+      title={streamError || (isStale ? 'Entity data may be outdated' : undefined)}
+      className="camera-card"
+      style={{
+        backgroundColor:
+          (isRecording || isStreaming_) && !isSelected && !streamError
+            ? 'var(--blue-3)'
+            : undefined,
+        borderColor:
+          (isRecording || isStreaming_) && !isSelected && !streamError && !isStale
+            ? 'var(--blue-6)'
+            : undefined,
+        borderWidth:
+          isSelected || streamError || isRecording || isStreaming_ || isStale ? '2px' : '1px',
+      }}
+    >
+      <Flex direction="column" align="center" justify="center" gap="3" style={{ width: '100%' }}>
+        {!isEditMode && supportsStream ? (
+          <div
+            style={{
+              width: '100%',
+              aspectRatio: '16 / 9',
+              backgroundColor: 'var(--gray-3)',
+              borderRadius: 'var(--radius-2)',
+              overflow: 'hidden',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {streamError ? (
+              <Flex direction="column" align="center" gap="2">
+                <Text size="2" color="red">
+                  {streamError}
+                </Text>
+                <Button size="2" variant="soft" onClick={retryStream}>
+                  <ReloadIcon />
+                  Retry
+                </Button>
+              </Flex>
+            ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: isStreaming ? 'block' : 'none',
+                }}
+              />
+            )}
+            {!isStreaming && !streamError && (
+              <Text size="2" color="gray">
+                Connecting...
+              </Text>
+            )}
+          </div>
+        ) : (
+          <GridCard.Icon>
+            <VideoIcon
+              style={{
+                color: isStale
+                  ? 'var(--orange-9)'
+                  : isRecording || isStreaming_
+                    ? 'var(--blue-9)'
+                    : 'var(--gray-9)',
+                opacity: isStale ? 0.6 : 1,
+                transition: 'opacity 0.2s ease',
+                width: 20,
+                height: 20,
+              }}
+            />
+          </GridCard.Icon>
+        )}
+
+        <GridCard.Title>
+          <Text
+            weight={isRecording || isStreaming_ ? 'medium' : 'regular'}
+            style={{
+              color: isRecording || isStreaming_ ? 'var(--blue-11)' : undefined,
+              transition: 'opacity 0.2s ease',
+            }}
+          >
+            {friendlyName}
+          </Text>
+        </GridCard.Title>
+
+        <GridCard.Status>
+          <Text
+            size="1"
+            color={streamError ? 'red' : isRecording || isStreaming_ ? 'blue' : 'gray'}
+            weight="medium"
+            style={{
+              transition: 'opacity 0.2s ease',
+            }}
+          >
+            {streamError
+              ? 'ERROR'
+              : isRecording
+                ? 'RECORDING'
+                : isStreaming_
+                  ? 'STREAMING'
+                  : isIdle
+                    ? 'IDLE'
+                    : entity.state.toUpperCase()}
+          </Text>
+        </GridCard.Status>
+      </Flex>
+    </GridCard>
+  )
+}
+
+// Memoize the component to prevent unnecessary re-renders
+export const CameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
+  // Re-render if any of these props change
+  return (
+    prevProps.entityId === nextProps.entityId &&
+    prevProps.size === nextProps.size &&
+    prevProps.onDelete === nextProps.onDelete &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.onSelect === nextProps.onSelect
+  )
+})
