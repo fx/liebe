@@ -2,6 +2,7 @@ import { Flex, Text, Button } from '@radix-ui/themes'
 import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
 import { useEntity, useWebRTC } from '~/hooks'
 import { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore } from '~/store'
@@ -302,8 +303,8 @@ function CameraCardComponent({
         </div>
       </GridCard>
 
-      {/* Fullscreen portal */}
-      {isFullscreen && (
+      {/* Fullscreen portal - renders to document.body to escape shadow DOM */}
+      {isFullscreen && createPortal(
         <div
           style={{
             position: 'fixed',
@@ -387,7 +388,8 @@ function CameraCardComponent({
           >
             Click or press ESC to exit
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
