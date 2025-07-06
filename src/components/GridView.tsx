@@ -271,6 +271,8 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
             return (
               <Separator
                 title={item.title}
+                orientation={item.separatorOrientation || 'horizontal'}
+                textColor={item.separatorTextColor || 'gray'}
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
                 isSelected={selectedItems.has(item.id)}
                 onSelect={
