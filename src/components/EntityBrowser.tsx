@@ -40,6 +40,7 @@ const getFriendlyDomain = (domain: string): string => {
     cover: 'Covers',
     fan: 'Fans',
     lock: 'Locks',
+    camera: 'Cameras',
     media_player: 'Media Players',
     scene: 'Scenes',
     script: 'Scripts',

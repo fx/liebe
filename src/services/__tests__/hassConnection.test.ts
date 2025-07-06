@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { HassConnectionManager } from '../hassConnection'
 import { entityStoreActions } from '../../store/entityStore'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext'
 import type { StateChangedEvent } from '../hassConnection'
+import type { Connection } from 'home-assistant-js-websocket'
 
 // Mock the store actions
 vi.mock('../../store/entityStore', () => ({
@@ -70,7 +72,24 @@ describe('HassConnectionManager', () => {
 
     mockUnsubscribe = vi.fn()
 
-    mockHass = {
+    const mockConnectionOverride = {
+      subscribeEvents: vi.fn().mockReturnValue(Promise.resolve(mockUnsubscribe)),
+      subscribeMessage: vi.fn().mockReturnValue(Promise.resolve(vi.fn())),
+      sendMessagePromise: vi.fn().mockResolvedValue(undefined),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      close: vi.fn(),
+      reconnect: vi.fn(),
+      suspend: vi.fn(),
+      ping: vi.fn().mockResolvedValue(undefined),
+      socket: {
+        readyState: 1,
+        close: vi.fn(),
+      },
+      haVersion: '2024.1.0',
+    } as unknown as Connection
+
+    mockHass = createMockHomeAssistant({
       states: {
         'light.living_room': {
           entity_id: 'light.living_room',
@@ -89,33 +108,9 @@ describe('HassConnectionManager', () => {
           context: { id: '456', parent_id: null, user_id: null },
         },
       },
-      connection: {
-        subscribeEvents: vi.fn().mockReturnValue(mockUnsubscribe),
-      },
+      connection: mockConnectionOverride,
       callService: vi.fn(),
-      user: {
-        name: 'Test User',
-        id: 'test-user',
-        is_admin: true,
-      },
-      themes: {},
-      language: 'en',
-      config: {
-        latitude: 0,
-        longitude: 0,
-        elevation: 0,
-        unit_system: {
-          length: 'km',
-          mass: 'kg',
-          temperature: 'C',
-          volume: 'L',
-        },
-        location_name: 'Test Location',
-        time_zone: 'UTC',
-        components: [],
-        version: '2023.1.0',
-      },
-    }
+    })
 
     connectionManager = new HassConnectionManager()
   })
@@ -125,8 +120,8 @@ describe('HassConnectionManager', () => {
   })
 
   describe('connect', () => {
-    it('should connect successfully and load initial states', () => {
-      connectionManager.connect(mockHass)
+    it('should connect successfully and load initial states', async () => {
+      await connectionManager.connect(mockHass)
 
       // Should mark as connected
       expect(entityStoreActions.setConnected).toHaveBeenCalledWith(true)
@@ -147,17 +142,20 @@ describe('HassConnectionManager', () => {
       )
     })
 
-    it('should handle connection errors and schedule reconnect', () => {
+    it('should handle connection errors and schedule reconnect', async () => {
+      const errorConnection = {
+        ...mockHass.connection,
+        subscribeEvents: vi.fn().mockImplementation(() => {
+          throw new Error('Connection failed')
+        }),
+      } as unknown as Connection
+
       const errorHass = {
         ...mockHass,
-        connection: {
-          subscribeEvents: vi.fn().mockImplementation(() => {
-            throw new Error('Connection failed')
-          }),
-        },
+        connection: errorConnection,
       }
 
-      connectionManager.connect(errorHass)
+      await connectionManager.connect(errorHass)
 
       expect(entityStoreActions.setError).toHaveBeenCalledWith('Connection failed')
 
@@ -167,9 +165,9 @@ describe('HassConnectionManager', () => {
   })
 
   describe('disconnect', () => {
-    it('should disconnect and cleanup', () => {
-      connectionManager.connect(mockHass)
-      connectionManager.disconnect()
+    it('should disconnect and cleanup', async () => {
+      await connectionManager.connect(mockHass)
+      await connectionManager.disconnect()
 
       expect(mockUnsubscribe).toHaveBeenCalled()
       expect(entityStoreActions.setConnected).toHaveBeenCalledWith(false)
@@ -179,9 +177,9 @@ describe('HassConnectionManager', () => {
   describe('state change handling', () => {
     let stateChangeHandler: (event: StateChangedEvent) => void
 
-    beforeEach(() => {
+    beforeEach(async () => {
       vi.clearAllMocks()
-      connectionManager.connect(mockHass)
+      await connectionManager.connect(mockHass)
       stateChangeHandler = (mockHass.connection.subscribeEvents as ReturnType<typeof vi.fn>).mock
         .calls[0][0]
     })
@@ -253,30 +251,42 @@ describe('HassConnectionManager', () => {
 
   describe('reconnection logic', () => {
     it('should implement exponential backoff', () => {
-      const errorHass = {
-        ...mockHass,
-        connection: {
-          subscribeEvents: vi.fn().mockImplementation(() => {
-            throw new Error('Connection failed')
-          }),
-        },
+      // Test the scheduleReconnect method directly for exponential backoff
+      const manager = new HassConnectionManager()
+      const privateManager = manager as unknown as {
+        reconnectAttempts: number
+        scheduleReconnect: () => void
+        RECONNECT_DELAY_BASE: number
       }
 
-      // First attempt
-      connectionManager.connect(errorHass)
-      expect(vi.getTimerCount()).toBe(1)
+      const delays: number[] = []
+      vi.spyOn(global, 'setTimeout').mockImplementation((callback, ms) => {
+        delays.push(ms || 0)
+        return 1 as unknown as NodeJS.Timeout // Return fake timer ID
+      })
 
-      // Advance time to trigger first reconnect (1 second)
-      vi.advanceTimersByTime(1000)
-      expect(vi.getTimerCount()).toBe(1)
+      // First reconnect: 1 * 1000 = 1000ms
+      privateManager.reconnectAttempts = 0
+      privateManager.scheduleReconnect()
+      expect(delays[0]).toBe(1000)
 
-      // Advance time to trigger second reconnect (2 seconds)
-      vi.advanceTimersByTime(2000)
-      expect(vi.getTimerCount()).toBe(1)
+      // Second reconnect: 2 * 1000 = 2000ms
+      privateManager.reconnectAttempts = 1
+      privateManager.scheduleReconnect()
+      expect(delays[1]).toBe(2000)
 
-      // Advance time to trigger third reconnect (4 seconds)
-      vi.advanceTimersByTime(4000)
-      expect(vi.getTimerCount()).toBe(1)
+      // Third reconnect: 4 * 1000 = 4000ms
+      privateManager.reconnectAttempts = 2
+      privateManager.scheduleReconnect()
+      expect(delays[2]).toBe(4000)
+
+      // Fourth reconnect: 8 * 1000 = 8000ms
+      privateManager.reconnectAttempts = 3
+      privateManager.scheduleReconnect()
+      expect(delays[3]).toBe(8000)
+
+      // Cleanup
+      vi.mocked(global.setTimeout).mockRestore()
     })
 
     it('should stop reconnecting after max attempts', () => {
@@ -299,18 +309,18 @@ describe('HassConnectionManager', () => {
   })
 
   describe('public methods', () => {
-    it('should check connection status', () => {
+    it('should check connection status', async () => {
       expect(connectionManager.isConnected()).toBe(false)
 
-      connectionManager.connect(mockHass)
+      await connectionManager.connect(mockHass)
       expect(connectionManager.isConnected()).toBe(true)
 
-      connectionManager.disconnect()
+      await connectionManager.disconnect()
       expect(connectionManager.isConnected()).toBe(false)
     })
 
-    it('should manually trigger reconnection', () => {
-      connectionManager.connect(mockHass)
+    it('should manually trigger reconnection', async () => {
+      await connectionManager.connect(mockHass)
       const connectSpy = vi.spyOn(
         connectionManager as unknown as { connect: (hass: HomeAssistant) => void },
         'connect'
