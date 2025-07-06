@@ -714,3 +714,16 @@ case 'weather':
    - Create all sub-issues with "Epic: #<number>" in description
    - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
 10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
+
+## 🚨 CRITICAL: Development Server Management 🚨
+
+**NEVER START OR STOP THE DEVELOPMENT SERVER**
+
+- **DO NOT** use `npm run dev` to start the server
+- **DO NOT** use `pkill` or any other commands to stop the server
+- **DO NOT** restart the development server for any reason
+- The user manages their own development server
+- If you need to test changes, ask the user to restart the server themselves
+- If configuration changes require a server restart, clearly state this to the user but do not do it yourself
+
+**This is absolutely non-negotiable. The user controls their development environment.**

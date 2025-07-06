@@ -10,8 +10,8 @@ export default defineConfig({
       fileName: 'panel',
       formats: ['iife'],
     },
-    outDir: 'dist/liebe',
-    emptyOutDir: true,
+    outDir: 'dist',
+    emptyOutDir: false,
     rollupOptions: {
       external: [],
       output: {
