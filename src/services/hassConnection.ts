@@ -62,7 +62,9 @@ export class HassConnectionManager {
 
     // Unsubscribe from state changes
     if (this.stateChangeUnsubscribe) {
-      this.stateChangeUnsubscribe()
+      if (typeof this.stateChangeUnsubscribe === 'function') {
+        this.stateChangeUnsubscribe()
+      }
       this.stateChangeUnsubscribe = null
     }
 
@@ -104,35 +106,9 @@ export class HassConnectionManager {
   }
 
   private subscribeToStateChanges(): void {
-    // Check if we're in iframe mode (no WebSocket connection)
+    // Check if we have a WebSocket connection
     if (!this.hass?.connection) {
-      // In iframe mode, we get state updates via the hass object itself
-      // No need to subscribe to WebSocket events
-      console.info('Running in iframe mode - state updates handled via postMessage')
-
-      // Listen for state change events from parent window
-      const handleIframeStateChange = (event: CustomEvent) => {
-        this.handleStateChanged(event.detail as StateChangedEvent)
-      }
-
-      const handleStatesUpdate = (event: CustomEvent) => {
-        if (event.detail?.states) {
-          // Convert states object to array of entities
-          const entities = Object.values(event.detail.states) as HassEntity[]
-          entityStoreActions.updateEntities(entities)
-          entityStoreActions.setInitialLoading(false)
-        }
-      }
-
-      window.addEventListener('hass-state-changed', handleIframeStateChange as EventListener)
-      window.addEventListener('hass-states-update', handleStatesUpdate as EventListener)
-
-      // Store cleanup function
-      this.stateChangeUnsubscribe = () => {
-        window.removeEventListener('hass-state-changed', handleIframeStateChange as EventListener)
-        window.removeEventListener('hass-states-update', handleStatesUpdate as EventListener)
-      }
-
+      console.warn('No WebSocket connection available')
       return
     }
 

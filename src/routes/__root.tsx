@@ -8,7 +8,6 @@ import 'react-resizable/css/styles.css'
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
-import { RemoteHomeAssistantProvider } from '~/components/RemoteHomeAssistantProvider'
 import { useHomeAssistantRouting } from '~/hooks/useHomeAssistantRouting'
 import { useDashboardPersistence, useDashboardStore } from '~/store'
 import '~/styles/app.css'
@@ -45,9 +44,6 @@ function RootComponent() {
     return () => mediaQuery.removeEventListener('change', handler)
   }, [theme])
 
-  // Check if we're running in an iframe (remote mode)
-  const isInIframe = typeof window !== 'undefined' && window.parent !== window
-
   // Determine the appearance based on theme setting
   const getAppearance = () => {
     if (theme === 'light' || theme === 'dark') {
@@ -61,7 +57,7 @@ function RootComponent() {
     return 'light'
   }
 
-  const content = (
+  return (
     <>
       <Theme appearance={getAppearance()}>
         <Outlet />
@@ -70,11 +66,4 @@ function RootComponent() {
       <Scripts />
     </>
   )
-
-  // Wrap with RemoteHomeAssistantProvider if in iframe
-  if (isInIframe) {
-    return <RemoteHomeAssistantProvider>{content}</RemoteHomeAssistantProvider>
-  }
-
-  return content
 }

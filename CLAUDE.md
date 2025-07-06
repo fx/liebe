@@ -28,7 +28,7 @@ You are working on a custom Home Assistant dashboard project that integrates as 
 
 ## Development Environment
 
-- **Home Assistant Instance**: To be provided when needed
+- **Home Assistant Instance**: Check .env.local for development instance credentials
 - **Repository**: Use GitHub Projects for task management
 - **Framework**: TanStack Start with React (SPA Mode)
 - **UI Library**: Radix UI Theme (not just primitives, use default theme)
@@ -714,3 +714,147 @@ case 'weather':
    - Create all sub-issues with "Epic: #<number>" in description
    - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
 10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
+
+## 🚨 CRITICAL: Development Server Management 🚨
+
+**NEVER START OR STOP THE DEVELOPMENT SERVER**
+
+- **DO NOT** use `npm run dev` to start the server
+- **DO NOT** use `pkill` or any other commands to stop the server
+- **DO NOT** restart the development server for any reason
+- The user manages their own development server
+- If you need to test changes, ask the user to restart the server themselves
+- If configuration changes require a server restart, clearly state this to the user but do not do it yourself
+
+**This is absolutely non-negotiable. The user controls their development environment.**
+
+## Automated Testing with MCP Browser Tools
+
+### Testing Changes in Home Assistant
+
+When you make changes to the Liebe panel, you can test them directly in Home Assistant using MCP's playwright browser tools:
+
+1. **Build the production bundle**:
+
+   ```bash
+   npm run build:ha
+   ```
+
+2. **Access the panel using MCP browser tools**:
+   - Navigate to Home Assistant URL from `.env.local`
+   - Login with credentials if needed
+   - Navigate to `/liebe` path
+   - Take screenshots or interact with elements
+   - Check for console errors
+
+3. **Typical testing flow**:
+   ```
+   Build → Navigate → Login → Test → Screenshot
+   ```
+
+### MCP Browser Tools Workflow
+
+The MCP browser tools provide direct browser automation for testing:
+
+1. **Prerequisites**:
+   - Ensure Playwright browser is installed: `npx playwright install chromium`
+   - Have `.env.local` configured with Home Assistant credentials
+
+2. **Key MCP browser functions**:
+   - `mcp__playwright__browser_navigate` - Go to a URL
+   - `mcp__playwright__browser_type` - Fill in text fields
+   - `mcp__playwright__browser_click` - Click elements
+   - `mcp__playwright__browser_take_screenshot` - Capture visual state
+   - `mcp__playwright__browser_snapshot` - Get accessibility tree
+   - `mcp__playwright__browser_console_messages` - Check for errors
+   - `mcp__playwright__browser_wait_for` - Wait for conditions
+
+3. **Common testing patterns**:
+
+   ```
+   // Check if login is needed
+   - Look for username/password fields
+   - Fill and submit if present
+
+   // Verify panel loaded
+   - Check for "Connected" status
+   - Look for expected UI elements
+   - Take screenshot for visual verification
+
+   // Test interactions
+   - Click buttons and check results
+   - Verify state changes
+   - Check console for errors
+   ```
+
+### Environment Variables
+
+The MCP tools read credentials from `.env.local`:
+
+```
+HASS_URL=http://192.168.0.232:8123
+HASS_USER=dev
+HASS_PASSWORD=test
+```
+
+### Testing Checklist
+
+When testing changes:
+
+- [ ] Build completed successfully (`npm run build:ha`)
+- [ ] Panel loads without errors
+- [ ] Connection status shows "Connected"
+- [ ] UI elements render correctly
+- [ ] Interactions work as expected
+- [ ] No console errors
+- [ ] Screenshots captured for reference
+
+## Screenshots Directory
+
+### Screenshot Storage Guidelines
+
+All screenshots taken during development and testing MUST be saved in the `/workspace/screenshots/` directory. This ensures:
+
+1. **Organization**: All visual documentation is in one place
+2. **Version Control**: Screenshots can be tracked in git
+3. **Documentation**: Visual proof of features and fixes
+
+### Screenshot Naming Convention
+
+Use descriptive names that include:
+
+- Feature/component name
+- Date (YYYY-MM-DD format)
+- Description of what's shown
+
+Examples:
+
+- `connection-status-popover-2025-01-06-fixed.png`
+- `entity-browser-2025-01-06-dark-mode.png`
+- `grid-layout-2025-01-06-edit-mode.png`
+
+### Taking Screenshots
+
+When using MCP browser tools to take screenshots:
+
+```javascript
+// Note: MCP browser tools save to a temporary location
+// You need to manually copy screenshots to the project directory
+mcp__playwright__browser_take_screenshot({
+  element: 'Description of element',
+  ref: 'element_ref',
+  filename: 'feature-name-YYYY-MM-DD-description.png',
+})
+
+// After taking the screenshot, copy it from the temp location:
+// 1. Find the file: find /tmp -name "*feature-name*" -type f
+// 2. Copy to screenshots: cp /tmp/path/to/screenshot.png /workspace/screenshots/
+```
+
+### Directory Setup
+
+The `/workspace/screenshots/` directory should:
+
+- Contain a `.gitkeep` file to ensure it's tracked in version control
+- Be committed to the repository
+- Store all development and testing screenshots
