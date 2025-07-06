@@ -1,7 +1,7 @@
 import { Flex, Text, Button } from '@radix-ui/themes'
 import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
 import { useEntity, useWebRTC } from '~/hooks'
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore } from '~/store'
@@ -36,8 +36,23 @@ function CameraCardComponent({
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
-  const cameraAttributes = entity?.attributes as CameraAttributes | undefined
-  const supportsStream = !!((cameraAttributes?.supported_features ?? 0) & SUPPORT_STREAM)
+  // Memoize camera attributes and stream support to prevent re-renders
+  const cameraAttributes = useMemo(
+    () => entity?.attributes as CameraAttributes | undefined,
+    [entity]
+  )
+
+  const supportsStream = useMemo(
+    () => !!((cameraAttributes?.supported_features ?? 0) & SUPPORT_STREAM),
+    [cameraAttributes?.supported_features]
+  )
+
+  // Memoize the enabled flag to prevent unnecessary WebRTC re-initializations
+  const hasEntity = !!entity
+  const webRTCEnabled = useMemo(() => {
+    const enabled = !isEditMode && hasEntity && isConnected && supportsStream
+    return enabled
+  }, [isEditMode, hasEntity, isConnected, supportsStream])
 
   // Use WebRTC hook for streaming
   const {
@@ -47,7 +62,7 @@ function CameraCardComponent({
     retry: retryStream,
   } = useWebRTC({
     entityId,
-    enabled: !isEditMode && !!entity && isConnected && supportsStream,
+    enabled: webRTCEnabled,
   })
 
   // Show skeleton while loading initial data
