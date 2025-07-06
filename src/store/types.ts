@@ -10,6 +10,8 @@ export interface GridItem {
   type: GridItemType
   entityId?: string // Only required for entity type
   title?: string // Optional title for separators
+  separatorOrientation?: 'horizontal' | 'vertical' // For separators
+  separatorTextColor?: string // For separators (e.g., 'gray', 'blue', 'red')
   content?: string // For text cards
   alignment?: 'left' | 'center' | 'right' // For text cards
   textSize?: 'small' | 'medium' | 'large' // For text cards
