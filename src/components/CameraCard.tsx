@@ -115,14 +115,39 @@ function CameraCardComponent({
             }}
           >
             {streamError ? (
-              <Flex direction="column" align="center" gap="2">
-                <Text size="2" color="red">
-                  {streamError}
-                </Text>
-                <Button size="2" variant="soft" onClick={retryStream}>
-                  <ReloadIcon />
-                  Retry
-                </Button>
+              <Flex direction="column" align="center" gap="2" style={{ padding: '12px' }}>
+                {streamError.includes('additional setup') ? (
+                  <>
+                    <Text size="2" weight="medium" style={{ textAlign: 'center' }}>
+                      Camera Streaming Setup Required
+                    </Text>
+                    <Text size="1" color="gray" style={{ textAlign: 'center', maxWidth: '280px' }}>
+                      To view camera streams, install one of these add-ons from the Home Assistant
+                      Add-on Store:
+                    </Text>
+                    <Flex direction="column" gap="1" style={{ marginTop: '4px' }}>
+                      <Text size="1" color="gray">
+                        • go2rtc
+                      </Text>
+                      <Text size="1" color="gray">
+                        • RTSPtoWebRTC
+                      </Text>
+                      <Text size="1" color="gray">
+                        • Frigate (with WebRTC)
+                      </Text>
+                    </Flex>
+                  </>
+                ) : (
+                  <>
+                    <Text size="2" color="red">
+                      {streamError}
+                    </Text>
+                    <Button size="2" variant="soft" onClick={retryStream}>
+                      <ReloadIcon />
+                      Retry
+                    </Button>
+                  </>
+                )}
               </Flex>
             ) : (
               <video

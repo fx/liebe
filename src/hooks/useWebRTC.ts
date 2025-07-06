@@ -84,7 +84,9 @@ export function useWebRTC({
       // Will use _entityId parameter when implementing the actual WebRTC connection
 
       // For now, we'll throw an error indicating the feature is not yet implemented
-      throw new Error('WebRTC streaming not yet implemented. Please configure go2rtc integration.')
+      throw new Error(
+        'Camera streaming requires additional setup. Please install the go2rtc add-on from the Home Assistant Add-on Store, or use a camera integration that supports WebRTC (like Frigate or RTSPtoWebRTC).'
+      )
     } catch (err) {
       console.error('WebRTC initialization failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to initialize WebRTC')
