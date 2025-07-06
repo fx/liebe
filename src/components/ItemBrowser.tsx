@@ -13,12 +13,14 @@ import {
   Badge,
   Card,
   Tabs,
+  Select,
 } from '@radix-ui/themes'
 import {
   Cross2Icon,
   MagnifyingGlassIcon,
   TextIcon,
   DividerHorizontalIcon,
+  DividerVerticalIcon,
 } from '@radix-ui/react-icons'
 import { useEntities } from '~/hooks'
 import { dashboardActions } from '~/store'
@@ -67,6 +69,12 @@ const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
 export function ItemBrowser({ open, onOpenChange, screenId }: ItemBrowserProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
+  const [separatorDialogOpen, setSeparatorDialogOpen] = useState(false)
+  const [separatorConfig, setSeparatorConfig] = useState({
+    title: '',
+    orientation: 'horizontal' as 'horizontal' | 'vertical',
+    textColor: 'gray' as string,
+  })
   const { entities, isLoading } = useEntities()
 
   // Filter and group entities
@@ -164,20 +172,28 @@ export function ItemBrowser({ open, onOpenChange, screenId }: ItemBrowserProps) 
   }, [selectedEntityIds, screenId, onOpenChange])
 
   const handleAddSeparator = useCallback(() => {
+    setSeparatorDialogOpen(true)
+  }, [])
+
+  const handleSeparatorConfirm = useCallback(() => {
     if (screenId) {
       const newItem: GridItem = {
         id: `separator-${Date.now()}`,
         type: 'separator',
-        title: '',
+        title: separatorConfig.title,
+        separatorOrientation: separatorConfig.orientation,
+        separatorTextColor: separatorConfig.textColor,
         x: 0,
         y: 0,
-        width: 4,
-        height: 1,
+        width: separatorConfig.orientation === 'vertical' ? 1 : 4,
+        height: separatorConfig.orientation === 'vertical' ? 4 : 1,
       }
       dashboardActions.addGridItem(screenId, newItem)
     }
+    setSeparatorDialogOpen(false)
+    setSeparatorConfig({ title: '', orientation: 'horizontal', textColor: 'gray' })
     onOpenChange(false)
-  }, [screenId, onOpenChange])
+  }, [screenId, separatorConfig, onOpenChange])
 
   const handleAddText = useCallback(() => {
     if (screenId) {
@@ -209,151 +225,300 @@ export function ItemBrowser({ open, onOpenChange, screenId }: ItemBrowserProps) 
   )
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content maxWidth="600px" style={{ maxHeight: '90vh' }}>
-        <Dialog.Title>Add Items</Dialog.Title>
-        <Dialog.Description>Select items to add to your dashboard</Dialog.Description>
+    <>
+      <Dialog.Root open={open} onOpenChange={onOpenChange}>
+        <Dialog.Content maxWidth="600px" style={{ maxHeight: '90vh' }}>
+          <Dialog.Title>Add Items</Dialog.Title>
+          <Dialog.Description>Select items to add to your dashboard</Dialog.Description>
 
-        <Tabs.Root defaultValue="entities">
-          <Tabs.List>
-            <Tabs.Trigger value="entities">Entities</Tabs.Trigger>
-            <Tabs.Trigger value="cards">Cards</Tabs.Trigger>
-          </Tabs.List>
+          <Tabs.Root defaultValue="entities">
+            <Tabs.List>
+              <Tabs.Trigger value="entities">Entities</Tabs.Trigger>
+              <Tabs.Trigger value="cards">Cards</Tabs.Trigger>
+            </Tabs.List>
 
-          <Box mt="4">
-            <Tabs.Content value="entities">
-              <Flex direction="column" gap="3">
-                {/* Search bar */}
-                <TextField.Root
-                  placeholder="Search entities..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                >
-                  <TextField.Slot>
-                    <MagnifyingGlassIcon height="16" width="16" />
-                  </TextField.Slot>
-                  {searchTerm && (
+            <Box mt="4">
+              <Tabs.Content value="entities">
+                <Flex direction="column" gap="3">
+                  {/* Search bar */}
+                  <TextField.Root
+                    placeholder="Search entities..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  >
                     <TextField.Slot>
-                      <IconButton size="1" variant="ghost" onClick={() => setSearchTerm('')}>
-                        <Cross2Icon height="14" width="14" />
-                      </IconButton>
+                      <MagnifyingGlassIcon height="16" width="16" />
                     </TextField.Slot>
-                  )}
-                </TextField.Root>
+                    {searchTerm && (
+                      <TextField.Slot>
+                        <IconButton size="1" variant="ghost" onClick={() => setSearchTerm('')}>
+                          <Cross2Icon height="14" width="14" />
+                        </IconButton>
+                      </TextField.Slot>
+                    )}
+                  </TextField.Root>
 
-                {/* Results summary */}
-                <Flex justify="between" align="center">
-                  <Text size="2" color="gray">
-                    {totalEntities} entities found
-                    {searchTerm && ` matching "${searchTerm}"`}
-                  </Text>
-                  {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
-                </Flex>
+                  {/* Results summary */}
+                  <Flex justify="between" align="center">
+                    <Text size="2" color="gray">
+                      {totalEntities} entities found
+                      {searchTerm && ` matching "${searchTerm}"`}
+                    </Text>
+                    {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
+                  </Flex>
 
-                {/* Entity list */}
-                <ScrollArea style={{ height: '400px' }}>
-                  {isLoading ? (
-                    <Flex align="center" justify="center" p="6">
-                      <Text color="gray">Loading entities...</Text>
-                    </Flex>
-                  ) : entityGroups.length === 0 ? (
-                    <Flex align="center" justify="center" p="6">
-                      <Text color="gray">No entities found</Text>
-                    </Flex>
-                  ) : (
-                    <Flex direction="column" gap="4" pr="3">
-                      {entityGroups.map((group) => (
-                        <Box key={group.domain}>
-                          <Flex align="center" justify="between" mb="2">
-                            <Text size="2" weight="bold">
-                              {getFriendlyDomain(group.domain)}
-                            </Text>
-                            <Checkbox
-                              size="1"
-                              checked={group.entities.every((e) =>
-                                selectedEntityIds.has(e.entity_id)
-                              )}
-                              onCheckedChange={(checked) =>
-                                handleToggleAll(group.domain, checked as boolean)
-                              }
-                            />
-                          </Flex>
-                          <Flex direction="column" gap="1">
-                            {group.entities.map((entity) => (
-                              <EntityItem
-                                key={entity.entity_id}
-                                entity={entity}
-                                checked={selectedEntityIds.has(entity.entity_id)}
+                  {/* Entity list */}
+                  <ScrollArea style={{ height: '400px' }}>
+                    {isLoading ? (
+                      <Flex align="center" justify="center" p="6">
+                        <Text color="gray">Loading entities...</Text>
+                      </Flex>
+                    ) : entityGroups.length === 0 ? (
+                      <Flex align="center" justify="center" p="6">
+                        <Text color="gray">No entities found</Text>
+                      </Flex>
+                    ) : (
+                      <Flex direction="column" gap="4" pr="3">
+                        {entityGroups.map((group) => (
+                          <Box key={group.domain}>
+                            <Flex align="center" justify="between" mb="2">
+                              <Text size="2" weight="bold">
+                                {getFriendlyDomain(group.domain)}
+                              </Text>
+                              <Checkbox
+                                size="1"
+                                checked={group.entities.every((e) =>
+                                  selectedEntityIds.has(e.entity_id)
+                                )}
                                 onCheckedChange={(checked) =>
-                                  handleToggleEntity(entity.entity_id, checked)
+                                  handleToggleAll(group.domain, checked as boolean)
                                 }
                               />
-                            ))}
-                          </Flex>
-                          <Separator size="4" my="3" />
-                        </Box>
-                      ))}
-                    </Flex>
-                  )}
-                </ScrollArea>
+                            </Flex>
+                            <Flex direction="column" gap="1">
+                              {group.entities.map((entity) => (
+                                <EntityItem
+                                  key={entity.entity_id}
+                                  entity={entity}
+                                  checked={selectedEntityIds.has(entity.entity_id)}
+                                  onCheckedChange={(checked) =>
+                                    handleToggleEntity(entity.entity_id, checked)
+                                  }
+                                />
+                              ))}
+                            </Flex>
+                            <Separator size="4" my="3" />
+                          </Box>
+                        ))}
+                      </Flex>
+                    )}
+                  </ScrollArea>
 
-                {/* Add button for entities */}
-                <Flex gap="3" justify="end">
-                  <Button onClick={handleAddSelected} disabled={selectedEntityIds.size === 0}>
-                    Add {selectedEntityIds.size > 0 && `(${selectedEntityIds.size})`}
-                  </Button>
+                  {/* Add button for entities */}
+                  <Flex gap="3" justify="end">
+                    <Button onClick={handleAddSelected} disabled={selectedEntityIds.size === 0}>
+                      Add {selectedEntityIds.size > 0 && `(${selectedEntityIds.size})`}
+                    </Button>
+                  </Flex>
                 </Flex>
-              </Flex>
-            </Tabs.Content>
+              </Tabs.Content>
 
-            <Tabs.Content value="cards">
-              <Flex direction="column" gap="3">
-                <Text size="2" color="gray">
-                  Add special cards to your dashboard
-                </Text>
+              <Tabs.Content value="cards">
+                <Flex direction="column" gap="3">
+                  <Text size="2" color="gray">
+                    Add special cards to your dashboard
+                  </Text>
 
-                {/* Card options grid */}
-                <Box
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-                    gap: '12px',
-                  }}
-                >
-                  <IconButton
-                    size="4"
-                    variant="soft"
-                    onClick={handleAddText}
-                    style={{ aspectRatio: '1', width: '100%', height: '80px' }}
-                    title="Text Card - Add formatted text with markdown support"
+                  {/* Card options grid */}
+                  <Box
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                      gap: '12px',
+                    }}
                   >
-                    <TextIcon width="24" height="24" />
-                  </IconButton>
+                    <IconButton
+                      size="4"
+                      variant="soft"
+                      onClick={handleAddText}
+                      style={{ aspectRatio: '1', width: '100%', height: '80px' }}
+                      title="Text Card - Add formatted text with markdown support"
+                    >
+                      <TextIcon width="24" height="24" />
+                    </IconButton>
 
-                  <IconButton
-                    size="4"
-                    variant="soft"
-                    onClick={handleAddSeparator}
-                    style={{ aspectRatio: '1', width: '100%', height: '80px' }}
-                    title="Separator - Add a visual divider between sections"
-                  >
-                    <DividerHorizontalIcon width="24" height="24" />
-                  </IconButton>
-                </Box>
-              </Flex>
-            </Tabs.Content>
-          </Box>
-        </Tabs.Root>
+                    <IconButton
+                      size="4"
+                      variant="soft"
+                      onClick={handleAddSeparator}
+                      style={{ aspectRatio: '1', width: '100%', height: '80px' }}
+                      title="Separator - Add a visual divider between sections"
+                    >
+                      <DividerHorizontalIcon width="24" height="24" />
+                    </IconButton>
+                  </Box>
+                </Flex>
+              </Tabs.Content>
+            </Box>
+          </Tabs.Root>
 
-        <Flex gap="3" mt="5" justify="end">
-          <Dialog.Close>
-            <Button variant="soft" color="gray" onClick={handleClose}>
-              Cancel
-            </Button>
-          </Dialog.Close>
-        </Flex>
-      </Dialog.Content>
-    </Dialog.Root>
+          <Flex gap="3" mt="5" justify="end">
+            <Dialog.Close>
+              <Button variant="soft" color="gray" onClick={handleClose}>
+                Cancel
+              </Button>
+            </Dialog.Close>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* Separator Configuration Dialog */}
+      <Dialog.Root open={separatorDialogOpen} onOpenChange={setSeparatorDialogOpen}>
+        <Dialog.Content maxWidth="450px">
+          <Dialog.Title>Configure Separator</Dialog.Title>
+          <Dialog.Description>Customize your separator appearance</Dialog.Description>
+
+          <Flex direction="column" gap="4" mt="4">
+            {/* Title */}
+            <Box>
+              <Text as="label" size="2" weight="medium" mb="2">
+                Label (optional)
+              </Text>
+              <TextField.Root
+                placeholder="Section title..."
+                value={separatorConfig.title}
+                onChange={(e) => setSeparatorConfig({ ...separatorConfig, title: e.target.value })}
+              />
+            </Box>
+
+            {/* Orientation */}
+            <Box>
+              <Text as="label" size="2" weight="medium" mb="2">
+                Orientation
+              </Text>
+              <Select.Root
+                value={separatorConfig.orientation}
+                onValueChange={(value: 'horizontal' | 'vertical') =>
+                  setSeparatorConfig({ ...separatorConfig, orientation: value })
+                }
+              >
+                <Select.Trigger />
+                <Select.Content>
+                  <Select.Group>
+                    <Select.Item value="horizontal">
+                      <Flex align="center" gap="2">
+                        <DividerHorizontalIcon />
+                        Horizontal
+                      </Flex>
+                    </Select.Item>
+                    <Select.Item value="vertical">
+                      <Flex align="center" gap="2">
+                        <DividerVerticalIcon />
+                        Vertical
+                      </Flex>
+                    </Select.Item>
+                  </Select.Group>
+                </Select.Content>
+              </Select.Root>
+            </Box>
+
+            {/* Text Color */}
+            <Box>
+              <Text as="label" size="2" weight="medium" mb="2">
+                Text Color
+              </Text>
+              <Select.Root
+                value={separatorConfig.textColor}
+                onValueChange={(value) =>
+                  setSeparatorConfig({ ...separatorConfig, textColor: value })
+                }
+              >
+                <Select.Trigger />
+                <Select.Content>
+                  <Select.Group>
+                    <Select.Item value="gray">Gray</Select.Item>
+                    <Select.Item value="blue">Blue</Select.Item>
+                    <Select.Item value="green">Green</Select.Item>
+                    <Select.Item value="red">Red</Select.Item>
+                    <Select.Item value="orange">Orange</Select.Item>
+                    <Select.Item value="purple">Purple</Select.Item>
+                  </Select.Group>
+                </Select.Content>
+              </Select.Root>
+            </Box>
+
+            {/* Preview */}
+            <Box
+              style={{
+                backgroundColor: 'var(--gray-3)',
+                borderRadius: 'var(--radius-2)',
+                padding: '16px',
+                minHeight: '60px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {separatorConfig.orientation === 'horizontal' ? (
+                <Flex align="center" gap="3" style={{ width: '100%' }}>
+                  <div style={{ flex: 1, height: '2px', backgroundColor: 'var(--gray-6)' }} />
+                  {separatorConfig.title && (
+                    <Text
+                      size="2"
+                      weight="medium"
+                      color={
+                        separatorConfig.textColor as
+                          | 'gray'
+                          | 'blue'
+                          | 'green'
+                          | 'red'
+                          | 'orange'
+                          | 'purple'
+                      }
+                    >
+                      {separatorConfig.title}
+                    </Text>
+                  )}
+                  <div style={{ flex: 1, height: '2px', backgroundColor: 'var(--gray-6)' }} />
+                </Flex>
+              ) : (
+                <Flex direction="column" align="center" gap="3" style={{ height: '100%' }}>
+                  <div style={{ flex: 1, width: '2px', backgroundColor: 'var(--gray-6)' }} />
+                  {separatorConfig.title && (
+                    <Text
+                      size="1"
+                      weight="medium"
+                      color={
+                        separatorConfig.textColor as
+                          | 'gray'
+                          | 'blue'
+                          | 'green'
+                          | 'red'
+                          | 'orange'
+                          | 'purple'
+                      }
+                      style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                    >
+                      {separatorConfig.title}
+                    </Text>
+                  )}
+                  <div style={{ flex: 1, width: '2px', backgroundColor: 'var(--gray-6)' }} />
+                </Flex>
+              )}
+            </Box>
+          </Flex>
+
+          <Flex gap="3" mt="5" justify="end">
+            <Dialog.Close>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </Dialog.Close>
+            <Button onClick={handleSeparatorConfirm}>Add Separator</Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+    </>
   )
 }
 
