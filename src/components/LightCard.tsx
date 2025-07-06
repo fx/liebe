@@ -166,7 +166,7 @@ function LightCardComponent({
 
   // Apply configuration
   const showBrightness = config.showBrightness !== false
-  const showColorPicker = config.showColorPicker !== false
+  // const showColorPicker = config.showColorPicker !== false // TODO: implement color picker
 
   return (
     <>
@@ -183,84 +183,84 @@ function LightCardComponent({
         onClick={isDragging ? undefined : handleToggle}
         onConfigure={() => setConfigOpen(true)}
         hasConfiguration={true}
-      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
-      className="light-card"
-      style={{
-        backgroundColor: isOn && !isSelected && !error ? 'var(--amber-3)' : undefined,
-        borderColor: isOn && !isSelected && !error && !isStale ? 'var(--amber-6)' : undefined,
-        borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
-      }}
-    >
-      <Flex direction="column" align="center" justify="center" gap="3">
-        <GridCard.Icon>
-          <SunIcon
-            style={{
-              color: isStale ? 'var(--orange-9)' : isOn ? 'var(--amber-9)' : 'var(--gray-9)',
-              opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
-              transition: 'opacity 0.2s ease',
-              width: 20,
-              height: 20,
-            }}
-          />
-        </GridCard.Icon>
+        title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+        className="light-card"
+        style={{
+          backgroundColor: isOn && !isSelected && !error ? 'var(--amber-3)' : undefined,
+          borderColor: isOn && !isSelected && !error && !isStale ? 'var(--amber-6)' : undefined,
+          borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
+        }}
+      >
+        <Flex direction="column" align="center" justify="center" gap="3">
+          <GridCard.Icon>
+            <SunIcon
+              style={{
+                color: isStale ? 'var(--orange-9)' : isOn ? 'var(--amber-9)' : 'var(--gray-9)',
+                opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
+                transition: 'opacity 0.2s ease',
+                width: 20,
+                height: 20,
+              }}
+            />
+          </GridCard.Icon>
 
-        <GridCard.Title>
-          <Text
-            weight={isOn ? 'medium' : 'regular'}
-            style={{
-              color: isOn ? 'var(--amber-11)' : undefined,
-              opacity: isLoading ? 0.7 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {friendlyName}
-          </Text>
-        </GridCard.Title>
-
-        {!isEditMode && isOn && supportsBrightness && showBrightness && (
-          <GridCard.Controls>
-            <Text size="1" color="gray" style={{ minWidth: '35px' }}>
-              {displayBrightness}%
-            </Text>
-            <Slider.Root
-              className="SliderRoot"
-              value={[displayBrightness]}
-              onValueChange={handleBrightnessChange}
-              onValueCommit={handleBrightnessCommit}
-              onPointerDown={() => setIsDragging(true)}
-              onPointerUp={() => setIsDragging(false)}
-              max={100}
-              step={1}
-              aria-label="Brightness"
-              style={{ flex: '1' }}
+          <GridCard.Title>
+            <Text
+              weight={isOn ? 'medium' : 'regular'}
+              style={{
+                color: isOn ? 'var(--amber-11)' : undefined,
+                opacity: isLoading ? 0.7 : 1,
+                transition: 'opacity 0.2s ease',
+              }}
             >
-              <Slider.Track className="SliderTrack">
-                <Slider.Range className="SliderRange" />
-              </Slider.Track>
-              <Slider.Thumb className="SliderThumb" />
-            </Slider.Root>
-          </GridCard.Controls>
-        )}
+              {friendlyName}
+            </Text>
+          </GridCard.Title>
 
-        <GridCard.Status>
-          <Text
-            size="1"
-            color={error ? 'red' : isOn ? 'amber' : 'gray'}
-            weight="medium"
-            style={{
-              opacity: isLoading ? 0.5 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {error
-              ? 'ERROR'
-              : isOn && displayBrightness < 100 && supportsBrightness
-                ? `${displayBrightness}%`
-                : entity.state.toUpperCase()}
-          </Text>
-        </GridCard.Status>
-      </Flex>
-    </GridCard>
+          {!isEditMode && isOn && supportsBrightness && showBrightness && (
+            <GridCard.Controls>
+              <Text size="1" color="gray" style={{ minWidth: '35px' }}>
+                {displayBrightness}%
+              </Text>
+              <Slider.Root
+                className="SliderRoot"
+                value={[displayBrightness]}
+                onValueChange={handleBrightnessChange}
+                onValueCommit={handleBrightnessCommit}
+                onPointerDown={() => setIsDragging(true)}
+                onPointerUp={() => setIsDragging(false)}
+                max={100}
+                step={1}
+                aria-label="Brightness"
+                style={{ flex: '1' }}
+              >
+                <Slider.Track className="SliderTrack">
+                  <Slider.Range className="SliderRange" />
+                </Slider.Track>
+                <Slider.Thumb className="SliderThumb" />
+              </Slider.Root>
+            </GridCard.Controls>
+          )}
+
+          <GridCard.Status>
+            <Text
+              size="1"
+              color={error ? 'red' : isOn ? 'amber' : 'gray'}
+              weight="medium"
+              style={{
+                opacity: isLoading ? 0.5 : 1,
+                transition: 'opacity 0.2s ease',
+              }}
+            >
+              {error
+                ? 'ERROR'
+                : isOn && displayBrightness < 100 && supportsBrightness
+                  ? `${displayBrightness}%`
+                  : entity.state.toUpperCase()}
+            </Text>
+          </GridCard.Status>
+        </Flex>
+      </GridCard>
 
       {item && (
         <CardConfigurationModal

@@ -199,9 +199,9 @@ export const GridCard = React.memo(
                   onDelete()
                 }}
                 className="absolute top-1"
-                style={{ 
+                style={{
                   zIndex: 10,
-                  right: hasConfiguration && onConfigure ? '28px' : '4px'
+                  right: hasConfiguration && onConfigure ? '28px' : '4px',
                 }}
                 aria-label="Delete entity"
               >

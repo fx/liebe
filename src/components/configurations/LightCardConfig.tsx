@@ -9,7 +9,10 @@ interface LightCardConfigProps {
   item: GridItem
 }
 
-export function LightCardConfig({ config, onChange }: LightCardConfigProps) {
+export function LightCardConfig({
+  config = {},
+  onChange = () => {},
+}: Partial<LightCardConfigProps>) {
   const showBrightness = config.showBrightness !== false
   const showColorPicker = config.showColorPicker !== false
   const brightnessControl = (config.brightnessControl as string) || 'slider'

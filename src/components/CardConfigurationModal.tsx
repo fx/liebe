@@ -27,9 +27,7 @@ export function CardConfigurationModal({
   onSave,
   children,
 }: CardConfigurationModalProps) {
-  const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(
-    item.config || {}
-  )
+  const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(item.config || {})
 
   React.useEffect(() => {
     setLocalConfig(item.config || {})
@@ -74,11 +72,11 @@ export function CardConfigurationModal({
             <Box p="4">
               {React.Children.map(children, (child) => {
                 if (React.isValidElement(child)) {
-                  return React.cloneElement(child as React.ReactElement<any>, {
+                  return React.cloneElement(child, {
                     config: localConfig,
                     onChange: handleConfigChange,
                     item,
-                  })
+                  } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
                 }
                 return child
               })}

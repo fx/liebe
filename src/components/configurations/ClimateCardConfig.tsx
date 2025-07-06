@@ -9,7 +9,10 @@ interface ClimateCardConfigProps {
   item: GridItem
 }
 
-export function ClimateCardConfig({ config, onChange }: ClimateCardConfigProps) {
+export function ClimateCardConfig({
+  config = {},
+  onChange = () => {},
+}: Partial<ClimateCardConfigProps>) {
   const showTargetTemp = config.showTargetTemp !== false
   const showCurrentTemp = config.showCurrentTemp !== false
   const showHumidity = config.showHumidity !== false

@@ -9,7 +9,10 @@ interface WeatherCardConfigProps {
   item: GridItem
 }
 
-export function WeatherCardConfig({ config, onChange }: WeatherCardConfigProps) {
+export function WeatherCardConfig({
+  config = {},
+  onChange = () => {},
+}: Partial<WeatherCardConfigProps>) {
   const showForecast = config.showForecast !== false
   const forecastDays = (config.forecastDays as number) || 5
   const showHumidity = config.showHumidity !== false
