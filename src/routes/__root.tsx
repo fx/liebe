@@ -8,7 +8,7 @@ import 'react-resizable/css/styles.css'
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
-import { useHomeAssistantRouting } from '~/hooks/useHomeAssistantRouting'
+import { useHomeAssistantRouting, useIsHomeAssistant } from '~/hooks'
 import { useDashboardPersistence, useDashboardStore } from '~/store'
 import '~/styles/app.css'
 
@@ -24,6 +24,9 @@ function RootComponent() {
 
   // Enable Home Assistant routing sync
   useHomeAssistantRouting()
+
+  // Check if we're running in Home Assistant
+  const isInHomeAssistant = useIsHomeAssistant()
 
   // Get theme from dashboard store
   const theme = useDashboardStore((state) => state.theme)
@@ -61,7 +64,7 @@ function RootComponent() {
     <>
       <Theme appearance={getAppearance()}>
         <Outlet />
-        <TanStackRouterDevtools position="bottom-right" />
+        {!isInHomeAssistant && <TanStackRouterDevtools position="bottom-right" />}
       </Theme>
       <Scripts />
     </>
