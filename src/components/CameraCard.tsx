@@ -114,12 +114,12 @@ function CameraCardComponent({
           isSelected || streamError || isRecording || isStreaming_ || isStale ? '2px' : '1px',
       }}
     >
-      <Flex direction="column" align="center" justify="center" gap="3" style={{ width: '100%' }}>
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
         {!isEditMode && supportsStream ? (
           <div
             style={{
               width: '100%',
-              aspectRatio: '16 / 9',
+              height: '100%',
               backgroundColor: 'var(--gray-3)',
               borderRadius: 'var(--radius-2)',
               overflow: 'hidden',
@@ -199,42 +199,57 @@ function CameraCardComponent({
             )}
           </div>
         ) : (
-          <GridCard.Icon>
-            <VideoIcon
-              style={{
-                color: isStale
-                  ? 'var(--orange-9)'
-                  : isRecording || isStreaming_
-                    ? 'var(--blue-9)'
-                    : 'var(--gray-9)',
-                opacity: isStale ? 0.6 : 1,
-                transition: 'opacity 0.2s ease',
-                width: 20,
-                height: 20,
-              }}
-            />
-          </GridCard.Icon>
+          <Flex 
+            direction="column" 
+            align="center" 
+            justify="center" 
+            style={{ width: '100%', height: '100%' }}
+          >
+            <GridCard.Icon>
+              <VideoIcon
+                style={{
+                  color: isStale
+                    ? 'var(--orange-9)'
+                    : isRecording || isStreaming_
+                      ? 'var(--blue-9)'
+                      : 'var(--gray-9)',
+                  opacity: isStale ? 0.6 : 1,
+                  transition: 'opacity 0.2s ease',
+                  width: 20,
+                  height: 20,
+                }}
+              />
+            </GridCard.Icon>
+          </Flex>
         )}
 
-        <GridCard.Title>
-          <Text
-            weight={isRecording || isStreaming_ ? 'medium' : 'regular'}
-            style={{
-              color: isRecording || isStreaming_ ? 'var(--blue-11)' : undefined,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
+        {/* Entity info positioned absolutely at bottom left */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '8px',
+            left: '8px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            padding: '4px 8px',
+            borderRadius: 'var(--radius-1)',
+            backdropFilter: 'blur(4px)',
+            color: 'white',
+            fontSize: '12px',
+            lineHeight: '1.2',
+            maxWidth: 'calc(100% - 16px)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div style={{ fontWeight: '500', marginBottom: '2px' }}>
             {friendlyName}
-          </Text>
-        </GridCard.Title>
-
-        <GridCard.Status>
-          <Text
-            size="1"
-            color={streamError ? 'red' : isRecording || isStreaming_ ? 'blue' : 'gray'}
-            weight="medium"
+          </div>
+          <div
             style={{
-              transition: 'opacity 0.2s ease',
+              fontSize: '10px',
+              opacity: 0.9,
+              color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
             }}
           >
             {streamError
@@ -246,9 +261,9 @@ function CameraCardComponent({
                   : isIdle
                     ? 'IDLE'
                     : entity.state.toUpperCase()}
-          </Text>
-        </GridCard.Status>
-      </Flex>
+          </div>
+        </div>
+      </div>
     </GridCard>
   )
 }
