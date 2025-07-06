@@ -7,7 +7,7 @@ export default defineConfig({
   define: {
     'process.env.NODE_ENV': JSON.stringify('development'),
     'process.env': JSON.stringify({}),
-    'process': JSON.stringify({ env: {} }),
+    process: JSON.stringify({ env: {} }),
   },
   build: {
     minify: false,

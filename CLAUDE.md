@@ -735,6 +735,7 @@ case 'weather':
 When you make changes to the Liebe panel, you can test them directly in Home Assistant using MCP's playwright browser tools:
 
 1. **Build the production bundle**:
+
    ```bash
    npm run build:ha
    ```
@@ -769,16 +770,17 @@ The MCP browser tools provide direct browser automation for testing:
    - `mcp__playwright__browser_wait_for` - Wait for conditions
 
 3. **Common testing patterns**:
+
    ```
    // Check if login is needed
    - Look for username/password fields
    - Fill and submit if present
-   
+
    // Verify panel loaded
    - Check for "Connected" status
    - Look for expected UI elements
    - Take screenshot for visual verification
-   
+
    // Test interactions
    - Click buttons and check results
    - Verify state changes
@@ -788,6 +790,7 @@ The MCP browser tools provide direct browser automation for testing:
 ### Environment Variables
 
 The MCP tools read credentials from `.env.local`:
+
 ```
 HASS_URL=http://192.168.0.232:8123
 HASS_USER=dev
@@ -797,6 +800,7 @@ HASS_PASSWORD=test
 ### Testing Checklist
 
 When testing changes:
+
 - [ ] Build completed successfully (`npm run build:ha`)
 - [ ] Panel loads without errors
 - [ ] Connection status shows "Connected"
@@ -818,11 +822,13 @@ All screenshots taken during development and testing MUST be saved in the `/work
 ### Screenshot Naming Convention
 
 Use descriptive names that include:
+
 - Feature/component name
 - Date (YYYY-MM-DD format)
 - Description of what's shown
 
 Examples:
+
 - `connection-status-popover-2025-01-06-fixed.png`
 - `entity-browser-2025-01-06-dark-mode.png`
 - `grid-layout-2025-01-06-edit-mode.png`
@@ -835,9 +841,9 @@ When using MCP browser tools to take screenshots:
 // Note: MCP browser tools save to a temporary location
 // You need to manually copy screenshots to the project directory
 mcp__playwright__browser_take_screenshot({
-  element: "Description of element",
-  ref: "element_ref",
-  filename: "feature-name-YYYY-MM-DD-description.png"
+  element: 'Description of element',
+  ref: 'element_ref',
+  filename: 'feature-name-YYYY-MM-DD-description.png',
 })
 
 // After taking the screenshot, copy it from the temp location:
@@ -848,6 +854,7 @@ mcp__playwright__browser_take_screenshot({
 ### Directory Setup
 
 The `/workspace/screenshots/` directory should:
+
 - Contain a `.gitkeep` file to ensure it's tracked in version control
 - Be committed to the repository
 - Store all development and testing screenshots

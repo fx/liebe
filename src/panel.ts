@@ -1,4 +1,3 @@
-
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
@@ -55,17 +54,18 @@ class LiebePanel extends HTMLElement {
     if (!this.root) {
       // Create shadow DOM
       const shadow = this.attachShadow({ mode: 'open' })
-      
+
       // Create container for React
       const container = document.createElement('div')
       container.style.height = '100%'
       shadow.appendChild(container)
-      
+
       // Load CSS into shadow DOM
       const link = document.createElement('link')
       link.rel = 'stylesheet'
       // Get the URL from the script tag that loaded this panel
-      const currentScript = document.currentScript || document.querySelector('script[src*="panel.js"]')
+      const currentScript =
+        document.currentScript || document.querySelector('script[src*="panel.js"]')
       if (currentScript && 'src' in currentScript) {
         const scriptUrl = new URL(currentScript.src)
         // In development mode (localhost), vite serves CSS separately
@@ -73,7 +73,7 @@ class LiebePanel extends HTMLElement {
         const cssUrl = scriptUrl.href.replace(/panel\.js$/, 'liebe.css')
         link.href = cssUrl
         shadow.appendChild(link)
-        
+
         // Also inject styles into document head for Radix UI portals (popovers, dialogs, etc)
         // Check if styles are already injected to avoid duplicates
         if (!document.querySelector(`link[href="${cssUrl}"]`)) {
@@ -83,7 +83,7 @@ class LiebePanel extends HTMLElement {
           document.head.appendChild(globalLink)
         }
       }
-      
+
       // Create React root in shadow DOM
       this.root = ReactDOM.createRoot(container)
     }

@@ -1,5 +1,7 @@
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { defineConfig } from 'vite'
+import type { ViteDevServer, Connect } from 'vite'
+import type { ServerResponse } from 'http'
 import tsConfigPaths from 'vite-tsconfig-paths'
 import { resolve } from 'path'
 import { build } from 'vite'
@@ -8,15 +10,15 @@ function panelPlugin() {
   let panelContent = ''
   let cssContent = ''
   let isBuilding = false
-  
+
   async function buildPanel() {
     if (isBuilding) return
     isBuilding = true
-    
+
     try {
       console.log('[Panel Plugin] Building panel.js...')
-      
-      const result = await build({
+
+      await build({
         mode: 'development',
         configFile: false,
         logLevel: 'error',
@@ -57,11 +59,11 @@ function panelPlugin() {
       const fs = await import('fs')
       const panelPath = resolve(__dirname, '.vite-temp/panel.js')
       const cssPath = resolve(__dirname, '.vite-temp/style.css')
-      
+
       if (fs.existsSync(panelPath)) {
         panelContent = fs.readFileSync(panelPath, 'utf-8')
       }
-      
+
       if (fs.existsSync(cssPath)) {
         cssContent = fs.readFileSync(cssPath, 'utf-8')
       } else {
@@ -70,48 +72,57 @@ function panelPlugin() {
           cssContent = fs.readFileSync(liebeCssPath, 'utf-8')
         }
       }
-      
+
       console.log('[Panel Plugin] Panel built successfully')
     } catch (error) {
       console.error('[Panel Plugin] Build failed:', error)
-      panelContent = `console.error('Panel build failed:', ${JSON.stringify(error.message)});`
+      panelContent = `console.error('Panel build failed:', ${JSON.stringify((error as Error).message || 'Unknown error')});`
     } finally {
       isBuilding = false
     }
   }
-  
+
   return {
     name: 'dev-panel-plugin',
-    async configureServer(server) {
+    async configureServer(server: ViteDevServer) {
       await buildPanel()
-      server.watcher.on('change', async (file) => {
+      server.watcher.on('change', async (file: string) => {
         if (file.includes('src/') && !file.includes('.test.')) {
           await buildPanel()
           server.ws.send({
             type: 'full-reload',
-            path: '/panel.js'
+            path: '/panel.js',
           })
         }
       })
-      server.middlewares.use('/panel.js', async (req, res, next) => {
-        res.setHeader('Content-Type', 'application/javascript')
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.end(panelContent)
-      })
-      server.middlewares.use('/liebe.css', async (req, res, next) => {
-        res.setHeader('Content-Type', 'text/css')
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.end(cssContent)
-      })
-      server.middlewares.use('/panel.css', async (req, res, next) => {
-        res.setHeader('Content-Type', 'text/css')
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.end(cssContent)
-      })
-    }
+      server.middlewares.use(
+        '/panel.js',
+        async (_req: Connect.IncomingMessage, res: ServerResponse, _next: Connect.NextFunction) => {
+          res.setHeader('Content-Type', 'application/javascript')
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Cache-Control', 'no-cache')
+          res.end(panelContent)
+        }
+      )
+      server.middlewares.use(
+        '/liebe.css',
+        async (_req: Connect.IncomingMessage, res: ServerResponse, _next: Connect.NextFunction) => {
+          res.setHeader('Content-Type', 'text/css')
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Cache-Control', 'no-cache')
+          res.end(cssContent)
+        }
+      )
+      server.middlewares.use(
+        '/panel.css',
+        async (_req: Connect.IncomingMessage, res: ServerResponse, _next: Connect.NextFunction) => {
+          res.setHeader('Content-Type', 'text/css')
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Cache-Control', 'no-cache')
+          res.end(cssContent)
+        }
+      )
+    },
   }
 }
 

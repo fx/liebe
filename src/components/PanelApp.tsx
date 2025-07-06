@@ -1,5 +1,4 @@
 import { Theme } from '@radix-ui/themes'
-import { Dashboard } from './Dashboard'
 import { dashboardActions, dashboardStore } from '~/store/dashboardStore'
 import { useEffect } from 'react'
 import { RouterProvider } from '@tanstack/react-router'
