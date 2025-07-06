@@ -184,52 +184,53 @@ export const GridCard = React.memo(
               </IconButton>
             )}
 
-
             {/* Content */}
             {children}
           </Card>
 
           {/* Portal-based fullscreen overlay that escapes shadow DOM */}
-          {isFullscreen && fullscreenContent && createPortal(
-            <div
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                backgroundColor: 'black',
-                zIndex: 9999,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-              onClick={() => onFullscreenChange?.(false)}
-            >
-              {fullscreenContent}
-              
-              {/* Close indicator */}
+          {isFullscreen &&
+            fullscreenContent &&
+            createPortal(
               <div
                 style={{
-                  position: 'absolute',
-                  top: '20px',
-                  right: '20px',
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  backdropFilter: 'blur(4px)',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  pointerEvents: 'none',
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  backgroundColor: 'black',
+                  zIndex: 9999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
                 }}
+                onClick={() => onFullscreenChange?.(false)}
               >
-                Click or press ESC to exit
-              </div>
-            </div>,
-            document.body
-          )}
+                {fullscreenContent}
+
+                {/* Close indicator */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backdropFilter: 'blur(4px)',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  Click or press ESC to exit
+                </div>
+              </div>,
+              document.body
+            )}
         </GridCardContext.Provider>
       )
     }

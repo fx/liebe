@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 interface KeepAliveProps {
   children: ReactNode
   cacheKey: string
-  containerRef: React.RefObject<HTMLElement>
+  containerRef: React.RefObject<HTMLElement | null>
 }
 
 // Global cache to store portal elements
@@ -16,14 +16,14 @@ export function KeepAlive({ children, cacheKey, containerRef }: KeepAliveProps) 
   useEffect(() => {
     // Get or create portal element for this cache key
     let portalElement = portalCache.get(cacheKey)
-    
+
     if (!portalElement) {
       portalElement = document.createElement('div')
       portalElement.style.width = '100%'
       portalElement.style.height = '100%'
       portalCache.set(cacheKey, portalElement)
     }
-    
+
     portalElementRef.current = portalElement
 
     // Append portal element to container
@@ -41,6 +41,6 @@ export function KeepAlive({ children, cacheKey, containerRef }: KeepAliveProps) 
 
   // Render children into the cached portal element
   if (!portalElementRef.current) return null
-  
+
   return createPortal(children, portalElementRef.current)
 }
