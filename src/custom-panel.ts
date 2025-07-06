@@ -8,7 +8,9 @@ import type { HomeAssistant } from './contexts/HomeAssistantContext'
 
 // Import styles
 import '@radix-ui/themes/styles.css'
-import './index.css'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
+import '~/styles/app.css'
 
 interface PanelConfig {
   route?: string
@@ -61,7 +63,9 @@ class LiebePanel extends HTMLElement {
       if (!document.querySelector('link[href*="panel.css"]')) {
         const link = document.createElement('link')
         link.rel = 'stylesheet'
-        link.href = new URL('/panel.css', import.meta.url).href
+        // Get the base URL from where this script was loaded
+        const scriptUrl = new URL(import.meta.url)
+        link.href = `${scriptUrl.origin}/panel.css`
         document.head.appendChild(link)
       }
     }
