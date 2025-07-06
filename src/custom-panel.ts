@@ -69,8 +69,20 @@ class LiebePanel extends HTMLElement {
       const currentScript = document.currentScript || document.querySelector('script[src*="panel.js"]')
       if (currentScript && 'src' in currentScript) {
         const scriptUrl = new URL(currentScript.src)
-        link.href = `${scriptUrl.origin}/panel.css`
+        // In development mode (localhost), vite serves CSS separately
+        // In production, CSS is bundled as liebe.css
+        const cssUrl = scriptUrl.href.replace(/panel\.js$/, 'liebe.css')
+        link.href = cssUrl
         shadow.appendChild(link)
+        
+        // Also inject styles into document head for Radix UI portals (popovers, dialogs, etc)
+        // Check if styles are already injected to avoid duplicates
+        if (!document.querySelector(`link[href="${cssUrl}"]`)) {
+          const globalLink = document.createElement('link')
+          globalLink.rel = 'stylesheet'
+          globalLink.href = cssUrl
+          document.head.appendChild(globalLink)
+        }
       }
       
       // Create React root in shadow DOM

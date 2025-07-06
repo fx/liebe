@@ -2,61 +2,114 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 import { resolve } from 'path'
+import { build } from 'vite'
 
-import { readFileSync, existsSync } from 'fs'
-
-// Custom plugin to serve /panel.js from /dist/panel.js
 function panelPlugin() {
-  return {
-    name: 'panel-plugin',
-    configureServer(server) {
-      server.middlewares.use('/panel.js', (req, res, next) => {
-        const panelPath = resolve(__dirname, 'dist/panel.js')
-        
-        if (existsSync(panelPath)) {
-          try {
-            const content = readFileSync(panelPath, 'utf-8')
-            res.setHeader('Content-Type', 'application/javascript')
-            res.setHeader('Access-Control-Allow-Origin', '*')
-            res.setHeader('Cache-Control', 'no-cache')
-            res.end(content)
-            return
-          } catch (error) {
-            console.error('Error reading panel.js:', error)
-          }
+  let panelContent = ''
+  let cssContent = ''
+  let isBuilding = false
+  
+  async function buildPanel() {
+    if (isBuilding) return
+    isBuilding = true
+    
+    try {
+      console.log('[Panel Plugin] Building panel.js...')
+      
+      const result = await build({
+        mode: 'development',
+        configFile: false,
+        logLevel: 'error',
+        build: {
+          lib: {
+            entry: resolve(__dirname, 'src/custom-panel.ts'),
+            name: 'LiebePanel',
+            formats: ['iife'],
+            fileName: () => 'panel.js',
+          },
+          outDir: resolve(__dirname, '.vite-temp'),
+          emptyOutDir: true,
+          minify: false,
+          sourcemap: 'inline',
+          rollupOptions: {
+            external: [],
+            output: {
+              globals: {},
+              format: 'iife',
+              inlineDynamicImports: true,
+            },
+          },
+        },
+        define: {
+          'process.env.NODE_ENV': '"development"',
+        },
+        resolve: {
+          alias: {
+            '~': resolve(__dirname, 'src'),
+          },
+        },
+        plugins: [
+          tsConfigPaths({
+            projects: ['./tsconfig.json'],
+          }),
+        ],
+      })
+      const fs = await import('fs')
+      const panelPath = resolve(__dirname, '.vite-temp/panel.js')
+      const cssPath = resolve(__dirname, '.vite-temp/style.css')
+      
+      if (fs.existsSync(panelPath)) {
+        panelContent = fs.readFileSync(panelPath, 'utf-8')
+      }
+      
+      if (fs.existsSync(cssPath)) {
+        cssContent = fs.readFileSync(cssPath, 'utf-8')
+      } else {
+        const liebeCssPath = resolve(__dirname, '.vite-temp/liebe.css')
+        if (fs.existsSync(liebeCssPath)) {
+          cssContent = fs.readFileSync(liebeCssPath, 'utf-8')
         }
-        
-        // If file doesn't exist, return helpful message
+      }
+      
+      console.log('[Panel Plugin] Panel built successfully')
+    } catch (error) {
+      console.error('[Panel Plugin] Build failed:', error)
+      panelContent = `console.error('Panel build failed:', ${JSON.stringify(error.message)});`
+    } finally {
+      isBuilding = false
+    }
+  }
+  
+  return {
+    name: 'dev-panel-plugin',
+    async configureServer(server) {
+      await buildPanel()
+      server.watcher.on('change', async (file) => {
+        if (file.includes('src/') && !file.includes('.test.')) {
+          await buildPanel()
+          server.ws.send({
+            type: 'full-reload',
+            path: '/panel.js'
+          })
+        }
+      })
+      server.middlewares.use('/panel.js', async (req, res, next) => {
         res.setHeader('Content-Type', 'application/javascript')
         res.setHeader('Access-Control-Allow-Origin', '*')
-        res.end(`console.error('Panel not built. Run: npm run build:ha');`)
+        res.setHeader('Cache-Control', 'no-cache')
+        res.end(panelContent)
       })
-      
-      // Also serve the CSS file
-      server.middlewares.use('/panel.css', (req, res, next) => {
-        const cssPath = resolve(__dirname, 'dist/panel.css')
-        
-        if (existsSync(cssPath)) {
-          try {
-            const content = readFileSync(cssPath, 'utf-8')
-            res.setHeader('Content-Type', 'text/css')
-            res.setHeader('Access-Control-Allow-Origin', '*')
-            res.setHeader('Cache-Control', 'no-cache')
-            res.end(content)
-            return
-          } catch (error) {
-            console.error('Error reading panel.css:', error)
-          }
-        }
-        
-        res.statusCode = 404
-        res.end()
+      server.middlewares.use('/liebe.css', async (req, res, next) => {
+        res.setHeader('Content-Type', 'text/css')
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Cache-Control', 'no-cache')
+        res.end(cssContent)
       })
-      
-      server.middlewares.use('/panel', (req, res, next) => {
-        // Redirect /panel to /panel.js for consistency
-        res.writeHead(302, { Location: '/panel.js' })
-        res.end()
+      server.middlewares.use('/panel.css', async (req, res, next) => {
+        res.setHeader('Content-Type', 'text/css')
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Cache-Control', 'no-cache')
+        res.end(cssContent)
       })
     }
   }
@@ -76,8 +129,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    // Ensure dependencies are pre-bundled for the custom panel
-    include: ['react', 'react-dom', '@tanstack/react-router'],
+    include: ['react', 'react-dom', '@tanstack/react-router', '@radix-ui/themes'],
   },
   plugins: [
     tsConfigPaths({

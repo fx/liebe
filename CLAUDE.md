@@ -832,12 +832,17 @@ Examples:
 When using MCP browser tools to take screenshots:
 
 ```javascript
-// Always save to the screenshots directory
+// Note: MCP browser tools save to a temporary location
+// You need to manually copy screenshots to the project directory
 mcp__playwright__browser_take_screenshot({
   element: "Description of element",
   ref: "element_ref",
-  filename: "screenshots/feature-name-YYYY-MM-DD-description.png"
+  filename: "feature-name-YYYY-MM-DD-description.png"
 })
+
+// After taking the screenshot, copy it from the temp location:
+// 1. Find the file: find /tmp -name "*feature-name*" -type f
+// 2. Copy to screenshots: cp /tmp/path/to/screenshot.png /workspace/screenshots/
 ```
 
 ### Directory Setup

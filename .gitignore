@@ -19,6 +19,7 @@ pnpm-lock.yaml
 /server/build
 /public/build
 dist/
+.vite-temp/
 
 # Development
 .DS_Store
