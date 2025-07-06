@@ -1,10 +1,11 @@
 import { Flex, Text, Button } from '@radix-ui/themes'
 import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
 import { useEntity, useWebRTC } from '~/hooks'
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore } from '~/store'
+import { KeepAlive } from './KeepAlive'
 
 interface CameraCardProps {
   entityId: string
@@ -35,6 +36,9 @@ function CameraCardComponent({
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const normalContainerRef = useRef<HTMLDivElement>(null)
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null)
 
   // Memoize camera attributes and stream support to prevent re-renders
   const cameraAttributes = useMemo(
@@ -65,6 +69,25 @@ function CameraCardComponent({
     enabled: webRTCEnabled,
   })
 
+  // Handle ESC key for fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      const handleKeyPress = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setIsFullscreen(false)
+        }
+      }
+      document.addEventListener('keydown', handleKeyPress)
+      return () => document.removeEventListener('keydown', handleKeyPress)
+    }
+  }, [isFullscreen])
+
+  const handleVideoClick = useCallback(() => {
+    if (!streamError && !isEditMode) {
+      setIsFullscreen(!isFullscreen)
+    }
+  }, [streamError, isEditMode, isFullscreen])
+
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
     return <SkeletonCard size={size} showIcon={true} lines={2} />
@@ -89,7 +112,8 @@ function CameraCardComponent({
   const isStreaming_ = entity.state === 'streaming'
 
   return (
-    <GridCard
+    <>
+      <GridCard
       size={size}
       isLoading={false}
       isError={!!streamError}
@@ -114,157 +138,258 @@ function CameraCardComponent({
           isSelected || streamError || isRecording || isStreaming_ || isStale ? '2px' : '1px',
       }}
     >
-      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-        {supportsStream ? (
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          {supportsStream ? (
+            <div
+              ref={normalContainerRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'var(--gray-3)',
+                borderRadius: 'var(--radius-2)',
+                overflow: 'hidden',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: !isEditMode && !streamError ? 'pointer' : 'default',
+              }}
+              onClick={handleVideoClick}
+        >
+          {streamError ? (
+            <Flex direction="column" align="center" gap="2" style={{ padding: '12px' }}>
+              {streamError.includes('not yet fully implemented') ? (
+                <>
+                  <Text size="2" weight="medium" style={{ textAlign: 'center' }}>
+                    Camera Configuration Required
+                  </Text>
+                  <Text size="1" color="gray" style={{ textAlign: 'center', maxWidth: '300px' }}>
+                    This camera needs to be configured for streaming.
+                  </Text>
+                  <Flex direction="column" gap="2" align="center" style={{ marginTop: '8px' }}>
+                    <Text size="1" color="gray" style={{ textAlign: 'center' }}>
+                      If you have go2rtc installed:
+                    </Text>
+                    <Flex direction="column" gap="1">
+                      <Text size="1" color="gray">
+                        1. Open go2rtc web UI (port 1984)
+                      </Text>
+                      <Text size="1" color="gray">
+                        2. Add your camera&apos;s RTSP stream
+                      </Text>
+                      <Text size="1" color="gray">
+                        3. Configure WebRTC for the stream
+                      </Text>
+                    </Flex>
+                    <Text
+                      size="1"
+                      color="blue"
+                      style={{ textDecoration: 'underline', cursor: 'pointer' }}
+                      onClick={() =>
+                        window.open('https://github.com/AlexxIT/go2rtc#quick-start', '_blank')
+                      }
+                    >
+                      View go2rtc setup guide →
+                    </Text>
+                  </Flex>
+                </>
+              ) : (
+                <>
+                  <Text size="2" color="red">
+                    {streamError}
+                  </Text>
+                  <Button size="2" variant="soft" onClick={retryStream}>
+                    <ReloadIcon />
+                    Retry
+                  </Button>
+                </>
+              )}
+            </Flex>
+          ) : (
+                <>
+                  <KeepAlive
+                    cacheKey={`camera-${entityId}`}
+                    containerRef={isFullscreen ? fullscreenContainerRef : normalContainerRef}
+                  >
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: isFullscreen ? 'contain' : 'cover',
+                        display: isStreaming ? 'block' : 'none',
+                      }}
+                    />
+                  </KeepAlive>
+                </>
+              )}
+              {!isStreaming && !streamError && (
+                <Text size="2" color="gray">
+                  Connecting...
+                </Text>
+              )}
+            </div>
+          ) : (
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              style={{ width: '100%', height: '100%' }}
+            >
+              <GridCard.Icon>
+                <VideoIcon
+                  style={{
+                    color: isStale
+                      ? 'var(--orange-9)'
+                      : isRecording || isStreaming_
+                        ? 'var(--blue-9)'
+                        : 'var(--gray-9)',
+                    opacity: isStale ? 0.6 : 1,
+                    transition: 'opacity 0.2s ease',
+                    width: 20,
+                    height: 20,
+                  }}
+                />
+              </GridCard.Icon>
+            </Flex>
+          )}
+
+          {/* Entity info positioned absolutely at bottom left */}
           <div
+            style={{
+              position: 'absolute',
+              bottom: isFullscreen ? '20px' : '8px',
+              left: isFullscreen ? '20px' : '8px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              padding: isFullscreen ? '8px 16px' : '4px 8px',
+              borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
+              backdropFilter: 'blur(4px)',
+              color: 'white',
+              fontSize: isFullscreen ? '16px' : '12px',
+              lineHeight: '1.2',
+              maxWidth: 'calc(100% - 16px)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              zIndex: 15,
+            }}
+          >
+            <div style={{ fontWeight: isFullscreen ? '600' : '500', marginBottom: '2px' }}>
+              {friendlyName}
+            </div>
+            <div
+              style={{
+                fontSize: isFullscreen ? '14px' : '10px',
+                opacity: 0.9,
+                color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+              }}
+            >
+              {streamError
+                ? 'ERROR'
+                : isRecording
+                  ? 'RECORDING'
+                  : isStreaming_
+                    ? 'STREAMING'
+                    : isIdle
+                      ? 'IDLE'
+                      : entity.state.toUpperCase()}
+            </div>
+          </div>
+
+        </div>
+      </GridCard>
+
+      {/* Fullscreen portal */}
+      {isFullscreen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'black',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          onClick={() => setIsFullscreen(false)}
+        >
+          <div
+            ref={fullscreenContainerRef}
             style={{
               width: '100%',
               height: '100%',
-              backgroundColor: 'var(--gray-3)',
-              borderRadius: 'var(--radius-2)',
-              overflow: 'hidden',
-              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
-          >
-            {streamError ? (
-              <Flex direction="column" align="center" gap="2" style={{ padding: '12px' }}>
-                {streamError.includes('not yet fully implemented') ? (
-                  <>
-                    <Text size="2" weight="medium" style={{ textAlign: 'center' }}>
-                      Camera Configuration Required
-                    </Text>
-                    <Text size="1" color="gray" style={{ textAlign: 'center', maxWidth: '300px' }}>
-                      This camera needs to be configured for streaming.
-                    </Text>
-                    <Flex direction="column" gap="2" align="center" style={{ marginTop: '8px' }}>
-                      <Text size="1" color="gray" style={{ textAlign: 'center' }}>
-                        If you have go2rtc installed:
-                      </Text>
-                      <Flex direction="column" gap="1">
-                        <Text size="1" color="gray">
-                          1. Open go2rtc web UI (port 1984)
-                        </Text>
-                        <Text size="1" color="gray">
-                          2. Add your camera&apos;s RTSP stream
-                        </Text>
-                        <Text size="1" color="gray">
-                          3. Configure WebRTC for the stream
-                        </Text>
-                      </Flex>
-                      <Text
-                        size="1"
-                        color="blue"
-                        style={{ textDecoration: 'underline', cursor: 'pointer' }}
-                        onClick={() =>
-                          window.open('https://github.com/AlexxIT/go2rtc#quick-start', '_blank')
-                        }
-                      >
-                        View go2rtc setup guide →
-                      </Text>
-                    </Flex>
-                  </>
-                ) : (
-                  <>
-                    <Text size="2" color="red">
-                      {streamError}
-                    </Text>
-                    <Button size="2" variant="soft" onClick={retryStream}>
-                      <ReloadIcon />
-                      Retry
-                    </Button>
-                  </>
-                )}
-              </Flex>
-            ) : (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  display: isStreaming ? 'block' : 'none',
-                }}
-              />
-            )}
-            {!isStreaming && !streamError && (
-              <Text size="2" color="gray">
-                Connecting...
-              </Text>
-            )}
-          </div>
-        ) : (
-          <Flex 
-            direction="column" 
-            align="center" 
-            justify="center" 
-            style={{ width: '100%', height: '100%' }}
-          >
-            <GridCard.Icon>
-              <VideoIcon
-                style={{
-                  color: isStale
-                    ? 'var(--orange-9)'
-                    : isRecording || isStreaming_
-                      ? 'var(--blue-9)'
-                      : 'var(--gray-9)',
-                  opacity: isStale ? 0.6 : 1,
-                  transition: 'opacity 0.2s ease',
-                  width: 20,
-                  height: 20,
-                }}
-              />
-            </GridCard.Icon>
-          </Flex>
-        )}
-
-        {/* Entity info positioned absolutely at bottom left */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '8px',
-            left: '8px',
-            background: 'rgba(0, 0, 0, 0.7)',
-            padding: '4px 8px',
-            borderRadius: 'var(--radius-1)',
-            backdropFilter: 'blur(4px)',
-            color: 'white',
-            fontSize: '12px',
-            lineHeight: '1.2',
-            maxWidth: 'calc(100% - 16px)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-            {friendlyName}
-          </div>
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          {/* Fullscreen entity info */}
           <div
             style={{
-              fontSize: '10px',
-              opacity: 0.9,
-              color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+              position: 'absolute',
+              bottom: '20px',
+              left: '20px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              backdropFilter: 'blur(4px)',
+              color: 'white',
+              fontSize: '16px',
+              lineHeight: '1.2',
             }}
           >
-            {streamError
-              ? 'ERROR'
-              : isRecording
-                ? 'RECORDING'
-                : isStreaming_
-                  ? 'STREAMING'
-                  : isIdle
-                    ? 'IDLE'
-                    : entity.state.toUpperCase()}
+            <div style={{ fontWeight: '600', marginBottom: '2px' }}>
+              {friendlyName}
+            </div>
+            <div
+              style={{
+                fontSize: '14px',
+                opacity: 0.9,
+                color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+              }}
+            >
+              {streamError
+                ? 'ERROR'
+                : isRecording
+                  ? 'RECORDING'
+                  : isStreaming_
+                    ? 'STREAMING'
+                    : isIdle
+                      ? 'IDLE'
+                      : entity.state.toUpperCase()}
+            </div>
+          </div>
+          
+          {/* Exit indicator */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              backdropFilter: 'blur(4px)',
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: '500',
+              pointerEvents: 'none',
+            }}
+          >
+            Click or press ESC to exit
           </div>
         </div>
-      </div>
-    </GridCard>
+      )}
+    </>
   )
 }
 
