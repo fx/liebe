@@ -28,7 +28,7 @@ You are working on a custom Home Assistant dashboard project that integrates as 
 
 ## Development Environment
 
-- **Home Assistant Instance**: To be provided when needed
+- **Home Assistant Instance**: Check .env.local for development instance credentials
 - **Repository**: Use GitHub Projects for task management
 - **Framework**: TanStack Start with React (SPA Mode)
 - **UI Library**: Radix UI Theme (not just primitives, use default theme)
