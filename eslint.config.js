@@ -57,7 +57,16 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', '.output/', '.tanstack/', 'dist/', 'build/', '*.gen.ts', '.nitro/'],
+    ignores: [
+      'node_modules/',
+      '.output/',
+      '.tanstack/',
+      'dist/',
+      'build/',
+      '*.gen.ts',
+      '.nitro/',
+      '.vite-temp/',
+    ],
   },
   prettierConfig,
 ]

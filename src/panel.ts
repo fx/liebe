@@ -1,11 +1,14 @@
-/* Custom Panel Entry for Home Assistant */
-
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { RouterProvider } from '@tanstack/react-router'
-import { router } from './router'
 import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
+import { PanelApp } from './components/PanelApp'
 import type { HomeAssistant } from './contexts/HomeAssistantContext'
+
+// Import styles
+import '@radix-ui/themes/styles.css'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
+import '~/styles/app.css'
 
 interface PanelConfig {
   route?: string
@@ -49,13 +52,40 @@ class LiebePanel extends HTMLElement {
 
   connectedCallback() {
     if (!this.root) {
+      // Create shadow DOM
+      const shadow = this.attachShadow({ mode: 'open' })
+
+      // Create container for React
       const container = document.createElement('div')
       container.style.height = '100%'
-      this.appendChild(container)
-      this.root = ReactDOM.createRoot(container)
+      shadow.appendChild(container)
 
-      // Listen for route changes from the React app
-      window.addEventListener('liebe-route-change', this.handleRouteChange)
+      // Load CSS into shadow DOM
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      // Get the URL from the script tag that loaded this panel
+      const currentScript =
+        document.currentScript || document.querySelector('script[src*="panel.js"]')
+      if (currentScript && 'src' in currentScript) {
+        const scriptUrl = new URL(currentScript.src)
+        // In development mode (localhost), vite serves CSS separately
+        // In production, CSS is bundled as liebe.css
+        const cssUrl = scriptUrl.href.replace(/panel\.js$/, 'liebe.css')
+        link.href = cssUrl
+        shadow.appendChild(link)
+
+        // Also inject styles into document head for Radix UI portals (popovers, dialogs, etc)
+        // Check if styles are already injected to avoid duplicates
+        if (!document.querySelector(`link[href="${cssUrl}"]`)) {
+          const globalLink = document.createElement('link')
+          globalLink.rel = 'stylesheet'
+          globalLink.href = cssUrl
+          document.head.appendChild(globalLink)
+        }
+      }
+
+      // Create React root in shadow DOM
+      this.root = ReactDOM.createRoot(container)
     }
     this.render()
   }
@@ -63,28 +93,6 @@ class LiebePanel extends HTMLElement {
   disconnectedCallback() {
     if (this.root) {
       this.root.unmount()
-    }
-    window.removeEventListener('liebe-route-change', this.handleRouteChange)
-  }
-
-  private handleRouteChange = (event: Event) => {
-    const customEvent = event as CustomEvent
-    const path = customEvent.detail.path
-
-    // Update the browser URL via Home Assistant's history API
-    if (this._hass && path) {
-      const basePath = window.location.pathname.split('/').slice(0, -1).join('/')
-      const newPath = `${basePath}${path}`
-      history.pushState(null, '', newPath)
-
-      // Notify Home Assistant about the URL change
-      this.dispatchEvent(
-        new CustomEvent('location-changed', {
-          bubbles: true,
-          composed: true,
-          detail: { path: newPath },
-        })
-      )
     }
   }
 
@@ -98,7 +106,7 @@ class LiebePanel extends HTMLElement {
         // eslint-disable-next-line react/no-children-prop
         React.createElement(HomeAssistantProvider, {
           hass: this._hass,
-          children: React.createElement(RouterProvider, { router }),
+          children: React.createElement(PanelApp),
         })
       )
     )
@@ -106,4 +114,4 @@ class LiebePanel extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('liebe', LiebePanel)
+customElements.define('liebe-panel', LiebePanel)

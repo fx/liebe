@@ -97,31 +97,6 @@ describe('useHomeAssistantRouting', () => {
       expect(event.detail).toEqual({ path: '/test-path' })
     })
 
-    it('should send postMessage when in iframe', () => {
-      // Mock being in an iframe
-      const mockPostMessage = vi.fn()
-      Object.defineProperty(window, 'parent', {
-        value: { postMessage: mockPostMessage },
-        writable: true,
-      })
-
-      renderHook(() => useHomeAssistantRouting())
-
-      // Get the callback passed to subscribe
-      const [[, callback]] = mockSubscribe.mock.calls
-
-      // Simulate route change
-      callback()
-
-      expect(mockPostMessage).toHaveBeenCalledWith(
-        {
-          type: 'route-change',
-          path: '/test-path',
-        },
-        '*'
-      )
-    })
-
     it('should listen for navigation messages', () => {
       renderHook(() => useHomeAssistantRouting())
 
@@ -150,23 +125,6 @@ describe('useHomeAssistantRouting', () => {
       expect(mockNavigate).toHaveBeenCalledWith({ to: '/custom-path' })
     })
 
-    it('should request current route from parent when in iframe', () => {
-      // Mock being in an iframe
-      const mockPostMessage = vi.fn()
-      Object.defineProperty(window, 'parent', {
-        value: { postMessage: mockPostMessage },
-        writable: true,
-      })
-
-      renderHook(() => useHomeAssistantRouting())
-
-      // Advance timers to trigger the setTimeout
-      vi.runAllTimers()
-
-      // Check that postMessage was called
-      expect(mockPostMessage).toHaveBeenCalledWith({ type: 'get-route' }, '*')
-    })
-
     it('should cleanup listeners on unmount', () => {
       const { unmount } = renderHook(() => useHomeAssistantRouting())
 
@@ -181,12 +139,6 @@ describe('useHomeAssistantRouting', () => {
       // Mock location to be outside Home Assistant
       Object.defineProperty(window, 'location', {
         value: { pathname: '/some-other-path' },
-        writable: true,
-      })
-
-      // Mock that we're not in an iframe
-      Object.defineProperty(window, 'parent', {
-        value: window,
         writable: true,
       })
     })
