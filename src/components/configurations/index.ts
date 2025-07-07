@@ -1,2 +1,2 @@
-export { SharedCardConfig } from './SharedCardConfig'
+export { CardConfig } from './CardConfig'
 export { cardConfigurations } from './cardConfigurations'

@@ -5,17 +5,17 @@ import { ConfigSection } from '../CardConfigurationModal'
 import { cardConfigurations, getCardType } from './cardConfigurations'
 import type { GridItem } from '~/store/types'
 
-interface SharedCardConfigProps {
+interface CardConfigProps {
   config?: Record<string, unknown>
   onChange?: (updates: Record<string, unknown>) => void
   item?: GridItem
 }
 
-export function SharedCardConfig({
+export function CardConfig({
   config = {},
   onChange = () => {},
   item,
-}: SharedCardConfigProps) {
+}: CardConfigProps) {
   const cardType = item ? getCardType(item) : undefined
 
   if (!item || !cardType || !cardConfigurations[cardType]) {
