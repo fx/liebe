@@ -1,12 +1,10 @@
-import { Card, Text, Flex, IconButton } from '@radix-ui/themes'
-import { Cross2Icon } from '@radix-ui/react-icons'
+import { Text, Flex } from '@radix-ui/themes'
 import { useDashboardStore } from '~/store'
 
 interface SeparatorProps {
   title?: string
   orientation?: 'horizontal' | 'vertical'
   textColor?: string
-  onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
 }
@@ -15,7 +13,6 @@ export function Separator({
   title,
   orientation = 'horizontal',
   textColor = 'gray',
-  onDelete,
   isSelected = false,
   onSelect,
 }: SeparatorProps) {
@@ -95,47 +92,15 @@ export function Separator({
   }
 
   return (
-    <Card
-      variant="classic"
+    <div
       style={{
-        backgroundColor: isSelected ? 'var(--blue-3)' : 'var(--gray-3)',
-        borderColor: isSelected ? 'var(--blue-6)' : 'var(--gray-6)',
-        borderWidth: isSelected ? '2px' : '1px',
-        borderStyle: 'solid',
-        position: 'relative',
+        backgroundColor: 'var(--gray-3)',
         height: '100%',
         cursor: isEditMode ? 'pointer' : 'default',
       }}
       onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : undefined}
     >
-      {/* Drag handle in edit mode */}
-      {isEditMode && <div className="grid-item-drag-handle" />}
-
-      {/* Delete button in edit mode */}
-      {isEditMode && onDelete && (
-        <IconButton
-          size="1"
-          variant="soft"
-          color="red"
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            opacity: isSelected ? 1 : 0.7,
-            transition: 'opacity 0.2s ease',
-            zIndex: 10,
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          aria-label="Delete separator"
-        >
-          <Cross2Icon />
-        </IconButton>
-      )}
-
       {renderSeparatorContent()}
-    </Card>
+    </div>
   )
 }

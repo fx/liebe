@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { Card, IconButton, Spinner } from '@radix-ui/themes'
-import { X, GripVertical } from 'lucide-react'
+import { X, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
 
 // Types
@@ -17,6 +17,8 @@ export interface GridCardProps {
   onSelect?: () => void
   onDelete?: () => void
   onClick?: () => void
+  onConfigure?: () => void
+  hasConfiguration?: boolean
   title?: string
   className?: string
   style?: React.CSSProperties
@@ -52,6 +54,8 @@ export const GridCard = React.memo(
         onSelect,
         onDelete,
         onClick,
+        onConfigure,
+        hasConfiguration = false,
         title,
         className,
         style,
@@ -156,32 +160,50 @@ export const GridCard = React.memo(
               ...borderStyle,
             }}
           >
-            {/* Drag Handle - hide in fullscreen */}
-            {isEditMode && !isFullscreen && (
+            {/* Action Buttons Container - hide in fullscreen */}
+            {isEditMode && (hasConfiguration || onDelete) && !isFullscreen && (
               <div
-                className="grid-item-drag-handle absolute top-1 left-1 cursor-move text-gray-400 hover:text-gray-600"
-                style={{ zIndex: 10 }}
-              >
-                <GripVertical size={16} />
-              </div>
-            )}
-
-            {/* Delete Button - hide in fullscreen */}
-            {isEditMode && onDelete && !isFullscreen && (
-              <IconButton
-                size="1"
-                variant="ghost"
-                color="red"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete()
+                style={{
+                  position: 'fixed',
+                  top: '16px',
+                  right: '16px',
+                  zIndex: 10,
+                  display: 'flex',
+                  gap: '8px',
                 }}
-                className="absolute top-1 right-1"
-                style={{ zIndex: 10 }}
-                aria-label="Delete entity"
               >
-                <X size={14} />
-              </IconButton>
+                {/* Configuration Button */}
+                {hasConfiguration && onConfigure && (
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="gray"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onConfigure()
+                    }}
+                    aria-label="Configure card"
+                  >
+                    <Settings size={14} />
+                  </IconButton>
+                )}
+
+                {/* Delete Button */}
+                {onDelete && (
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="red"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete()
+                    }}
+                    aria-label="Delete entity"
+                  >
+                    <X size={14} />
+                  </IconButton>
+                )}
+              </div>
             )}
 
             {/* Content */}
