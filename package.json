@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "build": "vite build && tsc --noEmit",
     "build:ha": "vite build --config vite.config.ha.ts",
-    "build:ha:prod": "vite build --config vite.config.ha.prod.ts",
+    "build:ha:prod": "vite build --config vite.config.ha.ts --mode production",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx && prettier --check .",

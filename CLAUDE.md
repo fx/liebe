@@ -892,14 +892,14 @@ To manually trigger a deployment:
 
 The deployment uses:
 
-- **Build script**: `npm run build:ha:prod`
+- **Build script**: `npm run build:ha:prod` (uses production mode)
 - **Source**: GitHub Actions
 - **Branch**: Automated deployment (no gh-pages branch)
 - **URL**: https://fx.github.io/liebe/
 
 ### Files Created
 
-- `/panel.js` - The Home Assistant panel module
+- `/dist/` - The entire build output directory including panel.js and any assets
 - `/index.html` - Landing page with installation instructions
 
 ### Deployment Workflow
@@ -921,5 +921,5 @@ panel_custom:
     sidebar_title: Liebe
     sidebar_icon: mdi:heart
     url_path: liebe
-    module_url: https://fx.github.io/liebe/panel.js
+    module_url: https://fx.github.io/liebe/dist/panel.js
 ```

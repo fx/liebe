@@ -1,36 +1,49 @@
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
+import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
-export default defineConfig({
-  mode: 'development',
-  define: {
-    'process.env.NODE_ENV': JSON.stringify('development'),
-    'process.env': JSON.stringify({}),
-    process: JSON.stringify({ env: {} }),
-  },
-  build: {
-    minify: false,
-    sourcemap: true,
-    lib: {
-      entry: resolve(__dirname, 'src/panel.ts'),
-      name: 'Liebe',
-      fileName: () => 'panel.js',
-      formats: ['iife'],
+export default defineConfig(({ mode }) => {
+  const isProduction = mode === 'production'
+
+  return {
+    mode,
+    define: {
+      'process.env.NODE_ENV': JSON.stringify(mode),
+      'process.env': JSON.stringify({}),
+      process: JSON.stringify({ env: {} }),
     },
-    outDir: 'dist',
-    emptyOutDir: false,
-    rollupOptions: {
-      external: [],
-      output: {
-        globals: {},
-        assetFileNames: '[name][extname]',
+    build: {
+      minify: isProduction,
+      sourcemap: !isProduction,
+      lib: {
+        entry: resolve(__dirname, 'src/panel.ts'),
+        name: 'Liebe',
+        fileName: () => 'panel.js',
+        formats: ['iife'],
+      },
+      outDir: 'dist',
+      emptyOutDir: isProduction,
+      rollupOptions: {
+        external: [],
+        output: {
+          globals: {},
+          assetFileNames: '[name][extname]',
+          inlineDynamicImports: true,
+        },
+      },
+      cssCodeSplit: false,
+    },
+    resolve: {
+      alias: {
+        '~': resolve(__dirname, 'src'),
       },
     },
-  },
-  plugins: [
-    tsConfigPaths({
-      projects: ['./tsconfig.json'],
-    }),
-  ],
+    plugins: [
+      react(),
+      tsConfigPaths({
+        projects: ['./tsconfig.json'],
+      }),
+    ],
+  }
 })
