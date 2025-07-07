@@ -94,7 +94,7 @@ export function Separator({
   return (
     <div
       style={{
-        backgroundColor: 'var(--gray-3)',
+        backgroundColor: isEditMode ? 'var(--gray-3)' : 'transparent',
         height: '100%',
         cursor: isEditMode ? 'pointer' : 'default',
       }}
