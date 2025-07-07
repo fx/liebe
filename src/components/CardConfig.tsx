@@ -281,7 +281,7 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
                   minHeight: '150px',
                 }}
               >
-                <Box style={{ width: '250px' }}>
+                <Box style={{ width: '250px', pointerEvents: 'none' }}>
                   <WeatherCard entityId={item.entityId} size="medium" config={config} />
                 </Box>
               </Box>
