@@ -15,6 +15,7 @@ import { FanCard } from './FanCard'
 import { CameraCard } from './CameraCard'
 import { TextCard } from './TextCard'
 import { Separator } from './Separator'
+import { GridCard } from './GridCard'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
 import { EntityErrorBoundary } from './ui'
@@ -272,31 +273,51 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
         {(item) => {
           if (item.type === 'separator') {
             return (
-              <Separator
-                title={item.title}
-                orientation={item.separatorOrientation || 'horizontal'}
-                textColor={item.separatorTextColor || 'gray'}
-                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+              <GridCard
+                size="medium"
                 isSelected={selectedItems.has(item.id)}
                 onSelect={
-                  isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                  isEditMode
+                    ? () => handleSelectItem(item.id, !selectedItems.has(item.id))
+                    : undefined
                 }
-              />
+                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+              >
+                <Separator
+                  title={item.title}
+                  orientation={item.separatorOrientation || 'horizontal'}
+                  textColor={item.separatorTextColor || 'gray'}
+                  isSelected={selectedItems.has(item.id)}
+                  onSelect={
+                    isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                  }
+                />
+              </GridCard>
             )
           } else if (item.type === 'text') {
             return (
-              <TextCard
-                entityId={item.id}
+              <GridCard
                 size="medium"
-                content={item.content}
-                alignment={item.alignment}
-                textSize={item.textSize}
-                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
                 isSelected={selectedItems.has(item.id)}
                 onSelect={
-                  isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                  isEditMode
+                    ? () => handleSelectItem(item.id, !selectedItems.has(item.id))
+                    : undefined
                 }
-              />
+                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+              >
+                <TextCard
+                  entityId={item.id}
+                  size="medium"
+                  content={item.content}
+                  alignment={item.alignment}
+                  textSize={item.textSize}
+                  isSelected={selectedItems.has(item.id)}
+                  onSelect={
+                    isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                  }
+                />
+              </GridCard>
             )
           } else {
             return (

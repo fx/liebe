@@ -160,43 +160,50 @@ export const GridCard = React.memo(
               ...borderStyle,
             }}
           >
-            {/* Configuration Button - hide in fullscreen */}
-            {isEditMode && hasConfiguration && onConfigure && !isFullscreen && (
-              <IconButton
-                size="1"
-                variant="ghost"
-                color="gray"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onConfigure()
-                }}
-                className="absolute top-1 right-1"
-                style={{ zIndex: 10 }}
-                aria-label="Configure card"
-              >
-                <Settings size={14} />
-              </IconButton>
-            )}
-
-            {/* Delete Button - hide in fullscreen */}
-            {isEditMode && onDelete && !isFullscreen && (
-              <IconButton
-                size="1"
-                variant="ghost"
-                color="red"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete()
-                }}
-                className="absolute top-1"
+            {/* Action Buttons Container - hide in fullscreen */}
+            {isEditMode && (hasConfiguration || onDelete) && !isFullscreen && (
+              <div
                 style={{
+                  position: 'fixed',
+                  top: '16px',
+                  right: '16px',
                   zIndex: 10,
-                  right: hasConfiguration && onConfigure ? '28px' : '4px',
+                  display: 'flex',
+                  gap: '8px',
                 }}
-                aria-label="Delete entity"
               >
-                <X size={14} />
-              </IconButton>
+                {/* Configuration Button */}
+                {hasConfiguration && onConfigure && (
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="gray"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onConfigure()
+                    }}
+                    aria-label="Configure card"
+                  >
+                    <Settings size={14} />
+                  </IconButton>
+                )}
+
+                {/* Delete Button */}
+                {onDelete && (
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="red"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete()
+                    }}
+                    aria-label="Delete entity"
+                  >
+                    <X size={14} />
+                  </IconButton>
+                )}
+              </div>
             )}
 
             {/* Content */}
