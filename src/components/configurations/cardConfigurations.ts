@@ -1,4 +1,5 @@
 import type { ConfigDefinition } from '../CardConfig'
+import { BINARY_SENSOR_PRESETS } from '../BinarySensorCard'
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<
@@ -31,6 +32,22 @@ export const cardConfigurations: Record<
     title: 'Weather Card',
     placeholder:
       'This card displays weather information from a weather entity. Additional configuration options will be added in future updates.',
+  },
+  binary_sensor: {
+    title: 'Binary Sensor Card',
+    description: 'Configure how this binary sensor card displays.',
+    definition: {
+      preset: {
+        type: 'select',
+        default: 'default',
+        label: 'Icon Preset',
+        description: 'Choose a preset icon set for this binary sensor',
+        options: Object.entries(BINARY_SENSOR_PRESETS).map(([key, preset]) => ({
+          value: key,
+          label: preset.name,
+        })),
+      },
+    },
   },
 }
 
