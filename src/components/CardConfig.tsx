@@ -23,6 +23,8 @@ import { LightCard } from './LightCard'
 import { BinarySensorCard } from './BinarySensorCard'
 import { Separator as SeparatorCard } from './Separator'
 import { GridCard } from './GridCard'
+import { dashboardStore } from '~/store'
+import { useEffect } from 'react'
 
 interface ModalProps {
   open: boolean
@@ -291,6 +293,30 @@ interface PreviewProps {
   config: Record<string, unknown>
 }
 
+// Wrapper component that temporarily sets mode to 'view' for preview
+function ViewModeWrapper({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    // Store current mode
+    const currentMode = dashboardStore.state.mode
+
+    // Set to view mode
+    dashboardStore.setState((state) => ({
+      ...state,
+      mode: 'view',
+    }))
+
+    // Restore original mode on unmount
+    return () => {
+      dashboardStore.setState((state) => ({
+        ...state,
+        mode: currentMode,
+      }))
+    }
+  }, [])
+
+  return <>{children}</>
+}
+
 function Preview({ item, config }: PreviewProps) {
   const cardType =
     item?.type === 'separator'
@@ -322,58 +348,59 @@ function Preview({ item, config }: PreviewProps) {
   }
 
   return (
-    <Section title="Preview">
-      <Text size="2" color="gray" style={{ marginBottom: '16px' }}>
-        Live preview of your configuration
-      </Text>
-      <Box
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          padding: '16px',
-          backgroundColor: 'var(--gray-2)',
-          borderRadius: 'var(--radius-3)',
-          minHeight: '200px',
-          alignItems: 'center',
-        }}
-      >
-        <Box style={{ width: '280px', pointerEvents: 'none' }}>
-          {item.type === 'separator' ? (
-            <GridCard size="medium" transparent={previewItem.hideBackground}>
-              <SeparatorCard
-                title={previewItem.title}
-                orientation={previewItem.separatorOrientation || 'horizontal'}
-                textColor={previewItem.separatorTextColor || 'gray'}
-              />
-            </GridCard>
-          ) : item.type === 'text' ? (
-            <GridCard size="medium" transparent={previewItem.hideBackground}>
-              <TextCard
-                entityId={item.id}
-                size="medium"
-                content={previewItem.content}
-                alignment={previewItem.alignment}
-                textSize={previewItem.textSize}
-                textColor={previewItem.textColor}
-                isSelected={false}
-                onSelect={undefined}
-                forceViewMode={true}
-              />
-            </GridCard>
-          ) : cardType === 'weather' && item.entityId ? (
-            <WeatherCard entityId={item.entityId} size="medium" config={config} />
-          ) : cardType === 'light' && item.entityId ? (
-            <LightCard entityId={item.entityId} size="medium" item={previewItem} />
-          ) : cardType === 'binary_sensor' && item.entityId ? (
-            <BinarySensorCard entityId={item.entityId} size="medium" item={previewItem} />
-          ) : (
-            <Text size="2" color="gray">
-              Preview not available for this card type
-            </Text>
-          )}
+    <ViewModeWrapper>
+      <Section title="Preview">
+        <Text size="2" color="gray" style={{ marginBottom: '16px' }}>
+          Live preview of your configuration
+        </Text>
+        <Box
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            padding: '16px',
+            backgroundColor: 'var(--gray-2)',
+            borderRadius: 'var(--radius-3)',
+            minHeight: '200px',
+            alignItems: 'center',
+          }}
+        >
+          <Box style={{ width: '280px', pointerEvents: 'none' }}>
+            {item.type === 'separator' ? (
+              <GridCard size="medium" transparent={previewItem.hideBackground}>
+                <SeparatorCard
+                  title={previewItem.title}
+                  orientation={previewItem.separatorOrientation || 'horizontal'}
+                  textColor={previewItem.separatorTextColor || 'gray'}
+                />
+              </GridCard>
+            ) : item.type === 'text' ? (
+              <GridCard size="medium" transparent={previewItem.hideBackground}>
+                <TextCard
+                  entityId={item.id}
+                  size="medium"
+                  content={previewItem.content}
+                  alignment={previewItem.alignment}
+                  textSize={previewItem.textSize}
+                  textColor={previewItem.textColor}
+                  isSelected={false}
+                  onSelect={undefined}
+                />
+              </GridCard>
+            ) : cardType === 'weather' && item.entityId ? (
+              <WeatherCard entityId={item.entityId} size="medium" config={config} />
+            ) : cardType === 'light' && item.entityId ? (
+              <LightCard entityId={item.entityId} size="medium" item={previewItem} />
+            ) : cardType === 'binary_sensor' && item.entityId ? (
+              <BinarySensorCard entityId={item.entityId} size="medium" item={previewItem} />
+            ) : (
+              <Text size="2" color="gray">
+                Preview not available for this card type
+              </Text>
+            )}
+          </Box>
         </Box>
-      </Box>
-    </Section>
+      </Section>
+    </ViewModeWrapper>
   )
 }
 
