@@ -1,4 +1,4 @@
-import type { ConfigDefinition } from '../ui'
+import type { ConfigDefinition } from '../CardConfig'
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<

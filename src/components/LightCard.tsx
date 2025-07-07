@@ -6,8 +6,7 @@ import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore, dashboardActions } from '~/store'
-import { CardConfigurationModal } from './CardConfigurationModal'
-import { CardConfig } from './configurations'
+import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
 
 interface LightCardProps {
@@ -263,14 +262,12 @@ function LightCardComponent({
       </GridCard>
 
       {item && (
-        <CardConfigurationModal
+        <CardConfig.Modal
           open={configOpen}
           onOpenChange={setConfigOpen}
           item={item}
           onSave={handleConfigSave}
-        >
-          <CardConfig />
-        </CardConfigurationModal>
+        />
       )}
     </>
   )

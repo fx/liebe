@@ -1,6 +1,34 @@
 import * as React from 'react'
-import { Flex, Text, Switch, Select, TextField, TextArea } from '@radix-ui/themes'
-import { ConfigSection } from '../CardConfigurationModal'
+import {
+  Dialog,
+  Flex,
+  Button,
+  Text,
+  Separator,
+  ScrollArea,
+  Box,
+  IconButton,
+  Switch,
+  Select,
+  TextField,
+  TextArea,
+} from '@radix-ui/themes'
+import { X } from 'lucide-react'
+import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
+import type { GridItem } from '~/store/types'
+
+interface CardConfigModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  item: GridItem
+  onSave: (updates: Partial<GridItem>) => void
+}
+
+interface CardConfigContentProps {
+  config?: Record<string, unknown>
+  onChange?: (updates: Record<string, unknown>) => void
+  item?: GridItem
+}
 
 // Configuration option types
 export interface ConfigOption {
@@ -19,7 +47,25 @@ export interface ConfigDefinition {
   [key: string]: ConfigOption
 }
 
-export interface CardConfigurationComponentProps {
+interface ConfigSectionProps {
+  title: string
+  children: React.ReactNode
+}
+
+function Section({ title, children }: ConfigSectionProps) {
+  return (
+    <Box mb="4">
+      <Text size="2" weight="bold" as="div" mb="2">
+        {title}
+      </Text>
+      <Flex direction="column" gap="2">
+        {children}
+      </Flex>
+    </Box>
+  )
+}
+
+interface ComponentProps {
   title: string
   description?: string
   configDefinition: ConfigDefinition
@@ -27,13 +73,7 @@ export interface CardConfigurationComponentProps {
   onChange: (updates: Record<string, unknown>) => void
 }
 
-export function CardConfigurationComponent({
-  title,
-  description,
-  configDefinition,
-  config,
-  onChange,
-}: CardConfigurationComponentProps) {
+function Component({ title, description, configDefinition, config, onChange }: ComponentProps) {
   const handleChange = (key: string, value: unknown) => {
     onChange({ [key]: value })
   }
@@ -160,7 +200,7 @@ export function CardConfigurationComponent({
   }
 
   return (
-    <ConfigSection title={title}>
+    <Section title={title}>
       {description && (
         <Text size="2" color="gray" style={{ marginBottom: '12px' }}>
           {description}
@@ -169,6 +209,120 @@ export function CardConfigurationComponent({
       <Flex direction="column" gap="3">
         {Object.entries(configDefinition).map(([key, option]) => renderConfigOption(key, option))}
       </Flex>
-    </ConfigSection>
+    </Section>
   )
 }
+
+function CardConfigContent({ config = {}, onChange = () => {}, item }: CardConfigContentProps) {
+  const cardType = item ? getCardType(item) : undefined
+
+  if (!item || !cardType || !cardConfigurations[cardType]) {
+    return (
+      <Section title="Configuration">
+        <Text size="2" color="gray">
+          No configuration options available for this card type.
+        </Text>
+      </Section>
+    )
+  }
+
+  const cardConfig = cardConfigurations[cardType]
+
+  // If this card has a configuration definition, use Component
+  if (cardConfig.definition) {
+    return (
+      <Component
+        title={cardConfig.title}
+        description={cardConfig.description}
+        configDefinition={cardConfig.definition}
+        config={config}
+        onChange={onChange}
+      />
+    )
+  }
+
+  // Otherwise, show placeholder text
+  return (
+    <Section title={cardConfig.title}>
+      <Text size="2" color="gray">
+        {cardConfig.placeholder || 'No configuration options available yet.'}
+      </Text>
+    </Section>
+  )
+}
+
+function CardConfigModal({ open, onOpenChange, item, onSave }: CardConfigModalProps) {
+  const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(item.config || {})
+
+  React.useEffect(() => {
+    setLocalConfig(item.config || {})
+  }, [item.config])
+
+  const handleSave = () => {
+    onSave({ config: localConfig })
+    onOpenChange(false)
+  }
+
+  const handleConfigChange = (updates: Record<string, unknown>) => {
+    setLocalConfig((prev) => ({ ...prev, ...updates }))
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Content
+        style={{
+          maxWidth: 450,
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Dialog.Title>
+          <Flex align="center" justify="between">
+            <Text size="5" weight="bold">
+              Card Configuration
+            </Text>
+            <Dialog.Close>
+              <IconButton size="2" variant="ghost">
+                <X size={16} />
+              </IconButton>
+            </Dialog.Close>
+          </Flex>
+        </Dialog.Title>
+
+        <Separator size="4" />
+
+        <Box style={{ flex: 1, overflow: 'hidden' }}>
+          <ScrollArea>
+            <Box p="4">
+              <CardConfigContent config={localConfig} onChange={handleConfigChange} item={item} />
+            </Box>
+          </ScrollArea>
+        </Box>
+
+        <Separator size="4" />
+
+        <Flex gap="3" justify="end" p="4">
+          <Dialog.Close>
+            <Button variant="soft" color="gray">
+              Cancel
+            </Button>
+          </Dialog.Close>
+          <Button onClick={handleSave}>Save Changes</Button>
+        </Flex>
+      </Dialog.Content>
+    </Dialog.Root>
+  )
+}
+
+// Create compound component with forward declaration
+export const CardConfig = {} as {
+  Modal: typeof CardConfigModal
+  Section: typeof Section
+  Component: typeof Component
+}
+
+// Assign components
+CardConfig.Modal = CardConfigModal
+CardConfig.Section = Section
+CardConfig.Component = Component
