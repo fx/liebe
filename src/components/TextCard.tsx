@@ -13,6 +13,7 @@ interface TextCardProps {
   alignment?: 'left' | 'center' | 'right'
   textSize?: 'small' | 'medium' | 'large'
   textColor?: string
+  forceViewMode?: boolean
 }
 
 function TextCardComponent({
@@ -24,9 +25,10 @@ function TextCardComponent({
   alignment = 'left',
   textSize = 'medium',
   textColor = 'default',
+  forceViewMode = false,
 }: TextCardProps) {
   const mode = useDashboardStore((state) => state.mode)
-  const isEditMode = mode === 'edit'
+  const isEditMode = forceViewMode ? false : mode === 'edit'
   const [editContent, setEditContent] = useState(content)
   const textAreaRef = useRef<HTMLTextAreaElement>(null)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)

@@ -355,6 +355,9 @@ function Preview({ item, config }: PreviewProps) {
                 alignment={previewItem.alignment}
                 textSize={previewItem.textSize}
                 textColor={previewItem.textColor}
+                isSelected={false}
+                onSelect={undefined}
+                forceViewMode={true}
               />
             </GridCard>
           ) : cardType === 'weather' && item.entityId ? (
