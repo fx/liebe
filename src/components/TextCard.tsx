@@ -12,6 +12,7 @@ interface TextCardProps {
   content?: string
   alignment?: 'left' | 'center' | 'right'
   textSize?: 'small' | 'medium' | 'large'
+  textColor?: string
 }
 
 function TextCardComponent({
@@ -22,6 +23,7 @@ function TextCardComponent({
   content = 'Double-click to edit',
   alignment = 'left',
   textSize = 'medium',
+  textColor = 'default',
 }: TextCardProps) {
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
@@ -39,6 +41,12 @@ function TextCardComponent({
     small: '1' as const,
     medium: '2' as const,
     large: '3' as const,
+  }[textSize]
+
+  const baseFontSize = {
+    small: '0.875rem',
+    medium: '1rem',
+    large: '1.125rem',
   }[textSize]
 
   useEffect(() => {
@@ -110,6 +118,7 @@ function TextCardComponent({
         style={{
           textAlign: alignment,
           width: '100%',
+          fontSize: baseFontSize,
         }}
       >
         <ReactMarkdown
@@ -118,6 +127,20 @@ function TextCardComponent({
               <RadixText
                 size={fontSize}
                 weight="bold"
+                color={
+                  textColor !== 'default'
+                    ? (textColor as
+                        | 'gray'
+                        | 'blue'
+                        | 'green'
+                        | 'red'
+                        | 'orange'
+                        | 'purple'
+                        | 'cyan'
+                        | 'pink'
+                        | 'yellow')
+                    : undefined
+                }
                 style={{ display: 'block', marginBottom: '0.5em', fontSize: '1.5em' }}
               >
                 {children}
@@ -127,6 +150,20 @@ function TextCardComponent({
               <RadixText
                 size={fontSize}
                 weight="bold"
+                color={
+                  textColor !== 'default'
+                    ? (textColor as
+                        | 'gray'
+                        | 'blue'
+                        | 'green'
+                        | 'red'
+                        | 'orange'
+                        | 'purple'
+                        | 'cyan'
+                        | 'pink'
+                        | 'yellow')
+                    : undefined
+                }
                 style={{ display: 'block', marginBottom: '0.5em', fontSize: '1.3em' }}
               >
                 {children}
@@ -136,23 +173,91 @@ function TextCardComponent({
               <RadixText
                 size={fontSize}
                 weight="medium"
+                color={
+                  textColor !== 'default'
+                    ? (textColor as
+                        | 'gray'
+                        | 'blue'
+                        | 'green'
+                        | 'red'
+                        | 'orange'
+                        | 'purple'
+                        | 'cyan'
+                        | 'pink'
+                        | 'yellow')
+                    : undefined
+                }
                 style={{ display: 'block', marginBottom: '0.5em', fontSize: '1.1em' }}
               >
                 {children}
               </RadixText>
             ),
             p: ({ children }) => (
-              <RadixText as="p" size={fontSize} style={{ marginBottom: '0.5em' }}>
+              <RadixText
+                as="p"
+                size={fontSize}
+                color={
+                  textColor !== 'default'
+                    ? (textColor as
+                        | 'gray'
+                        | 'blue'
+                        | 'green'
+                        | 'red'
+                        | 'orange'
+                        | 'purple'
+                        | 'cyan'
+                        | 'pink'
+                        | 'yellow')
+                    : undefined
+                }
+                style={{ marginBottom: '0.5em' }}
+              >
                 {children}
               </RadixText>
             ),
             strong: ({ children }) => (
-              <RadixText as="span" size={fontSize} weight="bold">
+              <RadixText
+                as="span"
+                size={fontSize}
+                weight="bold"
+                color={
+                  textColor !== 'default'
+                    ? (textColor as
+                        | 'gray'
+                        | 'blue'
+                        | 'green'
+                        | 'red'
+                        | 'orange'
+                        | 'purple'
+                        | 'cyan'
+                        | 'pink'
+                        | 'yellow')
+                    : undefined
+                }
+              >
                 {children}
               </RadixText>
             ),
             em: ({ children }) => (
-              <RadixText as="span" size={fontSize} style={{ fontStyle: 'italic' }}>
+              <RadixText
+                as="span"
+                size={fontSize}
+                color={
+                  textColor !== 'default'
+                    ? (textColor as
+                        | 'gray'
+                        | 'blue'
+                        | 'green'
+                        | 'red'
+                        | 'orange'
+                        | 'purple'
+                        | 'cyan'
+                        | 'pink'
+                        | 'yellow')
+                    : undefined
+                }
+                style={{ fontStyle: 'italic' }}
+              >
                 {children}
               </RadixText>
             ),
@@ -164,7 +269,24 @@ function TextCardComponent({
             ),
             li: ({ children }) => (
               <li>
-                <RadixText as="span" size={fontSize}>
+                <RadixText
+                  as="span"
+                  size={fontSize}
+                  color={
+                    textColor !== 'default'
+                      ? (textColor as
+                          | 'gray'
+                          | 'blue'
+                          | 'green'
+                          | 'red'
+                          | 'orange'
+                          | 'purple'
+                          | 'cyan'
+                          | 'pink'
+                          | 'yellow')
+                      : undefined
+                  }
+                >
                   {children}
                 </RadixText>
               </li>
