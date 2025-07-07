@@ -124,7 +124,7 @@ export function GridLayoutSection({
         margin={responsiveConfig.margin} // Responsive gap between items
         containerPadding={responsiveConfig.containerPadding} // Responsive container padding
         resizeHandles={isEditMode ? ['se', 'sw', 'ne', 'nw', 'e', 'w', 'n', 's'] : []}
-        draggableHandle=".grid-item-drag-handle"
+        draggableCancel="button, input, textarea, select, [role='button'], .no-drag"
       >
         {items.map((item) => (
           <div key={item.id} className="grid-item">

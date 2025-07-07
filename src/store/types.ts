@@ -15,6 +15,7 @@ export interface GridItem {
   content?: string // For text cards
   alignment?: 'left' | 'center' | 'right' // For text cards
   textSize?: 'small' | 'medium' | 'large' // For text cards
+  config?: Record<string, unknown> // Entity-specific configuration
   x: number
   y: number
   width: number
