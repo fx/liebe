@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Liebe - Home Assistant Dashboard</title>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding: 2rem;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      code {
+        background: #f4f4f4;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 1rem;
+        border-radius: 5px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Liebe - Home Assistant Dashboard</h1>
+      <p>A modern, customizable dashboard for Home Assistant with a beautiful UI.</p>
+
+      <h2>Installation</h2>
+      <p>Add the following to your Home Assistant <code>configuration.yaml</code>:</p>
+      <pre><code>panel_custom:
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: https://fx.github.io/liebe/panel.js</code></pre>
+
+      <p>Then restart Home Assistant and find "Liebe" in the sidebar.</p>
+
+      <h2>Resources</h2>
+      <ul>
+        <li><a href="https://github.com/fx/liebe">GitHub Repository</a></li>
+        <li><a href="panel.js">panel.js</a> - The Home Assistant panel module</li>
+      </ul>
+    </div>
+  </body>
+</html>
