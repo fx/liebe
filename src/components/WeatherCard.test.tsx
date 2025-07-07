@@ -36,6 +36,16 @@ describe('WeatherCard', () => {
     },
   }
 
+  const mockItem = {
+    id: 'test-item-1',
+    type: 'entity' as const,
+    entityId: 'weather.home',
+    x: 0,
+    y: 0,
+    width: 2,
+    height: 2,
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseEntity.mockReturnValue({

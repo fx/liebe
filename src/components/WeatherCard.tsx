@@ -18,6 +18,10 @@ import { useEntity } from '../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
+import type { GridItem } from '~/store/types'
+import { CardConfig } from './CardConfig'
+import { useState } from 'react'
+import { dashboardActions, useDashboardStore } from '~/store'
 
 interface WeatherCardProps {
   entityId: string
@@ -26,6 +30,7 @@ interface WeatherCardProps {
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
   config?: WeatherCardConfig
+  item?: GridItem
 }
 
 interface WeatherCardConfig {
@@ -513,8 +518,21 @@ function WeatherCardContent({
   isSelected = false,
   onSelect,
   config = {},
+  item,
 }: WeatherCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const [configOpen, setConfigOpen] = useState(false)
+  const screens = useDashboardStore((state) => state.screens)
+  const currentScreenId = useDashboardStore((state) => state.currentScreenId)
+
+  const handleConfigSave = (updates: Partial<GridItem>) => {
+    if (item && currentScreenId) {
+      const screen = screens.find((s) => s.id === currentScreenId)
+      if (screen) {
+        dashboardActions.updateGridItem(currentScreenId, item.id, updates)
+      }
+    }
+  }
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -589,58 +607,71 @@ function WeatherCardContent({
           : '100px'
 
   return (
-    <GridCard
-      size={size}
-      isStale={isStale}
-      isSelected={isSelected}
-      onSelect={() => onSelect?.(!isSelected)}
-      onDelete={onDelete}
-      title={isStale ? 'Weather data may be outdated' : undefined}
-      style={{
-        minHeight,
-        borderWidth: isSelected || isStale ? '2px' : '1px',
-        transition: 'all 0.3s ease-in-out',
-      }}
-    >
-      {preset === 'detailed' && (
-        <DetailedPreset
-          entity={entity as WeatherEntity}
-          size={size}
-          iconScale={iconScale}
-          config={config}
-          isStale={isStale}
+    <>
+      <GridCard
+        size={size}
+        isStale={isStale}
+        isSelected={isSelected}
+        onSelect={() => onSelect?.(!isSelected)}
+        onDelete={onDelete}
+        onConfigure={() => setConfigOpen(true)}
+        hasConfiguration={true}
+        title={isStale ? 'Weather data may be outdated' : undefined}
+        style={{
+          minHeight,
+          borderWidth: isSelected || isStale ? '2px' : '1px',
+          transition: 'all 0.3s ease-in-out',
+        }}
+      >
+        {preset === 'detailed' && (
+          <DetailedPreset
+            entity={entity as WeatherEntity}
+            size={size}
+            iconScale={iconScale}
+            config={config}
+            isStale={isStale}
+          />
+        )}
+        {preset === 'minimal' && (
+          <MinimalPreset entity={entity as WeatherEntity} size={size} config={config} />
+        )}
+        {preset === 'modern' && (
+          <ModernPreset
+            entity={entity as WeatherEntity}
+            size={size}
+            config={config}
+            isStale={isStale}
+          />
+        )}
+        {preset === 'forecast' && (
+          <ForecastPreset
+            entity={entity as WeatherEntity}
+            size={size}
+            iconScale={iconScale}
+            config={config}
+            isStale={isStale}
+          />
+        )}
+        {preset === 'default' && (
+          <DefaultPreset
+            entity={entity as WeatherEntity}
+            size={size}
+            iconScale={iconScale}
+            config={config}
+            isStale={isStale}
+          />
+        )}
+      </GridCard>
+
+      {item && (
+        <CardConfig.Modal
+          open={configOpen}
+          onOpenChange={setConfigOpen}
+          item={item}
+          onSave={handleConfigSave}
         />
       )}
-      {preset === 'minimal' && (
-        <MinimalPreset entity={entity as WeatherEntity} size={size} config={config} />
-      )}
-      {preset === 'modern' && (
-        <ModernPreset
-          entity={entity as WeatherEntity}
-          size={size}
-          config={config}
-          isStale={isStale}
-        />
-      )}
-      {preset === 'forecast' && (
-        <ForecastPreset
-          entity={entity as WeatherEntity}
-          size={size}
-          iconScale={iconScale}
-          config={config}
-          isStale={isStale}
-        />
-      )}
-      {preset === 'default' && (
-        <DefaultPreset
-          entity={entity as WeatherEntity}
-          size={size}
-          iconScale={iconScale}
-          config={config}
-          isStale={isStale}
-        />
-      )}
-    </GridCard>
+    </>
   )
 }
 
