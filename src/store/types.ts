@@ -15,6 +15,8 @@ export interface GridItem {
   content?: string // For text cards
   alignment?: 'left' | 'center' | 'right' // For text cards
   textSize?: 'small' | 'medium' | 'large' // For text cards
+  textColor?: string // For text cards (e.g., 'default', 'gray', 'blue', 'red')
+  hideBackground?: boolean // For text cards and separators
   config?: Record<string, unknown> // Entity-specific configuration
   x: number
   y: number
