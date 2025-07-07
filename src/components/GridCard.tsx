@@ -149,7 +149,7 @@ export const GridCard = React.memo(
             variant="classic"
             onClick={handleClick}
             title={title}
-            className={`grid-card relative transition-all duration-200 ${isLoading ? 'grid-card-loading' : ''} ${isError ? 'grid-card-error animate-pulse-once' : ''} ${isUnavailable ? 'opacity-50' : ''} ${isEditMode ? 'grid-item-drag-handle' : ''} ${className || ''}`}
+            className={`grid-card relative transition-all duration-200 ${isLoading ? 'grid-card-loading' : ''} ${isError ? 'grid-card-error animate-pulse-once' : ''} ${isUnavailable ? 'opacity-50' : ''} ${className || ''}`}
             style={{
               minHeight,
               padding: `var(--space-${padding})`,

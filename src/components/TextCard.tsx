@@ -89,9 +89,6 @@ function TextCardComponent({
         }}
         onClick={handleClick}
       >
-        {/* Drag handle in edit mode */}
-        <div className="grid-item-drag-handle" />
-
         {/* Delete button in edit mode */}
         {onDelete && (
           <IconButton

@@ -108,9 +108,6 @@ export function Separator({
       }}
       onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : undefined}
     >
-      {/* Drag handle in edit mode */}
-      {isEditMode && <div className="grid-item-drag-handle" />}
-
       {/* Delete button in edit mode */}
       {isEditMode && onDelete && (
         <IconButton
