@@ -1,12 +1,4 @@
 import { Flex, Text } from '@radix-ui/themes'
-import {
-  CheckCircledIcon,
-  CrossCircledIcon,
-  PersonIcon,
-  ExitIcon,
-  LightningBoltIcon,
-  CircleIcon,
-} from '@radix-ui/react-icons'
 import { useEntity } from '~/hooks'
 import { memo, useState } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
@@ -14,6 +6,8 @@ import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore, dashboardStore, dashboardActions } from '~/store'
 import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
+import { getTablerIcon } from '~/utils/icons'
+import { getIcon } from '~/utils/iconList'
 
 interface BinarySensorCardProps {
   entityId: string
@@ -24,56 +18,28 @@ interface BinarySensorCardProps {
   item?: GridItem
 }
 
-// Preset icon mappings for common binary sensor types
-export const BINARY_SENSOR_PRESETS = {
-  presence: {
-    on: <PersonIcon width="20" height="20" />,
-    off: <PersonIcon width="20" height="20" style={{ opacity: 0.3 }} />,
-    name: 'Presence Detection',
-  },
-  door: {
-    on: <ExitIcon width="20" height="20" style={{ transform: 'rotate(180deg)' }} />,
-    off: <ExitIcon width="20" height="20" />,
-    name: 'Door/Window',
-  },
-  window: {
-    on: <ExitIcon width="20" height="20" style={{ transform: 'rotate(180deg)' }} />,
-    off: <ExitIcon width="20" height="20" />,
-    name: 'Door/Window',
-  },
-  motion: {
-    on: <LightningBoltIcon width="20" height="20" />,
-    off: <LightningBoltIcon width="20" height="20" style={{ opacity: 0.3 }} />,
-    name: 'Motion',
-  },
-  moisture: {
-    on: <CircleIcon width="20" height="20" style={{ fill: 'var(--blue-9)' }} />,
-    off: <CircleIcon width="20" height="20" style={{ opacity: 0.3 }} />,
-    name: 'Moisture',
-  },
-  default: {
-    on: <CheckCircledIcon width="20" height="20" />,
-    off: <CrossCircledIcon width="20" height="20" />,
-    name: 'Binary Sensor',
-  },
-}
+// Get default icons based on device class
+const getDefaultIcons = (deviceClass?: string): { onIcon: string; offIcon: string } => {
+  if (!deviceClass) return { onIcon: 'CircleCheck', offIcon: 'Circle' }
 
-// Get preset based on device class
-const getPresetForDeviceClass = (deviceClass?: string): keyof typeof BINARY_SENSOR_PRESETS => {
-  if (!deviceClass) return 'default'
-
-  // Map device classes to presets
-  const deviceClassMap: Record<string, keyof typeof BINARY_SENSOR_PRESETS> = {
-    occupancy: 'presence',
-    presence: 'presence',
-    door: 'door',
-    window: 'window',
-    motion: 'motion',
-    moisture: 'moisture',
-    water: 'moisture',
+  // Map device classes to icon names from our curated list
+  const deviceClassMap: Record<string, { onIcon: string; offIcon: string }> = {
+    occupancy: { onIcon: 'User', offIcon: 'UserOff' },
+    presence: { onIcon: 'User', offIcon: 'UserOff' },
+    door: { onIcon: 'Door', offIcon: 'DoorOff' },
+    window: { onIcon: 'Door', offIcon: 'DoorOff' }, // Using door icons for windows
+    motion: { onIcon: 'MotionSensor', offIcon: 'UserOff' },
+    moisture: { onIcon: 'Droplet', offIcon: 'DropletOff' },
+    water: { onIcon: 'Droplet', offIcon: 'DropletOff' },
+    lock: { onIcon: 'Lock', offIcon: 'LockOpen' },
+    safety: { onIcon: 'ShieldCheck', offIcon: 'Shield' },
+    smoke: { onIcon: 'Flame', offIcon: 'FlameOff' },
+    sound: { onIcon: 'Volume', offIcon: 'VolumeOff' },
+    vibration: { onIcon: 'Bell', offIcon: 'BellOff' },
+    light: { onIcon: 'Bulb', offIcon: 'BulbOff' },
   }
 
-  return deviceClassMap[deviceClass] || 'default'
+  return deviceClassMap[deviceClass] || { onIcon: 'CircleCheck', offIcon: 'Circle' }
 }
 
 function BinarySensorCardComponent({
@@ -90,8 +56,7 @@ function BinarySensorCardComponent({
   const [configOpen, setConfigOpen] = useState(false)
 
   // Get config from item
-  const config =
-    (item?.config as { preset?: string; customOnIcon?: string; customOffIcon?: string }) || {}
+  const config = (item?.config as { onIcon?: string; offIcon?: string }) || {}
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -114,17 +79,21 @@ function BinarySensorCardComponent({
   const isOn = entity.state === 'on'
   const isUnavailable = entity.state === 'unavailable'
 
-  // Get device class and preset
+  // Get device class and default icons
   const deviceClass = entity.attributes.device_class as string | undefined
-  const presetKey = config.preset || getPresetForDeviceClass(deviceClass)
-  const preset =
-    BINARY_SENSOR_PRESETS[presetKey as keyof typeof BINARY_SENSOR_PRESETS] ||
-    BINARY_SENSOR_PRESETS.default
+  const defaults = getDefaultIcons(deviceClass)
 
-  // Get icon to display
-  const icon = isOn ? preset.on : preset.off
+  // Get configured icons or use defaults
+  const onIconName = config.onIcon || defaults.onIcon
+  const offIconName = config.offIcon || defaults.offIcon
 
-  const iconScale = size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8
+  // Get the icon component
+  const iconName = isOn ? onIconName : offIconName
+  const IconComponent =
+    getTablerIcon(iconName) || (isOn ? getIcon('CircleCheck') : getIcon('Circle')) || (() => null)
+
+  // Get icon size based on card size
+  const iconSize = size === 'large' ? 24 : size === 'medium' ? 20 : 16
 
   const handleConfigSave = (updates: Partial<GridItem>) => {
     if (item && item.id) {
@@ -161,15 +130,14 @@ function BinarySensorCardComponent({
             <span
               style={{
                 color: isStale ? 'var(--orange-9)' : isOn ? 'var(--amber-9)' : 'var(--gray-9)',
-                transform: `scale(${iconScale})`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: isStale ? 0.6 : 1,
+                opacity: isStale ? 0.6 : isOn ? 1 : 0.5,
                 transition: 'opacity 0.2s ease',
               }}
             >
-              {icon}
+              <IconComponent size={iconSize} />
             </span>
           </GridCard.Icon>
 
