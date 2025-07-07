@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { Card, IconButton, Spinner } from '@radix-ui/themes'
-import { X, GripVertical, Settings } from 'lucide-react'
+import { X, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
 
 // Types
@@ -149,7 +149,7 @@ export const GridCard = React.memo(
             variant="classic"
             onClick={handleClick}
             title={title}
-            className={`grid-card relative transition-all duration-200 ${isLoading ? 'grid-card-loading' : ''} ${isError ? 'grid-card-error animate-pulse-once' : ''} ${isUnavailable ? 'opacity-50' : ''} ${className || ''}`}
+            className={`grid-card relative transition-all duration-200 ${isLoading ? 'grid-card-loading' : ''} ${isError ? 'grid-card-error animate-pulse-once' : ''} ${isUnavailable ? 'opacity-50' : ''} ${isEditMode ? 'grid-item-drag-handle' : ''} ${className || ''}`}
             style={{
               minHeight,
               padding: `var(--space-${padding})`,
@@ -160,16 +160,6 @@ export const GridCard = React.memo(
               ...borderStyle,
             }}
           >
-            {/* Drag Handle - hide in fullscreen */}
-            {isEditMode && !isFullscreen && (
-              <div
-                className="grid-item-drag-handle absolute top-1 left-1 cursor-move text-gray-400 hover:text-gray-600"
-                style={{ zIndex: 10 }}
-              >
-                <GripVertical size={16} />
-              </div>
-            )}
-
             {/* Configuration Button - hide in fullscreen */}
             {isEditMode && hasConfiguration && onConfigure && !isFullscreen && (
               <IconButton
