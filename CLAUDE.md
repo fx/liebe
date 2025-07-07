@@ -869,3 +869,57 @@ The `/workspace/screenshots/` directory should:
 - Contain a `.gitkeep` file to ensure it's tracked in version control
 - Be committed to the repository
 - Store all development and testing screenshots
+
+## GitHub Pages Deployment
+
+### Automatic Deployment
+
+The project is automatically deployed to GitHub Pages when changes are pushed to the `main` branch. The deployment workflow:
+
+1. Builds the Home Assistant panel in production mode
+2. Creates a GitHub Pages site with the panel.js file
+3. Deploys to https://fx.github.io/liebe/
+
+### Manual Deployment
+
+To manually trigger a deployment:
+
+1. Go to Actions tab in GitHub
+2. Select "Deploy to GitHub Pages" workflow
+3. Click "Run workflow"
+
+### GitHub Pages Configuration
+
+The deployment uses:
+
+- **Build script**: `npm run build:ha:prod`
+- **Source**: GitHub Actions
+- **Branch**: Automated deployment (no gh-pages branch)
+- **URL**: https://fx.github.io/liebe/
+
+### Files Created
+
+- `/panel.js` - The Home Assistant panel module
+- `/index.html` - Landing page with installation instructions
+
+### Deployment Workflow
+
+The `.github/workflows/deploy.yml` file handles:
+
+1. Building the production panel
+2. Creating GitHub Pages artifacts
+3. Deploying to GitHub Pages
+4. Setting proper permissions
+
+### Usage
+
+Users can use the GitHub Pages hosted version by adding to their Home Assistant configuration:
+
+```yaml
+panel_custom:
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: https://fx.github.io/liebe/panel.js
+```

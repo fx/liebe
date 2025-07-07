@@ -33,7 +33,31 @@ panel_custom:
 
 ## Production
 
-Host Liebe on any web server and add to your `configuration.yaml`:
+### Option 1: GitHub Pages (Recommended)
+
+The easiest way to use Liebe is through the GitHub Pages hosted version:
+
+```yaml
+panel_custom:
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: https://fx.github.io/liebe/panel.js
+```
+
+### Option 2: Self-hosting
+
+You can also build and host Liebe on your own web server:
+
+```bash
+# Build for production
+npm run build:ha:prod
+
+# Upload dist/panel.js to your web server
+```
+
+Then add to your `configuration.yaml`:
 
 ```yaml
 panel_custom:
@@ -69,6 +93,8 @@ homeassistant:
 
 - `npm run dev` - Start development server
 - `npm run build` - Build SPA application
+- `npm run build:ha` - Build Home Assistant panel (development)
+- `npm run build:ha:prod` - Build Home Assistant panel (production)
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier
