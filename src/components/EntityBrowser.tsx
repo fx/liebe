@@ -1,9 +1,8 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import {
   Dialog,
   Flex,
   TextField,
-  ScrollArea,
   Checkbox,
   Button,
   Separator,
@@ -14,6 +13,7 @@ import {
   Card,
 } from '@radix-ui/themes'
 import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEntities } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
 
@@ -58,6 +58,12 @@ const getFriendlyDomain = (domain: string): string => {
 // Domains to filter out by default
 const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
 
+// Types for flattened list items
+type FlattenedItem =
+  | { type: 'header'; domain: string; entityCount: number }
+  | { type: 'entity'; entity: HassEntity; domain: string }
+  | { type: 'separator' }
+
 export function EntityBrowser({
   open,
   onOpenChange,
@@ -65,8 +71,11 @@ export function EntityBrowser({
   currentEntityIds = [],
 }: EntityBrowserProps) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
   const { entities, isLoading } = useEntities()
+  const parentRef = useRef<HTMLDivElement>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Filter and group entities
   const entityGroups = useMemo(() => {
@@ -146,14 +155,24 @@ export function EntityBrowser({
 
   const handleAddSelected = useCallback(() => {
     onEntitiesSelected(Array.from(selectedEntityIds))
+    // Clear search timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
     setSelectedEntityIds(new Set())
     setSearchTerm('')
+    setSearchInput('')
     onOpenChange(false)
   }, [selectedEntityIds, onEntitiesSelected, onOpenChange])
 
   const handleClose = useCallback(() => {
+    // Clear search timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
     setSelectedEntityIds(new Set())
     setSearchTerm('')
+    setSearchInput('')
     onOpenChange(false)
   }, [onOpenChange])
 
@@ -161,6 +180,58 @@ export function EntityBrowser({
     () => entityGroups.reduce((sum, group) => sum + group.entities.length, 0),
     [entityGroups]
   )
+
+  // Flatten entity groups for virtualization
+  const flattenedItems = useMemo(() => {
+    const items: FlattenedItem[] = []
+    entityGroups.forEach((group, groupIndex) => {
+      // Add group header
+      items.push({
+        type: 'header',
+        domain: group.domain,
+        entityCount: group.entities.length,
+      })
+      // Add entities
+      group.entities.forEach((entity) => {
+        items.push({
+          type: 'entity',
+          entity,
+          domain: group.domain,
+        })
+      })
+      // Add separator (except after last group)
+      if (groupIndex < entityGroups.length - 1) {
+        items.push({ type: 'separator' })
+      }
+    })
+    return items
+  }, [entityGroups])
+
+  // Set up virtualizer
+  const virtualizer = useVirtualizer({
+    count: flattenedItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (index) => {
+      const item = flattenedItems[index]
+      if (item.type === 'header') return 40
+      if (item.type === 'entity') return 56 // Height of entity card
+      return 24 // separator height
+    },
+    overscan: 5, // Render 5 items outside viewport for smooth scrolling
+  })
+
+  // Debounced search handler
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value)
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchTerm(value)
+    }, 300)
+  }, [])
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -172,15 +243,22 @@ export function EntityBrowser({
           {/* Search bar */}
           <TextField.Root
             placeholder="Search entities..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
           >
             <TextField.Slot>
               <MagnifyingGlassIcon height="16" width="16" />
             </TextField.Slot>
-            {searchTerm && (
+            {searchInput && (
               <TextField.Slot>
-                <IconButton size="1" variant="ghost" onClick={() => setSearchTerm('')}>
+                <IconButton
+                  size="1"
+                  variant="ghost"
+                  onClick={() => {
+                    setSearchInput('')
+                    setSearchTerm('')
+                  }}
+                >
                   <Cross2Icon height="14" width="14" />
                 </IconButton>
               </TextField.Slot>
@@ -197,49 +275,85 @@ export function EntityBrowser({
           </Flex>
 
           {/* Entity list */}
-          <ScrollArea style={{ height: '400px' }}>
+          <Box
+            ref={parentRef}
+            style={{
+              height: '400px',
+              overflow: 'auto',
+              border: '1px solid var(--gray-6)',
+              borderRadius: 'var(--radius-2)',
+            }}
+          >
             {isLoading ? (
               <Flex align="center" justify="center" p="6">
                 <Text color="gray">Loading entities...</Text>
               </Flex>
-            ) : entityGroups.length === 0 ? (
+            ) : flattenedItems.length === 0 ? (
               <Flex align="center" justify="center" p="6">
                 <Text color="gray">No entities found</Text>
               </Flex>
             ) : (
-              <Flex direction="column" gap="4" pr="3">
-                {entityGroups.map((group) => (
-                  <Box key={group.domain}>
-                    <Flex align="center" justify="between" mb="2">
-                      <Text size="2" weight="bold">
-                        {getFriendlyDomain(group.domain)}
-                      </Text>
-                      <Checkbox
-                        size="1"
-                        checked={group.entities.every((e) => selectedEntityIds.has(e.entity_id))}
-                        onCheckedChange={(checked) =>
-                          handleToggleAll(group.domain, checked as boolean)
-                        }
-                      />
-                    </Flex>
-                    <Flex direction="column" gap="1">
-                      {group.entities.map((entity) => (
-                        <EntityItem
-                          key={entity.entity_id}
-                          entity={entity}
-                          checked={selectedEntityIds.has(entity.entity_id)}
-                          onCheckedChange={(checked) =>
-                            handleToggleEntity(entity.entity_id, checked)
-                          }
-                        />
-                      ))}
-                    </Flex>
-                    <Separator size="4" my="3" />
-                  </Box>
-                ))}
-              </Flex>
+              <div
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualItem) => {
+                  const item = flattenedItems[virtualItem.index]
+                  return (
+                    <div
+                      key={virtualItem.key}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualItem.size}px`,
+                        transform: `translateY(${virtualItem.start}px)`,
+                      }}
+                    >
+                      {item.type === 'header' && (
+                        <Flex align="center" justify="between" p="2" style={{ height: '100%' }}>
+                          <Text size="2" weight="bold">
+                            {getFriendlyDomain(item.domain)}
+                          </Text>
+                          <Checkbox
+                            size="1"
+                            checked={
+                              entityGroups
+                                .find((g) => g.domain === item.domain)
+                                ?.entities.every((e) => selectedEntityIds.has(e.entity_id)) || false
+                            }
+                            onCheckedChange={(checked) =>
+                              handleToggleAll(item.domain, checked as boolean)
+                            }
+                          />
+                        </Flex>
+                      )}
+                      {item.type === 'entity' && (
+                        <Box px="2">
+                          <EntityItem
+                            entity={item.entity}
+                            checked={selectedEntityIds.has(item.entity.entity_id)}
+                            onCheckedChange={(checked) =>
+                              handleToggleEntity(item.entity.entity_id, checked)
+                            }
+                          />
+                        </Box>
+                      )}
+                      {item.type === 'separator' && (
+                        <Box px="2" py="1">
+                          <Separator size="4" />
+                        </Box>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             )}
-          </ScrollArea>
+          </Box>
         </Flex>
 
         <Flex gap="3" mt="5" justify="end">
