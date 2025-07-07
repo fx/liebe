@@ -42,9 +42,8 @@ jobs:
 
       - name: Create GitHub Pages directory structure
         run: |
-          mkdir -p ./pages-dist
-          # Copy the panel.js file to the root
-          cp ./dist/panel.js ./pages-dist/
+          # Copy all dist files to pages-dist
+          cp -r ./dist ./pages-dist
           # Copy the index.html file
           cp ./.github/pages-index.html ./pages-dist/index.html
 
