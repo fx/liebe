@@ -29,8 +29,32 @@ export const cardConfigurations: Record<
   },
   weather: {
     title: 'Weather Card',
-    placeholder:
-      'This card displays weather information from a weather entity. Additional configuration options will be added in future updates.',
+    description: 'Configure how weather information is displayed.',
+    definition: {
+      preset: {
+        type: 'select',
+        default: 'default',
+        label: 'Card Style',
+        description: 'Choose a visual style for the weather card',
+        options: [
+          { value: 'default', label: 'Default' },
+          { value: 'detailed', label: 'Detailed' },
+          { value: 'minimal', label: 'Minimal' },
+          { value: 'modern', label: 'Modern' },
+        ],
+      },
+      temperatureUnit: {
+        type: 'select',
+        default: 'auto',
+        label: 'Temperature Unit',
+        description: 'Override the temperature unit display',
+        options: [
+          { value: 'auto', label: 'Auto (from entity)' },
+          { value: 'celsius', label: 'Celsius (°C)' },
+          { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
+        ],
+      },
+    },
   },
   binary_sensor: {
     title: 'Binary Sensor Card',
