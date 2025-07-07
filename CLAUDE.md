@@ -207,6 +207,16 @@ gh issue view <issue-number>
    - Use Radix UI Theme components with default styling (no custom CSS unless absolutely necessary)
    - Implement proper error boundaries
    - Add loading states for async operations
+   - When dealing with many variables from an object, favor destructuring for cleaner code:
+     ```typescript
+     // Prefer this:
+     const { temperature, humidity, pressure, wind_speed: windSpeed } = entity.attributes
+     
+     // Over this:
+     const temp = entity.attributes?.temperature
+     const humidity = entity.attributes?.humidity
+     const pressure = entity.attributes?.pressure
+     ```
 
 2. **Testing Approach**
 
