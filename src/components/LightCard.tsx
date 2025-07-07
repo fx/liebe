@@ -7,7 +7,7 @@ import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { CardConfigurationModal } from './CardConfigurationModal'
-import { LightCardConfig } from './configurations'
+import { SharedCardConfig } from './configurations'
 import type { GridItem } from '~/store/types'
 
 interface LightCardProps {
@@ -269,7 +269,7 @@ function LightCardComponent({
           item={item}
           onSave={handleConfigSave}
         >
-          <LightCardConfig />
+          <SharedCardConfig />
         </CardConfigurationModal>
       )}
     </>
