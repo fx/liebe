@@ -8,11 +8,7 @@ import {
   Zap,
   Thermometer,
   Droplets,
-  Wind,
-  Eye,
-  CloudRainWind,
   Gauge,
-  Calendar,
 } from 'lucide-react'
 import { useEntity } from '../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from './ui'
@@ -34,13 +30,7 @@ interface WeatherCardProps {
 }
 
 interface WeatherCardConfig {
-  preset?: 'default' | 'detailed' | 'minimal' | 'modern' | 'forecast'
-  showTemperature?: boolean
-  showHumidity?: boolean
-  showPressure?: boolean
-  showWindSpeed?: boolean
-  showVisibility?: boolean
-  showPrecipitation?: boolean
+  preset?: 'default' | 'detailed' | 'minimal' | 'modern'
   temperatureUnit?: 'auto' | 'celsius' | 'fahrenheit'
 }
 
@@ -49,12 +39,6 @@ interface WeatherAttributes extends EntityAttributes {
   temperature_unit?: string
   humidity?: number
   pressure?: number
-  wind_speed?: number
-  wind_unit?: string
-  visibility?: number
-  visibility_unit?: string
-  precipitation?: number
-  precipitation_unit?: string
 }
 
 interface WeatherEntity extends HassEntity {
@@ -158,7 +142,7 @@ function DefaultPreset({
 
       <GridCard.Controls>
         <Flex gap="3" wrap="wrap" align="center">
-          {tempDisplay && config.showTemperature !== false && (
+          {tempDisplay && (
             <Flex align="center" gap="1">
               <Thermometer size={16} />
               <Text size="4" weight="bold">
@@ -167,13 +151,13 @@ function DefaultPreset({
               </Text>
             </Flex>
           )}
-          {humidity !== undefined && size !== 'small' && config.showHumidity !== false && (
+          {humidity !== undefined && size !== 'small' && (
             <Flex align="center" gap="1">
               <Droplets size={16} />
               <Text size="2">{humidity}%</Text>
             </Flex>
           )}
-          {pressure !== undefined && size === 'large' && config.showPressure !== false && (
+          {pressure !== undefined && size === 'large' && (
             <Badge variant="soft">{Math.round(pressure)} hPa</Badge>
           )}
         </Flex>
@@ -197,16 +181,12 @@ function DetailedPreset({
   isStale: boolean
 }) {
   const weatherEntity = entity as WeatherEntity
-  const temp = weatherEntity.attributes?.temperature
-  const humidity = weatherEntity.attributes?.humidity
-  const pressure = weatherEntity.attributes?.pressure
-  const windSpeed = weatherEntity.attributes?.wind_speed
-  const windUnit = weatherEntity.attributes?.wind_unit
-  const visibility = weatherEntity.attributes?.visibility
-  const visibilityUnit = weatherEntity.attributes?.visibility_unit
-  const precipitation = weatherEntity.attributes?.precipitation
-  const precipitationUnit = weatherEntity.attributes?.precipitation_unit
-  const tempUnit = weatherEntity.attributes?.temperature_unit
+  const {
+    temperature: temp,
+    humidity,
+    pressure,
+    temperature_unit: tempUnit,
+  } = weatherEntity.attributes
 
   const tempDisplay = getTemperatureDisplay(temp, tempUnit, config.temperatureUnit || 'auto')
 
@@ -248,7 +228,7 @@ function DetailedPreset({
             width: '100%',
           }}
         >
-          {tempDisplay && config.showTemperature !== false && (
+          {tempDisplay && (
             <Flex align="center" gap="2">
               <Thermometer size={18} style={{ color: 'var(--gray-9)' }} />
               <Flex direction="column" gap="0">
@@ -263,7 +243,7 @@ function DetailedPreset({
             </Flex>
           )}
 
-          {humidity !== undefined && config.showHumidity !== false && (
+          {humidity !== undefined && (
             <Flex align="center" gap="2">
               <Droplets size={18} style={{ color: 'var(--gray-9)' }} />
               <Flex direction="column" gap="0">
@@ -277,7 +257,7 @@ function DetailedPreset({
             </Flex>
           )}
 
-          {pressure !== undefined && config.showPressure !== false && (
+          {pressure !== undefined && (
             <Flex align="center" gap="2">
               <Gauge size={18} style={{ color: 'var(--gray-9)' }} />
               <Flex direction="column" gap="0">
@@ -286,48 +266,6 @@ function DetailedPreset({
                 </Text>
                 <Text size="3" weight="bold">
                   {Math.round(pressure)} hPa
-                </Text>
-              </Flex>
-            </Flex>
-          )}
-
-          {windSpeed !== undefined && config.showWindSpeed !== false && (
-            <Flex align="center" gap="2">
-              <Wind size={18} style={{ color: 'var(--gray-9)' }} />
-              <Flex direction="column" gap="0">
-                <Text size="1" color="gray">
-                  Wind
-                </Text>
-                <Text size="3" weight="bold">
-                  {Math.round(windSpeed)} {windUnit || 'km/h'}
-                </Text>
-              </Flex>
-            </Flex>
-          )}
-
-          {visibility !== undefined && config.showVisibility !== false && (
-            <Flex align="center" gap="2">
-              <Eye size={18} style={{ color: 'var(--gray-9)' }} />
-              <Flex direction="column" gap="0">
-                <Text size="1" color="gray">
-                  Visibility
-                </Text>
-                <Text size="3" weight="bold">
-                  {visibility} {visibilityUnit || 'km'}
-                </Text>
-              </Flex>
-            </Flex>
-          )}
-
-          {precipitation !== undefined && config.showPrecipitation !== false && (
-            <Flex align="center" gap="2">
-              <CloudRainWind size={18} style={{ color: 'var(--gray-9)' }} />
-              <Flex direction="column" gap="0">
-                <Text size="1" color="gray">
-                  Precipitation
-                </Text>
-                <Text size="3" weight="bold">
-                  {precipitation} {precipitationUnit || 'mm'}
                 </Text>
               </Flex>
             </Flex>
@@ -409,7 +347,7 @@ function ModernPreset({
         <Text size="2" color="gray">
           {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
         </Text>
-        {tempDisplay && config.showTemperature !== false && (
+        {tempDisplay && (
           <Text size={size === 'large' ? '6' : '5'} weight="bold">
             {Math.round(tempDisplay.value)}
             {tempDisplay.unit}
@@ -420,92 +358,13 @@ function ModernPreset({
         </Text>
       </Flex>
 
-      {size !== 'small' && (
+      {size !== 'small' && humidity !== undefined && (
         <Flex gap="4" align="center">
-          {humidity !== undefined && config.showHumidity !== false && (
-            <Flex align="center" gap="1">
-              <Droplets size={14} />
-              <Text size="2">{humidity}%</Text>
-            </Flex>
-          )}
-        </Flex>
-      )}
-    </Flex>
-  )
-}
-
-// Forecast preset rendering (simplified for now)
-function ForecastPreset({
-  entity,
-  size,
-  iconScale,
-  config,
-  isStale,
-}: {
-  entity: WeatherEntity
-  size: 'small' | 'medium' | 'large'
-  iconScale: number
-  config: WeatherCardConfig
-  isStale: boolean
-}) {
-  const weatherEntity = entity as WeatherEntity
-  const temp = weatherEntity.attributes?.temperature
-  const tempUnit = weatherEntity.attributes?.temperature_unit
-  const tempDisplay = getTemperatureDisplay(temp, tempUnit, config.temperatureUnit || 'auto')
-
-  // Note: Real forecast data would come from entity.attributes.forecast
-  // This is a placeholder implementation
-  return (
-    <Flex direction="column" gap="2" height="100%">
-      <Flex justify="between" align="start">
-        <Flex direction="column" gap="1">
-          <GridCard.Title>
-            <Heading size={size === 'small' ? '2' : '3'}>
-              {entity.attributes?.friendly_name || entity.entity_id}
-            </Heading>
-          </GridCard.Title>
-          <Flex align="center" gap="2">
-            <span
-              style={{
-                color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
-                opacity: isStale ? 0.6 : 1,
-                transform: `scale(${iconScale})`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {getWeatherIcon(entity.state, 20)}
-            </span>
-            <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
-              {entity.state}
-            </Text>
+          <Flex align="center" gap="1">
+            <Droplets size={14} />
+            <Text size="2">{humidity}%</Text>
           </Flex>
         </Flex>
-
-        {tempDisplay && config.showTemperature !== false && (
-          <Text size="5" weight="bold">
-            {Math.round(tempDisplay.value)}
-            {tempDisplay.unit}
-          </Text>
-        )}
-      </Flex>
-
-      {size !== 'small' && (
-        <Box
-          style={{
-            borderTop: '1px solid var(--gray-4)',
-            paddingTop: '8px',
-            marginTop: 'auto',
-          }}
-        >
-          <Flex align="center" gap="2" style={{ opacity: 0.7 }}>
-            <Calendar size={14} />
-            <Text size="1" color="gray">
-              Forecast data not available
-            </Text>
-          </Flex>
-        </Box>
       )}
     </Flex>
   )
@@ -639,15 +498,6 @@ function WeatherCardContent({
           <ModernPreset
             entity={entity as WeatherEntity}
             size={size}
-            config={config}
-            isStale={isStale}
-          />
-        )}
-        {preset === 'forecast' && (
-          <ForecastPreset
-            entity={entity as WeatherEntity}
-            size={size}
-            iconScale={iconScale}
             config={config}
             isStale={isStale}
           />

@@ -20,12 +20,6 @@ describe('WeatherCard', () => {
       temperature_unit: 'C',
       humidity: 65,
       pressure: 1013,
-      wind_speed: 10,
-      wind_unit: 'km/h',
-      visibility: 15,
-      visibility_unit: 'km',
-      precipitation: 0,
-      precipitation_unit: 'mm',
     },
     last_changed: '2024-01-01T00:00:00Z',
     last_updated: '2024-01-01T00:00:00Z',
@@ -34,16 +28,6 @@ describe('WeatherCard', () => {
       parent_id: null,
       user_id: null,
     },
-  }
-
-  const mockItem = {
-    id: 'test-item-1',
-    type: 'entity' as const,
-    entityId: 'weather.home',
-    x: 0,
-    y: 0,
-    width: 2,
-    height: 2,
   }
 
   beforeEach(() => {
@@ -57,34 +41,6 @@ describe('WeatherCard', () => {
   })
 
   describe('Configuration', () => {
-    it('should respect showTemperature config', () => {
-      const { rerender } = render(<WeatherCard entityId="weather.home" />)
-      expect(screen.getByText('22°C')).toBeInTheDocument()
-
-      rerender(<WeatherCard entityId="weather.home" config={{ showTemperature: false }} />)
-      expect(screen.queryByText('22°C')).not.toBeInTheDocument()
-    })
-
-    it('should respect showHumidity config', () => {
-      const { rerender } = render(<WeatherCard entityId="weather.home" size="medium" />)
-      expect(screen.getByText('65%')).toBeInTheDocument()
-
-      rerender(
-        <WeatherCard entityId="weather.home" size="medium" config={{ showHumidity: false }} />
-      )
-      expect(screen.queryByText('65%')).not.toBeInTheDocument()
-    })
-
-    it('should respect showPressure config', () => {
-      const { rerender } = render(<WeatherCard entityId="weather.home" size="large" />)
-      expect(screen.getByText('1013 hPa')).toBeInTheDocument()
-
-      rerender(
-        <WeatherCard entityId="weather.home" size="large" config={{ showPressure: false }} />
-      )
-      expect(screen.queryByText('1013 hPa')).not.toBeInTheDocument()
-    })
-
     it('should convert temperature units correctly', () => {
       const { rerender } = render(<WeatherCard entityId="weather.home" />)
       expect(screen.getByText('22°C')).toBeInTheDocument()
@@ -109,31 +65,14 @@ describe('WeatherCard', () => {
       expect(screen.getByText('sunny')).toBeInTheDocument()
     })
 
-    it('should render detailed preset with all data points', () => {
-      render(
-        <WeatherCard
-          entityId="weather.home"
-          size="large"
-          config={{
-            preset: 'detailed',
-            showWindSpeed: true,
-            showVisibility: true,
-            showPrecipitation: true,
-          }}
-        />
-      )
+    it('should render detailed preset with available data points', () => {
+      render(<WeatherCard entityId="weather.home" size="large" config={{ preset: 'detailed' }} />)
       expect(screen.getByText('Temperature')).toBeInTheDocument()
       expect(screen.getByText('22°C')).toBeInTheDocument()
       expect(screen.getByText('Humidity')).toBeInTheDocument()
       expect(screen.getByText('65%')).toBeInTheDocument()
       expect(screen.getByText('Pressure')).toBeInTheDocument()
       expect(screen.getByText('1013 hPa')).toBeInTheDocument()
-      expect(screen.getByText('Wind')).toBeInTheDocument()
-      expect(screen.getByText('10 km/h')).toBeInTheDocument()
-      expect(screen.getByText('Visibility')).toBeInTheDocument()
-      expect(screen.getByText('15 km')).toBeInTheDocument()
-      expect(screen.getByText('Precipitation')).toBeInTheDocument()
-      expect(screen.getByText('0 mm')).toBeInTheDocument()
     })
 
     it('should render modern preset', () => {
@@ -141,14 +80,6 @@ describe('WeatherCard', () => {
       expect(screen.getByText('Home Weather')).toBeInTheDocument()
       expect(screen.getByText('22°C')).toBeInTheDocument()
       expect(screen.getByText('sunny')).toBeInTheDocument()
-    })
-
-    it('should render forecast preset', () => {
-      render(<WeatherCard entityId="weather.home" config={{ preset: 'forecast' }} />)
-      expect(screen.getByText('Home Weather')).toBeInTheDocument()
-      expect(screen.getByText('22°C')).toBeInTheDocument()
-      expect(screen.getByText('sunny')).toBeInTheDocument()
-      expect(screen.getByText('Forecast data not available')).toBeInTheDocument()
     })
   })
 
