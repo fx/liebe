@@ -32,6 +32,24 @@ export const cardConfigurations: Record<
     placeholder:
       'This card displays weather information from a weather entity. Additional configuration options will be added in future updates.',
   },
+  binary_sensor: {
+    title: 'Binary Sensor Card',
+    description: 'Configure how this binary sensor card displays.',
+    definition: {
+      onIcon: {
+        type: 'icon',
+        default: 'CircleCheck',
+        label: 'On State Icon',
+        description: 'Icon to display when the sensor is on',
+      },
+      offIcon: {
+        type: 'icon',
+        default: 'Circle',
+        label: 'Off State Icon',
+        description: 'Icon to display when the sensor is off',
+      },
+    },
+  },
 }
 
 // Get the entity domain from a GridItem
