@@ -25,6 +25,7 @@ export interface GridCardProps {
   isFullscreen?: boolean
   onFullscreenChange?: (fullscreen: boolean) => void
   fullscreenContent?: React.ReactNode
+  transparent?: boolean
 }
 
 interface GridCardContextValue {
@@ -48,6 +49,7 @@ export const GridCard = React.memo(
         isLoading = false,
         isError = false,
         isStale = false,
+        transparent = false,
         isSelected = false,
         isOn = false,
         isUnavailable = false,
@@ -142,23 +144,36 @@ export const GridCard = React.memo(
 
       const contextValue = React.useMemo(() => ({ size, isLoading }), [size, isLoading])
 
+      // For transparent cards in view mode, use a div instead of Card
+      const cardStyle = {
+        minHeight,
+        padding: transparent && !isEditMode ? 0 : `var(--space-${padding})`,
+        cursor: isLoading ? 'wait' : isEditMode ? 'move' : onClick ? 'pointer' : 'default',
+        backgroundColor: transparent && !isEditMode ? 'transparent' : backgroundColor,
+        transform: isLoading ? 'scale(0.98)' : undefined,
+        ...style,
+        ...borderStyle,
+        // Remove all card styling for transparent view mode
+        ...(transparent && !isEditMode
+          ? {
+              border: 'none',
+              boxShadow: 'none',
+              background: 'transparent',
+            }
+          : {}),
+      }
+
+      const CardElement = transparent && !isEditMode ? 'div' : Card
+
       return (
         <GridCardContext.Provider value={contextValue}>
-          <Card
+          <CardElement
             ref={ref}
-            variant="classic"
+            variant={transparent && !isEditMode ? undefined : 'classic'}
             onClick={handleClick}
             title={title}
             className={`grid-card relative transition-all duration-200 ${isLoading ? 'grid-card-loading' : ''} ${isError ? 'grid-card-error animate-pulse-once' : ''} ${isUnavailable ? 'opacity-50' : ''} ${className || ''}`}
-            style={{
-              minHeight,
-              padding: `var(--space-${padding})`,
-              cursor: isLoading ? 'wait' : isEditMode ? 'move' : onClick ? 'pointer' : 'default',
-              backgroundColor,
-              transform: isLoading ? 'scale(0.98)' : undefined,
-              ...style,
-              ...borderStyle,
-            }}
+            style={cardStyle}
           >
             {/* Action Buttons Container - hide in fullscreen */}
             {isEditMode && (hasConfiguration || onDelete) && !isFullscreen && (
@@ -208,7 +223,7 @@ export const GridCard = React.memo(
 
             {/* Content */}
             {children}
-          </Card>
+          </CardElement>
 
           {/* Portal-based fullscreen overlay that escapes shadow DOM */}
           {isFullscreen &&
