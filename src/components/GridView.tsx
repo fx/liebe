@@ -311,6 +311,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
                 onConfigure={isEditMode ? () => handleConfigureItem(item) : undefined}
                 hasConfiguration={true}
+                transparent={true}
               >
                 <Separator
                   title={item.title}
