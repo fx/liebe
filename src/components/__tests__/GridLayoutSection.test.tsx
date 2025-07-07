@@ -167,11 +167,12 @@ describe('GridLayoutSection', () => {
     expect(gridLayout).toHaveAttribute('data-resizable', 'false')
   })
 
-  it('uses drag handle for dragging', () => {
+  it('allows dragging from entire card', () => {
     render(<GridLayoutSection {...defaultProps} />)
 
     const gridLayout = screen.getByTestId('grid-layout')
-    expect(gridLayout).toHaveAttribute('data-handle', '.grid-item-drag-handle')
+    // Should not have a specific drag handle - entire card is draggable
+    expect(gridLayout).not.toHaveAttribute('data-handle')
   })
 
   it('updates grid item position on layout change', async () => {

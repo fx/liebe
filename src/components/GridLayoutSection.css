@@ -201,39 +201,6 @@
   bottom: 6px;
 }
 
-.grid-item-drag-handle {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-3);
-  border-radius: var(--radius-2);
-  cursor: move;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 10;
-  pointer-events: auto;
-}
-
-.grid-item:hover .grid-item-drag-handle {
-  opacity: 1;
-}
-
-.grid-item-drag-handle:hover {
-  background: var(--accent-4);
-}
-
-.grid-item-drag-handle::before {
-  content: '⋮⋮';
-  font-size: 12px;
-  color: var(--accent-11);
-  letter-spacing: -2px;
-}
-
 /* Ensure ButtonCard fills the grid item */
 .grid-item > * {
   width: 100%;
@@ -256,14 +223,6 @@
     height: 24px;
   }
 
-  /* Larger drag handle for touch */
-  .grid-item-drag-handle {
-    width: 44px;
-    height: 44px;
-    opacity: 1; /* Always visible on mobile */
-    pointer-events: auto;
-  }
-
   /* Disable hover effects on touch devices */
   @media (pointer: coarse) {
     .react-grid-item:hover .react-resizable-handle::after {
@@ -279,10 +238,6 @@
 
 @media (min-width: 768px) and (max-width: 1023px) {
   /* Tablet adjustments */
-  .grid-item-drag-handle {
-    width: 36px;
-    height: 36px;
-  }
 }
 
 /* Touch-friendly adjustments */
@@ -303,10 +258,5 @@
   .react-resizable-handle-s {
     width: 60px;
     height: 32px;
-  }
-
-  /* Always show drag handle on touch devices */
-  .grid-item-drag-handle {
-    opacity: 1;
   }
 }

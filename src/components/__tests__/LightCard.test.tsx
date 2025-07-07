@@ -243,15 +243,15 @@ describe('LightCard', () => {
     const deleteButton = screen.getByRole('button', { name: 'Delete entity' })
     expect(deleteButton).toBeInTheDocument()
 
-    // Should show drag handle
-    expect(document.querySelector('.grid-item-drag-handle')).toBeInTheDocument()
+    // Card should show move cursor in edit mode
+    const card = screen.getByText('Living Room Light').closest('.light-card')
+    expect(card).toHaveStyle({ cursor: 'move' })
 
     // Clicking delete button
     fireEvent.click(deleteButton)
     expect(onDelete).toHaveBeenCalled()
 
     // Clicking card should select it
-    const card = screen.getByText('Living Room Light').closest('.light-card')
     if (card) {
       fireEvent.click(card)
       expect(onSelect).toHaveBeenCalledWith(true)
