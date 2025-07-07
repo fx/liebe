@@ -29,8 +29,69 @@ export const cardConfigurations: Record<
   },
   weather: {
     title: 'Weather Card',
-    placeholder:
-      'This card displays weather information from a weather entity. Additional configuration options will be added in future updates.',
+    description: 'Configure how weather information is displayed.',
+    definition: {
+      preset: {
+        type: 'select',
+        default: 'default',
+        label: 'Card Design Preset',
+        description: 'Choose from different visual layouts for the weather card',
+        options: [
+          { value: 'default', label: 'Default - Compact with icon' },
+          { value: 'detailed', label: 'Detailed - All data points' },
+          { value: 'minimal', label: 'Minimal - Temperature only' },
+          { value: 'modern', label: 'Modern - Large icon focus' },
+          { value: 'forecast', label: 'Forecast - With daily forecast' },
+        ],
+      },
+      showTemperature: {
+        type: 'boolean',
+        default: true,
+        label: 'Show Temperature',
+        description: 'Display current temperature',
+      },
+      showHumidity: {
+        type: 'boolean',
+        default: true,
+        label: 'Show Humidity',
+        description: 'Display humidity percentage',
+      },
+      showPressure: {
+        type: 'boolean',
+        default: true,
+        label: 'Show Pressure',
+        description: 'Display atmospheric pressure',
+      },
+      showWindSpeed: {
+        type: 'boolean',
+        default: false,
+        label: 'Show Wind Speed',
+        description: 'Display wind speed if available',
+      },
+      showVisibility: {
+        type: 'boolean',
+        default: false,
+        label: 'Show Visibility',
+        description: 'Display visibility distance if available',
+      },
+      showPrecipitation: {
+        type: 'boolean',
+        default: false,
+        label: 'Show Precipitation',
+        description: 'Display precipitation amount if available',
+      },
+      temperatureUnit: {
+        type: 'select',
+        default: 'auto',
+        label: 'Temperature Unit',
+        description: 'Override the temperature unit display',
+        options: [
+          { value: 'auto', label: 'Auto (from entity)' },
+          { value: 'celsius', label: 'Celsius (°C)' },
+          { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
+        ],
+      },
+    },
   },
   binary_sensor: {
     title: 'Binary Sensor Card',

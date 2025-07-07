@@ -1,4 +1,4 @@
-import { Flex, Text, Heading, Badge } from '@radix-ui/themes'
+import { Flex, Text, Heading, Badge, Box } from '@radix-ui/themes'
 import {
   Cloud,
   CloudRain,
@@ -8,10 +8,16 @@ import {
   Zap,
   Thermometer,
   Droplets,
+  Wind,
+  Eye,
+  CloudRainWind,
+  Gauge,
+  Calendar,
 } from 'lucide-react'
 import { useEntity } from '../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
 
 interface WeatherCardProps {
   entityId: string
@@ -19,6 +25,35 @@ interface WeatherCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  config?: WeatherCardConfig
+}
+
+interface WeatherCardConfig {
+  preset?: 'default' | 'detailed' | 'minimal' | 'modern' | 'forecast'
+  showTemperature?: boolean
+  showHumidity?: boolean
+  showPressure?: boolean
+  showWindSpeed?: boolean
+  showVisibility?: boolean
+  showPrecipitation?: boolean
+  temperatureUnit?: 'auto' | 'celsius' | 'fahrenheit'
+}
+
+interface WeatherAttributes extends EntityAttributes {
+  temperature?: number
+  temperature_unit?: string
+  humidity?: number
+  pressure?: number
+  wind_speed?: number
+  wind_unit?: string
+  visibility?: number
+  visibility_unit?: string
+  precipitation?: number
+  precipitation_unit?: string
+}
+
+interface WeatherEntity extends HassEntity {
+  attributes: WeatherAttributes
 }
 
 function getWeatherIcon(condition: string, size: number = 24) {
@@ -34,12 +69,450 @@ function getWeatherIcon(condition: string, size: number = 24) {
   return <IconComponent size={size} />
 }
 
+function convertTemperature(
+  temp: number,
+  fromUnit: 'celsius' | 'fahrenheit',
+  toUnit: 'celsius' | 'fahrenheit'
+): number {
+  if (fromUnit === toUnit) return temp
+  if (fromUnit === 'celsius' && toUnit === 'fahrenheit') {
+    return (temp * 9) / 5 + 32
+  }
+  return ((temp - 32) * 5) / 9
+}
+
+function getTemperatureDisplay(
+  temp: number | undefined,
+  entityUnit: string | undefined,
+  configUnit: 'auto' | 'celsius' | 'fahrenheit'
+): { value: number; unit: string } | undefined {
+  if (temp === undefined) return undefined
+
+  const currentUnit = entityUnit?.toLowerCase().includes('f') ? 'fahrenheit' : 'celsius'
+
+  if (configUnit === 'auto') {
+    return { value: temp, unit: currentUnit === 'fahrenheit' ? '°F' : '°C' }
+  }
+
+  const convertedTemp = convertTemperature(temp, currentUnit, configUnit)
+  return { value: convertedTemp, unit: configUnit === 'fahrenheit' ? '°F' : '°C' }
+}
+
+// Default preset rendering
+function DefaultPreset({
+  entity,
+  size,
+  iconScale,
+  config,
+  isStale,
+}: {
+  entity: WeatherEntity
+  size: 'small' | 'medium' | 'large'
+  iconScale: number
+  config: WeatherCardConfig
+  isStale: boolean
+}) {
+  const weatherEntity = entity as WeatherEntity
+  const temp = weatherEntity.attributes?.temperature
+  const humidity = weatherEntity.attributes?.humidity
+  const pressure = weatherEntity.attributes?.pressure
+  const tempUnit = weatherEntity.attributes?.temperature_unit
+
+  const tempDisplay = getTemperatureDisplay(temp, tempUnit, config.temperatureUnit || 'auto')
+
+  return (
+    <Flex direction="column" gap="2" height="100%">
+      <Flex justify="between" align="start">
+        <Flex direction="column" gap="1" style={{ flex: 1 }}>
+          <GridCard.Title>
+            <Heading size={size === 'small' ? '2' : '3'}>
+              {entity.attributes?.friendly_name || entity.entity_id}
+            </Heading>
+          </GridCard.Title>
+          {size !== 'small' && (
+            <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
+              {entity.state}
+            </Text>
+          )}
+        </Flex>
+        <GridCard.Icon>
+          <span
+            style={{
+              color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+              opacity: isStale ? 0.6 : 1,
+              transform: `scale(${iconScale})`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {getWeatherIcon(entity.state, 24)}
+          </span>
+        </GridCard.Icon>
+      </Flex>
+
+      <GridCard.Controls>
+        <Flex gap="3" wrap="wrap" align="center">
+          {tempDisplay && config.showTemperature !== false && (
+            <Flex align="center" gap="1">
+              <Thermometer size={16} />
+              <Text size="4" weight="bold">
+                {Math.round(tempDisplay.value)}
+                {tempDisplay.unit}
+              </Text>
+            </Flex>
+          )}
+          {humidity !== undefined && size !== 'small' && config.showHumidity !== false && (
+            <Flex align="center" gap="1">
+              <Droplets size={16} />
+              <Text size="2">{humidity}%</Text>
+            </Flex>
+          )}
+          {pressure !== undefined && size === 'large' && config.showPressure !== false && (
+            <Badge variant="soft">{Math.round(pressure)} hPa</Badge>
+          )}
+        </Flex>
+      </GridCard.Controls>
+    </Flex>
+  )
+}
+
+// Detailed preset rendering
+function DetailedPreset({
+  entity,
+  size,
+  iconScale,
+  config,
+  isStale,
+}: {
+  entity: WeatherEntity
+  size: 'small' | 'medium' | 'large'
+  iconScale: number
+  config: WeatherCardConfig
+  isStale: boolean
+}) {
+  const weatherEntity = entity as WeatherEntity
+  const temp = weatherEntity.attributes?.temperature
+  const humidity = weatherEntity.attributes?.humidity
+  const pressure = weatherEntity.attributes?.pressure
+  const windSpeed = weatherEntity.attributes?.wind_speed
+  const windUnit = weatherEntity.attributes?.wind_unit
+  const visibility = weatherEntity.attributes?.visibility
+  const visibilityUnit = weatherEntity.attributes?.visibility_unit
+  const precipitation = weatherEntity.attributes?.precipitation
+  const precipitationUnit = weatherEntity.attributes?.precipitation_unit
+  const tempUnit = weatherEntity.attributes?.temperature_unit
+
+  const tempDisplay = getTemperatureDisplay(temp, tempUnit, config.temperatureUnit || 'auto')
+
+  return (
+    <Flex direction="column" gap="3" height="100%">
+      <Flex justify="between" align="start">
+        <Flex direction="column" gap="1" style={{ flex: 1 }}>
+          <GridCard.Title>
+            <Heading size={size === 'small' ? '2' : '3'}>
+              {entity.attributes?.friendly_name || entity.entity_id}
+            </Heading>
+          </GridCard.Title>
+          <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
+            {entity.state}
+          </Text>
+        </Flex>
+        <GridCard.Icon>
+          <span
+            style={{
+              color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+              opacity: isStale ? 0.6 : 1,
+              transform: `scale(${iconScale * 1.2})`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {getWeatherIcon(entity.state, 32)}
+          </span>
+        </GridCard.Icon>
+      </Flex>
+
+      <GridCard.Controls>
+        <Box
+          style={{
+            display: 'grid',
+            gridTemplateColumns: size === 'small' ? '1fr' : 'repeat(2, 1fr)',
+            gap: '12px',
+            width: '100%',
+          }}
+        >
+          {tempDisplay && config.showTemperature !== false && (
+            <Flex align="center" gap="2">
+              <Thermometer size={18} style={{ color: 'var(--gray-9)' }} />
+              <Flex direction="column" gap="0">
+                <Text size="1" color="gray">
+                  Temperature
+                </Text>
+                <Text size="3" weight="bold">
+                  {Math.round(tempDisplay.value)}
+                  {tempDisplay.unit}
+                </Text>
+              </Flex>
+            </Flex>
+          )}
+
+          {humidity !== undefined && config.showHumidity !== false && (
+            <Flex align="center" gap="2">
+              <Droplets size={18} style={{ color: 'var(--gray-9)' }} />
+              <Flex direction="column" gap="0">
+                <Text size="1" color="gray">
+                  Humidity
+                </Text>
+                <Text size="3" weight="bold">
+                  {humidity}%
+                </Text>
+              </Flex>
+            </Flex>
+          )}
+
+          {pressure !== undefined && config.showPressure !== false && (
+            <Flex align="center" gap="2">
+              <Gauge size={18} style={{ color: 'var(--gray-9)' }} />
+              <Flex direction="column" gap="0">
+                <Text size="1" color="gray">
+                  Pressure
+                </Text>
+                <Text size="3" weight="bold">
+                  {Math.round(pressure)} hPa
+                </Text>
+              </Flex>
+            </Flex>
+          )}
+
+          {windSpeed !== undefined && config.showWindSpeed !== false && (
+            <Flex align="center" gap="2">
+              <Wind size={18} style={{ color: 'var(--gray-9)' }} />
+              <Flex direction="column" gap="0">
+                <Text size="1" color="gray">
+                  Wind
+                </Text>
+                <Text size="3" weight="bold">
+                  {Math.round(windSpeed)} {windUnit || 'km/h'}
+                </Text>
+              </Flex>
+            </Flex>
+          )}
+
+          {visibility !== undefined && config.showVisibility !== false && (
+            <Flex align="center" gap="2">
+              <Eye size={18} style={{ color: 'var(--gray-9)' }} />
+              <Flex direction="column" gap="0">
+                <Text size="1" color="gray">
+                  Visibility
+                </Text>
+                <Text size="3" weight="bold">
+                  {visibility} {visibilityUnit || 'km'}
+                </Text>
+              </Flex>
+            </Flex>
+          )}
+
+          {precipitation !== undefined && config.showPrecipitation !== false && (
+            <Flex align="center" gap="2">
+              <CloudRainWind size={18} style={{ color: 'var(--gray-9)' }} />
+              <Flex direction="column" gap="0">
+                <Text size="1" color="gray">
+                  Precipitation
+                </Text>
+                <Text size="3" weight="bold">
+                  {precipitation} {precipitationUnit || 'mm'}
+                </Text>
+              </Flex>
+            </Flex>
+          )}
+        </Box>
+      </GridCard.Controls>
+    </Flex>
+  )
+}
+
+// Minimal preset rendering
+function MinimalPreset({
+  entity,
+  size,
+  config,
+}: {
+  entity: WeatherEntity
+  size: 'small' | 'medium' | 'large'
+  config: WeatherCardConfig
+}) {
+  const weatherEntity = entity as WeatherEntity
+  const temp = weatherEntity.attributes?.temperature
+  const tempUnit = weatherEntity.attributes?.temperature_unit
+  const tempDisplay = getTemperatureDisplay(temp, tempUnit, config.temperatureUnit || 'auto')
+
+  return (
+    <Flex direction="column" align="center" justify="center" gap="2" height="100%">
+      <Text size="2" color="gray">
+        {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
+      </Text>
+      {tempDisplay && (
+        <Text size={size === 'large' ? '8' : size === 'medium' ? '7' : '6'} weight="bold">
+          {Math.round(tempDisplay.value)}
+          {tempDisplay.unit}
+        </Text>
+      )}
+      <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
+        {entity.state}
+      </Text>
+    </Flex>
+  )
+}
+
+// Modern preset rendering
+function ModernPreset({
+  entity,
+  size,
+  config,
+  isStale,
+}: {
+  entity: WeatherEntity
+  size: 'small' | 'medium' | 'large'
+  config: WeatherCardConfig
+  isStale: boolean
+}) {
+  const weatherEntity = entity as WeatherEntity
+  const temp = weatherEntity.attributes?.temperature
+  const humidity = weatherEntity.attributes?.humidity
+  const tempUnit = weatherEntity.attributes?.temperature_unit
+  const tempDisplay = getTemperatureDisplay(temp, tempUnit, config.temperatureUnit || 'auto')
+
+  const iconSize = size === 'large' ? 64 : size === 'medium' ? 48 : 36
+
+  return (
+    <Flex direction="column" align="center" justify="center" gap="3" height="100%">
+      <Box
+        style={{
+          color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+          opacity: isStale ? 0.6 : 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {getWeatherIcon(entity.state, iconSize)}
+      </Box>
+
+      <Flex direction="column" align="center" gap="1">
+        <Text size="2" color="gray">
+          {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
+        </Text>
+        {tempDisplay && config.showTemperature !== false && (
+          <Text size={size === 'large' ? '6' : '5'} weight="bold">
+            {Math.round(tempDisplay.value)}
+            {tempDisplay.unit}
+          </Text>
+        )}
+        <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
+          {entity.state}
+        </Text>
+      </Flex>
+
+      {size !== 'small' && (
+        <Flex gap="4" align="center">
+          {humidity !== undefined && config.showHumidity !== false && (
+            <Flex align="center" gap="1">
+              <Droplets size={14} />
+              <Text size="2">{humidity}%</Text>
+            </Flex>
+          )}
+        </Flex>
+      )}
+    </Flex>
+  )
+}
+
+// Forecast preset rendering (simplified for now)
+function ForecastPreset({
+  entity,
+  size,
+  iconScale,
+  config,
+  isStale,
+}: {
+  entity: WeatherEntity
+  size: 'small' | 'medium' | 'large'
+  iconScale: number
+  config: WeatherCardConfig
+  isStale: boolean
+}) {
+  const weatherEntity = entity as WeatherEntity
+  const temp = weatherEntity.attributes?.temperature
+  const tempUnit = weatherEntity.attributes?.temperature_unit
+  const tempDisplay = getTemperatureDisplay(temp, tempUnit, config.temperatureUnit || 'auto')
+
+  // Note: Real forecast data would come from entity.attributes.forecast
+  // This is a placeholder implementation
+  return (
+    <Flex direction="column" gap="2" height="100%">
+      <Flex justify="between" align="start">
+        <Flex direction="column" gap="1">
+          <GridCard.Title>
+            <Heading size={size === 'small' ? '2' : '3'}>
+              {entity.attributes?.friendly_name || entity.entity_id}
+            </Heading>
+          </GridCard.Title>
+          <Flex align="center" gap="2">
+            <span
+              style={{
+                color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+                opacity: isStale ? 0.6 : 1,
+                transform: `scale(${iconScale})`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {getWeatherIcon(entity.state, 20)}
+            </span>
+            <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
+              {entity.state}
+            </Text>
+          </Flex>
+        </Flex>
+
+        {tempDisplay && config.showTemperature !== false && (
+          <Text size="5" weight="bold">
+            {Math.round(tempDisplay.value)}
+            {tempDisplay.unit}
+          </Text>
+        )}
+      </Flex>
+
+      {size !== 'small' && (
+        <Box
+          style={{
+            borderTop: '1px solid var(--gray-4)',
+            paddingTop: '8px',
+            marginTop: 'auto',
+          }}
+        >
+          <Flex align="center" gap="2" style={{ opacity: 0.7 }}>
+            <Calendar size={14} />
+            <Text size="1" color="gray">
+              Forecast data not available
+            </Text>
+          </Flex>
+        </Box>
+      )}
+    </Flex>
+  )
+}
+
 function WeatherCardContent({
   entityId,
   size = 'medium',
   onDelete,
   isSelected = false,
   onSelect,
+  config = {},
 }: WeatherCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
 
@@ -59,10 +532,6 @@ function WeatherCardContent({
       />
     )
   }
-
-  const temp = entity.attributes?.temperature as number | undefined
-  const humidity = entity.attributes?.humidity as number | undefined
-  const pressure = entity.attributes?.pressure as number | undefined
 
   const iconScale = size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
@@ -104,6 +573,21 @@ function WeatherCardContent({
     )
   }
 
+  // Select preset based on configuration
+  const preset = config.preset || 'default'
+  const minHeight =
+    preset === 'detailed'
+      ? size === 'large'
+        ? '200px'
+        : size === 'medium'
+          ? '180px'
+          : '160px'
+      : size === 'large'
+        ? '140px'
+        : size === 'medium'
+          ? '120px'
+          : '100px'
+
   return (
     <GridCard
       size={size}
@@ -113,62 +597,49 @@ function WeatherCardContent({
       onDelete={onDelete}
       title={isStale ? 'Weather data may be outdated' : undefined}
       style={{
-        minHeight: size === 'large' ? '140px' : size === 'medium' ? '120px' : '100px',
+        minHeight,
         borderWidth: isSelected || isStale ? '2px' : '1px',
+        transition: 'all 0.3s ease-in-out',
       }}
     >
-      <Flex direction="column" gap="2" height="100%">
-        <Flex justify="between" align="start">
-          <Flex direction="column" gap="1" style={{ flex: 1 }}>
-            <GridCard.Title>
-              <Heading size={size === 'small' ? '2' : '3'}>
-                {entity.attributes?.friendly_name || entityId}
-              </Heading>
-            </GridCard.Title>
-            {size !== 'small' && (
-              <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
-                {entity.state}
-              </Text>
-            )}
-          </Flex>
-          <GridCard.Icon>
-            <span
-              style={{
-                color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
-                opacity: isStale ? 0.6 : 1,
-                transform: `scale(${iconScale})`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {getWeatherIcon(entity.state, 24)}
-            </span>
-          </GridCard.Icon>
-        </Flex>
-
-        <GridCard.Controls>
-          <Flex gap="3" wrap="wrap" align="center">
-            {temp !== undefined && (
-              <Flex align="center" gap="1">
-                <Thermometer size={16} />
-                <Text size="4" weight="bold">
-                  {Math.round(temp)}°
-                </Text>
-              </Flex>
-            )}
-            {humidity !== undefined && size !== 'small' && (
-              <Flex align="center" gap="1">
-                <Droplets size={16} />
-                <Text size="2">{humidity}%</Text>
-              </Flex>
-            )}
-            {pressure !== undefined && size === 'large' && (
-              <Badge variant="soft">{Math.round(pressure)} hPa</Badge>
-            )}
-          </Flex>
-        </GridCard.Controls>
-      </Flex>
+      {preset === 'detailed' && (
+        <DetailedPreset
+          entity={entity as WeatherEntity}
+          size={size}
+          iconScale={iconScale}
+          config={config}
+          isStale={isStale}
+        />
+      )}
+      {preset === 'minimal' && (
+        <MinimalPreset entity={entity as WeatherEntity} size={size} config={config} />
+      )}
+      {preset === 'modern' && (
+        <ModernPreset
+          entity={entity as WeatherEntity}
+          size={size}
+          config={config}
+          isStale={isStale}
+        />
+      )}
+      {preset === 'forecast' && (
+        <ForecastPreset
+          entity={entity as WeatherEntity}
+          size={size}
+          iconScale={iconScale}
+          config={config}
+          isStale={isStale}
+        />
+      )}
+      {preset === 'default' && (
+        <DefaultPreset
+          entity={entity as WeatherEntity}
+          size={size}
+          iconScale={iconScale}
+          config={config}
+          isStale={isStale}
+        />
+      )}
     </GridCard>
   )
 }
