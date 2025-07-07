@@ -16,6 +16,7 @@ import {
 import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
 import type { GridItem } from '~/store/types'
+import { IconSelect } from './IconSelect'
 
 interface ModalProps {
   open: boolean
@@ -32,7 +33,7 @@ interface ContentProps {
 
 // Configuration option types
 export interface ConfigOption {
-  type: 'boolean' | 'string' | 'number' | 'select' | 'textarea'
+  type: 'boolean' | 'string' | 'number' | 'select' | 'textarea' | 'icon'
   default: unknown
   label: string
   description?: string
@@ -188,6 +189,27 @@ function Component({ title, description, configDefinition, config, onChange }: C
             </Select.Root>
             {option.description && (
               <Text size="1" color="gray">
+                {option.description}
+              </Text>
+            )}
+          </Flex>
+        )
+
+      case 'icon':
+        return (
+          <Flex key={key} direction="column" gap="1">
+            <Text size="2" weight="medium">
+              {option.label}
+            </Text>
+            <Box style={{ marginTop: '8px' }}>
+              <IconSelect
+                value={String(currentValue || option.default || '')}
+                onChange={(iconName) => handleChange(key, iconName)}
+                buttonLabel={option.placeholder || 'Select Icon'}
+              />
+            </Box>
+            {option.description && (
+              <Text size="1" color="gray" style={{ marginTop: '8px' }}>
                 {option.description}
               </Text>
             )}

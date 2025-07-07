@@ -13,6 +13,7 @@ import { InputDateTimeCard } from './InputDateTimeCard'
 import { WeatherCard } from './WeatherCard'
 import { FanCard } from './FanCard'
 import { CameraCard } from './CameraCard'
+import { BinarySensorCard } from './BinarySensorCard'
 import { TextCard } from './TextCard'
 import { Separator } from './Separator'
 import { GridCard } from './GridCard'
@@ -85,7 +86,6 @@ function EntityCard({
         />
       )
     case 'sensor':
-    case 'binary_sensor':
       return (
         <SensorCard
           entityId={entityId}
@@ -93,6 +93,17 @@ function EntityCard({
           onDelete={onDelete}
           isSelected={isSelected}
           onSelect={onSelect}
+        />
+      )
+    case 'binary_sensor':
+      return (
+        <BinarySensorCard
+          entityId={entityId}
+          size={size}
+          onDelete={onDelete}
+          isSelected={isSelected}
+          onSelect={onSelect}
+          item={item}
         />
       )
     case 'weather':
