@@ -43,6 +43,12 @@ function TextCardComponent({
     large: '3' as const,
   }[textSize]
 
+  const baseFontSize = {
+    small: '0.875rem',
+    medium: '1rem',
+    large: '1.125rem',
+  }[textSize]
+
   useEffect(() => {
     if (isEditMode && textAreaRef.current) {
       textAreaRef.current.focus()
@@ -112,6 +118,7 @@ function TextCardComponent({
         style={{
           textAlign: alignment,
           width: '100%',
+          fontSize: baseFontSize,
         }}
       >
         <ReactMarkdown

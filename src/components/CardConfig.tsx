@@ -18,6 +18,11 @@ import { cardConfigurations, getCardType } from './configurations/cardConfigurat
 import type { GridItem } from '~/store/types'
 import { IconSelect } from './IconSelect'
 import { WeatherCard } from './WeatherCard'
+import { TextCard } from './TextCard'
+import { LightCard } from './LightCard'
+import { BinarySensorCard } from './BinarySensorCard'
+import { Separator as SeparatorCard } from './Separator'
+import { GridCard } from './GridCard'
 
 interface ModalProps {
   open: boolean
@@ -261,41 +266,13 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   // If this card has a configuration definition, use Component
   if (cardConfig.definition) {
     return (
-      <>
-        <Component
-          title={cardConfig.title}
-          description={cardConfig.description}
-          configDefinition={cardConfig.definition}
-          config={config}
-          onChange={onChange}
-        />
-
-        {/* Add preview for weather cards */}
-        {cardType === 'weather' && item.entityId && (
-          <>
-            <Separator size="4" />
-            <Section title="Preview">
-              <Text size="2" color="gray" style={{ marginBottom: '16px' }}>
-                Live preview of the selected preset and configuration
-              </Text>
-              <Box
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  padding: '16px',
-                  backgroundColor: 'var(--gray-2)',
-                  borderRadius: 'var(--radius-3)',
-                  minHeight: '150px',
-                }}
-              >
-                <Box style={{ width: '250px', pointerEvents: 'none' }}>
-                  <WeatherCard entityId={item.entityId} size="medium" config={config} />
-                </Box>
-              </Box>
-            </Section>
-          </>
-        )}
-      </>
+      <Component
+        title={cardConfig.title}
+        description={cardConfig.description}
+        configDefinition={cardConfig.definition}
+        config={config}
+        onChange={onChange}
+      />
     )
   }
 
@@ -305,6 +282,94 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
       <Text size="2" color="gray">
         {cardConfig.placeholder || 'No configuration options available yet.'}
       </Text>
+    </Section>
+  )
+}
+
+interface PreviewProps {
+  item: GridItem
+  config: Record<string, unknown>
+}
+
+function Preview({ item, config }: PreviewProps) {
+  const cardType =
+    item?.type === 'separator'
+      ? 'separator'
+      : item?.type === 'text'
+        ? 'text'
+        : item
+          ? getCardType(item)
+          : undefined
+
+  if (!cardType || !cardConfigurations[cardType]) {
+    return (
+      <Section title="Preview">
+        <Text size="2" color="gray">
+          No preview available for this card type.
+        </Text>
+      </Section>
+    )
+  }
+
+  // Merge current config with item properties for preview
+  const previewItem = { ...item }
+  if (item.type === 'separator') {
+    Object.assign(previewItem, config)
+  } else if (item.type === 'text') {
+    Object.assign(previewItem, config)
+  } else {
+    previewItem.config = config
+  }
+
+  return (
+    <Section title="Preview">
+      <Text size="2" color="gray" style={{ marginBottom: '16px' }}>
+        Live preview of your configuration
+      </Text>
+      <Box
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '16px',
+          backgroundColor: 'var(--gray-2)',
+          borderRadius: 'var(--radius-3)',
+          minHeight: '200px',
+          alignItems: 'center',
+        }}
+      >
+        <Box style={{ width: '280px', pointerEvents: 'none' }}>
+          {item.type === 'separator' ? (
+            <GridCard size="medium" transparent={previewItem.hideBackground}>
+              <SeparatorCard
+                title={previewItem.title}
+                orientation={previewItem.separatorOrientation || 'horizontal'}
+                textColor={previewItem.separatorTextColor || 'gray'}
+              />
+            </GridCard>
+          ) : item.type === 'text' ? (
+            <GridCard size="medium" transparent={previewItem.hideBackground}>
+              <TextCard
+                entityId={item.id}
+                size="medium"
+                content={previewItem.content}
+                alignment={previewItem.alignment}
+                textSize={previewItem.textSize}
+                textColor={previewItem.textColor}
+              />
+            </GridCard>
+          ) : cardType === 'weather' && item.entityId ? (
+            <WeatherCard entityId={item.entityId} size="medium" config={config} />
+          ) : cardType === 'light' && item.entityId ? (
+            <LightCard entityId={item.entityId} size="medium" item={previewItem} />
+          ) : cardType === 'binary_sensor' && item.entityId ? (
+            <BinarySensorCard entityId={item.entityId} size="medium" item={previewItem} />
+          ) : (
+            <Text size="2" color="gray">
+              Preview not available for this card type
+            </Text>
+          )}
+        </Box>
+      </Box>
     </Section>
   )
 }
@@ -372,7 +437,8 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content
         style={{
-          maxWidth: 450,
+          maxWidth: '90vw',
+          width: '900px',
           maxHeight: '85vh',
           display: 'flex',
           flexDirection: 'column',
@@ -394,11 +460,31 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
         <Separator size="4" />
 
         <Box style={{ flex: 1, overflow: 'hidden' }}>
-          <ScrollArea>
-            <Box p="4">
-              <Content config={localConfig} onChange={handleConfigChange} item={item} />
+          <Flex style={{ height: '100%' }} gap="4">
+            {/* Left side - Configuration form */}
+            <Box style={{ flex: 1, overflow: 'hidden' }}>
+              <ScrollArea>
+                <Box p="4">
+                  <Content config={localConfig} onChange={handleConfigChange} item={item} />
+                </Box>
+              </ScrollArea>
             </Box>
-          </ScrollArea>
+
+            {/* Right side - Preview */}
+            <Box
+              style={{
+                width: '350px',
+                borderLeft: '1px solid var(--gray-a5)',
+                overflow: 'hidden',
+              }}
+            >
+              <ScrollArea>
+                <Box p="4">
+                  <Preview item={item} config={localConfig} />
+                </Box>
+              </ScrollArea>
+            </Box>
+          </Flex>
         </Box>
 
         <Separator size="4" />
