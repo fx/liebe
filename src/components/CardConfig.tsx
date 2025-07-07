@@ -17,6 +17,7 @@ import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
 import type { GridItem } from '~/store/types'
 import { IconSelect } from './IconSelect'
+import { WeatherCard } from './WeatherCard'
 
 interface ModalProps {
   open: boolean
@@ -253,13 +254,41 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   // If this card has a configuration definition, use Component
   if (cardConfig.definition) {
     return (
-      <Component
-        title={cardConfig.title}
-        description={cardConfig.description}
-        configDefinition={cardConfig.definition}
-        config={config}
-        onChange={onChange}
-      />
+      <>
+        <Component
+          title={cardConfig.title}
+          description={cardConfig.description}
+          configDefinition={cardConfig.definition}
+          config={config}
+          onChange={onChange}
+        />
+
+        {/* Add preview for weather cards */}
+        {cardType === 'weather' && item.entityId && (
+          <>
+            <Separator size="4" />
+            <Section title="Preview">
+              <Text size="2" color="gray" style={{ marginBottom: '16px' }}>
+                Live preview of the selected preset and configuration
+              </Text>
+              <Box
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  padding: '16px',
+                  backgroundColor: 'var(--gray-2)',
+                  borderRadius: 'var(--radius-3)',
+                  minHeight: '150px',
+                }}
+              >
+                <Box style={{ width: '250px', pointerEvents: 'none' }}>
+                  <WeatherCard entityId={item.entityId} size="medium" config={config} />
+                </Box>
+              </Box>
+            </Section>
+          </>
+        )}
+      </>
     )
   }
 

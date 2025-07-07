@@ -114,6 +114,8 @@ function EntityCard({
           onDelete={onDelete}
           isSelected={isSelected}
           onSelect={onSelect}
+          config={item?.config as Record<string, unknown>}
+          item={item}
         />
       )
     case 'fan':
