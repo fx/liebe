@@ -1,3 +1,1 @@
-export { LightCardConfig } from './LightCardConfig'
-export { ClimateCardConfig } from './ClimateCardConfig'
-export { WeatherCardConfig } from './WeatherCardConfig'
+export { cardConfigurations } from './cardConfigurations'

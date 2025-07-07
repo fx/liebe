@@ -13,7 +13,3 @@ export { ErrorDisplay, ConnectionError } from './ErrorDisplay'
 
 // Export error boundary components
 export { ErrorBoundary, withErrorBoundary, EntityErrorBoundary } from '../ErrorBoundary'
-
-// Export card configuration component
-export { CardConfigurationComponent } from './CardConfigurationComponent'
-export type { ConfigDefinition, ConfigOption } from './CardConfigurationComponent'
