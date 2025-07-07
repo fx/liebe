@@ -311,7 +311,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
                 onConfigure={isEditMode ? () => handleConfigureItem(item) : undefined}
                 hasConfiguration={true}
-                transparent={true}
+                transparent={item.hideBackground !== false}
               >
                 <Separator
                   title={item.title}
@@ -337,6 +337,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
                 hasConfiguration={isEditMode}
                 onConfigure={isEditMode ? () => handleConfigureItem(item) : undefined}
+                transparent={item.hideBackground}
               >
                 <TextCard
                   entityId={item.id}
@@ -344,6 +345,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                   content={item.content}
                   alignment={item.alignment}
                   textSize={item.textSize}
+                  textColor={item.textColor}
                   isSelected={selectedItems.has(item.id)}
                   onSelect={
                     isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined

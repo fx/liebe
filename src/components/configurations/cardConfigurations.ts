@@ -109,6 +109,12 @@ export const cardConfigurations: Record<
           { value: 'purple', label: 'Purple' },
         ],
       },
+      hideBackground: {
+        type: 'boolean',
+        default: false,
+        label: 'Hide Card Background',
+        description: 'Remove the card background for a cleaner look',
+      },
     },
   },
   text: {
@@ -116,7 +122,7 @@ export const cardConfigurations: Record<
     description: 'Configure text display and formatting options.',
     definition: {
       content: {
-        type: 'string',
+        type: 'textarea',
         default: '# Text Card\n\nDouble-click to edit this text.',
         label: 'Content',
         placeholder: 'Enter your text here...',
@@ -143,6 +149,30 @@ export const cardConfigurations: Record<
           { value: 'medium', label: 'Medium' },
           { value: 'large', label: 'Large' },
         ],
+      },
+      textColor: {
+        type: 'select',
+        default: 'default',
+        label: 'Text Color',
+        description: 'Color of the text (applies to all text in the card)',
+        options: [
+          { value: 'default', label: 'Default' },
+          { value: 'gray', label: 'Gray' },
+          { value: 'blue', label: 'Blue' },
+          { value: 'green', label: 'Green' },
+          { value: 'red', label: 'Red' },
+          { value: 'orange', label: 'Orange' },
+          { value: 'purple', label: 'Purple' },
+          { value: 'cyan', label: 'Cyan' },
+          { value: 'pink', label: 'Pink' },
+          { value: 'yellow', label: 'Yellow' },
+        ],
+      },
+      hideBackground: {
+        type: 'boolean',
+        default: false,
+        label: 'Hide Card Background',
+        description: 'Remove the card background for a cleaner look',
       },
     },
   },

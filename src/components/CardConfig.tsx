@@ -237,7 +237,14 @@ function Component({ title, description, configDefinition, config, onChange }: C
 }
 
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
-  const cardType = item?.type === 'separator' ? 'separator' : item ? getCardType(item) : undefined
+  const cardType =
+    item?.type === 'separator'
+      ? 'separator'
+      : item?.type === 'text'
+        ? 'text'
+        : item
+          ? getCardType(item)
+          : undefined
 
   if (!item || !cardType || !cardConfigurations[cardType]) {
     return (
@@ -311,6 +318,16 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
         title: item.title || '',
         separatorOrientation: item.separatorOrientation || 'horizontal',
         separatorTextColor: item.separatorTextColor || 'gray',
+        hideBackground: item.hideBackground || false,
+      }
+    } else if (item.type === 'text') {
+      // For text cards, use the direct properties as config
+      return {
+        content: item.content || '# Text Card\n\nDouble-click to edit this text.',
+        alignment: item.alignment || 'left',
+        textSize: item.textSize || 'medium',
+        textColor: item.textColor || 'default',
+        hideBackground: item.hideBackground || false,
       }
     }
     return item.config || {}
@@ -330,6 +347,16 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
         title: localConfig.title as string,
         separatorOrientation: localConfig.separatorOrientation as 'horizontal' | 'vertical',
         separatorTextColor: localConfig.separatorTextColor as string,
+        hideBackground: localConfig.hideBackground as boolean,
+      })
+    } else if (item.type === 'text') {
+      // For text cards, save the config as direct properties
+      onSave({
+        content: localConfig.content as string,
+        alignment: localConfig.alignment as 'left' | 'center' | 'right',
+        textSize: localConfig.textSize as 'small' | 'medium' | 'large',
+        textColor: localConfig.textColor as string,
+        hideBackground: localConfig.hideBackground as boolean,
       })
     } else {
       onSave({ config: localConfig })
