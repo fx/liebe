@@ -1,1 +1,1 @@
-export { cardConfigurations } from './cardConfigurations'
+export { cardConfigurations, getCardType } from './cardConfigurations'
