@@ -335,6 +335,8 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                     : undefined
                 }
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+                hasConfiguration={isEditMode}
+                onConfigure={isEditMode ? () => handleConfigureItem(item) : undefined}
               >
                 <TextCard
                   entityId={item.id}

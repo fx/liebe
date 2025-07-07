@@ -111,6 +111,41 @@ export const cardConfigurations: Record<
       },
     },
   },
+  text: {
+    title: 'Text Card',
+    description: 'Configure text display and formatting options.',
+    definition: {
+      content: {
+        type: 'string',
+        default: '# Text Card\n\nDouble-click to edit this text.',
+        label: 'Content',
+        placeholder: 'Enter your text here...',
+        description: 'Text content (supports Markdown formatting)',
+      },
+      alignment: {
+        type: 'select',
+        default: 'left',
+        label: 'Text Alignment',
+        description: 'Horizontal alignment of the text',
+        options: [
+          { value: 'left', label: 'Left' },
+          { value: 'center', label: 'Center' },
+          { value: 'right', label: 'Right' },
+        ],
+      },
+      textSize: {
+        type: 'select',
+        default: 'medium',
+        label: 'Text Size',
+        description: 'Size of the text content',
+        options: [
+          { value: 'small', label: 'Small' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'large', label: 'Large' },
+        ],
+      },
+    },
+  },
 }
 
 // Get the entity domain from a GridItem
