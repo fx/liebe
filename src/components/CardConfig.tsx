@@ -17,14 +17,14 @@ import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
 import type { GridItem } from '~/store/types'
 
-interface CardConfigModalProps {
+interface ModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   item: GridItem
   onSave: (updates: Partial<GridItem>) => void
 }
 
-interface CardConfigContentProps {
+interface ContentProps {
   config?: Record<string, unknown>
   onChange?: (updates: Record<string, unknown>) => void
   item?: GridItem
@@ -47,12 +47,12 @@ export interface ConfigDefinition {
   [key: string]: ConfigOption
 }
 
-interface ConfigSectionProps {
+interface SectionProps {
   title: string
   children: React.ReactNode
 }
 
-function Section({ title, children }: ConfigSectionProps) {
+function Section({ title, children }: SectionProps) {
   return (
     <Box mb="4">
       <Text size="2" weight="bold" as="div" mb="2">
@@ -213,7 +213,7 @@ function Component({ title, description, configDefinition, config, onChange }: C
   )
 }
 
-function CardConfigContent({ config = {}, onChange = () => {}, item }: CardConfigContentProps) {
+function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   const cardType = item ? getCardType(item) : undefined
 
   if (!item || !cardType || !cardConfigurations[cardType]) {
@@ -251,7 +251,7 @@ function CardConfigContent({ config = {}, onChange = () => {}, item }: CardConfi
   )
 }
 
-function CardConfigModal({ open, onOpenChange, item, onSave }: CardConfigModalProps) {
+function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
   const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(item.config || {})
 
   React.useEffect(() => {
@@ -295,7 +295,7 @@ function CardConfigModal({ open, onOpenChange, item, onSave }: CardConfigModalPr
         <Box style={{ flex: 1, overflow: 'hidden' }}>
           <ScrollArea>
             <Box p="4">
-              <CardConfigContent config={localConfig} onChange={handleConfigChange} item={item} />
+              <Content config={localConfig} onChange={handleConfigChange} item={item} />
             </Box>
           </ScrollArea>
         </Box>
@@ -317,12 +317,12 @@ function CardConfigModal({ open, onOpenChange, item, onSave }: CardConfigModalPr
 
 // Create compound component with forward declaration
 export const CardConfig = {} as {
-  Modal: typeof CardConfigModal
+  Modal: typeof Modal
   Section: typeof Section
   Component: typeof Component
 }
 
 // Assign components
-CardConfig.Modal = CardConfigModal
+CardConfig.Modal = Modal
 CardConfig.Section = Section
 CardConfig.Component = Component
