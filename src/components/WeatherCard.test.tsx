@@ -79,9 +79,7 @@ describe('WeatherCard', () => {
       const { rerender } = render(<WeatherCard entityId="weather.home" />)
       expect(screen.getByText('22°C')).toBeInTheDocument()
 
-      rerender(
-        <WeatherCard entityId="weather.home" config={{ temperatureUnit: 'fahrenheit' }} />
-      )
+      rerender(<WeatherCard entityId="weather.home" config={{ temperatureUnit: 'fahrenheit' }} />)
       expect(screen.getByText('72°F')).toBeInTheDocument()
     })
   })
