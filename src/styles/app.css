@@ -209,3 +209,25 @@ body {
 .SliderThumb:focus {
   box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.08);
 }
+
+/* Fan spinning animations */
+@keyframes fan-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fan-spin-slow {
+  animation: fan-spin 3s linear infinite;
+}
+
+.fan-spin-medium {
+  animation: fan-spin 1.5s linear infinite;
+}
+
+.fan-spin-fast {
+  animation: fan-spin 0.75s linear infinite;
+}
