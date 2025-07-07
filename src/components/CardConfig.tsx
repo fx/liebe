@@ -237,7 +237,7 @@ function Component({ title, description, configDefinition, config, onChange }: C
 }
 
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
-  const cardType = item ? getCardType(item) : undefined
+  const cardType = item?.type === 'separator' ? 'separator' : item ? getCardType(item) : undefined
 
   if (!item || !cardType || !cardConfigurations[cardType]) {
     return (
@@ -303,14 +303,37 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
 }
 
 function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
-  const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(item.config || {})
+  // Initialize config based on item type
+  const getInitialConfig = () => {
+    if (item.type === 'separator') {
+      // For separator, use the direct properties as config
+      return {
+        title: item.title || '',
+        separatorOrientation: item.separatorOrientation || 'horizontal',
+        separatorTextColor: item.separatorTextColor || 'gray',
+      }
+    }
+    return item.config || {}
+  }
+
+  const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(getInitialConfig())
 
   React.useEffect(() => {
-    setLocalConfig(item.config || {})
-  }, [item.config])
+    setLocalConfig(getInitialConfig())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item])
 
   const handleSave = () => {
-    onSave({ config: localConfig })
+    // For separator, we need to save the config as direct properties
+    if (item.type === 'separator') {
+      onSave({
+        title: localConfig.title as string,
+        separatorOrientation: localConfig.separatorOrientation as 'horizontal' | 'vertical',
+        separatorTextColor: localConfig.separatorTextColor as string,
+      })
+    } else {
+      onSave({ config: localConfig })
+    }
     onOpenChange(false)
   }
 

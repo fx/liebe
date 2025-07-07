@@ -22,6 +22,7 @@ import { GridLayoutSection } from './GridLayoutSection'
 import { EntityErrorBoundary } from './ui'
 import { GridItem } from '../store/types'
 import { dashboardActions, useDashboardStore } from '../store'
+import { CardConfig } from './CardConfig'
 import './GridLayoutSection.css'
 
 interface GridViewProps {
@@ -209,6 +210,8 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<string | null>(null)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const [configModalOpen, setConfigModalOpen] = useState(false)
+  const [itemToConfig, setItemToConfig] = useState<GridItem | null>(null)
 
   const handleDeleteItem = (itemId: string) => {
     setItemToDelete(itemId)
@@ -245,6 +248,17 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
       }
       return next
     })
+  }
+
+  const handleConfigureItem = (item: GridItem) => {
+    setItemToConfig(item)
+    setConfigModalOpen(true)
+  }
+
+  const handleSaveConfig = (updates: Partial<GridItem>) => {
+    if (itemToConfig) {
+      dashboardActions.updateGridItem(screenId, itemToConfig.id, updates)
+    }
   }
 
   // Keyboard shortcuts
@@ -295,6 +309,9 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                     : undefined
                 }
                 onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
+                onConfigure={isEditMode ? () => handleConfigureItem(item) : undefined}
+                hasConfiguration={true}
+                transparent={true}
               >
                 <Separator
                   title={item.title}
@@ -364,6 +381,16 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
         onConfirm={confirmDelete}
         itemCount={bulkDeletePending ? selectedItems.size : 1}
       />
+
+      {/* Configuration Modal */}
+      {itemToConfig && (
+        <CardConfig.Modal
+          open={configModalOpen}
+          onOpenChange={setConfigModalOpen}
+          item={itemToConfig}
+          onSave={handleSaveConfig}
+        />
+      )}
     </Box>
   )
 }

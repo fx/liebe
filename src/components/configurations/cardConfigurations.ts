@@ -74,6 +74,43 @@ export const cardConfigurations: Record<
       },
     },
   },
+  separator: {
+    title: 'Separator',
+    description: 'Configure the separator appearance and text.',
+    definition: {
+      title: {
+        type: 'string',
+        default: '',
+        label: 'Label (optional)',
+        placeholder: 'Section title...',
+        description: 'Text to display on the separator line',
+      },
+      separatorOrientation: {
+        type: 'select',
+        default: 'horizontal',
+        label: 'Orientation',
+        description: 'Direction of the separator line',
+        options: [
+          { value: 'horizontal', label: 'Horizontal' },
+          { value: 'vertical', label: 'Vertical' },
+        ],
+      },
+      separatorTextColor: {
+        type: 'select',
+        default: 'gray',
+        label: 'Text Color',
+        description: 'Color of the separator text',
+        options: [
+          { value: 'gray', label: 'Gray' },
+          { value: 'blue', label: 'Blue' },
+          { value: 'green', label: 'Green' },
+          { value: 'red', label: 'Red' },
+          { value: 'orange', label: 'Orange' },
+          { value: 'purple', label: 'Purple' },
+        ],
+      },
+    },
+  },
 }
 
 // Get the entity domain from a GridItem
