@@ -165,7 +165,7 @@ function LightCardComponent({
   }
 
   // Apply configuration
-  const showBrightness = config.showBrightness !== false
+  const enableBrightness = config.enableBrightness !== false
   // const showColorPicker = config.showColorPicker !== false // TODO: implement color picker
 
   return (
@@ -217,7 +217,7 @@ function LightCardComponent({
             </Text>
           </GridCard.Title>
 
-          {!isEditMode && isOn && supportsBrightness && showBrightness && (
+          {!isEditMode && isOn && supportsBrightness && enableBrightness && (
             <GridCard.Controls>
               <Text size="1" color="gray" style={{ minWidth: '35px' }}>
                 {displayBrightness}%

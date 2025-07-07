@@ -1,6 +1,5 @@
 import * as React from 'react'
-import { Text } from '@radix-ui/themes'
-import { ConfigSection } from '../CardConfigurationModal'
+import { CardConfigurationComponent, type ConfigDefinition } from '../ui'
 import type { GridItem } from '~/store/types'
 
 interface LightCardConfigProps {
@@ -9,16 +8,27 @@ interface LightCardConfigProps {
   item: GridItem
 }
 
+// Define configuration options for Light Card
+const lightCardConfigDefinition: ConfigDefinition = {
+  enableBrightness: {
+    type: 'boolean',
+    default: true,
+    label: 'Enable Brightness Slider',
+    description: 'Show brightness slider when light is on and supports brightness control',
+  },
+}
+
 export function LightCardConfig({
-  config: _config = {},
-  onChange: _onChange = () => {},
+  config = {},
+  onChange = () => {},
 }: Partial<LightCardConfigProps>) {
   return (
-    <ConfigSection title="Light Card">
-      <Text size="2" color="gray">
-        This card displays a light entity with toggle functionality. Additional configuration
-        options will be added in future updates.
-      </Text>
-    </ConfigSection>
+    <CardConfigurationComponent
+      title="Light Card"
+      description="Configure how this light card displays and behaves."
+      configDefinition={lightCardConfigDefinition}
+      config={config}
+      onChange={onChange}
+    />
   )
 }
