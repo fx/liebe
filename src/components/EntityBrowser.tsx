@@ -1,19 +1,17 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import {
   Dialog,
   Flex,
   TextField,
-  ScrollArea,
   Checkbox,
   Button,
-  Separator,
   Text,
-  Box,
   IconButton,
   Badge,
   Card,
 } from '@radix-ui/themes'
 import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEntities } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
 
@@ -29,32 +27,6 @@ const getDomain = (entityId: string): string => {
   return entityId.split('.')[0]
 }
 
-// Helper to get friendly domain name
-const getFriendlyDomain = (domain: string): string => {
-  const domainMap: Record<string, string> = {
-    light: 'Lights',
-    switch: 'Switches',
-    sensor: 'Sensors',
-    binary_sensor: 'Binary Sensors',
-    climate: 'Climate',
-    cover: 'Covers',
-    fan: 'Fans',
-    lock: 'Locks',
-    camera: 'Cameras',
-    media_player: 'Media Players',
-    scene: 'Scenes',
-    script: 'Scripts',
-    automation: 'Automations',
-    input_boolean: 'Input Booleans',
-    input_number: 'Input Numbers',
-    input_text: 'Input Text',
-    input_select: 'Input Select',
-    input_datetime: 'Input DateTime',
-    weather: 'Weather',
-  }
-  return domainMap[domain] || domain.charAt(0).toUpperCase() + domain.slice(1)
-}
-
 // Domains to filter out by default
 const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
 
@@ -67,52 +39,45 @@ export function EntityBrowser({
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
   const { entities, isLoading } = useEntities()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  // Filter and group entities
-  const entityGroups = useMemo(() => {
-    const filtered = Object.values(entities).filter((entity) => {
-      // Filter out system domains
-      const domain = getDomain(entity.entity_id)
-      if (SYSTEM_DOMAINS.includes(domain)) return false
+  // Filter entities into a flat list
+  const filteredEntities = useMemo(() => {
+    return Object.values(entities)
+      .filter((entity) => {
+        // Filter out system domains
+        const domain = getDomain(entity.entity_id)
+        if (SYSTEM_DOMAINS.includes(domain)) return false
 
-      // Filter out already added entities
-      if (currentEntityIds.includes(entity.entity_id)) return false
+        // Filter out already added entities
+        if (currentEntityIds.includes(entity.entity_id)) return false
 
-      // Search filter
-      if (searchTerm) {
-        const search = searchTerm.toLowerCase()
-        return (
-          entity.entity_id.toLowerCase().includes(search) ||
-          entity.attributes.friendly_name?.toLowerCase().includes(search) ||
-          domain.toLowerCase().includes(search)
-        )
-      }
-
-      return true
-    })
-
-    // Group by domain
-    const groups: Record<string, HassEntity[]> = {}
-    filtered.forEach((entity) => {
-      const domain = getDomain(entity.entity_id)
-      if (!groups[domain]) {
-        groups[domain] = []
-      }
-      groups[domain].push(entity)
-    })
-
-    // Convert to array and sort
-    return Object.entries(groups)
-      .map(([domain, entities]) => ({
-        domain,
-        entities: entities.sort((a, b) =>
-          (a.attributes.friendly_name || a.entity_id).localeCompare(
-            b.attributes.friendly_name || b.entity_id
+        // Search filter
+        if (searchTerm) {
+          const search = searchTerm.toLowerCase()
+          return (
+            entity.entity_id.toLowerCase().includes(search) ||
+            entity.attributes.friendly_name?.toLowerCase().includes(search) ||
+            domain.toLowerCase().includes(search)
           )
-        ),
-      }))
-      .sort((a, b) => getFriendlyDomain(a.domain).localeCompare(getFriendlyDomain(b.domain)))
+        }
+
+        return true
+      })
+      .sort((a, b) =>
+        (a.attributes.friendly_name || a.entity_id).localeCompare(
+          b.attributes.friendly_name || b.entity_id
+        )
+      )
   }, [entities, searchTerm, currentEntityIds])
+
+  // Create virtualizer
+  const virtualizer = useVirtualizer({
+    count: filteredEntities.length,
+    getScrollElement: () => scrollAreaRef.current,
+    estimateSize: () => 64, // Estimated height of each entity item
+    overscan: 5, // Render 5 items above and below the visible area
+  })
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
     setSelectedEntityIds((prev) => {
@@ -125,24 +90,6 @@ export function EntityBrowser({
       return next
     })
   }, [])
-
-  const handleToggleAll = useCallback(
-    (domain: string, checked: boolean) => {
-      const domainEntities = entityGroups.find((g) => g.domain === domain)?.entities || []
-      setSelectedEntityIds((prev) => {
-        const next = new Set(prev)
-        domainEntities.forEach((entity) => {
-          if (checked) {
-            next.add(entity.entity_id)
-          } else {
-            next.delete(entity.entity_id)
-          }
-        })
-        return next
-      })
-    },
-    [entityGroups]
-  )
 
   const handleAddSelected = useCallback(() => {
     onEntitiesSelected(Array.from(selectedEntityIds))
@@ -157,10 +104,15 @@ export function EntityBrowser({
     onOpenChange(false)
   }, [onOpenChange])
 
-  const totalEntities = useMemo(
-    () => entityGroups.reduce((sum, group) => sum + group.entities.length, 0),
-    [entityGroups]
-  )
+  const handleSelectAll = useCallback(() => {
+    if (selectedEntityIds.size === filteredEntities.length) {
+      // Deselect all
+      setSelectedEntityIds(new Set())
+    } else {
+      // Select all visible entities
+      setSelectedEntityIds(new Set(filteredEntities.map((e) => e.entity_id)))
+    }
+  }, [filteredEntities, selectedEntityIds.size])
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -187,59 +139,76 @@ export function EntityBrowser({
             )}
           </TextField.Root>
 
-          {/* Results summary */}
+          {/* Results summary with select all */}
           <Flex justify="between" align="center">
             <Text size="2" color="gray">
-              {totalEntities} entities found
+              {filteredEntities.length} entities found
               {searchTerm && ` matching "${searchTerm}"`}
             </Text>
-            {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
+            <Flex gap="2" align="center">
+              {filteredEntities.length > 0 && (
+                <Checkbox
+                  size="1"
+                  checked={selectedEntityIds.size === filteredEntities.length}
+                  onCheckedChange={handleSelectAll}
+                />
+              )}
+              {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
+            </Flex>
           </Flex>
 
-          {/* Entity list */}
-          <ScrollArea style={{ height: '400px' }}>
+          {/* Virtual entity list */}
+          <div
+            ref={scrollAreaRef}
+            style={{
+              height: '400px',
+              overflow: 'auto',
+              borderRadius: 'var(--radius-2)',
+              backgroundColor: 'var(--gray-a2)',
+            }}
+          >
             {isLoading ? (
               <Flex align="center" justify="center" p="6">
                 <Text color="gray">Loading entities...</Text>
               </Flex>
-            ) : entityGroups.length === 0 ? (
+            ) : filteredEntities.length === 0 ? (
               <Flex align="center" justify="center" p="6">
                 <Text color="gray">No entities found</Text>
               </Flex>
             ) : (
-              <Flex direction="column" gap="4" pr="3">
-                {entityGroups.map((group) => (
-                  <Box key={group.domain}>
-                    <Flex align="center" justify="between" mb="2">
-                      <Text size="2" weight="bold">
-                        {getFriendlyDomain(group.domain)}
-                      </Text>
-                      <Checkbox
-                        size="1"
-                        checked={group.entities.every((e) => selectedEntityIds.has(e.entity_id))}
-                        onCheckedChange={(checked) =>
-                          handleToggleAll(group.domain, checked as boolean)
-                        }
+              <div
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualItem) => {
+                  const entity = filteredEntities[virtualItem.index]
+                  return (
+                    <div
+                      key={virtualItem.key}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualItem.size}px`,
+                        transform: `translateY(${virtualItem.start}px)`,
+                        padding: '0 var(--space-2)',
+                      }}
+                    >
+                      <EntityItem
+                        entity={entity}
+                        checked={selectedEntityIds.has(entity.entity_id)}
+                        onCheckedChange={(checked) => handleToggleEntity(entity.entity_id, checked)}
                       />
-                    </Flex>
-                    <Flex direction="column" gap="1">
-                      {group.entities.map((entity) => (
-                        <EntityItem
-                          key={entity.entity_id}
-                          entity={entity}
-                          checked={selectedEntityIds.has(entity.entity_id)}
-                          onCheckedChange={(checked) =>
-                            handleToggleEntity(entity.entity_id, checked)
-                          }
-                        />
-                      ))}
-                    </Flex>
-                    <Separator size="4" my="3" />
-                  </Box>
-                ))}
-              </Flex>
+                    </div>
+                  )
+                })}
+              </div>
             )}
-          </ScrollArea>
+          </div>
         </Flex>
 
         <Flex gap="3" mt="5" justify="end">
@@ -268,11 +237,12 @@ function EntityItem({ entity, checked, onCheckedChange }: EntityItemProps) {
   const stateDisplay =
     entity.state +
     (entity.attributes.unit_of_measurement ? ` ${entity.attributes.unit_of_measurement}` : '')
+  const domain = getDomain(entity.entity_id)
 
   return (
     <Card asChild>
-      <label style={{ cursor: 'pointer' }}>
-        <Flex align="center" gap="3" p="2">
+      <label style={{ cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center' }}>
+        <Flex align="center" gap="3" p="2" style={{ width: '100%' }}>
           <Checkbox
             size="2"
             checked={checked}
@@ -283,6 +253,9 @@ function EntityItem({ entity, checked, onCheckedChange }: EntityItemProps) {
               {friendlyName}
             </Text>
             <Flex gap="2" align="center">
+              <Badge size="1" variant="soft">
+                {domain}
+              </Badge>
               <Text size="1" color="gray">
                 {entity.entity_id}
               </Text>

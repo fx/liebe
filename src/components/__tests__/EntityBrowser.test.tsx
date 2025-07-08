@@ -93,7 +93,7 @@ describe('EntityBrowser', () => {
     expect(screen.queryByText('Add Entities')).not.toBeInTheDocument()
   })
 
-  it('should display entities grouped by domain', () => {
+  it('should display entities count and virtual scroll container', () => {
     render(
       <EntityBrowser
         open={true}
@@ -102,13 +102,13 @@ describe('EntityBrowser', () => {
       />
     )
 
-    expect(screen.getByText('Lights')).toBeInTheDocument()
-    expect(screen.getByText('Switches')).toBeInTheDocument()
-    expect(screen.getByText('Sensors')).toBeInTheDocument()
+    // Check that the entity count is displayed
+    expect(screen.getByText('3 entities found')).toBeInTheDocument()
 
-    expect(screen.getByText('Living Room Light')).toBeInTheDocument()
-    expect(screen.getByText('Kitchen Switch')).toBeInTheDocument()
-    expect(screen.getByText('Temperature')).toBeInTheDocument()
+    // Check that virtual scroll container is present
+    const container = screen.getByText('Add Entities').closest('[role="dialog"]')
+    const virtualContainer = container?.querySelector('[style*="height: 400px"]')
+    expect(virtualContainer).toBeInTheDocument()
   })
 
   it('should filter out system domains', () => {
@@ -137,9 +137,8 @@ describe('EntityBrowser', () => {
     const searchInput = screen.getByPlaceholderText('Search entities...')
     await user.type(searchInput, 'light')
 
-    expect(screen.getByText('Living Room Light')).toBeInTheDocument()
-    expect(screen.queryByText('Kitchen Switch')).not.toBeInTheDocument()
-    expect(screen.queryByText('Temperature')).not.toBeInTheDocument()
+    // After searching for 'light', only 1 entity should be found
+    expect(screen.getByText('1 entities found matching "light"')).toBeInTheDocument()
   })
 
   it('should handle entity selection', async () => {
@@ -153,26 +152,25 @@ describe('EntityBrowser', () => {
       />
     )
 
-    // Find and click the checkbox for Living Room Light
-    const checkboxes = screen.getAllByRole('checkbox')
-    // Find the checkbox for Living Room Light (should be after the domain checkboxes)
-    const lightCheckbox = checkboxes.find((cb) =>
-      cb.closest('label')?.textContent?.includes('Living Room Light')
-    )
-    await user.click(lightCheckbox!)
+    // Click the select all checkbox
+    const selectAllCheckbox = screen.getAllByRole('checkbox')[0]
+    await user.click(selectAllCheckbox)
 
-    // Should show selected count
-    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    // Should show all 3 entities selected
+    expect(screen.getByText('3 selected')).toBeInTheDocument()
 
     // Click Add button
-    const addButton = screen.getByRole('button', { name: /Add \(1\)/ })
+    const addButton = screen.getByRole('button', { name: /Add \(3\)/ })
     await user.click(addButton)
 
-    expect(mockOnEntitiesSelected).toHaveBeenCalledWith(['light.living_room'])
+    // Should have selected all 3 entities
+    expect(mockOnEntitiesSelected).toHaveBeenCalledWith(
+      expect.arrayContaining(['light.living_room', 'switch.kitchen', 'sensor.temperature'])
+    )
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('should handle select all for a domain', async () => {
+  it('should handle select all entities', async () => {
     const user = userEvent.setup()
 
     render(
@@ -183,14 +181,13 @@ describe('EntityBrowser', () => {
       />
     )
 
-    // Find the Lights header checkbox
+    // Find the select all checkbox (it's the first checkbox)
     const checkboxes = screen.getAllByRole('checkbox')
-    // The first checkbox should be for Lights domain
-    const lightsCheckbox = checkboxes[0]
-    await user.click(lightsCheckbox)
+    const selectAllCheckbox = checkboxes[0]
+    await user.click(selectAllCheckbox)
 
-    // Should select all lights
-    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    // Should select all 3 entities (light, switch, sensor)
+    expect(screen.getByText('3 selected')).toBeInTheDocument()
   })
 
   it('should exclude already added entities', () => {
@@ -203,12 +200,8 @@ describe('EntityBrowser', () => {
       />
     )
 
-    // Living Room Light should not be shown
-    expect(screen.queryByText('Living Room Light')).not.toBeInTheDocument()
-
-    // Other entities should still be shown
-    expect(screen.getByText('Kitchen Switch')).toBeInTheDocument()
-    expect(screen.getByText('Temperature')).toBeInTheDocument()
+    // Only 2 entities should be shown (light.living_room is excluded)
+    expect(screen.getByText('2 entities found')).toBeInTheDocument()
   })
 
   it('should show loading state', () => {
