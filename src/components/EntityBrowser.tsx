@@ -57,34 +57,55 @@ type FlattenedItem =
   | { type: 'entity'; entity: HassEntity; domain: string }
   | { type: 'separator' }
 
+// Track render performance
+let renderStartTime: number | null = null
+
 export function EntityBrowser({
   open,
   onOpenChange,
   onEntitiesSelected,
   currentEntityIds = [],
 }: EntityBrowserProps) {
+  if (open && !renderStartTime) {
+    renderStartTime = performance.now()
+  }
+  console.log('[EntityBrowser] Rendering, open:', open)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
   const [hasSearched, setHasSearched] = useState(false)
   const { entities, isLoading } = useEntities()
   const { isIndexing, search, searchResults, indexStats } = useEntitySearch(entities)
+  
+  console.log('[EntityBrowser] State:', {
+    entitiesCount: Object.keys(entities).length,
+    isLoading,
+    isIndexing,
+    searchResultsCount: searchResults.results.length,
+    indexStats,
+    hasSearched,
+    searchTerm,
+  })
   const parentRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Use search results when available
   const entityGroups = useMemo(() => {
+    console.log('[EntityBrowser] Computing entityGroups, hasSearched:', hasSearched, 'isIndexing:', isIndexing)
     if (!hasSearched || isIndexing) {
       return []
     }
 
-    // Convert grouped results to our format
-    return Object.entries(searchResults.groupedByDomain)
+    const groups = Object.entries(searchResults.groupedByDomain)
       .map(([domain, entities]) => ({
         domain,
         entities,
       }))
       .sort((a, b) => getFriendlyDomain(a.domain).localeCompare(getFriendlyDomain(b.domain)))
+    
+    console.log('[EntityBrowser] entityGroups computed:', groups.length, 'domains,', 
+      groups.reduce((sum, g) => sum + g.entities.length, 0), 'total entities')
+    return groups
   }, [searchResults, hasSearched, isIndexing])
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
@@ -146,8 +167,13 @@ export function EntityBrowser({
 
   // Initial search when dialog opens or indexing completes
   useEffect(() => {
+    console.log('[EntityBrowser] useEffect - open:', open, 'isIndexing:', isIndexing, 'hasSearched:', hasSearched)
     if (open && !isIndexing && !hasSearched) {
-      search('', currentEntityIds).then(() => {
+      console.log('[EntityBrowser] Triggering initial search...')
+      const startTime = performance.now()
+      search('', currentEntityIds).then((results) => {
+        const duration = performance.now() - startTime
+        console.log('[EntityBrowser] Initial search completed in', duration.toFixed(2), 'ms, results:', results)
         setHasSearched(true)
       })
     }
@@ -155,6 +181,7 @@ export function EntityBrowser({
 
   // Flatten entity groups for virtualization
   const flattenedItems = useMemo(() => {
+    const startTime = performance.now()
     const items: FlattenedItem[] = []
     entityGroups.forEach((group, groupIndex) => {
       // Add group header
@@ -176,6 +203,8 @@ export function EntityBrowser({
         items.push({ type: 'separator' })
       }
     })
+    const duration = performance.now() - startTime
+    console.log('[EntityBrowser] Flattened items computed in', duration.toFixed(2), 'ms, count:', items.length)
     return items
   }, [entityGroups])
 
@@ -192,6 +221,12 @@ export function EntityBrowser({
     overscan: 2, // Reduced from 5 to 2 for less DOM nodes
     scrollMargin: 0,
     enableSmoothScroll: false, // Disable smooth scrolling for performance
+  })
+  
+  console.log('[EntityBrowser] Virtualizer:', {
+    totalItems: flattenedItems.length,
+    virtualItems: virtualizer.getVirtualItems().length,
+    totalSize: virtualizer.getTotalSize(),
   })
 
   // Debounced search handler
@@ -213,6 +248,15 @@ export function EntityBrowser({
     },
     [search, currentEntityIds, isIndexing]
   )
+
+  // Log render completion time
+  useEffect(() => {
+    if (open && renderStartTime && flattenedItems.length > 0) {
+      const duration = performance.now() - renderStartTime
+      console.log('[EntityBrowser] Total time from open to items ready:', duration.toFixed(2), 'ms')
+      renderStartTime = null
+    }
+  }, [open, flattenedItems.length])
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>

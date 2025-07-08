@@ -51,6 +51,7 @@ async function getWorkerAPI(): Promise<EntitySearchWorkerAPI> {
 }
 
 export function useEntitySearch(entities: Record<string, HassEntity>) {
+  console.log('[useEntitySearch] Hook called with', Object.keys(entities).length, 'entities')
   const [isIndexing, setIsIndexing] = useState(true)
   const [searchResults, setSearchResults] = useState<{
     results: HassEntity[]
@@ -74,6 +75,8 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
   useEffect(() => {
     const initializeIndex = async () => {
       try {
+        console.log('[useEntitySearch] Starting index initialization...')
+        const startTime = performance.now()
         const api = await getWorkerAPI()
         const entityArray = Object.values(entities)
 
@@ -82,11 +85,16 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
           !initializationPromise ||
           Math.abs(entityArray.length - indexStats.totalEntities) > 100
         ) {
+          console.log('[useEntitySearch] Initializing index with', entityArray.length, 'entities')
           setIsIndexing(true)
           initializationPromise = api.initializeIndex(entityArray).then((stats) => {
+            const duration = performance.now() - startTime
+            console.log('[useEntitySearch] Index initialized in', duration.toFixed(2), 'ms, stats:', stats)
             setIndexStats(stats)
             setIsIndexing(false)
           })
+        } else {
+          console.log('[useEntitySearch] Skipping re-initialization, entity count similar')
         }
 
         await initializationPromise
@@ -103,11 +111,22 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
   // Search function
   const search = useCallback(
     async (query: string, excludedIds: string[] = [], limit?: number) => {
-      if (isIndexing) return
+      console.log('[useEntitySearch] Search called, query:', query, 'isIndexing:', isIndexing)
+      if (isIndexing) {
+        console.log('[useEntitySearch] Search skipped - still indexing')
+        return
+      }
 
       try {
+        const startTime = performance.now()
         const api = await getWorkerAPI()
         const results = await api.search(query, excludedIds, limit)
+        const duration = performance.now() - startTime
+        console.log('[useEntitySearch] Search completed in', duration.toFixed(2), 'ms, results:', {
+          count: results.results.length,
+          domains: Object.keys(results.groupedByDomain).length,
+          totalEntities: results.totalEntities
+        })
         setSearchResults(results)
         return results
       } catch (error) {

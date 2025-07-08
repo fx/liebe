@@ -39,6 +39,7 @@ const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
 const api = {
   // Initialize the search index with entities
   async initializeIndex(entities: HassEntity[]) {
+    console.log('[Worker] initializeIndex called with', entities.length, 'entities')
     console.time('Index initialization')
 
     // Clear existing data
@@ -47,16 +48,22 @@ const api = {
 
     // Process entities in chunks to avoid blocking
     const CHUNK_SIZE = 500
+    let processedCount = 0
+    let skippedCount = 0
     for (let i = 0; i < entities.length; i += CHUNK_SIZE) {
       const chunk = entities.slice(i, i + CHUNK_SIZE)
 
       for (const entity of chunk) {
         // Skip system domains
         const domain = getDomain(entity.entity_id)
-        if (SYSTEM_DOMAINS.includes(domain)) continue
+        if (SYSTEM_DOMAINS.includes(domain)) {
+          skippedCount++
+          continue
+        }
 
         // Cache entity
         entityCache.set(entity.entity_id, entity)
+        processedCount++
 
         // Index for search
         searchIndex.add(entity.entity_id, getSearchableText(entity))
@@ -75,6 +82,8 @@ const api = {
     }
 
     console.timeEnd('Index initialization')
+    console.log('[Worker] Indexed', processedCount, 'entities, skipped', skippedCount, 'system entities')
+    console.log('[Worker] Domains:', Array.from(domainIndices.keys()).sort())
     return {
       totalEntities: entityCache.size,
       domains: Array.from(domainIndices.keys()).sort(),
@@ -92,12 +101,14 @@ const api = {
     groupedByDomain: Record<string, HassEntity[]>
     totalEntities: number
   }> {
+    console.log('[Worker] search called, query:', query, 'excludedIds:', excludedIds.length, 'limit:', limit)
     console.time('Search')
 
     const excludeSet = new Set(excludedIds)
     let results: HassEntity[] = []
 
     if (!query || query.trim() === '') {
+      console.log('[Worker] Empty query - returning limited sample')
       // For empty query, return a very limited set of entities
       const domainResults = new Map<string, HassEntity[]>()
       const maxPerDomain = 3 // Reduced from 10 to 3
@@ -131,6 +142,7 @@ const api = {
       for (const entities of domainResults.values()) {
         results.push(...entities)
       }
+      console.log('[Worker] Sample results:', domainResults.size, 'domains,', results.length, 'entities')
     } else {
       // Search using FlexSearch with limit
       const searchResults = searchIndex.search(query.toLowerCase(), { limit })
@@ -164,6 +176,7 @@ const api = {
     }
 
     console.timeEnd('Search')
+    console.log('[Worker] Search returned', results.length, 'results from', Object.keys(groupedByDomain).length, 'domains')
 
     return {
       results,
