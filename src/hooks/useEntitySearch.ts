@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import * as Comlink from 'comlink'
 import type { HassEntity } from '../store/entityTypes'
+import { entitySearchWorkerCode } from '../workers/entitySearchWorkerCode'
 
 // Worker API type
 interface EntitySearchWorkerAPI {
@@ -27,14 +28,33 @@ let workerInstance: Worker | null = null
 let workerAPI: EntitySearchWorkerAPI | null = null
 let initializationPromise: Promise<void> | null = null
 
+// Create worker from inline code
+function createInlineWorker(): Worker {
+  const blob = new Blob([entitySearchWorkerCode], { type: 'application/javascript' })
+  const workerUrl = URL.createObjectURL(blob)
+  return new Worker(workerUrl)
+}
+
 // Singleton worker initialization
 async function getWorkerAPI(): Promise<EntitySearchWorkerAPI> {
   if (workerAPI) return workerAPI
 
   if (!workerInstance) {
-    workerInstance = new Worker(new URL('../workers/entitySearch.worker.ts', import.meta.url), {
-      type: 'module',
-    })
+    try {
+      // Try module worker first (for development)
+      if (import.meta.env.DEV) {
+        workerInstance = new Worker(new URL('../workers/entitySearch.worker.ts', import.meta.url), {
+          type: 'module',
+        })
+      } else {
+        // Use inline worker for production/IIFE builds
+        workerInstance = createInlineWorker()
+      }
+    } catch (error) {
+      console.warn('Failed to create module worker, falling back to inline worker:', error)
+      workerInstance = createInlineWorker()
+    }
+    
     workerAPI = Comlink.wrap<EntitySearchWorkerAPI>(workerInstance)
   }
 
