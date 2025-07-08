@@ -51,4 +51,7 @@ lerna-debug.log*
 .env.sentry-build-plugin
 
 # Claude settings
-.claude/settings.local.jsontmp/*.json
+.claude/settings.local.json
+
+# Temporary files
+tmp/
