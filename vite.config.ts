@@ -142,6 +142,9 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom', '@tanstack/react-router', '@radix-ui/themes'],
   },
+  worker: {
+    format: 'es',
+  },
   plugins: [
     tsConfigPaths({
       projects: ['./tsconfig.json'],

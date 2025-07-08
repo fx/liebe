@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Dialog,
   Flex,
@@ -11,10 +11,11 @@ import {
   IconButton,
   Badge,
   Card,
+  Spinner,
 } from '@radix-ui/themes'
 import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEntities } from '~/hooks'
+import { useEntities, useEntitySearch } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
 
 interface EntityBrowserProps {
@@ -22,11 +23,6 @@ interface EntityBrowserProps {
   onOpenChange: (open: boolean) => void
   onEntitiesSelected: (entityIds: string[]) => void
   currentEntityIds?: string[]
-}
-
-// Helper to get domain from entity_id
-const getDomain = (entityId: string): string => {
-  return entityId.split('.')[0]
 }
 
 // Helper to get friendly domain name
@@ -55,9 +51,6 @@ const getFriendlyDomain = (domain: string): string => {
   return domainMap[domain] || domain.charAt(0).toUpperCase() + domain.slice(1)
 }
 
-// Domains to filter out by default
-const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
-
 // Types for flattened list items
 type FlattenedItem =
   | { type: 'header'; domain: string; entityCount: number }
@@ -73,55 +66,26 @@ export function EntityBrowser({
   const [searchTerm, setSearchTerm] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
+  const [hasSearched, setHasSearched] = useState(false)
   const { entities, isLoading } = useEntities()
+  const { isIndexing, search, searchResults } = useEntitySearch(entities)
   const parentRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
-  // Filter and group entities
+  // Use search results when available
   const entityGroups = useMemo(() => {
-    const filtered = Object.values(entities).filter((entity) => {
-      // Filter out system domains
-      const domain = getDomain(entity.entity_id)
-      if (SYSTEM_DOMAINS.includes(domain)) return false
+    if (!hasSearched || isIndexing) {
+      return []
+    }
 
-      // Filter out already added entities
-      if (currentEntityIds.includes(entity.entity_id)) return false
-
-      // Search filter
-      if (searchTerm) {
-        const search = searchTerm.toLowerCase()
-        return (
-          entity.entity_id.toLowerCase().includes(search) ||
-          entity.attributes.friendly_name?.toLowerCase().includes(search) ||
-          domain.toLowerCase().includes(search)
-        )
-      }
-
-      return true
-    })
-
-    // Group by domain
-    const groups: Record<string, HassEntity[]> = {}
-    filtered.forEach((entity) => {
-      const domain = getDomain(entity.entity_id)
-      if (!groups[domain]) {
-        groups[domain] = []
-      }
-      groups[domain].push(entity)
-    })
-
-    // Convert to array and sort
-    return Object.entries(groups)
+    // Convert grouped results to our format
+    return Object.entries(searchResults.groupedByDomain)
       .map(([domain, entities]) => ({
         domain,
-        entities: entities.sort((a, b) =>
-          (a.attributes.friendly_name || a.entity_id).localeCompare(
-            b.attributes.friendly_name || b.entity_id
-          )
-        ),
+        entities,
       }))
       .sort((a, b) => getFriendlyDomain(a.domain).localeCompare(getFriendlyDomain(b.domain)))
-  }, [entities, searchTerm, currentEntityIds])
+  }, [searchResults, hasSearched, isIndexing])
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
     setSelectedEntityIds((prev) => {
@@ -162,6 +126,7 @@ export function EntityBrowser({
     setSelectedEntityIds(new Set())
     setSearchTerm('')
     setSearchInput('')
+    setHasSearched(false)
     onOpenChange(false)
   }, [selectedEntityIds, onEntitiesSelected, onOpenChange])
 
@@ -173,13 +138,20 @@ export function EntityBrowser({
     setSelectedEntityIds(new Set())
     setSearchTerm('')
     setSearchInput('')
+    setHasSearched(false)
     onOpenChange(false)
   }, [onOpenChange])
 
-  const totalEntities = useMemo(
-    () => entityGroups.reduce((sum, group) => sum + group.entities.length, 0),
-    [entityGroups]
-  )
+  const totalEntities = hasSearched ? searchResults.totalCount : 0
+
+  // Initial search when dialog opens or indexing completes
+  useEffect(() => {
+    if (open && !isIndexing && !hasSearched) {
+      search('', currentEntityIds).then(() => {
+        setHasSearched(true)
+      })
+    }
+  }, [open, isIndexing, hasSearched, search, currentEntityIds])
 
   // Flatten entity groups for virtualization
   const flattenedItems = useMemo(() => {
@@ -221,17 +193,24 @@ export function EntityBrowser({
   })
 
   // Debounced search handler
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchInput(value)
-    // Clear existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-    // Set new timeout for debounced search
-    searchTimeoutRef.current = setTimeout(() => {
-      setSearchTerm(value)
-    }, 300)
-  }, [])
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchInput(value)
+      // Clear existing timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+      // Set new timeout for debounced search
+      searchTimeoutRef.current = setTimeout(async () => {
+        setSearchTerm(value)
+        if (!isIndexing) {
+          await search(value, currentEntityIds)
+          setHasSearched(true)
+        }
+      }, 300)
+    },
+    [search, currentEntityIds, isIndexing]
+  )
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -284,13 +263,22 @@ export function EntityBrowser({
               borderRadius: 'var(--radius-2)',
             }}
           >
-            {isLoading ? (
+            {isLoading || isIndexing ? (
+              <Flex align="center" justify="center" p="6" direction="column" gap="3">
+                <Spinner size="3" />
+                <Text color="gray">
+                  {isIndexing ? 'Indexing entities for fast search...' : 'Loading entities...'}
+                </Text>
+              </Flex>
+            ) : !hasSearched ? (
               <Flex align="center" justify="center" p="6">
-                <Text color="gray">Loading entities...</Text>
+                <Text color="gray">Initializing search...</Text>
               </Flex>
             ) : flattenedItems.length === 0 ? (
               <Flex align="center" justify="center" p="6">
-                <Text color="gray">No entities found</Text>
+                <Text color="gray">
+                  {searchTerm ? 'No entities found matching your search' : 'No entities available'}
+                </Text>
               </Flex>
             ) : (
               <div
