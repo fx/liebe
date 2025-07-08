@@ -179,7 +179,7 @@ export function EntityBrowser({
     return items
   }, [entityGroups])
 
-  // Set up virtualizer
+  // Set up virtualizer with aggressive optimization
   const virtualizer = useVirtualizer({
     count: flattenedItems.length,
     getScrollElement: () => parentRef.current,
@@ -189,7 +189,9 @@ export function EntityBrowser({
       if (item.type === 'entity') return 56 // Height of entity card
       return 24 // separator height
     },
-    overscan: 5, // Render 5 items outside viewport for smooth scrolling
+    overscan: 2, // Reduced from 5 to 2 for less DOM nodes
+    scrollMargin: 0,
+    enableSmoothScroll: false, // Disable smooth scrolling for performance
   })
 
   // Debounced search handler
@@ -248,7 +250,7 @@ export function EntityBrowser({
           <Flex justify="between" align="center">
             <Text size="2" color="gray">
               {!searchTerm && hasSearched ? (
-                <>Showing sample entities. Type to search all {indexStats.totalEntities} entities</>
+                <>Showing {totalEntities} sample entities from {entityGroups.length} domains. Type to search all {indexStats.totalEntities} entities</>
               ) : (
                 <>
                   {totalEntities} entities found

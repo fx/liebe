@@ -90,12 +90,16 @@ const api = {
     let results = [];
 
     if (!query || query.trim() === '') {
-      // For empty query, return a limited set of entities grouped by domain
+      // For empty query, return a very limited set of entities
       const domainResults = new Map();
-      const maxPerDomain = 10;
+      const maxPerDomain = 3; // Reduced from 10 to 3
+      const maxDomains = 10; // Limit number of domains shown
+      let domainCount = 0;
       
-      // Get a sample from each domain
+      // Get a small sample from each domain
       for (const [domain, entityIds] of domainIndices.entries()) {
+        if (domainCount >= maxDomains) break;
+        
         const domainEntities = [];
         let count = 0;
         
@@ -111,6 +115,7 @@ const api = {
         
         if (domainEntities.length > 0) {
           domainResults.set(domain, domainEntities);
+          domainCount++;
         }
       }
       

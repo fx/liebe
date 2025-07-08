@@ -182,7 +182,7 @@ describe('EntityBrowser', () => {
 
     // Wait for search to be called and results to render
     await waitFor(() => {
-      expect(screen.getByText(/Showing sample entities/)).toBeInTheDocument()
+      expect(screen.getByText(/Showing.*sample entities.*Type to search all/)).toBeInTheDocument()
     })
 
     expect(screen.getByText('Lights')).toBeInTheDocument()
@@ -205,7 +205,7 @@ describe('EntityBrowser', () => {
 
     // Wait for search results
     await waitFor(() => {
-      expect(screen.getByText(/Showing sample entities/)).toBeInTheDocument()
+      expect(screen.getByText(/Showing.*sample entities.*Type to search all/)).toBeInTheDocument()
     })
 
     expect(screen.queryByText('persistent_notification.test')).not.toBeInTheDocument()
@@ -224,7 +224,7 @@ describe('EntityBrowser', () => {
 
     // Wait for initial load
     await waitFor(() => {
-      expect(screen.getByText(/Showing sample entities/)).toBeInTheDocument()
+      expect(screen.getByText(/Showing.*sample entities.*Type to search all/)).toBeInTheDocument()
     })
 
     const searchInput = screen.getByPlaceholderText('Search entities...')
@@ -317,7 +317,7 @@ describe('EntityBrowser', () => {
     // Wait for content to render
     await waitFor(() => {
       // Check that sample entities message appears
-      expect(screen.getByText(/Showing sample entities/)).toBeInTheDocument()
+      expect(screen.getByText(/Showing.*sample entities.*Type to search all/)).toBeInTheDocument()
     })
 
     // Living Room Light should not be shown
