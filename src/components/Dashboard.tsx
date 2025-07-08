@@ -5,7 +5,7 @@ import { GridView } from './GridView'
 import { AppTaskbar } from './AppTaskbar'
 import { Sidebar } from './Sidebar'
 import { SidebarWidgets } from './SidebarWidgets'
-import { ItemBrowser } from './ItemBrowser'
+import { EntityBrowser } from './EntityBrowser'
 import { ErrorBoundary } from './ui'
 import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
@@ -19,7 +19,6 @@ export function Dashboard() {
   // Enable entity connection
   useEntityConnection()
 
-  const mode = useDashboardStore((state) => state.mode)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const screens = useDashboardStore((state) => state.screens)
 
@@ -90,11 +89,18 @@ export function Dashboard() {
               ) : (
                 <Box p="4">
                   <Card>
-                    <Flex align="center" justify="center" p="6">
+                    <Flex direction="column" align="center" justify="center" gap="3" p="6">
                       <Text color="gray" size="2">
-                        No items added yet.{' '}
-                        {mode === 'edit' && 'Click "Add Item" to start building your dashboard.'}
+                        No items added yet
                       </Text>
+                      <Button
+                        onClick={() => {
+                          setAddItemScreenId(currentScreen.id)
+                          setAddItemOpen(true)
+                        }}
+                      >
+                        Add Items
+                      </Button>
                     </Flex>
                   </Card>
                 </Box>
@@ -118,8 +124,8 @@ export function Dashboard() {
       {/* Add View Dialog */}
       <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />
 
-      {/* Item Browser for Add Item */}
-      <ItemBrowser
+      {/* Entity Browser for Add Item */}
+      <EntityBrowser
         open={addItemOpen}
         onOpenChange={(open) => {
           setAddItemOpen(open)

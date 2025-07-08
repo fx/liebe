@@ -4,16 +4,23 @@ import userEvent from '@testing-library/user-event'
 import { EntityBrowser } from '../EntityBrowser'
 import type { HassEntity } from '../../store/entityTypes'
 
-// Mock the useEntities hook
+// Mock the dependencies
 vi.mock('~/hooks', () => ({
   useEntities: vi.fn(),
 }))
 
+vi.mock('~/store', () => ({
+  dashboardActions: {
+    addGridItem: vi.fn(),
+  },
+}))
+
 import { useEntities } from '~/hooks'
+import { dashboardActions } from '~/store'
 
 describe('EntityBrowser', () => {
   const mockOnOpenChange = vi.fn()
-  const mockOnEntitiesSelected = vi.fn()
+  const mockScreenId = 'test-screen-id'
 
   const mockEntities: Record<string, HassEntity> = {
     'light.living_room': {
@@ -69,39 +76,29 @@ describe('EntityBrowser', () => {
   })
 
   it('should render dialog when open', () => {
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
-    expect(screen.getByText('Add Entities')).toBeInTheDocument()
-    expect(screen.getByText('Select entities to add to your dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Add Items')).toBeInTheDocument()
+    expect(screen.getByText('Select items to add to your dashboard')).toBeInTheDocument()
   })
 
   it('should not render dialog when closed', () => {
-    render(
-      <EntityBrowser
-        open={false}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={false} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
-    expect(screen.queryByText('Add Entities')).not.toBeInTheDocument()
+    expect(screen.queryByText('Add Items')).not.toBeInTheDocument()
   })
 
-  it('should display entities grouped by domain', () => {
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+  it('should display tabs for entities and cards', () => {
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
+    expect(screen.getByRole('tab', { name: 'Entities' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Cards' })).toBeInTheDocument()
+  })
+
+  it('should display entities grouped by domain in entities tab', () => {
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
+
+    // Entities tab should be default
     expect(screen.getByText('Lights')).toBeInTheDocument()
     expect(screen.getByText('Switches')).toBeInTheDocument()
     expect(screen.getByText('Sensors')).toBeInTheDocument()
@@ -112,13 +109,7 @@ describe('EntityBrowser', () => {
   })
 
   it('should filter out system domains', () => {
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     expect(screen.queryByText('persistent_notification.test')).not.toBeInTheDocument()
   })
@@ -126,13 +117,7 @@ describe('EntityBrowser', () => {
   it('should filter entities based on search term', async () => {
     const user = userEvent.setup()
 
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     const searchInput = screen.getByPlaceholderText('Search entities...')
     await user.type(searchInput, 'light')
@@ -142,20 +127,13 @@ describe('EntityBrowser', () => {
     expect(screen.queryByText('Temperature')).not.toBeInTheDocument()
   })
 
-  it('should handle entity selection', async () => {
+  it('should add selected entities to grid', async () => {
     const user = userEvent.setup()
 
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     // Find and click the checkbox for Living Room Light
     const checkboxes = screen.getAllByRole('checkbox')
-    // Find the checkbox for Living Room Light (should be after the domain checkboxes)
     const lightCheckbox = checkboxes.find((cb) =>
       cb.closest('label')?.textContent?.includes('Living Room Light')
     )
@@ -168,47 +146,61 @@ describe('EntityBrowser', () => {
     const addButton = screen.getByRole('button', { name: /Add \(1\)/ })
     await user.click(addButton)
 
-    expect(mockOnEntitiesSelected).toHaveBeenCalledWith(['light.living_room'])
+    // Should have called addGridItem
+    expect(dashboardActions.addGridItem).toHaveBeenCalledWith(
+      mockScreenId,
+      expect.objectContaining({
+        type: 'entity',
+        entityId: 'light.living_room',
+        x: 0,
+        y: 0,
+        width: 2,
+        height: 2,
+      })
+    )
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('should handle select all for a domain', async () => {
+  it('should show cards tab content', async () => {
     const user = userEvent.setup()
 
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
-    // Find the Lights header checkbox
-    const checkboxes = screen.getAllByRole('checkbox')
-    // The first checkbox should be for Lights domain
-    const lightsCheckbox = checkboxes[0]
-    await user.click(lightsCheckbox)
+    // Click on Cards tab
+    const cardsTab = screen.getByRole('tab', { name: 'Cards' })
+    await user.click(cardsTab)
 
-    // Should select all lights
-    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByText('Add special cards to your dashboard')).toBeInTheDocument()
+    expect(screen.getByTitle(/Text Card/)).toBeInTheDocument()
+    expect(screen.getByTitle(/Separator/)).toBeInTheDocument()
   })
 
-  it('should exclude already added entities', () => {
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-        currentEntityIds={['light.living_room']}
-      />
+  it('should add text card', async () => {
+    const user = userEvent.setup()
+
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
+
+    // Click on Cards tab
+    const cardsTab = screen.getByRole('tab', { name: 'Cards' })
+    await user.click(cardsTab)
+
+    // Click text card button
+    const textButton = screen.getByTitle(/Text Card/)
+    await user.click(textButton)
+
+    // Should have called addGridItem with text card
+    expect(dashboardActions.addGridItem).toHaveBeenCalledWith(
+      mockScreenId,
+      expect.objectContaining({
+        type: 'text',
+        content: '# Text Card\n\nDouble-click to edit this text.',
+        x: 0,
+        y: 0,
+        width: 3,
+        height: 2,
+      })
     )
-
-    // Living Room Light should not be shown
-    expect(screen.queryByText('Living Room Light')).not.toBeInTheDocument()
-
-    // Other entities should still be shown
-    expect(screen.getByText('Kitchen Switch')).toBeInTheDocument()
-    expect(screen.getByText('Temperature')).toBeInTheDocument()
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
   it('should show loading state', () => {
@@ -219,13 +211,7 @@ describe('EntityBrowser', () => {
       isLoading: true,
     })
 
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     expect(screen.getByText('Loading entities...')).toBeInTheDocument()
   })
@@ -238,13 +224,7 @@ describe('EntityBrowser', () => {
       isLoading: false,
     })
 
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     expect(screen.getByText('No entities found')).toBeInTheDocument()
   })
@@ -252,18 +232,33 @@ describe('EntityBrowser', () => {
   it('should handle cancel action', async () => {
     const user = userEvent.setup()
 
-    render(
-      <EntityBrowser
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        onEntitiesSelected={mockOnEntitiesSelected}
-      />
-    )
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' })
     await user.click(cancelButton)
 
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
-    expect(mockOnEntitiesSelected).not.toHaveBeenCalled()
+  })
+
+  it('should not add items when screenId is null', async () => {
+    const user = userEvent.setup()
+
+    render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={null} />)
+
+    // Select an entity
+    const checkboxes = screen.getAllByRole('checkbox')
+    const lightCheckbox = checkboxes.find((cb) =>
+      cb.closest('label')?.textContent?.includes('Living Room Light')
+    )
+    await user.click(lightCheckbox!)
+
+    // Click Add button
+    const addButton = screen.getByRole('button', { name: /Add \(1\)/ })
+    await user.click(addButton)
+
+    // Should not have called addGridItem
+    expect(dashboardActions.addGridItem).not.toHaveBeenCalled()
+    // But should still close
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 })
