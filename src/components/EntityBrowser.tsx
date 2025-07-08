@@ -68,7 +68,7 @@ export function EntityBrowser({
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
   const [hasSearched, setHasSearched] = useState(false)
   const { entities, isLoading } = useEntities()
-  const { isIndexing, search, searchResults } = useEntitySearch(entities)
+  const { isIndexing, search, searchResults, indexStats } = useEntitySearch(entities)
   const parentRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
@@ -247,8 +247,14 @@ export function EntityBrowser({
           {/* Results summary */}
           <Flex justify="between" align="center">
             <Text size="2" color="gray">
-              {totalEntities} entities found
-              {searchTerm && ` matching "${searchTerm}"`}
+              {!searchTerm && hasSearched ? (
+                <>Showing sample entities. Type to search all {indexStats.totalEntities} entities</>
+              ) : (
+                <>
+                  {totalEntities} entities found
+                  {searchTerm && ` matching "${searchTerm}"`}
+                </>
+              )}
             </Text>
             {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
           </Flex>
@@ -281,65 +287,75 @@ export function EntityBrowser({
                 </Text>
               </Flex>
             ) : (
-              <div
-                style={{
-                  height: `${virtualizer.getTotalSize()}px`,
-                  width: '100%',
-                  position: 'relative',
-                }}
-              >
-                {virtualizer.getVirtualItems().map((virtualItem) => {
-                  const item = flattenedItems[virtualItem.index]
-                  return (
-                    <div
-                      key={virtualItem.key}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: `${virtualItem.size}px`,
-                        transform: `translateY(${virtualItem.start}px)`,
-                      }}
-                    >
-                      {item.type === 'header' && (
-                        <Flex align="center" justify="between" p="2" style={{ height: '100%' }}>
-                          <Text size="2" weight="bold">
-                            {getFriendlyDomain(item.domain)}
-                          </Text>
-                          <Checkbox
-                            size="1"
-                            checked={
-                              entityGroups
-                                .find((g) => g.domain === item.domain)
-                                ?.entities.every((e) => selectedEntityIds.has(e.entity_id)) || false
-                            }
-                            onCheckedChange={(checked) =>
-                              handleToggleAll(item.domain, checked as boolean)
-                            }
-                          />
-                        </Flex>
-                      )}
-                      {item.type === 'entity' && (
-                        <Box px="2">
-                          <EntityItem
-                            entity={item.entity}
-                            checked={selectedEntityIds.has(item.entity.entity_id)}
-                            onCheckedChange={(checked) =>
-                              handleToggleEntity(item.entity.entity_id, checked)
-                            }
-                          />
-                        </Box>
-                      )}
-                      {item.type === 'separator' && (
-                        <Box px="2" py="1">
-                          <Separator size="4" />
-                        </Box>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+              <>
+                <div
+                  style={{
+                    height: `${virtualizer.getTotalSize()}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((virtualItem) => {
+                    const item = flattenedItems[virtualItem.index]
+                    return (
+                      <div
+                        key={virtualItem.key}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: `${virtualItem.size}px`,
+                          transform: `translateY(${virtualItem.start}px)`,
+                        }}
+                      >
+                        {item.type === 'header' && (
+                          <Flex align="center" justify="between" p="2" style={{ height: '100%' }}>
+                            <Text size="2" weight="bold">
+                              {getFriendlyDomain(item.domain)}
+                            </Text>
+                            <Checkbox
+                              size="1"
+                              checked={
+                                entityGroups
+                                  .find((g) => g.domain === item.domain)
+                                  ?.entities.every((e) => selectedEntityIds.has(e.entity_id)) ||
+                                false
+                              }
+                              onCheckedChange={(checked) =>
+                                handleToggleAll(item.domain, checked as boolean)
+                              }
+                            />
+                          </Flex>
+                        )}
+                        {item.type === 'entity' && (
+                          <Box px="2">
+                            <EntityItem
+                              entity={item.entity}
+                              checked={selectedEntityIds.has(item.entity.entity_id)}
+                              onCheckedChange={(checked) =>
+                                handleToggleEntity(item.entity.entity_id, checked)
+                              }
+                            />
+                          </Box>
+                        )}
+                        {item.type === 'separator' && (
+                          <Box px="2" py="1">
+                            <Separator size="4" />
+                          </Box>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {!searchTerm && hasSearched && (
+                  <Flex justify="center" p="3">
+                    <Text size="2" color="gray">
+                      Start typing to search all {indexStats.totalEntities} entities
+                    </Text>
+                  </Flex>
+                )}
+              </>
             )}
           </Box>
         </Flex>

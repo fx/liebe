@@ -11,11 +11,13 @@ interface EntitySearchWorkerAPI {
   }>
   search(
     query: string,
-    excludedIds?: string[]
+    excludedIds?: string[],
+    limit?: number
   ): Promise<{
     results: HassEntity[]
     totalCount: number
     groupedByDomain: Record<string, HassEntity[]>
+    totalEntities?: number
   }>
   getEntitiesByDomain(domain: string, excludedIds?: string[]): Promise<HassEntity[]>
   getDomains(): Promise<string[]>
@@ -40,21 +42,8 @@ async function getWorkerAPI(): Promise<EntitySearchWorkerAPI> {
   if (workerAPI) return workerAPI
 
   if (!workerInstance) {
-    try {
-      // Try module worker first (for development)
-      if (import.meta.env.DEV) {
-        workerInstance = new Worker(new URL('../workers/entitySearch.worker.ts', import.meta.url), {
-          type: 'module',
-        })
-      } else {
-        // Use inline worker for production/IIFE builds
-        workerInstance = createInlineWorker()
-      }
-    } catch (error) {
-      console.warn('Failed to create module worker, falling back to inline worker:', error)
-      workerInstance = createInlineWorker()
-    }
-    
+    // Always use inline worker for now to avoid build issues
+    workerInstance = createInlineWorker()
     workerAPI = Comlink.wrap<EntitySearchWorkerAPI>(workerInstance)
   }
 
@@ -67,6 +56,7 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
     results: HassEntity[]
     totalCount: number
     groupedByDomain: Record<string, HassEntity[]>
+    totalEntities?: number
   }>({
     results: [],
     totalCount: 0,
@@ -112,12 +102,12 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
 
   // Search function
   const search = useCallback(
-    async (query: string, excludedIds: string[] = []) => {
+    async (query: string, excludedIds: string[] = [], limit?: number) => {
       if (isIndexing) return
 
       try {
         const api = await getWorkerAPI()
-        const results = await api.search(query, excludedIds)
+        const results = await api.search(query, excludedIds, limit)
         setSearchResults(results)
         return results
       } catch (error) {
@@ -126,6 +116,7 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
           results: [],
           totalCount: 0,
           groupedByDomain: {},
+          totalEntities: 0,
         }
       }
     },

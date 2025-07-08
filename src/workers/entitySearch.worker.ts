@@ -84,11 +84,13 @@ const api = {
   // Search entities with query
   async search(
     query: string,
-    excludedIds: string[] = []
+    excludedIds: string[] = [],
+    limit: number = 100
   ): Promise<{
     results: HassEntity[]
     totalCount: number
     groupedByDomain: Record<string, HassEntity[]>
+    totalEntities: number
   }> {
     console.time('Search')
 
@@ -96,13 +98,37 @@ const api = {
     let results: HassEntity[] = []
 
     if (!query || query.trim() === '') {
-      // Return all non-excluded entities
-      results = Array.from(entityCache.values()).filter(
-        (entity) => !excludeSet.has(entity.entity_id)
-      )
+      // For empty query, return a limited set of entities grouped by domain
+      const domainResults = new Map<string, HassEntity[]>()
+      const maxPerDomain = 10
+
+      // Get a sample from each domain
+      for (const [domain, entityIds] of domainIndices.entries()) {
+        const domainEntities: HassEntity[] = []
+        let count = 0
+
+        for (const id of entityIds) {
+          if (excludeSet.has(id)) continue
+          const entity = entityCache.get(id)
+          if (entity) {
+            domainEntities.push(entity)
+            count++
+            if (count >= maxPerDomain) break
+          }
+        }
+
+        if (domainEntities.length > 0) {
+          domainResults.set(domain, domainEntities)
+        }
+      }
+
+      // Flatten results
+      for (const entities of domainResults.values()) {
+        results.push(...entities)
+      }
     } else {
-      // Search using FlexSearch
-      const searchResults = searchIndex.search(query.toLowerCase(), { limit: 1000 })
+      // Search using FlexSearch with limit
+      const searchResults = searchIndex.search(query.toLowerCase(), { limit })
 
       // Convert search results to entities
       results = searchResults
@@ -138,6 +164,7 @@ const api = {
       results,
       totalCount: results.length,
       groupedByDomain,
+      totalEntities: entityCache.size,
     }
   },
 
