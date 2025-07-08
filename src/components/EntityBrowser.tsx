@@ -5,7 +5,6 @@ import {
   TextField,
   Checkbox,
   Button,
-  Separator,
   Text,
   Box,
   IconButton,
@@ -25,38 +24,6 @@ interface EntityBrowserProps {
   currentEntityIds?: string[]
 }
 
-// Helper to get friendly domain name
-const getFriendlyDomain = (domain: string): string => {
-  const domainMap: Record<string, string> = {
-    light: 'Lights',
-    switch: 'Switches',
-    sensor: 'Sensors',
-    binary_sensor: 'Binary Sensors',
-    climate: 'Climate',
-    cover: 'Covers',
-    fan: 'Fans',
-    lock: 'Locks',
-    camera: 'Cameras',
-    media_player: 'Media Players',
-    scene: 'Scenes',
-    script: 'Scripts',
-    automation: 'Automations',
-    input_boolean: 'Input Booleans',
-    input_number: 'Input Numbers',
-    input_text: 'Input Text',
-    input_select: 'Input Select',
-    input_datetime: 'Input DateTime',
-    weather: 'Weather',
-  }
-  return domainMap[domain] || domain.charAt(0).toUpperCase() + domain.slice(1)
-}
-
-// Types for flattened list items
-type FlattenedItem =
-  | { type: 'header'; domain: string; entityCount: number }
-  | { type: 'entity'; entity: HassEntity; domain: string }
-  | { type: 'separator' }
-
 // Track render performance
 let renderStartTime: number | null = null
 
@@ -70,8 +37,7 @@ export function EntityBrowser({
     renderStartTime = performance.now()
   }
   console.log('[EntityBrowser] Rendering, open:', open)
-  
-  
+
   const [searchTerm, setSearchTerm] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
@@ -79,7 +45,7 @@ export function EntityBrowser({
   const { entities, isLoading } = useEntities()
   // Only initialize search when dialog is actually open
   const { isIndexing, search, searchResults, indexStats } = useEntitySearch(open ? entities : {})
-  
+
   console.log('[EntityBrowser] State:', {
     entitiesCount: Object.keys(entities).length,
     isLoading,
@@ -92,23 +58,27 @@ export function EntityBrowser({
   const parentRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
-  // Use search results when available
-  const entityGroups = useMemo(() => {
-    console.log('[EntityBrowser] Computing entityGroups, hasSearched:', hasSearched, 'isIndexing:', isIndexing)
+  // Use search results when available - now just a flat list
+  const entityList = useMemo(() => {
+    console.log(
+      '[EntityBrowser] Computing entityList, hasSearched:',
+      hasSearched,
+      'isIndexing:',
+      isIndexing
+    )
     if (!hasSearched || isIndexing) {
       return []
     }
 
-    const groups = Object.entries(searchResults.groupedByDomain)
-      .map(([domain, entities]) => ({
-        domain,
-        entities,
-      }))
-      .sort((a, b) => getFriendlyDomain(a.domain).localeCompare(getFriendlyDomain(b.domain)))
-    
-    console.log('[EntityBrowser] entityGroups computed:', groups.length, 'domains,', 
-      groups.reduce((sum, g) => sum + g.entities.length, 0), 'total entities')
-    return groups
+    // Sort entities by friendly name for easier browsing
+    const sorted = [...searchResults.results].sort((a, b) => {
+      const nameA = a.attributes.friendly_name || a.entity_id
+      const nameB = b.attributes.friendly_name || b.entity_id
+      return nameA.localeCompare(nameB)
+    })
+
+    console.log('[EntityBrowser] entityList computed:', sorted.length, 'entities')
+    return sorted
   }, [searchResults, hasSearched, isIndexing])
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
@@ -123,23 +93,7 @@ export function EntityBrowser({
     })
   }, [])
 
-  const handleToggleAll = useCallback(
-    (domain: string, checked: boolean) => {
-      const domainEntities = entityGroups.find((g) => g.domain === domain)?.entities || []
-      setSelectedEntityIds((prev) => {
-        const next = new Set(prev)
-        domainEntities.forEach((entity) => {
-          if (checked) {
-            next.add(entity.entity_id)
-          } else {
-            next.delete(entity.entity_id)
-          }
-        })
-        return next
-      })
-    },
-    [entityGroups]
-  )
+  // Removed handleToggleAll - no longer needed without grouping
 
   const handleAddSelected = useCallback(() => {
     onEntitiesSelected(Array.from(selectedEntityIds))
@@ -170,62 +124,54 @@ export function EntityBrowser({
 
   // Initial search when dialog opens or indexing completes
   useEffect(() => {
-    console.log('[EntityBrowser] useEffect - open:', open, 'isIndexing:', isIndexing, 'hasSearched:', hasSearched)
+    console.log(
+      '[EntityBrowser] useEffect - open:',
+      open,
+      'isIndexing:',
+      isIndexing,
+      'hasSearched:',
+      hasSearched
+    )
     if (open && !isIndexing && !hasSearched) {
       console.log('[EntityBrowser] Triggering initial search...')
       const startTime = performance.now()
       search('', currentEntityIds).then((results) => {
         const duration = performance.now() - startTime
-        console.log('[EntityBrowser] Initial search completed in', duration.toFixed(2), 'ms, results:', results)
+        console.log(
+          '[EntityBrowser] Initial search completed in',
+          duration.toFixed(2),
+          'ms, results:',
+          results
+        )
         setHasSearched(true)
       })
     }
   }, [open, isIndexing, hasSearched, search, currentEntityIds])
 
-  // Flatten entity groups for virtualization
+  // Direct entity list for virtualization - no flattening needed
   const flattenedItems = useMemo(() => {
     const startTime = performance.now()
-    const items: FlattenedItem[] = []
-    entityGroups.forEach((group, groupIndex) => {
-      // Add group header
-      items.push({
-        type: 'header',
-        domain: group.domain,
-        entityCount: group.entities.length,
-      })
-      // Add entities
-      group.entities.forEach((entity) => {
-        items.push({
-          type: 'entity',
-          entity,
-          domain: group.domain,
-        })
-      })
-      // Add separator (except after last group)
-      if (groupIndex < entityGroups.length - 1) {
-        items.push({ type: 'separator' })
-      }
-    })
     const duration = performance.now() - startTime
-    console.log('[EntityBrowser] Flattened items computed in', duration.toFixed(2), 'ms, count:', items.length)
-    return items
-  }, [entityGroups])
+    console.log(
+      '[EntityBrowser] Entity list ready in',
+      duration.toFixed(2),
+      'ms, count:',
+      entityList.length
+    )
+    return entityList
+  }, [entityList])
 
   // Set up virtualizer with aggressive optimization
   const virtualizer = useVirtualizer({
     count: flattenedItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) => {
-      const item = flattenedItems[index]
-      if (item.type === 'header') return 40
-      if (item.type === 'entity') return 56 // Height of entity card
-      return 24 // separator height
-    },
-    overscan: 2, // Reduced from 5 to 2 for less DOM nodes
+    estimateSize: () => 56, // All items are entity cards now
+    overscan: 3, // Slightly increased for smoother scrolling
     scrollMargin: 0,
-    enableSmoothScroll: false, // Disable smooth scrolling for performance
+    // Additional performance optimizations
+    measureElement: undefined, // Disable dynamic measurements
   })
-  
+
   console.log('[EntityBrowser] Virtualizer:', {
     totalItems: flattenedItems.length,
     virtualItems: virtualizer.getVirtualItems().length,
@@ -297,7 +243,10 @@ export function EntityBrowser({
           <Flex justify="between" align="center">
             <Text size="2" color="gray">
               {!searchTerm && hasSearched ? (
-                <>Showing {totalEntities} sample entities from {entityGroups.length} domains. Type to search all {indexStats.totalEntities} entities</>
+                <>
+                  Showing {totalEntities} sample entities. Type to search all{' '}
+                  {indexStats.totalEntities} entities
+                </>
               ) : (
                 <>
                   {totalEntities} entities found
@@ -344,9 +293,8 @@ export function EntityBrowser({
                     position: 'relative',
                   }}
                 >
-                  {console.log('[EntityBrowser] Rendering virtual items:', virtualizer.getVirtualItems().length)}
                   {virtualizer.getVirtualItems().map((virtualItem) => {
-                    const item = flattenedItems[virtualItem.index]
+                    const entity = flattenedItems[virtualItem.index]
                     return (
                       <div
                         key={virtualItem.key}
@@ -359,41 +307,15 @@ export function EntityBrowser({
                           transform: `translateY(${virtualItem.start}px)`,
                         }}
                       >
-                        {item.type === 'header' && (
-                          <Flex align="center" justify="between" p="2" style={{ height: '100%' }}>
-                            <Text size="2" weight="bold">
-                              {getFriendlyDomain(item.domain)}
-                            </Text>
-                            <Checkbox
-                              size="1"
-                              checked={
-                                entityGroups
-                                  .find((g) => g.domain === item.domain)
-                                  ?.entities.every((e) => selectedEntityIds.has(e.entity_id)) ||
-                                false
-                              }
-                              onCheckedChange={(checked) =>
-                                handleToggleAll(item.domain, checked as boolean)
-                              }
-                            />
-                          </Flex>
-                        )}
-                        {item.type === 'entity' && (
-                          <Box px="2">
-                            <EntityItem
-                              entity={item.entity}
-                              checked={selectedEntityIds.has(item.entity.entity_id)}
-                              onCheckedChange={(checked) =>
-                                handleToggleEntity(item.entity.entity_id, checked)
-                              }
-                            />
-                          </Box>
-                        )}
-                        {item.type === 'separator' && (
-                          <Box px="2" py="1">
-                            <Separator size="4" />
-                          </Box>
-                        )}
+                        <Box px="2">
+                          <EntityItem
+                            entity={entity}
+                            checked={selectedEntityIds.has(entity.entity_id)}
+                            onCheckedChange={(checked) =>
+                              handleToggleEntity(entity.entity_id, checked)
+                            }
+                          />
+                        </Box>
                       </div>
                     )
                   })}

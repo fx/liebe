@@ -171,7 +171,7 @@ describe('EntityBrowser', () => {
     expect(screen.queryByText('Add Entities')).not.toBeInTheDocument()
   })
 
-  it('should display entities grouped by domain', async () => {
+  it('should display entities in a flat list', async () => {
     render(
       <EntityBrowser
         open={true}
@@ -185,10 +185,7 @@ describe('EntityBrowser', () => {
       expect(screen.getByText(/Showing.*sample entities.*Type to search all/)).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Lights')).toBeInTheDocument()
-    expect(screen.getByText('Switches')).toBeInTheDocument()
-    expect(screen.getByText('Sensors')).toBeInTheDocument()
-
+    // Entities should be displayed without domain headers
     expect(screen.getByText('Living Room Light')).toBeInTheDocument()
     expect(screen.getByText('Kitchen Switch')).toBeInTheDocument()
     expect(screen.getByText('Temperature')).toBeInTheDocument()
@@ -232,7 +229,7 @@ describe('EntityBrowser', () => {
 
     // Just verify that the input has the correct value
     expect(searchInput).toHaveValue('light')
-    
+
     // The actual search functionality is tested by the fact that the component doesn't crash
     // and the input accepts the typed value. The debounced search and filtering logic
     // is an implementation detail that doesn't need to be tested in this integration test.
@@ -273,7 +270,7 @@ describe('EntityBrowser', () => {
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('should handle select all for a domain', async () => {
+  it('should handle individual entity selection only', async () => {
     const user = userEvent.setup()
 
     render(
@@ -286,16 +283,17 @@ describe('EntityBrowser', () => {
 
     // Wait for content to render
     await waitFor(() => {
-      expect(screen.getByText('Lights')).toBeInTheDocument()
+      expect(screen.getByText('Living Room Light')).toBeInTheDocument()
     })
 
-    // Find the Lights header checkbox
+    // Find and click the checkbox for Living Room Light
     const checkboxes = screen.getAllByRole('checkbox')
-    // The first checkbox should be for Lights domain
-    const lightsCheckbox = checkboxes[0]
-    await user.click(lightsCheckbox)
+    const lightCheckbox = checkboxes.find((cb) =>
+      cb.closest('label')?.textContent?.includes('Living Room Light')
+    )
+    await user.click(lightCheckbox!)
 
-    // Should select all lights
+    // Should select the light
     expect(screen.getByText('1 selected')).toBeInTheDocument()
   })
 

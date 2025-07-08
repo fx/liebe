@@ -89,7 +89,12 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
           setIsIndexing(true)
           initializationPromise = api.initializeIndex(entityArray).then((stats) => {
             const duration = performance.now() - startTime
-            console.log('[useEntitySearch] Index initialized in', duration.toFixed(2), 'ms, stats:', stats)
+            console.log(
+              '[useEntitySearch] Index initialized in',
+              duration.toFixed(2),
+              'ms, stats:',
+              stats
+            )
             setIndexStats(stats)
             setIsIndexing(false)
           })
@@ -125,7 +130,7 @@ export function useEntitySearch(entities: Record<string, HassEntity>) {
         console.log('[useEntitySearch] Search completed in', duration.toFixed(2), 'ms, results:', {
           count: results.results.length,
           domains: Object.keys(results.groupedByDomain).length,
-          totalEntities: results.totalEntities
+          totalEntities: results.totalEntities,
         })
         setSearchResults(results)
         return results

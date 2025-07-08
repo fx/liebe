@@ -82,7 +82,13 @@ const api = {
     }
 
     console.timeEnd('Index initialization')
-    console.log('[Worker] Indexed', processedCount, 'entities, skipped', skippedCount, 'system entities')
+    console.log(
+      '[Worker] Indexed',
+      processedCount,
+      'entities, skipped',
+      skippedCount,
+      'system entities'
+    )
     console.log('[Worker] Domains:', Array.from(domainIndices.keys()).sort())
     return {
       totalEntities: entityCache.size,
@@ -101,7 +107,14 @@ const api = {
     groupedByDomain: Record<string, HassEntity[]>
     totalEntities: number
   }> {
-    console.log('[Worker] search called, query:', query, 'excludedIds:', excludedIds.length, 'limit:', limit)
+    console.log(
+      '[Worker] search called, query:',
+      query,
+      'excludedIds:',
+      excludedIds.length,
+      'limit:',
+      limit
+    )
     console.time('Search')
 
     const excludeSet = new Set(excludedIds)
@@ -118,7 +131,7 @@ const api = {
       // Get a small sample from each domain
       for (const [domain, entityIds] of domainIndices.entries()) {
         if (domainCount >= maxDomains) break
-        
+
         const domainEntities: HassEntity[] = []
         let count = 0
 
@@ -142,7 +155,13 @@ const api = {
       for (const entities of domainResults.values()) {
         results.push(...entities)
       }
-      console.log('[Worker] Sample results:', domainResults.size, 'domains,', results.length, 'entities')
+      console.log(
+        '[Worker] Sample results:',
+        domainResults.size,
+        'domains,',
+        results.length,
+        'entities'
+      )
     } else {
       // Search using FlexSearch with limit
       const searchResults = searchIndex.search(query.toLowerCase(), { limit })
@@ -176,7 +195,13 @@ const api = {
     }
 
     console.timeEnd('Search')
-    console.log('[Worker] Search returned', results.length, 'results from', Object.keys(groupedByDomain).length, 'domains')
+    console.log(
+      '[Worker] Search returned',
+      results.length,
+      'results from',
+      Object.keys(groupedByDomain).length,
+      'domains'
+    )
 
     return {
       results,
