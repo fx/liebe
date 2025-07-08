@@ -91,8 +91,8 @@ describe('EntityBrowser', () => {
   it('should display tabs for entities and cards', () => {
     render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
-    expect(screen.getByRole('tab', { name: 'Entities' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Cards' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Entities/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Cards/i })).toBeInTheDocument()
   })
 
   it('should display entities grouped by domain in entities tab', () => {
@@ -167,7 +167,7 @@ describe('EntityBrowser', () => {
     render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     // Click on Cards tab
-    const cardsTab = screen.getByRole('tab', { name: 'Cards' })
+    const cardsTab = screen.getByRole('tab', { name: /Cards/i })
     await user.click(cardsTab)
 
     expect(screen.getByText('Add special cards to your dashboard')).toBeInTheDocument()
@@ -181,7 +181,7 @@ describe('EntityBrowser', () => {
     render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
     // Click on Cards tab
-    const cardsTab = screen.getByRole('tab', { name: 'Cards' })
+    const cardsTab = screen.getByRole('tab', { name: /Cards/i })
     await user.click(cardsTab)
 
     // Click text card button
