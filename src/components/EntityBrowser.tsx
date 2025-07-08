@@ -70,12 +70,15 @@ export function EntityBrowser({
     renderStartTime = performance.now()
   }
   console.log('[EntityBrowser] Rendering, open:', open)
+  
+  
   const [searchTerm, setSearchTerm] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
   const [hasSearched, setHasSearched] = useState(false)
   const { entities, isLoading } = useEntities()
-  const { isIndexing, search, searchResults, indexStats } = useEntitySearch(entities)
+  // Only initialize search when dialog is actually open
+  const { isIndexing, search, searchResults, indexStats } = useEntitySearch(open ? entities : {})
   
   console.log('[EntityBrowser] State:', {
     entitiesCount: Object.keys(entities).length,
@@ -341,6 +344,7 @@ export function EntityBrowser({
                     position: 'relative',
                   }}
                 >
+                  {console.log('[EntityBrowser] Rendering virtual items:', virtualizer.getVirtualItems().length)}
                   {virtualizer.getVirtualItems().map((virtualItem) => {
                     const item = flattenedItems[virtualItem.index]
                     return (
@@ -394,13 +398,6 @@ export function EntityBrowser({
                     )
                   })}
                 </div>
-                {!searchTerm && hasSearched && (
-                  <Flex justify="center" p="3">
-                    <Text size="2" color="gray">
-                      Start typing to search all {indexStats.totalEntities} entities
-                    </Text>
-                  </Flex>
-                )}
               </>
             )}
           </Box>
