@@ -26,6 +26,7 @@ export function ScreenTaskbarButton({
 }: ScreenTaskbarButtonProps) {
   const mode = useStore(dashboardStore, (state) => state.mode)
   const showEditButton = mode === 'edit' && onEdit
+  const [isHovered, setIsHovered] = React.useState(false)
 
   return (
     <Flex align="center" gap={showText ? '2' : '0'} style={{ position: 'relative', width: '100%' }}>
@@ -47,17 +48,28 @@ export function ScreenTaskbarButton({
             e.stopPropagation()
             onEdit()
           }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
           aria-label={`Edit ${label}`}
           style={
             showText
-              ? {}
+              ? {
+                  transition: 'all 0.2s ease',
+                  boxShadow: '-2px 2px 6px rgba(0, 0, 0, 0.12)',
+                }
               : {
                   position: 'absolute',
-                  top: 2,
-                  right: 2,
+                  top: -6,
+                  right: -6,
                   padding: '2px',
                   minWidth: 'unset',
                   minHeight: 'unset',
+                  opacity: 1,
+                  backgroundColor: isHovered ? 'var(--gray-3)' : 'var(--color-panel-solid)',
+                  border: '1px solid var(--gray-a5)',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '-2px 2px 8px rgba(0, 0, 0, 0.15)',
+                  transform: 'none',
                 }
           }
         >
