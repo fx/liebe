@@ -10,9 +10,8 @@ vi.mock('~/hooks', () => ({
 }))
 
 // Mock the virtualizer to render all items in tests
-let mockVirtualItems: any[] = []
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: vi.fn((options: any) => {
+  useVirtualizer: vi.fn((options: { count: number; estimateSize: (index: number) => number }) => {
     // Create virtual items based on count
     const items = []
     let offset = 0
@@ -21,7 +20,6 @@ vi.mock('@tanstack/react-virtual', () => ({
       items.push({ index: i, start: offset, size, key: i })
       offset += size
     }
-    mockVirtualItems = items
     return {
       getVirtualItems: () => items,
       getTotalSize: () => offset,
