@@ -32,9 +32,16 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
         }}
       >
         {/* Header */}
-        <Flex justify="between" align="center" p="4" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
+        <Flex
+          justify="between"
+          align="center"
+          p="4"
+          style={{ borderBottom: '1px solid var(--gray-a5)' }}
+        >
           <Box>
-            <Text size="5" weight="bold">Add Items</Text>
+            <Text size="5" weight="bold">
+              Add Items
+            </Text>
             <Text size="2" color="gray" style={{ display: 'block', marginTop: '4px' }}>
               Select items to add to your dashboard
             </Text>
@@ -52,7 +59,10 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
 
         {/* Content */}
         <Box style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <Tabs.Root defaultValue="entities" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Tabs.Root
+            defaultValue="entities"
+            style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+          >
             <Box px="4" pt="4">
               <Tabs.List>
                 <Tabs.Trigger value="entities">Entities</Tabs.Trigger>

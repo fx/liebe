@@ -4,7 +4,6 @@ import {
   TextField,
   Checkbox,
   Button,
-  Separator,
   Text,
   Box,
   IconButton,
@@ -13,12 +12,19 @@ import {
   Link,
   ScrollArea,
 } from '@radix-ui/themes'
-import { Cross2Icon, MagnifyingGlassIcon, ChevronDownIcon, ChevronRightIcon, CheckIcon } from '@radix-ui/react-icons'
+import {
+  Cross2Icon,
+  MagnifyingGlassIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CheckIcon,
+} from '@radix-ui/react-icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEntities } from '~/hooks'
-import { dashboardActions } from '~/store'
+import { dashboardActions, dashboardStore } from '~/store'
 import type { HassEntity } from '~/store/entityTypes'
 import type { GridItem } from '~/store/types'
+import { findOptimalPositionsForBatch } from '~/utils/gridPositioning'
 
 interface EntitiesBrowserTabProps {
   screenId: string | null
@@ -94,7 +100,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
   const [excludedInitialized, setExcludedInitialized] = useState(false)
   const { entities, isLoading } = useEntities()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  
+
   // Initialize excluded domains with unsupported ones when entities are loaded
   useEffect(() => {
     if (!excludedInitialized && Object.keys(entities).length > 0) {
@@ -105,15 +111,15 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
           allDomains.add(domain)
         }
       })
-      
+
       // Exclude domains that aren't supported
       const unsupported = new Set<string>()
-      allDomains.forEach(domain => {
+      allDomains.forEach((domain) => {
         if (!SUPPORTED_DOMAINS.includes(domain)) {
           unsupported.add(domain)
         }
       })
-      
+
       if (unsupported.size > 0) {
         setExcludedDomains(unsupported)
       }
@@ -144,22 +150,22 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     // Separate excluded and visible domains
     const visibleDomains: DomainInfo[] = []
     const excluded: DomainInfo[] = []
-    
+
     Object.entries(allDomainMap).forEach(([domain, count]) => {
       const info = {
         domain,
         friendlyName: getFriendlyDomain(domain),
         count,
-        entities: [] // We don't need entities for the filter menu
+        entities: [], // We don't need entities for the filter menu
       }
-      
+
       if (excludedDomains.has(domain)) {
         excluded.push(info)
       } else {
         visibleDomains.push(info)
       }
     })
-    
+
     // Sort both arrays
     visibleDomains.sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
     excluded.sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
@@ -174,7 +180,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       if (excludedDomains.has(domain)) {
         return false
       }
-      
+
       // Domain filter - if domains are selected, only show entities from those domains
       if (selectedDomains.size > 0 && !selectedDomains.has(domain)) {
         return false
@@ -241,7 +247,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       return next
     })
   }, [])
-  
+
   const handleExcludeDomain = useCallback((domain: string) => {
     setExcludedDomains((prev) => {
       const next = new Set(prev)
@@ -255,7 +261,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       return next
     })
   }, [])
-  
+
   const handleUnexcludeDomain = useCallback((domain: string) => {
     setExcludedDomains((prev) => {
       const next = new Set(prev)
@@ -263,22 +269,54 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       return next
     })
   }, [])
-  
+
   const handleClearExclusions = useCallback(() => {
     setExcludedDomains(new Set())
   }, [])
 
-
   const handleAddSelected = useCallback(() => {
     if (screenId) {
-      // Create GridItem for each entity
-      Array.from(selectedEntityIds).forEach((entityId, index) => {
+      // Get current screen configuration to access existing items
+      const state = dashboardStore.state
+      const findScreen = (
+        screens: typeof state.screens,
+        id: string
+      ): (typeof state.screens)[0] | null => {
+        for (const screen of screens) {
+          if (screen.id === id) return screen
+          if (screen.children) {
+            const found = findScreen(screen.children, id)
+            if (found) return found
+          }
+        }
+        return null
+      }
+
+      const currentScreen = findScreen(state.screens, screenId)
+      if (!currentScreen?.grid) return
+
+      // Prepare new items data
+      const entityIds = Array.from(selectedEntityIds)
+      const newItemsData = entityIds.map(() => ({
+        width: 2,
+        height: 2,
+      }))
+
+      // Find optimal positions for all items at once
+      const positions = findOptimalPositionsForBatch(
+        currentScreen.grid.items,
+        newItemsData,
+        currentScreen.grid.resolution
+      )
+
+      // Create GridItem for each entity with optimal position
+      entityIds.forEach((entityId, index) => {
         const newItem: GridItem = {
           id: `${Date.now()}-${index}`,
           type: 'entity',
           entityId,
-          x: 0,
-          y: 0,
+          x: positions[index].x,
+          y: positions[index].y,
           width: 2,
           height: 2,
         }
@@ -334,7 +372,8 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       <Flex justify="between" align="center">
         <Text size="2" color="gray">
           {totalEntities} entities
-          {selectedDomains.size > 0 && ` in ${selectedDomains.size} domain${selectedDomains.size > 1 ? 's' : ''}`}
+          {selectedDomains.size > 0 &&
+            ` in ${selectedDomains.size} domain${selectedDomains.size > 1 ? 's' : ''}`}
           {searchTerm && ` matching "${searchTerm}"`}
         </Text>
         {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
@@ -343,11 +382,14 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       {/* Main content area with legend and entity list */}
       <Flex gap="3" style={{ height: '400px' }}>
         {/* Entity Filter sidebar */}
-        <Card size="1" style={{ width: '240px', padding: 0, display: 'flex', flexDirection: 'column' }}>
+        <Card
+          size="1"
+          style={{ width: '240px', padding: 0, display: 'flex', flexDirection: 'column' }}
+        >
           {selectedDomains.size > 0 && (
             <Flex align="center" justify="end" p="3" pb="0">
-              <Link 
-                size="1" 
+              <Link
+                size="1"
                 onClick={() => setSelectedDomains(new Set())}
                 style={{ cursor: 'pointer' }}
               >
@@ -355,12 +397,12 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
               </Link>
             </Flex>
           )}
-          
+
           <ScrollArea style={{ flex: 1 }}>
             <Flex direction="column">
               {allDomainInfo.map((info) => {
                 const isDomainSelected = selectedDomains.has(info.domain)
-              
+
                 return (
                   <Box key={info.domain}>
                     <Flex
@@ -387,43 +429,43 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
                         }
                       }}
                     >
-                    <Flex align="center" justify="between">
-                      <Flex align="center" gap="2">
-                        <Checkbox
-                          size="1"
-                          checked={isDomainSelected}
-                          onClick={(e) => e.stopPropagation()}
-                          onCheckedChange={() => handleToggleDomain(info.domain)}
-                        />
-                        <Text size="2" weight="medium">
-                          {info.friendlyName}
-                        </Text>
+                      <Flex align="center" justify="between">
+                        <Flex align="center" gap="2">
+                          <Checkbox
+                            size="1"
+                            checked={isDomainSelected}
+                            onClick={(e) => e.stopPropagation()}
+                            onCheckedChange={() => handleToggleDomain(info.domain)}
+                          />
+                          <Text size="2" weight="medium">
+                            {info.friendlyName}
+                          </Text>
+                        </Flex>
+                        <Flex align="center" gap="2">
+                          <Badge size="1" variant="soft">
+                            {info.count}
+                          </Badge>
+                          <IconButton
+                            size="1"
+                            variant="ghost"
+                            color="gray"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleExcludeDomain(info.domain)
+                            }}
+                            title="Exclude this domain"
+                          >
+                            <Cross2Icon width="12" height="12" />
+                          </IconButton>
+                        </Flex>
                       </Flex>
-                      <Flex align="center" gap="2">
-                        <Badge size="1" variant="soft">
-                          {info.count}
-                        </Badge>
-                        <IconButton
-                          size="1"
-                          variant="ghost"
-                          color="gray"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleExcludeDomain(info.domain)
-                          }}
-                          title="Exclude this domain"
-                        >
-                          <Cross2Icon width="12" height="12" />
-                        </IconButton>
-                      </Flex>
-                    </Flex>
                     </Flex>
                   </Box>
                 )
               })}
             </Flex>
           </ScrollArea>
-          
+
           {/* Excluded domains section */}
           {excludedDomainInfo.length > 0 && (
             <Box px="3" py="2" style={{ borderTop: '1px solid var(--gray-a3)' }}>
@@ -437,50 +479,46 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
                   {excludedDomainInfo.length} excluded
                 </Link>
                 {showAdvanced && (
-                  <Link
-                    size="1"
-                    onClick={handleClearExclusions}
-                    style={{ cursor: 'pointer' }}
-                  >
+                  <Link size="1" onClick={handleClearExclusions} style={{ cursor: 'pointer' }}>
                     Clear all
                   </Link>
                 )}
               </Flex>
-              
+
               {showAdvanced && (
                 <Box mt="2">
                   <ScrollArea style={{ maxHeight: '120px' }} scrollbars="vertical">
                     <Flex direction="column" gap="1">
-                    {excludedDomainInfo.map((info) => (
-                      <Flex
-                        key={info.domain}
-                        align="center"
-                        justify="between"
-                        px="2"
-                        py="1"
-                        style={{
-                          backgroundColor: 'var(--gray-a2)',
-                          borderRadius: 'var(--radius-2)',
-                          fontSize: '12px',
-                        }}
-                      >
-                        <Text size="1" color="gray">
-                          {info.friendlyName}
-                        </Text>
-                        <Flex align="center" gap="2">
-                          <Badge size="1" variant="soft" color="gray">
-                            {info.count}
-                          </Badge>
-                          <Link
-                            size="1"
-                            onClick={() => handleUnexcludeDomain(info.domain)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            Include
-                          </Link>
+                      {excludedDomainInfo.map((info) => (
+                        <Flex
+                          key={info.domain}
+                          align="center"
+                          justify="between"
+                          px="2"
+                          py="1"
+                          style={{
+                            backgroundColor: 'var(--gray-a2)',
+                            borderRadius: 'var(--radius-2)',
+                            fontSize: '12px',
+                          }}
+                        >
+                          <Text size="1" color="gray">
+                            {info.friendlyName}
+                          </Text>
+                          <Flex align="center" gap="2">
+                            <Badge size="1" variant="soft" color="gray">
+                              {info.count}
+                            </Badge>
+                            <Link
+                              size="1"
+                              onClick={() => handleUnexcludeDomain(info.domain)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              Include
+                            </Link>
+                          </Flex>
                         </Flex>
-                      </Flex>
-                    ))}
+                      ))}
                     </Flex>
                   </ScrollArea>
                 </Box>
@@ -493,7 +531,12 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
         <Box style={{ flex: 1 }}>
           <Card size="1" style={{ height: '100%', padding: 0 }}>
             {filteredEntities.length > 0 && (
-              <Flex align="center" justify="end" p="2" style={{ borderBottom: '1px solid var(--gray-a3)' }}>
+              <Flex
+                align="center"
+                justify="end"
+                p="2"
+                style={{ borderBottom: '1px solid var(--gray-a3)' }}
+              >
                 <Link
                   size="2"
                   onClick={handleSelectAllVisible}
@@ -504,8 +547,8 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
                   ) : (
                     <CheckIcon width="15" height="15" />
                   )}
-                  {filteredEntities.every((e) => selectedEntityIds.has(e.entity_id)) 
-                    ? 'Deselect all' 
+                  {filteredEntities.every((e) => selectedEntityIds.has(e.entity_id))
+                    ? 'Deselect all'
                     : 'Select all'}
                 </Link>
               </Flex>
@@ -606,24 +649,24 @@ const EntityItem = memo(function EntityItem({ entity, checked, onCheckedChange }
             onCheckedChange={onCheckedChange as (checked: boolean | 'indeterminate') => void}
           />
           <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
-            <Text 
-              size="2" 
-              weight="medium" 
-              style={{ 
+            <Text
+              size="2"
+              weight="medium"
+              style={{
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
               }}
             >
               {friendlyName}
             </Text>
-            <Text 
-              size="1" 
+            <Text
+              size="1"
               color="gray"
-              style={{ 
+              style={{
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
               }}
             >
               {entity.entity_id} • {stateDisplay}

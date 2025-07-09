@@ -36,7 +36,7 @@ interface FullscreenModalProps {
  * A fullscreen modal that portals to document.body to escape shadow DOM boundaries.
  * Useful for Home Assistant panels and other shadow DOM contexts where standard
  * modals get trapped under menus.
- * 
+ *
  * Features:
  * - Renders to document.body via React portal
  * - High z-index to appear above everything
@@ -105,8 +105,5 @@ export function FullscreenModal({
     </>
   )
 
-  return createPortal(
-    includeTheme ? <Theme>{content}</Theme> : content,
-    document.body
-  )
+  return createPortal(includeTheme ? <Theme>{content}</Theme> : content, document.body)
 }

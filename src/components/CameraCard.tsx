@@ -69,7 +69,6 @@ function CameraCardComponent({
     enabled: webRTCEnabled,
   })
 
-
   const handleVideoClick = useCallback(() => {
     if (!streamError && !isEditMode) {
       setIsFullscreen(!isFullscreen)

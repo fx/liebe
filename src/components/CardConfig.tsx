@@ -3,7 +3,6 @@ import {
   Flex,
   Button,
   Text,
-  Separator,
   ScrollArea,
   Box,
   IconButton,
@@ -478,7 +477,12 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         }}
       >
-        <Flex align="center" justify="between" p="4" style={{ borderBottom: '1px solid var(--gray-a5)' }}>
+        <Flex
+          align="center"
+          justify="between"
+          p="4"
+          style={{ borderBottom: '1px solid var(--gray-a5)' }}
+        >
           <Text size="5" weight="bold">
             Card Configuration
           </Text>

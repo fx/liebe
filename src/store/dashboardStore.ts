@@ -10,6 +10,7 @@ import type {
   WidgetConfig,
 } from './types'
 import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug'
+import { findOptimalPosition } from '../utils/gridPositioning'
 
 const DEFAULT_GRID_RESOLUTION: GridResolution = {
   columns: 12,
@@ -181,11 +182,23 @@ export const dashboardActions = {
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
         return screens.map((screen) => {
           if (screen.id === screenId && screen.grid) {
+            // Find optimal position if x and y are 0 (default position)
+            let optimizedItem = item
+            if (item.x === 0 && item.y === 0) {
+              const position = findOptimalPosition(
+                screen.grid.items,
+                item.width,
+                item.height,
+                screen.grid.resolution
+              )
+              optimizedItem = { ...item, ...position }
+            }
+
             return {
               ...screen,
               grid: {
                 ...screen.grid,
-                items: [...screen.grid.items, item],
+                items: [...screen.grid.items, optimizedItem],
               },
             }
           }
