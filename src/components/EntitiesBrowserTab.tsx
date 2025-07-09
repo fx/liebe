@@ -13,7 +13,7 @@ import {
   Link,
   ScrollArea,
 } from '@radix-ui/themes'
-import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { Cross2Icon, MagnifyingGlassIcon, ChevronDownIcon, ChevronRightIcon, CheckIcon } from '@radix-ui/react-icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEntities } from '~/hooks'
 import { dashboardActions } from '~/store'
@@ -66,13 +66,60 @@ interface DomainInfo {
   entities: HassEntity[]
 }
 
+// Domains that are supported with custom cards
+const SUPPORTED_DOMAINS = [
+  'light',
+  'switch',
+  'cover',
+  'climate',
+  'sensor',
+  'binary_sensor',
+  'weather',
+  'fan',
+  'camera',
+  'input_boolean',
+  'input_number',
+  'input_select',
+  'input_text',
+  'input_datetime',
+]
+
 export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProps) {
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [excludedDomains, setExcludedDomains] = useState<Set<string>>(new Set())
+  const [excludedInitialized, setExcludedInitialized] = useState(false)
   const { entities, isLoading } = useEntities()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  
+  // Initialize excluded domains with unsupported ones when entities are loaded
+  useEffect(() => {
+    if (!excludedInitialized && Object.keys(entities).length > 0) {
+      const allDomains = new Set<string>()
+      Object.values(entities).forEach((entity) => {
+        const domain = getDomain(entity.entity_id)
+        if (!SYSTEM_DOMAINS.includes(domain)) {
+          allDomains.add(domain)
+        }
+      })
+      
+      // Exclude domains that aren't supported
+      const unsupported = new Set<string>()
+      allDomains.forEach(domain => {
+        if (!SUPPORTED_DOMAINS.includes(domain)) {
+          unsupported.add(domain)
+        }
+      })
+      
+      if (unsupported.size > 0) {
+        setExcludedDomains(unsupported)
+      }
+      setExcludedInitialized(true)
+    }
+  }, [entities, excludedInitialized])
 
   // Debounce search term updates
   useEffect(() => {
@@ -84,12 +131,50 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
   }, [searchInput])
 
   // Filter and sort entities
-  const { filteredEntities, domainInfo } = useMemo(() => {
+  const { filteredEntities, allDomainInfo, excludedDomainInfo } = useMemo(() => {
+    // First, get all domains from all entities (for the filter menu)
+    const allDomainMap: Record<string, number> = {}
+    Object.values(entities).forEach((entity) => {
+      const domain = getDomain(entity.entity_id)
+      if (!SYSTEM_DOMAINS.includes(domain)) {
+        allDomainMap[domain] = (allDomainMap[domain] || 0) + 1
+      }
+    })
+
+    // Separate excluded and visible domains
+    const visibleDomains: DomainInfo[] = []
+    const excluded: DomainInfo[] = []
+    
+    Object.entries(allDomainMap).forEach(([domain, count]) => {
+      const info = {
+        domain,
+        friendlyName: getFriendlyDomain(domain),
+        count,
+        entities: [] // We don't need entities for the filter menu
+      }
+      
+      if (excludedDomains.has(domain)) {
+        excluded.push(info)
+      } else {
+        visibleDomains.push(info)
+      }
+    })
+    
+    // Sort both arrays
+    visibleDomains.sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
+    excluded.sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
+
+    // Now filter entities based on selected domains and search
     const filtered = Object.values(entities).filter((entity) => {
       // Filter out system domains
       const domain = getDomain(entity.entity_id)
       if (SYSTEM_DOMAINS.includes(domain)) return false
 
+      // Exclude domains that are in the excluded list
+      if (excludedDomains.has(domain)) {
+        return false
+      }
+      
       // Domain filter - if domains are selected, only show entities from those domains
       if (selectedDomains.size > 0 && !selectedDomains.has(domain)) {
         return false
@@ -115,27 +200,8 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       )
     })
 
-    // Build domain info for legend
-    const domainMap: Record<string, HassEntity[]> = {}
-    sorted.forEach((entity) => {
-      const domain = getDomain(entity.entity_id)
-      if (!domainMap[domain]) {
-        domainMap[domain] = []
-      }
-      domainMap[domain].push(entity)
-    })
-
-    const domains: DomainInfo[] = Object.entries(domainMap)
-      .map(([domain, entities]) => ({
-        domain,
-        friendlyName: getFriendlyDomain(domain),
-        count: entities.length,
-        entities
-      }))
-      .sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
-
-    return { filteredEntities: sorted, domainInfo: domains }
-  }, [entities, searchTerm, selectedDomains])
+    return { filteredEntities: sorted, allDomainInfo: visibleDomains, excludedDomainInfo: excluded }
+  }, [entities, searchTerm, selectedDomains, excludedDomains])
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
     setSelectedEntityIds((prev) => {
@@ -149,23 +215,20 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     })
   }, [])
 
-  const handleToggleAll = useCallback(
-    (domain: string, checked: boolean) => {
-      const domainEntities = domainInfo.find((d) => d.domain === domain)?.entities || []
-      setSelectedEntityIds((prev) => {
-        const next = new Set(prev)
-        domainEntities.forEach((entity) => {
-          if (checked) {
-            next.add(entity.entity_id)
-          } else {
-            next.delete(entity.entity_id)
-          }
-        })
-        return next
+  const handleSelectAllVisible = useCallback(() => {
+    const allVisible = filteredEntities.every((entity) => selectedEntityIds.has(entity.entity_id))
+    setSelectedEntityIds((prev) => {
+      const next = new Set(prev)
+      filteredEntities.forEach((entity) => {
+        if (allVisible) {
+          next.delete(entity.entity_id)
+        } else {
+          next.add(entity.entity_id)
+        }
       })
-    },
-    [domainInfo]
-  )
+      return next
+    })
+  }, [filteredEntities, selectedEntityIds])
 
   const handleToggleDomain = useCallback((domain: string) => {
     setSelectedDomains((prev) => {
@@ -178,27 +241,33 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       return next
     })
   }, [])
+  
+  const handleExcludeDomain = useCallback((domain: string) => {
+    setExcludedDomains((prev) => {
+      const next = new Set(prev)
+      next.add(domain)
+      return next
+    })
+    // Also remove from selected if it was selected
+    setSelectedDomains((prev) => {
+      const next = new Set(prev)
+      next.delete(domain)
+      return next
+    })
+  }, [])
+  
+  const handleUnexcludeDomain = useCallback((domain: string) => {
+    setExcludedDomains((prev) => {
+      const next = new Set(prev)
+      next.delete(domain)
+      return next
+    })
+  }, [])
+  
+  const handleClearExclusions = useCallback(() => {
+    setExcludedDomains(new Set())
+  }, [])
 
-  const handleSelectAllInDomain = useCallback(
-    (domain: string) => {
-      const domainEntities = domainInfo.find((d) => d.domain === domain)?.entities || []
-      const visibleDomainEntities = domainEntities.filter((entity) => {
-        // Apply same filter logic as main filter
-        if (searchTerm) {
-          const search = searchTerm.toLowerCase()
-          return (
-            entity.entity_id.toLowerCase().includes(search) ||
-            entity.attributes.friendly_name?.toLowerCase().includes(search) ||
-            domain.toLowerCase().includes(search)
-          )
-        }
-        return true
-      })
-      const allSelected = visibleDomainEntities.every((e) => selectedEntityIds.has(e.entity_id))
-      handleToggleAll(domain, !allSelected)
-    },
-    [domainInfo, searchTerm, selectedEntityIds, handleToggleAll]
-  )
 
   const handleAddSelected = useCallback(() => {
     if (screenId) {
@@ -218,6 +287,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     }
     setSelectedEntityIds(new Set())
     setSelectedDomains(new Set())
+    // Don't reset excluded domains - they should persist for the session
     setSearchInput('')
     setSearchTerm('')
     onClose()
@@ -272,39 +342,24 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
 
       {/* Main content area with legend and entity list */}
       <Flex gap="3" style={{ height: '400px' }}>
-        {/* Domain filter sidebar */}
+        {/* Entity Filter sidebar */}
         <Card size="1" style={{ width: '240px', padding: 0, display: 'flex', flexDirection: 'column' }}>
-          <Flex align="center" justify="between" p="3" pb="2">
-            <Text size="2" weight="bold">Filter by Domain</Text>
-            {selectedDomains.size > 0 && (
+          {selectedDomains.size > 0 && (
+            <Flex align="center" justify="end" p="3" pb="0">
               <Link 
                 size="1" 
                 onClick={() => setSelectedDomains(new Set())}
                 style={{ cursor: 'pointer' }}
               >
-                Clear
+                Clear filters
               </Link>
-            )}
-          </Flex>
+            </Flex>
+          )}
           
           <ScrollArea style={{ flex: 1 }}>
             <Flex direction="column">
-              {domainInfo.map((info) => {
-              const isDomainSelected = selectedDomains.has(info.domain)
-              const visibleDomainEntities = info.entities.filter((entity) => {
-                if (searchTerm) {
-                  const search = searchTerm.toLowerCase()
-                  return (
-                    entity.entity_id.toLowerCase().includes(search) ||
-                    entity.attributes.friendly_name?.toLowerCase().includes(search) ||
-                    info.domain.toLowerCase().includes(search)
-                  )
-                }
-                return true
-              })
-              const isAllSelected = visibleDomainEntities.length > 0 && 
-                visibleDomainEntities.every((e) => selectedEntityIds.has(e.entity_id))
-              const isSomeSelected = visibleDomainEntities.some((e) => selectedEntityIds.has(e.entity_id))
+              {allDomainInfo.map((info) => {
+                const isDomainSelected = selectedDomains.has(info.domain)
               
                 return (
                   <Box key={info.domain}>
@@ -344,47 +399,121 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
                           {info.friendlyName}
                         </Text>
                       </Flex>
-                      <Badge size="1" variant="soft">
-                        {visibleDomainEntities.length}
-                      </Badge>
+                      <Flex align="center" gap="2">
+                        <Badge size="1" variant="soft">
+                          {info.count}
+                        </Badge>
+                        <IconButton
+                          size="1"
+                          variant="ghost"
+                          color="gray"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleExcludeDomain(info.domain)
+                          }}
+                          title="Exclude this domain"
+                        >
+                          <Cross2Icon width="12" height="12" />
+                        </IconButton>
+                      </Flex>
                     </Flex>
-                    
-                      {isDomainSelected && (
-                        <Flex align="center" gap="2" ml="5">
-                          <Checkbox
-                            size="1"
-                            checked={isAllSelected}
-                            indeterminate={isSomeSelected && !isAllSelected}
-                            onClick={(e) => e.stopPropagation()}
-                            onCheckedChange={() => handleSelectAllInDomain(info.domain)}
-                          />
-                          <Link 
-                            size="1" 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSelectAllInDomain(info.domain)
-                            }}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            Select all
-                          </Link>
-                        </Flex>
-                      )}
                     </Flex>
                   </Box>
                 )
               })}
             </Flex>
           </ScrollArea>
+          
+          {/* Excluded domains section */}
+          {excludedDomainInfo.length > 0 && (
+            <Box px="3" py="2" style={{ borderTop: '1px solid var(--gray-a3)' }}>
+              <Flex align="center" justify="between">
+                <Link
+                  size="2"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {showAdvanced ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                  {excludedDomainInfo.length} excluded
+                </Link>
+                {showAdvanced && (
+                  <Link
+                    size="1"
+                    onClick={handleClearExclusions}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    Clear all
+                  </Link>
+                )}
+              </Flex>
+              
+              {showAdvanced && (
+                <Box mt="2">
+                  <ScrollArea style={{ maxHeight: '120px' }} scrollbars="vertical">
+                    <Flex direction="column" gap="1">
+                    {excludedDomainInfo.map((info) => (
+                      <Flex
+                        key={info.domain}
+                        align="center"
+                        justify="between"
+                        px="2"
+                        py="1"
+                        style={{
+                          backgroundColor: 'var(--gray-a2)',
+                          borderRadius: 'var(--radius-2)',
+                          fontSize: '12px',
+                        }}
+                      >
+                        <Text size="1" color="gray">
+                          {info.friendlyName}
+                        </Text>
+                        <Flex align="center" gap="2">
+                          <Badge size="1" variant="soft" color="gray">
+                            {info.count}
+                          </Badge>
+                          <Link
+                            size="1"
+                            onClick={() => handleUnexcludeDomain(info.domain)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            Include
+                          </Link>
+                        </Flex>
+                      </Flex>
+                    ))}
+                    </Flex>
+                  </ScrollArea>
+                </Box>
+              )}
+            </Box>
+          )}
         </Card>
 
         {/* Virtualized Entity list */}
         <Box style={{ flex: 1 }}>
           <Card size="1" style={{ height: '100%', padding: 0 }}>
+            {filteredEntities.length > 0 && (
+              <Flex align="center" justify="end" p="2" style={{ borderBottom: '1px solid var(--gray-a3)' }}>
+                <Link
+                  size="2"
+                  onClick={handleSelectAllVisible}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {filteredEntities.every((e) => selectedEntityIds.has(e.entity_id)) ? (
+                    <Cross2Icon width="12" height="12" />
+                  ) : (
+                    <CheckIcon width="15" height="15" />
+                  )}
+                  {filteredEntities.every((e) => selectedEntityIds.has(e.entity_id)) 
+                    ? 'Deselect all' 
+                    : 'Select all'}
+                </Link>
+              </Flex>
+            )}
             <div
               ref={scrollAreaRef}
               style={{
-                height: '100%',
+                height: filteredEntities.length > 0 ? 'calc(100% - 41px)' : '100%',
                 overflow: 'auto',
                 position: 'relative',
               }}
