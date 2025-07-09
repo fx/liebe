@@ -75,12 +75,7 @@ export function ScreenTaskbarButton({
   // When collapsed, show edit button as a corner badge
   return (
     <div style={{ position: 'relative', width: '100%' }}>
-      <IconButton
-        size="3"
-        variant={variant}
-        onClick={onClick}
-        aria-label={label}
-      >
+      <IconButton size="3" variant={variant} onClick={onClick} aria-label={label}>
         {icon}
       </IconButton>
       {showEditButton && (
