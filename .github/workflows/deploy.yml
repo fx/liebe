@@ -44,8 +44,48 @@ jobs:
         run: |
           # Copy all dist files to pages-dist
           cp -r ./dist ./pages-dist
-          # Copy the index.html file
-          cp ./.github/pages-index.html ./pages-dist/index.html
+          
+          # Generate index.html from README using marked
+          cat > ./pages-dist/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Liebe - Beautiful Dashboard for Home Assistant</title>
+              <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.5.0/github-markdown.min.css">
+              <style>
+                  body {
+                      box-sizing: border-box;
+                      min-width: 200px;
+                      max-width: 980px;
+                      margin: 0 auto;
+                      padding: 45px;
+                  }
+                  @media (max-width: 767px) {
+                      body {
+                          padding: 15px;
+                      }
+                  }
+                  .markdown-body {
+                      box-sizing: border-box;
+                      min-width: 200px;
+                      max-width: 980px;
+                      margin: 0 auto;
+                  }
+              </style>
+          </head>
+          <body>
+              <article class="markdown-body">
+          EOF
+          
+          npx marked@12 -i README.md --gfm >> ./pages-dist/index.html
+          
+          cat >> ./pages-dist/index.html << 'EOF'
+              </article>
+          </body>
+          </html>
+          EOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
