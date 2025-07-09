@@ -232,10 +232,14 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
         </TextField.Slot>
         {searchInput && (
           <TextField.Slot>
-            <IconButton size="1" variant="ghost" onClick={() => {
-              setSearchInput('')
-              setSearchTerm('')
-            }}>
+            <IconButton
+              size="1"
+              variant="ghost"
+              onClick={() => {
+                setSearchInput('')
+                setSearchTerm('')
+              }}
+            >
               <Cross2Icon height="14" width="14" />
             </IconButton>
           </TextField.Slot>
