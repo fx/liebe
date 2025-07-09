@@ -56,11 +56,13 @@ const getFriendlyDomain = (domain: string): string => {
 // Domains to filter out by default
 const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
 
-// Types for virtualization
-type VirtualItem =
-  | { type: 'header'; domain: string; entities: HassEntity[] }
-  | { type: 'entity'; entity: HassEntity }
-  | { type: 'separator' }
+// Domain info for legend
+interface DomainInfo {
+  domain: string
+  friendlyName: string
+  count: number
+  entities: HassEntity[]
+}
 
 export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProps) {
   const [searchInput, setSearchInput] = useState('')
@@ -78,8 +80,8 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     return () => clearTimeout(timeoutId)
   }, [searchInput])
 
-  // Filter and flatten entities for virtualization
-  const virtualItems = useMemo(() => {
+  // Filter and sort entities
+  const { filteredEntities, domainInfo } = useMemo(() => {
     const filtered = Object.values(entities).filter((entity) => {
       // Filter out system domains
       const domain = getDomain(entity.entity_id)
@@ -98,55 +100,34 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       return true
     })
 
-    // Group by domain
-    const groups: Record<string, HassEntity[]> = {}
-    filtered.forEach((entity) => {
-      const domain = getDomain(entity.entity_id)
-      if (!groups[domain]) {
-        groups[domain] = []
-      }
-      groups[domain].push(entity)
-    })
-
-    // Convert to flattened array for virtualization
-    const items: VirtualItem[] = []
-    const sortedDomains = Object.keys(groups).sort((a, b) =>
-      getFriendlyDomain(a).localeCompare(getFriendlyDomain(b))
-    )
-
-    sortedDomains.forEach((domain, index) => {
-      const domainEntities = groups[domain].sort((a, b) =>
-        (a.attributes.friendly_name || a.entity_id).localeCompare(
-          b.attributes.friendly_name || b.entity_id
-        )
+    // Sort entities by friendly name only
+    const sorted = filtered.sort((a, b) => {
+      return (a.attributes.friendly_name || a.entity_id).localeCompare(
+        b.attributes.friendly_name || b.entity_id
       )
-
-      // Add header
-      items.push({ type: 'header', domain, entities: domainEntities })
-
-      // Add entities
-      domainEntities.forEach((entity) => {
-        items.push({ type: 'entity', entity })
-      })
-
-      // Add separator (except for last group)
-      if (index < sortedDomains.length - 1) {
-        items.push({ type: 'separator' })
-      }
     })
 
-    return items
-  }, [entities, searchTerm])
+    // Build domain info for legend
+    const domainMap: Record<string, HassEntity[]> = {}
+    sorted.forEach((entity) => {
+      const domain = getDomain(entity.entity_id)
+      if (!domainMap[domain]) {
+        domainMap[domain] = []
+      }
+      domainMap[domain].push(entity)
+    })
 
-  // Keep entityGroups for compatibility with other functions
-  const entityGroups = useMemo(() => {
-    return virtualItems
-      .filter((item) => item.type === 'header')
-      .map((item) => ({
-        domain: (item as { type: 'header'; domain: string }).domain,
-        entities: (item as { type: 'header'; domain: string; entities: HassEntity[] }).entities,
+    const domains: DomainInfo[] = Object.entries(domainMap)
+      .map(([domain, entities]) => ({
+        domain,
+        friendlyName: getFriendlyDomain(domain),
+        count: entities.length,
+        entities
       }))
-  }, [virtualItems])
+      .sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
+
+    return { filteredEntities: sorted, domainInfo: domains }
+  }, [entities, searchTerm])
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
     setSelectedEntityIds((prev) => {
@@ -162,7 +143,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
 
   const handleToggleAll = useCallback(
     (domain: string, checked: boolean) => {
-      const domainEntities = entityGroups.find((g) => g.domain === domain)?.entities || []
+      const domainEntities = domainInfo.find((d) => d.domain === domain)?.entities || []
       setSelectedEntityIds((prev) => {
         const next = new Set(prev)
         domainEntities.forEach((entity) => {
@@ -175,7 +156,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
         return next
       })
     },
-    [entityGroups]
+    [domainInfo]
   )
 
   const handleAddSelected = useCallback(() => {
@@ -200,22 +181,13 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     onClose()
   }, [selectedEntityIds, screenId, onClose])
 
-  const totalEntities = useMemo(
-    () => entityGroups.reduce((sum, group) => sum + group.entities.length, 0),
-    [entityGroups]
-  )
+  const totalEntities = filteredEntities.length
 
   // Initialize virtualizer
   const virtualizer = useVirtualizer({
-    count: virtualItems.length,
+    count: filteredEntities.length,
     getScrollElement: () => scrollAreaRef.current,
-    estimateSize: (index) => {
-      const item = virtualItems[index]
-      if (item.type === 'header') return 48
-      if (item.type === 'entity') return 72
-      if (item.type === 'separator') return 24
-      return 50
-    },
+    estimateSize: () => 64, // Fixed height matching EntityItem
     overscan: 5,
   })
 
@@ -255,84 +227,115 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
         {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
       </Flex>
 
-      {/* Virtualized Entity list */}
-      <div
-        ref={scrollAreaRef}
-        style={{
-          height: '400px',
-          overflow: 'auto',
-          position: 'relative',
-        }}
-      >
-        {isLoading ? (
-          <Flex align="center" justify="center" p="6">
-            <Text color="gray">Loading entities...</Text>
-          </Flex>
-        ) : virtualItems.length === 0 ? (
-          <Flex align="center" justify="center" p="6">
-            <Text color="gray">No entities found</Text>
-          </Flex>
-        ) : (
-          <div
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const item = virtualItems[virtualRow.index]
-
+      {/* Main content area with legend and entity list */}
+      <Flex gap="3" style={{ height: '400px' }}>
+        {/* Domain legend sidebar */}
+        <Card size="1" style={{ width: '200px', overflow: 'auto' }}>
+          <Flex direction="column" gap="1" p="2">
+            <Text size="2" weight="bold" mb="2">Domains</Text>
+            {domainInfo.map((info) => {
+              const isAllSelected = info.entities.every((e) => selectedEntityIds.has(e.entity_id))
+              const isSomeSelected = info.entities.some((e) => selectedEntityIds.has(e.entity_id))
+              
               return (
-                <div
-                  key={virtualRow.key}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  {item.type === 'header' && (
-                    <Flex align="center" justify="between" height="48px" pr="3">
-                      <Text size="2" weight="bold">
-                        {getFriendlyDomain(item.domain)}
-                      </Text>
+                <Box key={info.domain}>
+                  <Flex
+                    align="center"
+                    justify="between"
+                    p="2"
+                    style={{
+                      borderRadius: 'var(--radius-2)',
+                      transition: 'background-color 0.15s',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--gray-a2)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }}
+                  >
+                    <Flex align="center" gap="2" style={{ flex: 1 }}>
                       <Checkbox
                         size="1"
-                        checked={item.entities.every((e) => selectedEntityIds.has(e.entity_id))}
+                        checked={isAllSelected}
+                        indeterminate={isSomeSelected && !isAllSelected}
                         onCheckedChange={(checked) =>
-                          handleToggleAll(item.domain, checked as boolean)
+                          handleToggleAll(info.domain, checked as boolean)
                         }
                       />
+                      <Text size="2" weight="medium">
+                        {info.friendlyName}
+                      </Text>
                     </Flex>
-                  )}
-
-                  {item.type === 'entity' && (
-                    <Box pr="3">
-                      <EntityItem
-                        entity={item.entity}
-                        checked={selectedEntityIds.has(item.entity.entity_id)}
-                        onCheckedChange={(checked) =>
-                          handleToggleEntity(item.entity.entity_id, checked)
-                        }
-                      />
-                    </Box>
-                  )}
-
-                  {item.type === 'separator' && (
-                    <Box pr="3">
-                      <Separator size="4" my="3" />
-                    </Box>
-                  )}
-                </div>
+                    <Badge size="1" variant="soft">
+                      {info.count}
+                    </Badge>
+                  </Flex>
+                </Box>
               )
             })}
-          </div>
-        )}
-      </div>
+          </Flex>
+        </Card>
+
+        {/* Virtualized Entity list */}
+        <Box style={{ flex: 1 }}>
+          <Card size="1" style={{ height: '100%', padding: 0 }}>
+            <div
+              ref={scrollAreaRef}
+              style={{
+                height: '100%',
+                overflow: 'auto',
+                position: 'relative',
+              }}
+            >
+              {isLoading ? (
+                <Flex align="center" justify="center" p="6">
+                  <Text color="gray">Loading entities...</Text>
+                </Flex>
+              ) : filteredEntities.length === 0 ? (
+                <Flex align="center" justify="center" p="6">
+                  <Text color="gray">No entities found</Text>
+                </Flex>
+              ) : (
+                <div
+                  style={{
+                    height: `${virtualizer.getTotalSize()}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const entity = filteredEntities[virtualRow.index]
+
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '64px',
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <EntityItem
+                          entity={entity}
+                          checked={selectedEntityIds.has(entity.entity_id)}
+                          onCheckedChange={(checked) =>
+                            handleToggleEntity(entity.entity_id, checked)
+                          }
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </Card>
+        </Box>
+      </Flex>
 
       {/* Add button for entities */}
       <Flex gap="3" justify="end">
@@ -357,34 +360,48 @@ const EntityItem = memo(function EntityItem({ entity, checked, onCheckedChange }
     (entity.attributes.unit_of_measurement ? ` ${entity.attributes.unit_of_measurement}` : '')
 
   return (
-    <Box mb="2">
-      <Card asChild>
-        <label style={{ cursor: 'pointer' }}>
-          <Flex align="center" gap="3" p="3">
-            <Checkbox
-              size="2"
-              checked={checked}
-              onCheckedChange={onCheckedChange as (checked: boolean | 'indeterminate') => void}
-            />
-            <Flex direction="column" style={{ flex: 1 }}>
-              <Text size="2" weight="medium">
-                {friendlyName}
-              </Text>
-              <Flex gap="2" align="center">
-                <Text size="1" color="gray">
-                  {entity.entity_id}
-                </Text>
-                <Text size="1" color="gray">
-                  •
-                </Text>
-                <Text size="1" color="gray">
-                  {stateDisplay}
-                </Text>
-              </Flex>
-            </Flex>
+    <Box asChild>
+      <label style={{ display: 'block', cursor: 'pointer' }}>
+        <Flex
+          p="3"
+          align="center"
+          gap="2"
+          style={{
+            height: '64px',
+            borderBottom: '1px solid var(--gray-a3)',
+          }}
+        >
+          <Checkbox
+            size="1"
+            checked={checked}
+            onCheckedChange={onCheckedChange as (checked: boolean | 'indeterminate') => void}
+          />
+          <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+            <Text 
+              size="2" 
+              weight="medium" 
+              style={{ 
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {friendlyName}
+            </Text>
+            <Text 
+              size="1" 
+              color="gray"
+              style={{ 
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {entity.entity_id} • {stateDisplay}
+            </Text>
           </Flex>
-        </label>
-      </Card>
+        </Flex>
+      </label>
     </Box>
   )
 })
