@@ -10,6 +10,8 @@ import {
   IconButton,
   Badge,
   Card,
+  Link,
+  ScrollArea,
 } from '@radix-ui/themes'
 import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -68,6 +70,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
   const { entities, isLoading } = useEntities()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
@@ -86,6 +89,11 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       // Filter out system domains
       const domain = getDomain(entity.entity_id)
       if (SYSTEM_DOMAINS.includes(domain)) return false
+
+      // Domain filter - if domains are selected, only show entities from those domains
+      if (selectedDomains.size > 0 && !selectedDomains.has(domain)) {
+        return false
+      }
 
       // Search filter
       if (searchTerm) {
@@ -127,7 +135,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       .sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
 
     return { filteredEntities: sorted, domainInfo: domains }
-  }, [entities, searchTerm])
+  }, [entities, searchTerm, selectedDomains])
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
     setSelectedEntityIds((prev) => {
@@ -159,6 +167,39 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     [domainInfo]
   )
 
+  const handleToggleDomain = useCallback((domain: string) => {
+    setSelectedDomains((prev) => {
+      const next = new Set(prev)
+      if (next.has(domain)) {
+        next.delete(domain)
+      } else {
+        next.add(domain)
+      }
+      return next
+    })
+  }, [])
+
+  const handleSelectAllInDomain = useCallback(
+    (domain: string) => {
+      const domainEntities = domainInfo.find((d) => d.domain === domain)?.entities || []
+      const visibleDomainEntities = domainEntities.filter((entity) => {
+        // Apply same filter logic as main filter
+        if (searchTerm) {
+          const search = searchTerm.toLowerCase()
+          return (
+            entity.entity_id.toLowerCase().includes(search) ||
+            entity.attributes.friendly_name?.toLowerCase().includes(search) ||
+            domain.toLowerCase().includes(search)
+          )
+        }
+        return true
+      })
+      const allSelected = visibleDomainEntities.every((e) => selectedEntityIds.has(e.entity_id))
+      handleToggleAll(domain, !allSelected)
+    },
+    [domainInfo, searchTerm, selectedEntityIds, handleToggleAll]
+  )
+
   const handleAddSelected = useCallback(() => {
     if (screenId) {
       // Create GridItem for each entity
@@ -176,6 +217,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       })
     }
     setSelectedEntityIds(new Set())
+    setSelectedDomains(new Set())
     setSearchInput('')
     setSearchTerm('')
     onClose()
@@ -221,7 +263,8 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       {/* Results summary */}
       <Flex justify="between" align="center">
         <Text size="2" color="gray">
-          {totalEntities} entities found
+          {totalEntities} entities
+          {selectedDomains.size > 0 && ` in ${selectedDomains.size} domain${selectedDomains.size > 1 ? 's' : ''}`}
           {searchTerm && ` matching "${searchTerm}"`}
         </Text>
         {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
@@ -229,53 +272,110 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
 
       {/* Main content area with legend and entity list */}
       <Flex gap="3" style={{ height: '400px' }}>
-        {/* Domain legend sidebar */}
-        <Card size="1" style={{ width: '200px', overflow: 'auto' }}>
-          <Flex direction="column" gap="1" p="2">
-            <Text size="2" weight="bold" mb="2">Domains</Text>
-            {domainInfo.map((info) => {
-              const isAllSelected = info.entities.every((e) => selectedEntityIds.has(e.entity_id))
-              const isSomeSelected = info.entities.some((e) => selectedEntityIds.has(e.entity_id))
-              
-              return (
-                <Box key={info.domain}>
-                  <Flex
-                    align="center"
-                    justify="between"
-                    p="2"
-                    style={{
-                      borderRadius: 'var(--radius-2)',
-                      transition: 'background-color 0.15s',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--gray-a2)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                    }}
-                  >
-                    <Flex align="center" gap="2" style={{ flex: 1 }}>
-                      <Checkbox
-                        size="1"
-                        checked={isAllSelected}
-                        indeterminate={isSomeSelected && !isAllSelected}
-                        onCheckedChange={(checked) =>
-                          handleToggleAll(info.domain, checked as boolean)
-                        }
-                      />
-                      <Text size="2" weight="medium">
-                        {info.friendlyName}
-                      </Text>
-                    </Flex>
-                    <Badge size="1" variant="soft">
-                      {info.count}
-                    </Badge>
-                  </Flex>
-                </Box>
-              )
-            })}
+        {/* Domain filter sidebar */}
+        <Card size="1" style={{ width: '240px', padding: 0, display: 'flex', flexDirection: 'column' }}>
+          <Flex align="center" justify="between" p="3" pb="2">
+            <Text size="2" weight="bold">Filter by Domain</Text>
+            {selectedDomains.size > 0 && (
+              <Link 
+                size="1" 
+                onClick={() => setSelectedDomains(new Set())}
+                style={{ cursor: 'pointer' }}
+              >
+                Clear
+              </Link>
+            )}
           </Flex>
+          
+          <ScrollArea style={{ flex: 1 }}>
+            <Flex direction="column">
+              {domainInfo.map((info) => {
+              const isDomainSelected = selectedDomains.has(info.domain)
+              const visibleDomainEntities = info.entities.filter((entity) => {
+                if (searchTerm) {
+                  const search = searchTerm.toLowerCase()
+                  return (
+                    entity.entity_id.toLowerCase().includes(search) ||
+                    entity.attributes.friendly_name?.toLowerCase().includes(search) ||
+                    info.domain.toLowerCase().includes(search)
+                  )
+                }
+                return true
+              })
+              const isAllSelected = visibleDomainEntities.length > 0 && 
+                visibleDomainEntities.every((e) => selectedEntityIds.has(e.entity_id))
+              const isSomeSelected = visibleDomainEntities.some((e) => selectedEntityIds.has(e.entity_id))
+              
+                return (
+                  <Box key={info.domain}>
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      px="3"
+                      py="2"
+                      style={{
+                        backgroundColor: isDomainSelected ? 'var(--accent-a3)' : 'transparent',
+                        borderLeft: '3px solid',
+                        borderColor: isDomainSelected ? 'var(--accent-9)' : 'transparent',
+                        transition: 'all 0.15s',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => handleToggleDomain(info.domain)}
+                      onMouseEnter={(e) => {
+                        if (!isDomainSelected) {
+                          e.currentTarget.style.backgroundColor = 'var(--gray-a2)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isDomainSelected) {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    >
+                    <Flex align="center" justify="between">
+                      <Flex align="center" gap="2">
+                        <Checkbox
+                          size="1"
+                          checked={isDomainSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={() => handleToggleDomain(info.domain)}
+                        />
+                        <Text size="2" weight="medium">
+                          {info.friendlyName}
+                        </Text>
+                      </Flex>
+                      <Badge size="1" variant="soft">
+                        {visibleDomainEntities.length}
+                      </Badge>
+                    </Flex>
+                    
+                      {isDomainSelected && (
+                        <Flex align="center" gap="2" ml="5">
+                          <Checkbox
+                            size="1"
+                            checked={isAllSelected}
+                            indeterminate={isSomeSelected && !isAllSelected}
+                            onClick={(e) => e.stopPropagation()}
+                            onCheckedChange={() => handleSelectAllInDomain(info.domain)}
+                          />
+                          <Link 
+                            size="1" 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSelectAllInDomain(info.domain)
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            Select all
+                          </Link>
+                        </Flex>
+                      )}
+                    </Flex>
+                  </Box>
+                )
+              })}
+            </Flex>
+          </ScrollArea>
         </Card>
 
         {/* Virtualized Entity list */}
