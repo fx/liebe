@@ -1,257 +1,210 @@
-import { useState, useCallback, useEffect } from 'react'
-import {
-  Flex,
-  Text,
-  TextField,
-  Button,
-  Select,
-  Grid,
-  Box,
-  Card,
-  Separator,
-  Modal,
-} from '~/components/ui'
-import { CopyIcon, EyeOpenIcon, EyeNoneIcon } from '@radix-ui/react-icons'
-import { useDashboardStore, dashboardActions } from '../store'
+import { useState, useEffect } from 'react'
+import { TextField, Flex, Text, Select, Modal, Button } from '~/components/ui'
+import { dashboardActions, useDashboardStore } from '../store'
 import type { ScreenConfig } from '../store/types'
-import { generateSlug } from '../utils/slug'
+import { useNavigate } from '@tanstack/react-router'
+import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug'
 
 interface ScreenConfigDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  screenId?: string
+  screen?: ScreenConfig
 }
 
-const GRID_PRESETS: { label: string; columns: number; rows: number }[] = [
-  { label: 'Compact (8x6)', columns: 8, rows: 6 },
-  { label: 'Standard (12x8)', columns: 12, rows: 8 },
-  { label: 'Large (16x10)', columns: 16, rows: 10 },
-  { label: 'Extra Large (24x12)', columns: 24, rows: 12 },
-]
-
-// Helper function to find screen in tree structure
-const findScreenById = (screenList: ScreenConfig[], id: string): ScreenConfig | undefined => {
-  for (const screen of screenList) {
-    if (screen.id === id) return screen
-    if (screen.children) {
-      const found = findScreenById(screen.children, id)
-      if (found) return found
-    }
-  }
-  return undefined
-}
-
-export function ScreenConfigDialog({ open, onOpenChange, screenId }: ScreenConfigDialogProps) {
+export function ScreenConfigDialog({ open, onOpenChange, screen }: ScreenConfigDialogProps) {
   const screens = useDashboardStore((state) => state.screens)
-  const currentScreen = screenId ? findScreenById(screens, screenId) : null
+  const [viewName, setViewName] = useState('')
+  const [viewSlug, setViewSlug] = useState('')
+  const [parentId, setParentId] = useState<string>('')
+  const [showReorderButton, setShowReorderButton] = useState(false)
+  const navigate = useNavigate()
 
-  const [name, setName] = useState(currentScreen?.name || '')
-  const [columns, setColumns] = useState(currentScreen?.grid?.resolution.columns || 12)
-  const [rows, setRows] = useState(currentScreen?.grid?.resolution.rows || 8)
-  const [isVisible, setIsVisible] = useState(true) // TODO: Add visibility to ScreenConfig type
+  const isEditMode = !!screen
 
-  // Update state when screen changes
+  // Initialize form values when editing
   useEffect(() => {
-    if (currentScreen) {
-      setName(currentScreen.name)
-      setColumns(currentScreen.grid?.resolution.columns || 12)
-      setRows(currentScreen.grid?.resolution.rows || 8)
+    if (screen) {
+      setViewName(screen.name)
+      setViewSlug(screen.slug)
+      setShowReorderButton(true)
+      // TODO: Find parent ID if screen is nested
+    } else {
+      setViewName('')
+      setViewSlug('')
+      setParentId('')
+      setShowReorderButton(false)
     }
-  }, [currentScreen])
+  }, [screen])
 
-  const handleSave = useCallback(() => {
-    if (!screenId || !currentScreen) return
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
 
-    // Validate columns and rows
-    if (columns < 1 || columns > 24 || rows < 1 || rows > 20) {
-      return // Don't save invalid values
+    if (!viewName.trim()) return
+
+    if (isEditMode && screen) {
+      // Update existing screen
+      const baseSlug = viewSlug.trim() || generateSlug(viewName.trim())
+      const existingSlugs = getAllSlugs(screens).filter((slug) => slug !== screen.slug)
+      const uniqueSlug =
+        baseSlug === screen.slug ? baseSlug : ensureUniqueSlug(baseSlug, existingSlugs)
+
+      dashboardActions.updateScreen(screen.id, {
+        name: viewName.trim(),
+        slug: uniqueSlug,
+      })
+
+      // Navigate to the updated screen if slug changed
+      if (uniqueSlug !== screen.slug) {
+        navigate({ to: '/$slug', params: { slug: uniqueSlug } })
+      }
+    } else {
+      // Add new screen
+      const baseSlug = viewSlug.trim() || generateSlug(viewName.trim())
+      const existingSlugs = getAllSlugs(screens)
+      const uniqueSlug = ensureUniqueSlug(baseSlug, existingSlugs)
+
+      const newScreen: ScreenConfig = {
+        id: `screen-${Date.now()}`,
+        name: viewName.trim(),
+        slug: uniqueSlug,
+        type: 'grid',
+        grid: {
+          resolution: { columns: 12, rows: 8 },
+          items: [],
+        },
+      }
+
+      dashboardActions.addScreen(newScreen, parentId && parentId !== 'none' ? parentId : undefined)
+
+      // Navigate to the new screen using slug
+      navigate({ to: '/$slug', params: { slug: newScreen.slug } })
     }
 
-    const updates: Partial<ScreenConfig> = {
-      name,
-      slug: generateSlug(name),
-      grid: {
-        resolution: { columns, rows },
-        items: currentScreen.grid?.items || [],
-      },
-    }
-
-    dashboardActions.updateScreen(screenId, updates)
+    setViewName('')
+    setViewSlug('')
+    setParentId('')
     onOpenChange(false)
-  }, [screenId, currentScreen, name, columns, rows, onOpenChange])
-
-  const handleDuplicate = useCallback(() => {
-    if (!currentScreen) return
-
-    const newScreen: ScreenConfig = {
-      ...currentScreen,
-      id: `${currentScreen.id}-copy-${Date.now()}`,
-      name: `${currentScreen.name} (Copy)`,
-      slug: `${currentScreen.slug}-copy`,
-      children: undefined, // Don't duplicate children
-    }
-
-    dashboardActions.addScreen(newScreen, currentScreen.parentId)
-    onOpenChange(false)
-  }, [currentScreen, onOpenChange])
-
-  const handlePresetSelect = useCallback((value: string) => {
-    const preset = GRID_PRESETS.find((p) => p.label === value)
-    if (preset) {
-      setColumns(preset.columns)
-      setRows(preset.rows)
-    }
-  }, [])
-
-  const GridPreview = () => {
-    const cellSize = Math.min(300 / columns, 200 / rows)
-    return (
-      <Card>
-        <Box p="3">
-          <Text size="2" weight="medium" mb="2">
-            Grid Preview
-          </Text>
-          <Grid
-            columns={`${columns}`}
-            rows={`${rows}`}
-            gap="1"
-            style={{
-              width: columns * cellSize,
-              height: rows * cellSize,
-              maxWidth: '100%',
-              aspectRatio: `${columns} / ${rows}`,
-            }}
-          >
-            {Array.from({ length: columns * rows }).map((_, i) => (
-              <Box
-                key={i}
-                style={{
-                  backgroundColor: 'var(--gray-a3)',
-                  borderRadius: '2px',
-                  minHeight: '10px',
-                }}
-              />
-            ))}
-          </Grid>
-        </Box>
-      </Card>
-    )
   }
 
-  if (!screenId || !currentScreen) {
-    return null
+  const handleReorderGrid = () => {
+    if (screen) {
+      dashboardActions.reorderGrid(screen.id)
+      onOpenChange(false)
+    }
+  }
+
+  const getScreenOptions = (screenList: ScreenConfig[], prefix = ''): React.ReactElement[] => {
+    const options: React.ReactElement[] = []
+
+    screenList.forEach((screen) => {
+      options.push(
+        <Select.Item key={screen.id} value={screen.id}>
+          {prefix}
+          {screen.name}
+        </Select.Item>
+      )
+
+      if (screen.children) {
+        options.push(...getScreenOptions(screen.children, `${prefix}  `))
+      }
+    })
+
+    return options
   }
 
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Configure Screen"
-      description="Customize the screen settings including name and grid resolution"
-      size="medium"
+      title={isEditMode ? 'Edit View' : 'Add New View'}
+      description={
+        isEditMode ? 'Update your view settings' : 'Create a new view to organize your dashboard'
+      }
+      size="small"
       actions={{
         primary: {
-          label: 'Save Changes',
-          onClick: handleSave,
+          label: isEditMode ? 'Save Changes' : 'Add View',
+          onClick: () => {
+            const form = document.querySelector('form')
+            form?.requestSubmit()
+          },
+          disabled: !viewName.trim(),
         },
+        showCancel: true,
       }}
     >
-      <Flex direction="column" gap="4" mt="4">
-        {/* Screen Name */}
-        <Box>
-          <Text as="label" size="2" weight="medium" mb="1">
-            Screen Name
-          </Text>
-          <TextField.Root
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter screen name"
-          />
-        </Box>
+      <form onSubmit={handleSubmit}>
+        <Flex direction="column" gap="3">
+          <label>
+            <Text as="div" size="2" mb="1" weight="bold">
+              View Name
+            </Text>
+            <TextField.Root
+              placeholder="Living Room"
+              value={viewName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const newName = e.target.value
+                setViewName(newName)
+                // Auto-generate slug if user hasn't manually edited it
+                if (!viewSlug || generateSlug(viewName) === viewSlug) {
+                  setViewSlug(generateSlug(newName))
+                }
+              }}
+              autoFocus
+            />
+          </label>
 
-        <Separator size="4" />
+          <label>
+            <Text as="div" size="2" mb="1" weight="bold">
+              URL Slug
+            </Text>
+            <TextField.Root
+              placeholder="living-room"
+              value={viewSlug}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViewSlug(e.target.value)}
+            />
+            <Text as="div" size="1" color="gray" mt="1">
+              This will be used in the URL: /{viewSlug || 'living-room'}
+            </Text>
+          </label>
 
-        {/* Grid Resolution */}
-        <Box>
-          <Text as="div" size="2" weight="medium" mb="2">
-            Grid Resolution
-          </Text>
-
-          {/* Presets */}
-          <Select.Root onValueChange={handlePresetSelect}>
-            <Select.Trigger placeholder="Choose a preset" />
-            <Select.Content>
-              {GRID_PRESETS.map((preset) => (
-                <Select.Item key={preset.label} value={preset.label}>
-                  {preset.label}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-
-          {/* Custom Resolution */}
-          <Grid columns="2" gap="3" mt="3">
-            <Box>
-              <Text as="label" size="1" color="gray" mb="1">
-                Columns (1-24)
+          {screens.length > 0 && !isEditMode && (
+            <label>
+              <Text as="div" size="2" mb="1" weight="bold">
+                Parent View (Optional)
               </Text>
-              <TextField.Root
-                type="number"
-                min="1"
-                max="24"
-                value={columns.toString()}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10)
-                  if (val >= 1 && val <= 24) setColumns(val)
-                }}
-              />
-            </Box>
-            <Box>
-              <Text as="label" size="1" color="gray" mb="1">
-                Rows (1-20)
+              <Select.Root value={parentId} onValueChange={setParentId}>
+                <Select.Trigger placeholder="Select parent view..." />
+                <Select.Content>
+                  <Select.Item value="none">
+                    <em>None (Top Level)</em>
+                  </Select.Item>
+                  {getScreenOptions(screens)}
+                </Select.Content>
+              </Select.Root>
+            </label>
+          )}
+
+          {showReorderButton && screen?.grid && screen.grid.items.length > 0 && (
+            <>
+              <Text as="div" size="2" weight="bold" mt="3">
+                Grid Management
               </Text>
-              <TextField.Root
-                type="number"
-                min="1"
-                max="20"
-                value={rows.toString()}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10)
-                  if (val >= 1 && val <= 20) setRows(val)
-                }}
-              />
-            </Box>
-          </Grid>
-
-          {/* Grid Preview */}
-          <Box mt="3">
-            <GridPreview />
-          </Box>
-        </Box>
-
-        <Separator size="4" />
-
-        {/* Screen Actions */}
-        <Box>
-          <Text as="div" size="2" weight="medium" mb="2">
-            Screen Actions
-          </Text>
-          <Flex gap="2">
-            <Button variant="soft" onClick={handleDuplicate}>
-              <CopyIcon />
-              Duplicate Screen
-            </Button>
-            <Button
-              variant="soft"
-              color={isVisible ? 'gray' : 'orange'}
-              onClick={() => setIsVisible(!isVisible)}
-            >
-              {isVisible ? <EyeOpenIcon /> : <EyeNoneIcon />}
-              {isVisible ? 'Visible' : 'Hidden'}
-            </Button>
-          </Flex>
-        </Box>
-      </Flex>
+              <Button
+                type="button"
+                variant="soft"
+                onClick={handleReorderGrid}
+                style={{ width: '100%' }}
+              >
+                Reorder Grid (Pack Items)
+              </Button>
+              <Text as="div" size="1" color="gray">
+                Automatically reorganize items to maximize space usage
+              </Text>
+            </>
+          )}
+        </Flex>
+      </form>
     </Modal>
   )
 }

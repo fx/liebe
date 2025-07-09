@@ -1,5 +1,6 @@
 import { Store } from '@tanstack/store'
 import { useStore } from '@tanstack/react-store'
+import { packGridItemsCompact } from '../utils/gridPacking'
 import type {
   DashboardState,
   DashboardMode,
@@ -9,7 +10,6 @@ import type {
   DashboardConfig,
   WidgetConfig,
 } from './types'
-import { generateSlug, ensureUniqueSlug, getAllSlugs } from '../utils/slug'
 import { findOptimalPosition } from '../utils/gridPositioning'
 
 const DEFAULT_GRID_RESOLUTION: GridResolution = {
@@ -93,57 +93,6 @@ export const dashboardActions = {
       return {
         ...state,
         screens: [...newScreens, screen],
-        isDirty: true,
-      }
-    })
-  },
-
-  updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => {
-    dashboardStore.setState((state) => {
-      // If name is being updated, regenerate slug
-      let finalUpdates = { ...updates }
-      if (updates.name && typeof updates.name === 'string') {
-        const existingSlugs = getAllSlugs(state.screens)
-        const baseSlug = generateSlug(updates.name)
-
-        // Find current screen to exclude its slug from uniqueness check
-        const findScreen = (screens: ScreenConfig[], id: string): ScreenConfig | null => {
-          for (const screen of screens) {
-            if (screen.id === id) return screen
-            if (screen.children) {
-              const found = findScreen(screen.children, id)
-              if (found) return found
-            }
-          }
-          return null
-        }
-
-        const currentScreen = findScreen(state.screens, screenId)
-        const slugsToCheck = currentScreen
-          ? existingSlugs.filter((s) => s !== currentScreen.slug)
-          : existingSlugs
-
-        finalUpdates.slug = ensureUniqueSlug(baseSlug, slugsToCheck)
-      }
-
-      const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
-        return screens.map((screen) => {
-          if (screen.id === screenId) {
-            return { ...screen, ...finalUpdates }
-          }
-          if (screen.children) {
-            return {
-              ...screen,
-              children: updateInTree(screen.children),
-            }
-          }
-          return screen
-        })
-      }
-
-      return {
-        ...state,
-        screens: updateInTree(state.screens),
         isDirty: true,
       }
     })
@@ -375,6 +324,70 @@ export const dashboardActions = {
       tabsExpanded: expanded !== undefined ? expanded : !state.tabsExpanded,
       isDirty: true,
     }))
+  },
+
+  updateScreen: (screenId: string, updates: Partial<Pick<ScreenConfig, 'name' | 'slug'>>) => {
+    dashboardStore.setState((state) => {
+      const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
+        return screens.map((screen) => {
+          if (screen.id === screenId) {
+            return {
+              ...screen,
+              ...updates,
+            }
+          }
+          if (screen.children) {
+            return {
+              ...screen,
+              children: updateInTree(screen.children),
+            }
+          }
+          return screen
+        })
+      }
+
+      return {
+        ...state,
+        screens: updateInTree(state.screens),
+        isDirty: true,
+      }
+    })
+  },
+
+  reorderGrid: (screenId: string) => {
+    dashboardStore.setState((state) => {
+      const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
+        return screens.map((screen) => {
+          if (screen.id === screenId && screen.grid) {
+            const packedItems = packGridItemsCompact(
+              screen.grid.items,
+              screen.grid.resolution.columns,
+              screen.grid.resolution.rows
+            )
+            return {
+              ...screen,
+              grid: {
+                ...screen.grid,
+                items: packedItems,
+              },
+            }
+          }
+          if (screen.children) {
+            return {
+              ...screen,
+              children: updateInTree(screen.children),
+            }
+          }
+          return screen
+        })
+      }
+
+      return {
+        ...state,
+        screens: updateInTree(state.screens),
+        isDirty: true,
+      }
+    })
   },
 }
 
