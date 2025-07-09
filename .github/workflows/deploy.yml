@@ -44,8 +44,8 @@ jobs:
         run: |
           # Copy all dist files to pages-dist
           cp -r ./dist ./pages-dist
-          # Generate index.html from README.md
-          node ./scripts/readme-to-html.js > ./pages-dist/index.html
+          # Copy the index.html file
+          cp ./.github/pages-index.html ./pages-dist/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
