@@ -27,12 +27,15 @@ export function ScreenTaskbarButton({
   const [isHovered, setIsHovered] = useState(false)
   const mode = useStore(dashboardStore, (state) => state.mode)
   const showEditButton = mode === 'edit' && onEdit && isHovered
+  
+  // Debug: Always show in edit mode for testing
+  const debugShowButton = mode === 'edit' && onEdit
 
   return (
     <Flex
       align="center"
       gap="1"
-      style={{ position: 'relative', width: '100%' }}
+      style={{ position: 'relative', width: '100%', overflow: 'visible' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -45,7 +48,7 @@ export function ScreenTaskbarButton({
         ariaLabel={label}
         style={{ flex: 1 }}
       />
-      {showEditButton && (
+      {debugShowButton && (
         <IconButton
           size="2"
           variant="soft"
@@ -58,8 +61,9 @@ export function ScreenTaskbarButton({
           style={{
             position: showText ? 'relative' : 'absolute',
             right: showText ? 0 : -8,
-            opacity: 0.9,
+            opacity: isHovered ? 1 : 0.6,
             transition: 'opacity 0.2s',
+            zIndex: 10,
           }}
         >
           <GearIcon />
