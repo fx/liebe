@@ -10,100 +10,51 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import '~/styles/app.css'
 
-interface PanelConfig {
-  route?: string
-  [key: string]: unknown
-}
-
-interface Panel {
-  config?: PanelConfig
-  [key: string]: unknown
-}
-
-// Home Assistant custom panel element
 class LiebePanel extends HTMLElement {
   private _hass: HomeAssistant | null = null
   private root?: ReactDOM.Root
-  private _panel?: Panel
-  private _route?: string
 
   set hass(hass: HomeAssistant) {
     this._hass = hass
     this.render()
   }
 
-  set panel(panel: Panel) {
-    this._panel = panel
-    // Extract initial route from panel config if available
-    if (panel?.config?.route) {
-      this._route = panel.config.route
-    }
-  }
-
-  set route(route: string) {
-    this._route = route
-    // Navigate to the specified route
-    window.dispatchEvent(
-      new CustomEvent('liebe-navigate', {
-        detail: { path: route },
-      })
-    )
-  }
-
   connectedCallback() {
     if (!this.root) {
-      // Create shadow DOM
       const shadow = this.attachShadow({ mode: 'open' })
-
-      // Create container for React
       const container = document.createElement('div')
       container.style.height = '100%'
       shadow.appendChild(container)
 
-      // Load CSS into shadow DOM
-      const link = document.createElement('link')
-      link.rel = 'stylesheet'
-      // Get the URL from the script tag that loaded this panel
-      const currentScript =
-        document.currentScript || document.querySelector('script[src*="panel.js"]')
-      if (currentScript && 'src' in currentScript) {
-        const scriptUrl = new URL(currentScript.src)
-        // In development mode (localhost), vite serves CSS separately
-        // In production, CSS is bundled as liebe.css
-        const cssUrl = scriptUrl.href.replace(/panel\.js$/, 'liebe.css')
+      // Load CSS
+      const script = document.currentScript || document.querySelector('script[src*="panel.js"]')
+      if (script && 'src' in script) {
+        const cssUrl = new URL(script.src).href.replace(/panel\.js$/, 'liebe.css')
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
         link.href = cssUrl
         shadow.appendChild(link)
-
-        // Also inject styles into document head for Radix UI portals (popovers, dialogs, etc)
-        // Check if styles are already injected to avoid duplicates
+        
+        // For Radix UI portals
         if (!document.querySelector(`link[href="${cssUrl}"]`)) {
-          const globalLink = document.createElement('link')
-          globalLink.rel = 'stylesheet'
-          globalLink.href = cssUrl
+          const globalLink = link.cloneNode() as HTMLLinkElement
           document.head.appendChild(globalLink)
         }
       }
 
-      // Create React root in shadow DOM
       this.root = ReactDOM.createRoot(container)
     }
     this.render()
   }
 
   disconnectedCallback() {
-    if (this.root) {
-      this.root.unmount()
-    }
+    this.root?.unmount()
   }
 
   private render() {
     if (!this.root || !this._hass) return
-
     this.root.render(
-      React.createElement(
-        React.StrictMode,
-        null,
-        // eslint-disable-next-line react/no-children-prop
+      React.createElement(React.StrictMode, null,
         React.createElement(HomeAssistantProvider, {
           hass: this._hass,
           children: React.createElement(PanelApp),
@@ -113,5 +64,4 @@ class LiebePanel extends HTMLElement {
   }
 }
 
-// Register the custom element
 customElements.define('liebe-panel', LiebePanel)
