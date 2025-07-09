@@ -42,11 +42,8 @@ jobs:
 
       - name: Create GitHub Pages directory structure
         run: |
-          # Copy all dist files to pages-dist
-          cp -r ./dist ./pages-dist
-          
           # Generate index.html from README using marked
-          cat > ./pages-dist/index.html << 'EOF'
+          cat > ./dist/index.html << 'EOF'
           <!DOCTYPE html>
           <html lang="en">
           <head>
@@ -79,9 +76,9 @@ jobs:
               <article class="markdown-body">
           EOF
           
-          npx marked@12 -i README.md --gfm >> ./pages-dist/index.html
+          npx marked@12 -i README.md --gfm >> ./dist/index.html
           
-          cat >> ./pages-dist/index.html << 'EOF'
+          cat >> ./dist/index.html << 'EOF'
               </article>
           </body>
           </html>
@@ -93,7 +90,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './pages-dist'
+          path: './dist'
 
   # Deployment job
   deploy:
