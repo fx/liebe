@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as _rootTestPerformanceRouteImport } from './routes/__root.test.performance'
 import { Route as TestStoreRouteImport } from './routes/test-store'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 
+const _rootTestPerformanceRoute = _rootTestPerformanceRouteImport.update({
+  id: '/__root/test/performance',
+  path: '/test/performance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TestStoreRoute = TestStoreRouteImport.update({
   id: '/test-store',
   path: '/test-store',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
+  '/test/performance': typeof _rootTestPerformanceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
+  '/test/performance': typeof _rootTestPerformanceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,20 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/$slug': typeof SlugRoute
   '/test-store': typeof TestStoreRoute
+  '/__root/test/performance': typeof _rootTestPerformanceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/$slug' | '/test-store'
+  fullPaths: '/' | '/$' | '/$slug' | '/test-store' | '/test/performance'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/$slug' | '/test-store'
-  id: '__root__' | '/' | '/$' | '/$slug' | '/test-store'
+  to: '/' | '/$' | '/$slug' | '/test-store' | '/test/performance'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/$slug'
+    | '/test-store'
+    | '/__root/test/performance'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +82,18 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   SlugRoute: typeof SlugRoute
   TestStoreRoute: typeof TestStoreRoute
+  _rootTestPerformanceRoute: typeof _rootTestPerformanceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/__root/test/performance': {
+      id: '/__root/test/performance'
+      path: '/test/performance'
+      fullPath: '/test/performance'
+      preLoaderRoute: typeof _rootTestPerformanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/test-store': {
       id: '/test-store'
       path: '/test-store'
@@ -107,6 +130,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   SlugRoute: SlugRoute,
   TestStoreRoute: TestStoreRoute,
+  _rootTestPerformanceRoute: _rootTestPerformanceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
