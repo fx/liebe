@@ -13,7 +13,7 @@ vi.mock('~/hooks', () => ({
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: vi.fn((options: { count: number; estimateSize: (index: number) => number }) => {
     // Create virtual items based on count
-    const items = []
+    const items: Array<{ index: number; start: number; size: number; key: number }> = []
     let offset = 0
     for (let i = 0; i < options.count; i++) {
       const size = options.estimateSize(i)
