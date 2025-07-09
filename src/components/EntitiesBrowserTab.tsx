@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, memo } from 'react'
+import { useState, useMemo, useCallback, useRef, memo, useEffect } from 'react'
 import {
   Flex,
   TextField,
@@ -63,10 +63,20 @@ type VirtualItem =
   | { type: 'separator' }
 
 export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProps) {
+  const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
   const { entities, isLoading } = useEntities()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+
+  // Debounce search term updates
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setSearchTerm(searchInput)
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchInput])
 
   // Filter and flatten entities for virtualization
   const virtualItems = useMemo(() => {
@@ -185,6 +195,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       })
     }
     setSelectedEntityIds(new Set())
+    setSearchInput('')
     setSearchTerm('')
     onClose()
   }, [selectedEntityIds, screenId, onClose])
@@ -200,8 +211,8 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     getScrollElement: () => scrollAreaRef.current,
     estimateSize: (index) => {
       const item = virtualItems[index]
-      if (item.type === 'header') return 40
-      if (item.type === 'entity') return 60
+      if (item.type === 'header') return 48
+      if (item.type === 'entity') return 72
       if (item.type === 'separator') return 24
       return 50
     },
@@ -213,15 +224,18 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       {/* Search bar */}
       <TextField.Root
         placeholder="Search entities..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
       >
         <TextField.Slot>
           <MagnifyingGlassIcon height="16" width="16" />
         </TextField.Slot>
-        {searchTerm && (
+        {searchInput && (
           <TextField.Slot>
-            <IconButton size="1" variant="ghost" onClick={() => setSearchTerm('')}>
+            <IconButton size="1" variant="ghost" onClick={() => {
+              setSearchInput('')
+              setSearchTerm('')
+            }}>
               <Cross2Icon height="14" width="14" />
             </IconButton>
           </TextField.Slot>
@@ -278,7 +292,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
                   }}
                 >
                   {item.type === 'header' && (
-                    <Flex align="center" justify="between" mb="2" pr="3">
+                    <Flex align="center" justify="between" height="48px" pr="3">
                       <Text size="2" weight="bold">
                         {getFriendlyDomain(item.domain)}
                       </Text>
@@ -339,32 +353,34 @@ const EntityItem = memo(function EntityItem({ entity, checked, onCheckedChange }
     (entity.attributes.unit_of_measurement ? ` ${entity.attributes.unit_of_measurement}` : '')
 
   return (
-    <Card asChild>
-      <label style={{ cursor: 'pointer' }}>
-        <Flex align="center" gap="3" p="2">
-          <Checkbox
-            size="2"
-            checked={checked}
-            onCheckedChange={onCheckedChange as (checked: boolean | 'indeterminate') => void}
-          />
-          <Flex direction="column" style={{ flex: 1 }}>
-            <Text size="2" weight="medium">
-              {friendlyName}
-            </Text>
-            <Flex gap="2" align="center">
-              <Text size="1" color="gray">
-                {entity.entity_id}
+    <Box mb="2">
+      <Card asChild>
+        <label style={{ cursor: 'pointer' }}>
+          <Flex align="center" gap="3" p="3">
+            <Checkbox
+              size="2"
+              checked={checked}
+              onCheckedChange={onCheckedChange as (checked: boolean | 'indeterminate') => void}
+            />
+            <Flex direction="column" style={{ flex: 1 }}>
+              <Text size="2" weight="medium">
+                {friendlyName}
               </Text>
-              <Text size="1" color="gray">
-                •
-              </Text>
-              <Text size="1" color="gray">
-                {stateDisplay}
-              </Text>
+              <Flex gap="2" align="center">
+                <Text size="1" color="gray">
+                  {entity.entity_id}
+                </Text>
+                <Text size="1" color="gray">
+                  •
+                </Text>
+                <Text size="1" color="gray">
+                  {stateDisplay}
+                </Text>
+              </Flex>
             </Flex>
           </Flex>
-        </Flex>
-      </label>
-    </Card>
+        </label>
+      </Card>
+    </Box>
   )
 })
