@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Flex, IconButton } from '@radix-ui/themes'
-import { GearIcon } from '@radix-ui/react-icons'
+import { Pencil1Icon } from '@radix-ui/react-icons'
 import { TaskbarButton } from './TaskbarButton'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore } from '../store/dashboardStore'
@@ -24,21 +24,11 @@ export function ScreenTaskbarButton({
   showText,
   onEdit,
 }: ScreenTaskbarButtonProps) {
-  const [isHovered, setIsHovered] = useState(false)
   const mode = useStore(dashboardStore, (state) => state.mode)
-  const showEditButton = mode === 'edit' && onEdit && isHovered
-  
-  // Debug: Always show in edit mode for testing
-  const debugShowButton = mode === 'edit' && onEdit
+  const showEditButton = mode === 'edit' && onEdit
 
   return (
-    <Flex
-      align="center"
-      gap="1"
-      style={{ position: 'relative', width: '100%', overflow: 'visible' }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <Flex align="center" gap={showText ? '2' : '0'} style={{ position: 'relative', width: '100%' }}>
       <TaskbarButton
         icon={icon}
         label={label}
@@ -48,9 +38,9 @@ export function ScreenTaskbarButton({
         ariaLabel={label}
         style={{ flex: 1 }}
       />
-      {debugShowButton && (
+      {showEditButton && (
         <IconButton
-          size="2"
+          size={showText ? '2' : '1'}
           variant="soft"
           color="gray"
           onClick={(e) => {
@@ -58,15 +48,20 @@ export function ScreenTaskbarButton({
             onEdit()
           }}
           aria-label={`Edit ${label}`}
-          style={{
-            position: showText ? 'relative' : 'absolute',
-            right: showText ? 0 : -8,
-            opacity: isHovered ? 1 : 0.6,
-            transition: 'opacity 0.2s',
-            zIndex: 10,
-          }}
+          style={
+            showText
+              ? {}
+              : {
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  padding: '2px',
+                  minWidth: 'unset',
+                  minHeight: 'unset',
+                }
+          }
         >
-          <GearIcon />
+          <Pencil1Icon width={showText ? 16 : 12} height={showText ? 16 : 12} />
         </IconButton>
       )}
     </Flex>
