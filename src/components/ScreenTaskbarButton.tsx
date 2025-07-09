@@ -1,7 +1,6 @@
 import React from 'react'
-import { Flex, IconButton } from '@radix-ui/themes'
+import { Button, IconButton, Flex } from '@radix-ui/themes'
 import { Pencil1Icon } from '@radix-ui/react-icons'
-import { TaskbarButton } from './TaskbarButton'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore } from '../store/dashboardStore'
 
@@ -28,20 +27,65 @@ export function ScreenTaskbarButton({
   const showEditButton = mode === 'edit' && onEdit
   const [isHovered, setIsHovered] = React.useState(false)
 
+  // When expanded
+  if (showText) {
+    return (
+      <div style={{ position: 'relative', width: '100%' }}>
+        <Button
+          size="3"
+          variant={variant}
+          onClick={onClick}
+          aria-label={label}
+          style={{
+            width: '100%',
+            justifyContent: showEditButton ? 'space-between' : 'flex-start',
+            paddingRight: showEditButton ? '8px' : undefined,
+          }}
+        >
+          <Flex align="center" gap="2">
+            {icon}
+            <span>{label}</span>
+          </Flex>
+          {showEditButton && (
+            <IconButton
+              size="1"
+              variant="ghost"
+              color="gray"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit()
+              }}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              aria-label={`Edit ${label}`}
+              style={{
+                backgroundColor: isHovered ? 'var(--gray-3)' : 'transparent',
+                transition: 'all 0.2s ease',
+                boxShadow: '-2px 2px 6px rgba(0, 0, 0, 0.12)',
+              }}
+            >
+              <Pencil1Icon width={16} height={16} />
+            </IconButton>
+          )}
+        </Button>
+      </div>
+    )
+  }
+
+  // When collapsed, show edit button as a corner badge
   return (
-    <Flex align="center" gap={showText ? '2' : '0'} style={{ position: 'relative', width: '100%' }}>
-      <TaskbarButton
-        icon={icon}
-        label={label}
+    <div style={{ position: 'relative', width: '100%' }}>
+      <IconButton
+        size="3"
         variant={variant}
         onClick={onClick}
-        showText={showText}
-        ariaLabel={label}
-        style={{ flex: 1 }}
-      />
+        aria-label={label}
+      >
+        {icon}
+      </IconButton>
       {showEditButton && (
         <IconButton
-          size={showText ? '2' : '1'}
+          size="1"
           variant="soft"
           color="gray"
           onClick={(e) => {
@@ -51,31 +95,24 @@ export function ScreenTaskbarButton({
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           aria-label={`Edit ${label}`}
-          style={
-            showText
-              ? {
-                  transition: 'all 0.2s ease',
-                  boxShadow: '-2px 2px 6px rgba(0, 0, 0, 0.12)',
-                }
-              : {
-                  position: 'absolute',
-                  top: -6,
-                  right: -6,
-                  padding: '2px',
-                  minWidth: 'unset',
-                  minHeight: 'unset',
-                  opacity: 1,
-                  backgroundColor: isHovered ? 'var(--gray-3)' : 'var(--color-panel-solid)',
-                  border: '1px solid var(--gray-a5)',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '-2px 2px 8px rgba(0, 0, 0, 0.15)',
-                  transform: 'none',
-                }
-          }
+          style={{
+            position: 'absolute',
+            top: -6,
+            right: -6,
+            padding: '2px',
+            minWidth: 'unset',
+            minHeight: 'unset',
+            opacity: 1,
+            backgroundColor: isHovered ? 'var(--gray-3)' : 'var(--color-panel-solid)',
+            border: '1px solid var(--gray-a5)',
+            transition: 'all 0.2s ease',
+            boxShadow: '-2px 2px 8px rgba(0, 0, 0, 0.15)',
+            transform: 'none',
+          }}
         >
-          <Pencil1Icon width={showText ? 16 : 12} height={showText ? 16 : 12} />
+          <Pencil1Icon width={12} height={12} />
         </IconButton>
       )}
-    </Flex>
+    </div>
   )
 }
