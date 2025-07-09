@@ -143,10 +143,13 @@ describe('EntityBrowser', () => {
     await user.type(searchInput, 'light')
 
     // Wait for debounce and re-render
-    await waitFor(() => {
-      expect(screen.getByText('Living Room Light')).toBeInTheDocument()
-    }, { timeout: 1000 })
-    
+    await waitFor(
+      () => {
+        expect(screen.getByText('Living Room Light')).toBeInTheDocument()
+      },
+      { timeout: 1000 }
+    )
+
     // After filtering, these should not be visible
     await waitFor(() => {
       expect(screen.queryByText('Kitchen Switch')).not.toBeInTheDocument()
