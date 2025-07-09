@@ -4,19 +4,28 @@ import {
   TextField,
   Checkbox,
   Button,
-  Separator,
   Text,
   Box,
   IconButton,
   Badge,
   Card,
+  Link,
+  ScrollArea,
 } from '@radix-ui/themes'
-import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import {
+  Cross2Icon,
+  MagnifyingGlassIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CheckIcon,
+} from '@radix-ui/react-icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEntities } from '~/hooks'
-import { dashboardActions } from '~/store'
+import { dashboardActions, dashboardStore } from '~/store'
 import type { HassEntity } from '~/store/entityTypes'
 import type { GridItem } from '~/store/types'
+import { findOptimalPositionsForBatch } from '~/utils/gridPositioning'
+import { getDefaultCardDimensions } from '~/utils/cardDimensions'
 
 interface EntitiesBrowserTabProps {
   screenId: string | null
@@ -56,18 +65,68 @@ const getFriendlyDomain = (domain: string): string => {
 // Domains to filter out by default
 const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
 
-// Types for virtualization
-type VirtualItem =
-  | { type: 'header'; domain: string; entities: HassEntity[] }
-  | { type: 'entity'; entity: HassEntity }
-  | { type: 'separator' }
+// Domain info for legend
+interface DomainInfo {
+  domain: string
+  friendlyName: string
+  count: number
+  entities: HassEntity[]
+}
+
+// Domains that are supported with custom cards
+const SUPPORTED_DOMAINS = [
+  'light',
+  'switch',
+  'cover',
+  'climate',
+  'sensor',
+  'binary_sensor',
+  'weather',
+  'fan',
+  'camera',
+  'input_boolean',
+  'input_number',
+  'input_select',
+  'input_text',
+  'input_datetime',
+]
 
 export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProps) {
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEntityIds, setSelectedEntityIds] = useState<Set<string>>(new Set())
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [excludedDomains, setExcludedDomains] = useState<Set<string>>(new Set())
+  const [excludedInitialized, setExcludedInitialized] = useState(false)
   const { entities, isLoading } = useEntities()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+
+  // Initialize excluded domains with unsupported ones when entities are loaded
+  useEffect(() => {
+    if (!excludedInitialized && Object.keys(entities).length > 0) {
+      const allDomains = new Set<string>()
+      Object.values(entities).forEach((entity) => {
+        const domain = getDomain(entity.entity_id)
+        if (!SYSTEM_DOMAINS.includes(domain)) {
+          allDomains.add(domain)
+        }
+      })
+
+      // Exclude domains that aren't supported
+      const unsupported = new Set<string>()
+      allDomains.forEach((domain) => {
+        if (!SUPPORTED_DOMAINS.includes(domain)) {
+          unsupported.add(domain)
+        }
+      })
+
+      if (unsupported.size > 0) {
+        setExcludedDomains(unsupported)
+      }
+      setExcludedInitialized(true)
+    }
+  }, [entities, excludedInitialized])
 
   // Debounce search term updates
   useEffect(() => {
@@ -78,12 +137,55 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     return () => clearTimeout(timeoutId)
   }, [searchInput])
 
-  // Filter and flatten entities for virtualization
-  const virtualItems = useMemo(() => {
+  // Filter and sort entities
+  const { filteredEntities, allDomainInfo, excludedDomainInfo } = useMemo(() => {
+    // First, get all domains from all entities (for the filter menu)
+    const allDomainMap: Record<string, number> = {}
+    Object.values(entities).forEach((entity) => {
+      const domain = getDomain(entity.entity_id)
+      if (!SYSTEM_DOMAINS.includes(domain)) {
+        allDomainMap[domain] = (allDomainMap[domain] || 0) + 1
+      }
+    })
+
+    // Separate excluded and visible domains
+    const visibleDomains: DomainInfo[] = []
+    const excluded: DomainInfo[] = []
+
+    Object.entries(allDomainMap).forEach(([domain, count]) => {
+      const info = {
+        domain,
+        friendlyName: getFriendlyDomain(domain),
+        count,
+        entities: [], // We don't need entities for the filter menu
+      }
+
+      if (excludedDomains.has(domain)) {
+        excluded.push(info)
+      } else {
+        visibleDomains.push(info)
+      }
+    })
+
+    // Sort both arrays
+    visibleDomains.sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
+    excluded.sort((a, b) => a.friendlyName.localeCompare(b.friendlyName))
+
+    // Now filter entities based on selected domains and search
     const filtered = Object.values(entities).filter((entity) => {
       // Filter out system domains
       const domain = getDomain(entity.entity_id)
       if (SYSTEM_DOMAINS.includes(domain)) return false
+
+      // Exclude domains that are in the excluded list
+      if (excludedDomains.has(domain)) {
+        return false
+      }
+
+      // Domain filter - if domains are selected, only show entities from those domains
+      if (selectedDomains.size > 0 && !selectedDomains.has(domain)) {
+        return false
+      }
 
       // Search filter
       if (searchTerm) {
@@ -98,55 +200,15 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       return true
     })
 
-    // Group by domain
-    const groups: Record<string, HassEntity[]> = {}
-    filtered.forEach((entity) => {
-      const domain = getDomain(entity.entity_id)
-      if (!groups[domain]) {
-        groups[domain] = []
-      }
-      groups[domain].push(entity)
-    })
-
-    // Convert to flattened array for virtualization
-    const items: VirtualItem[] = []
-    const sortedDomains = Object.keys(groups).sort((a, b) =>
-      getFriendlyDomain(a).localeCompare(getFriendlyDomain(b))
-    )
-
-    sortedDomains.forEach((domain, index) => {
-      const domainEntities = groups[domain].sort((a, b) =>
-        (a.attributes.friendly_name || a.entity_id).localeCompare(
-          b.attributes.friendly_name || b.entity_id
-        )
+    // Sort entities by friendly name only
+    const sorted = filtered.sort((a, b) => {
+      return (a.attributes.friendly_name || a.entity_id).localeCompare(
+        b.attributes.friendly_name || b.entity_id
       )
-
-      // Add header
-      items.push({ type: 'header', domain, entities: domainEntities })
-
-      // Add entities
-      domainEntities.forEach((entity) => {
-        items.push({ type: 'entity', entity })
-      })
-
-      // Add separator (except for last group)
-      if (index < sortedDomains.length - 1) {
-        items.push({ type: 'separator' })
-      }
     })
 
-    return items
-  }, [entities, searchTerm])
-
-  // Keep entityGroups for compatibility with other functions
-  const entityGroups = useMemo(() => {
-    return virtualItems
-      .filter((item) => item.type === 'header')
-      .map((item) => ({
-        domain: (item as { type: 'header'; domain: string }).domain,
-        entities: (item as { type: 'header'; domain: string; entities: HassEntity[] }).entities,
-      }))
-  }, [virtualItems])
+    return { filteredEntities: sorted, allDomainInfo: visibleDomains, excludedDomainInfo: excluded }
+  }, [entities, searchTerm, selectedDomains, excludedDomains])
 
   const handleToggleEntity = useCallback((entityId: string, checked: boolean) => {
     setSelectedEntityIds((prev) => {
@@ -160,62 +222,127 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
     })
   }, [])
 
-  const handleToggleAll = useCallback(
-    (domain: string, checked: boolean) => {
-      const domainEntities = entityGroups.find((g) => g.domain === domain)?.entities || []
-      setSelectedEntityIds((prev) => {
-        const next = new Set(prev)
-        domainEntities.forEach((entity) => {
-          if (checked) {
-            next.add(entity.entity_id)
-          } else {
-            next.delete(entity.entity_id)
-          }
-        })
-        return next
+  const handleSelectAllVisible = useCallback(() => {
+    const allVisible = filteredEntities.every((entity) => selectedEntityIds.has(entity.entity_id))
+    setSelectedEntityIds((prev) => {
+      const next = new Set(prev)
+      filteredEntities.forEach((entity) => {
+        if (allVisible) {
+          next.delete(entity.entity_id)
+        } else {
+          next.add(entity.entity_id)
+        }
       })
-    },
-    [entityGroups]
-  )
+      return next
+    })
+  }, [filteredEntities, selectedEntityIds])
+
+  const handleToggleDomain = useCallback((domain: string) => {
+    setSelectedDomains((prev) => {
+      const next = new Set(prev)
+      if (next.has(domain)) {
+        next.delete(domain)
+      } else {
+        next.add(domain)
+      }
+      return next
+    })
+  }, [])
+
+  const handleExcludeDomain = useCallback((domain: string) => {
+    setExcludedDomains((prev) => {
+      const next = new Set(prev)
+      next.add(domain)
+      return next
+    })
+    // Also remove from selected if it was selected
+    setSelectedDomains((prev) => {
+      const next = new Set(prev)
+      next.delete(domain)
+      return next
+    })
+  }, [])
+
+  const handleUnexcludeDomain = useCallback((domain: string) => {
+    setExcludedDomains((prev) => {
+      const next = new Set(prev)
+      next.delete(domain)
+      return next
+    })
+  }, [])
+
+  const handleClearExclusions = useCallback(() => {
+    setExcludedDomains(new Set())
+  }, [])
 
   const handleAddSelected = useCallback(() => {
     if (screenId) {
-      // Create GridItem for each entity
-      Array.from(selectedEntityIds).forEach((entityId, index) => {
+      // Get current screen configuration to access existing items
+      const state = dashboardStore.state
+      const findScreen = (
+        screens: typeof state.screens,
+        id: string
+      ): (typeof state.screens)[0] | null => {
+        for (const screen of screens) {
+          if (screen.id === id) return screen
+          if (screen.children) {
+            const found = findScreen(screen.children, id)
+            if (found) return found
+          }
+        }
+        return null
+      }
+
+      const currentScreen = findScreen(state.screens, screenId)
+      if (!currentScreen?.grid) return
+
+      // Prepare new items data with entity-specific dimensions
+      const entityIds = Array.from(selectedEntityIds)
+      const newItemsData = entityIds.map((entityId) => {
+        const dimensions = getDefaultCardDimensions(entityId)
+        return {
+          width: dimensions.width,
+          height: dimensions.height,
+        }
+      })
+
+      // Find optimal positions for all items at once
+      const positions = findOptimalPositionsForBatch(
+        currentScreen.grid.items,
+        newItemsData,
+        currentScreen.grid.resolution
+      )
+
+      // Create GridItem for each entity with optimal position and dimensions
+      entityIds.forEach((entityId, index) => {
+        const dimensions = getDefaultCardDimensions(entityId)
         const newItem: GridItem = {
           id: `${Date.now()}-${index}`,
           type: 'entity',
           entityId,
-          x: 0,
-          y: 0,
-          width: 2,
-          height: 2,
+          x: positions[index].x,
+          y: positions[index].y,
+          width: dimensions.width,
+          height: dimensions.height,
         }
         dashboardActions.addGridItem(screenId, newItem)
       })
     }
     setSelectedEntityIds(new Set())
+    setSelectedDomains(new Set())
+    // Don't reset excluded domains - they should persist for the session
     setSearchInput('')
     setSearchTerm('')
     onClose()
   }, [selectedEntityIds, screenId, onClose])
 
-  const totalEntities = useMemo(
-    () => entityGroups.reduce((sum, group) => sum + group.entities.length, 0),
-    [entityGroups]
-  )
+  const totalEntities = filteredEntities.length
 
   // Initialize virtualizer
   const virtualizer = useVirtualizer({
-    count: virtualItems.length,
+    count: filteredEntities.length,
     getScrollElement: () => scrollAreaRef.current,
-    estimateSize: (index) => {
-      const item = virtualItems[index]
-      if (item.type === 'header') return 48
-      if (item.type === 'entity') return 72
-      if (item.type === 'separator') return 24
-      return 50
-    },
+    estimateSize: () => 64, // Fixed height matching EntityItem
     overscan: 5,
   })
 
@@ -249,90 +376,243 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       {/* Results summary */}
       <Flex justify="between" align="center">
         <Text size="2" color="gray">
-          {totalEntities} entities found
+          {totalEntities} entities
+          {selectedDomains.size > 0 &&
+            ` in ${selectedDomains.size} domain${selectedDomains.size > 1 ? 's' : ''}`}
           {searchTerm && ` matching "${searchTerm}"`}
         </Text>
         {selectedEntityIds.size > 0 && <Badge>{selectedEntityIds.size} selected</Badge>}
       </Flex>
 
-      {/* Virtualized Entity list */}
-      <div
-        ref={scrollAreaRef}
-        style={{
-          height: '400px',
-          overflow: 'auto',
-          position: 'relative',
-        }}
-      >
-        {isLoading ? (
-          <Flex align="center" justify="center" p="6">
-            <Text color="gray">Loading entities...</Text>
-          </Flex>
-        ) : virtualItems.length === 0 ? (
-          <Flex align="center" justify="center" p="6">
-            <Text color="gray">No entities found</Text>
-          </Flex>
-        ) : (
-          <div
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const item = virtualItems[virtualRow.index]
+      {/* Main content area with legend and entity list */}
+      <Flex gap="3" style={{ height: '400px' }}>
+        {/* Entity Filter sidebar */}
+        <Card
+          size="1"
+          style={{ width: '240px', padding: 0, display: 'flex', flexDirection: 'column' }}
+        >
+          {selectedDomains.size > 0 && (
+            <Flex align="center" justify="end" p="3" pb="0">
+              <Link
+                size="1"
+                onClick={() => setSelectedDomains(new Set())}
+                style={{ cursor: 'pointer' }}
+              >
+                Clear filters
+              </Link>
+            </Flex>
+          )}
 
-              return (
+          <ScrollArea style={{ flex: 1 }}>
+            <Flex direction="column">
+              {allDomainInfo.map((info) => {
+                const isDomainSelected = selectedDomains.has(info.domain)
+
+                return (
+                  <Box key={info.domain}>
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      px="3"
+                      py="2"
+                      style={{
+                        backgroundColor: isDomainSelected ? 'var(--accent-a3)' : 'transparent',
+                        borderLeft: '3px solid',
+                        borderColor: isDomainSelected ? 'var(--accent-9)' : 'transparent',
+                        transition: 'all 0.15s',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => handleToggleDomain(info.domain)}
+                      onMouseEnter={(e) => {
+                        if (!isDomainSelected) {
+                          e.currentTarget.style.backgroundColor = 'var(--gray-a2)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isDomainSelected) {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    >
+                      <Flex align="center" justify="between">
+                        <Flex align="center" gap="2">
+                          <Checkbox
+                            size="1"
+                            checked={isDomainSelected}
+                            onClick={(e) => e.stopPropagation()}
+                            onCheckedChange={() => handleToggleDomain(info.domain)}
+                          />
+                          <Text size="2" weight="medium">
+                            {info.friendlyName}
+                          </Text>
+                        </Flex>
+                        <Flex align="center" gap="2">
+                          <Badge size="1" variant="soft">
+                            {info.count}
+                          </Badge>
+                          <IconButton
+                            size="1"
+                            variant="ghost"
+                            color="gray"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleExcludeDomain(info.domain)
+                            }}
+                            title="Exclude this domain"
+                          >
+                            <Cross2Icon width="12" height="12" />
+                          </IconButton>
+                        </Flex>
+                      </Flex>
+                    </Flex>
+                  </Box>
+                )
+              })}
+            </Flex>
+          </ScrollArea>
+
+          {/* Excluded domains section */}
+          {excludedDomainInfo.length > 0 && (
+            <Box px="3" py="2" style={{ borderTop: '1px solid var(--gray-a3)' }}>
+              <Flex align="center" justify="between">
+                <Link
+                  size="2"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {showAdvanced ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                  {excludedDomainInfo.length} excluded
+                </Link>
+                {showAdvanced && (
+                  <Link size="1" onClick={handleClearExclusions} style={{ cursor: 'pointer' }}>
+                    Clear all
+                  </Link>
+                )}
+              </Flex>
+
+              {showAdvanced && (
+                <Box mt="2">
+                  <ScrollArea style={{ maxHeight: '120px' }} scrollbars="vertical">
+                    <Flex direction="column" gap="1">
+                      {excludedDomainInfo.map((info) => (
+                        <Flex
+                          key={info.domain}
+                          align="center"
+                          justify="between"
+                          px="2"
+                          py="1"
+                          style={{
+                            backgroundColor: 'var(--gray-a2)',
+                            borderRadius: 'var(--radius-2)',
+                            fontSize: '12px',
+                          }}
+                        >
+                          <Text size="1" color="gray">
+                            {info.friendlyName}
+                          </Text>
+                          <Flex align="center" gap="2">
+                            <Badge size="1" variant="soft" color="gray">
+                              {info.count}
+                            </Badge>
+                            <Link
+                              size="1"
+                              onClick={() => handleUnexcludeDomain(info.domain)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              Include
+                            </Link>
+                          </Flex>
+                        </Flex>
+                      ))}
+                    </Flex>
+                  </ScrollArea>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Card>
+
+        {/* Virtualized Entity list */}
+        <Box style={{ flex: 1 }}>
+          <Card size="1" style={{ height: '100%', padding: 0 }}>
+            {filteredEntities.length > 0 && (
+              <Flex
+                align="center"
+                justify="end"
+                p="2"
+                style={{ borderBottom: '1px solid var(--gray-a3)' }}
+              >
+                <Link
+                  size="2"
+                  onClick={handleSelectAllVisible}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {filteredEntities.every((e) => selectedEntityIds.has(e.entity_id)) ? (
+                    <Cross2Icon width="12" height="12" />
+                  ) : (
+                    <CheckIcon width="15" height="15" />
+                  )}
+                  {filteredEntities.every((e) => selectedEntityIds.has(e.entity_id))
+                    ? 'Deselect all'
+                    : 'Select all'}
+                </Link>
+              </Flex>
+            )}
+            <div
+              ref={scrollAreaRef}
+              style={{
+                height: filteredEntities.length > 0 ? 'calc(100% - 41px)' : '100%',
+                overflow: 'auto',
+                position: 'relative',
+              }}
+            >
+              {isLoading ? (
+                <Flex align="center" justify="center" p="6">
+                  <Text color="gray">Loading entities...</Text>
+                </Flex>
+              ) : filteredEntities.length === 0 ? (
+                <Flex align="center" justify="center" p="6">
+                  <Text color="gray">No entities found</Text>
+                </Flex>
+              ) : (
                 <div
-                  key={virtualRow.key}
                   style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
+                    height: `${virtualizer.getTotalSize()}px`,
                     width: '100%',
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
+                    position: 'relative',
                   }}
                 >
-                  {item.type === 'header' && (
-                    <Flex align="center" justify="between" height="48px" pr="3">
-                      <Text size="2" weight="bold">
-                        {getFriendlyDomain(item.domain)}
-                      </Text>
-                      <Checkbox
-                        size="1"
-                        checked={item.entities.every((e) => selectedEntityIds.has(e.entity_id))}
-                        onCheckedChange={(checked) =>
-                          handleToggleAll(item.domain, checked as boolean)
-                        }
-                      />
-                    </Flex>
-                  )}
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const entity = filteredEntities[virtualRow.index]
 
-                  {item.type === 'entity' && (
-                    <Box pr="3">
-                      <EntityItem
-                        entity={item.entity}
-                        checked={selectedEntityIds.has(item.entity.entity_id)}
-                        onCheckedChange={(checked) =>
-                          handleToggleEntity(item.entity.entity_id, checked)
-                        }
-                      />
-                    </Box>
-                  )}
-
-                  {item.type === 'separator' && (
-                    <Box pr="3">
-                      <Separator size="4" my="3" />
-                    </Box>
-                  )}
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '64px',
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <EntityItem
+                          entity={entity}
+                          checked={selectedEntityIds.has(entity.entity_id)}
+                          onCheckedChange={(checked) =>
+                            handleToggleEntity(entity.entity_id, checked)
+                          }
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          </Card>
+        </Box>
+      </Flex>
 
       {/* Add button for entities */}
       <Flex gap="3" justify="end">
@@ -357,34 +637,48 @@ const EntityItem = memo(function EntityItem({ entity, checked, onCheckedChange }
     (entity.attributes.unit_of_measurement ? ` ${entity.attributes.unit_of_measurement}` : '')
 
   return (
-    <Box mb="2">
-      <Card asChild>
-        <label style={{ cursor: 'pointer' }}>
-          <Flex align="center" gap="3" p="3">
-            <Checkbox
+    <Box asChild>
+      <label style={{ display: 'block', cursor: 'pointer' }}>
+        <Flex
+          p="3"
+          align="center"
+          gap="2"
+          style={{
+            height: '64px',
+            borderBottom: '1px solid var(--gray-a3)',
+          }}
+        >
+          <Checkbox
+            size="1"
+            checked={checked}
+            onCheckedChange={onCheckedChange as (checked: boolean | 'indeterminate') => void}
+          />
+          <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+            <Text
               size="2"
-              checked={checked}
-              onCheckedChange={onCheckedChange as (checked: boolean | 'indeterminate') => void}
-            />
-            <Flex direction="column" style={{ flex: 1 }}>
-              <Text size="2" weight="medium">
-                {friendlyName}
-              </Text>
-              <Flex gap="2" align="center">
-                <Text size="1" color="gray">
-                  {entity.entity_id}
-                </Text>
-                <Text size="1" color="gray">
-                  •
-                </Text>
-                <Text size="1" color="gray">
-                  {stateDisplay}
-                </Text>
-              </Flex>
-            </Flex>
+              weight="medium"
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {friendlyName}
+            </Text>
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {entity.entity_id} • {stateDisplay}
+            </Text>
           </Flex>
-        </label>
-      </Card>
+        </Flex>
+      </label>
     </Box>
   )
 })

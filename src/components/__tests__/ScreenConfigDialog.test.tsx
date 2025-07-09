@@ -11,7 +11,13 @@ vi.mock('../../store', () => ({
   dashboardActions: {
     updateScreen: vi.fn(),
     addScreen: vi.fn(),
+    reorderGrid: vi.fn(),
   },
+}))
+
+// Mock useNavigate hook
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
 }))
 
 describe('ScreenConfigDialog', () => {
@@ -51,59 +57,72 @@ describe('ScreenConfigDialog', () => {
     // Reset actions
     vi.mocked(dashboardActions.updateScreen).mockImplementation(() => {})
     vi.mocked(dashboardActions.addScreen).mockImplementation(() => {})
+    vi.mocked(dashboardActions.reorderGrid).mockImplementation(() => {})
   })
 
-  it('should not render when screenId is not provided', () => {
-    const { container } = render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} />)
-    expect(container.firstChild).toBeNull()
+  it('should not render when closed', () => {
+    render(<ScreenConfigDialog open={false} onOpenChange={mockOnOpenChange} />)
+    expect(screen.queryByText('Add New View')).not.toBeInTheDocument()
   })
 
-  it('should render dialog when open with valid screenId', () => {
-    render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
-    )
+  it('should render add dialog when open without screen', () => {
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    expect(screen.getByText('Configure Screen')).toBeInTheDocument()
-    expect(
-      screen.getByText('Customize the screen settings including name and grid resolution')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Add New View')).toBeInTheDocument()
+    expect(screen.getByText('Create a new view to organize your dashboard')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add View' })).toBeInTheDocument()
+  })
+
+  it('should render edit dialog when open with screen', () => {
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={testScreen} />)
+
+    expect(screen.getByText('Edit View')).toBeInTheDocument()
+    expect(screen.getByText('Update your view settings')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument()
   })
 
   it('should display current screen values', () => {
-    render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
-    )
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={testScreen} />)
 
-    const nameInput = screen.getByPlaceholderText('Enter screen name') as HTMLInputElement
+    const nameInput = screen.getByPlaceholderText('Living Room') as HTMLInputElement
     expect(nameInput.value).toBe('Test Screen')
 
-    // Find inputs by their type and value since Radix UI doesn't properly associate labels
-    const numberInputs = screen.getAllByRole('spinbutton') as HTMLInputElement[]
-    const columnsInput = numberInputs.find((input) => input.value === '12')
-    const rowsInput = numberInputs.find((input) => input.value === '8')
-
-    expect(columnsInput).toBeDefined()
-    expect(rowsInput).toBeDefined()
+    const slugInput = screen.getByPlaceholderText('living-room') as HTMLInputElement
+    expect(slugInput.value).toBe('test-screen')
   })
 
-  it('should display preset selector', () => {
+  it('should display reorder grid button when screen has items', () => {
+    const screenWithItems = {
+      ...testScreen,
+      grid: {
+        resolution: { columns: 12, rows: 8 },
+        items: [
+          {
+            id: 'item1',
+            type: 'entity' as const,
+            entityId: 'light.test',
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+          },
+        ],
+      },
+    }
     render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={screenWithItems} />
     )
 
-    // Just verify the preset selector is present
-    expect(screen.getByText('Choose a preset')).toBeInTheDocument()
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(screen.getByText('Grid Management')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reorder Grid (Pack Items)' })).toBeInTheDocument()
   })
 
   it('should save name changes when save button is clicked', async () => {
     const user = userEvent.setup()
 
-    render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
-    )
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={testScreen} />)
 
-    const nameInput = screen.getByPlaceholderText('Enter screen name')
+    const nameInput = screen.getByPlaceholderText('Living Room')
     await user.clear(nameInput)
     await user.type(nameInput, 'Updated Screen')
 
@@ -114,39 +133,46 @@ describe('ScreenConfigDialog', () => {
       'test-screen',
       expect.objectContaining({
         name: 'Updated Screen',
-        slug: 'updated-screen',
       })
     )
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('should duplicate screen when duplicate button is clicked', async () => {
+  it('should handle reorder grid button click', async () => {
     const user = userEvent.setup()
+    const screenWithItems = {
+      ...testScreen,
+      grid: {
+        resolution: { columns: 12, rows: 8 },
+        items: [
+          {
+            id: 'item1',
+            type: 'entity' as const,
+            entityId: 'light.test',
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+          },
+        ],
+      },
+    }
 
     render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={screenWithItems} />
     )
 
-    const duplicateButton = screen.getByRole('button', { name: /duplicate screen/i })
-    await user.click(duplicateButton)
+    const reorderButton = screen.getByRole('button', { name: 'Reorder Grid (Pack Items)' })
+    await user.click(reorderButton)
 
-    expect(dashboardActions.addScreen).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'Test Screen (Copy)',
-        slug: 'test-screen-copy',
-        children: undefined,
-      }),
-      undefined
-    )
+    expect(dashboardActions.reorderGrid).toHaveBeenCalledWith('test-screen')
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
   it('should cancel without saving when cancel button is clicked', async () => {
     const user = userEvent.setup()
 
-    render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
-    )
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={testScreen} />)
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' })
     await user.click(cancelButton)
@@ -155,30 +181,14 @@ describe('ScreenConfigDialog', () => {
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('should display validation constraints', () => {
-    render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
-    )
+  it('should display validation for name field', async () => {
+    const user = userEvent.setup()
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={testScreen} />)
 
-    // Check that the inputs have proper constraints
-    const numberInputs = screen.getAllByRole('spinbutton') as HTMLInputElement[]
-    const columnsInput = numberInputs[0]
-    const rowsInput = numberInputs[1]
+    const nameInput = screen.getByPlaceholderText('Living Room')
+    await user.clear(nameInput)
 
-    expect(columnsInput).toHaveAttribute('min', '1')
-    expect(columnsInput).toHaveAttribute('max', '24')
-    expect(rowsInput).toHaveAttribute('min', '1')
-    expect(rowsInput).toHaveAttribute('max', '20')
-  })
-
-  it('should show grid preview', () => {
-    render(
-      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screenId="test-screen" />
-    )
-
-    expect(screen.getByText('Grid Preview')).toBeInTheDocument()
-    // The grid preview should render 96 cells (12 columns × 8 rows)
-    const gridCells = screen.getByText('Grid Preview').parentElement?.querySelectorAll('div > div')
-    expect(gridCells?.length).toBeGreaterThan(0)
+    const saveButton = screen.getByRole('button', { name: 'Save Changes' })
+    expect(saveButton).toBeDisabled()
   })
 })

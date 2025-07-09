@@ -1,9 +1,8 @@
 import { Flex, Text, Button } from '@radix-ui/themes'
 import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
 import { useEntity, useWebRTC } from '~/hooks'
-import { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import { SkeletonCard, ErrorDisplay } from './ui'
+import { memo, useMemo, useState, useRef, useCallback } from 'react'
+import { SkeletonCard, ErrorDisplay, FullscreenModal } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore } from '~/store'
 import { KeepAlive } from './KeepAlive'
@@ -69,19 +68,6 @@ function CameraCardComponent({
     entityId,
     enabled: webRTCEnabled,
   })
-
-  // Handle ESC key for fullscreen
-  useEffect(() => {
-    if (isFullscreen) {
-      const handleKeyPress = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          setIsFullscreen(false)
-        }
-      }
-      document.addEventListener('keydown', handleKeyPress)
-      return () => document.removeEventListener('keydown', handleKeyPress)
-    }
-  }, [isFullscreen])
 
   const handleVideoClick = useCallback(() => {
     if (!streamError && !isEditMode) {
@@ -306,99 +292,94 @@ function CameraCardComponent({
         </div>
       </GridCard>
 
-      {/* Fullscreen portal - renders to document.body to escape shadow DOM */}
-      {isFullscreen &&
-        createPortal(
+      {/* Fullscreen modal */}
+      <FullscreenModal
+        open={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        includeTheme={false}
+        backdropStyle={{
+          backgroundColor: 'black',
+          cursor: 'pointer',
+        }}
+        contentStyle={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          ref={fullscreenContainerRef}
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        />
+
+        {/* Fullscreen entity info */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '20px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            padding: '8px 16px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(4px)',
+            color: 'white',
+            fontSize: '16px',
+            lineHeight: '1.2',
+          }}
+        >
+          <div style={{ fontWeight: '600', marginBottom: '2px' }}>{friendlyName}</div>
           <div
             style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'black',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
+              fontSize: '14px',
+              opacity: 0.9,
+              color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
             }}
-            onClick={() => setIsFullscreen(false)}
           >
-            <div
-              ref={fullscreenContainerRef}
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            />
+            {streamError
+              ? 'ERROR'
+              : isRecording
+                ? 'RECORDING'
+                : isStreaming_
+                  ? 'STREAMING'
+                  : isIdle
+                    ? 'IDLE'
+                    : entity.state.toUpperCase()}
+          </div>
+        </div>
 
-            {/* Fullscreen entity info */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '20px',
-                left: '20px',
-                background: 'rgba(0, 0, 0, 0.7)',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                backdropFilter: 'blur(4px)',
-                color: 'white',
-                fontSize: '16px',
-                lineHeight: '1.2',
-              }}
-            >
-              <div style={{ fontWeight: '600', marginBottom: '2px' }}>{friendlyName}</div>
-              <div
-                style={{
-                  fontSize: '14px',
-                  opacity: 0.9,
-                  color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
-                }}
-              >
-                {streamError
-                  ? 'ERROR'
-                  : isRecording
-                    ? 'RECORDING'
-                    : isStreaming_
-                      ? 'STREAMING'
-                      : isIdle
-                        ? 'IDLE'
-                        : entity.state.toUpperCase()}
-              </div>
-            </div>
-
-            {/* Exit indicator */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '20px',
-                right: '20px',
-                background: 'rgba(0, 0, 0, 0.7)',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                backdropFilter: 'blur(4px)',
-                color: 'white',
-                fontSize: '14px',
-                fontWeight: '500',
-                pointerEvents: 'none',
-              }}
-            >
-              Click or press ESC to exit
-            </div>
-          </div>,
-          document.body
-        )}
+        {/* Exit indicator */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(4px)',
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: '500',
+            pointerEvents: 'none',
+          }}
+        >
+          Click or press ESC to exit
+        </div>
+      </FullscreenModal>
     </>
   )
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const CameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
+const MemoizedCameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
@@ -407,4 +388,8 @@ export const CameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect
   )
+})
+
+export const CameraCard = Object.assign(MemoizedCameraCard, {
+  defaultDimensions: { width: 4, height: 2 },
 })

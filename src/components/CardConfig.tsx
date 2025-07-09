@@ -1,10 +1,8 @@
 import * as React from 'react'
 import {
-  Dialog,
   Flex,
   Button,
   Text,
-  Separator,
   ScrollArea,
   Box,
   IconButton,
@@ -12,8 +10,10 @@ import {
   Select,
   TextField,
   TextArea,
+  Card,
 } from '@radix-ui/themes'
 import { X } from 'lucide-react'
+import { FullscreenModal } from './ui'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
 import type { GridItem } from '~/store/types'
 import { IconSelect } from './IconSelect'
@@ -464,30 +464,32 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content
+    <FullscreenModal open={open} onClose={() => onOpenChange(false)}>
+      <Card
+        size="3"
         style={{
           maxWidth: '90vw',
           width: '900px',
           maxHeight: '85vh',
           display: 'flex',
           flexDirection: 'column',
+          backgroundColor: 'var(--color-panel-solid)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         }}
       >
-        <Dialog.Title>
-          <Flex align="center" justify="between">
-            <Text size="5" weight="bold">
-              Card Configuration
-            </Text>
-            <Dialog.Close>
-              <IconButton size="2" variant="ghost">
-                <X size={16} />
-              </IconButton>
-            </Dialog.Close>
-          </Flex>
-        </Dialog.Title>
-
-        <Separator size="4" />
+        <Flex
+          align="center"
+          justify="between"
+          p="4"
+          style={{ borderBottom: '1px solid var(--gray-a5)' }}
+        >
+          <Text size="5" weight="bold">
+            Card Configuration
+          </Text>
+          <IconButton size="2" variant="ghost" onClick={() => onOpenChange(false)}>
+            <X size={16} />
+          </IconButton>
+        </Flex>
 
         <Box style={{ flex: 1, overflow: 'hidden' }}>
           <Flex style={{ height: '100%' }} gap="4">
@@ -517,18 +519,14 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
           </Flex>
         </Box>
 
-        <Separator size="4" />
-
-        <Flex gap="3" justify="end" p="4">
-          <Dialog.Close>
-            <Button variant="soft" color="gray">
-              Cancel
-            </Button>
-          </Dialog.Close>
+        <Flex gap="3" justify="end" p="4" style={{ borderTop: '1px solid var(--gray-a5)' }}>
+          <Button variant="soft" color="gray" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button onClick={handleSave}>Save Changes</Button>
         </Flex>
-      </Dialog.Content>
-    </Dialog.Root>
+      </Card>
+    </FullscreenModal>
   )
 }
 

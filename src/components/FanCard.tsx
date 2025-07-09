@@ -372,7 +372,7 @@ function FanCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const FanCard = memo(FanCardComponent, (prevProps, nextProps) => {
+const MemoizedFanCard = memo(FanCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.size === nextProps.size &&
@@ -380,4 +380,8 @@ export const FanCard = memo(FanCardComponent, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect
   )
+})
+
+export const FanCard = Object.assign(MemoizedFanCard, {
+  defaultDimensions: { width: 2, height: 2 },
 })

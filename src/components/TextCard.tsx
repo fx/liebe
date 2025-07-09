@@ -326,4 +326,8 @@ function TextCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const TextCard = memo(TextCardComponent)
+const MemoizedTextCard = memo(TextCardComponent)
+
+export const TextCard = Object.assign(MemoizedTextCard, {
+  defaultDimensions: { width: 3, height: 2 },
+})

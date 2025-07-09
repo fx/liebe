@@ -17,6 +17,7 @@ import { ConnectionStatus } from './ConnectionStatus'
 import { ModeToggle } from './ModeToggle'
 import { ConfigurationMenu } from './ConfigurationMenu'
 import { TaskbarButton } from './TaskbarButton'
+import { ScreenTaskbarButton } from './ScreenTaskbarButton'
 import type { ScreenConfig } from '../store/types'
 import './AppTaskbar.css'
 
@@ -85,14 +86,17 @@ export function AppTaskbar() {
 
         {/* Screen buttons */}
         {screens.map((screen, index) => (
-          <TaskbarButton
+          <ScreenTaskbarButton
             key={screen.id}
+            screenId={screen.id}
             icon={index === 0 ? <HomeIcon /> : <ViewGridIcon />}
             label={screen.name}
             variant={currentScreenId === screen.id ? 'solid' : 'soft'}
             onClick={() => handleScreenClick(screen.id)}
             showText={tabsExpanded}
-            ariaLabel={screen.name}
+            onEdit={() => {
+              window.dispatchEvent(new CustomEvent('editScreen', { detail: { screen } }))
+            }}
           />
         ))}
 

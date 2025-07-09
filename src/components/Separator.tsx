@@ -104,3 +104,5 @@ export function Separator({
     </div>
   )
 }
+
+Separator.defaultDimensions = { width: 4, height: 1 }
