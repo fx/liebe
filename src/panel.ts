@@ -4,6 +4,10 @@ import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
 import { PanelApp } from './components/PanelApp'
 import type { HomeAssistant } from './contexts/HomeAssistantContext'
 
+// Type fix for React.createElement
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Provider = HomeAssistantProvider as any
+
 // Import styles
 import '@radix-ui/themes/styles.css'
 import 'react-grid-layout/css/styles.css'
@@ -34,7 +38,7 @@ class LiebePanel extends HTMLElement {
         link.rel = 'stylesheet'
         link.href = cssUrl
         shadow.appendChild(link)
-        
+
         // For Radix UI portals
         if (!document.querySelector(`link[href="${cssUrl}"]`)) {
           const globalLink = link.cloneNode() as HTMLLinkElement
@@ -54,11 +58,10 @@ class LiebePanel extends HTMLElement {
   private render() {
     if (!this.root || !this._hass) return
     this.root.render(
-      React.createElement(React.StrictMode, null,
-        React.createElement(HomeAssistantProvider, {
-          hass: this._hass,
-          children: React.createElement(PanelApp),
-        })
+      React.createElement(
+        React.StrictMode,
+        null,
+        React.createElement(Provider, { hass: this._hass }, React.createElement(PanelApp))
       )
     )
   }
