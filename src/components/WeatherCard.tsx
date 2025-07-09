@@ -525,10 +525,14 @@ function WeatherCardContent({
   )
 }
 
-export function WeatherCard(props: WeatherCardProps) {
+function WeatherCardWithBoundary(props: WeatherCardProps) {
   return (
     <ErrorBoundary>
       <WeatherCardContent {...props} />
     </ErrorBoundary>
   )
 }
+
+export const WeatherCard = Object.assign(WeatherCardWithBoundary, {
+  defaultDimensions: { width: 4, height: 3 },
+})

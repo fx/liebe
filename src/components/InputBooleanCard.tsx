@@ -15,7 +15,7 @@ interface InputBooleanCardProps {
   onSelect?: (selected: boolean) => void
 }
 
-export const InputBooleanCard = memo(function InputBooleanCard({
+const MemoizedInputBooleanCard = memo(function InputBooleanCard({
   entityId,
   size = 'medium',
   onDelete,
@@ -123,4 +123,8 @@ export const InputBooleanCard = memo(function InputBooleanCard({
       </Flex>
     </GridCard>
   )
+})
+
+export const InputBooleanCard = Object.assign(MemoizedInputBooleanCard, {
+  defaultDimensions: { width: 2, height: 1 },
 })

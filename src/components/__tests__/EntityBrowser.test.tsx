@@ -31,6 +31,21 @@ vi.mock('~/store', () => ({
   dashboardActions: {
     addGridItem: vi.fn(),
   },
+  dashboardStore: {
+    state: {
+      screens: [
+        {
+          id: 'test-screen-id',
+          name: 'Test Screen',
+          type: 'grid',
+          grid: {
+            resolution: { columns: 12, rows: 8 },
+            items: [],
+          },
+        },
+      ],
+    },
+  },
 }))
 
 import { useEntities } from '~/hooks'
@@ -264,8 +279,15 @@ describe('EntityBrowser', () => {
 
     render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
-    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
-    await user.click(cancelButton)
+    // The close button is the one with the Cross2Icon - it's a button without text
+    const buttons = screen.getAllByRole('button')
+    const closeButton = buttons.find((button) => {
+      // Find the button that contains the Cross2Icon (has no text content)
+      return button.querySelector('svg') && !button.textContent?.trim()
+    })
+
+    expect(closeButton).toBeTruthy()
+    await user.click(closeButton!)
 
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })

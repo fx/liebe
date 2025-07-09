@@ -3,6 +3,8 @@ import { Flex, Text, Box, IconButton, Dialog, Button, TextField, Select } from '
 import { TextIcon, DividerHorizontalIcon, DividerVerticalIcon } from '@radix-ui/react-icons'
 import { dashboardActions } from '~/store'
 import type { GridItem } from '~/store/types'
+import { Separator } from './Separator'
+import { TextCard } from './TextCard'
 
 interface CardsBrowserTabProps {
   screenId: string | null
@@ -31,8 +33,11 @@ export function CardsBrowserTab({ screenId, onClose }: CardsBrowserTabProps) {
         separatorTextColor: separatorConfig.textColor,
         x: 0,
         y: 0,
-        width: separatorConfig.orientation === 'vertical' ? 1 : 4,
-        height: separatorConfig.orientation === 'vertical' ? 4 : 1,
+        width: separatorConfig.orientation === 'vertical' ? 1 : Separator.defaultDimensions.width,
+        height:
+          separatorConfig.orientation === 'vertical'
+            ? Separator.defaultDimensions.width
+            : Separator.defaultDimensions.height,
       }
       dashboardActions.addGridItem(screenId, newItem)
     }
@@ -51,8 +56,8 @@ export function CardsBrowserTab({ screenId, onClose }: CardsBrowserTabProps) {
         textSize: 'medium',
         x: 0,
         y: 0,
-        width: 3,
-        height: 2,
+        width: TextCard.defaultDimensions.width,
+        height: TextCard.defaultDimensions.height,
       }
       dashboardActions.addGridItem(screenId, newItem)
     }

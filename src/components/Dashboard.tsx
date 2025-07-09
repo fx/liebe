@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Box, Flex, Card, Text, Button } from '@radix-ui/themes'
-import { AddViewDialog } from './AddViewDialog'
+import { ScreenConfigDialog } from './ScreenConfigDialog'
 import { GridView } from './GridView'
 import { AppTaskbar } from './AppTaskbar'
 import { Sidebar } from './Sidebar'
@@ -9,12 +9,14 @@ import { EntityBrowser } from './EntityBrowser'
 import { ErrorBoundary } from './ui'
 import { useDashboardStore } from '../store'
 import { useEntityConnection } from '../hooks'
+import type { ScreenConfig } from '../store/types'
 import './Dashboard.css'
 
 export function Dashboard() {
   const [addViewOpen, setAddViewOpen] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [addItemScreenId, setAddItemScreenId] = useState<string | null>(null)
+  const [editScreen, setEditScreen] = useState<ScreenConfig | undefined>(undefined)
 
   // Enable entity connection
   useEntityConnection()
@@ -34,11 +36,20 @@ export function Dashboard() {
         setAddItemOpen(true)
       }
     }
+    const handleEditScreen = (e: Event) => {
+      const screenToEdit = (e as CustomEvent).detail?.screen
+      if (screenToEdit) {
+        setEditScreen(screenToEdit)
+        setAddViewOpen(true)
+      }
+    }
     window.addEventListener('addScreen', handleAddScreen)
     window.addEventListener('addItem', handleAddItem as EventListener)
+    window.addEventListener('editScreen', handleEditScreen as EventListener)
     return () => {
       window.removeEventListener('addScreen', handleAddScreen)
       window.removeEventListener('addItem', handleAddItem as EventListener)
+      window.removeEventListener('editScreen', handleEditScreen as EventListener)
     }
   }, [])
 
@@ -121,8 +132,15 @@ export function Dashboard() {
         )}
       </Box>
 
-      {/* Add View Dialog */}
-      <AddViewDialog open={addViewOpen} onOpenChange={setAddViewOpen} />
+      {/* Screen Config Dialog */}
+      <ScreenConfigDialog
+        open={addViewOpen}
+        onOpenChange={(open) => {
+          setAddViewOpen(open)
+          if (!open) setEditScreen(undefined)
+        }}
+        screen={editScreen}
+      />
 
       {/* Entity Browser for Add Item */}
       <EntityBrowser

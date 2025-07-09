@@ -229,7 +229,7 @@ function SensorCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const SensorCard = memo(SensorCardComponent, (prevProps, nextProps) => {
+const MemoizedSensorCard = memo(SensorCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
@@ -238,4 +238,8 @@ export const SensorCard = memo(SensorCardComponent, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect
   )
+})
+
+export const SensorCard = Object.assign(MemoizedSensorCard, {
+  defaultDimensions: { width: 2, height: 2 },
 })
