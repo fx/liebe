@@ -25,6 +25,7 @@ import { dashboardActions, dashboardStore } from '~/store'
 import type { HassEntity } from '~/store/entityTypes'
 import type { GridItem } from '~/store/types'
 import { findOptimalPositionsForBatch } from '~/utils/gridPositioning'
+import { getDefaultCardDimensions } from '~/utils/cardDimensions'
 
 interface EntitiesBrowserTabProps {
   screenId: string | null
@@ -295,12 +296,15 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
       const currentScreen = findScreen(state.screens, screenId)
       if (!currentScreen?.grid) return
 
-      // Prepare new items data
+      // Prepare new items data with entity-specific dimensions
       const entityIds = Array.from(selectedEntityIds)
-      const newItemsData = entityIds.map(() => ({
-        width: 2,
-        height: 2,
-      }))
+      const newItemsData = entityIds.map((entityId) => {
+        const dimensions = getDefaultCardDimensions(entityId)
+        return {
+          width: dimensions.width,
+          height: dimensions.height,
+        }
+      })
 
       // Find optimal positions for all items at once
       const positions = findOptimalPositionsForBatch(
@@ -309,16 +313,17 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
         currentScreen.grid.resolution
       )
 
-      // Create GridItem for each entity with optimal position
+      // Create GridItem for each entity with optimal position and dimensions
       entityIds.forEach((entityId, index) => {
+        const dimensions = getDefaultCardDimensions(entityId)
         const newItem: GridItem = {
           id: `${Date.now()}-${index}`,
           type: 'entity',
           entityId,
           x: positions[index].x,
           y: positions[index].y,
-          width: 2,
-          height: 2,
+          width: dimensions.width,
+          height: dimensions.height,
         }
         dashboardActions.addGridItem(screenId, newItem)
       })

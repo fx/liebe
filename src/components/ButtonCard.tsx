@@ -141,7 +141,7 @@ function ButtonCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const ButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
+const MemoizedButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
@@ -150,4 +150,8 @@ export const ButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect
   )
+})
+
+export const ButtonCard = Object.assign(MemoizedButtonCard, {
+  defaultDimensions: { width: 2, height: 1 },
 })

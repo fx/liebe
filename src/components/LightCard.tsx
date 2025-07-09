@@ -274,7 +274,7 @@ function LightCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const LightCard = memo(LightCardComponent, (prevProps, nextProps) => {
+const MemoizedLightCard = memo(LightCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
@@ -284,4 +284,8 @@ export const LightCard = memo(LightCardComponent, (prevProps, nextProps) => {
     prevProps.onSelect === nextProps.onSelect &&
     prevProps.item === nextProps.item
   )
+})
+
+export const LightCard = Object.assign(MemoizedLightCard, {
+  defaultDimensions: { width: 2, height: 2 },
 })

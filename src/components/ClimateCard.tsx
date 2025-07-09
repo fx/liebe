@@ -947,7 +947,7 @@ function ClimateCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const ClimateCard = memo(ClimateCardComponent, (prevProps, nextProps) => {
+const MemoizedClimateCard = memo(ClimateCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.size === nextProps.size &&
@@ -955,4 +955,8 @@ export const ClimateCard = memo(ClimateCardComponent, (prevProps, nextProps) => 
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect
   )
+})
+
+export const ClimateCard = Object.assign(MemoizedClimateCard, {
+  defaultDimensions: { width: 3, height: 3 },
 })

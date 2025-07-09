@@ -407,7 +407,7 @@ function CoverCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const CoverCard = memo(CoverCardComponent, (prevProps, nextProps) => {
+const MemoizedCoverCard = memo(CoverCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.size === nextProps.size &&
@@ -415,4 +415,8 @@ export const CoverCard = memo(CoverCardComponent, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect
   )
+})
+
+export const CoverCard = Object.assign(MemoizedCoverCard, {
+  defaultDimensions: { width: 2, height: 3 },
 })

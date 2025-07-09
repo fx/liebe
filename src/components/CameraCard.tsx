@@ -379,7 +379,7 @@ function CameraCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const CameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
+const MemoizedCameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
@@ -388,4 +388,8 @@ export const CameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect
   )
+})
+
+export const CameraCard = Object.assign(MemoizedCameraCard, {
+  defaultDimensions: { width: 4, height: 2 },
 })

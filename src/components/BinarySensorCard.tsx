@@ -181,7 +181,7 @@ function BinarySensorCardComponent({
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const BinarySensorCard = memo(BinarySensorCardComponent, (prevProps, nextProps) => {
+const MemoizedBinarySensorCard = memo(BinarySensorCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
@@ -191,4 +191,8 @@ export const BinarySensorCard = memo(BinarySensorCardComponent, (prevProps, next
     prevProps.onSelect === nextProps.onSelect &&
     prevProps.item === nextProps.item
   )
+})
+
+export const BinarySensorCard = Object.assign(MemoizedBinarySensorCard, {
+  defaultDimensions: { width: 2, height: 2 },
 })
