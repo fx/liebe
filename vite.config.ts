@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import type { ViteDevServer, Connect } from 'vite'
 import type { ServerResponse } from 'http'
 import tsConfigPaths from 'vite-tsconfig-paths'
+import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import { build } from 'vite'
 
@@ -51,6 +52,9 @@ function panelPlugin() {
           },
         },
         plugins: [
+          react({
+            jsxRuntime: 'automatic',
+          }),
           tsConfigPaths({
             projects: ['./tsconfig.json'],
           }),
@@ -143,6 +147,9 @@ export default defineConfig({
     include: ['react', 'react-dom', '@tanstack/react-router', '@radix-ui/themes'],
   },
   plugins: [
+    react({
+      jsxRuntime: 'automatic',
+    }),
     tsConfigPaths({
       projects: ['./tsconfig.json'],
     }),

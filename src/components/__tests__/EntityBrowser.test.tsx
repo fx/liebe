@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EntityBrowser } from '../EntityBrowser'
 import type { HassEntity } from '../../store/entityTypes'
@@ -7,6 +7,24 @@ import type { HassEntity } from '../../store/entityTypes'
 // Mock the dependencies
 vi.mock('~/hooks', () => ({
   useEntities: vi.fn(),
+}))
+
+// Mock the virtualizer to render all items in tests
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn((options: { count: number; estimateSize: (index: number) => number }) => {
+    // Create virtual items based on count
+    const items: Array<{ index: number; start: number; size: number; key: number }> = []
+    let offset = 0
+    for (let i = 0; i < options.count; i++) {
+      const size = options.estimateSize(i)
+      items.push({ index: i, start: offset, size, key: i })
+      offset += size
+    }
+    return {
+      getVirtualItems: () => items,
+      getTotalSize: () => offset,
+    }
+  }),
 }))
 
 vi.mock('~/store', () => ({
@@ -122,9 +140,19 @@ describe('EntityBrowser', () => {
     const searchInput = screen.getByPlaceholderText('Search entities...')
     await user.type(searchInput, 'light')
 
-    expect(screen.getByText('Living Room Light')).toBeInTheDocument()
-    expect(screen.queryByText('Kitchen Switch')).not.toBeInTheDocument()
-    expect(screen.queryByText('Temperature')).not.toBeInTheDocument()
+    // Wait for debounce and re-render
+    await waitFor(
+      () => {
+        expect(screen.getByText('Living Room Light')).toBeInTheDocument()
+      },
+      { timeout: 1000 }
+    )
+
+    // After filtering, these should not be visible
+    await waitFor(() => {
+      expect(screen.queryByText('Kitchen Switch')).not.toBeInTheDocument()
+      expect(screen.queryByText('Temperature')).not.toBeInTheDocument()
+    })
   })
 
   it('should add selected entities to grid', async () => {
@@ -158,6 +186,8 @@ describe('EntityBrowser', () => {
         height: 2,
       })
     )
+
+    // Should have closed the dialog
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
