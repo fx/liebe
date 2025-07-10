@@ -75,9 +75,9 @@ jobs:
           <body>
               <article class="markdown-body">
           EOF
-          
+
           npx marked@12 -i README.md --gfm >> ./dist/index.html
-          
+
           cat >> ./dist/index.html << 'EOF'
               </article>
           </body>

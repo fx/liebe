@@ -48,7 +48,7 @@ function StoreTestPage() {
   }
 
   const handleExport = () => {
-    const config = dashboardActions.exportConfiguration()
+    dashboardActions.exportConfiguration()
     alert('Configuration exported!')
   }
 
