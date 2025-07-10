@@ -377,6 +377,31 @@ When completing the final sub-issue of an epic, close the epic in the same pull 
 
 ### Home Assistant Custom Panel
 
+#### Panel Configuration
+
+The panel configuration is centralized in `/workspace/src/config/panel.ts` to make it easy to support different environments and paths:
+
+```typescript
+// Panel configuration is environment-aware
+getPanelConfig() // Returns { elementName, urlPath } based on NODE_ENV
+
+// All panel paths are centralized
+getAllPanelPaths() // Returns ['/liebe', '/liebe-dev']
+
+// Check if a path is a panel path
+isPanelPath(pathname) // Returns true if pathname contains any panel path
+
+// Get base path from current location
+getPanelBasePath(pathname) // Returns the matching panel path or undefined
+```
+
+This centralized configuration ensures consistency across:
+
+- Custom element registration (`panel.ts`)
+- Router base path detection (`router.tsx`)
+- Home Assistant detection in hooks
+- Future panel path additions
+
 #### Custom Panel Integration
 
 Home Assistant custom panels provide full access to the `hass` object and proper integration with the Home Assistant frontend. Always use `panel_custom` for dashboard integration.

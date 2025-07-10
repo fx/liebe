@@ -2,19 +2,14 @@ import { createRouter as createTanStackRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
+import { getPanelBasePath } from './config/panel'
 
 export function createRouter() {
   // Determine base path for Home Assistant custom panel
-  // In HA, the panel is served at /liebe/ or /liebe-dev/
   let basepath: string | undefined = undefined
 
   if (typeof window !== 'undefined') {
-    // Check for both production and development paths
-    if (window.location.pathname.includes('/liebe-dev')) {
-      basepath = '/liebe-dev'
-    } else if (window.location.pathname.includes('/liebe')) {
-      basepath = '/liebe'
-    }
+    basepath = getPanelBasePath(window.location.pathname)
   }
 
   const router = createTanStackRouter({
