@@ -57,18 +57,13 @@ export class HassService {
 
       await this.hass.callService(options.domain, options.service, serviceData)
 
-      console.log(`Service call successful: ${options.domain}.${options.service}`, serviceData)
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      console.error(`Service call failed: ${options.domain}.${options.service}`, errorMessage)
 
       // Check if we should retry
       if (retryCount < this.retryDelays.length) {
         const delay = this.retryDelays[retryCount]
-        console.log(
-          `Retrying service call in ${delay}ms (attempt ${retryCount + 1}/${this.retryDelays.length})`
-        )
 
         await new Promise((resolve) => setTimeout(resolve, delay))
         return this.callServiceWithRetry(options, retryCount + 1)

@@ -67,7 +67,6 @@ function FanCardComponent({
           },
         })
       }
-      console.log('🔥 Service call completed')
     },
     [entity, callService, turnOff, error, clearError, isLoading]
   )

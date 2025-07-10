@@ -171,7 +171,6 @@ export class HassConnectionManager {
     )
 
     this.reconnectAttempts++
-    console.log(`Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`)
 
     this.reconnectTimer = setTimeout(() => {
       if (this.hass) {
