@@ -151,14 +151,16 @@ Liebe runs as a web application that integrates with Home Assistant via custom p
 
    ```yaml
    panel_custom:
-     - name: liebe-panel
+     - name: liebe-panel-dev
        sidebar_title: Liebe Dev
        sidebar_icon: mdi:heart
-       url_path: liebe
+       url_path: liebe-dev
        module_url: http://localhost:3000/panel.js
    ```
 
 3. **Restart Home Assistant** and find "Liebe Dev" in the sidebar.
+
+   **Note**: The development build uses `liebe-panel-dev` as the custom element name, allowing you to have both production and development panels active simultaneously.
 
 #### Production Deployment
 
@@ -173,7 +175,7 @@ panel_custom:
     module_url: https://your-server.com/liebe/panel.js
 ```
 
-Note: The custom element name in panel_custom must match the name in customElements.define()
+Note: The custom element name in panel_custom must match the name in customElements.define(). Production builds use `liebe-panel`, while development builds use `liebe-panel-dev`.
 
 ### Starting a New Task
 

@@ -67,4 +67,6 @@ class LiebePanel extends HTMLElement {
   }
 }
 
-customElements.define('liebe-panel', LiebePanel)
+// Use different element name for development
+const elementName = process.env.NODE_ENV === 'production' ? 'liebe-panel' : 'liebe-panel-dev'
+customElements.define(elementName, LiebePanel)
