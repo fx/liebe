@@ -803,7 +803,7 @@ The MCP browser tools provide direct browser automation for testing:
 The MCP tools read credentials from `.env.local`:
 
 ```
-HASS_URL=http://192.168.0.232:8123
+HASS_URL=http://homeassistant.local:8123
 HASS_USER=dev
 HASS_PASSWORD=test
 ```
@@ -921,5 +921,5 @@ panel_custom:
     sidebar_title: Liebe
     sidebar_icon: mdi:heart
     url_path: liebe
-    module_url: https://fx.github.io/liebe/dist/panel.js
+    module_url: https://fx.github.io/liebe/panel.js
 ```

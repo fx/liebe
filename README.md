@@ -1,41 +1,10 @@
-# Liebe
+# 🥰 Liebe
 
-A custom Home Assistant panel built with TanStack Start and React in SPA mode.
+A beautiful, touch-optimized dashboard for Home Assistant.
 
-## Features
+## Installation
 
-- **TanStack Start** - Modern React framework with file-based routing
-- **SPA Mode** - Client-side rendering for easy deployment
-- **Radix UI** - Unstyled, accessible component library
-- **Home Assistant Integration** - Native panel integration
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-# Open http://localhost:3000
-```
-
-Then add to your Home Assistant `configuration.yaml`:
-
-```yaml
-panel_custom:
-  - name: liebe-panel
-    sidebar_title: Liebe Dev
-    sidebar_icon: mdi:heart
-    url_path: liebe
-    module_url: http://localhost:3000/panel.js
-```
-
-## Production
-
-### Option 1: GitHub Pages (Recommended)
-
-The easiest way to use Liebe is through the GitHub Pages hosted version:
+Add to your Home Assistant `configuration.yaml`:
 
 ```yaml
 panel_custom:
@@ -46,67 +15,35 @@ panel_custom:
     module_url: https://fx.github.io/liebe/panel.js
 ```
 
-### Option 2: Self-hosting
-
-You can also build and host Liebe on your own web server:
-
-```bash
-# Build for production
-npm run build:ha:prod
-
-# Upload dist/panel.js to your web server
-```
-
-Then add to your `configuration.yaml`:
-
-```yaml
-panel_custom:
-  - name: liebe-panel
-    sidebar_title: Liebe
-    sidebar_icon: mdi:heart
-    url_path: liebe
-    module_url: https://your-server.com/liebe/panel.js
-```
-
 Restart Home Assistant and find "Liebe" in the sidebar.
 
-## Testing with Automation Tools
+## Features
 
-When testing Liebe with automation tools like Playwright, you may encounter authentication issues. To bypass authentication for testing purposes, you can configure Home Assistant to use trusted networks:
+- Touch-optimized interface
+- Flexible grid-based layouts
+- Drag & drop configuration
+- Dark mode support
+- YAML import/export
 
-```yaml
-homeassistant:
-  auth_providers:
-    - type: trusted_networks
-      trusted_networks:
-        - 192.168.1.100/32 # Replace with your testing machine's IP
-      trusted_users:
-        192.168.1.100: # Replace with your testing machine's IP
-          - user_id_here # Replace with the user ID to auto-login as
-      allow_bypass_login: true
-    - type: homeassistant
-```
+## Requirements
 
-**⚠️ Security Warning**: Only use trusted networks in secure, controlled environments. This bypasses authentication for specified IP addresses.
+- Home Assistant 2024.1 or newer
+- Modern web browser
 
-## Scripts
+## Liebe?
 
-- `npm run dev` - Start development server
-- `npm run build` - Build SPA application
-- `npm run build:ha` - Build Home Assistant panel (development)
-- `npm run build:ha:prod` - Build Home Assistant panel (production)
-- `npm run typecheck` - Run TypeScript type checking
-- `npm run lint` - Run ESLint
-- `npm run format` - Format code with Prettier
+Liebe is [German for "love"](https://en.wiktionary.org/wiki/Liebe). Home Assistant's most used acronym is `hass`, which is [German for "hate"](https://en.wiktionary.org/wiki/Hass)
 
-## Project Structure
+## Why?
 
-```
-src/
-├── components/       # Reusable components
-├── contexts/        # React contexts (HomeAssistant)
-├── routes/          # File-based routes
-├── styles/          # Global styles
-├── custom-panel.ts  # Home Assistant entry point
-└── router.tsx       # Router configuration
-```
+Don't enjoy retrieving RTSP URLs and manually creating WebRTC cards via YAML? Tired of crafting custom cards with obscure CSS classes, dropping CSS files onto your Home Assistant installation, and going back and forth trying to align separators that still look misaligned? Fed up with configurations that look decent on one display but horrible on different aspect ratios? Your spouse doesn't speak YAML?
+
+If you answered yes to any of these purely fictional scenarios, then you need some Liebe 💖
+
+Over the years of my Home Assistant adoption journey, I've tried finding time to build something like this, and had my hopes of someone else building a satisfactory version of this shattered, multiple times (shoutout to [ha-fusion](https://github.com/matt8707/ha-fusion)).
+
+So this is my latest attempt to build this again. But this time, with the help of AI! As of writing this, 99% of the code in this repository is written by AI. My personal current favorite being Claude Code. Whatever your feelings are on AI assistance, without it, this would not exist.
+
+## License
+
+MIT
