@@ -9,7 +9,8 @@ export function useHomeAssistantRouting() {
   const router = useRouter()
 
   useEffect(() => {
-    const isInHomeAssistant = window.location.pathname.includes('/liebe')
+    const isInHomeAssistant =
+      window.location.pathname.includes('/liebe') || window.location.pathname.includes('/liebe-dev')
 
     // Skip if not in Home Assistant
     if (!isInHomeAssistant) return

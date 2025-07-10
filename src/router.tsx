@@ -5,11 +5,14 @@ import { NotFound } from './components/NotFound'
 
 export function createRouter() {
   // Determine base path for Home Assistant custom panel
-  // In HA, the panel is served at /liebe/
+  // In HA, the panel is served at /liebe/ or /liebe-dev/
   let basepath: string | undefined = undefined
 
   if (typeof window !== 'undefined') {
-    if (window.location.pathname.includes('/liebe')) {
+    // Check for both production and development paths
+    if (window.location.pathname.includes('/liebe-dev')) {
+      basepath = '/liebe-dev'
+    } else if (window.location.pathname.includes('/liebe')) {
       basepath = '/liebe'
     }
   }
