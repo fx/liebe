@@ -49,7 +49,7 @@ function StoreTestPage() {
 
   const handleExport = () => {
     dashboardActions.exportConfiguration()
-    alert('Configuration exported!')
+    console.log('Configuration exported!')
   }
 
   const handleReset = () => {
