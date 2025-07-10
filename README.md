@@ -15,6 +15,35 @@ panel_custom:
     module_url: https://fx.github.io/liebe/panel.js
 ```
 
+### External Script Warning
+
+If you encounter an `alert()` dialog when loading Liebe, you may need to add the `trust_external_script` option:
+
+```yaml
+panel_custom:
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: https://fx.github.io/liebe/panel.js
+    trust_external_script: true
+```
+
+**⚠️ Security Warning**: The `trust_external_script` option disables certain security protections. While this resolves the alert issue, loading external scripts can pose security risks. For maximum security, we recommend building this project yourself and hosting it on your own Home Assistant installation:
+
+1. Clone this repository
+2. Run `npm install && npm run build:ha:prod`
+3. Copy `dist/panel.js` and `dist/liebe.css` to your Home Assistant's `www` folder
+4. Update your configuration to use the local files:
+   ```yaml
+   panel_custom:
+     - name: liebe-panel
+       sidebar_title: Liebe
+       sidebar_icon: mdi:heart
+       url_path: liebe
+       module_url: /local/panel.js
+   ```
+
 Restart Home Assistant and find "Liebe" in the sidebar.
 
 ## Features
