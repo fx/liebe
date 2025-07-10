@@ -34,7 +34,7 @@ export function WeatherCard(props: CardProps) {
   useEffect(() => {
     registerWeatherVariants()
   }, [])
-  
+
   const [configOpen, setConfigOpen] = useState(false)
   const screens = useDashboardStore((state) => state.screens)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)

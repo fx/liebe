@@ -87,10 +87,10 @@ describe('WeatherCard', () => {
     it('should show humidity in all sizes', () => {
       const { rerender } = render(<WeatherCard entityId="weather.home" size="small" />)
       expect(screen.getByText('65%')).toBeInTheDocument()
-      
+
       rerender(<WeatherCard entityId="weather.home" size="medium" />)
       expect(screen.getByText('65%')).toBeInTheDocument()
-      
+
       rerender(<WeatherCard entityId="weather.home" size="large" />)
       expect(screen.getByText('65%')).toBeInTheDocument()
     })
