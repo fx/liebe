@@ -84,21 +84,19 @@ describe('WeatherCard', () => {
   })
 
   describe('Size variations', () => {
-    it('should not show humidity in small size', () => {
-      render(<WeatherCard entityId="weather.home" size="small" />)
-      expect(screen.queryByText('65%')).not.toBeInTheDocument()
-    })
-
-    it('should show humidity in medium size', () => {
-      render(<WeatherCard entityId="weather.home" size="medium" />)
+    it('should show humidity in all sizes', () => {
+      const { rerender } = render(<WeatherCard entityId="weather.home" size="small" />)
+      expect(screen.getByText('65%')).toBeInTheDocument()
+      
+      rerender(<WeatherCard entityId="weather.home" size="medium" />)
+      expect(screen.getByText('65%')).toBeInTheDocument()
+      
+      rerender(<WeatherCard entityId="weather.home" size="large" />)
       expect(screen.getByText('65%')).toBeInTheDocument()
     })
 
-    it('should show pressure only in large size', () => {
-      const { rerender } = render(<WeatherCard entityId="weather.home" size="medium" />)
-      expect(screen.queryByText('1013 hPa')).not.toBeInTheDocument()
-
-      rerender(<WeatherCard entityId="weather.home" size="large" />)
+    it('should show pressure in detailed variant', () => {
+      render(<WeatherCard entityId="weather.home" size="large" config={{ variant: 'detailed' }} />)
       expect(screen.getByText('1013 hPa')).toBeInTheDocument()
     })
   })
@@ -183,8 +181,8 @@ describe('WeatherCard', () => {
 
   describe('Weather icon', () => {
     it('should show sun icon for sunny weather', () => {
-      render(<WeatherCard entityId="weather.home" />)
-      expect(document.querySelector('[class*="lucide-sun"]')).toBeInTheDocument()
+      const { container } = render(<WeatherCard entityId="weather.home" />)
+      expect(container.textContent).toContain('☀️')
     })
 
     it('should show rain icon for rainy weather', () => {
@@ -198,8 +196,8 @@ describe('WeatherCard', () => {
         isLoading: false,
       })
 
-      render(<WeatherCard entityId="weather.home" />)
-      expect(document.querySelector('[class*="lucide-cloud-rain"]')).toBeInTheDocument()
+      const { container } = render(<WeatherCard entityId="weather.home" />)
+      expect(container.textContent).toContain('🌧️')
     })
 
     it('should show snow icon for snowy weather', () => {
@@ -213,8 +211,8 @@ describe('WeatherCard', () => {
         isLoading: false,
       })
 
-      render(<WeatherCard entityId="weather.home" />)
-      expect(document.querySelector('[class*="lucide-cloud-snow"]')).toBeInTheDocument()
+      const { container } = render(<WeatherCard entityId="weather.home" />)
+      expect(container.textContent).toContain('❄️')
     })
   })
 })

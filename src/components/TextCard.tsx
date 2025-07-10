@@ -5,14 +5,17 @@ import ReactMarkdown from 'react-markdown'
 import './TextCard.css'
 
 interface TextCardProps {
-  entityId: string
+  entityId?: string
   size?: 'small' | 'medium' | 'large'
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  onDelete?: () => void
+  onConfigure?: () => void
   content?: string
   alignment?: 'left' | 'center' | 'right'
   textSize?: 'small' | 'medium' | 'large'
   textColor?: string
+  config?: Record<string, unknown>
 }
 
 function TextCardComponent({
@@ -20,11 +23,19 @@ function TextCardComponent({
   size = 'medium',
   isSelected = false,
   onSelect,
-  content = 'Double-click to edit',
-  alignment = 'left',
-  textSize = 'medium',
-  textColor = 'default',
+  onDelete: _onDelete,
+  onConfigure: _onConfigure,
+  content: propContent,
+  alignment: propAlignment,
+  textSize: propTextSize,
+  textColor: propTextColor,
+  config,
 }: TextCardProps) {
+  // Use config values if available, otherwise fall back to props
+  const content = (config?.content as string) || propContent || 'Double-click to edit'
+  const alignment = (config?.alignment as 'left' | 'center' | 'right') || propAlignment || 'left'
+  const textSize = (config?.textSize as 'small' | 'medium' | 'large') || propTextSize || 'medium'
+  const textColor = (config?.textColor as string) || propTextColor || 'default'
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   const [editContent, setEditContent] = useState(content)
@@ -69,7 +80,7 @@ function TextCardComponent({
   const handleContentChange = useCallback(
     (newContent: string) => {
       setEditContent(newContent)
-      if (currentScreenId) {
+      if (currentScreenId && _entityId) {
         // Update the content in real-time
         dashboardActions.updateGridItem(currentScreenId, _entityId, {
           content: newContent,
