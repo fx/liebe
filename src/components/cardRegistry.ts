@@ -26,6 +26,7 @@ export interface CardProps {
   onSelect?: (selected: boolean) => void
   config?: Record<string, unknown>
   item?: GridItem
+  onConfigure?: () => void
 }
 
 // Card component type with optional static properties

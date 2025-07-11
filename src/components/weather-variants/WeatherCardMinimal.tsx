@@ -48,7 +48,15 @@ function getTemperatureDisplay(
 }
 
 function WeatherCardMinimalContent(props: CardProps) {
-  const { entityId, size = 'medium', onDelete, isSelected = false, onSelect, config } = props
+  const {
+    entityId,
+    size = 'medium',
+    onDelete,
+    isSelected = false,
+    onSelect,
+    config,
+    onConfigure,
+  } = props
   const weatherConfig = config as WeatherCardConfig
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
 
@@ -87,6 +95,8 @@ function WeatherCardMinimalContent(props: CardProps) {
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
+        onConfigure={onConfigure}
+        hasConfiguration={!!onConfigure}
       >
         <Flex direction="column" align="center" justify="center" gap="2" height="100%">
           <Text size="2" color="gray">
@@ -106,6 +116,8 @@ function WeatherCardMinimalContent(props: CardProps) {
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
+      onConfigure={onConfigure}
+      hasConfiguration={!!onConfigure}
       transparent={true}
     >
       <Flex direction="column" align="center" justify="center" gap="2" height="100%">

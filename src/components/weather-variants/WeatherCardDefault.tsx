@@ -72,7 +72,15 @@ function getTemperatureDisplay(
 }
 
 function WeatherCardDefaultContent(props: CardProps) {
-  const { entityId, size = 'medium', onDelete, isSelected = false, onSelect, config } = props
+  const {
+    entityId,
+    size = 'medium',
+    onDelete,
+    isSelected = false,
+    onSelect,
+    config,
+    onConfigure,
+  } = props
   const weatherConfig = config as WeatherCardConfig
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
 
@@ -114,6 +122,8 @@ function WeatherCardDefaultContent(props: CardProps) {
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
+        onConfigure={onConfigure}
+        hasConfiguration={!!onConfigure}
       >
         <Flex direction="column" align="center" justify="center" gap="2">
           <GridCard.Icon>
@@ -150,6 +160,8 @@ function WeatherCardDefaultContent(props: CardProps) {
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
+      onConfigure={onConfigure}
+      hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}
     >
       <Flex direction="column" gap="2">
