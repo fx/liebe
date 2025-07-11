@@ -18,6 +18,7 @@ import '~/styles/app.css'
 class LiebePanel extends HTMLElement {
   private _hass: HomeAssistant | null = null
   private root?: ReactDOM.Root
+  private initialized = false
 
   set hass(hass: HomeAssistant) {
     this._hass = hass
@@ -25,7 +26,10 @@ class LiebePanel extends HTMLElement {
   }
 
   connectedCallback() {
-    if (!this.root) {
+    // Only initialize once - don't recreate on reconnection
+    if (!this.initialized) {
+      this.initialized = true
+
       const shadow = this.attachShadow({ mode: 'open' })
       const container = document.createElement('div')
       container.style.height = '100%'
@@ -49,11 +53,13 @@ class LiebePanel extends HTMLElement {
 
       this.root = ReactDOM.createRoot(container)
     }
+
     this.render()
   }
 
   disconnectedCallback() {
-    this.root?.unmount()
+    // Do NOT unmount or cleanup - Home Assistant will re-add this element
+    // when the user navigates back to the panel
   }
 
   private render() {
