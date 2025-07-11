@@ -204,7 +204,7 @@ describe('CardConfig', () => {
       })
     })
 
-    it('should ensure dropdown has proper z-index to appear above modal', async () => {
+    it('should ensure dropdown is properly accessible and interactive', async () => {
       const user = userEvent.setup()
 
       render(
@@ -227,9 +227,20 @@ describe('CardConfig', () => {
         const dropdown = screen.getByRole('listbox')
         expect(dropdown).toBeInTheDocument()
 
-        // Check that the dropdown content has the high z-index
-        const dropdownContent = dropdown.closest('[style*="z-index"]')
-        expect(dropdownContent).toHaveStyle({ zIndex: '100000' })
+        // Verify all options are visible
+        expect(within(dropdown).getByText('Default')).toBeInTheDocument()
+        expect(within(dropdown).getByText('Detailed')).toBeInTheDocument()
+        expect(within(dropdown).getByText('Minimal')).toBeInTheDocument()
+        expect(within(dropdown).getByText('Modern')).toBeInTheDocument()
+      })
+
+      // Verify we can interact with an option
+      const modernOption = within(screen.getByRole('listbox')).getByText('Modern')
+      await user.click(modernOption)
+
+      // Verify the selection was made
+      await waitFor(() => {
+        expect(variantTrigger).toHaveTextContent('Modern')
       })
     })
 

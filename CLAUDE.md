@@ -375,6 +375,63 @@ When completing the final sub-issue of an epic, close the epic in the same pull 
    - Maintain consistent spacing with Radix's built-in spacing scale
    - Ensure minimum 44px touch targets
 
+### Radix UI Styling Best Practices
+
+**Reference:** https://www.radix-ui.com/themes/docs/overview/styling
+
+1. **Core Principles**
+   - Radix UI Theme components are "relatively closed" with predefined styles
+   - Built with vanilla CSS, no built-in `css` or `sx` props
+   - Customize through props and theme configuration, NOT custom CSS
+
+2. **Z-Index Management**
+   - **AVOID custom z-index values** - only use `auto`, `0`, or `-1`
+   - Radix components that need stacking (modals, dropdowns) render in portals
+   - Portalled components automatically manage stacking order without z-index conflicts
+   - If you must set z-index (which you shouldn't), ensure it doesn't interfere with portal stacking
+
+3. **Recommended Styling Approach** (in order of preference)
+   1. Use existing component props and theme configuration
+   2. Adjust the underlying token system (CSS variables)
+   3. Create custom components using Radix Primitives + Radix Colors
+   4. As a last resort, apply minimal style overrides
+
+4. **What NOT to Do**
+   - Don't extensively override component styles with custom CSS
+   - Don't use arbitrary z-index values (like 99999 or 100000)
+   - Don't fight the design system - work with it
+
+5. **Example: Fixing Dropdown Issues**
+   Instead of:
+
+   ```tsx
+   // ❌ Bad - custom z-index
+   <Select.Content style={{ zIndex: 100000 }}>
+   ```
+
+   Do this:
+
+   ```tsx
+   // ✅ Good - ensure proper portal usage
+   <Select.Content>
+   // Content automatically renders in portal with proper stacking
+   ```
+
+6. **Custom Components**
+   When creating custom components, use:
+   - Theme tokens for consistency
+   - Radix Primitives for behavior
+   - Radix Colors for theming
+
+   ```tsx
+   // Example using theme tokens
+   const CustomCard = styled('div', {
+     backgroundColor: 'var(--gray-2)',
+     borderRadius: 'var(--radius-3)',
+     padding: 'var(--space-3)',
+   })
+   ```
+
 ### Home Assistant Custom Panel
 
 #### Panel Configuration
