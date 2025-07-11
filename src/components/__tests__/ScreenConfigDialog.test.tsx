@@ -12,6 +12,8 @@ vi.mock('../../store', () => ({
     updateScreen: vi.fn(),
     addScreen: vi.fn(),
     reorderGrid: vi.fn(),
+    clearScreen: vi.fn(),
+    removeScreen: vi.fn(),
   },
 }))
 
@@ -58,6 +60,8 @@ describe('ScreenConfigDialog', () => {
     vi.mocked(dashboardActions.updateScreen).mockImplementation(() => {})
     vi.mocked(dashboardActions.addScreen).mockImplementation(() => {})
     vi.mocked(dashboardActions.reorderGrid).mockImplementation(() => {})
+    vi.mocked(dashboardActions.clearScreen).mockImplementation(() => {})
+    vi.mocked(dashboardActions.removeScreen).mockImplementation(() => {})
   })
 
   it('should not render when closed', () => {
@@ -113,7 +117,7 @@ describe('ScreenConfigDialog', () => {
       <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={screenWithItems} />
     )
 
-    expect(screen.getByText('Grid Management')).toBeInTheDocument()
+    expect(screen.getByText('Screen Management')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reorder Grid (Pack Items)' })).toBeInTheDocument()
   })
 
@@ -190,5 +194,97 @@ describe('ScreenConfigDialog', () => {
 
     const saveButton = screen.getByRole('button', { name: 'Save Changes' })
     expect(saveButton).toBeDisabled()
+  })
+
+  it('should display clear and delete buttons in edit mode', () => {
+    const screenWithItems = {
+      ...testScreen,
+      grid: {
+        resolution: { columns: 12, rows: 8 },
+        items: [
+          {
+            id: 'item1',
+            type: 'entity' as const,
+            entityId: 'light.test',
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+          },
+        ],
+      },
+    }
+
+    render(
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={screenWithItems} />
+    )
+
+    expect(screen.getByRole('button', { name: 'Clear Screen' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete Screen' })).toBeInTheDocument()
+  })
+
+  it('should disable clear button when screen has no items', () => {
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={testScreen} />)
+
+    const clearButton = screen.getByRole('button', { name: 'Clear Screen' })
+    expect(clearButton).toBeDisabled()
+  })
+
+  it('should handle clear screen action with confirmation', async () => {
+    const user = userEvent.setup()
+    const originalConfirm = window.confirm
+    window.confirm = vi.fn(() => true)
+
+    const screenWithItems = {
+      ...testScreen,
+      grid: {
+        resolution: { columns: 12, rows: 8 },
+        items: [
+          {
+            id: 'item1',
+            type: 'entity' as const,
+            entityId: 'light.test',
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+          },
+        ],
+      },
+    }
+
+    render(
+      <ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={screenWithItems} />
+    )
+
+    const clearButton = screen.getByRole('button', { name: 'Clear Screen' })
+    await user.click(clearButton)
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Are you sure you want to remove all items from this screen?'
+    )
+    expect(dashboardActions.clearScreen).toHaveBeenCalledWith('test-screen')
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false)
+
+    window.confirm = originalConfirm
+  })
+
+  it('should handle delete screen action with confirmation', async () => {
+    const user = userEvent.setup()
+    const originalConfirm = window.confirm
+    window.confirm = vi.fn(() => true)
+
+    render(<ScreenConfigDialog open={true} onOpenChange={mockOnOpenChange} screen={testScreen} />)
+
+    const deleteButton = screen.getByRole('button', { name: 'Delete Screen' })
+    await user.click(deleteButton)
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Are you sure you want to delete "Test Screen"? This action cannot be undone.'
+    )
+    expect(dashboardActions.removeScreen).toHaveBeenCalledWith('test-screen')
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false)
+
+    window.confirm = originalConfirm
   })
 })

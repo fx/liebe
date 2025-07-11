@@ -126,6 +126,37 @@ export const dashboardActions = {
     })
   },
 
+  clearScreen: (screenId: string) => {
+    dashboardStore.setState((state) => {
+      const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {
+        return screens.map((screen) => {
+          if (screen.id === screenId && screen.grid) {
+            return {
+              ...screen,
+              grid: {
+                ...screen.grid,
+                items: [],
+              },
+            }
+          }
+          if (screen.children) {
+            return {
+              ...screen,
+              children: updateInTree(screen.children),
+            }
+          }
+          return screen
+        })
+      }
+
+      return {
+        ...state,
+        screens: updateInTree(state.screens),
+        isDirty: true,
+      }
+    })
+  },
+
   addGridItem: (screenId: string, item: GridItem) => {
     dashboardStore.setState((state) => {
       const updateInTree = (screens: ScreenConfig[]): ScreenConfig[] => {

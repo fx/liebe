@@ -16,7 +16,6 @@ export function ScreenConfigDialog({ open, onOpenChange, screen }: ScreenConfigD
   const [viewName, setViewName] = useState('')
   const [viewSlug, setViewSlug] = useState('')
   const [parentId, setParentId] = useState<string>('')
-  const [showReorderButton, setShowReorderButton] = useState(false)
   const navigate = useNavigate()
 
   const isEditMode = !!screen
@@ -26,13 +25,11 @@ export function ScreenConfigDialog({ open, onOpenChange, screen }: ScreenConfigD
     if (screen) {
       setViewName(screen.name)
       setViewSlug(screen.slug)
-      setShowReorderButton(true)
       // TODO: Find parent ID if screen is nested
     } else {
       setViewName('')
       setViewSlug('')
       setParentId('')
-      setShowReorderButton(false)
     }
   }, [screen])
 
@@ -90,6 +87,32 @@ export function ScreenConfigDialog({ open, onOpenChange, screen }: ScreenConfigD
     if (screen) {
       dashboardActions.reorderGrid(screen.id)
       onOpenChange(false)
+    }
+  }
+
+  const handleClearScreen = () => {
+    if (screen && confirm('Are you sure you want to remove all items from this screen?')) {
+      dashboardActions.clearScreen(screen.id)
+      onOpenChange(false)
+    }
+  }
+
+  const handleDeleteScreen = () => {
+    if (
+      screen &&
+      confirm(`Are you sure you want to delete "${screen.name}"? This action cannot be undone.`)
+    ) {
+      dashboardActions.removeScreen(screen.id)
+      onOpenChange(false)
+      // Navigate to the first available screen if current screen was deleted
+      if (screens.length > 1) {
+        const remainingScreen = screens.find((s) => s.id !== screen.id)
+        if (remainingScreen) {
+          navigate({ to: '/$slug', params: { slug: remainingScreen.slug } })
+        }
+      } else {
+        navigate({ to: '/' })
+      }
     }
   }
 
@@ -185,22 +208,56 @@ export function ScreenConfigDialog({ open, onOpenChange, screen }: ScreenConfigD
             </label>
           )}
 
-          {showReorderButton && screen?.grid && screen.grid.items.length > 0 && (
+          {isEditMode && screen && (
             <>
               <Text as="div" size="2" weight="bold" mt="3">
-                Grid Management
+                Screen Management
               </Text>
-              <Button
-                type="button"
-                variant="soft"
-                onClick={handleReorderGrid}
-                style={{ width: '100%' }}
-              >
-                Reorder Grid (Pack Items)
-              </Button>
-              <Text as="div" size="1" color="gray">
-                Automatically reorganize items to maximize space usage
-              </Text>
+
+              {screen.grid && screen.grid.items.length > 0 && (
+                <>
+                  <Button
+                    type="button"
+                    variant="soft"
+                    onClick={handleReorderGrid}
+                    style={{ width: '100%' }}
+                  >
+                    Reorder Grid (Pack Items)
+                  </Button>
+                  <Text as="div" size="1" color="gray" mb="2">
+                    Automatically reorganize items to maximize space usage
+                  </Text>
+                </>
+              )}
+
+              <Flex gap="2" direction="column">
+                <Button
+                  type="button"
+                  variant="soft"
+                  color="orange"
+                  onClick={handleClearScreen}
+                  style={{ width: '100%' }}
+                  disabled={!screen.grid || screen.grid.items.length === 0}
+                >
+                  Clear Screen
+                </Button>
+                <Text as="div" size="1" color="gray">
+                  Remove all items from this screen
+                </Text>
+
+                <Button
+                  type="button"
+                  variant="soft"
+                  color="red"
+                  onClick={handleDeleteScreen}
+                  style={{ width: '100%', marginTop: '8px' }}
+                >
+                  Delete Screen
+                </Button>
+                <Text as="div" size="1" color="gray">
+                  Permanently delete this screen
+                </Text>
+              </Flex>
             </>
           )}
         </Flex>
