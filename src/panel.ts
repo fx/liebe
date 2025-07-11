@@ -28,10 +28,10 @@ class LiebePanel extends HTMLElement {
 
   constructor() {
     super()
-    console.log(`[Liebe Panel ${this.instanceId}] Constructor called`)(
-      // Prevent panel from being garbage collected
-      window as unknown as { __liebePanel?: LiebePanel }
-    ).__liebePanel = this
+    console.log(`[Liebe Panel ${this.instanceId}] Constructor called`)
+
+    // Prevent panel from being garbage collected
+    ;(window as unknown as { __liebePanel?: LiebePanel }).__liebePanel = this
 
     // Set up mutation observer to detect removal attempts
     this.setupParentObserver()
