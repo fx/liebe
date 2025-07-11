@@ -356,9 +356,7 @@ function CameraCardComponent({
         contentStyle={{
           width: '100%',
           height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          position: 'relative',
         }}
       >
         <div
