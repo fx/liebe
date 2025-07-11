@@ -156,7 +156,6 @@ function FullscreenCameraControls({
         display: 'inline-flex',
         alignItems: 'center',
         gap: '0.8em',
-        fontSize: 'clamp(12px, 2vw, 16px)', // Base font size scales with viewport
       }}
     >
       {/* Entity info */}
@@ -517,8 +516,11 @@ function CameraCardComponent({
           {/* Controls and info container positioned absolutely at bottom left */}
           <Box
             position="absolute"
-            bottom={isFullscreen ? '4' : '2'}
-            left={isFullscreen ? '4' : '2'}
+            bottom="2"
+            left="2"
+            style={{
+              fontSize: size === 'small' ? '12px' : size === 'large' ? '16px' : '14px',
+            }}
           >
             <CameraControls
               friendlyName={friendlyName}
@@ -571,6 +573,7 @@ function CameraCardComponent({
             bottom: '2%',
             left: '2%',
             zIndex: 10,
+            fontSize: 'min(4vw, 24px)', // Scale based on viewport width
           }}
         >
           <FullscreenCameraControls
