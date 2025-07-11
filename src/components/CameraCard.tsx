@@ -286,51 +286,41 @@ function CameraCardComponent({
             </Flex>
           )}
 
-          {/* Controls and info container positioned absolutely at bottom */}
-          <div
+          {/* Controls and info container positioned absolutely at bottom left */}
+          <Flex
+            position="absolute"
+            bottom={isFullscreen ? '4' : '2'}
+            left={isFullscreen ? '4' : '2'}
             style={{
-              position: 'absolute',
-              bottom: isFullscreen ? '20px' : '8px',
-              left: isFullscreen ? '20px' : '8px',
-              right: isFullscreen ? '20px' : '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: isFullscreen ? '16px' : '8px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              padding: isFullscreen ? '8px 12px' : '4px 8px',
+              borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
+              backdropFilter: 'blur(4px)',
               zIndex: 15,
             }}
+            align="center"
+            gap={isFullscreen ? '3' : '2'}
           >
             {/* Entity info */}
-            <div
-              style={{
-                background: 'rgba(0, 0, 0, 0.7)',
-                padding: isFullscreen ? '8px 16px' : '4px 8px',
-                borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
-                backdropFilter: 'blur(4px)',
-                color: 'white',
-                fontSize: isFullscreen ? '16px' : '12px',
-                lineHeight: '1.2',
-                flex: '1 1 auto',
-                minWidth: 0,
-                overflow: 'hidden',
-              }}
-            >
-              <div
+            <Flex direction="column" gap="0">
+              <Text
+                size={isFullscreen ? '3' : '1'}
+                weight="medium"
                 style={{
-                  fontWeight: isFullscreen ? '600' : '500',
-                  marginBottom: '2px',
+                  color: 'white',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
+                  maxWidth: isFullscreen ? '300px' : '150px',
                 }}
               >
                 {friendlyName}
-              </div>
-              <div
+              </Text>
+              <Text
+                size={isFullscreen ? '2' : '1'}
                 style={{
-                  fontSize: isFullscreen ? '14px' : '10px',
-                  opacity: 0.9,
                   color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+                  opacity: 0.9,
                 }}
               >
                 {streamError
@@ -342,21 +332,12 @@ function CameraCardComponent({
                       : isIdle
                         ? 'IDLE'
                         : entity.state.toUpperCase()}
-              </div>
-            </div>
+              </Text>
+            </Flex>
 
             {/* Control buttons - only show when streaming and not in edit mode */}
             {supportsStream && isStreaming && !streamError && !isEditMode && (
-              <div
-                style={{
-                  display: 'flex',
-                  gap: isFullscreen ? '8px' : '4px',
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  padding: isFullscreen ? '6px' : '4px',
-                  borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
+              <Flex gap={isFullscreen ? '2' : '1'}>
                 <IconButton
                   size={isFullscreen ? '2' : '1'}
                   variant="ghost"
@@ -364,7 +345,6 @@ function CameraCardComponent({
                   style={{
                     color: 'white',
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    cursor: 'pointer',
                   }}
                   title={isMuted ? 'Unmute' : 'Mute'}
                 >
@@ -377,15 +357,14 @@ function CameraCardComponent({
                   style={{
                     color: 'white',
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    cursor: 'pointer',
                   }}
                   title="Toggle native fullscreen"
                 >
                   <EnterFullScreenIcon />
                 </IconButton>
-              </div>
+              </Flex>
             )}
-          </div>
+          </Flex>
         </div>
       </GridCard>
 
@@ -418,48 +397,39 @@ function CameraCardComponent({
         />
 
         {/* Fullscreen controls and info container */}
-        <div
+        <Flex
+          position="absolute"
+          bottom="4"
+          left="4"
           style={{
-            position: 'absolute',
-            bottom: '20px',
-            left: '20px',
-            right: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(4px)',
           }}
+          align="center"
+          gap="3"
         >
           {/* Entity info */}
-          <div
-            style={{
-              background: 'rgba(0, 0, 0, 0.7)',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              backdropFilter: 'blur(4px)',
-              color: 'white',
-              fontSize: '16px',
-              lineHeight: '1.2',
-              flex: '1 1 auto',
-              minWidth: 0,
-            }}
-          >
-            <div
+          <Flex direction="column" gap="0">
+            <Text
+              size="3"
+              weight="medium"
               style={{
-                fontWeight: '600',
-                marginBottom: '2px',
+                color: 'white',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                maxWidth: '300px',
               }}
             >
               {friendlyName}
-            </div>
-            <div
+            </Text>
+            <Text
+              size="2"
               style={{
-                fontSize: '14px',
-                opacity: 0.9,
                 color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+                opacity: 0.9,
               }}
             >
               {streamError
@@ -471,21 +441,12 @@ function CameraCardComponent({
                     : isIdle
                       ? 'IDLE'
                       : entity.state.toUpperCase()}
-            </div>
-          </div>
+            </Text>
+          </Flex>
 
           {/* Control buttons in fullscreen modal */}
           {supportsStream && isStreaming && !streamError && (
-            <div
-              style={{
-                display: 'flex',
-                gap: '8px',
-                background: 'rgba(0, 0, 0, 0.7)',
-                padding: '6px',
-                borderRadius: '8px',
-                backdropFilter: 'blur(4px)',
-              }}
-            >
+            <Flex gap="2">
               <IconButton
                 size="2"
                 variant="ghost"
@@ -493,7 +454,6 @@ function CameraCardComponent({
                 style={{
                   color: 'white',
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  cursor: 'pointer',
                 }}
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
@@ -506,15 +466,14 @@ function CameraCardComponent({
                 style={{
                   color: 'white',
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  cursor: 'pointer',
                 }}
                 title="Toggle native fullscreen"
               >
                 <EnterFullScreenIcon />
               </IconButton>
-            </div>
+            </Flex>
           )}
-        </div>
+        </Flex>
 
         {/* Exit indicator */}
         <div
