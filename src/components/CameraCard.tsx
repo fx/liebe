@@ -288,10 +288,10 @@ function CameraCardComponent({
 
           {/* Controls and info container positioned absolutely at bottom left */}
           <Flex
-            position="absolute"
-            bottom={isFullscreen ? '4' : '2'}
-            left={isFullscreen ? '4' : '2'}
             style={{
+              position: 'absolute',
+              bottom: isFullscreen ? '20px' : '8px',
+              left: isFullscreen ? '20px' : '8px',
               background: 'rgba(0, 0, 0, 0.7)',
               padding: isFullscreen ? '8px 12px' : '4px 8px',
               borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
@@ -392,10 +392,10 @@ function CameraCardComponent({
 
         {/* Fullscreen controls and info container */}
         <Flex
-          position="absolute"
-          bottom="4"
-          left="4"
           style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '20px',
             background: 'rgba(0, 0, 0, 0.7)',
             padding: '8px 12px',
             borderRadius: '8px',
