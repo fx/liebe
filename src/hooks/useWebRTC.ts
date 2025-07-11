@@ -84,6 +84,14 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
     // Prevent multiple initializations
     if (peerConnectionRef.current || initializingRef.current) {
+      // If we have an existing connection that's still active, don't reinitialize
+      if (
+        peerConnectionRef.current &&
+        (peerConnectionRef.current.connectionState === 'connected' ||
+          peerConnectionRef.current.connectionState === 'connecting')
+      ) {
+        return
+      }
       return
     }
 
@@ -114,9 +122,27 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
       // Handle connection state changes
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          setError('Connection lost')
-          setIsStreaming(false)
+        console.log(`[WebRTC] Connection state changed to: ${pc.connectionState}`)
+
+        switch (pc.connectionState) {
+          case 'failed':
+            setError('Connection failed')
+            setIsStreaming(false)
+            // Clean up the connection
+            cleanup()
+            break
+          case 'disconnected':
+            setError('Connection lost')
+            setIsStreaming(false)
+            break
+          case 'connected':
+            // Clear any previous errors when successfully connected
+            setError(null)
+            break
+          case 'closed':
+            // Connection was closed, ensure we're cleaned up
+            setIsStreaming(false)
+            break
         }
       }
 
@@ -166,18 +192,32 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
                 if (!message.answer) {
                   return
                 }
-                // Set the remote description
-                pc.setRemoteDescription({ type: 'answer', sdp: message.answer }).catch((err) => {
-                  console.error('[WebRTC] Failed to set remote description:', err)
-                  setError('Failed to set remote description')
-                })
+                // Check if we're in the correct state to set remote description
+                if (pc.signalingState === 'have-local-offer') {
+                  // Set the remote description
+                  pc.setRemoteDescription({ type: 'answer', sdp: message.answer }).catch((err) => {
+                    console.error('[WebRTC] Failed to set remote description:', err)
+                    setError('Failed to set remote description')
+                  })
+                } else {
+                  console.warn(
+                    `[WebRTC] Ignoring answer in wrong state: ${pc.signalingState}. This may indicate duplicate messages or timing issues.`
+                  )
+                }
                 break
 
               case 'candidate':
                 if (message.candidate) {
-                  pc.addIceCandidate(message.candidate).catch((err) =>
-                    console.error('[WebRTC] Failed to add ICE candidate:', err)
-                  )
+                  // Only add ICE candidates if we have a remote description
+                  if (pc.remoteDescription) {
+                    pc.addIceCandidate(message.candidate).catch((err) =>
+                      console.error('[WebRTC] Failed to add ICE candidate:', err)
+                    )
+                  } else {
+                    console.warn(
+                      '[WebRTC] Received ICE candidate before remote description was set'
+                    )
+                  }
                 }
                 break
 
