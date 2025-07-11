@@ -371,7 +371,14 @@ function CameraCardComponent({
         />
 
         {/* Fullscreen controls and info container */}
-        <Box position="absolute" bottom="4" left="4">
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '20px',
+            zIndex: 10,
+          }}
+        >
           <Card size="2">
             <Flex align="center" gap="3">
               {/* Entity info */}
@@ -420,7 +427,7 @@ function CameraCardComponent({
               )}
             </Flex>
           </Card>
-        </Box>
+        </div>
 
         {/* Exit indicator */}
         <div
