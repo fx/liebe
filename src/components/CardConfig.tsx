@@ -187,7 +187,7 @@ function Component({ title, description, configDefinition, config, onChange }: C
               onValueChange={(value) => handleChange(key, value)}
             >
               <Select.Trigger />
-              <Select.Content>
+              <Select.Content style={{ zIndex: 100000 }}>
                 {option.options?.map((opt) => (
                   <Select.Item key={opt.value} value={opt.value}>
                     {opt.label}
