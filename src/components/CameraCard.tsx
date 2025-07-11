@@ -32,7 +32,7 @@ interface CameraAttributes {
 // Camera supported features bit flags from Home Assistant
 const SUPPORT_STREAM = 2
 
-// Camera controls component to avoid duplication
+// Camera controls component for use inside shadow DOM with Radix UI
 function CameraControls({
   friendlyName,
   entity,
@@ -117,6 +117,143 @@ function CameraControls({
         )}
       </Flex>
     </Card>
+  )
+}
+
+// Custom-styled camera controls for fullscreen modal (outside shadow DOM)
+function FullscreenCameraControls({
+  friendlyName,
+  entity,
+  streamError,
+  isRecording,
+  isStreaming,
+  isIdle,
+  supportsStream,
+  isEditMode,
+  isMuted,
+  handleToggleMute,
+  handleVideoFullscreen,
+}: {
+  friendlyName: string
+  entity: { state: string; attributes: CameraAttributes }
+  streamError: string | null
+  isRecording: boolean
+  isStreaming: boolean
+  isIdle: boolean
+  supportsStream: boolean
+  isEditMode: boolean
+  isMuted: boolean
+  handleToggleMute: (e: React.MouseEvent) => void
+  handleVideoFullscreen: (e: React.MouseEvent) => void
+}) {
+  return (
+    <div
+      style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+      }}
+    >
+      {/* Entity info */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div
+          style={{
+            color: 'white',
+            fontSize: '16px',
+            fontWeight: 600,
+            lineHeight: '20px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {friendlyName}
+        </div>
+        <div
+          style={{
+            color: streamError ? '#ff6b6b' : isRecording || isStreaming ? '#4dabf7' : '#868e96',
+            fontSize: '13px',
+            lineHeight: '16px',
+            textTransform: 'uppercase',
+            fontWeight: 500,
+          }}
+        >
+          {streamError
+            ? 'ERROR'
+            : isRecording
+              ? 'RECORDING'
+              : isStreaming
+                ? 'STREAMING'
+                : isIdle
+                  ? 'IDLE'
+                  : entity.state.toUpperCase()}
+        </div>
+      </div>
+
+      {/* Control buttons */}
+      {supportsStream && isStreaming && !streamError && !isEditMode && (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={handleToggleMute}
+            title={isMuted ? 'Unmute' : 'Mute'}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
+            }}
+          >
+            {isMuted ? (
+              <SpeakerOffIcon width={18} height={18} />
+            ) : (
+              <SpeakerLoudIcon width={18} height={18} />
+            )}
+          </button>
+          <button
+            onClick={handleVideoFullscreen}
+            title="Toggle native fullscreen"
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
+            }}
+          >
+            <EnterFullScreenIcon width={18} height={18} />
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -433,7 +570,7 @@ function CameraCardComponent({
             zIndex: 10,
           }}
         >
-          <CameraControls
+          <FullscreenCameraControls
             friendlyName={friendlyName}
             entity={entity}
             streamError={streamError}
@@ -445,7 +582,6 @@ function CameraCardComponent({
             isMuted={isMuted}
             handleToggleMute={handleToggleMute}
             handleVideoFullscreen={handleVideoFullscreen}
-            size="large"
           />
         </div>
 
