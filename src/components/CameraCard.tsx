@@ -63,7 +63,7 @@ function CameraControls({
   isFullscreen?: boolean
 }) {
   // Base scale factor for different sizes
-  const scaleFactor = size === 'small' ? 0.8 : size === 'large' ? 1.2 : 1
+  const scaleFactor = size === 'small' ? 0.64 : size === 'large' ? 0.96 : 0.8
 
   return (
     <div
@@ -441,7 +441,7 @@ function CameraCardComponent({
               position: 'absolute',
               bottom: '8px',
               left: '8px',
-              fontSize: size === 'small' ? '10px' : size === 'large' ? '14px' : '12px',
+              fontSize: size === 'small' ? '8px' : size === 'large' ? '11.2px' : '9.6px',
             }}
           >
             <CameraControls
@@ -495,7 +495,7 @@ function CameraCardComponent({
             bottom: '2%',
             left: '2%',
             zIndex: 10,
-            fontSize: 'min(4vw, 24px)', // Scale based on viewport width
+            fontSize: 'min(3.2vw, 19.2px)', // Scale based on viewport width (reduced by 20%)
           }}
         >
           <CameraControls
