@@ -39,6 +39,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const initializingRef = useRef<boolean>(false)
   const pendingInitRef = useRef<boolean>(false)
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
@@ -51,6 +52,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     peerConnectionRef.current = null
     initializingRef.current = false
     pendingInitRef.current = false
+    pendingCandidatesRef.current = []
 
     if (pc) {
       // Unsubscribe from WebSocket messages if available
@@ -84,11 +86,20 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
     // Prevent multiple initializations
     if (peerConnectionRef.current || initializingRef.current) {
+      // If we have an existing connection that's still active, don't reinitialize
+      if (
+        peerConnectionRef.current &&
+        (peerConnectionRef.current.connectionState === 'connected' ||
+          peerConnectionRef.current.connectionState === 'connecting')
+      ) {
+        return
+      }
       return
     }
 
     initializingRef.current = true
     setError(null)
+    pendingCandidatesRef.current = []
 
     try {
       // Create peer connection with STUN servers
@@ -114,9 +125,27 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
       // Handle connection state changes
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          setError('Connection lost')
-          setIsStreaming(false)
+        console.log(`[WebRTC] Connection state changed to: ${pc.connectionState}`)
+
+        switch (pc.connectionState) {
+          case 'failed':
+            setError('Connection failed')
+            setIsStreaming(false)
+            // Clean up the connection
+            cleanup()
+            break
+          case 'disconnected':
+            setError('Connection lost')
+            setIsStreaming(false)
+            break
+          case 'connected':
+            // Clear any previous errors when successfully connected
+            setError(null)
+            break
+          case 'closed':
+            // Connection was closed, ensure we're cleaned up
+            setIsStreaming(false)
+            break
         }
       }
 
@@ -166,18 +195,49 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
                 if (!message.answer) {
                   return
                 }
-                // Set the remote description
-                pc.setRemoteDescription({ type: 'answer', sdp: message.answer }).catch((err) => {
-                  console.error('[WebRTC] Failed to set remote description:', err)
-                  setError('Failed to set remote description')
-                })
+                // Check if we're in the correct state to set remote description
+                if (pc.signalingState === 'have-local-offer') {
+                  // Set the remote description
+                  pc.setRemoteDescription({ type: 'answer', sdp: message.answer })
+                    .then(() => {
+                      // Process any pending ICE candidates
+                      if (pendingCandidatesRef.current.length > 0) {
+                        console.log(
+                          `[WebRTC] Processing ${pendingCandidatesRef.current.length} pending ICE candidates`
+                        )
+                        pendingCandidatesRef.current.forEach((candidate) => {
+                          pc.addIceCandidate(candidate).catch((err) =>
+                            console.error('[WebRTC] Failed to add pending ICE candidate:', err)
+                          )
+                        })
+                        pendingCandidatesRef.current = []
+                      }
+                    })
+                    .catch((err) => {
+                      console.error('[WebRTC] Failed to set remote description:', err)
+                      setError('Failed to set remote description')
+                    })
+                } else {
+                  console.warn(
+                    `[WebRTC] Ignoring answer in wrong state: ${pc.signalingState}. This may indicate duplicate messages or timing issues.`
+                  )
+                }
                 break
 
               case 'candidate':
                 if (message.candidate) {
-                  pc.addIceCandidate(message.candidate).catch((err) =>
-                    console.error('[WebRTC] Failed to add ICE candidate:', err)
-                  )
+                  // Only add ICE candidates if we have a remote description
+                  if (pc.remoteDescription) {
+                    pc.addIceCandidate(message.candidate).catch((err) =>
+                      console.error('[WebRTC] Failed to add ICE candidate:', err)
+                    )
+                  } else {
+                    // Queue the candidate to be added later when remote description is set
+                    pendingCandidatesRef.current.push(message.candidate)
+                    console.log(
+                      `[WebRTC] Queuing ICE candidate (${pendingCandidatesRef.current.length} pending)`
+                    )
+                  }
                 }
                 break
 
