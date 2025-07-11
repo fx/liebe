@@ -1,4 +1,4 @@
-import { Flex, Text, Button, IconButton, Box, Card } from '@radix-ui/themes'
+import { Flex, Text, Button } from '@radix-ui/themes'
 import {
   VideoIcon,
   ReloadIcon,
@@ -32,7 +32,7 @@ interface CameraAttributes {
 // Camera supported features bit flags from Home Assistant
 const SUPPORT_STREAM = 2
 
-// Camera controls component for use inside shadow DOM with Radix UI
+// Custom-styled camera controls for both regular and fullscreen views
 function CameraControls({
   friendlyName,
   entity,
@@ -46,6 +46,7 @@ function CameraControls({
   handleToggleMute,
   handleVideoFullscreen,
   size,
+  isFullscreen = false,
 }: {
   friendlyName: string
   entity: { state: string; attributes: CameraAttributes }
@@ -59,107 +60,26 @@ function CameraControls({
   handleToggleMute: (e: React.MouseEvent) => void
   handleVideoFullscreen: (e: React.MouseEvent) => void
   size: 'small' | 'medium' | 'large'
+  isFullscreen?: boolean
 }) {
-  const isSmall = size === 'small'
-  const cardSize = isSmall ? '1' : '2'
-  const textSize = isSmall ? '1' : '3'
-  const textSizeSmall = isSmall ? '1' : '2'
-  const buttonSize = isSmall ? '1' : '2'
-  const gap = isSmall ? '2' : '3'
-  const buttonGap = isSmall ? '1' : '2'
+  // Base scale factor for different sizes
+  const scaleFactor = size === 'small' ? 0.8 : size === 'large' ? 1.2 : 1
 
-  return (
-    <Card size={cardSize}>
-      <Flex align="center" gap={gap}>
-        {/* Entity info */}
-        <Flex direction="column" gap="0">
-          <Text size={textSize} weight="medium" truncate>
-            {friendlyName}
-          </Text>
-          <Text
-            size={textSizeSmall}
-            color={streamError ? 'red' : isRecording || isStreaming ? 'blue' : 'gray'}
-          >
-            {streamError
-              ? 'ERROR'
-              : isRecording
-                ? 'RECORDING'
-                : isStreaming
-                  ? 'STREAMING'
-                  : isIdle
-                    ? 'IDLE'
-                    : entity.state.toUpperCase()}
-          </Text>
-        </Flex>
-
-        {/* Control buttons - only show when streaming and not in edit mode */}
-        {supportsStream && isStreaming && !streamError && !isEditMode && (
-          <Flex gap={buttonGap}>
-            <IconButton
-              size={buttonSize}
-              variant="soft"
-              highContrast
-              onClick={handleToggleMute}
-              title={isMuted ? 'Unmute' : 'Mute'}
-            >
-              {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
-            </IconButton>
-            <IconButton
-              size={buttonSize}
-              variant="soft"
-              highContrast
-              onClick={handleVideoFullscreen}
-              title="Toggle native fullscreen"
-            >
-              <EnterFullScreenIcon />
-            </IconButton>
-          </Flex>
-        )}
-      </Flex>
-    </Card>
-  )
-}
-
-// Custom-styled camera controls for fullscreen modal (outside shadow DOM)
-function FullscreenCameraControls({
-  friendlyName,
-  entity,
-  streamError,
-  isRecording,
-  isStreaming,
-  isIdle,
-  supportsStream,
-  isEditMode,
-  isMuted,
-  handleToggleMute,
-  handleVideoFullscreen,
-}: {
-  friendlyName: string
-  entity: { state: string; attributes: CameraAttributes }
-  streamError: string | null
-  isRecording: boolean
-  isStreaming: boolean
-  isIdle: boolean
-  supportsStream: boolean
-  isEditMode: boolean
-  isMuted: boolean
-  handleToggleMute: (e: React.MouseEvent) => void
-  handleVideoFullscreen: (e: React.MouseEvent) => void
-}) {
   return (
     <div
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderRadius: '0.75em',
-        padding: '0.6em 0.8em',
+        borderRadius: `${0.6 * scaleFactor}em`,
+        padding: `${0.3 * scaleFactor}em ${0.5 * scaleFactor}em`,
         backdropFilter: 'blur(8px)',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '0.8em',
+        gap: `${0.64 * scaleFactor}em`,
+        fontSize: isFullscreen ? 'inherit' : `${scaleFactor}em`,
       }}
     >
       {/* Entity info */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1em' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: `${0.08 * scaleFactor}em` }}>
         <div
           style={{
             color: 'white',
@@ -196,13 +116,13 @@ function FullscreenCameraControls({
 
       {/* Control buttons */}
       {supportsStream && isStreaming && !streamError && !isEditMode && (
-        <div style={{ display: 'flex', gap: '0.5em' }}>
+        <div style={{ display: 'flex', gap: `${0.4 * scaleFactor}em` }}>
           <button
             onClick={handleToggleMute}
             title={isMuted ? 'Unmute' : 'Mute'}
             style={{
-              width: '2.2em',
-              height: '2.2em',
+              width: '2.5em',
+              height: '2.5em',
               borderRadius: '0.5em',
               border: 'none',
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -213,6 +133,7 @@ function FullscreenCameraControls({
               cursor: 'pointer',
               transition: 'background-color 0.2s ease',
               padding: 0,
+              fontSize: 'inherit',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
@@ -222,17 +143,17 @@ function FullscreenCameraControls({
             }}
           >
             {isMuted ? (
-              <SpeakerOffIcon style={{ width: '60%', height: '60%' }} />
+              <SpeakerOffIcon style={{ width: '55%', height: '55%' }} />
             ) : (
-              <SpeakerLoudIcon style={{ width: '60%', height: '60%' }} />
+              <SpeakerLoudIcon style={{ width: '55%', height: '55%' }} />
             )}
           </button>
           <button
             onClick={handleVideoFullscreen}
             title="Toggle native fullscreen"
             style={{
-              width: '2.2em',
-              height: '2.2em',
+              width: '2.5em',
+              height: '2.5em',
               borderRadius: '0.5em',
               border: 'none',
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -243,6 +164,7 @@ function FullscreenCameraControls({
               cursor: 'pointer',
               transition: 'background-color 0.2s ease',
               padding: 0,
+              fontSize: 'inherit',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
@@ -251,7 +173,7 @@ function FullscreenCameraControls({
               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
             }}
           >
-            <EnterFullScreenIcon style={{ width: '60%', height: '60%' }} />
+            <EnterFullScreenIcon style={{ width: '55%', height: '55%' }} />
           </button>
         </div>
       )}
@@ -514,12 +436,12 @@ function CameraCardComponent({
           )}
 
           {/* Controls and info container positioned absolutely at bottom left */}
-          <Box
-            position="absolute"
-            bottom="2"
-            left="2"
+          <div
             style={{
-              fontSize: size === 'small' ? '12px' : size === 'large' ? '16px' : '14px',
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              fontSize: size === 'small' ? '10px' : size === 'large' ? '14px' : '12px',
             }}
           >
             <CameraControls
@@ -536,7 +458,7 @@ function CameraCardComponent({
               handleVideoFullscreen={handleVideoFullscreen}
               size={size}
             />
-          </Box>
+          </div>
         </div>
       </GridCard>
 
@@ -576,7 +498,7 @@ function CameraCardComponent({
             fontSize: 'min(4vw, 24px)', // Scale based on viewport width
           }}
         >
-          <FullscreenCameraControls
+          <CameraControls
             friendlyName={friendlyName}
             entity={entity}
             streamError={streamError}
@@ -588,6 +510,8 @@ function CameraCardComponent({
             isMuted={isMuted}
             handleToggleMute={handleToggleMute}
             handleVideoFullscreen={handleVideoFullscreen}
+            size="large"
+            isFullscreen={true}
           />
         </div>
 
