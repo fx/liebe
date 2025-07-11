@@ -340,24 +340,18 @@ function CameraCardComponent({
               <Flex gap={isFullscreen ? '2' : '1'}>
                 <IconButton
                   size={isFullscreen ? '2' : '1'}
-                  variant="ghost"
+                  variant="soft"
+                  highContrast
                   onClick={handleToggleMute}
-                  style={{
-                    color: 'white',
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  }}
                   title={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
                 </IconButton>
                 <IconButton
                   size={isFullscreen ? '2' : '1'}
-                  variant="ghost"
+                  variant="soft"
+                  highContrast
                   onClick={handleVideoFullscreen}
-                  style={{
-                    color: 'white',
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  }}
                   title="Toggle native fullscreen"
                 >
                   <EnterFullScreenIcon />
@@ -449,24 +443,18 @@ function CameraCardComponent({
             <Flex gap="2">
               <IconButton
                 size="2"
-                variant="ghost"
+                variant="soft"
+                highContrast
                 onClick={handleToggleMute}
-                style={{
-                  color: 'white',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                }}
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
                 {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
               </IconButton>
               <IconButton
                 size="2"
-                variant="ghost"
+                variant="soft"
+                highContrast
                 onClick={handleVideoFullscreen}
-                style={{
-                  color: 'white',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                }}
                 title="Toggle native fullscreen"
               >
                 <EnterFullScreenIcon />
