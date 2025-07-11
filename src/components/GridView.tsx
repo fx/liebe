@@ -1,28 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Box } from '@radix-ui/themes'
 import { ButtonCard } from './ButtonCard'
-import { LightCard } from './LightCard'
-import { SensorCard } from './SensorCard'
-import { CoverCard } from './CoverCard'
-import { ClimateCard } from './ClimateCard'
-import { InputBooleanCard } from './InputBooleanCard'
-import { InputNumberCard } from './InputNumberCard'
-import { InputSelectCard } from './InputSelectCard'
-import { InputTextCard } from './InputTextCard'
-import { InputDateTimeCard } from './InputDateTimeCard'
-import { WeatherCard } from './WeatherCard'
-import { FanCard } from './FanCard'
-import { CameraCard } from './CameraCard'
-import { BinarySensorCard } from './BinarySensorCard'
 import { TextCard } from './TextCard'
 import { Separator } from './Separator'
-import { GridCard } from './GridCard'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { GridLayoutSection } from './GridLayoutSection'
 import { EntityErrorBoundary } from './ui'
 import { GridItem } from '../store/types'
 import { dashboardActions, useDashboardStore } from '../store'
 import { CardConfig } from './CardConfig'
+import { getCardForEntity, getCardVariant } from './cardRegistry'
 import './GridLayoutSection.css'
 
 interface GridViewProps {
@@ -47,160 +34,36 @@ function EntityCard({
   onSelect?: (selected: boolean) => void
   item?: GridItem
 }) {
-  // We only need the entityId to determine the domain
-  // The actual entity data will be fetched by the card component
-
-  // Determine entity domain
-  const domain = entityId.split('.')[0]
-
-  // Use specific card based on entity domain
-  switch (domain) {
-    case 'light':
-      return (
-        <LightCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-          item={item}
-        />
-      )
-    case 'cover':
-      return (
-        <CoverCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'climate':
-      return (
-        <ClimateCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'sensor':
-      return (
-        <SensorCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'binary_sensor':
-      return (
-        <BinarySensorCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-          item={item}
-        />
-      )
-    case 'weather':
-      return (
-        <WeatherCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-          config={item?.config as Record<string, unknown>}
-          item={item}
-        />
-      )
-    case 'fan':
-      return (
-        <FanCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'camera':
-      return (
-        <CameraCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'input_boolean':
-      return (
-        <InputBooleanCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'input_number':
-      return (
-        <InputNumberCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'input_select':
-      return (
-        <InputSelectCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'input_text':
-      return (
-        <InputTextCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    case 'input_datetime':
-      return (
-        <InputDateTimeCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
-    default:
-      // Default to ButtonCard for switches and other entities
-      return (
-        <ButtonCard
-          entityId={entityId}
-          size={size}
-          onDelete={onDelete}
-          isSelected={isSelected}
-          onSelect={onSelect}
-        />
-      )
+  // Common props for all cards
+  const cardProps = {
+    entityId,
+    size,
+    onDelete,
+    isSelected,
+    onSelect,
+    config: item?.config as Record<string, unknown>,
+    item,
   }
+
+  // Check if card has a variant specified in config
+  const domain = entityId.split('.')[0]
+  const variant = item?.config?.variant as string | undefined
+
+  // Get the card component (with variant if specified)
+  let CardComponent = variant ? getCardVariant(domain, variant) : undefined
+
+  // Fall back to default card for domain
+  if (!CardComponent) {
+    CardComponent = getCardForEntity(entityId)
+  }
+
+  // If we have a card component, render it
+  if (CardComponent) {
+    return <CardComponent {...cardProps} />
+  }
+
+  // Default to ButtonCard for unmapped entities
+  return <ButtonCard {...cardProps} />
 }
 
 export function GridView({ screenId, items, resolution }: GridViewProps) {
@@ -298,95 +161,124 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
         resolution={resolution}
       >
         {(item) => {
+          const isSelected = selectedItems.has(item.id)
+
+          if (item.type === 'text') {
+            return (
+              <TextCard
+                config={item.config as Record<string, unknown>}
+                size={
+                  item.width >= 4 && item.height >= 3
+                    ? 'large'
+                    : item.width >= 3 && item.height >= 2
+                      ? 'medium'
+                      : 'small'
+                }
+                onDelete={() => handleDeleteItem(item.id)}
+                isSelected={isSelected}
+                onSelect={(selected) => handleSelectItem(item.id, selected)}
+                onConfigure={() => handleConfigureItem(item)}
+              />
+            )
+          }
+
           if (item.type === 'separator') {
             return (
-              <GridCard
-                size="medium"
-                isSelected={selectedItems.has(item.id)}
-                onSelect={
-                  isEditMode
-                    ? () => handleSelectItem(item.id, !selectedItems.has(item.id))
-                    : undefined
+              <Separator
+                size={
+                  item.width >= 4 && item.height >= 3
+                    ? 'large'
+                    : item.width >= 3 && item.height >= 2
+                      ? 'medium'
+                      : 'small'
                 }
-                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
-                onConfigure={isEditMode ? () => handleConfigureItem(item) : undefined}
-                hasConfiguration={true}
-                transparent={item.hideBackground !== false}
-              >
-                <Separator
-                  title={item.title}
-                  orientation={item.separatorOrientation || 'horizontal'}
-                  textColor={item.separatorTextColor || 'gray'}
-                  isSelected={selectedItems.has(item.id)}
-                  onSelect={
-                    isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
-                  }
-                />
-              </GridCard>
-            )
-          } else if (item.type === 'text') {
-            return (
-              <GridCard
-                size="medium"
-                isSelected={selectedItems.has(item.id)}
-                onSelect={
-                  isEditMode
-                    ? () => handleSelectItem(item.id, !selectedItems.has(item.id))
-                    : undefined
+                onDelete={() => handleDeleteItem(item.id)}
+                isSelected={isSelected}
+                onSelect={(selected) => handleSelectItem(item.id, selected)}
+                title={item.title}
+                separatorOrientation={item.separatorOrientation}
+                separatorTextColor={
+                  item.separatorTextColor as
+                    | 'gray'
+                    | 'gold'
+                    | 'bronze'
+                    | 'brown'
+                    | 'yellow'
+                    | 'amber'
+                    | 'orange'
+                    | 'tomato'
+                    | 'red'
+                    | 'ruby'
+                    | 'crimson'
+                    | 'pink'
+                    | 'plum'
+                    | 'purple'
+                    | 'violet'
+                    | 'iris'
+                    | 'indigo'
+                    | 'blue'
+                    | 'cyan'
+                    | 'teal'
+                    | 'jade'
+                    | 'green'
+                    | 'grass'
+                    | 'lime'
+                    | 'mint'
+                    | 'sky'
+                    | undefined
                 }
-                onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
-                hasConfiguration={isEditMode}
-                onConfigure={isEditMode ? () => handleConfigureItem(item) : undefined}
-                transparent={item.hideBackground}
-              >
-                <TextCard
-                  entityId={item.id}
-                  size="medium"
-                  content={item.content}
-                  alignment={item.alignment}
-                  textSize={item.textSize}
-                  textColor={item.textColor}
-                  isSelected={selectedItems.has(item.id)}
-                  onSelect={
-                    isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
-                  }
-                />
-              </GridCard>
+                onConfigure={() => handleConfigureItem(item)}
+              />
             )
-          } else {
+          }
+
+          if (item.type === 'entity') {
             return (
-              <EntityErrorBoundary entityId={item.entityId}>
+              <EntityErrorBoundary>
                 <EntityCard
                   entityId={item.entityId!}
-                  size="medium"
-                  onDelete={isEditMode ? () => handleDeleteItem(item.id) : undefined}
-                  isSelected={selectedItems.has(item.id)}
-                  onSelect={
-                    isEditMode ? (selected) => handleSelectItem(item.id, selected) : undefined
+                  size={
+                    item.width >= 4 && item.height >= 3
+                      ? 'large'
+                      : item.width >= 3 && item.height >= 2
+                        ? 'medium'
+                        : 'small'
                   }
+                  onDelete={() => handleDeleteItem(item.id)}
+                  isSelected={isSelected}
+                  onSelect={(selected) => handleSelectItem(item.id, selected)}
                   item={item}
                 />
               </EntityErrorBoundary>
             )
           }
+
+          return null
         }}
       </GridLayoutSection>
 
-      {/* Delete Confirmation Dialog */}
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           setDeleteDialogOpen(open)
           if (!open) {
-            setBulkDeletePending(false)
             setItemToDelete(null)
+            setBulkDeletePending(false)
           }
         }}
         onConfirm={confirmDelete}
-        itemCount={bulkDeletePending ? selectedItems.size : 1}
+        title={
+          bulkDeletePending && selectedItems.size > 1
+            ? `Delete ${selectedItems.size} items?`
+            : 'Delete item?'
+        }
+        description={
+          bulkDeletePending && selectedItems.size > 1
+            ? `Are you sure you want to delete ${selectedItems.size} selected items? This action cannot be undone.`
+            : 'Are you sure you want to delete this item? This action cannot be undone.'
+        }
       />
 
-      {/* Configuration Modal */}
       {itemToConfig && (
         <CardConfig.Modal
           open={configModalOpen}

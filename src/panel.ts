@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
 import { PanelApp } from './components/PanelApp'
+import { getPanelConfig } from './config/panel'
 import type { HomeAssistant } from './contexts/HomeAssistantContext'
 
 // Type fix for React.createElement
@@ -67,4 +68,6 @@ class LiebePanel extends HTMLElement {
   }
 }
 
-customElements.define('liebe-panel', LiebePanel)
+// Register custom element with environment-specific name
+const panelConfig = getPanelConfig()
+customElements.define(panelConfig.elementName, LiebePanel)

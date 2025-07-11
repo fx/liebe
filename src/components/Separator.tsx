@@ -7,26 +7,40 @@ interface SeparatorProps {
   textColor?: string
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  onDelete?: () => void
+  onConfigure?: () => void
+  size?: 'small' | 'medium' | 'large'
+  separatorOrientation?: 'horizontal' | 'vertical'
+  separatorTextColor?: string
 }
 
 export function Separator({
   title,
-  orientation = 'horizontal',
-  textColor = 'gray',
+  orientation,
+  textColor,
   isSelected = false,
   onSelect,
+  onDelete: _onDelete,
+  onConfigure: _onConfigure,
+  size: _size,
+  separatorOrientation,
+  separatorTextColor,
 }: SeparatorProps) {
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
+  // Use separator-specific props if available, otherwise fall back to generic props
+  const finalOrientation = separatorOrientation || orientation || 'horizontal'
+  const finalTextColor = separatorTextColor || textColor || 'gray'
+
   // Determine text size based on card dimensions (will be determined by parent)
   const getTextSize = () => {
     // Default sizes, can be adjusted based on grid size
-    return orientation === 'vertical' ? '1' : '2'
+    return finalOrientation === 'vertical' ? '1' : '2'
   }
 
   const renderSeparatorContent = () => {
-    if (orientation === 'vertical') {
+    if (finalOrientation === 'vertical') {
       return (
         <Flex direction="column" align="center" justify="center" height="100%" py="3" gap="3">
           <div
@@ -40,7 +54,7 @@ export function Separator({
             <Text
               size={getTextSize() as '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'}
               weight="medium"
-              color={textColor as 'gray' | 'blue' | 'green' | 'red' | 'orange' | 'purple'}
+              color={finalTextColor as 'gray' | 'blue' | 'green' | 'red' | 'orange' | 'purple'}
               style={{
                 writingMode: 'vertical-rl',
                 textOrientation: 'mixed',
@@ -58,51 +72,62 @@ export function Separator({
           />
         </Flex>
       )
-    } else {
-      return (
-        <Flex align="center" justify="center" height="100%" px="3">
-          <Flex align="center" gap="3" style={{ width: '100%' }}>
-            <div
-              style={{
-                flex: 1,
-                height: '2px',
-                backgroundColor: 'var(--gray-6)',
-              }}
-            />
-            {title && (
-              <Text
-                size={getTextSize() as '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'}
-                weight="medium"
-                color={textColor as 'gray' | 'blue' | 'green' | 'red' | 'orange' | 'purple'}
-              >
-                {title}
-              </Text>
-            )}
-            <div
-              style={{
-                flex: 1,
-                height: '2px',
-                backgroundColor: 'var(--gray-6)',
-              }}
-            />
-          </Flex>
-        </Flex>
-      )
     }
+
+    return (
+      <Flex direction="column" align="center" justify="center" height="100%" px="3" gap="2">
+        <Flex align="center" gap="3" width="100%">
+          <div
+            style={{
+              flex: 1,
+              height: '2px',
+              backgroundColor: 'var(--gray-6)',
+            }}
+          />
+          {title && (
+            <Text
+              size={getTextSize() as '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'}
+              weight="medium"
+              color={finalTextColor as 'gray' | 'blue' | 'green' | 'red' | 'orange' | 'purple'}
+            >
+              {title}
+            </Text>
+          )}
+          <div
+            style={{
+              flex: 1,
+              height: '2px',
+              backgroundColor: 'var(--gray-6)',
+            }}
+          />
+        </Flex>
+      </Flex>
+    )
   }
 
   return (
     <div
       style={{
-        backgroundColor: isEditMode ? 'var(--gray-3)' : 'transparent',
+        width: '100%',
         height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isEditMode && isSelected ? 'var(--blue-3)' : 'transparent',
+        borderRadius: 'var(--radius-2)',
         cursor: isEditMode ? 'pointer' : 'default',
+        transition: 'background-color 0.2s ease',
       }}
-      onClick={isEditMode && onSelect ? () => onSelect(!isSelected) : undefined}
+      onClick={() => {
+        if (isEditMode && onSelect) {
+          onSelect(!isSelected)
+        }
+      }}
     >
       {renderSeparatorContent()}
     </div>
   )
 }
 
+// Default dimensions for separator
 Separator.defaultDimensions = { width: 4, height: 1 }

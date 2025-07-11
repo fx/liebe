@@ -10,8 +10,8 @@ export default defineConfig(({ mode }) => {
     mode,
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'process.env': JSON.stringify({}),
-      process: JSON.stringify({ env: {} }),
+      'process.env': JSON.stringify({ NODE_ENV: mode }),
+      process: JSON.stringify({ env: { NODE_ENV: mode } }),
     },
     build: {
       minify: isProduction,

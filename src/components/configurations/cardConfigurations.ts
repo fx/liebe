@@ -31,11 +31,11 @@ export const cardConfigurations: Record<
     title: 'Weather Card',
     description: 'Configure how weather information is displayed.',
     definition: {
-      preset: {
+      variant: {
         type: 'select',
         default: 'default',
-        label: 'Card Style',
-        description: 'Choose a visual style for the weather card',
+        label: 'Card Variant',
+        description: 'Choose a visual variant for the weather card',
         options: [
           { value: 'default', label: 'Default' },
           { value: 'detailed', label: 'Detailed' },

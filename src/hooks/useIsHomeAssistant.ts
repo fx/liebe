@@ -1,4 +1,5 @@
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { isPanelPath } from '~/config/panel'
 
 export function useIsHomeAssistant(): boolean {
   const hass = useHomeAssistantOptional()
@@ -6,7 +7,7 @@ export function useIsHomeAssistant(): boolean {
   // Check multiple conditions to determine if we're in Home Assistant
   return !!(
     hass || // Has Home Assistant context
-    window.location.pathname.includes('/liebe') || // Running at Home Assistant path
+    isPanelPath(window.location.pathname) || // Running at a Home Assistant panel path
     window.parent !== window // Running in an iframe
   )
 }

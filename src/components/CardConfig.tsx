@@ -11,9 +11,9 @@ import {
   TextField,
   TextArea,
   Card,
+  Dialog,
 } from '@radix-ui/themes'
 import { X } from 'lucide-react'
-import { FullscreenModal } from './ui'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
 import type { GridItem } from '~/store/types'
 import { IconSelect } from './IconSelect'
@@ -187,7 +187,7 @@ function Component({ title, description, configDefinition, config, onChange }: C
               onValueChange={(value) => handleChange(key, value)}
             >
               <Select.Trigger />
-              <Select.Content>
+              <Select.Content position="popper">
                 {option.options?.map((opt) => (
                   <Select.Item key={opt.value} value={opt.value}>
                     {opt.label}
@@ -464,69 +464,71 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
   }
 
   return (
-    <FullscreenModal open={open} onClose={() => onOpenChange(false)}>
-      <Card
-        size="3"
-        style={{
-          maxWidth: '90vw',
-          width: '900px',
-          maxHeight: '85vh',
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: 'var(--color-panel-solid)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        }}
-      >
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Content maxWidth="900px" style={{ maxHeight: '85vh', padding: 0 }}>
         <Flex
-          align="center"
-          justify="between"
-          p="4"
-          style={{ borderBottom: '1px solid var(--gray-a5)' }}
+          direction="column"
+          style={{
+            height: '100%',
+            maxHeight: '85vh',
+          }}
         >
-          <Text size="5" weight="bold">
-            Card Configuration
-          </Text>
-          <IconButton size="2" variant="ghost" onClick={() => onOpenChange(false)}>
-            <X size={16} />
-          </IconButton>
-        </Flex>
-
-        <Box style={{ flex: 1, overflow: 'hidden' }}>
-          <Flex style={{ height: '100%' }} gap="4">
-            {/* Left side - Configuration form */}
-            <Box style={{ flex: 1, overflow: 'hidden' }}>
-              <ScrollArea>
-                <Box p="4">
-                  <Content config={localConfig} onChange={handleConfigChange} item={item} />
-                </Box>
-              </ScrollArea>
-            </Box>
-
-            {/* Right side - Preview */}
-            <Box
-              style={{
-                width: '350px',
-                borderLeft: '1px solid var(--gray-a5)',
-                overflow: 'hidden',
-              }}
-            >
-              <ScrollArea>
-                <Box p="4">
-                  <Preview item={item} config={localConfig} />
-                </Box>
-              </ScrollArea>
-            </Box>
+          <Flex
+            align="center"
+            justify="between"
+            p="4"
+            style={{ borderBottom: '1px solid var(--gray-a5)' }}
+          >
+            <Dialog.Title size="5">Card Configuration</Dialog.Title>
+            <Dialog.Description size="2" style={{ display: 'none' }}>
+              Configure card display options
+            </Dialog.Description>
+            <Dialog.Close>
+              <IconButton size="2" variant="ghost">
+                <X size={16} />
+              </IconButton>
+            </Dialog.Close>
           </Flex>
-        </Box>
 
-        <Flex gap="3" justify="end" p="4" style={{ borderTop: '1px solid var(--gray-a5)' }}>
-          <Button variant="soft" color="gray" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Box style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+            <Flex style={{ height: '100%' }} gap="4">
+              {/* Left side - Configuration form */}
+              <Box style={{ flex: 1, overflow: 'hidden' }}>
+                <ScrollArea>
+                  <Box p="4">
+                    <Content config={localConfig} onChange={handleConfigChange} item={item} />
+                  </Box>
+                </ScrollArea>
+              </Box>
+
+              {/* Right side - Preview */}
+              <Box
+                style={{
+                  width: '350px',
+                  borderLeft: '1px solid var(--gray-a5)',
+                  overflow: 'hidden',
+                }}
+              >
+                <ScrollArea>
+                  <Box p="4">
+                    <Preview item={item} config={localConfig} />
+                  </Box>
+                </ScrollArea>
+              </Box>
+            </Flex>
+          </Box>
+
+          <Flex gap="3" justify="end" p="4" style={{ borderTop: '1px solid var(--gray-a5)' }}>
+            <Dialog.Close>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </Dialog.Close>
+            <Button onClick={handleSave}>Save Changes</Button>
+          </Flex>
         </Flex>
-      </Card>
-    </FullscreenModal>
+      </Dialog.Content>
+    </Dialog.Root>
   )
 }
 

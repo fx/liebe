@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useRouter } from '@tanstack/react-router'
+import { isPanelPath } from '~/config/panel'
 
 /**
  * Hook to sync routing between the dashboard and Home Assistant custom panel
@@ -9,7 +10,7 @@ export function useHomeAssistantRouting() {
   const router = useRouter()
 
   useEffect(() => {
-    const isInHomeAssistant = window.location.pathname.includes('/liebe')
+    const isInHomeAssistant = isPanelPath(window.location.pathname)
 
     // Skip if not in Home Assistant
     if (!isInHomeAssistant) return
