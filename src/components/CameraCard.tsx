@@ -1,5 +1,11 @@
-import { Flex, Text, Button } from '@radix-ui/themes'
-import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
+import { Flex, Text, Button, IconButton } from '@radix-ui/themes'
+import {
+  VideoIcon,
+  ReloadIcon,
+  EnterFullScreenIcon,
+  SpeakerLoudIcon,
+  SpeakerOffIcon,
+} from '@radix-ui/react-icons'
 import { useEntity, useWebRTC } from '~/hooks'
 import { memo, useMemo, useState, useRef, useCallback } from 'react'
 import { SkeletonCard, ErrorDisplay, FullscreenModal } from './ui'
@@ -37,8 +43,10 @@ function CameraCardComponent({
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isMuted, setIsMuted] = useState(true) // Start muted by default
   const normalContainerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
+  const videoElementRef = useRef<HTMLVideoElement | null>(null)
 
   // Memoize camera attributes and stream support to prevent re-renders
   const cameraAttributes = useMemo(
@@ -74,6 +82,36 @@ function CameraCardComponent({
       setIsFullscreen(!isFullscreen)
     }
   }, [streamError, isEditMode, isFullscreen])
+
+  const handleVideoFullscreen = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const video = videoElementRef.current
+    if (!video) return
+
+    try {
+      if (document.fullscreenElement === video) {
+        await document.exitFullscreen()
+      } else {
+        await video.requestFullscreen()
+      }
+    } catch (error) {
+      console.error('Fullscreen error:', error)
+    }
+  }, [])
+
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsMuted((prev) => !prev)
+  }, [])
+
+  // Combined ref callback for both WebRTC and local ref
+  const combinedVideoRef = useCallback(
+    (element: HTMLVideoElement | null) => {
+      videoRef(element)
+      videoElementRef.current = element
+    },
+    [videoRef]
+  )
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -203,10 +241,10 @@ function CameraCardComponent({
                     containerRef={isFullscreen ? fullscreenContainerRef : normalContainerRef}
                   >
                     <video
-                      ref={videoRef}
+                      ref={combinedVideoRef}
                       autoPlay
                       playsInline
-                      muted
+                      muted={isMuted}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -248,46 +286,105 @@ function CameraCardComponent({
             </Flex>
           )}
 
-          {/* Entity info positioned absolutely at bottom left */}
+          {/* Controls and info container positioned absolutely at bottom */}
           <div
             style={{
               position: 'absolute',
               bottom: isFullscreen ? '20px' : '8px',
               left: isFullscreen ? '20px' : '8px',
-              background: 'rgba(0, 0, 0, 0.7)',
-              padding: isFullscreen ? '8px 16px' : '4px 8px',
-              borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
-              backdropFilter: 'blur(4px)',
-              color: 'white',
-              fontSize: isFullscreen ? '16px' : '12px',
-              lineHeight: '1.2',
-              maxWidth: 'calc(100% - 16px)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              right: isFullscreen ? '20px' : '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: isFullscreen ? '16px' : '8px',
               zIndex: 15,
             }}
           >
-            <div style={{ fontWeight: isFullscreen ? '600' : '500', marginBottom: '2px' }}>
-              {friendlyName}
-            </div>
+            {/* Entity info */}
             <div
               style={{
-                fontSize: isFullscreen ? '14px' : '10px',
-                opacity: 0.9,
-                color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+                background: 'rgba(0, 0, 0, 0.7)',
+                padding: isFullscreen ? '8px 16px' : '4px 8px',
+                borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
+                backdropFilter: 'blur(4px)',
+                color: 'white',
+                fontSize: isFullscreen ? '16px' : '12px',
+                lineHeight: '1.2',
+                flex: '1 1 auto',
+                minWidth: 0,
+                overflow: 'hidden',
               }}
             >
-              {streamError
-                ? 'ERROR'
-                : isRecording
-                  ? 'RECORDING'
-                  : isStreaming_
-                    ? 'STREAMING'
-                    : isIdle
-                      ? 'IDLE'
-                      : entity.state.toUpperCase()}
+              <div
+                style={{
+                  fontWeight: isFullscreen ? '600' : '500',
+                  marginBottom: '2px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {friendlyName}
+              </div>
+              <div
+                style={{
+                  fontSize: isFullscreen ? '14px' : '10px',
+                  opacity: 0.9,
+                  color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+                }}
+              >
+                {streamError
+                  ? 'ERROR'
+                  : isRecording
+                    ? 'RECORDING'
+                    : isStreaming_
+                      ? 'STREAMING'
+                      : isIdle
+                        ? 'IDLE'
+                        : entity.state.toUpperCase()}
+              </div>
             </div>
+
+            {/* Control buttons - only show when streaming and not in edit mode */}
+            {supportsStream && isStreaming && !streamError && !isEditMode && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: isFullscreen ? '8px' : '4px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  padding: isFullscreen ? '6px' : '4px',
+                  borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                <IconButton
+                  size={isFullscreen ? '2' : '1'}
+                  variant="ghost"
+                  onClick={handleToggleMute}
+                  style={{
+                    color: 'white',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    cursor: 'pointer',
+                  }}
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
+                </IconButton>
+                <IconButton
+                  size={isFullscreen ? '2' : '1'}
+                  variant="ghost"
+                  onClick={handleVideoFullscreen}
+                  style={{
+                    color: 'white',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    cursor: 'pointer',
+                  }}
+                  title="Toggle native fullscreen"
+                >
+                  <EnterFullScreenIcon />
+                </IconButton>
+              </div>
+            )}
           </div>
         </div>
       </GridCard>
@@ -320,39 +417,103 @@ function CameraCardComponent({
           }}
         />
 
-        {/* Fullscreen entity info */}
+        {/* Fullscreen controls and info container */}
         <div
           style={{
             position: 'absolute',
             bottom: '20px',
             left: '20px',
-            background: 'rgba(0, 0, 0, 0.7)',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            backdropFilter: 'blur(4px)',
-            color: 'white',
-            fontSize: '16px',
-            lineHeight: '1.2',
+            right: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
           }}
         >
-          <div style={{ fontWeight: '600', marginBottom: '2px' }}>{friendlyName}</div>
+          {/* Entity info */}
           <div
             style={{
-              fontSize: '14px',
-              opacity: 0.9,
-              color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+              background: 'rgba(0, 0, 0, 0.7)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              backdropFilter: 'blur(4px)',
+              color: 'white',
+              fontSize: '16px',
+              lineHeight: '1.2',
+              flex: '1 1 auto',
+              minWidth: 0,
             }}
           >
-            {streamError
-              ? 'ERROR'
-              : isRecording
-                ? 'RECORDING'
-                : isStreaming_
-                  ? 'STREAMING'
-                  : isIdle
-                    ? 'IDLE'
-                    : entity.state.toUpperCase()}
+            <div
+              style={{
+                fontWeight: '600',
+                marginBottom: '2px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {friendlyName}
+            </div>
+            <div
+              style={{
+                fontSize: '14px',
+                opacity: 0.9,
+                color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
+              }}
+            >
+              {streamError
+                ? 'ERROR'
+                : isRecording
+                  ? 'RECORDING'
+                  : isStreaming_
+                    ? 'STREAMING'
+                    : isIdle
+                      ? 'IDLE'
+                      : entity.state.toUpperCase()}
+            </div>
           </div>
+
+          {/* Control buttons in fullscreen modal */}
+          {supportsStream && isStreaming && !streamError && (
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                background: 'rgba(0, 0, 0, 0.7)',
+                padding: '6px',
+                borderRadius: '8px',
+                backdropFilter: 'blur(4px)',
+              }}
+            >
+              <IconButton
+                size="2"
+                variant="ghost"
+                onClick={handleToggleMute}
+                style={{
+                  color: 'white',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
+                }}
+                title={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
+              </IconButton>
+              <IconButton
+                size="2"
+                variant="ghost"
+                onClick={handleVideoFullscreen}
+                style={{
+                  color: 'white',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
+                }}
+                title="Toggle native fullscreen"
+              >
+                <EnterFullScreenIcon />
+              </IconButton>
+            </div>
+          )}
         </div>
 
         {/* Exit indicator */}
