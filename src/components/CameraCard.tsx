@@ -150,22 +150,23 @@ function FullscreenCameraControls({
     <div
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderRadius: '12px',
-        padding: '12px 16px',
+        borderRadius: '0.75em',
+        padding: '0.6em 0.8em',
         backdropFilter: 'blur(8px)',
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
-        gap: '16px',
+        gap: '0.8em',
+        fontSize: 'clamp(12px, 2vw, 16px)', // Base font size scales with viewport
       }}
     >
       {/* Entity info */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1em' }}>
         <div
           style={{
             color: 'white',
-            fontSize: '16px',
+            fontSize: '1em',
             fontWeight: 600,
-            lineHeight: '20px',
+            lineHeight: 1.25,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -176,8 +177,8 @@ function FullscreenCameraControls({
         <div
           style={{
             color: streamError ? '#ff6b6b' : isRecording || isStreaming ? '#4dabf7' : '#868e96',
-            fontSize: '13px',
-            lineHeight: '16px',
+            fontSize: '0.8em',
+            lineHeight: 1.2,
             textTransform: 'uppercase',
             fontWeight: 500,
           }}
@@ -196,14 +197,14 @@ function FullscreenCameraControls({
 
       {/* Control buttons */}
       {supportsStream && isStreaming && !streamError && !isEditMode && (
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '0.5em' }}>
           <button
             onClick={handleToggleMute}
             title={isMuted ? 'Unmute' : 'Mute'}
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
+              width: '2.2em',
+              height: '2.2em',
+              borderRadius: '0.5em',
               border: 'none',
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
               color: 'white',
@@ -212,6 +213,7 @@ function FullscreenCameraControls({
               justifyContent: 'center',
               cursor: 'pointer',
               transition: 'background-color 0.2s ease',
+              padding: 0,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
@@ -221,18 +223,18 @@ function FullscreenCameraControls({
             }}
           >
             {isMuted ? (
-              <SpeakerOffIcon width={18} height={18} />
+              <SpeakerOffIcon style={{ width: '60%', height: '60%' }} />
             ) : (
-              <SpeakerLoudIcon width={18} height={18} />
+              <SpeakerLoudIcon style={{ width: '60%', height: '60%' }} />
             )}
           </button>
           <button
             onClick={handleVideoFullscreen}
             title="Toggle native fullscreen"
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
+              width: '2.2em',
+              height: '2.2em',
+              borderRadius: '0.5em',
               border: 'none',
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
               color: 'white',
@@ -241,6 +243,7 @@ function FullscreenCameraControls({
               justifyContent: 'center',
               cursor: 'pointer',
               transition: 'background-color 0.2s ease',
+              padding: 0,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
@@ -249,7 +252,7 @@ function FullscreenCameraControls({
               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
             }}
           >
-            <EnterFullScreenIcon width={18} height={18} />
+            <EnterFullScreenIcon style={{ width: '60%', height: '60%' }} />
           </button>
         </div>
       )}
@@ -565,8 +568,8 @@ function CameraCardComponent({
         <div
           style={{
             position: 'absolute',
-            bottom: '20px',
-            left: '20px',
+            bottom: '2%',
+            left: '2%',
             zIndex: 10,
           }}
         >
