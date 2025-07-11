@@ -1,4 +1,4 @@
-import { Flex, Text, Button, IconButton } from '@radix-ui/themes'
+import { Flex, Text, Button, IconButton, Box, Card } from '@radix-ui/themes'
 import {
   VideoIcon,
   ReloadIcon,
@@ -287,78 +287,60 @@ function CameraCardComponent({
           )}
 
           {/* Controls and info container positioned absolutely at bottom left */}
-          <Flex
-            style={{
-              position: 'absolute',
-              bottom: isFullscreen ? '20px' : '8px',
-              left: isFullscreen ? '20px' : '8px',
-              background: 'rgba(0, 0, 0, 0.7)',
-              padding: isFullscreen ? '8px 12px' : '4px 8px',
-              borderRadius: isFullscreen ? '8px' : 'var(--radius-1)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 15,
-            }}
-            align="center"
-            gap={isFullscreen ? '3' : '2'}
+          <Box
+            position="absolute"
+            bottom={isFullscreen ? '4' : '2'}
+            left={isFullscreen ? '4' : '2'}
           >
-            {/* Entity info */}
-            <Flex direction="column" gap="0">
-              <Text
-                size={isFullscreen ? '3' : '1'}
-                weight="medium"
-                style={{
-                  color: 'white',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: isFullscreen ? '300px' : '150px',
-                }}
-              >
-                {friendlyName}
-              </Text>
-              <Text
-                size={isFullscreen ? '2' : '1'}
-                style={{
-                  color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
-                  opacity: 0.9,
-                }}
-              >
-                {streamError
-                  ? 'ERROR'
-                  : isRecording
-                    ? 'RECORDING'
-                    : isStreaming_
-                      ? 'STREAMING'
-                      : isIdle
-                        ? 'IDLE'
-                        : entity.state.toUpperCase()}
-              </Text>
-            </Flex>
+            <Card size={isFullscreen ? '2' : '1'}>
+              <Flex align="center" gap={isFullscreen ? '3' : '2'}>
+                {/* Entity info */}
+                <Flex direction="column" gap="0">
+                  <Text size={isFullscreen ? '3' : '1'} weight="medium" truncate>
+                    {friendlyName}
+                  </Text>
+                  <Text
+                    size={isFullscreen ? '2' : '1'}
+                    color={streamError ? 'red' : isRecording || isStreaming_ ? 'blue' : 'gray'}
+                  >
+                    {streamError
+                      ? 'ERROR'
+                      : isRecording
+                        ? 'RECORDING'
+                        : isStreaming_
+                          ? 'STREAMING'
+                          : isIdle
+                            ? 'IDLE'
+                            : entity.state.toUpperCase()}
+                  </Text>
+                </Flex>
 
-            {/* Control buttons - only show when streaming and not in edit mode */}
-            {supportsStream && isStreaming && !streamError && !isEditMode && (
-              <Flex gap={isFullscreen ? '2' : '1'}>
-                <IconButton
-                  size={isFullscreen ? '2' : '1'}
-                  variant="soft"
-                  highContrast
-                  onClick={handleToggleMute}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
-                </IconButton>
-                <IconButton
-                  size={isFullscreen ? '2' : '1'}
-                  variant="soft"
-                  highContrast
-                  onClick={handleVideoFullscreen}
-                  title="Toggle native fullscreen"
-                >
-                  <EnterFullScreenIcon />
-                </IconButton>
+                {/* Control buttons - only show when streaming and not in edit mode */}
+                {supportsStream && isStreaming && !streamError && !isEditMode && (
+                  <Flex gap={isFullscreen ? '2' : '1'}>
+                    <IconButton
+                      size={isFullscreen ? '2' : '1'}
+                      variant="soft"
+                      highContrast
+                      onClick={handleToggleMute}
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
+                    </IconButton>
+                    <IconButton
+                      size={isFullscreen ? '2' : '1'}
+                      variant="soft"
+                      highContrast
+                      onClick={handleVideoFullscreen}
+                      title="Toggle native fullscreen"
+                    >
+                      <EnterFullScreenIcon />
+                    </IconButton>
+                  </Flex>
+                )}
               </Flex>
-            )}
-          </Flex>
+            </Card>
+          </Box>
         </div>
       </GridCard>
 
@@ -391,77 +373,56 @@ function CameraCardComponent({
         />
 
         {/* Fullscreen controls and info container */}
-        <Flex
-          style={{
-            position: 'absolute',
-            bottom: '20px',
-            left: '20px',
-            background: 'rgba(0, 0, 0, 0.7)',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            backdropFilter: 'blur(4px)',
-          }}
-          align="center"
-          gap="3"
-        >
-          {/* Entity info */}
-          <Flex direction="column" gap="0">
-            <Text
-              size="3"
-              weight="medium"
-              style={{
-                color: 'white',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '300px',
-              }}
-            >
-              {friendlyName}
-            </Text>
-            <Text
-              size="2"
-              style={{
-                color: streamError ? '#ff6b6b' : isRecording || isStreaming_ ? '#4c9aff' : '#aaa',
-                opacity: 0.9,
-              }}
-            >
-              {streamError
-                ? 'ERROR'
-                : isRecording
-                  ? 'RECORDING'
-                  : isStreaming_
-                    ? 'STREAMING'
-                    : isIdle
-                      ? 'IDLE'
-                      : entity.state.toUpperCase()}
-            </Text>
-          </Flex>
+        <Box position="absolute" bottom="4" left="4">
+          <Card size="2">
+            <Flex align="center" gap="3">
+              {/* Entity info */}
+              <Flex direction="column" gap="0">
+                <Text size="3" weight="medium" truncate>
+                  {friendlyName}
+                </Text>
+                <Text
+                  size="2"
+                  color={streamError ? 'red' : isRecording || isStreaming_ ? 'blue' : 'gray'}
+                >
+                  {streamError
+                    ? 'ERROR'
+                    : isRecording
+                      ? 'RECORDING'
+                      : isStreaming_
+                        ? 'STREAMING'
+                        : isIdle
+                          ? 'IDLE'
+                          : entity.state.toUpperCase()}
+                </Text>
+              </Flex>
 
-          {/* Control buttons in fullscreen modal */}
-          {supportsStream && isStreaming && !streamError && (
-            <Flex gap="2">
-              <IconButton
-                size="2"
-                variant="soft"
-                highContrast
-                onClick={handleToggleMute}
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
-              </IconButton>
-              <IconButton
-                size="2"
-                variant="soft"
-                highContrast
-                onClick={handleVideoFullscreen}
-                title="Toggle native fullscreen"
-              >
-                <EnterFullScreenIcon />
-              </IconButton>
+              {/* Control buttons in fullscreen modal */}
+              {supportsStream && isStreaming && !streamError && (
+                <Flex gap="2">
+                  <IconButton
+                    size="2"
+                    variant="soft"
+                    highContrast
+                    onClick={handleToggleMute}
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
+                  </IconButton>
+                  <IconButton
+                    size="2"
+                    variant="soft"
+                    highContrast
+                    onClick={handleVideoFullscreen}
+                    title="Toggle native fullscreen"
+                  >
+                    <EnterFullScreenIcon />
+                  </IconButton>
+                </Flex>
+              )}
             </Flex>
-          )}
-        </Flex>
+          </Card>
+        </Box>
 
         {/* Exit indicator */}
         <div
