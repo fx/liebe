@@ -17,9 +17,9 @@ vi.mock('~/store', () => ({
 
 // Mock WeatherCard to avoid entity dependencies
 vi.mock('../WeatherCard', () => ({
-  WeatherCard: ({ config }: { config: Record<string, unknown> }) => (
+  WeatherCard: ({ config }: { config?: Record<string, unknown> }) => (
     <div data-testid="weather-card-preview">
-      Weather Card - Variant: {config.variant || 'default'}
+      Weather Card - Variant: {String(config?.variant || 'default')}
     </div>
   ),
 }))
@@ -45,6 +45,7 @@ describe('CardConfig', () => {
   describe('Weather Card Configuration', () => {
     const weatherItem: GridItem = {
       id: 'weather-1',
+      type: 'entity',
       entityId: 'weather.home',
       x: 0,
       y: 0,
