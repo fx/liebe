@@ -75,6 +75,7 @@ export interface StoreActions {
   addScreen: (screen: ScreenConfig, parentId?: string) => void
   updateScreen: (screenId: string, updates: Partial<ScreenConfig>) => void
   removeScreen: (screenId: string) => void
+  clearScreen: (screenId: string) => void
   addGridItem: (screenId: string, item: GridItem) => void
   updateGridItem: (screenId: string, itemId: string, updates: Partial<GridItem>) => void
   removeGridItem: (screenId: string, itemId: string) => void
