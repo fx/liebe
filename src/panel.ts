@@ -25,6 +25,8 @@ class LiebePanel extends HTMLElement {
   private keepAliveInterval?: number
   private lastInteraction = Date.now()
   private parentObserver?: MutationObserver
+  private reconnectCheckInterval?: number
+  private lastParentElement?: Element | null
 
   constructor() {
     super()
@@ -32,6 +34,15 @@ class LiebePanel extends HTMLElement {
 
     // Prevent panel from being garbage collected
     ;(window as unknown as { __liebePanel?: LiebePanel }).__liebePanel = this
+
+    // Override remove method to prevent removal
+    const originalRemove = this.remove
+    this.remove = () => {
+      console.log(`[Liebe Panel ${this.instanceId}] remove() called - ignoring if we have hass`)
+      if (!this._hass) {
+        originalRemove.call(this)
+      }
+    }
 
     // Set up mutation observer to detect removal attempts
     this.setupParentObserver()
@@ -98,12 +109,23 @@ class LiebePanel extends HTMLElement {
           hidden: document.hidden,
           visibilityState: document.visibilityState,
           timestamp: new Date().toISOString(),
+          isConnected: this.isConnected,
         })
 
         // Update interaction time when page becomes visible
         if (!document.hidden) {
           this.lastInteraction = Date.now()
           this.startKeepAlive()
+
+          // If we're not connected but should be, try to reconnect
+          if (!this.isConnected && this._hass && this.lastParentElement) {
+            console.log(`[Liebe Panel ${this.instanceId}] Attempting to reconnect to parent`)
+            try {
+              this.lastParentElement.appendChild(this)
+            } catch (error) {
+              console.error(`[Liebe Panel ${this.instanceId}] Failed to reconnect:`, error)
+            }
+          }
         }
       }
       document.addEventListener('visibilitychange', this.visibilityHandler)
@@ -118,10 +140,18 @@ class LiebePanel extends HTMLElement {
       this.startKeepAlive()
     }
 
+    // Store parent element reference
+    if (this.parentNode) {
+      this.lastParentElement = this.parentNode as Element
+    }
+
     // Set up parent observer if not already set
     if (!this.parentObserver && this.parentNode) {
       this.setupParentObserver()
     }
+
+    // Start reconnect check
+    this.startReconnectCheck()
 
     this.render()
   }
@@ -134,13 +164,16 @@ class LiebePanel extends HTMLElement {
       documentHidden: document.hidden,
       visibilityState: document.visibilityState,
       timeSinceLastInteraction: Date.now() - this.lastInteraction,
+      parentElement: this.lastParentElement?.tagName,
     })
 
-    // Stop keep-alive when disconnected
-    this.stopKeepAlive()
-
-    // Clean up parent observer
-    this.cleanupParentObserver()
+    // Do NOT stop keep-alive or cleanup - we want to stay ready for reconnection
+    // Only clean up if we're truly being destroyed (no hass object)
+    if (!this._hass) {
+      this.stopKeepAlive()
+      this.stopReconnectCheck()
+      this.cleanupParentObserver()
+    }
 
     // Do NOT unmount or cleanup React - Home Assistant will re-add this element
     // when the user navigates back to the panel
@@ -184,16 +217,29 @@ class LiebePanel extends HTMLElement {
       mutations.forEach((mutation) => {
         if (mutation.type === 'childList' && mutation.removedNodes.length > 0) {
           mutation.removedNodes.forEach((node) => {
-            if (node === this) {
+            if (
+              node === this ||
+              (node.nodeType === Node.ELEMENT_NODE && (node as Element).contains(this))
+            ) {
               console.log(
                 `[Liebe Panel ${this.instanceId}] Detected removal from parent, attempting to prevent`
               )
               // If we're being removed and we have a parent, try to add ourselves back
               if (mutation.target && this._hass) {
+                // Store the parent for reconnection attempts
+                this.lastParentElement = mutation.target as Element
+
                 setTimeout(() => {
                   if (!this.isConnected && mutation.target) {
                     console.log(`[Liebe Panel ${this.instanceId}] Re-adding panel to parent`)
-                    mutation.target.appendChild(this)
+                    try {
+                      mutation.target.appendChild(this)
+                    } catch (error) {
+                      console.error(
+                        `[Liebe Panel ${this.instanceId}] Failed to re-add to parent:`,
+                        error
+                      )
+                    }
                   }
                 }, 0)
               }
@@ -203,9 +249,14 @@ class LiebePanel extends HTMLElement {
       })
     })
 
-    // Start observing when we have a parent
+    // Observe multiple levels up the DOM tree
     if (this.parentNode) {
-      this.parentObserver.observe(this.parentNode, { childList: true })
+      this.parentObserver.observe(this.parentNode, { childList: true, subtree: true })
+
+      // Also observe the document body for more aggressive monitoring
+      if (document.body && !document.body.contains(this)) {
+        this.parentObserver.observe(document.body, { childList: true, subtree: true })
+      }
     }
   }
 
@@ -213,6 +264,45 @@ class LiebePanel extends HTMLElement {
     if (this.parentObserver) {
       this.parentObserver.disconnect()
       this.parentObserver = undefined
+    }
+  }
+
+  private startReconnectCheck() {
+    // Clear any existing interval
+    this.stopReconnectCheck()
+
+    // Check periodically if we need to reconnect
+    this.reconnectCheckInterval = window.setInterval(() => {
+      if (!this.isConnected && this._hass && this.lastParentElement && !document.hidden) {
+        console.log(`[Liebe Panel ${this.instanceId}] Reconnect check: attempting to reconnect`)
+
+        // Try to find the panel container in Home Assistant
+        const panelContainer =
+          document.querySelector('partial-panel-resolver') ||
+          document.querySelector('[id^="panel-"]') ||
+          this.lastParentElement
+
+        if (panelContainer && !panelContainer.contains(this)) {
+          try {
+            panelContainer.appendChild(this)
+            console.log(
+              `[Liebe Panel ${this.instanceId}] Successfully reconnected to panel container`
+            )
+          } catch (error) {
+            console.error(
+              `[Liebe Panel ${this.instanceId}] Failed to reconnect during check:`,
+              error
+            )
+          }
+        }
+      }
+    }, 5000) // Check every 5 seconds
+  }
+
+  private stopReconnectCheck() {
+    if (this.reconnectCheckInterval) {
+      clearInterval(this.reconnectCheckInterval)
+      this.reconnectCheckInterval = undefined
     }
   }
 
@@ -242,3 +332,41 @@ class LiebePanel extends HTMLElement {
 // Register custom element with environment-specific name
 const panelConfig = getPanelConfig()
 customElements.define(panelConfig.elementName, LiebePanel)
+
+// Global panel guardian - ensures panel stays connected
+let globalPanelCheck: number | undefined
+const startGlobalPanelGuardian = () => {
+  if (globalPanelCheck) return
+
+  globalPanelCheck = window.setInterval(() => {
+    const panel = (window as unknown as { __liebePanel?: LiebePanel }).__liebePanel
+    if (panel && !panel.isConnected && document.visibilityState === 'visible') {
+      console.log(
+        '[Global Panel Guardian] Panel disconnected while page visible, attempting recovery'
+      )
+
+      // Try to find where the panel should be
+      const possibleContainers = [
+        document.querySelector('partial-panel-resolver'),
+        document.querySelector('[id^="panel-"]'),
+        document.querySelector('ha-panel-iframe'),
+        document.querySelector('.view'),
+      ].filter(Boolean)
+
+      for (const container of possibleContainers) {
+        if (container && !container.contains(panel)) {
+          try {
+            container.appendChild(panel)
+            console.log('[Global Panel Guardian] Successfully restored panel to container')
+            break
+          } catch (error) {
+            // Continue trying other containers
+          }
+        }
+      }
+    }
+  }, 10000) // Check every 10 seconds
+}
+
+// Start the guardian
+startGlobalPanelGuardian()
