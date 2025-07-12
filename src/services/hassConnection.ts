@@ -4,6 +4,7 @@ import { entityStoreActions } from '../store/entityStore'
 import { entityDebouncer } from '../store/entityDebouncer'
 import { entityUpdateBatcher } from '../store/entityBatcher'
 import { staleEntityMonitor } from './staleEntityMonitor'
+import { connectionActions } from '../store/connectionStore'
 
 export interface StateChangedEvent {
   event_type: 'state_changed'
@@ -21,19 +22,34 @@ export class HassConnectionManager {
   private reconnectAttempts = 0
   private readonly MAX_RECONNECT_ATTEMPTS = 10
   private readonly RECONNECT_DELAY_BASE = 1000 // 1 second
+  private isReconnecting = false
+  private lastReconnectTime = 0
 
   constructor() {
     this.handleStateChanged = this.handleStateChanged.bind(this)
   }
 
   async connect(hass: HomeAssistant): Promise<void> {
+    // If we already have a connection with the same hass instance, just update the reference
+    if (this.hass && this.stateChangeUnsubscribe && this.isConnected()) {
+      console.log('HassConnectionManager: Already connected, updating hass reference')
+      this.hass = hass
+      return
+    }
+
     this.hass = hass
     this.reconnectAttempts = 0
+
+    // Update connection status
+    connectionActions.setConnecting('Connecting to Home Assistant...')
 
     // Clear any existing connections
     await this.disconnect()
 
     try {
+      // Update status
+      connectionActions.setConnecting('Loading initial states...')
+
       // Mark as connected
       entityStoreActions.setConnected(true)
       entityStoreActions.setError(null)
@@ -41,14 +57,23 @@ export class HassConnectionManager {
       // Load initial states
       this.loadInitialStates()
 
+      // Update status
+      connectionActions.setConnecting('Subscribing to state changes...')
+
       // Subscribe to state changes
       await this.subscribeToStateChanges()
 
       // Start monitoring for stale entities
       staleEntityMonitor.start()
+
+      // Mark as fully connected
+      connectionActions.setConnected()
+      console.log('HassConnectionManager: Successfully connected')
     } catch (error) {
       console.error('Failed to connect to Home Assistant:', error)
-      entityStoreActions.setError(error instanceof Error ? error.message : 'Connection failed')
+      const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+      entityStoreActions.setError(errorMessage)
+      connectionActions.setError(errorMessage)
       this.scheduleReconnect()
     }
   }
@@ -62,20 +87,23 @@ export class HassConnectionManager {
 
     // Unsubscribe from state changes
     if (this.stateChangeUnsubscribe) {
-      if (typeof this.stateChangeUnsubscribe === 'function') {
-        try {
+      console.log('HassConnectionManager: Unsubscribing from state changes')
+      try {
+        if (typeof this.stateChangeUnsubscribe === 'function') {
           const result = this.stateChangeUnsubscribe()
           if (result instanceof Promise) {
             await result
           }
-        } catch (error) {
-          // Ignore "subscription not found" errors during cleanup
-          if (error && typeof error === 'object' && 'code' in error && error.code !== 'not_found') {
-            console.error('Error unsubscribing from state changes:', error)
-          }
         }
+      } catch (error) {
+        // Ignore "subscription not found" errors during cleanup
+        const errorObj = error as { code?: string }
+        if (errorObj.code !== 'not_found') {
+          console.error('Error unsubscribing from state changes:', error)
+        }
+      } finally {
+        this.stateChangeUnsubscribe = null
       }
-      this.stateChangeUnsubscribe = null
     }
 
     // Stop stale entity monitoring
@@ -87,6 +115,11 @@ export class HassConnectionManager {
 
     // Mark as disconnected
     entityStoreActions.setConnected(false)
+
+    // Only update connection status if we're not reconnecting
+    if (!this.isReconnecting) {
+      connectionActions.setDisconnected()
+    }
   }
 
   private loadInitialStates(): void {
@@ -156,6 +189,7 @@ export class HassConnectionManager {
     if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
       console.error('Max reconnection attempts reached')
       entityStoreActions.setError('Unable to reconnect to Home Assistant')
+      connectionActions.setError('Max reconnection attempts reached')
       return
     }
 
@@ -172,6 +206,12 @@ export class HassConnectionManager {
 
     this.reconnectAttempts++
 
+    // Update status with retry info
+    connectionActions.setReconnecting(
+      this.reconnectAttempts,
+      `Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})...`
+    )
+
     this.reconnectTimer = setTimeout(() => {
       if (this.hass) {
         this.connect(this.hass)
@@ -180,16 +220,59 @@ export class HassConnectionManager {
   }
 
   // Public method to manually trigger reconnection
-  reconnect(): void {
+  async reconnect(): Promise<void> {
+    // Prevent multiple simultaneous reconnection attempts
+    if (this.isReconnecting) {
+      console.log('HassConnectionManager: Reconnection already in progress, skipping')
+      return
+    }
+
+    // Debounce reconnection attempts (minimum 5 seconds between attempts)
+    const timeSinceLastReconnect = Date.now() - this.lastReconnectTime
+    if (timeSinceLastReconnect < 5000) {
+      console.log(
+        `HassConnectionManager: Too soon since last reconnect (${timeSinceLastReconnect}ms), skipping`
+      )
+      return
+    }
+
+    console.log('HassConnectionManager: Manual reconnect triggered')
+    this.isReconnecting = true
+    this.lastReconnectTime = Date.now()
     this.reconnectAttempts = 0
-    if (this.hass) {
-      this.connect(this.hass)
+
+    try {
+      if (this.hass) {
+        // Update status
+        connectionActions.setReconnecting(1, 'Disconnecting...')
+
+        // First disconnect cleanly
+        await this.disconnect()
+
+        // Wait a moment to ensure clean disconnection
+        await new Promise((resolve) => setTimeout(resolve, 100))
+
+        // Update status
+        connectionActions.setReconnecting(1, 'Establishing new connection...')
+
+        // Reconnect with fresh state
+        await this.connect(this.hass)
+      }
+    } finally {
+      this.isReconnecting = false
     }
   }
 
   // Check if connected
   isConnected(): boolean {
     return this.stateChangeUnsubscribe !== null
+  }
+
+  // Update hass reference without reconnecting
+  updateHass(hass: HomeAssistant): void {
+    if (this.isConnected()) {
+      this.hass = hass
+    }
   }
 }
 

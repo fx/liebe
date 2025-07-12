@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Flex, Text, Popover, Box, Separator } from '@radix-ui/themes'
+import { Flex, Text, Popover, Box, Separator, Spinner } from '@radix-ui/themes'
 import {
   InfoCircledIcon,
   CheckCircledIcon,
   CrossCircledIcon,
   UpdateIcon,
+  ReloadIcon,
 } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { entityStore } from '~/store/entityStore'
 import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { useConnectionStatus } from '~/hooks/useConnectionStatus'
 import { TaskbarButton } from './TaskbarButton'
 import './ConnectionStatus.css'
 
@@ -18,41 +20,29 @@ interface ConnectionStatusProps {
 
 export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
   const hass = useHomeAssistantOptional()
-  const isConnected = useStore(entityStore, (state) => state.isConnected)
-  const lastError = useStore(entityStore, (state) => state.lastError)
+  const connectionStatus = useConnectionStatus()
   const entities = useStore(entityStore, (state) => state.entities)
   const subscribedEntities = useStore(entityStore, (state) => state.subscribedEntities)
+  const lastUpdateTime = useStore(entityStore, (state) => state.lastUpdateTime)
 
-  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  // Track entity updates
+  // Flash update indicator when entities change
   useEffect(() => {
-    const updateHandler = () => {
-      setLastUpdateTime(new Date())
+    if (connectionStatus.status === 'connected') {
       setIsUpdating(true)
-      setTimeout(() => setIsUpdating(false), 500)
+      const timer = setTimeout(() => setIsUpdating(false), 500)
+      return () => clearTimeout(timer)
     }
-
-    // Simple update detection - in a real app, you'd listen to actual update events
-    const interval = setInterval(() => {
-      if (isConnected && Object.keys(entities).length > 0) {
-        updateHandler()
-      }
-    }, 30000) // Check every 30 seconds
-
-    return () => clearInterval(interval)
-  }, [isConnected, entities])
+  }, [lastUpdateTime, connectionStatus.status])
 
   const entityCount = Object.keys(entities).length
   const subscribedCount = subscribedEntities.size
 
-  // Determine overall status
+  // Determine overall status for UI
   const getStatus = () => {
     if (!hass) return 'no-hass'
-    if (!isConnected) return 'disconnected'
-    if (lastError) return 'error'
-    return 'connected'
+    return connectionStatus.status
   }
 
   const status = getStatus()
@@ -70,14 +60,28 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
       color: 'red' as const,
       icon: <CrossCircledIcon />,
       text: 'Disconnected',
-      description: 'Not connected to Home Assistant',
+      description: connectionStatus.details,
+    },
+    connecting: {
+      variant: 'soft' as const,
+      color: 'orange' as const,
+      icon: <Spinner size="1" />,
+      text: 'Connecting',
+      description: connectionStatus.details,
+    },
+    reconnecting: {
+      variant: 'soft' as const,
+      color: 'orange' as const,
+      icon: <ReloadIcon className="spin" />,
+      text: 'Reconnecting',
+      description: connectionStatus.details,
     },
     error: {
       variant: 'soft' as const,
       color: 'red' as const,
       icon: <CrossCircledIcon />,
       text: 'Error',
-      description: lastError || 'Connection error',
+      description: connectionStatus.error || 'Connection error',
     },
     connected: {
       variant: 'soft' as const,
@@ -132,7 +136,14 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
             <Flex justify="between">
               <Text size="2">WebSocket:</Text>
               <Text size="2" weight="medium">
-                {isConnected ? 'Connected' : 'Disconnected'}
+                {connectionStatus.isWebSocketConnected ? 'Connected' : 'Disconnected'}
+              </Text>
+            </Flex>
+
+            <Flex justify="between">
+              <Text size="2">Entity Store:</Text>
+              <Text size="2" weight="medium">
+                {connectionStatus.isEntityStoreConnected ? 'Connected' : 'Disconnected'}
               </Text>
             </Flex>
 
@@ -150,18 +161,27 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
               </Text>
             </Flex>
 
-            {lastUpdateTime && (
+            {connectionStatus.lastConnectedTime && (
               <Flex justify="between">
-                <Text size="2">Last Update:</Text>
+                <Text size="2">Connected Since:</Text>
                 <Text size="2" weight="medium">
-                  {lastUpdateTime.toLocaleTimeString()}
+                  {new Date(connectionStatus.lastConnectedTime).toLocaleTimeString()}
+                </Text>
+              </Flex>
+            )}
+
+            {connectionStatus.reconnectAttempts > 0 && (
+              <Flex justify="between">
+                <Text size="2">Reconnect Attempts:</Text>
+                <Text size="2" weight="medium">
+                  {connectionStatus.reconnectAttempts}
                 </Text>
               </Flex>
             )}
           </Flex>
 
           {/* Error Details */}
-          {lastError && (
+          {connectionStatus.error && (
             <>
               <Separator size="4" />
               <Box>
@@ -169,7 +189,7 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
                   Error Details:
                 </Text>
                 <Text size="1" color="red" as="div" style={{ marginTop: '4px' }}>
-                  {lastError}
+                  {connectionStatus.error}
                 </Text>
               </Box>
             </>

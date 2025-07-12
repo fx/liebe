@@ -1,4 +1,4 @@
-import { Flex, Text, Button } from '@radix-ui/themes'
+import { Flex, Text, Button, Spinner } from '@radix-ui/themes'
 import {
   VideoIcon,
   ReloadIcon,
@@ -6,7 +6,7 @@ import {
   SpeakerLoudIcon,
   SpeakerOffIcon,
 } from '@radix-ui/react-icons'
-import { useEntity, useWebRTC } from '~/hooks'
+import { useEntity, useWebRTC, useIsConnecting } from '~/hooks'
 import { memo, useMemo, useState, useRef, useCallback } from 'react'
 import { SkeletonCard, ErrorDisplay, FullscreenModal } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
@@ -43,6 +43,7 @@ function CameraControls({
   supportsStream,
   isEditMode,
   isMuted,
+  isReconnecting,
   handleToggleMute,
   handleVideoFullscreen,
   size,
@@ -57,6 +58,7 @@ function CameraControls({
   supportsStream: boolean
   isEditMode: boolean
   isMuted: boolean
+  isReconnecting: boolean
   handleToggleMute: (e: React.MouseEvent) => void
   handleVideoFullscreen: (e: React.MouseEvent) => void
   size: 'small' | 'medium' | 'large'
@@ -100,17 +102,23 @@ function CameraControls({
             lineHeight: 1.2,
             textTransform: 'uppercase',
             fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: `${0.4 * scaleFactor}em`,
           }}
         >
+          {isReconnecting && <Spinner size="1" />}
           {streamError
             ? 'ERROR'
-            : isRecording
-              ? 'RECORDING'
-              : isStreaming
-                ? 'STREAMING'
-                : isIdle
-                  ? 'IDLE'
-                  : entity.state.toUpperCase()}
+            : isReconnecting
+              ? 'RECONNECTING'
+              : isRecording
+                ? 'RECORDING'
+                : isStreaming
+                  ? 'STREAMING'
+                  : isIdle
+                    ? 'IDLE'
+                    : entity.state.toUpperCase()}
         </div>
       </div>
 
@@ -191,6 +199,7 @@ function CameraCardComponent({
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
+  const isReconnecting = useIsConnecting()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // Start muted by default
   const normalContainerRef = useRef<HTMLDivElement>(null)
@@ -449,6 +458,7 @@ function CameraCardComponent({
               supportsStream={supportsStream}
               isEditMode={isEditMode}
               isMuted={isMuted}
+              isReconnecting={isReconnecting}
               handleToggleMute={handleToggleMute}
               handleVideoFullscreen={handleVideoFullscreen}
               size={size}
@@ -503,6 +513,7 @@ function CameraCardComponent({
             supportsStream={supportsStream}
             isEditMode={isEditMode}
             isMuted={isMuted}
+            isReconnecting={isReconnecting}
             handleToggleMute={handleToggleMute}
             handleVideoFullscreen={handleVideoFullscreen}
             size="large"

@@ -43,6 +43,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const cleanupRef = useRef<() => Promise<void>>()
 
   const cleanup = useCallback(async () => {
     // Store reference to peer connection before clearing
@@ -326,6 +327,38 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
       pendingInitRef.current = false
     }
   }, [enabled, hass, entityId, retryCount, cleanup, initializeWebRTC])
+
+  // Store cleanup function in ref for access in event listener
+  useEffect(() => {
+    cleanupRef.current = cleanup
+  }, [cleanup])
+
+  // Listen for stale connection events
+  useEffect(() => {
+    const handleStaleConnection = async () => {
+      console.log(`[WebRTC] Received stale connection event, reconnecting stream for ${entityId}`)
+
+      // Force cleanup and reconnect
+      if (cleanupRef.current) {
+        await cleanupRef.current()
+      }
+
+      // Reset state to trigger reinitialization
+      pendingInitRef.current = false
+      initializingRef.current = false
+
+      // Force a retry after a short delay
+      setTimeout(() => {
+        setRetryCount((prev) => prev + 1)
+      }, 1000)
+    }
+
+    window.addEventListener('liebe-connection-stale', handleStaleConnection)
+
+    return () => {
+      window.removeEventListener('liebe-connection-stale', handleStaleConnection)
+    }
+  }, [entityId])
 
   // Cleanup on unmount
   useEffect(() => {

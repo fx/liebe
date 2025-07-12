@@ -16,7 +16,7 @@ import 'react-resizable/css/styles.css'
 import '~/styles/app.css'
 
 class LiebePanel extends HTMLElement {
-  private _hass: HomeAssistant | null = null
+  _hass: HomeAssistant | null = null
   private root?: ReactDOM.Root
   private initialized = false
   private instanceId = Math.random().toString(36).substr(2, 9)
@@ -27,6 +27,9 @@ class LiebePanel extends HTMLElement {
   private parentObserver?: MutationObserver
   private reconnectCheckInterval?: number
   private lastParentElement?: Element | null
+  connectionCheckInterval?: number
+  lastEntityUpdateTime = Date.now()
+  lastStaleEventTime = 0
 
   constructor() {
     super()
@@ -54,8 +57,155 @@ class LiebePanel extends HTMLElement {
       initialized: this.initialized,
       connected: this.isConnected,
     })
+
+    // Check if this is a significant update after being stale
+    const wasStale = this._hass && Date.now() - this.lastEntityUpdateTime > 120000
+
     this._hass = hass
+
+    // Track that we received an update
+    this.lastEntityUpdateTime = Date.now()
+
+    // If we were stale and now getting updates again, force a full re-render
+    if (wasStale) {
+      console.log(
+        `[Liebe Panel ${this.instanceId}] Received update after being stale, forcing full re-render`
+      )
+      // Clear and recreate the React root to ensure fresh state
+      if (this.root && this.shadowRoot) {
+        const container = this.shadowRoot.querySelector('div')
+        if (container) {
+          this.root.unmount()
+          this.root = ReactDOM.createRoot(container)
+        }
+      }
+    }
+
     this.render()
+  }
+
+  startConnectionHealthCheck() {
+    // Clear any existing interval
+    this.stopConnectionHealthCheck()
+
+    // Monitor connection health by checking if we're receiving updates
+    this.connectionCheckInterval = window.setInterval(() => {
+      const timeSinceLastUpdate = Date.now() - this.lastEntityUpdateTime
+      const connectionTimeout = 60000 // 1 minute
+
+      if (timeSinceLastUpdate > connectionTimeout && this._hass && !document.hidden) {
+        console.log(
+          `[Liebe Panel ${this.instanceId}] Connection health check: No updates for ${Math.round(
+            timeSinceLastUpdate / 1000
+          )}s, attempting to restore connection`
+        )
+
+        // Try to trigger a reconnection by calling a service or getting states
+        if (this._hass.connection && this._hass.connection.socket) {
+          // Check if socket is actually connected
+          const socket = this._hass.connection.socket as WebSocket
+          if (socket.readyState !== WebSocket.OPEN) {
+            console.log(
+              `[Liebe Panel ${this.instanceId}] WebSocket is not open, triggering reconnect`
+            )
+
+            // Try to reconnect by getting current states
+            if (this._hass.callWS) {
+              this._hass
+                .callWS({ type: 'get_states' })
+                .then(() => {
+                  console.log(`[Liebe Panel ${this.instanceId}] Successfully refreshed states`)
+                  this.lastEntityUpdateTime = Date.now()
+
+                  // Dispatch stale connection event when WebSocket is disconnected (debounced)
+                  const timeSinceLastStaleEvent = Date.now() - this.lastStaleEventTime
+                  if (timeSinceLastStaleEvent > 30000) {
+                    // Only dispatch once every 30 seconds
+                    this.lastStaleEventTime = Date.now()
+                    this.dispatchEvent(
+                      new CustomEvent('liebe-connection-stale', {
+                        detail: { instanceId: this.instanceId },
+                        bubbles: true,
+                        composed: true,
+                      })
+                    )
+                  }
+                })
+                .catch((error: Error) => {
+                  console.error(`[Liebe Panel ${this.instanceId}] Failed to refresh states:`, error)
+                  // Try to force a page reload as last resort
+                  if (timeSinceLastUpdate > 120000) {
+                    // 2 minutes
+                    console.log(
+                      `[Liebe Panel ${this.instanceId}] Forcing page reload to restore connection`
+                    )
+                    window.location.reload()
+                  }
+                })
+            }
+          } else {
+            // Socket is open but we're not getting updates, try to ping
+            console.log(`[Liebe Panel ${this.instanceId}] WebSocket open but stale, sending ping`)
+
+            // Dispatch stale connection event to force WebRTC reconnection (debounced)
+            const timeSinceLastStaleEvent = Date.now() - this.lastStaleEventTime
+            if (timeSinceLastStaleEvent > 30000) {
+              // Only dispatch once every 30 seconds
+              this.lastStaleEventTime = Date.now()
+              this.dispatchEvent(
+                new CustomEvent('liebe-connection-stale', {
+                  detail: { instanceId: this.instanceId },
+                  bubbles: true,
+                  composed: true,
+                })
+              )
+            }
+
+            if (this._hass.callWS) {
+              this._hass
+                .callWS({ type: 'ping' })
+                .then(() => {
+                  console.log(`[Liebe Panel ${this.instanceId}] Ping successful`)
+                  this.lastEntityUpdateTime = Date.now()
+
+                  // If still not getting updates after ping, force refresh states
+                  setTimeout(() => {
+                    const timeSinceLastUpdate = Date.now() - this.lastEntityUpdateTime
+                    if (timeSinceLastUpdate > 30000) {
+                      // 30 seconds
+                      console.log(
+                        `[Liebe Panel ${this.instanceId}] Still no updates after ping, refreshing states`
+                      )
+                      this._hass
+                        .callWS({ type: 'get_states' })
+                        .then(() => {
+                          console.log(`[Liebe Panel ${this.instanceId}] States refreshed`)
+                          this.lastEntityUpdateTime = Date.now()
+                        })
+                        .catch((error: Error) => {
+                          console.error(
+                            `[Liebe Panel ${this.instanceId}] Failed to refresh states:`,
+                            error
+                          )
+                        })
+                    }
+                  }, 5000)
+                })
+                .catch((error: Error) => {
+                  console.error(`[Liebe Panel ${this.instanceId}] Ping failed:`, error)
+                })
+            }
+          }
+        }
+      }
+    }, 15000) // Check every 15 seconds
+  }
+
+  private stopConnectionHealthCheck() {
+    if (this.connectionCheckInterval) {
+      clearInterval(this.connectionCheckInterval)
+      this.connectionCheckInterval = undefined
+    }
   }
 
   connectedCallback() {
@@ -126,6 +276,9 @@ class LiebePanel extends HTMLElement {
               console.error(`[Liebe Panel ${this.instanceId}] Failed to reconnect:`, error)
             }
           }
+
+          // Also restart connection health check when becoming visible
+          this.startConnectionHealthCheck()
         }
       }
       document.addEventListener('visibilitychange', this.visibilityHandler)
@@ -153,6 +306,9 @@ class LiebePanel extends HTMLElement {
     // Start reconnect check
     this.startReconnectCheck()
 
+    // Start connection health monitoring
+    this.startConnectionHealthCheck()
+
     this.render()
   }
 
@@ -172,6 +328,7 @@ class LiebePanel extends HTMLElement {
     if (!this._hass) {
       this.stopKeepAlive()
       this.stopReconnectCheck()
+      this.stopConnectionHealthCheck()
       this.cleanupParentObserver()
     }
 
@@ -340,28 +497,47 @@ const startGlobalPanelGuardian = () => {
 
   globalPanelCheck = window.setInterval(() => {
     const panel = (window as unknown as { __liebePanel?: LiebePanel }).__liebePanel
-    if (panel && !panel.isConnected && document.visibilityState === 'visible') {
-      console.log(
-        '[Global Panel Guardian] Panel disconnected while page visible, attempting recovery'
-      )
 
-      // Try to find where the panel should be
-      const possibleContainers = [
-        document.querySelector('partial-panel-resolver'),
-        document.querySelector('[id^="panel-"]'),
-        document.querySelector('ha-panel-iframe'),
-        document.querySelector('.view'),
-      ].filter(Boolean)
+    if (panel && document.visibilityState === 'visible') {
+      // Check if panel is disconnected from DOM
+      if (!panel.isConnected) {
+        console.log(
+          '[Global Panel Guardian] Panel disconnected while page visible, attempting recovery'
+        )
 
-      for (const container of possibleContainers) {
-        if (container && !container.contains(panel)) {
-          try {
-            container.appendChild(panel)
-            console.log('[Global Panel Guardian] Successfully restored panel to container')
-            break
-          } catch (error) {
-            // Continue trying other containers
+        // Try to find where the panel should be
+        const possibleContainers = [
+          document.querySelector('partial-panel-resolver'),
+          document.querySelector('[id^="panel-"]'),
+          document.querySelector('ha-panel-iframe'),
+          document.querySelector('.view'),
+        ].filter(Boolean)
+
+        for (const container of possibleContainers) {
+          if (container && !container.contains(panel)) {
+            try {
+              container.appendChild(panel)
+              console.log('[Global Panel Guardian] Successfully restored panel to container')
+              break
+            } catch (error) {
+              // Continue trying other containers
+            }
           }
+        }
+      }
+
+      // Also check connection health
+      const timeSinceUpdate = Date.now() - panel.lastEntityUpdateTime
+      if (timeSinceUpdate > 90000 && panel._hass) {
+        // 90 seconds
+        console.log(
+          `[Global Panel Guardian] Detected stale connection (${Math.round(timeSinceUpdate / 1000)}s since last update)`
+        )
+
+        // Try to trigger connection health check
+        if (!panel.connectionCheckInterval) {
+          console.log('[Global Panel Guardian] Restarting connection health check')
+          panel.startConnectionHealthCheck()
         }
       }
     }
