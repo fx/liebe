@@ -1,33 +1,31 @@
 import { useStore } from '@tanstack/react-store'
-import {
-  connectionStore,
-  type ConnectionStatus,
-  type ConnectionState,
-} from '../store/connectionStore'
+import { connectionStore } from '~/store/connectionStore'
+import type { ConnectionState } from '~/store/connectionStore'
 
-export function useConnectionStatus() {
+export function useConnectionStatus(): ConnectionState {
   return useStore(connectionStore)
 }
 
-export function useConnectionStatusSelector<T>(selector: (state: ConnectionState) => T) {
-  return useStore(connectionStore, selector)
+export function useIsConnected(): boolean {
+  const status = useStore(connectionStore, (state) => state.status)
+  return status === 'connected'
 }
 
-export function useIsConnected() {
-  return useStore(connectionStore, (state) => state.status === 'connected')
-}
-
-export function useIsConnecting() {
-  return useStore(
-    connectionStore,
-    (state) => state.status === 'connecting' || state.status === 'reconnecting'
-  )
+export function useIsConnecting(): boolean {
+  const status = useStore(connectionStore, (state) => state.status)
+  return status === 'connecting' || status === 'reconnecting'
 }
 
 export function useConnectionDetails() {
-  return useStore(connectionStore, (state) => ({
-    status: state.status,
-    details: state.details,
-    isConnecting: state.status === 'connecting' || state.status === 'reconnecting',
-  }))
+  const status = useStore(connectionStore, (state) => state.status)
+  const details = useStore(connectionStore, (state) => state.details)
+  const error = useStore(connectionStore, (state) => state.error)
+  const reconnectAttempts = useStore(connectionStore, (state) => state.reconnectAttempts)
+
+  return {
+    status,
+    details,
+    error,
+    reconnectAttempts,
+  }
 }
