@@ -1,0 +1,23 @@
+@keyframes recording-pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.recording-dot {
+  width: 0.625em;
+  height: 0.625em;
+  background-color: #dc2626;
+  border-radius: 50%;
+  display: inline-block;
+  animation: recording-pulse 1.5s ease-in-out infinite;
+}

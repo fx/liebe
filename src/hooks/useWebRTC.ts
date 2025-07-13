@@ -12,6 +12,7 @@ interface UseWebRTCReturn {
   isStreaming: boolean
   error: string | null
   retry: () => void
+  hasFrameWarning: boolean
 }
 
 interface WebRTCOfferMessage {
@@ -43,9 +44,37 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
-  const cleanupRef = useRef<() => Promise<void>>()
+  const [hasFrameWarning, setHasFrameWarning] = useState(false)
+  const cleanupRef = useRef<(() => Promise<void>) | null>(null)
+  const frameMonitorRef = useRef<{
+    lastFrameTime: number
+    warningTimer: NodeJS.Timeout | null
+    reconnectTimer: NodeJS.Timeout | null
+    animationFrameId: number | null
+  }>({
+    lastFrameTime: 0,
+    warningTimer: null,
+    reconnectTimer: null,
+    animationFrameId: null,
+  })
 
   const cleanup = useCallback(async () => {
+    // Stop frame monitoring
+    if (frameMonitorRef.current.warningTimer) {
+      clearTimeout(frameMonitorRef.current.warningTimer)
+      frameMonitorRef.current.warningTimer = null
+    }
+    if (frameMonitorRef.current.reconnectTimer) {
+      clearTimeout(frameMonitorRef.current.reconnectTimer)
+      frameMonitorRef.current.reconnectTimer = null
+    }
+    if (frameMonitorRef.current.animationFrameId) {
+      cancelAnimationFrame(frameMonitorRef.current.animationFrameId)
+      frameMonitorRef.current.animationFrameId = null
+    }
+    frameMonitorRef.current.lastFrameTime = 0
+    setHasFrameWarning(false)
+
     // Store reference to peer connection before clearing
     const pc = peerConnectionRef.current as ExtendedRTCPeerConnection
 
@@ -81,6 +110,88 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     }
     setIsStreaming(false)
   }, [])
+
+  // Monitor video frames
+  const startFrameMonitoring = useCallback(() => {
+    if (!videoElementRef.current) return
+
+    const video = videoElementRef.current
+    frameMonitorRef.current.lastFrameTime = 0 // Start at 0 to detect first frame
+    let lastTime = video.currentTime
+    let hasReceivedFirstFrame = false
+
+    const checkFrames = () => {
+      if (!video || !video.srcObject) {
+        frameMonitorRef.current.animationFrameId = null
+        setIsStreaming(false)
+        return
+      }
+
+      const now = Date.now()
+      const currentTime = video.currentTime
+
+      // Check if video time is advancing (indicates frames are being received)
+      if (currentTime !== lastTime && video.readyState >= 2) {
+        frameMonitorRef.current.lastFrameTime = now
+        lastTime = currentTime
+
+        // We're receiving frames - set streaming to true
+        if (!hasReceivedFirstFrame) {
+          hasReceivedFirstFrame = true
+          console.log('[WebRTC] First frame received, setting isStreaming to true')
+        }
+        setIsStreaming(true)
+
+        // Clear any existing timers since we're receiving frames
+        if (frameMonitorRef.current.warningTimer) {
+          clearTimeout(frameMonitorRef.current.warningTimer)
+          frameMonitorRef.current.warningTimer = null
+          setHasFrameWarning(false)
+        }
+        if (frameMonitorRef.current.reconnectTimer) {
+          clearTimeout(frameMonitorRef.current.reconnectTimer)
+          frameMonitorRef.current.reconnectTimer = null
+        }
+      }
+
+      // Only check for stale frames if we've received at least one frame
+      if (frameMonitorRef.current.lastFrameTime > 0) {
+        const timeDiff = now - frameMonitorRef.current.lastFrameTime
+
+        // Show warning after 200ms without new frames
+        if (
+          timeDiff > 200 &&
+          !frameMonitorRef.current.warningTimer &&
+          !frameMonitorRef.current.reconnectTimer
+        ) {
+          frameMonitorRef.current.warningTimer = setTimeout(() => {
+            console.log('[WebRTC] Frame warning: No new frames for 200ms')
+            setHasFrameWarning(true)
+            frameMonitorRef.current.warningTimer = null
+          }, 0)
+        }
+
+        // Reconnect after 3 seconds without new frames
+        if (timeDiff > 3000 && !frameMonitorRef.current.reconnectTimer) {
+          frameMonitorRef.current.reconnectTimer = setTimeout(() => {
+            console.log('[WebRTC] No frames received for 3 seconds, reconnecting...')
+            setHasFrameWarning(false)
+            setIsStreaming(false)
+            frameMonitorRef.current.reconnectTimer = null
+            // Force cleanup and retry
+            cleanup().then(() => {
+              setTimeout(() => setRetryCount((prev) => prev + 1), 100)
+            })
+          }, 0)
+        }
+      }
+
+      frameMonitorRef.current.animationFrameId = requestAnimationFrame(checkFrames)
+    }
+
+    // Start monitoring immediately
+    frameMonitorRef.current.animationFrameId = requestAnimationFrame(checkFrames)
+  }, [cleanup])
 
   const initializeWebRTC = useCallback(async () => {
     if (!hass || !enabled || !videoElementRef.current) return
@@ -119,8 +230,22 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
       // Handle incoming stream
       pc.ontrack = (event) => {
         if (videoElementRef.current && event.streams[0]) {
-          videoElementRef.current.srcObject = event.streams[0]
-          setIsStreaming(true)
+          const video = videoElementRef.current
+          video.srcObject = event.streams[0]
+
+          // Start monitoring frames immediately - let frame monitoring determine streaming state
+          startFrameMonitoring()
+
+          // Handle video errors
+          video.addEventListener(
+            'error',
+            (e) => {
+              console.error('[WebRTC] Video error:', e)
+              setError('Video playback error')
+              setIsStreaming(false)
+            },
+            { once: true }
+          )
         }
       }
 
@@ -275,7 +400,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
       initializingRef.current = false
       await cleanup()
     }
-  }, [hass, enabled, entityId, cleanup])
+  }, [hass, enabled, entityId, cleanup, startFrameMonitoring])
 
   const retry = useCallback(() => {
     setRetryCount((prev) => prev + 1)
@@ -333,7 +458,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     cleanupRef.current = cleanup
   }, [cleanup])
 
-  // Listen for stale connection events
+  // Listen for stale connection events to force reconnect
   useEffect(() => {
     const handleStaleConnection = async () => {
       console.log(`[WebRTC] Received stale connection event, reconnecting stream for ${entityId}`)
@@ -372,5 +497,6 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     isStreaming,
     error,
     retry,
+    hasFrameWarning,
   }
 }

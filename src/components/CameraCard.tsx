@@ -5,6 +5,7 @@ import {
   EnterFullScreenIcon,
   SpeakerLoudIcon,
   SpeakerOffIcon,
+  ExclamationTriangleIcon,
 } from '@radix-ui/react-icons'
 import { useEntity, useWebRTC, useIsConnecting } from '~/hooks'
 import { memo, useMemo, useState, useRef, useCallback } from 'react'
@@ -12,6 +13,7 @@ import { SkeletonCard, ErrorDisplay, FullscreenModal } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore } from '~/store'
 import { KeepAlive } from './KeepAlive'
+import './CameraCard.css'
 
 interface CameraCardProps {
   entityId: string
@@ -44,6 +46,7 @@ function CameraControls({
   isEditMode,
   isMuted,
   isReconnecting,
+  hasFrameWarning,
   handleToggleMute,
   handleVideoFullscreen,
   size,
@@ -59,6 +62,7 @@ function CameraControls({
   isEditMode: boolean
   isMuted: boolean
   isReconnecting: boolean
+  hasFrameWarning: boolean
   handleToggleMute: (e: React.MouseEvent) => void
   handleVideoFullscreen: (e: React.MouseEvent) => void
   size: 'small' | 'medium' | 'large'
@@ -107,18 +111,26 @@ function CameraControls({
             gap: `${0.4 * scaleFactor}em`,
           }}
         >
-          {isReconnecting && <Spinner size="1" />}
+          {isReconnecting || (supportsStream && !isStreaming && !streamError) ? (
+            <Spinner size="1" />
+          ) : hasFrameWarning && !streamError ? (
+            <ExclamationTriangleIcon style={{ color: '#f59e0b', width: '1em', height: '1em' }} />
+          ) : (isRecording || isStreaming) && !streamError ? (
+            <span className="recording-dot" />
+          ) : null}
           {streamError
             ? 'ERROR'
-            : isReconnecting
-              ? 'RECONNECTING'
-              : isRecording
-                ? 'RECORDING'
-                : isStreaming
-                  ? 'STREAMING'
-                  : isIdle
-                    ? 'IDLE'
-                    : entity.state.toUpperCase()}
+            : isReconnecting || (supportsStream && !isStreaming && !streamError)
+              ? 'CONNECTING'
+              : hasFrameWarning
+                ? 'NO SIGNAL'
+                : isRecording
+                  ? 'RECORDING'
+                  : isStreaming
+                    ? 'STREAMING'
+                    : isIdle
+                      ? 'IDLE'
+                      : entity.state.toUpperCase()}
         </div>
       </div>
 
@@ -230,6 +242,7 @@ function CameraCardComponent({
     isStreaming,
     error: streamError,
     retry: retryStream,
+    hasFrameWarning,
   } = useWebRTC({
     entityId,
     enabled: webRTCEnabled,
@@ -410,12 +423,23 @@ function CameraCardComponent({
                       }}
                     />
                   </KeepAlive>
+                  {!isStreaming && (
+                    <Flex
+                      align="center"
+                      justify="center"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'var(--gray-3)',
+                      }}
+                    >
+                      <Spinner size="3" />
+                    </Flex>
+                  )}
                 </>
-              )}
-              {!isStreaming && !streamError && (
-                <Text size="2" color="gray">
-                  Connecting...
-                </Text>
               )}
             </div>
           ) : (
@@ -459,6 +483,7 @@ function CameraCardComponent({
               isEditMode={isEditMode}
               isMuted={isMuted}
               isReconnecting={isReconnecting}
+              hasFrameWarning={hasFrameWarning}
               handleToggleMute={handleToggleMute}
               handleVideoFullscreen={handleVideoFullscreen}
               size={size}
@@ -514,6 +539,7 @@ function CameraCardComponent({
             isEditMode={isEditMode}
             isMuted={isMuted}
             isReconnecting={isReconnecting}
+            hasFrameWarning={hasFrameWarning}
             handleToggleMute={handleToggleMute}
             handleVideoFullscreen={handleVideoFullscreen}
             size="large"
