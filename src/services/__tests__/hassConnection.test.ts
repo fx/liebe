@@ -320,13 +320,21 @@ describe('HassConnectionManager', () => {
     })
 
     it('should manually trigger reconnection', async () => {
-      await connectionManager.connect(mockHass)
-      const connectSpy = vi.spyOn(
-        connectionManager as unknown as { connect: (hass: HomeAssistant) => void },
-        'connect'
-      )
+      // Create a fresh connection manager for this test
+      const manager = new HassConnectionManager()
+      await manager.connect(mockHass)
 
-      connectionManager.reconnect()
+      // Create spy before reconnect
+      const connectSpy = vi.spyOn(manager, 'connect' as keyof HassConnectionManager)
+
+      // The first reconnect should work immediately since lastReconnectTime is 0
+      const reconnectPromise = manager.reconnect()
+
+      // Advance timers to handle the setTimeout in reconnect
+      await vi.runAllTimersAsync()
+
+      // Wait for reconnect to complete
+      await reconnectPromise
 
       expect(connectSpy).toHaveBeenCalledWith(mockHass)
     })
