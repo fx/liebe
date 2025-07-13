@@ -85,18 +85,18 @@ function ButtonCardComponent({
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleClick}
-      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+      title={error || undefined}
       style={{
         backgroundColor: isOn && !isSelected && !error ? 'var(--amber-3)' : undefined,
-        borderColor: isOn && !isSelected && !error && !isStale ? 'var(--amber-6)' : undefined,
-        borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
+        borderColor: isOn && !isSelected && !error ? 'var(--amber-6)' : undefined,
+        borderWidth: isSelected || error || isOn ? '2px' : '1px',
       }}
     >
       <Flex direction="column" align="center" justify="center" gap="2">
         <GridCard.Icon>
           <span
             style={{
-              color: isStale ? 'var(--orange-9)' : isOn ? 'var(--amber-9)' : 'var(--gray-9)',
+              color: isOn ? 'var(--amber-9)' : 'var(--gray-9)',
               transform: `scale(${iconScale})`,
               display: 'flex',
               alignItems: 'center',

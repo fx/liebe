@@ -6,6 +6,9 @@ export class StaleEntityMonitor {
   private readonly STALE_THRESHOLD = 300000 // 5 minutes - entity is considered stale
   private readonly DISCONNECT_THRESHOLD = 60000 // 1 minute - consider disconnected if no updates
 
+  // Entity types that should never be considered stale
+  private readonly EXCLUDED_ENTITY_TYPES = new Set(['camera'])
+
   start(): void {
     this.stop() // Clear any existing interval
 
@@ -40,6 +43,18 @@ export class StaleEntityMonitor {
     state.subscribedEntities.forEach((entityId) => {
       const entity = state.entities[entityId]
       if (!entity) return
+
+      // Extract entity type from entity_id (e.g., "camera.front_door" -> "camera")
+      const entityType = entityId.split('.')[0]
+
+      // Skip excluded entity types
+      if (this.EXCLUDED_ENTITY_TYPES.has(entityType)) {
+        // If it was previously marked as stale, mark it fresh
+        if (state.staleEntities.has(entityId)) {
+          entityStoreActions.markEntityFresh(entityId)
+        }
+        return
+      }
 
       // Parse the last_updated timestamp
       const lastUpdated = new Date(entity.last_updated).getTime()
@@ -83,8 +98,12 @@ export class StaleEntityMonitor {
     const lastUpdated = new Date(entity.last_updated).getTime()
     const timeSinceUpdate = Date.now() - lastUpdated
 
+    // Check if entity type is excluded from stale tracking
+    const entityType = entityId.split('.')[0]
+    const isExcluded = this.EXCLUDED_ENTITY_TYPES.has(entityType)
+
     return {
-      isStale: state.staleEntities.has(entityId),
+      isStale: isExcluded ? false : state.staleEntities.has(entityId),
       lastUpdated,
       timeSinceUpdate,
     }
@@ -100,6 +119,21 @@ export class StaleEntityMonitor {
     if (disconnectMs !== undefined) {
       Object.defineProperty(this, 'DISCONNECT_THRESHOLD', { value: disconnectMs })
     }
+  }
+
+  /**
+   * Configure which entity types should be excluded from stale tracking
+   */
+  setExcludedEntityTypes(entityTypes: string[]): void {
+    this.EXCLUDED_ENTITY_TYPES.clear()
+    entityTypes.forEach((type) => this.EXCLUDED_ENTITY_TYPES.add(type))
+  }
+
+  /**
+   * Get the current list of excluded entity types
+   */
+  getExcludedEntityTypes(): string[] {
+    return Array.from(this.EXCLUDED_ENTITY_TYPES)
   }
 }
 

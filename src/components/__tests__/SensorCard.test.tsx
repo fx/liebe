@@ -374,7 +374,7 @@ describe('SensorCard', () => {
   })
 
   describe('Stale Data', () => {
-    it('shows stale indicator', () => {
+    it('does not show stale indicator (stale display removed)', () => {
       vi.mocked(useEntity).mockReturnValue({
         entity: createMockEntity({
           entity_id: 'sensor.stale_temp',
@@ -397,8 +397,9 @@ describe('SensorCard', () => {
       )
 
       const card = container.querySelector('.rt-Card')
-      expect(card).toHaveAttribute('title', 'Sensor data may be outdated')
-      expect(card).toHaveStyle({ borderStyle: 'dashed' })
+      // Stale state no longer shows visual indication or tooltip
+      expect(card).not.toHaveAttribute('title', 'Sensor data may be outdated')
+      expect(card).not.toHaveStyle({ borderStyle: 'dashed' })
     })
   })
 

@@ -104,12 +104,6 @@ export const GridCard = React.memo(
           borderColor: 'var(--red-6)',
           borderWidth: '2px',
         }
-      } else if (isStale) {
-        borderStyle = {
-          borderColor: 'var(--orange-7)',
-          borderWidth: '2px',
-          borderStyle: 'dashed',
-        }
       } else if (isSelected && isEditMode) {
         borderStyle = {
           borderColor: 'var(--blue-7)',
@@ -122,6 +116,7 @@ export const GridCard = React.memo(
           borderStyle: 'dotted',
         }
       }
+      // Note: isStale styling removed - we track stale state but don't display it visually
 
       // Background for selected/on states
       const backgroundColor =

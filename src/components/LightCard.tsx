@@ -182,20 +182,20 @@ function LightCardComponent({
         onClick={isDragging ? undefined : handleToggle}
         onConfigure={() => setConfigOpen(true)}
         hasConfiguration={true}
-        title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+        title={error || undefined}
         className="light-card"
         style={{
           backgroundColor: isOn && !isSelected && !error ? 'var(--amber-3)' : undefined,
-          borderColor: isOn && !isSelected && !error && !isStale ? 'var(--amber-6)' : undefined,
-          borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
+          borderColor: isOn && !isSelected && !error ? 'var(--amber-6)' : undefined,
+          borderWidth: isSelected || error || isOn ? '2px' : '1px',
         }}
       >
         <Flex direction="column" align="center" justify="center" gap="3">
           <GridCard.Icon>
             <SunIcon
               style={{
-                color: isStale ? 'var(--orange-9)' : isOn ? 'var(--amber-9)' : 'var(--gray-9)',
-                opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
+                color: isOn ? 'var(--amber-9)' : 'var(--gray-9)',
+                opacity: isLoading ? 0.3 : 1,
                 transition: 'opacity 0.2s ease',
                 width: 20,
                 height: 20,

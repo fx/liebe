@@ -472,7 +472,7 @@ function ClimateCardComponent({
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
-      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+      title={error || undefined}
       className="climate-card"
     >
       <Flex

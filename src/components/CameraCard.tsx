@@ -297,7 +297,7 @@ function CameraCardComponent({
         isUnavailable={isUnavailable}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
-        title={streamError || (isStale ? 'Entity data may be outdated' : undefined)}
+        title={streamError || undefined}
         className="camera-card"
         style={{
           backgroundColor:
@@ -305,11 +305,10 @@ function CameraCardComponent({
               ? 'var(--blue-3)'
               : undefined,
           borderColor:
-            (isRecording || isStreaming_) && !isSelected && !streamError && !isStale
+            (isRecording || isStreaming_) && !isSelected && !streamError
               ? 'var(--blue-6)'
               : undefined,
-          borderWidth:
-            isSelected || streamError || isRecording || isStreaming_ || isStale ? '2px' : '1px',
+          borderWidth: isSelected || streamError || isRecording || isStreaming_ ? '2px' : '1px',
         }}
       >
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -420,12 +419,8 @@ function CameraCardComponent({
               <GridCard.Icon>
                 <VideoIcon
                   style={{
-                    color: isStale
-                      ? 'var(--orange-9)'
-                      : isRecording || isStreaming_
-                        ? 'var(--blue-9)'
-                        : 'var(--gray-9)',
-                    opacity: isStale ? 0.6 : 1,
+                    color: isRecording || isStreaming_ ? 'var(--blue-9)' : 'var(--gray-9)',
+                    opacity: 1,
                     transition: 'opacity 0.2s ease',
                     width: 20,
                     height: 20,

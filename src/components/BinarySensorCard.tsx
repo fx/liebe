@@ -118,11 +118,11 @@ function BinarySensorCardComponent({
         onDelete={onDelete}
         onConfigure={isEditMode && item ? () => setConfigOpen(true) : undefined}
         hasConfiguration={!!item}
-        title={isStale ? 'Entity data may be outdated' : undefined}
+        title={undefined}
         style={{
           backgroundColor: isOn && !isSelected ? 'var(--amber-3)' : undefined,
-          borderColor: isOn && !isSelected && !isStale ? 'var(--amber-6)' : undefined,
-          borderWidth: isSelected || isOn || isStale ? '2px' : '1px',
+          borderColor: isOn && !isSelected ? 'var(--amber-6)' : undefined,
+          borderWidth: isSelected || isOn ? '2px' : '1px',
         }}
       >
         <Flex direction="column" align="center" justify="center" gap="2">

@@ -224,7 +224,7 @@ describe('InputSelectCard', () => {
     expect(card).toHaveAttribute('title', 'Failed to set value')
   })
 
-  it('shows stale data indicator', () => {
+  it('does not show stale data indicator (stale display removed)', () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: {
         ...defaultEntity,
@@ -235,15 +235,14 @@ describe('InputSelectCard', () => {
       },
       isConnected: true,
       isLoading: false,
-      isStale: false,
+      isStale: true,
     })
 
     const { container } = render(<InputSelectCard entityId="input_select.test_select" />)
 
     const card = container.querySelector('.rt-Card')
-    expect(card).toHaveStyle({
-      borderColor: 'var(--orange-7)',
-      borderWidth: '2px',
+    // Stale state no longer shows visual indication
+    expect(card).not.toHaveStyle({
       borderStyle: 'dashed',
     })
   })

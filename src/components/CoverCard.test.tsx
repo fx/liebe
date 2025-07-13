@@ -472,7 +472,7 @@ describe('CoverCard', () => {
       expect(card).toHaveClass('grid-card-loading')
     })
 
-    it('shows stale state with appropriate styling', () => {
+    it('does not show stale state visually (stale display removed)', () => {
       const entity = createMockCoverEntity()
       ;(useEntity as any).mockReturnValue({
         entity,
@@ -483,9 +483,8 @@ describe('CoverCard', () => {
       render(<CoverCard entityId="cover.test_cover" />)
 
       const card = screen.getByText('Test Cover').closest('.cover-card')
-      expect(card).toHaveStyle({
-        borderColor: 'var(--orange-7)',
-        borderWidth: '2px',
+      // Stale state no longer shows visual indication
+      expect(card).not.toHaveStyle({
         borderStyle: 'dashed',
       })
     })

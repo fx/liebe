@@ -212,11 +212,11 @@ function FanCardComponent({
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleToggle}
-      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+      title={error || undefined}
       style={{
         backgroundColor: isOn && !isSelected && !error ? 'var(--cyan-3)' : undefined,
-        borderColor: isOn && !isSelected && !error && !isStale ? 'var(--cyan-6)' : undefined,
-        borderWidth: isSelected || error || isOn || isStale ? '2px' : '1px',
+        borderColor: isOn && !isSelected && !error ? 'var(--cyan-6)' : undefined,
+        borderWidth: isSelected || error || isOn ? '2px' : '1px',
       }}
     >
       <Flex
