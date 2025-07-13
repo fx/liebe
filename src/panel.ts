@@ -176,18 +176,20 @@ class LiebePanel extends HTMLElement {
                       console.log(
                         `[Liebe Panel ${this.instanceId}] Still no updates after ping, refreshing states`
                       )
-                      this._hass
-                        .callWS({ type: 'get_states' })
-                        .then(() => {
-                          console.log(`[Liebe Panel ${this.instanceId}] States refreshed`)
-                          this.lastEntityUpdateTime = Date.now()
-                        })
-                        .catch((error: Error) => {
-                          console.error(
-                            `[Liebe Panel ${this.instanceId}] Failed to refresh states:`,
-                            error
-                          )
-                        })
+                      if (this._hass) {
+                        this._hass
+                          .callWS({ type: 'get_states' })
+                          .then(() => {
+                            console.log(`[Liebe Panel ${this.instanceId}] States refreshed`)
+                            this.lastEntityUpdateTime = Date.now()
+                          })
+                          .catch((error: Error) => {
+                            console.error(
+                              `[Liebe Panel ${this.instanceId}] Failed to refresh states:`,
+                              error
+                            )
+                          })
+                      }
                     }
                   }, 5000)
                 })

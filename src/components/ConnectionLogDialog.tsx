@@ -9,18 +9,18 @@ interface ConnectionLogDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-function getStatusColor(status: ConnectionStatus): string {
+function getStatusColor(status: ConnectionStatus) {
   switch (status) {
     case 'connected':
-      return 'green'
+      return 'green' as const
     case 'connecting':
     case 'reconnecting':
-      return 'gray'
+      return 'gray' as const
     case 'disconnected':
     case 'error':
-      return 'red'
+      return 'red' as const
     default:
-      return 'gray'
+      return 'gray' as const
   }
 }
 

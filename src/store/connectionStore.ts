@@ -7,6 +7,13 @@ export type ConnectionStatus =
   | 'disconnected'
   | 'error'
 
+export interface ConnectionLogEntry {
+  timestamp: number
+  status: ConnectionStatus
+  details: string
+  error?: string
+}
+
 export interface ConnectionState {
   status: ConnectionStatus
   details: string
@@ -16,6 +23,7 @@ export interface ConnectionState {
   isWebSocketConnected: boolean
   isEntityStoreConnected: boolean
   error: string | null
+  log: ConnectionLogEntry[]
 }
 
 const initialState: ConnectionState = {
@@ -27,9 +35,24 @@ const initialState: ConnectionState = {
   isWebSocketConnected: false,
   isEntityStoreConnected: false,
   error: null,
+  log: [],
 }
 
 export const connectionStore = new Store<ConnectionState>(initialState)
+
+const MAX_LOG_ENTRIES = 100
+
+const addLogEntry = (
+  state: ConnectionState,
+  entry: Omit<ConnectionLogEntry, 'timestamp'>
+): ConnectionLogEntry[] => {
+  const newEntry: ConnectionLogEntry = {
+    timestamp: Date.now(),
+    ...entry,
+  }
+  const log = [newEntry, ...state.log].slice(0, MAX_LOG_ENTRIES)
+  return log
+}
 
 export const connectionActions = {
   setStatus: (status: ConnectionStatus, details: string) => {
@@ -38,6 +61,7 @@ export const connectionActions = {
       status,
       details,
       error: status === 'error' ? details : null,
+      log: addLogEntry(state, { status, details }),
     }))
   },
 
@@ -47,6 +71,7 @@ export const connectionActions = {
       status: 'connecting',
       details,
       error: null,
+      log: addLogEntry(state, { status: 'connecting', details }),
     }))
   },
 
@@ -60,6 +85,7 @@ export const connectionActions = {
       isWebSocketConnected: true,
       isEntityStoreConnected: true,
       error: null,
+      log: addLogEntry(state, { status: 'connected', details: 'Connected' }),
     }))
   },
 
@@ -70,6 +96,7 @@ export const connectionActions = {
       details,
       reconnectAttempts: attempt,
       error: null,
+      log: addLogEntry(state, { status: 'reconnecting', details }),
     }))
   },
 
@@ -81,6 +108,7 @@ export const connectionActions = {
       lastDisconnectedTime: Date.now(),
       isWebSocketConnected: false,
       isEntityStoreConnected: false,
+      log: addLogEntry(state, { status: 'disconnected', details }),
     }))
   },
 
@@ -90,6 +118,7 @@ export const connectionActions = {
       status: 'error',
       details: error,
       error,
+      log: addLogEntry(state, { status: 'error', details: error, error }),
     }))
   },
 
