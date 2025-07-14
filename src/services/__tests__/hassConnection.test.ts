@@ -157,7 +157,9 @@ describe('HassConnectionManager', () => {
 
       await connectionManager.connect(errorHass)
 
-      expect(entityStoreActions.setError).toHaveBeenCalledWith('Connection failed')
+      expect(entityStoreActions.setError).toHaveBeenCalledWith(
+        'Connection failed: Connection failed'
+      )
 
       // Should schedule reconnect
       expect(vi.getTimerCount()).toBe(1)
