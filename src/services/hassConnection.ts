@@ -64,6 +64,9 @@ export class HassConnectionManager {
       // Subscribe to state changes
       await this.subscribeToStateChanges()
 
+      // Reset last update time to current time to prevent false stale detection
+      entityStoreActions.updateLastUpdateTime()
+
       // Start monitoring for stale entities
       staleEntityMonitor.start()
 

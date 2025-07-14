@@ -124,9 +124,9 @@ function CameraControls({
               ? 'CONNECTING'
               : hasFrameWarning
                 ? 'NO SIGNAL'
-                : isRecording
+                : supportsStream && isStreaming && (isRecording || entity.state === 'streaming')
                   ? 'RECORDING'
-                  : isStreaming
+                  : supportsStream && isStreaming
                     ? 'STREAMING'
                     : isIdle
                       ? 'IDLE'

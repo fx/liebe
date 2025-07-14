@@ -113,7 +113,16 @@ class LiebePanel extends HTMLElement {
       const timeSinceLastUpdate = Date.now() - this.lastEntityUpdateTime
       const connectionTimeout = 60000 // 1 minute
 
+      // Only check for stale connections if we have subscribed entities
+      const subscribedEntities = entityStore.state.subscribedEntities
+      const hasSubscribedEntities = subscribedEntities && subscribedEntities.size > 0
+
+      // Skip health check if we have no subscribed entities (e.g., only camera streams)
       if (timeSinceLastUpdate > connectionTimeout && this._hass && !document.hidden) {
+        if (!hasSubscribedEntities) {
+          // Don't trigger stale connection events when we have no entities to monitor
+          return
+        }
         console.log(
           `[Liebe Panel ${this.instanceId}] Connection health check: No updates for ${Math.round(
             timeSinceLastUpdate / 1000
@@ -288,6 +297,12 @@ class LiebePanel extends HTMLElement {
         if (!document.hidden) {
           this.lastInteraction = Date.now()
           this.startKeepAlive()
+
+          // Reset last entity update time to prevent false stale detection
+          this.lastEntityUpdateTime = Date.now()
+          console.log(
+            `[Liebe Panel ${this.instanceId}] Reset lastEntityUpdateTime on visibility change`
+          )
 
           // If we're not connected but should be, try to reconnect
           if (!this.isConnected && this._hass && this.lastParentElement) {

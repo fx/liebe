@@ -48,22 +48,20 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
   const cleanupRef = useRef<(() => Promise<void>) | null>(null)
   const frameMonitorRef = useRef<{
     lastFrameTime: number
-    warningTimer: NodeJS.Timeout | null
     reconnectTimer: NodeJS.Timeout | null
     animationFrameId: number | null
+    videoFrameCallbackCleanup: (() => void) | null
+    lastWarningTime: number
   }>({
     lastFrameTime: 0,
-    warningTimer: null,
     reconnectTimer: null,
     animationFrameId: null,
+    videoFrameCallbackCleanup: null,
+    lastWarningTime: 0,
   })
 
   const cleanup = useCallback(async () => {
     // Stop frame monitoring
-    if (frameMonitorRef.current.warningTimer) {
-      clearTimeout(frameMonitorRef.current.warningTimer)
-      frameMonitorRef.current.warningTimer = null
-    }
     if (frameMonitorRef.current.reconnectTimer) {
       clearTimeout(frameMonitorRef.current.reconnectTimer)
       frameMonitorRef.current.reconnectTimer = null
@@ -71,6 +69,10 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     if (frameMonitorRef.current.animationFrameId) {
       cancelAnimationFrame(frameMonitorRef.current.animationFrameId)
       frameMonitorRef.current.animationFrameId = null
+    }
+    if (frameMonitorRef.current.videoFrameCallbackCleanup) {
+      frameMonitorRef.current.videoFrameCallbackCleanup()
+      frameMonitorRef.current.videoFrameCallbackCleanup = null
     }
     frameMonitorRef.current.lastFrameTime = 0
     setHasFrameWarning(false)
@@ -118,7 +120,46 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     const video = videoElementRef.current
     frameMonitorRef.current.lastFrameTime = 0 // Start at 0 to detect first frame
     let lastTime = video.currentTime
+    let lastDecodedFrames = 0
     let hasReceivedFirstFrame = false
+    let debugLogTimer = Date.now()
+    let frameCount = 0
+    let lastDebugFrameCount = 0
+    let videoFrameCallbackId: number | null = null
+
+    // Use requestVideoFrameCallback if available for accurate frame detection
+    if ('requestVideoFrameCallback' in video) {
+      const onVideoFrame = (_now: number) => {
+        frameMonitorRef.current.lastFrameTime = Date.now()
+        frameCount++
+
+        if (!hasReceivedFirstFrame) {
+          hasReceivedFirstFrame = true
+          console.log('[WebRTC] First frame received via requestVideoFrameCallback')
+          setIsStreaming(true)
+        }
+
+        // Clear frame warning
+        setHasFrameWarning(false)
+        if (frameMonitorRef.current.reconnectTimer) {
+          clearTimeout(frameMonitorRef.current.reconnectTimer)
+          frameMonitorRef.current.reconnectTimer = null
+        }
+
+        // Continue monitoring
+        videoFrameCallbackId = (
+          video as HTMLVideoElement & {
+            requestVideoFrameCallback: (callback: (now: number) => void) => number
+          }
+        ).requestVideoFrameCallback(onVideoFrame)
+      }
+
+      videoFrameCallbackId = (
+        video as HTMLVideoElement & {
+          requestVideoFrameCallback: (callback: (now: number) => void) => number
+        }
+      ).requestVideoFrameCallback(onVideoFrame)
+    }
 
     const checkFrames = () => {
       if (!video || !video.srcObject) {
@@ -129,52 +170,102 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
       const now = Date.now()
       const currentTime = video.currentTime
+      // For live streams, also check decoded frames and video dimensions
+      const videoFrames =
+        (
+          video as HTMLVideoElement & {
+            webkitDecodedFrameCount?: number
+            mozDecodedFrames?: number
+          }
+        ).webkitDecodedFrameCount ||
+        (video as HTMLVideoElement & { mozDecodedFrames?: number }).mozDecodedFrames ||
+        0
+      const hasVideoDimensions = video.videoWidth > 0 && video.videoHeight > 0
 
-      // Check if video time is advancing (indicates frames are being received)
-      if (currentTime !== lastTime && video.readyState >= 2) {
+      // Multiple ways to detect frame updates:
+      // 1. currentTime advancing (works for recorded video)
+      // 2. Decoded frame count increasing (works for some browsers)
+      // For live streams, we need actual frame changes, not just ready state
+      const isReceivingFrames =
+        (currentTime !== lastTime && video.readyState >= 2) || videoFrames > lastDecodedFrames
+
+      if (isReceivingFrames) {
         frameMonitorRef.current.lastFrameTime = now
         lastTime = currentTime
+        lastDecodedFrames = videoFrames
+        frameCount++
 
         // We're receiving frames - set streaming to true
         if (!hasReceivedFirstFrame) {
           hasReceivedFirstFrame = true
           console.log('[WebRTC] First frame received, setting isStreaming to true')
+          // For live streams that don't update currentTime or decoded frames,
+          // we need to check if video dimensions are available as initial confirmation
+          if (!isReceivingFrames && hasVideoDimensions && video.readyState >= 3) {
+            console.log('[WebRTC] Live stream detected with dimensions, considering as streaming')
+            frameMonitorRef.current.lastFrameTime = now
+          }
         }
         setIsStreaming(true)
 
-        // Clear any existing timers since we're receiving frames
-        if (frameMonitorRef.current.warningTimer) {
-          clearTimeout(frameMonitorRef.current.warningTimer)
-          frameMonitorRef.current.warningTimer = null
-          setHasFrameWarning(false)
-        }
+        // Clear frame warning since we're receiving frames
+        setHasFrameWarning(false)
         if (frameMonitorRef.current.reconnectTimer) {
           clearTimeout(frameMonitorRef.current.reconnectTimer)
           frameMonitorRef.current.reconnectTimer = null
         }
       }
 
+      // Debug logging every 5 seconds
+      if (now - debugLogTimer >= 5000) {
+        const fps = ((frameCount - lastDebugFrameCount) / 5).toFixed(1)
+        const hasVideoFrameCallback = 'requestVideoFrameCallback' in video
+        console.log(`[WebRTC Debug] ${entityId} Frame Stats:`, {
+          fps,
+          currentTime: currentTime.toFixed(2),
+          decodedFrames: videoFrames,
+          videoDimensions: `${video.videoWidth}x${video.videoHeight}`,
+          readyState: video.readyState,
+          networkState: video.networkState,
+          buffered:
+            video.buffered.length > 0
+              ? `${video.buffered.start(0).toFixed(1)}-${video.buffered.end(0).toFixed(1)}`
+              : 'none',
+          isReceivingFrames,
+          hasVideoFrameCallback,
+          usingVideoFrameCallback: hasVideoFrameCallback && videoFrameCallbackId !== null,
+          timeSinceLastFrame:
+            frameMonitorRef.current.lastFrameTime > 0
+              ? `${now - frameMonitorRef.current.lastFrameTime}ms`
+              : 'N/A',
+        })
+        debugLogTimer = now
+        lastDebugFrameCount = frameCount
+      }
+
       // Only check for stale frames if we've received at least one frame
       if (frameMonitorRef.current.lastFrameTime > 0) {
         const timeDiff = now - frameMonitorRef.current.lastFrameTime
 
-        // Show warning after 200ms without new frames
-        if (
-          timeDiff > 200 &&
-          !frameMonitorRef.current.warningTimer &&
-          !frameMonitorRef.current.reconnectTimer
-        ) {
-          frameMonitorRef.current.warningTimer = setTimeout(() => {
-            console.log('[WebRTC] Frame warning: No new frames for 200ms')
+        // Show warning after 500ms without new frames (increased from 200ms for live streams)
+        if (timeDiff > 500 && !frameMonitorRef.current.reconnectTimer) {
+          // Set the warning state immediately
+          if (!hasFrameWarning) {
             setHasFrameWarning(true)
-            frameMonitorRef.current.warningTimer = null
-          }, 0)
+          }
+
+          // Only log warning once per second
+          const timeSinceLastWarning = now - frameMonitorRef.current.lastWarningTime
+          if (timeSinceLastWarning >= 1000) {
+            console.log(`[WebRTC] Frame warning: No new frames for ${Math.round(timeDiff)}ms`)
+            frameMonitorRef.current.lastWarningTime = now
+          }
         }
 
-        // Reconnect after 3 seconds without new frames
-        if (timeDiff > 3000 && !frameMonitorRef.current.reconnectTimer) {
+        // Reconnect after 5 seconds without new frames (increased from 3s for stability)
+        if (timeDiff > 5000 && !frameMonitorRef.current.reconnectTimer) {
           frameMonitorRef.current.reconnectTimer = setTimeout(() => {
-            console.log('[WebRTC] No frames received for 3 seconds, reconnecting...')
+            console.log('[WebRTC] No frames received for 5 seconds, reconnecting...')
             setHasFrameWarning(false)
             setIsStreaming(false)
             frameMonitorRef.current.reconnectTimer = null
@@ -191,7 +282,16 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
     // Start monitoring immediately
     frameMonitorRef.current.animationFrameId = requestAnimationFrame(checkFrames)
-  }, [cleanup])
+
+    // Store cleanup function for video frame callback
+    frameMonitorRef.current.videoFrameCallbackCleanup = () => {
+      if (videoFrameCallbackId !== null && 'cancelVideoFrameCallback' in video) {
+        ;(
+          video as HTMLVideoElement & { cancelVideoFrameCallback: (id: number) => void }
+        ).cancelVideoFrameCallback(videoFrameCallbackId)
+      }
+    }
+  }, [cleanup, entityId, hasFrameWarning])
 
   const initializeWebRTC = useCallback(async () => {
     if (!hass || !enabled || !videoElementRef.current) return
@@ -458,32 +558,38 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     cleanupRef.current = cleanup
   }, [cleanup])
 
-  // Listen for stale connection events to force reconnect
+  // Remove stale connection listener - camera streams are independent of entity updates
+  // WebRTC connections should only reconnect based on their own connection state,
+  // not global entity update events
+
+  // Handle visibility changes to reconnect when returning to the tab
   useEffect(() => {
-    const handleStaleConnection = async () => {
-      console.log(`[WebRTC] Received stale connection event, reconnecting stream for ${entityId}`)
-
-      // Force cleanup and reconnect
-      if (cleanupRef.current) {
-        await cleanupRef.current()
+    const handleVisibilityChange = () => {
+      if (!document.hidden && enabled) {
+        // Check if we need to reconnect
+        if (peerConnectionRef.current) {
+          const state = peerConnectionRef.current.connectionState
+          if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+            console.log(
+              `[WebRTC] Reconnecting ${entityId} after visibility change (state: ${state})`
+            )
+            cleanup().then(() => {
+              setTimeout(() => setRetryCount((prev) => prev + 1), 500)
+            })
+          }
+        } else if (!initializingRef.current && !pendingInitRef.current) {
+          // No connection exists and we're not initializing, trigger a retry
+          console.log(`[WebRTC] Initializing ${entityId} after visibility change`)
+          setTimeout(() => setRetryCount((prev) => prev + 1), 500)
+        }
       }
-
-      // Reset state to trigger reinitialization
-      pendingInitRef.current = false
-      initializingRef.current = false
-
-      // Force a retry after a short delay
-      setTimeout(() => {
-        setRetryCount((prev) => prev + 1)
-      }, 1000)
     }
 
-    window.addEventListener('liebe-connection-stale', handleStaleConnection)
-
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
-      window.removeEventListener('liebe-connection-stale', handleStaleConnection)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [entityId])
+  }, [enabled, entityId, cleanup])
 
   // Cleanup on unmount
   useEffect(() => {
