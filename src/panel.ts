@@ -4,6 +4,7 @@ import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
 import { PanelApp } from './components/PanelApp'
 import { getPanelConfig } from './config/panel'
 import type { HomeAssistant } from './contexts/HomeAssistantContext'
+import { entityStore } from './store/entityStore'
 
 // Type fix for React.createElement
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,11 +53,30 @@ class LiebePanel extends HTMLElement {
   }
 
   set hass(hass: HomeAssistant) {
-    console.log(`[Liebe Panel ${this.instanceId}] hass setter called`, {
-      hasHass: !!hass,
-      initialized: this.initialized,
-      connected: this.isConnected,
-    })
+    // Only log if we have subscribed entities that might be updated
+    const subscribedEntities = entityStore.state.subscribedEntities
+    if (subscribedEntities && subscribedEntities.size > 0 && this._hass && hass) {
+      // Check if any subscribed entities have changed
+      const hasSubscribedChanges = Array.from(subscribedEntities).some((entityId) => {
+        const oldState = this._hass!.states[entityId]
+        const newState = hass.states[entityId]
+        return (
+          oldState?.state !== newState?.state || oldState?.last_updated !== newState?.last_updated
+        )
+      })
+
+      if (hasSubscribedChanges) {
+        console.log(
+          `[Liebe Panel ${this.instanceId}] hass setter called with subscribed entity updates`,
+          {
+            subscribedCount: subscribedEntities.size,
+            hasHass: !!hass,
+            initialized: this.initialized,
+            connected: this.isConnected,
+          }
+        )
+      }
+    }
 
     // Check if this is a significant update after being stale
     const wasStale = this._hass && Date.now() - this.lastEntityUpdateTime > 120000
@@ -466,11 +486,7 @@ class LiebePanel extends HTMLElement {
   }
 
   private render() {
-    console.log(`[Liebe Panel ${this.instanceId}] render called`, {
-      hasRoot: !!this.root,
-      hasHass: !!this._hass,
-      initialized: this.initialized,
-    })
+    // Remove verbose logging - render is called frequently
 
     if (!this.root || !this._hass) return
 
