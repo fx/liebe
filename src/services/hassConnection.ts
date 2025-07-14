@@ -41,9 +41,8 @@ export class HassConnectionManager {
     this.reconnectAttempts = 0
 
     // Update connection status
-    connectionActions.setConnecting(
-      `Connecting to Home Assistant... (${hass.connection.socket.url})`
-    )
+    const socketUrl = hass.connection?.socket?.url || 'WebSocket'
+    connectionActions.setConnecting(`Connecting to Home Assistant... (${socketUrl})`)
 
     // Clear any existing connections
     await this.disconnect()

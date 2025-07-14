@@ -105,7 +105,7 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
             icon={isUpdating ? <UpdateIcon className="spin" /> : config.icon}
             label={config.text}
             variant={config.variant}
-            color={config.color}
+            color={config.color === 'orange' ? 'gray' : config.color}
             showText={showText}
             ariaLabel={config.text}
           />
