@@ -35,6 +35,7 @@ vi.mock('../../store/entityStore', () => ({
     markEntityStale: vi.fn(),
     markEntityFresh: vi.fn(),
     updateLastUpdateTime: vi.fn(),
+    hasSubscribedEntityUpdates: vi.fn().mockReturnValue(true),
   },
 }))
 

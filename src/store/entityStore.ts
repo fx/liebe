@@ -173,4 +173,9 @@ export const entityStoreActions: EntityStoreActions = {
       lastUpdateTime: Date.now(),
     }))
   },
+
+  hasSubscribedEntityUpdates: (entities: HassEntity[]): boolean => {
+    const state = entityStore.state
+    return entities.some((entity) => state.subscribedEntities.has(entity.entity_id))
+  },
 }

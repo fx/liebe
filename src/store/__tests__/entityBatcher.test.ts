@@ -9,6 +9,7 @@ vi.mock('../entityStore', () => ({
     updateEntities: vi.fn(),
     markEntityFresh: vi.fn(),
     updateLastUpdateTime: vi.fn(),
+    hasSubscribedEntityUpdates: vi.fn().mockReturnValue(true),
   },
 }))
 
@@ -155,5 +156,30 @@ describe('EntityUpdateBatcher', () => {
     const stats = batcher.getStats()
     expect(stats.pendingCount).toBe(2)
     expect(stats.trackedAttributes).toBe(1)
+  })
+
+  it('should only update lastUpdateTime for subscribed entities', () => {
+    const entity = createMockEntity('light.bedroom', 'on')
+
+    // Mock hasSubscribedEntityUpdates to return false
+    vi.mocked(entityStoreActions.hasSubscribedEntityUpdates).mockReturnValue(false)
+
+    batcher.addUpdate(entity)
+    vi.advanceTimersByTime(60)
+
+    // Should update entities but not lastUpdateTime
+    expect(entityStoreActions.updateEntities).toHaveBeenCalledWith([entity])
+    expect(entityStoreActions.updateLastUpdateTime).not.toHaveBeenCalled()
+
+    // Reset and test with subscribed entity
+    vi.clearAllMocks()
+    vi.mocked(entityStoreActions.hasSubscribedEntityUpdates).mockReturnValue(true)
+
+    batcher.addUpdate(entity)
+    vi.advanceTimersByTime(60)
+
+    // Should update both entities and lastUpdateTime
+    expect(entityStoreActions.updateEntities).toHaveBeenCalledWith([entity])
+    expect(entityStoreActions.updateLastUpdateTime).toHaveBeenCalled()
   })
 })

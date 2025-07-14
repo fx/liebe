@@ -44,4 +44,5 @@ export interface EntityStoreActions {
   markEntityStale: (entityId: string) => void
   markEntityFresh: (entityId: string) => void
   updateLastUpdateTime: () => void
+  hasSubscribedEntityUpdates: (entities: HassEntity[]) => boolean
 }
