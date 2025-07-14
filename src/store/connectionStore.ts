@@ -135,4 +135,11 @@ export const connectionActions = {
       isEntityStoreConnected: connected,
     }))
   },
+
+  clearLog: () => {
+    connectionStore.setState((state) => ({
+      ...state,
+      log: [],
+    }))
+  },
 }

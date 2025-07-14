@@ -4,6 +4,7 @@ import {
   InfoCircledIcon,
   CheckCircledIcon,
   CrossCircledIcon,
+  UpdateIcon,
   ReloadIcon,
   ClockIcon,
 } from '@radix-ui/react-icons'
@@ -27,13 +28,13 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
   const lastUpdateTime = useStore(entityStore, (state) => state.lastUpdateTime)
 
   const [logDialogOpen, setLogDialogOpen] = useState(false)
-  const [isPulsing, setIsPulsing] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
 
-  // Pulse the checkmark when entities update (only when connected)
+  // Flash update indicator when entities change
   useEffect(() => {
     if (connectionStatus.status === 'connected') {
-      setIsPulsing(true)
-      const timer = setTimeout(() => setIsPulsing(false), 600)
+      setIsUpdating(true)
+      const timer = setTimeout(() => setIsUpdating(false), 500)
       return () => clearTimeout(timer)
     }
   }, [lastUpdateTime, connectionStatus.status])
@@ -66,14 +67,14 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
     },
     connecting: {
       variant: 'soft' as const,
-      color: 'gray' as const,
+      color: 'orange' as const,
       icon: <Spinner size="1" />,
       text: 'Connecting',
       description: connectionStatus.details,
     },
     reconnecting: {
       variant: 'soft' as const,
-      color: 'gray' as const,
+      color: 'orange' as const,
       icon: <ReloadIcon className="spin" />,
       text: 'Reconnecting',
       description: connectionStatus.details,
@@ -101,16 +102,7 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
       <Popover.Root>
         <Popover.Trigger>
           <TaskbarButton
-            icon={
-              status === 'connected' && isPulsing ? (
-                <span className="pulse-container">
-                  <CheckCircledIcon />
-                  <span className="pulse-ring" />
-                </span>
-              ) : (
-                config.icon
-              )
-            }
+            icon={isUpdating ? <UpdateIcon className="spin" /> : config.icon}
             label={config.text}
             variant={config.variant}
             color={config.color}

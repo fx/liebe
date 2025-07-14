@@ -41,7 +41,9 @@ export class HassConnectionManager {
     this.reconnectAttempts = 0
 
     // Update connection status
-    connectionActions.setConnecting('Connecting to Home Assistant...')
+    connectionActions.setConnecting(
+      `Connecting to Home Assistant... (${hass.connection.socket.url})`
+    )
 
     // Clear any existing connections
     await this.disconnect()
@@ -71,7 +73,10 @@ export class HassConnectionManager {
       console.log('HassConnectionManager: Successfully connected')
     } catch (error) {
       console.error('Failed to connect to Home Assistant:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+      const errorMessage =
+        error instanceof Error
+          ? `Connection failed: ${error.message}`
+          : 'Connection failed: Unknown error'
       entityStoreActions.setError(errorMessage)
       connectionActions.setError(errorMessage)
       this.scheduleReconnect()
@@ -141,6 +146,9 @@ export class HassConnectionManager {
       // Update all entities at once
       entityStoreActions.updateEntities(entities)
       entityStoreActions.setInitialLoading(false)
+
+      // Log entity count
+      connectionActions.setConnecting(`Loaded ${entities.length} entities`)
     } catch (error) {
       console.error('Failed to load initial states:', error)
       entityStoreActions.setError('Failed to load initial states')

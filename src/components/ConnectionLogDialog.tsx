@@ -1,7 +1,7 @@
-import { Dialog, Flex, Text, ScrollArea, Badge, Button } from '@radix-ui/themes'
-import { ClockIcon } from '@radix-ui/react-icons'
+import { Dialog, Flex, Text, ScrollArea, Badge, Button, Code, Box } from '@radix-ui/themes'
+import { ClockIcon, InfoCircledIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
-import { connectionStore } from '~/store/connectionStore'
+import { connectionStore, connectionActions } from '~/store/connectionStore'
 import type { ConnectionLogEntry, ConnectionStatus } from '~/store/connectionStore'
 
 interface ConnectionLogDialogProps {
@@ -15,12 +15,30 @@ function getStatusColor(status: ConnectionStatus) {
       return 'green' as const
     case 'connecting':
     case 'reconnecting':
-      return 'gray' as const
+      return 'orange' as const
     case 'disconnected':
+      return 'gray' as const
     case 'error':
       return 'red' as const
     default:
       return 'gray' as const
+  }
+}
+
+function getStatusIcon(status: ConnectionStatus) {
+  switch (status) {
+    case 'connected':
+      return '✓'
+    case 'connecting':
+      return '⟳'
+    case 'reconnecting':
+      return '↻'
+    case 'disconnected':
+      return '✗'
+    case 'error':
+      return '⚠'
+    default:
+      return '•'
   }
 }
 
@@ -42,55 +60,90 @@ export function ConnectionLogDialog({ open, onOpenChange }: ConnectionLogDialogP
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content style={{ maxWidth: '500px' }}>
+      <Dialog.Content style={{ maxWidth: '600px' }}>
         <Dialog.Title>
           <Flex align="center" gap="2">
             <ClockIcon />
             Connection Log
           </Flex>
         </Dialog.Title>
-        <Dialog.Description>Recent connection events and status changes</Dialog.Description>
+        <Dialog.Description>
+          <Flex justify="between" align="center">
+            <Text>Recent connection events and status changes</Text>
+            {log.length > 0 && (
+              <Button
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => connectionActions.clearLog?.()}
+              >
+                Clear Log
+              </Button>
+            )}
+          </Flex>
+        </Dialog.Description>
 
-        <ScrollArea style={{ height: '400px', marginTop: '16px' }}>
-          <Flex direction="column" gap="2">
+        <ScrollArea style={{ height: '450px', marginTop: '16px' }}>
+          <Flex direction="column" gap="1">
             {log.length === 0 ? (
-              <Text size="2" color="gray" style={{ textAlign: 'center', padding: '32px' }}>
-                No connection events recorded yet
-              </Text>
+              <Flex direction="column" align="center" gap="3" style={{ padding: '48px' }}>
+                <InfoCircledIcon width="32" height="32" style={{ opacity: 0.5 }} />
+                <Text size="3" color="gray">
+                  No connection events recorded yet
+                </Text>
+                <Text size="2" color="gray">
+                  Connection events will appear here as they occur
+                </Text>
+              </Flex>
             ) : (
               log.map((entry: ConnectionLogEntry, index: number) => (
-                <Flex
+                <Box
                   key={`${entry.timestamp}-${index}`}
-                  direction="column"
-                  gap="1"
                   style={{
-                    padding: '8px 12px',
-                    backgroundColor: index % 2 === 0 ? 'var(--gray-2)' : 'transparent',
+                    padding: '12px 16px',
+                    backgroundColor: index % 2 === 0 ? 'var(--gray-a2)' : 'transparent',
                     borderRadius: 'var(--radius-2)',
+                    borderLeft: `3px solid var(--${getStatusColor(entry.status)}-9)`,
                   }}
                 >
-                  <Flex justify="between" align="center">
-                    <Flex align="center" gap="2">
-                      <Badge color={getStatusColor(entry.status)} variant="soft">
-                        {entry.status}
-                      </Badge>
-                      <Text size="1" color="gray">
-                        {formatTimestamp(entry.timestamp)}
-                      </Text>
-                      {index > 0 && (
-                        <Text size="1" color="gray" style={{ opacity: 0.7 }}>
-                          {formatElapsedTime(entry.timestamp, log[index - 1].timestamp)}
+                  <Flex justify="between" align="start" gap="3">
+                    <Flex direction="column" gap="2" style={{ flex: 1 }}>
+                      <Flex align="center" gap="2">
+                        <Text size="1" weight="bold" style={{ opacity: 0.7 }}>
+                          {getStatusIcon(entry.status)}
                         </Text>
+                        <Badge color={getStatusColor(entry.status)} variant="soft" size="1">
+                          {entry.status}
+                        </Badge>
+                        <Code size="1" variant="ghost">
+                          {formatTimestamp(entry.timestamp)}
+                        </Code>
+                        {index > 0 && (
+                          <Text size="1" color="gray" style={{ opacity: 0.6 }}>
+                            {formatElapsedTime(entry.timestamp, log[index - 1].timestamp)}
+                          </Text>
+                        )}
+                      </Flex>
+                      <Text size="2" style={{ lineHeight: 1.5 }}>
+                        {entry.details}
+                      </Text>
+                      {entry.error && (
+                        <Box
+                          style={{
+                            padding: '8px',
+                            backgroundColor: 'var(--red-a3)',
+                            borderRadius: 'var(--radius-2)',
+                            marginTop: '4px',
+                          }}
+                        >
+                          <Text size="1" color="red" weight="medium">
+                            Error: {entry.error}
+                          </Text>
+                        </Box>
                       )}
                     </Flex>
                   </Flex>
-                  <Text size="2">{entry.details}</Text>
-                  {entry.error && (
-                    <Text size="1" color="red" style={{ marginTop: '4px' }}>
-                      Error: {entry.error}
-                    </Text>
-                  )}
-                </Flex>
+                </Box>
               ))
             )}
           </Flex>
