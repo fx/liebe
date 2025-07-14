@@ -4,7 +4,6 @@ import {
   InfoCircledIcon,
   CheckCircledIcon,
   CrossCircledIcon,
-  UpdateIcon,
   ReloadIcon,
   ClockIcon,
 } from '@radix-ui/react-icons'
@@ -28,16 +27,23 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
   const lastUpdateTime = useStore(entityStore, (state) => state.lastUpdateTime)
 
   const [logDialogOpen, setLogDialogOpen] = useState(false)
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [showPulse, setShowPulse] = useState(false)
+  const [previousUpdateTime, setPreviousUpdateTime] = useState(lastUpdateTime)
 
-  // Flash update indicator when entities change
+  // Show pulse animation when entities update (not on initial load)
   useEffect(() => {
-    if (connectionStatus.status === 'connected') {
-      setIsUpdating(true)
-      const timer = setTimeout(() => setIsUpdating(false), 500)
+    // Only pulse if we're connected and this is a new update (not initial)
+    if (
+      connectionStatus.status === 'connected' &&
+      lastUpdateTime > previousUpdateTime &&
+      previousUpdateTime > 0
+    ) {
+      setShowPulse(true)
+      const timer = setTimeout(() => setShowPulse(false), 1000)
       return () => clearTimeout(timer)
     }
-  }, [lastUpdateTime, connectionStatus.status])
+    setPreviousUpdateTime(lastUpdateTime)
+  }, [lastUpdateTime, previousUpdateTime, connectionStatus.status])
 
   const entityCount = Object.keys(entities).length
   const subscribedCount = subscribedEntities.size
@@ -102,7 +108,16 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
       <Popover.Root>
         <Popover.Trigger>
           <TaskbarButton
-            icon={isUpdating ? <UpdateIcon className="spin" /> : config.icon}
+            icon={
+              showPulse && status === 'connected' ? (
+                <span className="pulse-container">
+                  {config.icon}
+                  <span className="pulse-ring" />
+                </span>
+              ) : (
+                config.icon
+              )
+            }
             label={config.text}
             variant={config.variant}
             color={config.color === 'orange' ? 'gray' : config.color}
