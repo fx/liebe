@@ -145,186 +145,86 @@ function CameraStats({
     return () => clearInterval(interval)
   }, [videoElement, peerConnection])
 
-  // Compact view for small size
-  if (size === 'small') {
-    return (
-      <Card
-        size="1"
-        style={{
-          position: 'absolute',
-          top: '4px',
-          right: '4px',
-          backgroundColor: 'var(--color-panel-translucent)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid var(--gray-a5)',
-          padding: 'var(--space-2)',
-        }}
-      >
-        <Flex gap="2" align="center">
-          <Badge
-            size="1"
-            color={isStreaming ? 'green' : hasFrameWarning ? 'orange' : 'gray'}
-            variant="surface"
-            radius="full"
-          >
-            {isStreaming ? '●' : hasFrameWarning ? '!' : '○'}
-          </Badge>
-          <Text size="1" style={{ fontFamily: 'var(--code-font-family)', opacity: 0.9 }}>
-            {stats.fps} FPS • {stats.bitrate} kb/s
-          </Text>
-        </Flex>
-      </Card>
-    )
-  }
-
-  // Full stats panel for medium/large sizes
   return (
     <Card
       size="1"
-      variant="surface"
       style={{
         position: 'absolute',
-        top: '8px',
-        right: '8px',
+        bottom: size === 'small' ? '4px' : '6px',
+        right: size === 'small' ? '4px' : '6px',
         backgroundColor: 'var(--color-panel-translucent)',
-        backdropFilter: 'blur(20px) saturate(1.8)',
+        backdropFilter: 'blur(16px)',
         border: '1px solid var(--gray-a5)',
-        boxShadow: '0 8px 32px var(--black-a6)',
-        padding: 'var(--space-3)',
-        minWidth: '180px',
+        padding: 'var(--space-2)',
+        fontSize: '11px',
       }}
     >
-      <Flex direction="column" gap="2">
-        {/* Header */}
-        <Flex justify="between" align="center">
-          <Text
-            size="1"
-            weight="bold"
-            style={{
-              fontFamily: 'var(--code-font-family)',
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              opacity: 0.8,
-            }}
-          >
-            Stream Analytics
-          </Text>
-          <Badge
-            size="1"
-            color={isStreaming ? 'green' : hasFrameWarning ? 'orange' : 'gray'}
-            variant="surface"
-          >
-            {isStreaming ? 'LIVE' : hasFrameWarning ? 'WARN' : 'IDLE'}
-          </Badge>
-        </Flex>
-
-        <Separator size="4" style={{ opacity: 0.3 }} />
-
-        {/* Main Stats */}
-        <Grid columns="2" gap="3">
-          <Flex direction="column" gap="1">
+      {size === 'small' ? (
+        // Compact single line for small size
+        <Text size="1" style={{ fontFamily: 'var(--code-font-family)' }}>
+          {stats.fps} FPS • {stats.bitrate} kb/s
+        </Text>
+      ) : (
+        // Flex layout for medium/large
+        <Flex gap="3" align="center">
+          <Flex direction="column" gap="0">
             <Text
               size="1"
               color="gray"
-              weight="medium"
-              style={{
-                fontFamily: 'var(--code-font-family)',
-                fontSize: '10px',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
             >
-              Frame Rate
+              FPS
             </Text>
-            <Flex align="baseline" gap="1">
-              <Text size="3" weight="bold" style={{ fontFamily: 'var(--code-font-family)' }}>
-                {stats.fps}
-              </Text>
-              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
-                fps
-              </Text>
-            </Flex>
+            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
+              {stats.fps}
+            </Text>
           </Flex>
 
-          <Flex direction="column" gap="1">
+          <Flex direction="column" gap="0">
             <Text
               size="1"
               color="gray"
-              weight="medium"
-              style={{
-                fontFamily: 'var(--code-font-family)',
-                fontSize: '10px',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
             >
               Bitrate
             </Text>
-            <Flex align="baseline" gap="1">
-              <Text size="3" weight="bold" style={{ fontFamily: 'var(--code-font-family)' }}>
-                {stats.bitrate}
-              </Text>
-              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
-                kb/s
-              </Text>
-            </Flex>
+            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
+              {stats.bitrate}
+            </Text>
           </Flex>
-        </Grid>
 
-        {/* Frame Stats */}
-        <Card
-          size="1"
-          variant="ghost"
-          style={{
-            backgroundColor: 'var(--gray-a2)',
-            border: '1px solid var(--gray-a3)',
-            padding: 'var(--space-2)',
-          }}
-        >
-          <Grid columns="2" gap="2">
-            <Flex justify="between">
-              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
-                Decoded
-              </Text>
-              <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
-                {stats.decodedFrames.toLocaleString()}
-              </Text>
-            </Flex>
-            <Flex justify="between">
-              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
-                Dropped
-              </Text>
-              <Text
-                size="1"
-                weight="medium"
-                color={stats.droppedFrames > 0 ? 'red' : undefined}
-                style={{ fontFamily: 'var(--code-font-family)' }}
-              >
-                {stats.droppedFrames.toLocaleString()}
-              </Text>
-            </Flex>
-          </Grid>
-        </Card>
-
-        {/* Resolution & Time */}
-        {stats.resolution && (
-          <Flex justify="between" align="center">
-            <Badge size="1" variant="outline" radius="medium">
-              {stats.resolution}
-            </Badge>
+          <Flex direction="column" gap="0">
             <Text
               size="1"
               color="gray"
-              style={{
-                fontFamily: 'var(--code-font-family)',
-                opacity: 0.7,
-              }}
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
             >
-              {stats.timestamp}
+              Frames
+            </Text>
+            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
+              {stats.decodedFrames}
             </Text>
           </Flex>
-        )}
-      </Flex>
+
+          <Flex direction="column" gap="0">
+            <Text
+              size="1"
+              color="gray"
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
+            >
+              Dropped
+            </Text>
+            <Text
+              size="1"
+              weight="medium"
+              color={stats.droppedFrames > 0 ? 'red' : undefined}
+              style={{ fontFamily: 'var(--code-font-family)' }}
+            >
+              {stats.droppedFrames}
+            </Text>
+          </Flex>
+        </Flex>
+      )}
     </Card>
   )
 }
