@@ -64,6 +64,7 @@ interface WeatherTextStyles {
 
 /**
  * Get consistent text styling for weather cards with background images
+ * ALL text should have shadows when background images are present
  * @param hasBackground - Whether the card has a background image
  * @param variant - The style variant (default, emphasis)
  */
@@ -78,14 +79,20 @@ export function getWeatherTextStyles(
     }
   }
 
+  // Standard text shadow for readability on background images
+  const standardTextShadow = '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+
+  // Stronger shadow for emphasized text
+  const emphasisTextShadow = '0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)'
+
   const baseTextStyle: CSSProperties = {
     color: 'white',
-    textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)',
+    textShadow: standardTextShadow,
   }
 
   const emphasisTextStyle: CSSProperties = {
     color: 'white',
-    textShadow: '0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)',
+    textShadow: emphasisTextShadow,
   }
 
   const iconStyle: CSSProperties = {

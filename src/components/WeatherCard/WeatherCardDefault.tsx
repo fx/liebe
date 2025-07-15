@@ -5,7 +5,7 @@ import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
-import { getWeatherBackground } from './index'
+import { getWeatherBackground, getWeatherTextStyles } from './index'
 
 interface WeatherAttributes extends EntityAttributes {
   temperature?: number
@@ -157,6 +157,8 @@ function WeatherCardDefaultContent(props: CardProps) {
 
   // Get background image for the current weather condition
   const backgroundImage = getWeatherBackground(entity.state)
+  const textStyles = getWeatherTextStyles(!!backgroundImage)
+  const iconStyles = textStyles.icon
 
   return (
     <GridCard
@@ -188,8 +190,12 @@ function WeatherCardDefaultContent(props: CardProps) {
         <GridCard.Icon>
           <span
             style={{
-              color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--accent-9)',
-              filter: backgroundImage ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : undefined,
+              color: backgroundImage
+                ? iconStyles.color
+                : isStale
+                  ? 'var(--orange-9)'
+                  : 'var(--accent-9)',
+              filter: backgroundImage ? iconStyles.filter : undefined,
               opacity: isStale ? 0.6 : 1,
               transform: `scale(${iconScale})`,
               display: 'flex',
@@ -202,15 +208,7 @@ function WeatherCardDefaultContent(props: CardProps) {
         </GridCard.Icon>
 
         <GridCard.Title>
-          <Text
-            weight="medium"
-            style={{
-              color: backgroundImage ? 'white' : undefined,
-              textShadow: backgroundImage
-                ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                : undefined,
-            }}
-          >
+          <Text weight="medium" style={backgroundImage ? textStyles.text : {}}>
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
           </Text>
         </GridCard.Title>
@@ -223,14 +221,14 @@ function WeatherCardDefaultContent(props: CardProps) {
                   size={18}
                   style={{
                     color: backgroundImage
-                      ? 'white'
+                      ? iconStyles.color
                       : isStale
                         ? 'var(--orange-9)'
                         : 'var(--gray-9)',
-                    filter: backgroundImage ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : undefined,
+                    filter: backgroundImage ? iconStyles.filter : undefined,
                   }}
                 />
-                <Text size="3" weight="bold">
+                <Text size="3" weight="bold" style={backgroundImage ? textStyles.text : {}}>
                   {Math.round(tempDisplay.value)}
                   {tempDisplay.unit}
                 </Text>
@@ -242,19 +240,14 @@ function WeatherCardDefaultContent(props: CardProps) {
                 <Droplets
                   size={18}
                   style={{
-                    color: backgroundImage ? 'white' : 'var(--gray-9)',
-                    filter: backgroundImage ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : undefined,
+                    color: backgroundImage ? iconStyles.color : 'var(--gray-9)',
+                    filter: backgroundImage ? iconStyles.filter : undefined,
                   }}
                 />
                 <Text
                   size="2"
                   color={backgroundImage ? undefined : 'gray'}
-                  style={{
-                    color: backgroundImage ? 'white' : undefined,
-                    textShadow: backgroundImage
-                      ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                      : undefined,
-                  }}
+                  style={backgroundImage ? textStyles.text : {}}
                 >
                   {humidity}%
                 </Text>
@@ -269,10 +262,7 @@ function WeatherCardDefaultContent(props: CardProps) {
             color={backgroundImage ? undefined : 'gray'}
             style={{
               textTransform: 'capitalize',
-              color: backgroundImage ? 'white' : undefined,
-              textShadow: backgroundImage
-                ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                : undefined,
+              ...(backgroundImage ? textStyles.text : {}),
             }}
           >
             {entity.state}
