@@ -29,8 +29,6 @@ class LiebePanel extends HTMLElement {
   private reconnectCheckInterval?: number
   private lastParentElement?: Element | null
   connectionCheckInterval?: number
-  lastEntityUpdateTime = Date.now()
-  lastStaleEventTime = 0
 
   constructor() {
     super()
@@ -78,28 +76,7 @@ class LiebePanel extends HTMLElement {
       }
     }
 
-    // Check if this is a significant update after being stale
-    const wasStale = this._hass && Date.now() - this.lastEntityUpdateTime > 120000
-
     this._hass = hass
-
-    // Track that we received an update
-    this.lastEntityUpdateTime = Date.now()
-
-    // If we were stale and now getting updates again, force a full re-render
-    if (wasStale) {
-      console.log(
-        `[Liebe Panel ${this.instanceId}] Received update after being stale, forcing full re-render`
-      )
-      // Clear and recreate the React root to ensure fresh state
-      if (this.root && this.shadowRoot) {
-        const container = this.shadowRoot.querySelector('div')
-        if (container) {
-          this.root.unmount()
-          this.root = ReactDOM.createRoot(container)
-        }
-      }
-    }
 
     this.render()
   }
@@ -108,128 +85,18 @@ class LiebePanel extends HTMLElement {
     // Clear any existing interval
     this.stopConnectionHealthCheck()
 
-    // Monitor connection health by checking if we're receiving updates
+    // Simple WebSocket health check
     this.connectionCheckInterval = window.setInterval(() => {
-      const timeSinceLastUpdate = Date.now() - this.lastEntityUpdateTime
-      const connectionTimeout = 60000 // 1 minute
-
-      // Only check for stale connections if we have subscribed entities
-      const subscribedEntities = entityStore.state.subscribedEntities
-      const hasSubscribedEntities = subscribedEntities && subscribedEntities.size > 0
-
-      // Skip health check if we have no subscribed entities (e.g., only camera streams)
-      if (timeSinceLastUpdate > connectionTimeout && this._hass && !document.hidden) {
-        if (!hasSubscribedEntities) {
-          // Don't trigger stale connection events when we have no entities to monitor
-          return
-        }
-        console.log(
-          `[Liebe Panel ${this.instanceId}] Connection health check: No updates for ${Math.round(
-            timeSinceLastUpdate / 1000
-          )}s, attempting to restore connection`
-        )
-
-        // Try to trigger a reconnection by calling a service or getting states
-        if (this._hass.connection && this._hass.connection.socket) {
-          // Check if socket is actually connected
-          const socket = this._hass.connection.socket as WebSocket
-          if (socket.readyState !== WebSocket.OPEN) {
-            console.log(
-              `[Liebe Panel ${this.instanceId}] WebSocket is not open, triggering reconnect`
-            )
-
-            // Try to reconnect by getting current states
-            if (this._hass.callWS) {
-              this._hass
-                .callWS({ type: 'get_states' })
-                .then(() => {
-                  console.log(`[Liebe Panel ${this.instanceId}] Successfully refreshed states`)
-                  this.lastEntityUpdateTime = Date.now()
-
-                  // Dispatch stale connection event when WebSocket is disconnected (debounced)
-                  const timeSinceLastStaleEvent = Date.now() - this.lastStaleEventTime
-                  if (timeSinceLastStaleEvent > 30000) {
-                    // Only dispatch once every 30 seconds
-                    this.lastStaleEventTime = Date.now()
-                    this.dispatchEvent(
-                      new CustomEvent('liebe-connection-stale', {
-                        detail: { instanceId: this.instanceId },
-                        bubbles: true,
-                        composed: true,
-                      })
-                    )
-                  }
-                })
-                .catch((error: Error) => {
-                  console.error(`[Liebe Panel ${this.instanceId}] Failed to refresh states:`, error)
-                  // Try to force a page reload as last resort
-                  if (timeSinceLastUpdate > 120000) {
-                    // 2 minutes
-                    console.log(
-                      `[Liebe Panel ${this.instanceId}] Forcing page reload to restore connection`
-                    )
-                    window.location.reload()
-                  }
-                })
-            }
-          } else {
-            // Socket is open but we're not getting updates, try to ping
-            console.log(`[Liebe Panel ${this.instanceId}] WebSocket open but stale, sending ping`)
-
-            // Dispatch stale connection event to force WebRTC reconnection (debounced)
-            const timeSinceLastStaleEvent = Date.now() - this.lastStaleEventTime
-            if (timeSinceLastStaleEvent > 30000) {
-              // Only dispatch once every 30 seconds
-              this.lastStaleEventTime = Date.now()
-              this.dispatchEvent(
-                new CustomEvent('liebe-connection-stale', {
-                  detail: { instanceId: this.instanceId },
-                  bubbles: true,
-                  composed: true,
-                })
-              )
-            }
-
-            if (this._hass.callWS) {
-              this._hass
-                .callWS({ type: 'ping' })
-                .then(() => {
-                  console.log(`[Liebe Panel ${this.instanceId}] Ping successful`)
-                  this.lastEntityUpdateTime = Date.now()
-
-                  // If still not getting updates after ping, force refresh states
-                  setTimeout(() => {
-                    const timeSinceLastUpdate = Date.now() - this.lastEntityUpdateTime
-                    if (timeSinceLastUpdate > 30000) {
-                      // 30 seconds
-                      console.log(
-                        `[Liebe Panel ${this.instanceId}] Still no updates after ping, refreshing states`
-                      )
-                      if (this._hass) {
-                        this._hass
-                          .callWS({ type: 'get_states' })
-                          .then(() => {
-                            console.log(`[Liebe Panel ${this.instanceId}] States refreshed`)
-                            this.lastEntityUpdateTime = Date.now()
-                          })
-                          .catch((error: Error) => {
-                            console.error(
-                              `[Liebe Panel ${this.instanceId}] Failed to refresh states:`,
-                              error
-                            )
-                          })
-                      }
-                    }
-                  }, 5000)
-                })
-                .catch((error: Error) => {
-                  console.error(`[Liebe Panel ${this.instanceId}] Ping failed:`, error)
-                })
-            }
-          }
+      if (this._hass && !document.hidden) {
+        // Just check if WebSocket is alive
+        const socket = this._hass.connection?.socket as WebSocket
+        if (socket && socket.readyState !== WebSocket.OPEN) {
+          console.log(
+            `[Liebe Panel ${this.instanceId}] WebSocket disconnected (readyState: ${socket.readyState})`
+          )
         }
       }
-    }, 15000) // Check every 15 seconds
+    }, 30000) // Check every 30 seconds
   }
 
   private stopConnectionHealthCheck() {
@@ -298,12 +165,6 @@ class LiebePanel extends HTMLElement {
           this.lastInteraction = Date.now()
           this.startKeepAlive()
 
-          // Reset last entity update time to prevent false stale detection
-          this.lastEntityUpdateTime = Date.now()
-          console.log(
-            `[Liebe Panel ${this.instanceId}] Reset lastEntityUpdateTime on visibility change`
-          )
-
           // If we're not connected but should be, try to reconnect
           if (!this.isConnected && this._hass && this.lastParentElement) {
             console.log(`[Liebe Panel ${this.instanceId}] Attempting to reconnect to parent`)
@@ -314,8 +175,26 @@ class LiebePanel extends HTMLElement {
             }
           }
 
-          // Also restart connection health check when becoming visible
+          // Restart connection health check when becoming visible
           this.startConnectionHealthCheck()
+
+          // Check WebSocket status on visibility restore
+          if (this._hass) {
+            const socket = this._hass.connection?.socket as WebSocket
+            if (socket && socket.readyState !== WebSocket.OPEN) {
+              console.log(
+                `[Liebe Panel ${this.instanceId}] WebSocket not open after visibility restore`
+              )
+              // Dispatch event to trigger reconnection check
+              this.dispatchEvent(
+                new CustomEvent('liebe-websocket-check', {
+                  detail: { instanceId: this.instanceId },
+                  bubbles: true,
+                  composed: true,
+                })
+              )
+            }
+          }
         }
       }
       document.addEventListener('visibilitychange', this.visibilityHandler)
@@ -556,21 +435,6 @@ const startGlobalPanelGuardian = () => {
               // Continue trying other containers
             }
           }
-        }
-      }
-
-      // Also check connection health
-      const timeSinceUpdate = Date.now() - panel.lastEntityUpdateTime
-      if (timeSinceUpdate > 90000 && panel._hass) {
-        // 90 seconds
-        console.log(
-          `[Global Panel Guardian] Detected stale connection (${Math.round(timeSinceUpdate / 1000)}s since last update)`
-        )
-
-        // Try to trigger connection health check
-        if (!panel.connectionCheckInterval) {
-          console.log('[Global Panel Guardian] Restarting connection health check')
-          panel.startConnectionHealthCheck()
         }
       }
     }

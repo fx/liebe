@@ -27,7 +27,6 @@ export interface EntityState {
   lastError: string | null
   subscribedEntities: Set<string>
   staleEntities: Set<string> // Track entities that haven't updated in a while
-  lastUpdateTime: number // Track when we last received any update
 }
 
 export interface EntityStoreActions {
@@ -43,6 +42,5 @@ export interface EntityStoreActions {
   reset: () => void
   markEntityStale: (entityId: string) => void
   markEntityFresh: (entityId: string) => void
-  updateLastUpdateTime: () => void
   hasSubscribedEntityUpdates: (entities: HassEntity[]) => boolean
 }

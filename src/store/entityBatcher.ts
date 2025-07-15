@@ -144,12 +144,6 @@ export class EntityUpdateBatcher {
     updates.forEach((entity) => {
       entityStoreActions.markEntityFresh(entity.entity_id)
     })
-
-    // Only update last update time if any of the updated entities are subscribed
-    const hasSubscribedUpdates = entityStoreActions.hasSubscribedEntityUpdates(updates)
-    if (hasSubscribedUpdates) {
-      entityStoreActions.updateLastUpdateTime()
-    }
   }
 
   /**

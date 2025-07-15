@@ -2,9 +2,8 @@ import { entityStore, entityStoreActions } from '../store/entityStore'
 
 export class StaleEntityMonitor {
   private checkInterval: NodeJS.Timeout | null = null
-  private readonly CHECK_INTERVAL = 30000 // Check every 30 seconds
+  private readonly CHECK_INTERVAL = 60000 // Check every 60 seconds
   private readonly STALE_THRESHOLD = 300000 // 5 minutes - entity is considered stale
-  private readonly DISCONNECT_THRESHOLD = 60000 // 1 minute - consider disconnected if no updates
 
   // Entity types that should never be considered stale
   private readonly EXCLUDED_ENTITY_TYPES = new Set(['camera'])
@@ -32,11 +31,9 @@ export class StaleEntityMonitor {
     const state = entityStore.state
     const now = Date.now()
 
-    // Check if we're disconnected (no updates for a while)
-    if (state.isConnected && now - state.lastUpdateTime > this.DISCONNECT_THRESHOLD) {
-      console.warn('No entity updates received for over 1 minute, may be disconnected')
-      // Don't automatically disconnect here, let the connection manager handle it
-      // But we could emit an event or callback if needed
+    // Only check entities when connected
+    if (!state.isConnected) {
+      return
     }
 
     // Check each subscribed entity
@@ -112,12 +109,9 @@ export class StaleEntityMonitor {
   /**
    * Configure custom thresholds
    */
-  setThresholds(staleMs?: number, disconnectMs?: number): void {
+  setThresholds(staleMs?: number): void {
     if (staleMs !== undefined) {
       Object.defineProperty(this, 'STALE_THRESHOLD', { value: staleMs })
-    }
-    if (disconnectMs !== undefined) {
-      Object.defineProperty(this, 'DISCONNECT_THRESHOLD', { value: disconnectMs })
     }
   }
 

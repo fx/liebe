@@ -19,14 +19,15 @@ export function useEntityConnection() {
         hassConnectionManager.connect(hass)
         connectedRef.current = true
 
-        // Listen for stale connection events from the panel
-        const handleStaleConnection = () => {
-          console.log('[useEntityConnection] Received stale connection event, reconnecting...')
-          hassConnectionManager.reconnect()
+        // Listen for WebSocket check events from the panel
+        const handleWebSocketCheck = () => {
+          console.log('[useEntityConnection] Received WebSocket check event')
+          // Check WebSocket connection health
+          hassConnectionManager.checkConnectionHealth()
         }
 
-        staleHandlerRef.current = handleStaleConnection
-        window.addEventListener('liebe-connection-stale', handleStaleConnection)
+        staleHandlerRef.current = handleWebSocketCheck
+        window.addEventListener('liebe-websocket-check', handleWebSocketCheck)
       } else {
         // Just update the hass reference without reconnecting
         hassConnectionManager.updateHass(hass)
@@ -38,7 +39,7 @@ export function useEntityConnection() {
       if (!hass) {
         console.log('[useEntityConnection] Cleaning up connection')
         if (staleHandlerRef.current) {
-          window.removeEventListener('liebe-connection-stale', staleHandlerRef.current)
+          window.removeEventListener('liebe-websocket-check', staleHandlerRef.current)
         }
         hassConnectionManager.disconnect()
         connectedRef.current = false

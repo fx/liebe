@@ -24,26 +24,8 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
   const connectionStatus = useConnectionStatus()
   const entities = useStore(entityStore, (state) => state.entities)
   const subscribedEntities = useStore(entityStore, (state) => state.subscribedEntities)
-  const lastUpdateTime = useStore(entityStore, (state) => state.lastUpdateTime)
 
   const [logDialogOpen, setLogDialogOpen] = useState(false)
-  const [showPulse, setShowPulse] = useState(false)
-  const [previousUpdateTime, setPreviousUpdateTime] = useState(lastUpdateTime)
-
-  // Show pulse animation when entities update (not on initial load)
-  useEffect(() => {
-    // Only pulse if we're connected and this is a new update (not initial)
-    if (
-      connectionStatus.status === 'connected' &&
-      lastUpdateTime > previousUpdateTime &&
-      previousUpdateTime > 0
-    ) {
-      setShowPulse(true)
-      const timer = setTimeout(() => setShowPulse(false), 1000)
-      return () => clearTimeout(timer)
-    }
-    setPreviousUpdateTime(lastUpdateTime)
-  }, [lastUpdateTime, previousUpdateTime, connectionStatus.status])
 
   const entityCount = Object.keys(entities).length
   const subscribedCount = subscribedEntities.size
@@ -108,16 +90,7 @@ export function ConnectionStatus({ showText }: ConnectionStatusProps = {}) {
       <Popover.Root>
         <Popover.Trigger>
           <TaskbarButton
-            icon={
-              showPulse && status === 'connected' ? (
-                <span className="pulse-container">
-                  {config.icon}
-                  <span className="pulse-ring" />
-                </span>
-              ) : (
-                config.icon
-              )
-            }
+            icon={config.icon}
             label={config.text}
             variant={config.variant}
             color={config.color === 'orange' ? 'gray' : config.color}

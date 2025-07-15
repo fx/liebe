@@ -3,7 +3,6 @@ import type { HassEntity } from '../store/entityTypes'
 import { entityStoreActions } from '../store/entityStore'
 import { entityDebouncer } from '../store/entityDebouncer'
 import { entityUpdateBatcher } from '../store/entityBatcher'
-import { staleEntityMonitor } from './staleEntityMonitor'
 import { connectionActions } from '../store/connectionStore'
 
 export interface StateChangedEvent {
@@ -24,6 +23,7 @@ export class HassConnectionManager {
   private readonly RECONNECT_DELAY_BASE = 1000 // 1 second
   private isReconnecting = false
   private lastReconnectTime = 0
+  private connectionHealthInterval: NodeJS.Timeout | null = null
 
   constructor() {
     this.handleStateChanged = this.handleStateChanged.bind(this)
@@ -64,11 +64,8 @@ export class HassConnectionManager {
       // Subscribe to state changes
       await this.subscribeToStateChanges()
 
-      // Reset last update time to current time to prevent false stale detection
-      entityStoreActions.updateLastUpdateTime()
-
-      // Start monitoring for stale entities
-      staleEntityMonitor.start()
+      // Start connection health monitoring
+      this.startConnectionHealthMonitoring()
 
       // Mark as fully connected
       connectionActions.setConnected()
@@ -113,8 +110,8 @@ export class HassConnectionManager {
       }
     }
 
-    // Stop stale entity monitoring
-    staleEntityMonitor.stop()
+    // Stop monitoring
+    this.stopConnectionHealthMonitoring()
 
     // Flush any pending updates before disconnecting
     entityDebouncer.flushAll()
@@ -282,6 +279,53 @@ export class HassConnectionManager {
   updateHass(hass: HomeAssistant): void {
     if (this.isConnected()) {
       this.hass = hass
+    }
+  }
+
+  // Start monitoring connection health
+  private startConnectionHealthMonitoring(): void {
+    this.stopConnectionHealthMonitoring()
+
+    // Monitor WebSocket connection health every 30 seconds
+    this.connectionHealthInterval = setInterval(() => {
+      this.checkConnectionHealth()
+    }, 30000)
+  }
+
+  // Stop connection health monitoring
+  private stopConnectionHealthMonitoring(): void {
+    if (this.connectionHealthInterval) {
+      clearInterval(this.connectionHealthInterval)
+      this.connectionHealthInterval = null
+    }
+  }
+
+  // Check connection health
+  async checkConnectionHealth(): Promise<void> {
+    if (!this.hass) {
+      return
+    }
+
+    const socket = this.hass.connection?.socket as WebSocket
+    if (!socket) {
+      return
+    }
+
+    // Check WebSocket state
+    if (socket.readyState !== WebSocket.OPEN) {
+      console.log(
+        `HassConnectionManager: WebSocket not open (readyState: ${socket.readyState}), triggering reconnection`
+      )
+
+      // Update connection status to show we're reconnecting
+      connectionActions.setReconnecting(1, 'WebSocket disconnected, reconnecting...')
+
+      // Attempt to reconnect
+      await this.reconnect()
+    } else if (this.isConnected()) {
+      // WebSocket is open and we have a subscription, ensure status is connected
+      // Just set connected status without checking current state to avoid reference errors
+      connectionActions.setConnected()
     }
   }
 }
