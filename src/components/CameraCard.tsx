@@ -8,11 +8,13 @@ import {
   ExclamationTriangleIcon,
 } from '@radix-ui/react-icons'
 import { useEntity, useWebRTC, useIsConnecting } from '~/hooks'
-import { memo, useMemo, useState, useRef, useCallback } from 'react'
+import { memo, useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import { SkeletonCard, ErrorDisplay, FullscreenModal } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import { useDashboardStore } from '~/store'
+import { useDashboardStore, dashboardActions } from '~/store'
 import { KeepAlive } from './KeepAlive'
+import { CardConfig } from './CardConfig'
+import type { GridItem } from '~/store/types'
 import './CameraCard.css'
 
 interface CameraCardProps {
@@ -21,6 +23,7 @@ interface CameraCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  item?: GridItem
 }
 
 interface CameraAttributes {
@@ -33,6 +36,67 @@ interface CameraAttributes {
 
 // Camera supported features bit flags from Home Assistant
 const SUPPORT_STREAM = 2
+
+// Stats display component
+function CameraStats({
+  size,
+  hasFrameWarning,
+  isStreaming,
+}: {
+  size: 'small' | 'medium' | 'large'
+  hasFrameWarning: boolean
+  isStreaming: boolean
+}) {
+  const scaleFactor = size === 'small' ? 0.64 : size === 'large' ? 0.96 : 0.8
+  const [stats, setStats] = useState({
+    timestamp: new Date().toLocaleTimeString(),
+    fps: 0,
+    decodedFrames: 0,
+    droppedFrames: 0,
+    bitrate: 0,
+    resolution: '',
+  })
+
+  // Update timestamp every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStats((prev) => ({
+        ...prev,
+        timestamp: new Date().toLocaleTimeString(),
+      }))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '8px',
+        right: '8px',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        borderRadius: `${0.5 * scaleFactor}em`,
+        padding: `${0.3 * scaleFactor}em ${0.4 * scaleFactor}em`,
+        backdropFilter: 'blur(8px)',
+        fontSize: `${scaleFactor * 0.8}em`,
+        fontFamily: 'monospace',
+        color: '#00ff00',
+        lineHeight: 1.2,
+      }}
+    >
+      <div>Time: {stats.timestamp}</div>
+      <div>Streaming: {isStreaming ? 'YES' : 'NO'}</div>
+      <div>Frame Warning: {hasFrameWarning ? 'YES' : 'NO'}</div>
+      <div style={{ marginTop: '4px' }}>
+        <div>FPS: {stats.fps}</div>
+        <div>Decoded: {stats.decodedFrames}</div>
+        <div>Dropped: {stats.droppedFrames}</div>
+        <div>Bitrate: {stats.bitrate} kbps</div>
+        {stats.resolution && <div>Res: {stats.resolution}</div>}
+      </div>
+    </div>
+  )
+}
 
 // Custom-styled camera controls for both regular and fullscreen views
 function CameraControls({
@@ -207,16 +271,24 @@ function CameraCardComponent({
   onDelete,
   isSelected = false,
   onSelect,
+  item,
 }: CameraCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-  const { mode } = useDashboardStore()
+  const { mode, currentScreenId } = useDashboardStore()
   const isEditMode = mode === 'edit'
   const isReconnecting = useIsConnecting()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // Start muted by default
+  const [configOpen, setConfigOpen] = useState(false)
   const normalContainerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const videoElementRef = useRef<HTMLVideoElement | null>(null)
+
+  // Get configuration values
+  const config = item?.config || {}
+  const fit = (config.fit as string) || 'cover'
+  const matting = (config.matting as string) || 'small'
+  const showStats = config.showStats === true
 
   // Memoize camera attributes and stream support to prevent re-renders
   const cameraAttributes = useMemo(
@@ -275,6 +347,12 @@ function CameraCardComponent({
     setIsMuted((prev) => !prev)
   }, [])
 
+  const handleConfigSave = (updates: Partial<GridItem>) => {
+    if (item && currentScreenId) {
+      dashboardActions.updateGridItem(currentScreenId, item.id, updates)
+    }
+  }
+
   // Combined ref callback for both WebRTC and local ref
   const combinedVideoRef = useCallback(
     (element: HTMLVideoElement | null) => {
@@ -307,6 +385,17 @@ function CameraCardComponent({
   const isIdle = entity.state === 'idle'
   const isStreaming_ = entity.state === 'streaming'
 
+  // Calculate matting/padding based on configuration
+  // Map matting values to Radix UI space tokens
+  // Small matches the default padding for the current card size
+  const defaultPadding = size === 'small' ? '2' : size === 'large' ? '4' : '3'
+  const mattingPadding =
+    matting === 'none'
+      ? '0'
+      : matting === 'large'
+        ? 'var(--space-5)'
+        : `var(--space-${defaultPadding})`
+
   return (
     <>
       <GridCard
@@ -319,8 +408,11 @@ function CameraCardComponent({
         isUnavailable={isUnavailable}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
+        onConfigure={() => setConfigOpen(true)}
+        hasConfiguration={true}
         title={streamError || undefined}
         className="camera-card"
+        customPadding={mattingPadding}
         style={{
           backgroundColor:
             (isRecording || isStreaming_) && !isSelected && !streamError
@@ -418,7 +510,7 @@ function CameraCardComponent({
                       style={{
                         width: '100%',
                         height: '100%',
-                        objectFit: isFullscreen ? 'contain' : 'cover',
+                        objectFit: isFullscreen ? 'contain' : (fit as 'cover' | 'contain'),
                         display: isStreaming ? 'block' : 'none',
                       }}
                     />
@@ -461,6 +553,11 @@ function CameraCardComponent({
                 />
               </GridCard.Icon>
             </Flex>
+          )}
+
+          {/* Stats display (when enabled) */}
+          {showStats && supportsStream && !streamError && (
+            <CameraStats size={size} hasFrameWarning={hasFrameWarning} isStreaming={isStreaming} />
           )}
 
           {/* Controls and info container positioned absolutely at bottom left */}
@@ -518,6 +615,11 @@ function CameraCardComponent({
           }}
         />
 
+        {/* Fullscreen stats display (when enabled) */}
+        {showStats && (
+          <CameraStats size="large" hasFrameWarning={hasFrameWarning} isStreaming={isStreaming} />
+        )}
+
         {/* Fullscreen controls and info container */}
         <div
           style={{
@@ -566,6 +668,24 @@ function CameraCardComponent({
           Click or press ESC to exit
         </div>
       </FullscreenModal>
+
+      {/* Configuration modal */}
+      <CardConfig.Modal
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        item={
+          item || {
+            id: '',
+            entityId,
+            type: 'entity',
+            x: 0,
+            y: 0,
+            width: CameraCard.defaultDimensions.width,
+            height: CameraCard.defaultDimensions.height,
+          }
+        }
+        onSave={handleConfigSave}
+      />
     </>
   )
 }
@@ -578,7 +698,8 @@ const MemoizedCameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
     prevProps.size === nextProps.size &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onSelect === nextProps.onSelect
+    prevProps.onSelect === nextProps.onSelect &&
+    prevProps.item === nextProps.item
   )
 })
 

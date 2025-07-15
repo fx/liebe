@@ -27,6 +27,7 @@ export interface GridCardProps {
   fullscreenContent?: React.ReactNode
   transparent?: boolean
   backdrop?: boolean | string
+  customPadding?: string
 }
 
 interface GridCardContextValue {
@@ -66,6 +67,7 @@ export const GridCard = React.memo(
         onFullscreenChange,
         fullscreenContent,
         backdrop,
+        customPadding,
       },
       ref
     ) => {
@@ -144,7 +146,7 @@ export const GridCard = React.memo(
       // For transparent cards in view mode, use a div instead of Card
       const cardStyle = {
         minHeight,
-        padding: transparent && !isEditMode ? 0 : `var(--space-${padding})`,
+        padding: transparent && !isEditMode ? 0 : customPadding || `var(--space-${padding})`,
         cursor: isLoading ? 'wait' : isEditMode ? 'move' : onClick ? 'pointer' : 'default',
         backgroundColor: transparent && !isEditMode ? 'transparent' : backgroundColor,
         transform: isLoading ? 'scale(0.98)' : undefined,
