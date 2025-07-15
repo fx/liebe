@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useStore } from '@tanstack/react-store'
 import { entityStore, entityStoreActions } from '../store/entityStore'
 import type { HassEntity } from '../store/entityTypes'
+import { staleEntityMonitor } from '../services/staleEntityMonitor'
 
 export function useEntity(entityId: string): {
   entity: HassEntity | undefined
@@ -31,8 +32,10 @@ export function useEntity(entityId: string): {
   }, [entities, entityId])
 
   const isStale = useMemo(() => {
-    return staleEntities.has(entityId)
-  }, [staleEntities, entityId])
+    // Use staleEntityMonitor to check staleness, which respects excluded entity types
+    return staleEntityMonitor.getEntityStaleness(entityId).isStale
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityId, staleEntities])
 
   return {
     entity,

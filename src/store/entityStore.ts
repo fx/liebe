@@ -8,7 +8,6 @@ const initialState: EntityState = {
   lastError: null,
   subscribedEntities: new Set(),
   staleEntities: new Set(),
-  lastUpdateTime: Date.now(),
 }
 
 export const entityStore = new Store<EntityState>(initialState)
@@ -167,10 +166,8 @@ export const entityStoreActions: EntityStoreActions = {
     })
   },
 
-  updateLastUpdateTime: () => {
-    entityStore.setState((state) => ({
-      ...state,
-      lastUpdateTime: Date.now(),
-    }))
+  hasSubscribedEntityUpdates: (entities: HassEntity[]): boolean => {
+    const state = entityStore.state
+    return entities.some((entity) => state.subscribedEntities.has(entity.entity_id))
   },
 }

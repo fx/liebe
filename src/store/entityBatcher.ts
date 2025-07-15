@@ -144,9 +144,6 @@ export class EntityUpdateBatcher {
     updates.forEach((entity) => {
       entityStoreActions.markEntityFresh(entity.entity_id)
     })
-
-    // Update last update time
-    entityStoreActions.updateLastUpdateTime()
   }
 
   /**

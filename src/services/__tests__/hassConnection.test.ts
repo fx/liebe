@@ -35,6 +35,7 @@ vi.mock('../../store/entityStore', () => ({
     markEntityStale: vi.fn(),
     markEntityFresh: vi.fn(),
     updateLastUpdateTime: vi.fn(),
+    hasSubscribedEntityUpdates: vi.fn().mockReturnValue(true),
   },
 }))
 
@@ -157,7 +158,9 @@ describe('HassConnectionManager', () => {
 
       await connectionManager.connect(errorHass)
 
-      expect(entityStoreActions.setError).toHaveBeenCalledWith('Connection failed')
+      expect(entityStoreActions.setError).toHaveBeenCalledWith(
+        'Connection failed: Connection failed'
+      )
 
       // Should schedule reconnect
       expect(vi.getTimerCount()).toBe(1)
@@ -320,15 +323,26 @@ describe('HassConnectionManager', () => {
     })
 
     it('should manually trigger reconnection', async () => {
-      await connectionManager.connect(mockHass)
-      const connectSpy = vi.spyOn(
-        connectionManager as unknown as { connect: (hass: HomeAssistant) => void },
-        'connect'
-      )
+      // Create a fresh connection manager for this test
+      const manager = new HassConnectionManager()
+      await manager.connect(mockHass)
 
-      connectionManager.reconnect()
+      // Create spy before reconnect
+      const connectSpy = vi.spyOn(manager, 'connect' as keyof HassConnectionManager)
+
+      // The first reconnect should work immediately since lastReconnectTime is 0
+      const reconnectPromise = manager.reconnect()
+
+      // Advance only the specific timer for the reconnect delay
+      await vi.advanceTimersByTimeAsync(100)
+
+      // Wait for reconnect to complete
+      await reconnectPromise
 
       expect(connectSpy).toHaveBeenCalledWith(mockHass)
+
+      // Clean up to prevent infinite timers
+      await manager.disconnect()
     })
   })
 })

@@ -456,7 +456,7 @@ describe('ClimateCard', () => {
       expect(card).toHaveAttribute('title', 'Service call failed')
     })
 
-    it('shows stale state with dashed border', () => {
+    it('does not show stale state visually (stale display removed)', () => {
       const entity = createMockClimateEntity()
       ;(useEntity as any).mockReturnValue({
         entity,
@@ -467,9 +467,8 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
-      expect(card).toHaveStyle({
-        borderColor: 'var(--orange-7)',
-        borderWidth: '2px',
+      // Stale state no longer shows visual indication
+      expect(card).not.toHaveStyle({
         borderStyle: 'dashed',
       })
     })

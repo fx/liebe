@@ -207,7 +207,7 @@ describe('LightCard', () => {
     expect(screen.getByText('ERROR')).toBeInTheDocument()
   })
 
-  it('shows stale data indicator', () => {
+  it('does not show stale data indicator (stale display removed)', () => {
     vi.mocked(hooks.useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
@@ -218,7 +218,8 @@ describe('LightCard', () => {
     const { container } = render(<LightCard entityId="light.living_room" />)
 
     const card = container.querySelector('.light-card')
-    expect(card).toHaveStyle('border-style: dashed')
+    // Stale state no longer shows visual indication
+    expect(card).not.toHaveStyle('border-style: dashed')
   })
 
   it('handles edit mode interactions', () => {

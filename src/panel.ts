@@ -4,6 +4,7 @@ import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
 import { PanelApp } from './components/PanelApp'
 import { getPanelConfig } from './config/panel'
 import type { HomeAssistant } from './contexts/HomeAssistantContext'
+import { entityStore } from './store/entityStore'
 
 // Type fix for React.createElement
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,7 +17,7 @@ import 'react-resizable/css/styles.css'
 import '~/styles/app.css'
 
 class LiebePanel extends HTMLElement {
-  private _hass: HomeAssistant | null = null
+  _hass: HomeAssistant | null = null
   private root?: ReactDOM.Root
   private initialized = false
   private instanceId = Math.random().toString(36).substr(2, 9)
@@ -27,6 +28,7 @@ class LiebePanel extends HTMLElement {
   private parentObserver?: MutationObserver
   private reconnectCheckInterval?: number
   private lastParentElement?: Element | null
+  connectionCheckInterval?: number
 
   constructor() {
     super()
@@ -49,13 +51,59 @@ class LiebePanel extends HTMLElement {
   }
 
   set hass(hass: HomeAssistant) {
-    console.log(`[Liebe Panel ${this.instanceId}] hass setter called`, {
-      hasHass: !!hass,
-      initialized: this.initialized,
-      connected: this.isConnected,
-    })
+    // Only log if we have subscribed entities that might be updated
+    const subscribedEntities = entityStore.state.subscribedEntities
+    if (subscribedEntities && subscribedEntities.size > 0 && this._hass && hass) {
+      // Check if any subscribed entities have changed
+      const hasSubscribedChanges = Array.from(subscribedEntities).some((entityId) => {
+        const oldState = this._hass!.states[entityId]
+        const newState = hass.states[entityId]
+        return (
+          oldState?.state !== newState?.state || oldState?.last_updated !== newState?.last_updated
+        )
+      })
+
+      if (hasSubscribedChanges) {
+        console.log(
+          `[Liebe Panel ${this.instanceId}] hass setter called with subscribed entity updates`,
+          {
+            subscribedCount: subscribedEntities.size,
+            hasHass: !!hass,
+            initialized: this.initialized,
+            connected: this.isConnected,
+          }
+        )
+      }
+    }
+
     this._hass = hass
+
     this.render()
+  }
+
+  startConnectionHealthCheck() {
+    // Clear any existing interval
+    this.stopConnectionHealthCheck()
+
+    // Simple WebSocket health check
+    this.connectionCheckInterval = window.setInterval(() => {
+      if (this._hass && !document.hidden) {
+        // Just check if WebSocket is alive
+        const socket = this._hass.connection?.socket as WebSocket
+        if (socket && socket.readyState !== WebSocket.OPEN) {
+          console.log(
+            `[Liebe Panel ${this.instanceId}] WebSocket disconnected (readyState: ${socket.readyState})`
+          )
+        }
+      }
+    }, 30000) // Check every 30 seconds
+  }
+
+  private stopConnectionHealthCheck() {
+    if (this.connectionCheckInterval) {
+      clearInterval(this.connectionCheckInterval)
+      this.connectionCheckInterval = undefined
+    }
   }
 
   connectedCallback() {
@@ -126,6 +174,27 @@ class LiebePanel extends HTMLElement {
               console.error(`[Liebe Panel ${this.instanceId}] Failed to reconnect:`, error)
             }
           }
+
+          // Restart connection health check when becoming visible
+          this.startConnectionHealthCheck()
+
+          // Check WebSocket status on visibility restore
+          if (this._hass) {
+            const socket = this._hass.connection?.socket as WebSocket
+            if (socket && socket.readyState !== WebSocket.OPEN) {
+              console.log(
+                `[Liebe Panel ${this.instanceId}] WebSocket not open after visibility restore`
+              )
+              // Dispatch event to trigger reconnection check
+              this.dispatchEvent(
+                new CustomEvent('liebe-websocket-check', {
+                  detail: { instanceId: this.instanceId },
+                  bubbles: true,
+                  composed: true,
+                })
+              )
+            }
+          }
         }
       }
       document.addEventListener('visibilitychange', this.visibilityHandler)
@@ -153,6 +222,9 @@ class LiebePanel extends HTMLElement {
     // Start reconnect check
     this.startReconnectCheck()
 
+    // Start connection health monitoring
+    this.startConnectionHealthCheck()
+
     this.render()
   }
 
@@ -172,6 +244,7 @@ class LiebePanel extends HTMLElement {
     if (!this._hass) {
       this.stopKeepAlive()
       this.stopReconnectCheck()
+      this.stopConnectionHealthCheck()
       this.cleanupParentObserver()
     }
 
@@ -307,11 +380,7 @@ class LiebePanel extends HTMLElement {
   }
 
   private render() {
-    console.log(`[Liebe Panel ${this.instanceId}] render called`, {
-      hasRoot: !!this.root,
-      hasHass: !!this._hass,
-      initialized: this.initialized,
-    })
+    // Remove verbose logging - render is called frequently
 
     if (!this.root || !this._hass) return
 
@@ -340,27 +409,31 @@ const startGlobalPanelGuardian = () => {
 
   globalPanelCheck = window.setInterval(() => {
     const panel = (window as unknown as { __liebePanel?: LiebePanel }).__liebePanel
-    if (panel && !panel.isConnected && document.visibilityState === 'visible') {
-      console.log(
-        '[Global Panel Guardian] Panel disconnected while page visible, attempting recovery'
-      )
 
-      // Try to find where the panel should be
-      const possibleContainers = [
-        document.querySelector('partial-panel-resolver'),
-        document.querySelector('[id^="panel-"]'),
-        document.querySelector('ha-panel-iframe'),
-        document.querySelector('.view'),
-      ].filter(Boolean)
+    if (panel && document.visibilityState === 'visible') {
+      // Check if panel is disconnected from DOM
+      if (!panel.isConnected) {
+        console.log(
+          '[Global Panel Guardian] Panel disconnected while page visible, attempting recovery'
+        )
 
-      for (const container of possibleContainers) {
-        if (container && !container.contains(panel)) {
-          try {
-            container.appendChild(panel)
-            console.log('[Global Panel Guardian] Successfully restored panel to container')
-            break
-          } catch (error) {
-            // Continue trying other containers
+        // Try to find where the panel should be
+        const possibleContainers = [
+          document.querySelector('partial-panel-resolver'),
+          document.querySelector('[id^="panel-"]'),
+          document.querySelector('ha-panel-iframe'),
+          document.querySelector('.view'),
+        ].filter(Boolean)
+
+        for (const container of possibleContainers) {
+          if (container && !container.contains(panel)) {
+            try {
+              container.appendChild(panel)
+              console.log('[Global Panel Guardian] Successfully restored panel to container')
+              break
+            } catch (error) {
+              // Continue trying other containers
+            }
           }
         }
       }

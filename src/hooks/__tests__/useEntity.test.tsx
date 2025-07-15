@@ -97,6 +97,41 @@ describe('useEntity', () => {
     expect(result.current.isStale).toBe(false)
   })
 
+  it('should exclude camera entities from stale tracking', () => {
+    const cameraEntity: HassEntity = {
+      entity_id: 'camera.front_door',
+      state: 'streaming',
+      attributes: {
+        friendly_name: 'Front Door Camera',
+      },
+      last_changed: '2024-01-01T00:00:00Z',
+      last_updated: '2024-01-01T00:00:00Z',
+      context: {
+        id: '456',
+        parent_id: null,
+        user_id: null,
+      },
+    }
+
+    act(() => {
+      entityStoreActions.updateEntity(cameraEntity)
+      entityStoreActions.setConnected(true)
+      entityStoreActions.setInitialLoading(false)
+    })
+
+    const { result } = renderHook(() => useEntity('camera.front_door'))
+
+    expect(result.current.isStale).toBe(false)
+
+    // Mark camera entity as stale - it should still return false
+    act(() => {
+      entityStoreActions.markEntityStale('camera.front_door')
+    })
+
+    // Camera entities should never be considered stale
+    expect(result.current.isStale).toBe(false)
+  })
+
   it('should subscribe and unsubscribe to entity', () => {
     const { unmount } = renderHook(() => useEntity('light.bedroom'))
 

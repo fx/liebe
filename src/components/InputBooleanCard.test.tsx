@@ -216,7 +216,7 @@ describe('InputBooleanCard', () => {
     expect(card).toHaveAttribute('title', 'Failed to toggle')
   })
 
-  it('shows stale data indicator', () => {
+  it('does not show stale data indicator (stale display removed)', () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: {
         ...defaultEntity,
@@ -233,9 +233,8 @@ describe('InputBooleanCard', () => {
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
     const card = container.querySelector('.rt-Card')
-    expect(card).toHaveStyle({
-      borderColor: 'var(--orange-7)',
-      borderWidth: '2px',
+    // Stale state no longer shows visual indication
+    expect(card).not.toHaveStyle({
       borderStyle: 'dashed',
     })
   })

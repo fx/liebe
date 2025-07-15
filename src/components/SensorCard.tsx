@@ -162,9 +162,9 @@ function SensorCardComponent({
       isUnavailable={isUnavailable}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
-      title={isStale ? 'Sensor data may be outdated' : undefined}
+      title={undefined}
       style={{
-        borderWidth: isSelected || isStale ? '2px' : '1px',
+        borderWidth: isSelected ? '2px' : '1px',
       }}
     >
       <Flex

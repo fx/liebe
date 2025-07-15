@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConnectionStatus } from '../ConnectionStatus'
 import { entityStore } from '../../store/entityStore'
+import { connectionStore } from '../../store/connectionStore'
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext'
 
 // Mock the CSS import
@@ -23,7 +24,7 @@ import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
 describe('ConnectionStatus', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Reset store to initial state
+    // Reset stores to initial state
     entityStore.setState(() => ({
       entities: {},
       isConnected: false,
@@ -32,6 +33,17 @@ describe('ConnectionStatus', () => {
       subscribedEntities: new Set(),
       staleEntities: new Set(),
       lastUpdateTime: Date.now(),
+    }))
+    connectionStore.setState(() => ({
+      status: 'disconnected',
+      details: 'Not connected',
+      lastConnectedTime: null,
+      lastDisconnectedTime: null,
+      reconnectAttempts: 0,
+      isWebSocketConnected: false,
+      isEntityStoreConnected: false,
+      error: null,
+      log: [],
     }))
   })
 
@@ -59,6 +71,14 @@ describe('ConnectionStatus', () => {
         },
       },
     }))
+    connectionStore.setState((state) => ({
+      ...state,
+      status: 'connected',
+      details: 'Connected',
+      isWebSocketConnected: true,
+      isEntityStoreConnected: true,
+      lastConnectedTime: Date.now(),
+    }))
 
     render(<ConnectionStatus showText />)
 
@@ -84,10 +104,16 @@ describe('ConnectionStatus', () => {
       isConnected: false,
       lastError: 'Connection failed',
     }))
+    connectionStore.setState((state) => ({
+      ...state,
+      status: 'error',
+      details: 'Connection failed',
+      error: 'Connection failed',
+    }))
 
     render(<ConnectionStatus showText />)
 
-    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    expect(screen.getByText('Error')).toBeInTheDocument()
   })
 
   it('should show detailed information in popover', async () => {
@@ -107,6 +133,14 @@ describe('ConnectionStatus', () => {
         },
       },
       subscribedEntities: new Set(['light.test']),
+    }))
+    connectionStore.setState((state) => ({
+      ...state,
+      status: 'connected',
+      details: 'Connected',
+      isWebSocketConnected: true,
+      isEntityStoreConnected: true,
+      lastConnectedTime: Date.now(),
     }))
 
     render(<ConnectionStatus />)
@@ -132,6 +166,14 @@ describe('ConnectionStatus', () => {
       ...state,
       isConnected: true,
     }))
+    connectionStore.setState((state) => ({
+      ...state,
+      status: 'connected',
+      details: 'Connected',
+      isWebSocketConnected: true,
+      isEntityStoreConnected: true,
+      lastConnectedTime: Date.now(),
+    }))
 
     render(<ConnectionStatus showText={false} />)
 
@@ -146,6 +188,14 @@ describe('ConnectionStatus', () => {
     entityStore.setState((state) => ({
       ...state,
       isConnected: true,
+    }))
+    connectionStore.setState((state) => ({
+      ...state,
+      status: 'connected',
+      details: 'Connected',
+      isWebSocketConnected: true,
+      isEntityStoreConnected: true,
+      lastConnectedTime: Date.now(),
     }))
 
     render(<ConnectionStatus showText />)

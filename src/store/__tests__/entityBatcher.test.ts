@@ -8,7 +8,7 @@ vi.mock('../entityStore', () => ({
   entityStoreActions: {
     updateEntities: vi.fn(),
     markEntityFresh: vi.fn(),
-    updateLastUpdateTime: vi.fn(),
+    hasSubscribedEntityUpdates: vi.fn().mockReturnValue(true),
   },
 }))
 
@@ -53,7 +53,6 @@ describe('EntityUpdateBatcher', () => {
     expect(entityStoreActions.updateEntities).toHaveBeenCalledWith([entity1, entity2])
     expect(entityStoreActions.markEntityFresh).toHaveBeenCalledWith(entity1.entity_id)
     expect(entityStoreActions.markEntityFresh).toHaveBeenCalledWith(entity2.entity_id)
-    expect(entityStoreActions.updateLastUpdateTime).toHaveBeenCalledTimes(1)
   })
 
   it('should ignore duplicate updates with no changes', () => {
@@ -155,5 +154,30 @@ describe('EntityUpdateBatcher', () => {
     const stats = batcher.getStats()
     expect(stats.pendingCount).toBe(2)
     expect(stats.trackedAttributes).toBe(1)
+  })
+
+  it('should only update lastUpdateTime for subscribed entities', () => {
+    const entity = createMockEntity('light.bedroom', 'on')
+
+    // Mock hasSubscribedEntityUpdates to return false
+    vi.mocked(entityStoreActions.hasSubscribedEntityUpdates).mockReturnValue(false)
+
+    batcher.addUpdate(entity)
+    vi.advanceTimersByTime(60)
+
+    // Should update entities but not lastUpdateTime
+    expect(entityStoreActions.updateEntities).toHaveBeenCalledWith([entity])
+    // Should have updated entities without checking for subscribed updates
+
+    // Reset and test with subscribed entity
+    vi.clearAllMocks()
+    vi.mocked(entityStoreActions.hasSubscribedEntityUpdates).mockReturnValue(true)
+
+    batcher.addUpdate(entity)
+    vi.advanceTimersByTime(60)
+
+    // Should update both entities and lastUpdateTime
+    expect(entityStoreActions.updateEntities).toHaveBeenCalledWith([entity])
+    // Should have updated entities
   })
 })

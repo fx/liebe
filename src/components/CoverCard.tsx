@@ -250,10 +250,10 @@ function CoverCardComponent({
       isOn={coverState === 'open' || currentPosition > 0}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
-      title={error || (isStale ? 'Entity data may be outdated' : undefined)}
+      title={error || undefined}
       className="cover-card"
       style={{
-        borderWidth: isSelected || error || isStale ? '2px' : '1px',
+        borderWidth: isSelected || error ? '2px' : '1px',
       }}
     >
       <Flex
