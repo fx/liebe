@@ -16,6 +16,7 @@ import { GridCardWithComponents as GridCard } from '../GridCard'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
 import { getWeatherBackground } from '~/utils/weatherBackgrounds'
+import { getWeatherTextStyles, getWeatherTextColor } from '~/utils/weatherCardStyles'
 
 interface WeatherAttributes extends EntityAttributes {
   temperature?: number
@@ -120,6 +121,8 @@ function WeatherCardDetailedContent(props: CardProps) {
 
   // Get background image for the current weather condition
   const backgroundImage = getWeatherBackground(entity.state)
+  const styles = getWeatherTextStyles(!!backgroundImage)
+  const emphasisStyles = getWeatherTextStyles(!!backgroundImage, 'emphasis')
 
   // Handle unavailable state
   if (isUnavailable) {
@@ -171,18 +174,6 @@ function WeatherCardDetailedContent(props: CardProps) {
         position: 'relative',
       }}
     >
-      {/* Overlay for text legibility */}
-      {backgroundImage && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 100%)',
-            borderRadius: 'inherit',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
       <Flex
         direction="column"
         gap="3"
@@ -194,28 +185,17 @@ function WeatherCardDetailedContent(props: CardProps) {
         <Flex align="center" justify="between">
           <Box>
             <GridCard.Title>
-              <Heading
-                size={size === 'large' ? '4' : '3'}
-                style={{
-                  color: backgroundImage ? 'white' : undefined,
-                  textShadow: backgroundImage
-                    ? '0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)'
-                    : undefined,
-                }}
-              >
+              <Heading size={size === 'large' ? '4' : '3'} style={emphasisStyles.text}>
                 {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
               </Heading>
             </GridCard.Title>
             <GridCard.Status>
               <Text
                 size="2"
-                color={backgroundImage ? undefined : 'gray'}
+                color={getWeatherTextColor(!!backgroundImage, 'gray')}
                 style={{
+                  ...styles.text,
                   textTransform: 'capitalize',
-                  color: backgroundImage ? 'white' : undefined,
-                  textShadow: backgroundImage
-                    ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                    : undefined,
                 }}
               >
                 {entity.state}
@@ -243,37 +223,23 @@ function WeatherCardDetailedContent(props: CardProps) {
                 <Thermometer
                   size={20}
                   style={{
+                    ...styles.icon,
                     color: backgroundImage
                       ? 'white'
                       : isStale
                         ? 'var(--orange-9)'
                         : 'var(--gray-9)',
-                    filter: backgroundImage ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : undefined,
                   }}
                 />
                 <Flex direction="column" gap="0">
                   <Text
                     size="1"
-                    color={backgroundImage ? undefined : 'gray'}
-                    style={{
-                      color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage
-                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                        : undefined,
-                    }}
+                    color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                    style={styles.text}
                   >
                     Temperature
                   </Text>
-                  <Text
-                    size="4"
-                    weight="bold"
-                    style={{
-                      color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage
-                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                        : undefined,
-                    }}
-                  >
+                  <Text size="4" weight="bold" style={styles.text}>
                     {Math.round(tempDisplay.value)}
                     {tempDisplay.unit}
                   </Text>
@@ -286,33 +252,19 @@ function WeatherCardDetailedContent(props: CardProps) {
                 <Droplets
                   size={18}
                   style={{
+                    ...styles.icon,
                     color: backgroundImage ? 'white' : 'var(--gray-9)',
-                    filter: backgroundImage ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : undefined,
                   }}
                 />
                 <Flex direction="column" gap="0">
                   <Text
                     size="1"
-                    color={backgroundImage ? undefined : 'gray'}
-                    style={{
-                      color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage
-                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                        : undefined,
-                    }}
+                    color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                    style={styles.text}
                   >
                     Humidity
                   </Text>
-                  <Text
-                    size="3"
-                    weight="bold"
-                    style={{
-                      color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage
-                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                        : undefined,
-                    }}
-                  >
+                  <Text size="3" weight="bold" style={styles.text}>
                     {humidity}%
                   </Text>
                 </Flex>
@@ -324,33 +276,19 @@ function WeatherCardDetailedContent(props: CardProps) {
                 <Gauge
                   size={18}
                   style={{
+                    ...styles.icon,
                     color: backgroundImage ? 'white' : 'var(--gray-9)',
-                    filter: backgroundImage ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : undefined,
                   }}
                 />
                 <Flex direction="column" gap="0">
                   <Text
                     size="1"
-                    color={backgroundImage ? undefined : 'gray'}
-                    style={{
-                      color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage
-                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                        : undefined,
-                    }}
+                    color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                    style={styles.text}
                   >
                     Pressure
                   </Text>
-                  <Text
-                    size="3"
-                    weight="bold"
-                    style={{
-                      color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage
-                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                        : undefined,
-                    }}
-                  >
+                  <Text size="3" weight="bold" style={styles.text}>
                     {Math.round(pressure)} hPa
                   </Text>
                 </Flex>

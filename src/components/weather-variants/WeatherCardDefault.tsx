@@ -175,18 +175,6 @@ function WeatherCardDefaultContent(props: CardProps) {
         position: 'relative',
       }}
     >
-      {/* Overlay for text legibility */}
-      {backgroundImage && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 100%)',
-            borderRadius: 'inherit',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
       <Flex
         direction="column"
         gap="2"
@@ -240,16 +228,7 @@ function WeatherCardDefaultContent(props: CardProps) {
                     filter: backgroundImage ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : undefined,
                   }}
                 />
-                <Text
-                  size="3"
-                  weight="bold"
-                  style={{
-                    color: backgroundImage ? 'white' : undefined,
-                    textShadow: backgroundImage
-                      ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                      : undefined,
-                  }}
-                >
+                <Text size="3" weight="bold">
                   {Math.round(tempDisplay.value)}
                   {tempDisplay.unit}
                 </Text>

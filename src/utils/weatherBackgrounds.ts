@@ -21,52 +21,52 @@ export function getWeatherBackground(condition: string): string | null {
 
   // Direct mapping for standard Pirate Weather icons
   const backgroundMap: Record<string, string> = {
-    'clear-day': `${baseUrl}weather-backgrounds/clear-day.jpg`,
-    'clear-night': `${baseUrl}weather-backgrounds/clear-night.jpg`,
-    rain: `${baseUrl}weather-backgrounds/rain.jpg`,
-    snow: `${baseUrl}weather-backgrounds/snow.jpg`,
-    sleet: `${baseUrl}weather-backgrounds/rain.jpg`, // Use rain background for sleet
-    wind: `${baseUrl}weather-backgrounds/wind.jpg`,
-    fog: `${baseUrl}weather-backgrounds/fog.jpg`,
-    cloudy: `${baseUrl}weather-backgrounds/cloudy.jpg`,
-    'partly-cloudy-day': `${baseUrl}weather-backgrounds/partly-cloudy-day.jpg`,
-    'partly-cloudy-night': `${baseUrl}weather-backgrounds/partly-cloudy-night.jpg`,
+    'clear-day': `${baseUrl}weather-backgrounds/clear-day.png`,
+    'clear-night': `${baseUrl}weather-backgrounds/clear-night.png`,
+    rain: `${baseUrl}weather-backgrounds/rain.png`,
+    snow: `${baseUrl}weather-backgrounds/snow.png`,
+    sleet: `${baseUrl}weather-backgrounds/sleet.png`,
+    wind: `${baseUrl}weather-backgrounds/wind.png`,
+    fog: `${baseUrl}weather-backgrounds/fog.png`,
+    cloudy: `${baseUrl}weather-backgrounds/cloudy.png`,
+    'partly-cloudy-day': `${baseUrl}weather-backgrounds/partly-cloudy-day.png`,
+    'partly-cloudy-night': `${baseUrl}weather-backgrounds/partly-cloudy-night.png`,
 
     // Additional Pirate Weather icons (with icon=pirate)
-    'mostly-clear-day': `${baseUrl}weather-backgrounds/clear-day.jpg`,
-    'mostly-clear-night': `${baseUrl}weather-backgrounds/clear-night.jpg`,
-    'mostly-cloudy-day': `${baseUrl}weather-backgrounds/cloudy.jpg`,
-    'mostly-cloudy-night': `${baseUrl}weather-backgrounds/cloudy.jpg`,
-    'possible-rain-day': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'possible-rain-night': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'possible-snow-day': `${baseUrl}weather-backgrounds/snow.jpg`,
-    'possible-snow-night': `${baseUrl}weather-backgrounds/snow.jpg`,
-    'possible-sleet-day': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'possible-sleet-night': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'possible-precipitation-day': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'possible-precipitation-night': `${baseUrl}weather-backgrounds/rain.jpg`,
-    precipitation: `${baseUrl}weather-backgrounds/rain.jpg`,
-    drizzle: `${baseUrl}weather-backgrounds/rain.jpg`,
-    'light-rain': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'heavy-rain': `${baseUrl}weather-backgrounds/rain.jpg`,
-    flurries: `${baseUrl}weather-backgrounds/snow.jpg`,
-    'light-snow': `${baseUrl}weather-backgrounds/snow.jpg`,
-    'heavy-snow': `${baseUrl}weather-backgrounds/snow.jpg`,
-    'very-light-sleet': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'light-sleet': `${baseUrl}weather-backgrounds/rain.jpg`,
-    'heavy-sleet': `${baseUrl}weather-backgrounds/rain.jpg`,
-    breezy: `${baseUrl}weather-backgrounds/wind.jpg`,
-    'dangerous-wind': `${baseUrl}weather-backgrounds/wind.jpg`,
+    'mostly-clear-day': `${baseUrl}weather-backgrounds/clear-day.png`,
+    'mostly-clear-night': `${baseUrl}weather-backgrounds/clear-night.png`,
+    'mostly-cloudy-day': `${baseUrl}weather-backgrounds/cloudy.png`,
+    'mostly-cloudy-night': `${baseUrl}weather-backgrounds/cloudy.png`,
+    'possible-rain-day': `${baseUrl}weather-backgrounds/rain.png`,
+    'possible-rain-night': `${baseUrl}weather-backgrounds/rain.png`,
+    'possible-snow-day': `${baseUrl}weather-backgrounds/snow.png`,
+    'possible-snow-night': `${baseUrl}weather-backgrounds/snow.png`,
+    'possible-sleet-day': `${baseUrl}weather-backgrounds/sleet.png`,
+    'possible-sleet-night': `${baseUrl}weather-backgrounds/sleet.png`,
+    'possible-precipitation-day': `${baseUrl}weather-backgrounds/rain.png`,
+    'possible-precipitation-night': `${baseUrl}weather-backgrounds/rain.png`,
+    precipitation: `${baseUrl}weather-backgrounds/rain.png`,
+    drizzle: `${baseUrl}weather-backgrounds/rain.png`,
+    'light-rain': `${baseUrl}weather-backgrounds/rain.png`,
+    'heavy-rain': `${baseUrl}weather-backgrounds/rain.png`,
+    flurries: `${baseUrl}weather-backgrounds/snow.png`,
+    'light-snow': `${baseUrl}weather-backgrounds/snow.png`,
+    'heavy-snow': `${baseUrl}weather-backgrounds/snow.png`,
+    'very-light-sleet': `${baseUrl}weather-backgrounds/sleet.png`,
+    'light-sleet': `${baseUrl}weather-backgrounds/sleet.png`,
+    'heavy-sleet': `${baseUrl}weather-backgrounds/sleet.png`,
+    breezy: `${baseUrl}weather-backgrounds/wind.png`,
+    'dangerous-wind': `${baseUrl}weather-backgrounds/wind.png`,
 
     // Common weather conditions (for non-Pirate Weather integrations)
-    sunny: `${baseUrl}weather-backgrounds/clear-day.jpg`,
-    clear: `${baseUrl}weather-backgrounds/clear-day.jpg`,
-    rainy: `${baseUrl}weather-backgrounds/rain.jpg`,
-    snowy: `${baseUrl}weather-backgrounds/snow.jpg`,
-    windy: `${baseUrl}weather-backgrounds/wind.jpg`,
-    foggy: `${baseUrl}weather-backgrounds/fog.jpg`,
-    overcast: `${baseUrl}weather-backgrounds/cloudy.jpg`,
-    partlycloudy: `${baseUrl}weather-backgrounds/partly-cloudy-day.jpg`,
+    sunny: `${baseUrl}weather-backgrounds/clear-day.png`,
+    clear: `${baseUrl}weather-backgrounds/clear-day.png`,
+    rainy: `${baseUrl}weather-backgrounds/rain.png`,
+    snowy: `${baseUrl}weather-backgrounds/snow.png`,
+    windy: `${baseUrl}weather-backgrounds/wind.png`,
+    foggy: `${baseUrl}weather-backgrounds/fog.png`,
+    overcast: `${baseUrl}weather-backgrounds/cloudy.png`,
+    partlycloudy: `${baseUrl}weather-backgrounds/partly-cloudy-day.png`,
   }
 
   // Check for direct match
@@ -77,33 +77,33 @@ export function getWeatherBackground(condition: string): string | null {
   // Check for partial matches
   if (normalizedCondition.includes('clear') || normalizedCondition.includes('sunny')) {
     return normalizedCondition.includes('night')
-      ? `${baseUrl}weather-backgrounds/clear-night.jpg`
-      : `${baseUrl}weather-backgrounds/clear-day.jpg`
+      ? `${baseUrl}weather-backgrounds/clear-night.png`
+      : `${baseUrl}weather-backgrounds/clear-day.png`
   }
 
   if (normalizedCondition.includes('rain')) {
-    return `${baseUrl}weather-backgrounds/rain.jpg`
+    return `${baseUrl}weather-backgrounds/rain.png`
   }
 
   if (normalizedCondition.includes('snow')) {
-    return `${baseUrl}weather-backgrounds/snow.jpg`
+    return `${baseUrl}weather-backgrounds/snow.png`
   }
 
   if (normalizedCondition.includes('cloud')) {
     if (normalizedCondition.includes('partly') || normalizedCondition.includes('mostly')) {
       return normalizedCondition.includes('night')
-        ? `${baseUrl}weather-backgrounds/partly-cloudy-night.jpg`
-        : `${baseUrl}weather-backgrounds/partly-cloudy-day.jpg`
+        ? `${baseUrl}weather-backgrounds/partly-cloudy-night.png`
+        : `${baseUrl}weather-backgrounds/partly-cloudy-day.png`
     }
-    return `${baseUrl}weather-backgrounds/cloudy.jpg`
+    return `${baseUrl}weather-backgrounds/cloudy.png`
   }
 
   if (normalizedCondition.includes('wind') || normalizedCondition.includes('breezy')) {
-    return `${baseUrl}weather-backgrounds/wind.jpg`
+    return `${baseUrl}weather-backgrounds/wind.png`
   }
 
   if (normalizedCondition.includes('fog') || normalizedCondition.includes('mist')) {
-    return `${baseUrl}weather-backgrounds/fog.jpg`
+    return `${baseUrl}weather-backgrounds/fog.png`
   }
 
   // Default to null if no match found

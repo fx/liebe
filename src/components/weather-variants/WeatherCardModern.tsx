@@ -6,6 +6,7 @@ import { GridCard } from '../GridCard'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
 import { getWeatherBackground } from '~/utils/weatherBackgrounds'
+import { getWeatherTextStyles, getWeatherTextColor } from '~/utils/weatherCardStyles'
 
 interface WeatherAttributes extends EntityAttributes {
   temperature?: number
@@ -108,6 +109,8 @@ function WeatherCardModernContent(props: CardProps) {
 
   // Get background image for the current weather condition
   const backgroundImage = getWeatherBackground(entity.state)
+  const styles = getWeatherTextStyles(!!backgroundImage)
+  const emphasisStyles = getWeatherTextStyles(!!backgroundImage, 'emphasis')
 
   // Handle unavailable state
   if (isUnavailable) {
@@ -153,18 +156,6 @@ function WeatherCardModernContent(props: CardProps) {
         position: 'relative',
       }}
     >
-      {/* Overlay for text legibility */}
-      {backgroundImage && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 100%)',
-            borderRadius: 'inherit',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
       <Flex
         direction="column"
         align="center"
@@ -178,42 +169,24 @@ function WeatherCardModernContent(props: CardProps) {
       >
         <Box
           style={{
+            ...styles.icon,
             color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--accent-9)',
             opacity: isStale ? 0.6 : 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            filter: backgroundImage ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' : undefined,
           }}
         >
           {getWeatherIcon(entity.state, iconSize)}
         </Box>
 
         <Flex direction="column" align="center" gap="1">
-          <Text
-            size="2"
-            color={backgroundImage ? undefined : 'gray'}
-            style={{
-              color: backgroundImage ? 'white' : undefined,
-              textShadow: backgroundImage
-                ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                : undefined,
-            }}
-          >
+          <Text size="2" color={getWeatherTextColor(!!backgroundImage, 'gray')} style={styles.text}>
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
           </Text>
 
           {tempDisplay && (
-            <Text
-              size={size === 'large' ? '6' : '5'}
-              weight="bold"
-              style={{
-                color: backgroundImage ? 'white' : undefined,
-                textShadow: backgroundImage
-                  ? '0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)'
-                  : undefined,
-              }}
-            >
+            <Text size={size === 'large' ? '6' : '5'} weight="bold" style={emphasisStyles.text}>
               {Math.round(tempDisplay.value)}
               {tempDisplay.unit}
             </Text>
@@ -222,13 +195,8 @@ function WeatherCardModernContent(props: CardProps) {
           {humidity !== undefined && (
             <Text
               size="2"
-              color={backgroundImage ? undefined : 'gray'}
-              style={{
-                color: backgroundImage ? 'white' : undefined,
-                textShadow: backgroundImage
-                  ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
-                  : undefined,
-              }}
+              color={getWeatherTextColor(!!backgroundImage, 'gray')}
+              style={styles.text}
             >
               {humidity}% humidity
             </Text>
@@ -239,10 +207,9 @@ function WeatherCardModernContent(props: CardProps) {
           size="3"
           weight="medium"
           style={{
+            ...styles.text,
             textTransform: 'capitalize',
             marginTop: 'auto',
-            color: backgroundImage ? 'white' : undefined,
-            textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
           }}
         >
           {entity.state}
