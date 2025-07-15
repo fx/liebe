@@ -177,7 +177,7 @@ function WeatherCardDetailedContent(props: CardProps) {
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 100%)',
             borderRadius: 'inherit',
             pointerEvents: 'none',
           }}
@@ -198,7 +198,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                 size={size === 'large' ? '4' : '3'}
                 style={{
                   color: backgroundImage ? 'white' : undefined,
-                  textShadow: backgroundImage ? '0 2px 4px rgba(0,0,0,0.8)' : undefined,
+                  textShadow: backgroundImage
+                    ? '0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)'
+                    : undefined,
                 }}
               >
                 {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
@@ -211,7 +213,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                 style={{
                   textTransform: 'capitalize',
                   color: backgroundImage ? 'white' : undefined,
-                  textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                  textShadow: backgroundImage
+                    ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                    : undefined,
                 }}
               >
                 {entity.state}
@@ -253,7 +257,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                     color={backgroundImage ? undefined : 'gray'}
                     style={{
                       color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                      textShadow: backgroundImage
+                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                        : undefined,
                     }}
                   >
                     Temperature
@@ -263,7 +269,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                     weight="bold"
                     style={{
                       color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                      textShadow: backgroundImage
+                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                        : undefined,
                     }}
                   >
                     {Math.round(tempDisplay.value)}
@@ -288,7 +296,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                     color={backgroundImage ? undefined : 'gray'}
                     style={{
                       color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                      textShadow: backgroundImage
+                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                        : undefined,
                     }}
                   >
                     Humidity
@@ -298,7 +308,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                     weight="bold"
                     style={{
                       color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                      textShadow: backgroundImage
+                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                        : undefined,
                     }}
                   >
                     {humidity}%
@@ -322,7 +334,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                     color={backgroundImage ? undefined : 'gray'}
                     style={{
                       color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                      textShadow: backgroundImage
+                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                        : undefined,
                     }}
                   >
                     Pressure
@@ -332,7 +346,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                     weight="bold"
                     style={{
                       color: backgroundImage ? 'white' : undefined,
-                      textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                      textShadow: backgroundImage
+                        ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                        : undefined,
                     }}
                   >
                     {Math.round(pressure)} hPa

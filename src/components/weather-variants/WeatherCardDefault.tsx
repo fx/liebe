@@ -181,7 +181,7 @@ function WeatherCardDefaultContent(props: CardProps) {
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 100%)',
             borderRadius: 'inherit',
             pointerEvents: 'none',
           }}
@@ -216,7 +216,9 @@ function WeatherCardDefaultContent(props: CardProps) {
             weight="medium"
             style={{
               color: backgroundImage ? 'white' : undefined,
-              textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+              textShadow: backgroundImage
+                ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                : undefined,
             }}
           >
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
@@ -243,7 +245,9 @@ function WeatherCardDefaultContent(props: CardProps) {
                   weight="bold"
                   style={{
                     color: backgroundImage ? 'white' : undefined,
-                    textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                    textShadow: backgroundImage
+                      ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                      : undefined,
                   }}
                 >
                   {Math.round(tempDisplay.value)}
@@ -266,7 +270,9 @@ function WeatherCardDefaultContent(props: CardProps) {
                   color={backgroundImage ? undefined : 'gray'}
                   style={{
                     color: backgroundImage ? 'white' : undefined,
-                    textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+                    textShadow: backgroundImage
+                      ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                      : undefined,
                   }}
                 >
                   {humidity}%
@@ -283,7 +289,9 @@ function WeatherCardDefaultContent(props: CardProps) {
             style={{
               textTransform: 'capitalize',
               color: backgroundImage ? 'white' : undefined,
-              textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+              textShadow: backgroundImage
+                ? '0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.4)'
+                : undefined,
             }}
           >
             {entity.state}
