@@ -1007,3 +1007,52 @@ panel_custom:
     url_path: liebe
     module_url: https://fx.github.io/liebe/panel.js
 ```
+
+## Code Organization Best Practices
+
+### Component-Specific Code
+
+**IMPORTANT**: Code that pertains to a specific component should be contained within that component's directory, not spread across utility files.
+
+**Bad Practice** ❌:
+
+```
+src/
+  components/
+    WeatherCard.tsx
+  utils/
+    weatherCardStyles.ts    # Component-specific styles in utils
+    weatherBackgrounds.ts   # Component-specific logic in utils
+```
+
+**Good Practice** ✅:
+
+```
+src/
+  components/
+    WeatherCard/
+      index.tsx            # Main component with utilities
+      WeatherCardDefault.tsx
+      WeatherCardModern.tsx
+      WeatherCardDetailed.tsx
+      WeatherCardMinimal.tsx
+```
+
+### Component Folder Structure
+
+When a component has multiple variants or related files:
+
+1. **Create a folder** named after the component (e.g., `WeatherCard/`)
+2. **Use `index.tsx`** as the main component file that:
+   - Contains the default export
+   - Includes any component-specific utilities
+   - Handles variant selection logic
+3. **Place variants** in the same folder with descriptive names
+4. **Keep utilities** that are specific to the component within the component files
+
+This approach:
+
+- Improves code locality and discoverability
+- Makes components self-contained
+- Reduces cognitive overhead by keeping related code together
+- Prevents the utils folder from becoming a dumping ground

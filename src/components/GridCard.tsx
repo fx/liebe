@@ -26,6 +26,7 @@ export interface GridCardProps {
   onFullscreenChange?: (fullscreen: boolean) => void
   fullscreenContent?: React.ReactNode
   transparent?: boolean
+  backdrop?: boolean | string
 }
 
 interface GridCardContextValue {
@@ -64,6 +65,7 @@ export const GridCard = React.memo(
         isFullscreen = false,
         onFullscreenChange,
         fullscreenContent,
+        backdrop,
       },
       ref
     ) => {
@@ -156,7 +158,14 @@ export const GridCard = React.memo(
               background: 'transparent',
             }
           : {}),
-      }
+        // Override backdrop filter using CSS variables
+        ...(backdrop !== undefined
+          ? {
+              '--backdrop-filter-panel':
+                backdrop === false ? 'none' : backdrop === true ? undefined : backdrop,
+            }
+          : {}),
+      } as React.CSSProperties
 
       const CardElement = transparent && !isEditMode ? 'div' : Card
 

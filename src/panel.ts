@@ -133,10 +133,16 @@ class LiebePanel extends HTMLElement {
       container.style.height = '100%'
       shadow.appendChild(container)
 
-      // Load CSS
+      // Load CSS and set base URL for assets
       const script = document.currentScript || document.querySelector('script[src*="panel.js"]')
       if (script && 'src' in script) {
-        const cssUrl = new URL(script.src).href.replace(/panel\.js$/, 'liebe.css')
+        const baseUrl = new URL(script.src).href.replace(/panel\.js$/, '')
+
+        // Store base URL globally for asset loading
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(window as any).__LIEBE_ASSET_BASE_URL__ = baseUrl
+
+        const cssUrl = `${baseUrl}liebe.css`
         const link = document.createElement('link')
         link.rel = 'stylesheet'
         link.href = cssUrl

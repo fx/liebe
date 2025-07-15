@@ -5,6 +5,7 @@ import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
+import { getWeatherBackground, getWeatherTextStyles } from './index'
 
 interface WeatherAttributes extends EntityAttributes {
   temperature?: number
@@ -124,6 +125,7 @@ function WeatherCardDefaultContent(props: CardProps) {
         onDelete={onDelete}
         onConfigure={onConfigure}
         hasConfiguration={!!onConfigure}
+        backdrop={false}
       >
         <Flex direction="column" align="center" justify="center" gap="2">
           <GridCard.Icon>
@@ -153,6 +155,11 @@ function WeatherCardDefaultContent(props: CardProps) {
     )
   }
 
+  // Get background image for the current weather condition
+  const backgroundImage = getWeatherBackground(entity.state)
+  const textStyles = getWeatherTextStyles(!!backgroundImage)
+  const iconStyles = textStyles.icon
+
   return (
     <GridCard
       size={size}
@@ -163,12 +170,32 @@ function WeatherCardDefaultContent(props: CardProps) {
       onConfigure={onConfigure}
       hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}
+      backdrop={!backgroundImage}
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        position: 'relative',
+      }}
     >
-      <Flex direction="column" gap="2">
+      <Flex
+        direction="column"
+        gap="2"
+        style={{
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
         <GridCard.Icon>
           <span
             style={{
-              color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+              color: backgroundImage
+                ? iconStyles.color
+                : isStale
+                  ? 'var(--orange-9)'
+                  : 'var(--accent-9)',
+              filter: backgroundImage ? iconStyles.filter : undefined,
               opacity: isStale ? 0.6 : 1,
               transform: `scale(${iconScale})`,
               display: 'flex',
@@ -181,7 +208,7 @@ function WeatherCardDefaultContent(props: CardProps) {
         </GridCard.Icon>
 
         <GridCard.Title>
-          <Text weight="medium">
+          <Text weight="medium" style={backgroundImage ? textStyles.text : {}}>
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
           </Text>
         </GridCard.Title>
@@ -192,9 +219,16 @@ function WeatherCardDefaultContent(props: CardProps) {
               <Flex align="center" gap="1">
                 <Thermometer
                   size={18}
-                  style={{ color: isStale ? 'var(--orange-9)' : 'var(--gray-9)' }}
+                  style={{
+                    color: backgroundImage
+                      ? iconStyles.color
+                      : isStale
+                        ? 'var(--orange-9)'
+                        : 'var(--gray-9)',
+                    filter: backgroundImage ? iconStyles.filter : undefined,
+                  }}
                 />
-                <Text size="3" weight="bold">
+                <Text size="3" weight="bold" style={backgroundImage ? textStyles.text : {}}>
                   {Math.round(tempDisplay.value)}
                   {tempDisplay.unit}
                 </Text>
@@ -203,8 +237,18 @@ function WeatherCardDefaultContent(props: CardProps) {
 
             {humidity !== undefined && (
               <Flex align="center" gap="1">
-                <Droplets size={18} style={{ color: 'var(--gray-9)' }} />
-                <Text size="2" color="gray">
+                <Droplets
+                  size={18}
+                  style={{
+                    color: backgroundImage ? iconStyles.color : 'var(--gray-9)',
+                    filter: backgroundImage ? iconStyles.filter : undefined,
+                  }}
+                />
+                <Text
+                  size="2"
+                  color={backgroundImage ? undefined : 'gray'}
+                  style={backgroundImage ? textStyles.text : {}}
+                >
                   {humidity}%
                 </Text>
               </Flex>
@@ -213,7 +257,14 @@ function WeatherCardDefaultContent(props: CardProps) {
         </GridCard.Controls>
 
         <GridCard.Status>
-          <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
+          <Text
+            size="2"
+            color={backgroundImage ? undefined : 'gray'}
+            style={{
+              textTransform: 'capitalize',
+              ...(backgroundImage ? textStyles.text : {}),
+            }}
+          >
             {entity.state}
           </Text>
         </GridCard.Status>

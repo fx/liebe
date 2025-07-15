@@ -1,5 +1,4 @@
-import { Flex, Text, Box } from '@radix-ui/themes'
-import { Cloud, CloudRain, CloudSnow, Sun, CloudDrizzle, Zap } from 'lucide-react'
+import { Flex, Text } from '@radix-ui/themes'
 import { useEntity } from '../../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCard } from '../GridCard'
@@ -9,7 +8,6 @@ import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
 interface WeatherAttributes extends EntityAttributes {
   temperature?: number
   temperature_unit?: string
-  humidity?: number
 }
 
 interface WeatherEntity extends HassEntity {
@@ -18,19 +16,6 @@ interface WeatherEntity extends HassEntity {
 
 interface WeatherCardConfig {
   temperatureUnit?: 'auto' | 'celsius' | 'fahrenheit'
-}
-
-function getWeatherIcon(condition: string, size: number = 24) {
-  const lowerCondition = condition.toLowerCase()
-  const IconComponent = (() => {
-    if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return Sun
-    if (lowerCondition.includes('rain')) return CloudRain
-    if (lowerCondition.includes('drizzle')) return CloudDrizzle
-    if (lowerCondition.includes('snow')) return CloudSnow
-    if (lowerCondition.includes('thunder') || lowerCondition.includes('lightning')) return Zap
-    return Cloud
-  })()
-  return <IconComponent size={size} />
 }
 
 function convertTemperature(
@@ -62,7 +47,7 @@ function getTemperatureDisplay(
   return { value: convertedTemp, unit: configUnit === 'fahrenheit' ? '°F' : '°C' }
 }
 
-function WeatherCardModernContent(props: CardProps) {
+function WeatherCardMinimalContent(props: CardProps) {
   const {
     entityId,
     size = 'medium',
@@ -73,11 +58,11 @@ function WeatherCardModernContent(props: CardProps) {
     onConfigure,
   } = props
   const weatherConfig = config as WeatherCardConfig
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard size={size} showIcon={false} lines={1} />
   }
 
   // Show error state when disconnected or entity not found
@@ -94,7 +79,6 @@ function WeatherCardModernContent(props: CardProps) {
 
   const weatherEntity = entity as WeatherEntity
   const temp = weatherEntity.attributes?.temperature
-  const humidity = weatherEntity.attributes?.humidity
   const tempUnit = weatherEntity.attributes?.temperature_unit
   const tempDisplay = getTemperatureDisplay(
     temp,
@@ -102,8 +86,6 @@ function WeatherCardModernContent(props: CardProps) {
     weatherConfig?.temperatureUnit || 'auto'
   )
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
-
-  const iconSize = size === 'large' ? 64 : size === 'medium' ? 48 : 36
 
   // Handle unavailable state
   if (isUnavailable) {
@@ -115,11 +97,9 @@ function WeatherCardModernContent(props: CardProps) {
         onDelete={onDelete}
         onConfigure={onConfigure}
         hasConfiguration={!!onConfigure}
+        backdrop={false}
       >
-        <Flex direction="column" align="center" justify="center" gap="3" height="100%">
-          <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
-            {getWeatherIcon(entity.state, iconSize)}
-          </Box>
+        <Flex direction="column" align="center" justify="center" gap="2" height="100%">
           <Text size="2" color="gray">
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
           </Text>
@@ -134,47 +114,24 @@ function WeatherCardModernContent(props: CardProps) {
   return (
     <GridCard
       size={size}
-      isStale={isStale}
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onConfigure={onConfigure}
       hasConfiguration={!!onConfigure}
-      title={isStale ? 'Weather data may be outdated' : undefined}
+      transparent={true}
     >
-      <Flex direction="column" align="center" justify="center" gap="3" height="100%">
-        <Box
-          style={{
-            color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
-            opacity: isStale ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {getWeatherIcon(entity.state, iconSize)}
-        </Box>
-
-        <Flex direction="column" align="center" gap="1">
-          <Text size="2" color="gray">
-            {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
+      <Flex direction="column" align="center" justify="center" gap="2" height="100%">
+        <Text size="2" color="gray">
+          {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
+        </Text>
+        {tempDisplay && (
+          <Text size={size === 'large' ? '8' : size === 'medium' ? '7' : '6'} weight="bold">
+            {Math.round(tempDisplay.value)}
+            {tempDisplay.unit}
           </Text>
-
-          {tempDisplay && (
-            <Text size={size === 'large' ? '6' : '5'} weight="bold">
-              {Math.round(tempDisplay.value)}
-              {tempDisplay.unit}
-            </Text>
-          )}
-
-          {humidity !== undefined && (
-            <Text size="2" color="gray">
-              {humidity}% humidity
-            </Text>
-          )}
-        </Flex>
-
-        <Text size="3" weight="medium" style={{ textTransform: 'capitalize', marginTop: 'auto' }}>
+        )}
+        <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
           {entity.state}
         </Text>
       </Flex>
@@ -182,14 +139,14 @@ function WeatherCardModernContent(props: CardProps) {
   )
 }
 
-function WeatherCardModernWithBoundary(props: CardProps) {
+function WeatherCardMinimalWithBoundary(props: CardProps) {
   return (
     <ErrorBoundary>
-      <WeatherCardModernContent {...props} />
+      <WeatherCardMinimalContent {...props} />
     </ErrorBoundary>
   )
 }
 
-export const WeatherCardModern = Object.assign(WeatherCardModernWithBoundary, {
-  defaultDimensions: { width: 3, height: 3 },
+export const WeatherCardMinimal = Object.assign(WeatherCardMinimalWithBoundary, {
+  defaultDimensions: { width: 2, height: 2 },
 })
