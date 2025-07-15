@@ -216,29 +216,8 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         }
       }
 
-      // Debug logging every 5 seconds
+      // Update debug timer without logging
       if (now - debugLogTimer >= 5000) {
-        const fps = ((frameCount - lastDebugFrameCount) / 5).toFixed(1)
-        const hasVideoFrameCallback = 'requestVideoFrameCallback' in video
-        console.log(`[WebRTC Debug] ${entityId} Frame Stats:`, {
-          fps,
-          currentTime: currentTime.toFixed(2),
-          decodedFrames: videoFrames,
-          videoDimensions: `${video.videoWidth}x${video.videoHeight}`,
-          readyState: video.readyState,
-          networkState: video.networkState,
-          buffered:
-            video.buffered.length > 0
-              ? `${video.buffered.start(0).toFixed(1)}-${video.buffered.end(0).toFixed(1)}`
-              : 'none',
-          isReceivingFrames,
-          hasVideoFrameCallback,
-          usingVideoFrameCallback: hasVideoFrameCallback && videoFrameCallbackId !== null,
-          timeSinceLastFrame:
-            frameMonitorRef.current.lastFrameTime > 0
-              ? `${now - frameMonitorRef.current.lastFrameTime}ms`
-              : 'N/A',
-        })
         debugLogTimer = now
         lastDebugFrameCount = frameCount
       }

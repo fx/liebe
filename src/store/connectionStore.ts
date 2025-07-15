@@ -76,17 +76,24 @@ export const connectionActions = {
   },
 
   setConnected: () => {
-    connectionStore.setState((state) => ({
-      ...state,
-      status: 'connected',
-      details: 'Connected',
-      lastConnectedTime: Date.now(),
-      reconnectAttempts: 0,
-      isWebSocketConnected: true,
-      isEntityStoreConnected: true,
-      error: null,
-      log: addLogEntry(state, { status: 'connected', details: 'Connected' }),
-    }))
+    connectionStore.setState((state) => {
+      // Only update if not already connected
+      if (state.status === 'connected') {
+        return state
+      }
+
+      return {
+        ...state,
+        status: 'connected',
+        details: 'Connected',
+        lastConnectedTime: Date.now(),
+        reconnectAttempts: 0,
+        isWebSocketConnected: true,
+        isEntityStoreConnected: true,
+        error: null,
+        log: addLogEntry(state, { status: 'connected', details: 'Connected' }),
+      }
+    })
   },
 
   setReconnecting: (attempt: number, details: string = 'Reconnecting...') => {
