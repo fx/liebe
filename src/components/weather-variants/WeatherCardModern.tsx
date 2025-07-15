@@ -5,6 +5,7 @@ import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCard } from '../GridCard'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
+import { getWeatherBackground } from '~/utils/weatherBackgrounds'
 
 interface WeatherAttributes extends EntityAttributes {
   temperature?: number
@@ -105,6 +106,9 @@ function WeatherCardModernContent(props: CardProps) {
 
   const iconSize = size === 'large' ? 64 : size === 'medium' ? 48 : 36
 
+  // Get background image for the current weather condition
+  const backgroundImage = getWeatherBackground(entity.state)
+
   // Handle unavailable state
   if (isUnavailable) {
     return (
@@ -141,40 +145,100 @@ function WeatherCardModernContent(props: CardProps) {
       onConfigure={onConfigure}
       hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        position: 'relative',
+      }}
     >
-      <Flex direction="column" align="center" justify="center" gap="3" height="100%">
+      {/* Overlay for text legibility */}
+      {backgroundImage && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)',
+            borderRadius: 'inherit',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+      <Flex
+        direction="column"
+        align="center"
+        justify="center"
+        gap="3"
+        style={{
+          height: '100%',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
         <Box
           style={{
-            color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+            color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--accent-9)',
             opacity: isStale ? 0.6 : 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            filter: backgroundImage ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' : undefined,
           }}
         >
           {getWeatherIcon(entity.state, iconSize)}
         </Box>
 
         <Flex direction="column" align="center" gap="1">
-          <Text size="2" color="gray">
+          <Text
+            size="2"
+            color={backgroundImage ? undefined : 'gray'}
+            style={{
+              color: backgroundImage ? 'white' : undefined,
+              textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+            }}
+          >
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
           </Text>
 
           {tempDisplay && (
-            <Text size={size === 'large' ? '6' : '5'} weight="bold">
+            <Text
+              size={size === 'large' ? '6' : '5'}
+              weight="bold"
+              style={{
+                color: backgroundImage ? 'white' : undefined,
+                textShadow: backgroundImage ? '0 2px 4px rgba(0,0,0,0.8)' : undefined,
+              }}
+            >
               {Math.round(tempDisplay.value)}
               {tempDisplay.unit}
             </Text>
           )}
 
           {humidity !== undefined && (
-            <Text size="2" color="gray">
+            <Text
+              size="2"
+              color={backgroundImage ? undefined : 'gray'}
+              style={{
+                color: backgroundImage ? 'white' : undefined,
+                textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+              }}
+            >
               {humidity}% humidity
             </Text>
           )}
         </Flex>
 
-        <Text size="3" weight="medium" style={{ textTransform: 'capitalize', marginTop: 'auto' }}>
+        <Text
+          size="3"
+          weight="medium"
+          style={{
+            textTransform: 'capitalize',
+            marginTop: 'auto',
+            color: backgroundImage ? 'white' : undefined,
+            textShadow: backgroundImage ? '0 1px 2px rgba(0,0,0,0.8)' : undefined,
+          }}
+        >
           {entity.state}
         </Text>
       </Flex>
