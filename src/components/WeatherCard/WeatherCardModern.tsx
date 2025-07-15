@@ -5,8 +5,7 @@ import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCard } from '../GridCard'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
-import { getWeatherBackground } from '~/utils/weatherBackgrounds'
-import { getWeatherTextStyles, getWeatherTextColor } from '~/utils/weatherCardStyles'
+import { getWeatherBackground, getWeatherTextStyles, getWeatherTextColor } from './index'
 
 interface WeatherAttributes extends EntityAttributes {
   temperature?: number
@@ -122,6 +121,7 @@ function WeatherCardModernContent(props: CardProps) {
         onDelete={onDelete}
         onConfigure={onConfigure}
         hasConfiguration={!!onConfigure}
+        backdrop={false}
       >
         <Flex direction="column" align="center" justify="center" gap="3" height="100%">
           <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
@@ -148,6 +148,7 @@ function WeatherCardModernContent(props: CardProps) {
       onConfigure={onConfigure}
       hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}
+      backdrop={!backgroundImage}
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
         backgroundSize: 'cover',

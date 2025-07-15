@@ -97,6 +97,7 @@ function WeatherCardMinimalContent(props: CardProps) {
         onDelete={onDelete}
         onConfigure={onConfigure}
         hasConfiguration={!!onConfigure}
+        backdrop={false}
       >
         <Flex direction="column" align="center" justify="center" gap="2" height="100%">
           <Text size="2" color="gray">
