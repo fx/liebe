@@ -1,4 +1,4 @@
-import { Flex, Text, Button, Spinner } from '@radix-ui/themes'
+import { Flex, Text, Button, Spinner, Card, Badge, Separator, Grid } from '@radix-ui/themes'
 import {
   VideoIcon,
   ReloadIcon,
@@ -42,10 +42,14 @@ function CameraStats({
   size,
   hasFrameWarning,
   isStreaming,
+  videoElement,
+  peerConnection,
 }: {
   size: 'small' | 'medium' | 'large'
   hasFrameWarning: boolean
   isStreaming: boolean
+  videoElement: HTMLVideoElement | null
+  peerConnection: RTCPeerConnection | null
 }) {
   const scaleFactor = size === 'small' ? 0.64 : size === 'large' ? 0.96 : 0.8
   const [stats, setStats] = useState({
@@ -57,44 +61,271 @@ function CameraStats({
     resolution: '',
   })
 
-  // Update timestamp every second
+  // Update stats every second
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStats((prev) => ({
-        ...prev,
-        timestamp: new Date().toLocaleTimeString(),
-      }))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+    if (!videoElement) return
 
+    let lastTime = Date.now()
+    let lastDecodedFrames = 0
+    let lastBytesReceived = 0
+
+    const updateStats = async () => {
+      const now = Date.now()
+      const deltaTime = (now - lastTime) / 1000 // Convert to seconds
+
+      // Get video quality stats
+      const videoElem = videoElement as HTMLVideoElement & {
+        getVideoPlaybackQuality?: () => { totalVideoFrames?: number; droppedVideoFrames?: number }
+        webkitDecodedFrameCount?: number
+        webkitDroppedFrameCount?: number
+        mozDecodedFrames?: number
+        mozParsedFrames?: number
+      }
+      const videoQuality = videoElem.getVideoPlaybackQuality?.()
+      const currentDecodedFrames =
+        videoQuality?.totalVideoFrames ||
+        videoElem.webkitDecodedFrameCount ||
+        videoElem.mozDecodedFrames ||
+        0
+      const currentDroppedFrames =
+        videoQuality?.droppedVideoFrames ||
+        videoElem.webkitDroppedFrameCount ||
+        (videoElem.mozParsedFrames && videoElem.mozDecodedFrames
+          ? videoElem.mozParsedFrames - videoElem.mozDecodedFrames
+          : 0) ||
+        0
+
+      // Calculate FPS based on decoded frames
+      const framesDelta = currentDecodedFrames - lastDecodedFrames
+      const fps = deltaTime > 0 ? Math.round(framesDelta / deltaTime) : 0
+
+      // Get connection stats if available
+      let bitrate = 0
+      try {
+        if (peerConnection && peerConnection.getStats) {
+          const stats = await peerConnection.getStats()
+          stats.forEach((report) => {
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+              const rtpReport = report as RTCInboundRtpStreamStats
+              const bytesReceived = rtpReport.bytesReceived || 0
+              const bytesDelta = bytesReceived - lastBytesReceived
+              bitrate = deltaTime > 0 ? Math.round((bytesDelta * 8) / deltaTime / 1000) : 0 // kbps
+              lastBytesReceived = bytesReceived
+            }
+          })
+        }
+      } catch {
+        // Ignore errors getting stats
+      }
+
+      // Get video resolution
+      const resolution =
+        videoElement.videoWidth && videoElement.videoHeight
+          ? `${videoElement.videoWidth}x${videoElement.videoHeight}`
+          : ''
+
+      setStats({
+        timestamp: new Date().toLocaleTimeString(),
+        fps,
+        decodedFrames: currentDecodedFrames,
+        droppedFrames: currentDroppedFrames,
+        bitrate,
+        resolution,
+      })
+
+      lastTime = now
+      lastDecodedFrames = currentDecodedFrames
+    }
+
+    // Initial update
+    updateStats()
+
+    // Update every second
+    const interval = setInterval(updateStats, 1000)
+    return () => clearInterval(interval)
+  }, [videoElement, peerConnection])
+
+  // Compact view for small size
+  if (size === 'small') {
+    return (
+      <Card
+        size="1"
+        style={{
+          position: 'absolute',
+          top: '4px',
+          right: '4px',
+          backgroundColor: 'var(--color-panel-translucent)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid var(--gray-a5)',
+          padding: 'var(--space-2)',
+        }}
+      >
+        <Flex gap="2" align="center">
+          <Badge
+            size="1"
+            color={isStreaming ? 'green' : hasFrameWarning ? 'orange' : 'gray'}
+            variant="surface"
+            radius="full"
+          >
+            {isStreaming ? '●' : hasFrameWarning ? '!' : '○'}
+          </Badge>
+          <Text size="1" style={{ fontFamily: 'var(--code-font-family)', opacity: 0.9 }}>
+            {stats.fps} FPS • {stats.bitrate} kb/s
+          </Text>
+        </Flex>
+      </Card>
+    )
+  }
+
+  // Full stats panel for medium/large sizes
   return (
-    <div
+    <Card
+      size="1"
+      variant="surface"
       style={{
         position: 'absolute',
         top: '8px',
         right: '8px',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderRadius: `${0.5 * scaleFactor}em`,
-        padding: `${0.3 * scaleFactor}em ${0.4 * scaleFactor}em`,
-        backdropFilter: 'blur(8px)',
-        fontSize: `${scaleFactor * 0.8}em`,
-        fontFamily: 'monospace',
-        color: '#00ff00',
-        lineHeight: 1.2,
+        backgroundColor: 'var(--color-panel-translucent)',
+        backdropFilter: 'blur(20px) saturate(1.8)',
+        border: '1px solid var(--gray-a5)',
+        boxShadow: '0 8px 32px var(--black-a6)',
+        padding: 'var(--space-3)',
+        minWidth: '180px',
       }}
     >
-      <div>Time: {stats.timestamp}</div>
-      <div>Streaming: {isStreaming ? 'YES' : 'NO'}</div>
-      <div>Frame Warning: {hasFrameWarning ? 'YES' : 'NO'}</div>
-      <div style={{ marginTop: '4px' }}>
-        <div>FPS: {stats.fps}</div>
-        <div>Decoded: {stats.decodedFrames}</div>
-        <div>Dropped: {stats.droppedFrames}</div>
-        <div>Bitrate: {stats.bitrate} kbps</div>
-        {stats.resolution && <div>Res: {stats.resolution}</div>}
-      </div>
-    </div>
+      <Flex direction="column" gap="2">
+        {/* Header */}
+        <Flex justify="between" align="center">
+          <Text
+            size="1"
+            weight="bold"
+            style={{
+              fontFamily: 'var(--code-font-family)',
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              opacity: 0.8,
+            }}
+          >
+            Stream Analytics
+          </Text>
+          <Badge
+            size="1"
+            color={isStreaming ? 'green' : hasFrameWarning ? 'orange' : 'gray'}
+            variant="surface"
+          >
+            {isStreaming ? 'LIVE' : hasFrameWarning ? 'WARN' : 'IDLE'}
+          </Badge>
+        </Flex>
+
+        <Separator size="4" style={{ opacity: 0.3 }} />
+
+        {/* Main Stats */}
+        <Grid columns="2" gap="3">
+          <Flex direction="column" gap="1">
+            <Text
+              size="1"
+              color="gray"
+              weight="medium"
+              style={{
+                fontFamily: 'var(--code-font-family)',
+                fontSize: '10px',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Frame Rate
+            </Text>
+            <Flex align="baseline" gap="1">
+              <Text size="3" weight="bold" style={{ fontFamily: 'var(--code-font-family)' }}>
+                {stats.fps}
+              </Text>
+              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
+                fps
+              </Text>
+            </Flex>
+          </Flex>
+
+          <Flex direction="column" gap="1">
+            <Text
+              size="1"
+              color="gray"
+              weight="medium"
+              style={{
+                fontFamily: 'var(--code-font-family)',
+                fontSize: '10px',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Bitrate
+            </Text>
+            <Flex align="baseline" gap="1">
+              <Text size="3" weight="bold" style={{ fontFamily: 'var(--code-font-family)' }}>
+                {stats.bitrate}
+              </Text>
+              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
+                kb/s
+              </Text>
+            </Flex>
+          </Flex>
+        </Grid>
+
+        {/* Frame Stats */}
+        <Card
+          size="1"
+          variant="ghost"
+          style={{
+            backgroundColor: 'var(--gray-a2)',
+            border: '1px solid var(--gray-a3)',
+            padding: 'var(--space-2)',
+          }}
+        >
+          <Grid columns="2" gap="2">
+            <Flex justify="between">
+              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
+                Decoded
+              </Text>
+              <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
+                {stats.decodedFrames.toLocaleString()}
+              </Text>
+            </Flex>
+            <Flex justify="between">
+              <Text size="1" color="gray" style={{ fontFamily: 'var(--code-font-family)' }}>
+                Dropped
+              </Text>
+              <Text
+                size="1"
+                weight="medium"
+                color={stats.droppedFrames > 0 ? 'red' : undefined}
+                style={{ fontFamily: 'var(--code-font-family)' }}
+              >
+                {stats.droppedFrames.toLocaleString()}
+              </Text>
+            </Flex>
+          </Grid>
+        </Card>
+
+        {/* Resolution & Time */}
+        {stats.resolution && (
+          <Flex justify="between" align="center">
+            <Badge size="1" variant="outline" radius="medium">
+              {stats.resolution}
+            </Badge>
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                fontFamily: 'var(--code-font-family)',
+                opacity: 0.7,
+              }}
+            >
+              {stats.timestamp}
+            </Text>
+          </Flex>
+        )}
+      </Flex>
+    </Card>
   )
 }
 
@@ -315,6 +546,7 @@ function CameraCardComponent({
     error: streamError,
     retry: retryStream,
     hasFrameWarning,
+    peerConnection,
   } = useWebRTC({
     entityId,
     enabled: webRTCEnabled,
@@ -557,7 +789,13 @@ function CameraCardComponent({
 
           {/* Stats display (when enabled) */}
           {showStats && supportsStream && !streamError && (
-            <CameraStats size={size} hasFrameWarning={hasFrameWarning} isStreaming={isStreaming} />
+            <CameraStats
+              size={size}
+              hasFrameWarning={hasFrameWarning}
+              isStreaming={isStreaming}
+              videoElement={videoElementRef.current}
+              peerConnection={peerConnection}
+            />
           )}
 
           {/* Controls and info container positioned absolutely at bottom left */}
@@ -617,7 +855,13 @@ function CameraCardComponent({
 
         {/* Fullscreen stats display (when enabled) */}
         {showStats && (
-          <CameraStats size="large" hasFrameWarning={hasFrameWarning} isStreaming={isStreaming} />
+          <CameraStats
+            size="large"
+            hasFrameWarning={hasFrameWarning}
+            isStreaming={isStreaming}
+            videoElement={videoElementRef.current}
+            peerConnection={peerConnection}
+          />
         )}
 
         {/* Fullscreen controls and info container */}
