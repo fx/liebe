@@ -67,21 +67,23 @@ export function ConnectionLogDialog({ open, onOpenChange }: ConnectionLogDialogP
             Connection Log
           </Flex>
         </Dialog.Title>
-        <Dialog.Description>
-          <Flex justify="between" align="center">
-            <Text>Recent connection events and status changes</Text>
-            {log.length > 0 && (
-              <Button
-                size="1"
-                variant="ghost"
-                color="gray"
-                onClick={() => connectionActions.clearLog?.()}
-              >
-                Clear Log
-              </Button>
-            )}
-          </Flex>
-        </Dialog.Description>
+        <Dialog.Description>Recent connection events and status changes</Dialog.Description>
+
+        <Flex justify="between" align="center" mt="2">
+          <Text size="2" color="gray">
+            Showing {log.length} events
+          </Text>
+          {log.length > 0 && (
+            <Button
+              size="1"
+              variant="ghost"
+              color="gray"
+              onClick={() => connectionActions.clearLog?.()}
+            >
+              Clear Log
+            </Button>
+          )}
+        </Flex>
 
         <ScrollArea style={{ height: '450px', marginTop: '16px' }}>
           <Flex direction="column" gap="1">
