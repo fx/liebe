@@ -333,13 +333,16 @@ describe('HassConnectionManager', () => {
       // The first reconnect should work immediately since lastReconnectTime is 0
       const reconnectPromise = manager.reconnect()
 
-      // Advance timers to handle the setTimeout in reconnect
-      await vi.runAllTimersAsync()
+      // Advance only the specific timer for the reconnect delay
+      await vi.advanceTimersByTimeAsync(100)
 
       // Wait for reconnect to complete
       await reconnectPromise
 
       expect(connectSpy).toHaveBeenCalledWith(mockHass)
+
+      // Clean up to prevent infinite timers
+      await manager.disconnect()
     })
   })
 })
