@@ -74,6 +74,39 @@ export const cardConfigurations: Record<
       },
     },
   },
+  camera: {
+    title: 'Camera Card',
+    description: 'Configure how the camera feed is displayed.',
+    definition: {
+      fit: {
+        type: 'select',
+        default: 'cover',
+        label: 'Fit Mode',
+        description: 'How the video fits within the card',
+        options: [
+          { value: 'cover', label: 'Cover (fill card, may crop)' },
+          { value: 'contain', label: 'Contain (fit entire video)' },
+        ],
+      },
+      matting: {
+        type: 'select',
+        default: 'small',
+        label: 'Card Padding',
+        description: 'Controls the padding inside the card around the camera feed',
+        options: [
+          { value: 'none', label: 'None (no padding)' },
+          { value: 'small', label: 'Small (default)' },
+          { value: 'large', label: 'Large' },
+        ],
+      },
+      showStats: {
+        type: 'boolean',
+        default: false,
+        label: 'Show Debug Stats',
+        description: 'Display FPS, decoded frames, timestamp, and other debug information',
+      },
+    },
+  },
   separator: {
     title: 'Separator',
     description: 'Configure the separator appearance and text.',

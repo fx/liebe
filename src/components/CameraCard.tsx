@@ -1,4 +1,4 @@
-import { Flex, Text, Button, Spinner } from '@radix-ui/themes'
+import { Flex, Text, Button, Spinner, Card, Badge, Separator, Grid } from '@radix-ui/themes'
 import {
   VideoIcon,
   ReloadIcon,
@@ -8,11 +8,13 @@ import {
   ExclamationTriangleIcon,
 } from '@radix-ui/react-icons'
 import { useEntity, useWebRTC, useIsConnecting } from '~/hooks'
-import { memo, useMemo, useState, useRef, useCallback } from 'react'
+import { memo, useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import { SkeletonCard, ErrorDisplay, FullscreenModal } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import { useDashboardStore } from '~/store'
+import { useDashboardStore, dashboardActions } from '~/store'
 import { KeepAlive } from './KeepAlive'
+import { CardConfig } from './CardConfig'
+import type { GridItem } from '~/store/types'
 import './CameraCard.css'
 
 interface CameraCardProps {
@@ -21,6 +23,7 @@ interface CameraCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  item?: GridItem
 }
 
 interface CameraAttributes {
@@ -33,6 +36,198 @@ interface CameraAttributes {
 
 // Camera supported features bit flags from Home Assistant
 const SUPPORT_STREAM = 2
+
+// Stats display component
+function CameraStats({
+  size,
+  hasFrameWarning,
+  isStreaming,
+  videoElement,
+  peerConnection,
+}: {
+  size: 'small' | 'medium' | 'large'
+  hasFrameWarning: boolean
+  isStreaming: boolean
+  videoElement: HTMLVideoElement | null
+  peerConnection: RTCPeerConnection | null
+}) {
+  const scaleFactor = size === 'small' ? 0.64 : size === 'large' ? 0.96 : 0.8
+  const [stats, setStats] = useState({
+    timestamp: new Date().toLocaleTimeString(),
+    fps: 0,
+    decodedFrames: 0,
+    droppedFrames: 0,
+    bitrate: 0,
+    resolution: '',
+  })
+
+  // Update stats every second
+  useEffect(() => {
+    if (!videoElement) return
+
+    let lastTime = Date.now()
+    let lastDecodedFrames = 0
+    let lastBytesReceived = 0
+
+    const updateStats = async () => {
+      const now = Date.now()
+      const deltaTime = (now - lastTime) / 1000 // Convert to seconds
+
+      // Get video quality stats
+      const videoElem = videoElement as HTMLVideoElement & {
+        getVideoPlaybackQuality?: () => { totalVideoFrames?: number; droppedVideoFrames?: number }
+        webkitDecodedFrameCount?: number
+        webkitDroppedFrameCount?: number
+        mozDecodedFrames?: number
+        mozParsedFrames?: number
+      }
+      const videoQuality = videoElem.getVideoPlaybackQuality?.()
+      const currentDecodedFrames =
+        videoQuality?.totalVideoFrames ||
+        videoElem.webkitDecodedFrameCount ||
+        videoElem.mozDecodedFrames ||
+        0
+      const currentDroppedFrames =
+        videoQuality?.droppedVideoFrames ||
+        videoElem.webkitDroppedFrameCount ||
+        (videoElem.mozParsedFrames && videoElem.mozDecodedFrames
+          ? videoElem.mozParsedFrames - videoElem.mozDecodedFrames
+          : 0) ||
+        0
+
+      // Calculate FPS based on decoded frames
+      const framesDelta = currentDecodedFrames - lastDecodedFrames
+      const fps = deltaTime > 0 ? Math.round(framesDelta / deltaTime) : 0
+
+      // Get connection stats if available
+      let bitrate = 0
+      try {
+        if (peerConnection && peerConnection.getStats) {
+          const stats = await peerConnection.getStats()
+          stats.forEach((report) => {
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+              const rtpReport = report as RTCInboundRtpStreamStats
+              const bytesReceived = rtpReport.bytesReceived || 0
+              const bytesDelta = bytesReceived - lastBytesReceived
+              bitrate = deltaTime > 0 ? Math.round((bytesDelta * 8) / deltaTime / 1000) : 0 // kbps
+              lastBytesReceived = bytesReceived
+            }
+          })
+        }
+      } catch {
+        // Ignore errors getting stats
+      }
+
+      // Get video resolution
+      const resolution =
+        videoElement.videoWidth && videoElement.videoHeight
+          ? `${videoElement.videoWidth}x${videoElement.videoHeight}`
+          : ''
+
+      setStats({
+        timestamp: new Date().toLocaleTimeString(),
+        fps,
+        decodedFrames: currentDecodedFrames,
+        droppedFrames: currentDroppedFrames,
+        bitrate,
+        resolution,
+      })
+
+      lastTime = now
+      lastDecodedFrames = currentDecodedFrames
+    }
+
+    // Initial update
+    updateStats()
+
+    // Update every second
+    const interval = setInterval(updateStats, 1000)
+    return () => clearInterval(interval)
+  }, [videoElement, peerConnection])
+
+  return (
+    <Card
+      size="1"
+      style={{
+        position: 'absolute',
+        bottom: size === 'small' ? '4px' : '6px',
+        right: size === 'small' ? '4px' : '6px',
+        backgroundColor: 'var(--color-panel-translucent)',
+        backdropFilter: 'blur(16px)',
+        border: '1px solid var(--gray-a5)',
+        padding: 'var(--space-2)',
+        fontSize: '11px',
+      }}
+    >
+      {size === 'small' ? (
+        // Compact single line for small size
+        <Text size="1" style={{ fontFamily: 'var(--code-font-family)' }}>
+          {stats.fps} FPS • {stats.bitrate} kb/s
+        </Text>
+      ) : (
+        // Flex layout for medium/large
+        <Flex gap="3" align="center">
+          <Flex direction="column" gap="0">
+            <Text
+              size="1"
+              color="gray"
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
+            >
+              FPS
+            </Text>
+            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
+              {stats.fps}
+            </Text>
+          </Flex>
+
+          <Flex direction="column" gap="0">
+            <Text
+              size="1"
+              color="gray"
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
+            >
+              Bitrate
+            </Text>
+            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
+              {stats.bitrate}
+            </Text>
+          </Flex>
+
+          <Flex direction="column" gap="0">
+            <Text
+              size="1"
+              color="gray"
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
+            >
+              Frames
+            </Text>
+            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
+              {stats.decodedFrames}
+            </Text>
+          </Flex>
+
+          <Flex direction="column" gap="0">
+            <Text
+              size="1"
+              color="gray"
+              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
+            >
+              Dropped
+            </Text>
+            <Text
+              size="1"
+              weight="medium"
+              color={stats.droppedFrames > 0 ? 'red' : undefined}
+              style={{ fontFamily: 'var(--code-font-family)' }}
+            >
+              {stats.droppedFrames}
+            </Text>
+          </Flex>
+        </Flex>
+      )}
+    </Card>
+  )
+}
 
 // Custom-styled camera controls for both regular and fullscreen views
 function CameraControls({
@@ -207,16 +402,24 @@ function CameraCardComponent({
   onDelete,
   isSelected = false,
   onSelect,
+  item,
 }: CameraCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-  const { mode } = useDashboardStore()
+  const { mode, currentScreenId } = useDashboardStore()
   const isEditMode = mode === 'edit'
   const isReconnecting = useIsConnecting()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // Start muted by default
+  const [configOpen, setConfigOpen] = useState(false)
   const normalContainerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const videoElementRef = useRef<HTMLVideoElement | null>(null)
+
+  // Get configuration values
+  const config = item?.config || {}
+  const fit = (config.fit as string) || 'cover'
+  const matting = (config.matting as string) || 'small'
+  const showStats = config.showStats === true
 
   // Memoize camera attributes and stream support to prevent re-renders
   const cameraAttributes = useMemo(
@@ -243,6 +446,7 @@ function CameraCardComponent({
     error: streamError,
     retry: retryStream,
     hasFrameWarning,
+    peerConnection,
   } = useWebRTC({
     entityId,
     enabled: webRTCEnabled,
@@ -274,6 +478,12 @@ function CameraCardComponent({
     e.stopPropagation()
     setIsMuted((prev) => !prev)
   }, [])
+
+  const handleConfigSave = (updates: Partial<GridItem>) => {
+    if (item && currentScreenId) {
+      dashboardActions.updateGridItem(currentScreenId, item.id, updates)
+    }
+  }
 
   // Combined ref callback for both WebRTC and local ref
   const combinedVideoRef = useCallback(
@@ -307,6 +517,17 @@ function CameraCardComponent({
   const isIdle = entity.state === 'idle'
   const isStreaming_ = entity.state === 'streaming'
 
+  // Calculate matting/padding based on configuration
+  // Map matting values to Radix UI space tokens
+  // Small matches the default padding for the current card size
+  const defaultPadding = size === 'small' ? '2' : size === 'large' ? '4' : '3'
+  const mattingPadding =
+    matting === 'none'
+      ? '0'
+      : matting === 'large'
+        ? 'var(--space-5)'
+        : `var(--space-${defaultPadding})`
+
   return (
     <>
       <GridCard
@@ -319,8 +540,11 @@ function CameraCardComponent({
         isUnavailable={isUnavailable}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
+        onConfigure={() => setConfigOpen(true)}
+        hasConfiguration={true}
         title={streamError || undefined}
         className="camera-card"
+        customPadding={mattingPadding}
         style={{
           backgroundColor:
             (isRecording || isStreaming_) && !isSelected && !streamError
@@ -418,7 +642,7 @@ function CameraCardComponent({
                       style={{
                         width: '100%',
                         height: '100%',
-                        objectFit: isFullscreen ? 'contain' : 'cover',
+                        objectFit: isFullscreen ? 'contain' : (fit as 'cover' | 'contain'),
                         display: isStreaming ? 'block' : 'none',
                       }}
                     />
@@ -461,6 +685,17 @@ function CameraCardComponent({
                 />
               </GridCard.Icon>
             </Flex>
+          )}
+
+          {/* Stats display (when enabled) */}
+          {showStats && supportsStream && !streamError && (
+            <CameraStats
+              size={size}
+              hasFrameWarning={hasFrameWarning}
+              isStreaming={isStreaming}
+              videoElement={videoElementRef.current}
+              peerConnection={peerConnection}
+            />
           )}
 
           {/* Controls and info container positioned absolutely at bottom left */}
@@ -518,6 +753,17 @@ function CameraCardComponent({
           }}
         />
 
+        {/* Fullscreen stats display (when enabled) */}
+        {showStats && (
+          <CameraStats
+            size="large"
+            hasFrameWarning={hasFrameWarning}
+            isStreaming={isStreaming}
+            videoElement={videoElementRef.current}
+            peerConnection={peerConnection}
+          />
+        )}
+
         {/* Fullscreen controls and info container */}
         <div
           style={{
@@ -566,6 +812,24 @@ function CameraCardComponent({
           Click or press ESC to exit
         </div>
       </FullscreenModal>
+
+      {/* Configuration modal */}
+      <CardConfig.Modal
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        item={
+          item || {
+            id: '',
+            entityId,
+            type: 'entity',
+            x: 0,
+            y: 0,
+            width: CameraCard.defaultDimensions.width,
+            height: CameraCard.defaultDimensions.height,
+          }
+        }
+        onSave={handleConfigSave}
+      />
     </>
   )
 }
@@ -578,7 +842,8 @@ const MemoizedCameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
     prevProps.size === nextProps.size &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onSelect === nextProps.onSelect
+    prevProps.onSelect === nextProps.onSelect &&
+    prevProps.item === nextProps.item
   )
 })
 

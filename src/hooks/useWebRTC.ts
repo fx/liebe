@@ -13,6 +13,7 @@ interface UseWebRTCReturn {
   error: string | null
   retry: () => void
   hasFrameWarning: boolean
+  peerConnection: RTCPeerConnection | null
 }
 
 interface WebRTCOfferMessage {
@@ -583,5 +584,6 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     error,
     retry,
     hasFrameWarning,
+    peerConnection: peerConnectionRef.current,
   }
 }
