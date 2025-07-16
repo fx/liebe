@@ -53,7 +53,7 @@ export const dashboardActions = {
     })
   },
 
-  setCurrentScreen: (screenId: string) => {
+  setCurrentScreen: (screenId: string | null) => {
     dashboardStore.setState((state) => ({
       ...state,
       currentScreenId: screenId,

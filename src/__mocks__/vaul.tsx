@@ -15,14 +15,14 @@ interface MockComponentProps {
 export const Drawer = {
   Root: ({ children, open }: MockComponentProps) => {
     // Only render children when open
-    return open ? <>{children}</> : null
+    return <div data-testid="drawer-root">{open ? children : null}</div>
   },
   Trigger: ({ children }: MockComponentProps) => (
     <button data-testid="drawer-trigger">{children}</button>
   ),
   Portal: ({ children }: MockComponentProps) => {
     // Portal should render children directly
-    return <>{children}</>
+    return <div data-testid="drawer-portal">{children}</div>
   },
   Overlay: ({ className }: MockComponentProps) => (
     <div data-testid="drawer-overlay" className={className} />

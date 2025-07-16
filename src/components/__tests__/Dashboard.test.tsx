@@ -20,6 +20,17 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
+// Mock hooks
+vi.mock('../../hooks', () => ({
+  useEntityConnection: vi.fn(),
+  useEntities: vi.fn(() => ({
+    entities: {},
+    filteredEntities: [],
+    isConnected: true,
+    isLoading: false,
+  })),
+}))
+
 // Helper function to render with Theme
 const renderWithTheme = (component: React.ReactElement) => {
   return render(<Theme>{component}</Theme>)
@@ -199,6 +210,35 @@ describe('Dashboard', () => {
       await user.click(screen.getByRole('button', { name: 'View Mode' }))
 
       expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
+    })
+
+    it('should open EntityBrowser when addItem event is dispatched', async () => {
+      renderWithTheme(<Dashboard />)
+
+      // Dispatch addItem event as if clicked from AppTaskbar
+      window.dispatchEvent(new CustomEvent('addItem', { detail: { screenId: 'test-1' } }))
+
+      // EntityBrowser should open
+      await waitFor(() => {
+        // Check that the drawer content is rendered
+        expect(screen.getByTestId('drawer-content')).toBeInTheDocument()
+        expect(screen.getByText('Select items to add to your dashboard')).toBeInTheDocument()
+      })
+    })
+
+    it('should open EntityBrowser when Add Items button is clicked', async () => {
+      const user = userEvent.setup()
+      renderWithTheme(<Dashboard />)
+
+      // Click the Add Items button in the empty state
+      const addItemsButton = screen.getByRole('button', { name: 'Add Items' })
+      await user.click(addItemsButton)
+
+      // EntityBrowser should open
+      await waitFor(() => {
+        expect(screen.getByTestId('drawer-content')).toBeInTheDocument()
+        expect(screen.getByText('Select items to add to your dashboard')).toBeInTheDocument()
+      })
     })
   })
 })

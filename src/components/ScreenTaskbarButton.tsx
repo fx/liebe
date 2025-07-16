@@ -31,24 +31,25 @@ export function ScreenTaskbarButton({
   if (showText) {
     return (
       <div style={{ position: 'relative', width: '100%' }}>
-        <Button
-          size="3"
-          variant={variant}
-          onClick={onClick}
-          aria-label={label}
-          style={{
-            width: '100%',
-            justifyContent: showEditButton ? 'space-between' : 'flex-start',
-            paddingRight: showEditButton ? '8px' : undefined,
-          }}
-        >
-          <Flex align="center" gap="2">
-            {icon}
-            <span>{label}</span>
-          </Flex>
+        <Flex align="center" gap="1" style={{ width: '100%' }}>
+          <Button
+            size="3"
+            variant={variant}
+            onClick={onClick}
+            aria-label={label}
+            style={{
+              flex: 1,
+              justifyContent: 'flex-start',
+            }}
+          >
+            <Flex align="center" gap="2">
+              {icon}
+              <span>{label}</span>
+            </Flex>
+          </Button>
           {showEditButton && (
             <IconButton
-              size="1"
+              size="2"
               variant="ghost"
               color="gray"
               onClick={(e) => {
@@ -61,13 +62,12 @@ export function ScreenTaskbarButton({
               style={{
                 backgroundColor: isHovered ? 'var(--gray-3)' : 'transparent',
                 transition: 'all 0.2s ease',
-                boxShadow: '-2px 2px 6px rgba(0, 0, 0, 0.12)',
               }}
             >
               <Pencil1Icon width={16} height={16} />
             </IconButton>
           )}
-        </Button>
+        </Flex>
       </div>
     )
   }
