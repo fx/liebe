@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { Tabs, Box, Flex, Button, Card, Text } from '@radix-ui/themes'
 import { Cross2Icon } from '@radix-ui/react-icons'
-import { Drawer } from './ui'
+import { FullscreenModal } from './ui'
 import { EntitiesBrowserTab } from './EntitiesBrowserTab'
 import { CardsBrowserTab } from './CardsBrowserTab'
 
@@ -17,16 +17,18 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
   }, [onOpenChange])
 
   return (
-    <Drawer open={open} onClose={handleClose} side="right" withTheme>
+    <FullscreenModal open={open} onClose={handleClose}>
       <Card
         size="3"
         style={{
-          height: '100%',
+          width: '80vw',
+          maxWidth: '1200px',
+          maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
           backgroundColor: 'var(--color-panel-solid)',
-          borderRadius: 0,
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         }}
       >
         {/* Header */}
@@ -80,6 +82,6 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
           </Tabs.Root>
         </Box>
       </Card>
-    </Drawer>
+    </FullscreenModal>
   )
 }

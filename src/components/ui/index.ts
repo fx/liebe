@@ -5,7 +5,6 @@ export * from '@radix-ui/themes'
 export { Modal } from './Modal'
 export { AlertModal } from './AlertModal'
 export { FullscreenModal } from './FullscreenModal'
-export { Drawer } from './Drawer'
 
 // Export skeleton component
 export { SkeletonCard } from './SkeletonCard'
