@@ -53,6 +53,7 @@ export function Drawer({
                   : 'bottom-0 left-0 w-full h-[90%] max-h-[500px]'
           }`}
           aria-describedby={undefined}
+          tabIndex={0}
         >
           <VaulDrawer.Title className="sr-only">Panel Content</VaulDrawer.Title>
           <div className="flex-1 overflow-auto">{content}</div>

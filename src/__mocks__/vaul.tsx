@@ -27,10 +27,10 @@ export const Drawer = {
   Overlay: ({ className }: MockComponentProps) => (
     <div data-testid="drawer-overlay" className={className} />
   ),
-  Content: ({ children, className }: MockComponentProps) => {
+  Content: ({ children, className, ...props }: MockComponentProps) => {
     // Content wrapper that renders children
     return (
-      <div data-testid="drawer-content" className={className}>
+      <div data-testid="drawer-content" className={className} {...props}>
         {children}
       </div>
     )

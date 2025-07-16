@@ -50,6 +50,7 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
             color="gray"
             onClick={handleClose}
             style={{ marginLeft: 'auto' }}
+            autoFocus
           >
             <Cross2Icon width="16" height="16" />
           </Button>
