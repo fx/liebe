@@ -3,9 +3,6 @@ import { vi } from 'vitest'
 import '../styles/app.css'
 import '@radix-ui/themes/styles.css'
 
-// Mock Vaul for tests
-vi.mock('vaul')
-
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
