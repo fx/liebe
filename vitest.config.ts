@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '~': path.resolve(__dirname, './src'),
+      vaul: path.resolve(__dirname, './src/__mocks__/vaul.tsx'),
     },
   },
 })
