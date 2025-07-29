@@ -12,20 +12,6 @@ mise install -y
 echo "Installing Claude Code..."
 npm install -g @anthropic-ai/claude-code
 
-# Configure Claude settings
-mkdir -p /home/vscode/.config/claude-code
-cat > /home/vscode/.config/claude-code/settings.json << 'EOF'
-{
-  "automaticallyOpenFileExplorer": true,
-  "chatCompletionTimeoutSeconds": 600,
-  "commandTimeoutSeconds": 120,
-  "defaultCommandTimeout": 120000,
-  "mcp": {
-    "servers": {}
-  }
-}
-EOF
-
 # Install npm dependencies if package.json exists
 if [ -f "package.json" ]; then
   echo "Installing npm dependencies..."
