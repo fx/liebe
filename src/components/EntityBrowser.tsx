@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
-import { Tabs, Box, Flex, Button, Card, Text } from '@radix-ui/themes'
-import { Cross2Icon } from '@radix-ui/react-icons'
-import { FullscreenModal } from './ui'
+import { Tabs, Box, Flex, Card, Text } from '@radix-ui/themes'
+import { Drawer } from './ui'
 import { EntitiesBrowserTab } from './EntitiesBrowserTab'
 import { CardsBrowserTab } from './CardsBrowserTab'
 
@@ -17,18 +16,23 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
   }, [onOpenChange])
 
   return (
-    <FullscreenModal open={open} onClose={handleClose}>
+    <Drawer
+      open={open}
+      onOpenChange={onOpenChange}
+      direction="right"
+      size="600px"
+      showCloseButton={false}
+    >
       <Card
         size="3"
         style={{
-          width: '80vw',
-          maxWidth: '1200px',
-          maxHeight: '90vh',
+          height: '100%',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
           backgroundColor: 'var(--color-panel-solid)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          borderRadius: 0,
+          boxShadow: 'none',
         }}
       >
         {/* Header */}
@@ -46,15 +50,6 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
               Select items to add to your dashboard
             </Text>
           </Box>
-          <Button
-            size="2"
-            variant="ghost"
-            color="gray"
-            onClick={handleClose}
-            style={{ marginLeft: 'auto' }}
-          >
-            <Cross2Icon width="16" height="16" />
-          </Button>
         </Flex>
 
         {/* Content */}
@@ -82,6 +77,6 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
           </Tabs.Root>
         </Box>
       </Card>
-    </FullscreenModal>
+    </Drawer>
   )
 }
