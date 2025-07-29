@@ -274,20 +274,13 @@ describe('EntityBrowser', () => {
     expect(screen.getByText('No entities found')).toBeInTheDocument()
   })
 
-  it('should handle cancel action', async () => {
+  it('should handle escape key to close', async () => {
     const user = userEvent.setup()
 
     render(<EntityBrowser open={true} onOpenChange={mockOnOpenChange} screenId={mockScreenId} />)
 
-    // The close button is the one with the Cross2Icon - it's a button without text
-    const buttons = screen.getAllByRole('button')
-    const closeButton = buttons.find((button) => {
-      // Find the button that contains the Cross2Icon (has no text content)
-      return button.querySelector('svg') && !button.textContent?.trim()
-    })
-
-    expect(closeButton).toBeTruthy()
-    await user.click(closeButton!)
+    // Press ESC key to close the drawer
+    await user.keyboard('{Escape}')
 
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
