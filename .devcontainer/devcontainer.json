@@ -1,13 +1,12 @@
 {
   "name": "template",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/devcontainers-extra/features/mise:1": {},
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "lts"
-    }
-  },
+  "image": "ghcr.io/fx/docker/devcontainer:latest",
   "containerUser": "vscode",
-  "postCreateCommand": "bash .devcontainer/install-deps.sh"
+  "postStartCommand": "bash .devcontainer/post-start-wrapper.sh",
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
+  "runArgs": [
+    "--privileged"
+  ]
 }
