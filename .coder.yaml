@@ -1,0 +1,20 @@
+name: "template"
+description: "Coder workspace from template"
+icon: "/icon/docker.svg"
+default: "true"
+
+terraform:
+  dir: .coder
+  module:
+    source: "registry.coder.com/modules/kubernetes-devcontainer/coder"
+    version: "1.0.19"
+  vars:
+    namespace: "coder"
+    repo_url: "https://github.com/fx/coder-template.git"
+    devcontainer_builder: "external"
+    cache_repo: "true"
+    cache_devcontainer: "true"
+    devcontainer_image: "ghcr.io/fx/docker/devcontainer:latest"
+
+_env:
+  CODER_TEMPLATE_DOCS_URL: "https://github.com/fx/coder-template"
