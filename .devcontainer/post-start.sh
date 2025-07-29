@@ -32,10 +32,4 @@ if [ -f "package.json" ]; then
   npm install
 fi
 
-# Run custom setup if it exists
-if [ -f ".devcontainer/custom-setup.sh" ]; then
-  echo "Running custom setup..."
-  bash .devcontainer/custom-setup.sh
-fi
-
 echo "Post-start script completed successfully"
