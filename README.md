@@ -73,9 +73,16 @@ Over the years of my Home Assistant adoption journey, I've tried finding time to
 
 So this is my latest attempt to build this again. But this time, with the help of AI! As of writing this, 99% of the code in this repository is written by AI. My personal current favorite being Claude Code. Whatever your feelings are on AI assistance, without it, this would not exist.
 
-## Contributing
+## Development Setup
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+This project uses [mise](https://mise.jdx.dev/) for managing tool versions. After cloning, run:
+
+```bash
+mise install
+npm install
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full development guidelines.
 
 ## License
 
