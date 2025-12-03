@@ -100,9 +100,10 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
   const weatherEntity = entityId ? entities[entityId] : undefined
 
   // Get the weather icon - must be before any early returns to follow rules of hooks
+  const weatherState = weatherEntity?.state
   const CurrentWeatherIcon = useMemo(
-    () => (weatherEntity ? getWeatherIcon(weatherEntity.state) : Cloud),
-    [weatherEntity]
+    () => (weatherState ? getWeatherIcon(weatherState) : Cloud),
+    [weatherState]
   )
 
   if (!weatherEntity) {

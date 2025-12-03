@@ -40,13 +40,18 @@ export const InputTextCard = memo(function InputTextCard({
   // Computed display value - entity state when not editing, local value when editing
   const displayValue = isEditing ? localValue : (entity?.state ?? '')
 
-  const handleClick = useCallback(() => {
-    if (!isEditing && entity) {
-      // Initialize local value with entity state when entering edit mode
+  const enterEditMode = useCallback(() => {
+    if (entity) {
       setLocalValue(entity.state)
       setIsEditing(true)
     }
-  }, [isEditing, entity])
+  }, [entity])
+
+  const handleClick = useCallback(() => {
+    if (!isEditing) {
+      enterEditMode()
+    }
+  }, [isEditing, enterEditMode])
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -222,8 +227,7 @@ export const InputTextCard = memo(function InputTextCard({
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation()
-                  setLocalValue(entity.state)
-                  setIsEditing(true)
+                  enterEditMode()
                 }}
               >
                 <Edit2 size={16} />

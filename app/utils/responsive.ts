@@ -69,6 +69,9 @@ export function useMediaQuery(query: string): boolean {
   useEffect(() => {
     const mediaQuery = window.matchMedia(query)
 
+    // Sync state when query changes (useState initializer only runs on mount)
+    setMatches(mediaQuery.matches)
+
     const handleChange = (e: MediaQueryListEvent) => {
       setMatches(e.matches)
     }

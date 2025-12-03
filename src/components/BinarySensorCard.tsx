@@ -58,19 +58,20 @@ function BinarySensorCardComponent({
 
   // Get config from item
   const config = (item?.config as { onIcon?: string; offIcon?: string }) || {}
-
-  // Compute icon values - must be before early returns to follow rules of hooks
-  const isOn = entity?.state === 'on'
   const deviceClass = entity?.attributes?.device_class as string | undefined
-  const defaults = getDefaultIcons(deviceClass)
-  const onIconName = config.onIcon || defaults.onIcon
-  const offIconName = config.offIcon || defaults.offIcon
-  const iconName = isOn ? onIconName : offIconName
 
-  // Get the icon component - memoized to avoid recreating during render
+  // Memoize icon computation based on primitive values - must be before early returns
   const IconComponent = useMemo(() => {
+    const isOn = entity?.state === 'on'
+    const defaults = getDefaultIcons(deviceClass)
+    const onIconName = config.onIcon || defaults.onIcon
+    const offIconName = config.offIcon || defaults.offIcon
+    const iconName = isOn ? onIconName : offIconName
     return getTablerIcon(iconName) || getIcon(iconName) || (isOn ? IconCircleCheck : IconCircle)
-  }, [iconName, isOn])
+  }, [entity?.state, config.onIcon, config.offIcon, deviceClass])
+
+  // Compute isOn for use in rendering (after useMemo to follow rules of hooks)
+  const isOn = entity?.state === 'on'
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
