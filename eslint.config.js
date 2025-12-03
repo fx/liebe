@@ -33,6 +33,13 @@ export default [
       'react/prop-types': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-undef': 'off',
+      // Disable new experimental React Compiler rules from react-hooks v7
+      // These can be enabled gradually as the codebase is refactored
+      'react-hooks/refs': 'off',
+      'react-hooks/static-components': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/incompatible-library': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
     },
     settings: {
       react: {

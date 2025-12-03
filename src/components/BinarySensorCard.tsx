@@ -1,6 +1,6 @@
 import { Flex, Text } from '@radix-ui/themes'
 import { useEntity } from '~/hooks'
-import { memo, useState } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore, dashboardStore, dashboardActions } from '~/store'
@@ -8,6 +8,7 @@ import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
 import { getTablerIcon } from '~/utils/icons'
 import { getIcon } from '~/utils/iconList'
+import { IconCircle, IconCircleCheck } from '@tabler/icons-react'
 
 interface BinarySensorCardProps {
   entityId: string
@@ -57,6 +58,20 @@ function BinarySensorCardComponent({
 
   // Get config from item
   const config = (item?.config as { onIcon?: string; offIcon?: string }) || {}
+  const deviceClass = entity?.attributes?.device_class as string | undefined
+
+  // Memoize icon computation based on primitive values - must be before early returns
+  const IconComponent = useMemo(() => {
+    const isOn = entity?.state === 'on'
+    const defaults = getDefaultIcons(deviceClass)
+    const onIconName = config.onIcon || defaults.onIcon
+    const offIconName = config.offIcon || defaults.offIcon
+    const iconName = isOn ? onIconName : offIconName
+    return getTablerIcon(iconName) || getIcon(iconName) || (isOn ? IconCircleCheck : IconCircle)
+  }, [entity?.state, config.onIcon, config.offIcon, deviceClass])
+
+  // Compute isOn for use in rendering (after useMemo to follow rules of hooks)
+  const isOn = entity?.state === 'on'
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -76,21 +91,7 @@ function BinarySensorCardComponent({
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
-  const isOn = entity.state === 'on'
   const isUnavailable = entity.state === 'unavailable'
-
-  // Get device class and default icons
-  const deviceClass = entity.attributes.device_class as string | undefined
-  const defaults = getDefaultIcons(deviceClass)
-
-  // Get configured icons or use defaults
-  const onIconName = config.onIcon || defaults.onIcon
-  const offIconName = config.offIcon || defaults.offIcon
-
-  // Get the icon component
-  const iconName = isOn ? onIconName : offIconName
-  const IconComponent =
-    getTablerIcon(iconName) || (isOn ? getIcon('CircleCheck') : getIcon('Circle')) || (() => null)
 
   // Get icon size based on card size
   const iconSize = size === 'large' ? 24 : size === 'medium' ? 20 : 16

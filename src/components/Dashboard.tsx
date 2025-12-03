@@ -132,8 +132,9 @@ export function Dashboard() {
         )}
       </Box>
 
-      {/* Screen Config Dialog */}
+      {/* Screen Config Dialog - key forces remount when screen changes to reset form state */}
       <ScreenConfigDialog
+        key={editScreen?.id ?? 'new'}
         open={addViewOpen}
         onOpenChange={(open) => {
           setAddViewOpen(open)

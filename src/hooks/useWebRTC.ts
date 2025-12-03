@@ -124,15 +124,12 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     let lastDecodedFrames = 0
     let hasReceivedFirstFrame = false
     let debugLogTimer = Date.now()
-    let frameCount = 0
-    let lastDebugFrameCount = 0
     let videoFrameCallbackId: number | null = null
 
     // Use requestVideoFrameCallback if available for accurate frame detection
     if ('requestVideoFrameCallback' in video) {
       const onVideoFrame = (_now: number) => {
         frameMonitorRef.current.lastFrameTime = Date.now()
-        frameCount++
 
         if (!hasReceivedFirstFrame) {
           hasReceivedFirstFrame = true
@@ -194,7 +191,6 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         frameMonitorRef.current.lastFrameTime = now
         lastTime = currentTime
         lastDecodedFrames = videoFrames
-        frameCount++
 
         // We're receiving frames - set streaming to true
         if (!hasReceivedFirstFrame) {
@@ -217,10 +213,9 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         }
       }
 
-      // Update debug timer without logging
+      // Update debug timer (for potential future debugging)
       if (now - debugLogTimer >= 5000) {
         debugLogTimer = now
-        lastDebugFrameCount = frameCount
       }
 
       // Only check for stale frames if we've received at least one frame
@@ -271,7 +266,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         ).cancelVideoFrameCallback(videoFrameCallbackId)
       }
     }
-  }, [cleanup, entityId, hasFrameWarning])
+  }, [cleanup, hasFrameWarning])
 
   const initializeWebRTC = useCallback(async () => {
     if (!hass || !enabled || !videoElementRef.current) return

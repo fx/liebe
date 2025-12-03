@@ -81,22 +81,25 @@ function LightCardComponent({
   )
 
   const lightAttributes = entity?.attributes as LightAttributes | undefined
+  // Check if light supports brightness control
+  const supportedColorModes = lightAttributes?.supported_color_modes
+  const supportedFeatures = lightAttributes?.supported_features ?? 0
   const supportsBrightness = useMemo(() => {
     // Modern Home Assistant uses supported_color_modes
-    if (lightAttributes?.supported_color_modes) {
+    if (supportedColorModes) {
       return (
-        lightAttributes.supported_color_modes.includes('brightness') ||
-        lightAttributes.supported_color_modes.includes('color_temp') ||
-        lightAttributes.supported_color_modes.includes('hs') ||
-        lightAttributes.supported_color_modes.includes('xy') ||
-        lightAttributes.supported_color_modes.includes('rgb') ||
-        lightAttributes.supported_color_modes.includes('rgbw') ||
-        lightAttributes.supported_color_modes.includes('rgbww')
+        supportedColorModes.includes('brightness') ||
+        supportedColorModes.includes('color_temp') ||
+        supportedColorModes.includes('hs') ||
+        supportedColorModes.includes('xy') ||
+        supportedColorModes.includes('rgb') ||
+        supportedColorModes.includes('rgbw') ||
+        supportedColorModes.includes('rgbww')
       )
     }
     // Fallback to old supported_features check
-    return (lightAttributes?.supported_features ?? 0) & SUPPORT_BRIGHTNESS
-  }, [lightAttributes?.supported_features, lightAttributes?.supported_color_modes])
+    return supportedFeatures & SUPPORT_BRIGHTNESS
+  }, [supportedColorModes, supportedFeatures])
 
   // These will be used for color picker implementation
   // const supportsColor = useMemo(() => {
