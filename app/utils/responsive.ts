@@ -73,9 +73,6 @@ export function useMediaQuery(query: string): boolean {
       setMatches(e.matches)
     }
 
-    // Set initial value
-    setMatches(mediaQuery.matches)
-
     // Add listener
     mediaQuery.addEventListener('change', handleChange)
 

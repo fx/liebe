@@ -1,4 +1,4 @@
-import { Flex, Text, Button, Spinner, Card, Badge, Separator, Grid } from '@radix-ui/themes'
+import { Flex, Text, Button, Spinner, Card } from '@radix-ui/themes'
 import {
   VideoIcon,
   ReloadIcon,
@@ -40,13 +40,13 @@ const SUPPORT_STREAM = 2
 // Stats display component
 function CameraStats({
   size,
-  hasFrameWarning,
+  _hasFrameWarning,
   isStreaming,
   videoElement,
   peerConnection,
 }: {
   size: 'small' | 'medium' | 'large'
-  hasFrameWarning: boolean
+  _hasFrameWarning: boolean
   isStreaming: boolean
   videoElement: HTMLVideoElement | null
   peerConnection: RTCPeerConnection | null
@@ -691,7 +691,7 @@ function CameraCardComponent({
           {showStats && supportsStream && !streamError && (
             <CameraStats
               size={size}
-              hasFrameWarning={hasFrameWarning}
+              _hasFrameWarning={hasFrameWarning}
               isStreaming={isStreaming}
               videoElement={videoElementRef.current}
               peerConnection={peerConnection}
@@ -757,7 +757,7 @@ function CameraCardComponent({
         {showStats && (
           <CameraStats
             size="large"
-            hasFrameWarning={hasFrameWarning}
+            _hasFrameWarning={hasFrameWarning}
             isStreaming={isStreaming}
             videoElement={videoElementRef.current}
             peerConnection={peerConnection}

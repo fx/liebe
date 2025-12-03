@@ -437,7 +437,7 @@ const startGlobalPanelGuardian = () => {
               container.appendChild(panel)
               console.log('[Global Panel Guardian] Successfully restored panel to container')
               break
-            } catch (error) {
+            } catch {
               // Continue trying other containers
             }
           }

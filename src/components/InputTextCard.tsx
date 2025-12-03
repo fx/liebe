@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState, useEffect } from 'react'
+import React, { memo, useCallback, useState } from 'react'
 import { Box, Flex, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Check, Edit2, Type, X } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -33,21 +33,20 @@ export const InputTextCard = memo(function InputTextCard({
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
 
-  const [localValue, setLocalValue] = useState<string>('')
   const [isEditing, setIsEditing] = useState(false)
+  // Local value for editing - initialized when entering edit mode
+  const [localValue, setLocalValue] = useState<string>('')
 
-  // Update local value when entity changes
-  useEffect(() => {
-    if (entity && !isEditing) {
-      setLocalValue(entity.state)
-    }
-  }, [entity, isEditing])
+  // Computed display value - entity state when not editing, local value when editing
+  const displayValue = isEditing ? localValue : (entity?.state ?? '')
 
   const handleClick = useCallback(() => {
-    if (!isEditing) {
+    if (!isEditing && entity) {
+      // Initialize local value with entity state when entering edit mode
+      setLocalValue(entity.state)
       setIsEditing(true)
     }
-  }, [isEditing])
+  }, [isEditing, entity])
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -58,13 +57,15 @@ export const InputTextCard = memo(function InputTextCard({
 
       // Validate length constraints
       if (attributes.min && localValue.length < attributes.min) {
-        setLocalValue(entity.state)
+        // Invalid - exit edit mode, displayValue reverts to entity.state
         setIsEditing(false)
         return
       }
 
       if (attributes.max && localValue.length > attributes.max) {
-        setLocalValue(localValue.substring(0, attributes.max))
+        // Truncate value
+        const truncated = localValue.substring(0, attributes.max)
+        setLocalValue(truncated)
         return
       }
 
@@ -72,7 +73,7 @@ export const InputTextCard = memo(function InputTextCard({
       if (attributes.pattern) {
         const regex = new RegExp(attributes.pattern)
         if (!regex.test(localValue)) {
-          setLocalValue(entity.state)
+          // Invalid - exit edit mode, displayValue reverts to entity.state
           setIsEditing(false)
           return
         }
@@ -85,11 +86,9 @@ export const InputTextCard = memo(function InputTextCard({
   )
 
   const handleCancel = useCallback(() => {
-    if (entity) {
-      setLocalValue(entity.state)
-      setIsEditing(false)
-    }
-  }, [entity])
+    // Just exit editing mode - displayValue will show entity.state again
+    setIsEditing(false)
+  }, [])
 
   const handleFieldClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -145,8 +144,8 @@ export const InputTextCard = memo(function InputTextCard({
   const isStale = attributes._stale === true
   const isPassword = attributes.mode === 'password'
 
-  // Display value (mask if password and not editing)
-  const displayValue = isPassword && !isEditing ? '••••••••' : entity.state
+  // For display: mask if password and not editing, otherwise show displayValue (computed at top)
+  const shownValue = isPassword && !isEditing ? '••••••••' : displayValue
 
   return (
     <GridCard
@@ -215,7 +214,7 @@ export const InputTextCard = memo(function InputTextCard({
                   size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}
                   style={{ fontFamily: isPassword ? 'monospace' : undefined }}
                 >
-                  {displayValue || '(empty)'}
+                  {shownValue || '(empty)'}
                 </Text>
               </Box>
               <IconButton
@@ -223,6 +222,7 @@ export const InputTextCard = memo(function InputTextCard({
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation()
+                  setLocalValue(entity.state)
                   setIsEditing(true)
                 }}
               >

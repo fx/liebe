@@ -1,5 +1,6 @@
 import { Card, Flex, Text, Heading, Grid, Separator, ScrollArea } from '@radix-ui/themes'
 import { useStore } from '@tanstack/react-store'
+import { useMemo } from 'react'
 import { entityStore } from '../../store/entityStore'
 import {
   Cloud,
@@ -13,6 +14,7 @@ import {
   Eye,
   Gauge,
   Navigation,
+  type LucideIcon,
 } from 'lucide-react'
 import type { WidgetConfig } from '../../store/types'
 
@@ -49,7 +51,7 @@ interface ForecastDay {
   wind_bearing?: number
 }
 
-function getWeatherIcon(condition: string) {
+function getWeatherIcon(condition: string): LucideIcon {
   const lowerCondition = condition.toLowerCase()
   if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return Sun
   if (lowerCondition.includes('rain')) return CloudRain
@@ -97,6 +99,12 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
     Object.keys(entities).find((id) => id.startsWith('weather.'))
   const weatherEntity = entityId ? entities[entityId] : undefined
 
+  // Get the weather icon - must be before any early returns to follow rules of hooks
+  const CurrentWeatherIcon = useMemo(
+    () => (weatherEntity ? getWeatherIcon(weatherEntity.state) : Cloud),
+    [weatherEntity]
+  )
+
   if (!weatherEntity) {
     return (
       <Card size="2">
@@ -121,8 +129,6 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
   // In the future, we can enhance this to use the get_forecasts service
   const forecast = attributes?.forecast?.slice(0, 8) || []
 
-  const WeatherIcon = getWeatherIcon(weatherEntity.state)
-
   return (
     <Card size="2">
       <Flex direction="column" gap="3" p="3">
@@ -130,7 +136,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
           <Heading size="4" weight="bold">
             Weather
           </Heading>
-          <WeatherIcon size={24} />
+          <CurrentWeatherIcon size={24} />
         </Flex>
 
         {/* Current conditions */}

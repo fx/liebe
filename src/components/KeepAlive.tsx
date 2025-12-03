@@ -1,4 +1,4 @@
-import { useRef, useEffect, ReactNode } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 interface KeepAliveProps {
@@ -11,36 +11,40 @@ interface KeepAliveProps {
 const portalCache = new Map<string, HTMLDivElement>()
 
 export function KeepAlive({ children, cacheKey, containerRef }: KeepAliveProps) {
-  const portalElementRef = useRef<HTMLDivElement | null>(null)
+  // Use state instead of ref to track portal element - this triggers re-render when set
+  const [portalElement, setPortalElement] = useState<HTMLDivElement | null>(() => {
+    // Initialize from cache synchronously during initial render
+    return portalCache.get(cacheKey) ?? null
+  })
 
   useEffect(() => {
     // Get or create portal element for this cache key
-    let portalElement = portalCache.get(cacheKey)
+    let element = portalCache.get(cacheKey)
 
-    if (!portalElement) {
-      portalElement = document.createElement('div')
-      portalElement.style.width = '100%'
-      portalElement.style.height = '100%'
-      portalCache.set(cacheKey, portalElement)
+    if (!element) {
+      element = document.createElement('div')
+      element.style.width = '100%'
+      element.style.height = '100%'
+      portalCache.set(cacheKey, element)
     }
 
-    portalElementRef.current = portalElement
+    setPortalElement(element)
 
     // Append portal element to container
-    if (containerRef.current && portalElement) {
-      containerRef.current.appendChild(portalElement)
+    if (containerRef.current && element) {
+      containerRef.current.appendChild(element)
     }
 
     return () => {
       // Remove portal element from current container but don't destroy it
-      if (portalElement && portalElement.parentNode) {
-        portalElement.parentNode.removeChild(portalElement)
+      if (element && element.parentNode) {
+        element.parentNode.removeChild(element)
       }
     }
   }, [cacheKey, containerRef])
 
   // Render children into the cached portal element
-  if (!portalElementRef.current) return null
+  if (!portalElement) return null
 
-  return createPortal(children, portalElementRef.current)
+  return createPortal(children, portalElement)
 }

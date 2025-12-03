@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { TextField, Flex, Text, Select, Modal, Button } from '~/components/ui'
 import { dashboardActions, useDashboardStore } from '../store'
 import type { ScreenConfig } from '../store/types'
@@ -13,25 +13,13 @@ interface ScreenConfigDialogProps {
 
 export function ScreenConfigDialog({ open, onOpenChange, screen }: ScreenConfigDialogProps) {
   const screens = useDashboardStore((state) => state.screens)
-  const [viewName, setViewName] = useState('')
-  const [viewSlug, setViewSlug] = useState('')
+  // Initialize form values from screen prop - component uses key prop for remounting
+  const [viewName, setViewName] = useState(screen?.name ?? '')
+  const [viewSlug, setViewSlug] = useState(screen?.slug ?? '')
   const [parentId, setParentId] = useState<string>('')
   const navigate = useNavigate()
 
   const isEditMode = !!screen
-
-  // Initialize form values when editing
-  useEffect(() => {
-    if (screen) {
-      setViewName(screen.name)
-      setViewSlug(screen.slug)
-      // TODO: Find parent ID if screen is nested
-    } else {
-      setViewName('')
-      setViewSlug('')
-      setParentId('')
-    }
-  }, [screen])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
