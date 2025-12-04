@@ -26,7 +26,6 @@ export function EntityBrowser({
       open={open}
       onOpenChange={onOpenChange}
       direction="left"
-      size="60vw"
       showCloseButton={false}
       portalContainer={portalContainer}
       partialOverlay={true}
