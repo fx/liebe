@@ -56,6 +56,16 @@ interface DrawerProps {
    * Description for the drawer (for accessibility)
    */
   description?: string
+  /**
+   * Container element to portal the drawer into. If not provided, portals to document.body.
+   */
+  portalContainer?: HTMLElement | null
+  /**
+   * Whether to use partial overlay (absolute positioning within container)
+   * instead of full-screen overlay (fixed positioning)
+   * @default false
+   */
+  partialOverlay?: boolean
 }
 
 /**
@@ -83,6 +93,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
       showCloseButton = true,
       title,
       description,
+      portalContainer,
+      partialOverlay = false,
     },
     ref
   ) => {
@@ -93,7 +105,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
     const portalContent = (
       <>
         <Dialog.Overlay
-          className="drawer-overlay"
+          className={partialOverlay ? 'drawer-overlay-partial' : 'drawer-overlay'}
           onClick={closeOnBackdropClick ? () => onOpenChange(false) : undefined}
         />
         <Dialog.Content
@@ -133,7 +145,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
 
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
-        <Dialog.Portal>
+        <Dialog.Portal container={portalContainer ?? undefined}>
           {includeTheme ? (
             <Theme appearance={themeContext?.appearance}>{portalContent}</Theme>
           ) : (
