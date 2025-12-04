@@ -8,9 +8,15 @@ interface EntityBrowserProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   screenId: string | null
+  portalContainer?: HTMLElement | null
 }
 
-export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserProps) {
+export function EntityBrowser({
+  open,
+  onOpenChange,
+  screenId,
+  portalContainer,
+}: EntityBrowserProps) {
   const handleClose = useCallback(() => {
     onOpenChange(false)
   }, [onOpenChange])
@@ -19,9 +25,11 @@ export function EntityBrowser({ open, onOpenChange, screenId }: EntityBrowserPro
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      direction="right"
-      size="600px"
+      direction="left"
+      size="60vw"
       showCloseButton={false}
+      portalContainer={portalContainer}
+      partialOverlay={true}
     >
       <Card
         size="3"
