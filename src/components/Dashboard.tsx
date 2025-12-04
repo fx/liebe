@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Box, Flex, Card, Text, Button } from '@radix-ui/themes'
 import { ScreenConfigDialog } from './ScreenConfigDialog'
 import { GridView } from './GridView'
@@ -17,6 +17,7 @@ export function Dashboard() {
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [addItemScreenId, setAddItemScreenId] = useState<string | null>(null)
   const [editScreen, setEditScreen] = useState<ScreenConfig | undefined>(undefined)
+  const mainContentRef = useRef<HTMLDivElement>(null)
 
   // Enable entity connection
   useEntityConnection()
@@ -82,9 +83,11 @@ export function Dashboard() {
 
       {/* Content Area */}
       <Box
+        ref={mainContentRef}
         style={{
           flex: 1,
           overflow: 'auto',
+          position: 'relative',
         }}
       >
         {currentScreen ? (
@@ -153,6 +156,7 @@ export function Dashboard() {
           }
         }}
         screenId={addItemScreenId}
+        portalContainer={mainContentRef.current}
       />
     </Box>
   )
