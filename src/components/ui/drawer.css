@@ -1,6 +1,6 @@
-/* Drawer overlay */
+/* Drawer overlay - uses absolute positioning for Home Assistant panel compatibility */
 .drawer-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
@@ -16,9 +16,9 @@
   animation: overlayShow 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Base drawer content styles */
+/* Base drawer content styles - uses absolute positioning for Home Assistant panel compatibility */
 .drawer-content {
-  position: fixed;
+  position: absolute;
   background-color: var(--color-panel-solid);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   display: flex;

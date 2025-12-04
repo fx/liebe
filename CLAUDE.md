@@ -384,24 +384,33 @@ When completing the final sub-issue of an epic, close the epic in the same pull 
    - Built with vanilla CSS, no built-in `css` or `sx` props
    - Customize through props and theme configuration, NOT custom CSS
 
-2. **Z-Index Management**
+2. **🚨 CRITICAL: No Fixed Positioning 🚨**
+   - **NEVER use `position: fixed`** in any CSS or inline styles
+   - Liebe runs as a custom panel (web component) inside Home Assistant's UI
+   - Fixed positioning would position elements relative to Home Assistant's viewport, not Liebe's container
+   - This breaks the UI because elements would overlap Home Assistant's own sidebar/menu
+   - **ALWAYS use `position: absolute`** with a positioned parent container instead
+   - All overlays, modals, drawers, and floating elements must use absolute positioning
+
+3. **Z-Index Management**
    - **AVOID custom z-index values** - only use `auto`, `0`, or `-1`
    - Radix components that need stacking (modals, dropdowns) render in portals
    - Portalled components automatically manage stacking order without z-index conflicts
    - If you must set z-index (which you shouldn't), ensure it doesn't interfere with portal stacking
 
-3. **Recommended Styling Approach** (in order of preference)
+4. **Recommended Styling Approach** (in order of preference)
    1. Use existing component props and theme configuration
    2. Adjust the underlying token system (CSS variables)
    3. Create custom components using Radix Primitives + Radix Colors
    4. As a last resort, apply minimal style overrides
 
-4. **What NOT to Do**
+5. **What NOT to Do**
    - Don't extensively override component styles with custom CSS
    - Don't use arbitrary z-index values (like 99999 or 100000)
+   - Don't use `position: fixed` - always use `absolute` with a positioned container
    - Don't fight the design system - work with it
 
-5. **Example: Fixing Dropdown Issues**
+6. **Example: Fixing Dropdown Issues**
    Instead of:
 
    ```tsx
@@ -417,7 +426,7 @@ When completing the final sub-issue of an epic, close the epic in the same pull 
    // Content automatically renders in portal with proper stacking
    ```
 
-6. **Custom Components**
+7. **Custom Components**
    When creating custom components, use:
    - Theme tokens for consistency
    - Radix Primitives for behavior
