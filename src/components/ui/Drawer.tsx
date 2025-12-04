@@ -1,6 +1,6 @@
-import { forwardRef, type ReactNode } from 'react'
+import { forwardRef, type ReactNode, useContext } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Theme } from '@radix-ui/themes'
+import { Theme, ThemeContext } from '@radix-ui/themes'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import './drawer.css'
 
@@ -86,50 +86,62 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
     },
     ref
   ) => {
-    const content = (
+    // Get current theme context to inherit appearance in portal
+    // Use useContext directly to avoid throwing when not in a Theme
+    const themeContext = useContext(ThemeContext)
+
+    const portalContent = (
+      <>
+        <Dialog.Overlay
+          className="drawer-overlay"
+          onClick={closeOnBackdropClick ? () => onOpenChange(false) : undefined}
+        />
+        <Dialog.Content
+          ref={ref}
+          className={`drawer-content drawer-${direction}`}
+          style={
+            size
+              ? {
+                  ...(direction === 'left' || direction === 'right'
+                    ? { width: size }
+                    : { height: size }),
+                }
+              : undefined
+          }
+          onEscapeKeyDown={closeOnEsc ? undefined : (e) => e.preventDefault()}
+          onPointerDownOutside={closeOnBackdropClick ? undefined : (e) => e.preventDefault()}
+          onInteractOutside={closeOnBackdropClick ? undefined : (e) => e.preventDefault()}
+        >
+          {/* Always render title and description for accessibility, but hide them visually */}
+          <Dialog.Title className="drawer-title">{title || 'Dialog'}</Dialog.Title>
+          <Dialog.Description className="drawer-description">
+            {description || 'Dialog content'}
+          </Dialog.Description>
+
+          {showCloseButton && (
+            <Dialog.Close asChild>
+              <button className="drawer-close" aria-label="Close">
+                <Cross2Icon />
+              </button>
+            </Dialog.Close>
+          )}
+
+          <div className="drawer-body">{children}</div>
+        </Dialog.Content>
+      </>
+    )
+
+    return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay
-            className="drawer-overlay"
-            onClick={closeOnBackdropClick ? () => onOpenChange(false) : undefined}
-          />
-          <Dialog.Content
-            ref={ref}
-            className={`drawer-content drawer-${direction}`}
-            style={
-              size
-                ? {
-                    ...(direction === 'left' || direction === 'right'
-                      ? { width: size }
-                      : { height: size }),
-                  }
-                : undefined
-            }
-            onEscapeKeyDown={closeOnEsc ? undefined : (e) => e.preventDefault()}
-            onPointerDownOutside={closeOnBackdropClick ? undefined : (e) => e.preventDefault()}
-            onInteractOutside={closeOnBackdropClick ? undefined : (e) => e.preventDefault()}
-          >
-            {/* Always render title and description for accessibility, but hide them visually */}
-            <Dialog.Title className="drawer-title">{title || 'Dialog'}</Dialog.Title>
-            <Dialog.Description className="drawer-description">
-              {description || 'Dialog content'}
-            </Dialog.Description>
-
-            {showCloseButton && (
-              <Dialog.Close asChild>
-                <button className="drawer-close" aria-label="Close">
-                  <Cross2Icon />
-                </button>
-              </Dialog.Close>
-            )}
-
-            <div className="drawer-body">{children}</div>
-          </Dialog.Content>
+          {includeTheme ? (
+            <Theme appearance={themeContext?.appearance}>{portalContent}</Theme>
+          ) : (
+            portalContent
+          )}
         </Dialog.Portal>
       </Dialog.Root>
     )
-
-    return includeTheme ? <Theme>{content}</Theme> : content
   }
 )
 
