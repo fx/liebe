@@ -183,10 +183,14 @@
 
 /* Mobile adjustments */
 @media (max-width: 640px) {
-  .drawer-right,
-  .drawer-left {
+  .drawer-right {
     width: 90vw;
     max-width: 100vw;
+  }
+
+  .drawer-left {
+    width: 100%;
+    max-width: 100%;
   }
 
   .drawer-top,
