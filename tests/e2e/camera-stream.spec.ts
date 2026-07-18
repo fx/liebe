@@ -16,6 +16,10 @@ import { openPanel, seedCameraConfig, gridItemCount, collectConsoleErrors } from
 // messages — never on player names (the collector appends source URLs like
 // ha-hls-player.js, so a broad /hls/i would swallow real crashes in the
 // players).
+// Recoverable hls.js media-error details (regex alternation, used below).
+const RECOVERABLE_HLS_BUFFER_DETAILS =
+  'buffer(?:StalledError|AppendError|AppendingError|NudgeOnStall|SeekOverHole|FullError)'
+
 const BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   // The HLS playlist/segment endpoints 404/503 briefly while ffmpeg spins up;
   // hls.js retries and recovers. Chrome logs these as console errors.
@@ -32,6 +36,24 @@ const BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   // with {code: "unknown_error"} and <ha-camera-stream> falls back to HLS —
   // exactly the "WebRTC best-effort" contract of docs/changes/0007.
   /"code"\s*:\s*"unknown_error"/,
+  // hls.js recoverable mediaError payloads during spin-up: buffer hiccups
+  // (bufferStalledError, bufferAppendError, bufferAppendingError,
+  // bufferNudgeOnStall, bufferSeekOverHole, bufferFullError) that hls.js
+  // recovers from by nudging/flushing. Anchored on BOTH the mediaError type
+  // and a known recoverable details value (order-insensitive, since JSON key
+  // order is not guaranteed) — a fatal mediaError with any other details
+  // string still fails the suite.
+  new RegExp(
+    `"type"\\s*:\\s*"mediaError"[\\s\\S]*"details"\\s*:\\s*"${RECOVERABLE_HLS_BUFFER_DETAILS}"` +
+      `|"details"\\s*:\\s*"${RECOVERABLE_HLS_BUFFER_DETAILS}"[\\s\\S]*"type"\\s*:\\s*"mediaError"`
+  ),
+  // Circular hls.js ErrorData console args cannot be JSON-serialized by the
+  // collector and become '<unserializable>'. Benign ONLY when the WHOLE entry
+  // is unserializable parts and the recorded source URL is the hls player
+  // chunk — deliberately narrower than the old /hls/i (which matched any text
+  // mentioning a player): a real crash in the player logs an Error/string
+  // argument, which serializes to visible text and fails this anchored match.
+  /^(?:<unserializable>\s*)+\(at [^)]*hls[^)]*:\d+\)$/i,
 ]
 
 // Minimal window/panel shape used by the in-page evaluations below.
@@ -76,8 +98,9 @@ async function expectVideoPlaying(page: Page, timeout: number): Promise<void> {
 }
 
 test('seeded camera card plays the synthetic stream and survives fullscreen', async ({ page }) => {
-  // Stream startup + two fullscreen renegotiations do not fit the default 60s
-  // per-test budget; extend for this spec only (global config untouched).
+  // Stream startup + four fullscreen renegotiations (letterbox-click and ESC
+  // close paths) do not fit the default 60s per-test budget; extend for this
+  // spec only (global config untouched).
   test.setTimeout(240_000)
 
   const consoleErrors = await collectConsoleErrors(page, BENIGN_CONSOLE_PATTERNS)
@@ -185,10 +208,11 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   // 6. Close fullscreen by clicking the letterbox area (top-left corner —
   // clear of the video controls at bottom-left and the exit hint at
   // top-right): ANY tap on the overlay must exit, not just taps landing on
-  // the video itself. The stream must recover in the card. (The ESC path is
-  // covered by FullscreenModal unit tests.)
+  // the video itself. The stream must recover in the card.
   await page.mouse.click(8, 8)
-  await expect(exitHint, 'fullscreen overlay closes').toBeHidden({ timeout: 15_000 })
+  await expect(exitHint, 'fullscreen overlay closes on letterbox click').toBeHidden({
+    timeout: 15_000,
+  })
 
   await expect(card, 'stream recovers to STREAMING/RECORDING after fullscreen').toContainText(
     /STREAMING|RECORDING/,
@@ -196,7 +220,23 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   )
   await expectVideoPlaying(page, 30_000)
 
-  // 7. No fatal console errors or unhandled rejections across the whole flow
+  // 7. Reopen and close via Escape: the ESC path must keep working end-to-end
+  // (both exits share FullscreenModal, but the key handler wiring is only
+  // exercised in a real browser), and the stream must recover again.
+  await page.locator('ha-camera-stream').click()
+  await expect(exitHint, 'fullscreen overlay reopens').toBeVisible({ timeout: 15_000 })
+  await expectVideoPlaying(page, 30_000)
+
+  await page.keyboard.press('Escape')
+  await expect(exitHint, 'fullscreen overlay closes on Escape').toBeHidden({ timeout: 15_000 })
+
+  await expect(card, 'stream recovers to STREAMING/RECORDING after ESC close').toContainText(
+    /STREAMING|RECORDING/,
+    { timeout: 30_000 }
+  )
+  await expectVideoPlaying(page, 30_000)
+
+  // 8. No fatal console errors or unhandled rejections across the whole flow
   // (benign HA/player startup noise filtered by the collector).
   expect(await consoleErrors.fatalErrors(), 'no fatal console errors').toEqual([])
 })

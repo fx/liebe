@@ -214,16 +214,27 @@ export async function collectConsoleErrors(
     ;(window as unknown as { __e2eRejections: string[] }).__e2eRejections = rejections
     window.addEventListener('unhandledrejection', (event) => {
       const { reason } = event
+      const isError = reason instanceof Error
       let detail: string
       try {
-        detail =
-          reason instanceof Error
-            ? reason.stack || reason.message
-            : JSON.stringify(reason, Object.getOwnPropertyNames(reason ?? {}))
+        detail = isError
+          ? reason.stack || reason.message
+          : JSON.stringify(reason, Object.getOwnPropertyNames(reason ?? {}))
       } catch {
+        // Circular or otherwise unserializable reason (String() cannot throw
+        // for objects with the default toString).
         detail = String(reason)
       }
-      rejections.push(`unhandled rejection: ${detail}`)
+      // Non-Error object reasons ALSO surface as a bare "Object" pageerror.
+      // Tag them explicitly so fatalErrors() can dedupe exactly: a '{' prefix
+      // heuristic would miss circular reasons, whose detail is the
+      // String(reason) fallback "[object Object]" rather than JSON.
+      const isObjectReason = !isError && typeof reason === 'object' && reason !== null
+      rejections.push(
+        isObjectReason
+          ? `unhandled rejection (object): ${detail}`
+          : `unhandled rejection: ${detail}`
+      )
     })
   })
 
@@ -239,11 +250,14 @@ export async function collectConsoleErrors(
         () => (window as unknown as { __e2eRejections?: string[] }).__e2eRejections ?? []
       )
       // Each object-reason rejection produced both an in-page record and a
-      // bare "Object" pageerror: drop one placeholder per such record. Any
-      // placeholder left over came from a synchronous object throw that only
-      // the pageerror channel saw — keep it so it can fail the test.
+      // bare "Object" pageerror: drop one placeholder per such record. The
+      // recorder tags object-reason records explicitly ("(object)"), so this
+      // count is exact — including circular reasons whose detail is the
+      // unserializable "[object Object]" fallback. Any placeholder left over
+      // came from a synchronous object throw that only the pageerror channel
+      // saw — keep it so it can fail the test.
       const objectRejectionCount = rejections.filter((text) =>
-        text.startsWith('unhandled rejection: {')
+        text.startsWith('unhandled rejection (object):')
       ).length
       const unmatchedObjectPageErrors = objectPageErrors.slice(objectRejectionCount)
       return [...collected, ...unmatchedObjectPageErrors, ...rejections].filter(
