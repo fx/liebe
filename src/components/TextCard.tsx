@@ -18,6 +18,39 @@ interface TextCardProps {
   config?: Record<string, unknown>
 }
 
+// Supported values for the enum-like display options. Config/props are
+// untrusted (imported YAML, older exports), so a value outside these sets must
+// fall back to the default rather than be applied verbatim — an unsupported
+// textSize/alignment/textColor produces an undefined style lookup otherwise.
+const ALIGNMENTS = ['left', 'center', 'right'] as const
+const TEXT_SIZES = ['small', 'medium', 'large'] as const
+const TEXT_COLORS = [
+  'default',
+  'gray',
+  'blue',
+  'green',
+  'red',
+  'orange',
+  'purple',
+  'cyan',
+  'pink',
+  'yellow',
+] as const
+
+// Return the first candidate that is one of the supported values, else the fallback.
+function resolveOption<T extends string>(
+  allowed: readonly T[],
+  fallback: T,
+  ...candidates: Array<string | undefined>
+): T {
+  for (const candidate of candidates) {
+    if (candidate && (allowed as readonly string[]).includes(candidate)) {
+      return candidate as T
+    }
+  }
+  return fallback
+}
+
 function TextCardComponent({
   entityId: _entityId,
   size = 'medium',
@@ -33,9 +66,9 @@ function TextCardComponent({
 }: TextCardProps) {
   // Resolve display values, preferring config over props. `content` uses nullish
   // (`??`) so an intentional empty string is preserved — clearing content renders
-  // empty, not the "Double-click to edit" placeholder. The enum-like fields fall
-  // back on empty/invalid values (`||`), since an empty alignment/textSize/
-  // textColor has no valid rendering and must resolve to the prop/default.
+  // empty, not the "Double-click to edit" placeholder. The enum-like fields are
+  // validated against their supported sets so an empty OR otherwise-invalid
+  // value (e.g. a stray textSize) falls back to the prop/default.
   const {
     content: configContent,
     alignment: configAlignment,
@@ -43,14 +76,14 @@ function TextCardComponent({
     textColor: configTextColor,
   } = (config ?? {}) as {
     content?: string
-    alignment?: 'left' | 'center' | 'right'
-    textSize?: 'small' | 'medium' | 'large'
+    alignment?: string
+    textSize?: string
     textColor?: string
   }
   const content = configContent ?? propContent ?? 'Double-click to edit'
-  const alignment = configAlignment || propAlignment || 'left'
-  const textSize = configTextSize || propTextSize || 'medium'
-  const textColor = configTextColor || propTextColor || 'default'
+  const alignment = resolveOption(ALIGNMENTS, 'left', configAlignment, propAlignment)
+  const textSize = resolveOption(TEXT_SIZES, 'medium', configTextSize, propTextSize)
+  const textColor = resolveOption(TEXT_COLORS, 'default', configTextColor, propTextColor)
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   const [editContent, setEditContent] = useState(content)

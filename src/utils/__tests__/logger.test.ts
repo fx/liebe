@@ -53,6 +53,15 @@ describe('logger', () => {
       logger.debug('after')
       expect(logSpy).toHaveBeenCalledWith('after')
     })
+
+    it('emits warn output once the liebe:debug flag is set', () => {
+      logger.warn('before')
+      expect(warnSpy).not.toHaveBeenCalled()
+
+      localStorage.setItem('liebe:debug', '1')
+      logger.warn('after')
+      expect(warnSpy).toHaveBeenCalledWith('after')
+    })
   })
 
   describe('when Vite dev mode is active', () => {

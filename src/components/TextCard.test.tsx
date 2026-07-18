@@ -11,11 +11,13 @@ const PLACEHOLDER = 'Double-click to edit'
 describe('TextCard content resolution', () => {
   beforeEach(() => {
     cleanup()
-    // View mode so the card renders content instead of the edit textarea.
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'view',
-      currentScreenId: null,
-    } as Partial<DashboardState> as DashboardState)
+    // View mode so the card renders content instead of the edit textarea. Honor
+    // the selector contract — the hook takes a selector, so apply it to the mock
+    // state rather than returning the whole state object for every call.
+    const mockState = { mode: 'view', currentScreenId: null } as unknown as DashboardState
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector(mockState)) as typeof useDashboardStore)
   })
 
   it('renders empty content when content is an explicit empty string', () => {
@@ -50,5 +52,22 @@ describe('TextCard content resolution', () => {
     // prop/default rather than being preserved as empty strings.
     render(<TextCard config={{ content: 'Body', alignment: '', textSize: '', textColor: '' }} />)
     expect(screen.getByText('Body')).toBeInTheDocument()
+  })
+
+  it('ignores an invalid non-empty config value and falls back to the default', () => {
+    // 'sideways' is not a supported alignment, so the content must render with the
+    // default 'left' text-align rather than the invalid value.
+    const { container } = render(
+      <TextCard config={{ content: 'Body', alignment: 'sideways', textSize: 'xxl' }} />
+    )
+    const box = container.querySelector('.text-card-content') as HTMLElement | null
+    expect(box).not.toBeNull()
+    expect(box?.style.textAlign).toBe('left')
+  })
+
+  it('applies a valid alignment from config', () => {
+    const { container } = render(<TextCard config={{ content: 'Body', alignment: 'right' }} />)
+    const box = container.querySelector('.text-card-content') as HTMLElement | null
+    expect(box?.style.textAlign).toBe('right')
   })
 })
