@@ -1,8 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, render, act } from '@testing-library/react'
 import { useEntity } from '../useEntity'
 import { entityStore, entityStoreActions } from '../../store/entityStore'
 import type { HassEntity } from '../../store/entityTypes'
+
+function makeEntity(entityId: string, state: string): HassEntity {
+  return {
+    entity_id: entityId,
+    state,
+    attributes: {},
+    last_changed: '2024-01-01T00:00:00Z',
+    last_updated: '2024-01-01T00:00:00Z',
+    context: { id: entityId, parent_id: null, user_id: null },
+  }
+}
 
 describe('useEntity', () => {
   const mockEntity: HassEntity = {
@@ -175,5 +186,64 @@ describe('useEntity', () => {
     const { result } = renderHook(() => useEntity('light.bedroom'))
 
     expect(result.current.isConnected).toBe(false)
+  })
+
+  describe('render-count regressions', () => {
+    it('does not re-render when an unrelated entity updates', () => {
+      act(() => {
+        entityStoreActions.updateEntities([
+          makeEntity('light.kitchen', 'on'),
+          makeEntity('sensor.garage', '20'),
+        ])
+        entityStoreActions.setConnected(true)
+        entityStoreActions.setInitialLoading(false)
+      })
+
+      let renders = 0
+      function Probe() {
+        renders++
+        useEntity('light.kitchen')
+        return null
+      }
+      render(<Probe />)
+      const initialRenders = renders
+
+      // A batch that updates only sensor.garage must not re-render a
+      // component observing light.kitchen.
+      act(() => {
+        entityStoreActions.updateEntities([makeEntity('sensor.garage', '21')])
+      })
+
+      expect(renders).toBe(initialRenders)
+    })
+
+    it('re-renders exactly once when its own entity updates', () => {
+      act(() => {
+        entityStoreActions.updateEntities([
+          makeEntity('light.kitchen', 'on'),
+          makeEntity('sensor.garage', '20'),
+        ])
+        entityStoreActions.setConnected(true)
+        entityStoreActions.setInitialLoading(false)
+      })
+
+      let renders = 0
+      let lastState: string | undefined
+      function Probe() {
+        renders++
+        const { entity } = useEntity('light.kitchen')
+        lastState = entity?.state
+        return null
+      }
+      render(<Probe />)
+      const initialRenders = renders
+
+      act(() => {
+        entityStoreActions.updateEntities([makeEntity('light.kitchen', 'off')])
+      })
+
+      expect(renders).toBe(initialRenders + 1)
+      expect(lastState).toBe('off')
+    })
   })
 })
