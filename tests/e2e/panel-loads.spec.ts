@@ -40,21 +40,19 @@ test('configuration.yaml panel entry matches src/config/panel.ts', () => {
     `built bundle dist/${bundle} referenced by module_url must exist`
   ).toBe(true)
 
-  // The compose file must still mount ../dist at the container path module_url
-  // resolves to (HA serves /local/* from /config/www/*), or HA would serve a
-  // stale/missing bundle even though the file exists in dist/.
+  // The compose file must mount ../dist READ-ONLY at exactly the container path
+  // module_url resolves to (HA serves /local/* from /config/www/*), or HA would
+  // serve a stale/missing bundle even though the file exists in dist/. Assert the
+  // full source:target:mode contract exactly — a near-miss like
+  // /config/www/dist-old or a dropped :ro mode must fail.
   const servedDir = moduleUrl.replace(/\/[^/]+$/, '') // /local/dist
   const containerDir = servedDir.replace(/^\/local\//, '/config/www/') // /config/www/dist
+  const expectedMount = `../dist:${containerDir}:ro`
   const compose = load(
     readFileSync(new URL('../../ha/docker-compose.yml', import.meta.url), 'utf8')
   ) as { services?: { homeassistant?: { volumes?: string[] } } }
   const volumes = compose.services?.homeassistant?.volumes ?? []
-  const distMount = volumes.find((v) => v.startsWith('../dist:'))
-  expect(distMount, 'compose mounts ../dist into the container').toBeTruthy()
-  expect(
-    distMount?.startsWith(`../dist:${containerDir}`),
-    `compose must mount ../dist at ${containerDir} so ${servedDir} resolves to it (found "${distMount}")`
-  ).toBe(true)
+  expect(volumes, `compose must mount exactly "${expectedMount}"`).toContain(expectedMount)
 })
 
 test('panel mounts inline and connects to Home Assistant', async ({ page }) => {
