@@ -1,51 +1,51 @@
 # Entity Card System — Card Reference
 
-Companion to [index.md](./index.md). This document is the exhaustive per-card catalog: declared dimensions, the Home Assistant services each card calls with exact payloads, feature-flag constants, size handling, edit-mode affordances, lifecycle states, and GIVEN/WHEN/THEN scenarios derived from the real test suites. Every claim is referenced to `path:line`. It is a living baseline of the implementation as it stands.
+Companion to [index.md](./index.md). This document is the exhaustive per-card catalog: declared dimensions, the Home Assistant services each card calls with exact payloads, feature-flag constants, size handling, edit-mode affordances, lifecycle states, and GIVEN/WHEN/THEN scenarios derived from the real test suites. Every claim is referenced to a repo-relative `path:line`; where a section already names its source file, subsequent bare `line`/`line-range` citations refer to that file. It is a living baseline of the implementation as it stands.
 
 ## Dimensions and capabilities matrix
 
-| Card                | Domain(s)             | `defaultDimensions`               | Config modal               | Interactive                   | Test file(s)                                                                           |
-| ------------------- | --------------------- | --------------------------------- | -------------------------- | ----------------------------- | -------------------------------------------------------------------------------------- |
-| LightCard           | `light`               | 2×2 (`LightCard.tsx:293`)         | Yes (light)                | toggle + brightness           | LightCard.test.tsx, LightCard.brightness.test.tsx, LightCard.slider-usability.test.tsx |
-| ClimateCard         | `climate`             | 3×3 (`ClimateCard.tsx:960`)       | No                         | mode + setpoints              | ClimateCard.test.tsx                                                                   |
-| CoverCard           | `cover`               | 2×3 (`CoverCard.tsx:420`)         | No                         | open/close/stop/position/tilt | CoverCard.test.tsx                                                                     |
-| FanCard             | `fan`                 | 2×2 (`FanCard.tsx:384`)           | No                         | toggle + speed + preset       | —                                                                                      |
-| SensorCard          | `sensor`              | 2×2 (`SensorCard.tsx:244`)        | No                         | read-only                     | SensorCard.test.tsx                                                                    |
-| BinarySensorCard    | `binary_sensor`       | 2×2 (`BinarySensorCard.tsx:198`)  | Yes (icons)                | read-only                     | — (previewed in CardConfig)                                                            |
-| ButtonCard          | `switch` + fallback   | 2×1 (`ButtonCard.tsx:155`)        | No                         | toggle                        | ButtonCard.test.tsx                                                                    |
-| WeatherCard         | `weather`             | 4×3 (`WeatherCard/index.tsx:311`) | Yes (variant/unit)         | read-only                     | WeatherCard.test.tsx                                                                   |
-| WeatherCardDefault  | variant               | 4×3                               | via parent                 | read-only                     | —                                                                                      |
-| WeatherCardModern   | variant               | 3×3                               | via parent                 | read-only                     | —                                                                                      |
-| WeatherCardDetailed | variant               | 4×4                               | via parent                 | read-only                     | —                                                                                      |
-| WeatherCardMinimal  | variant               | 2×2                               | via parent                 | read-only                     | —                                                                                      |
-| InputBooleanCard    | `input_boolean`       | 2×1 (`InputBooleanCard.tsx:128`)  | No                         | toggle                        | InputBooleanCard.test.tsx                                                              |
-| InputNumberCard     | `input_number`        | none → 2×2                        | No                         | stepper + edit                | InputNumberCard.test.tsx                                                               |
-| InputSelectCard     | `input_select`        | none → 2×2                        | No                         | select                        | InputSelectCard.test.tsx                                                               |
-| InputTextCard       | `input_text`          | none → 2×2                        | No                         | inline edit                   | InputTextCard.test.tsx                                                                 |
-| InputDateTimeCard   | `input_datetime`      | none → 2×2                        | No                         | native picker                 | InputDateTimeCard.test.tsx                                                             |
-| TextCard            | grid type `text`      | 3×2 (`TextCard.tsx:343`)          | via CardConfig (text)      | inline edit                   | —                                                                                      |
-| Separator           | grid type `separator` | 4×1 (`Separator.tsx:133`)         | via CardConfig (separator) | edit-select only              | —                                                                                      |
+| Card                | Domain(s)             | `defaultDimensions`                              | Config modal               | Interactive                   | Test file(s)                                                                                                                                                            |
+| ------------------- | --------------------- | ------------------------------------------------ | -------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LightCard           | `light`               | 2×2 (`src/components/LightCard.tsx:293`)         | Yes (light)                | toggle + brightness           | `src/components/__tests__/LightCard.test.tsx`, `src/components/__tests__/LightCard.brightness.test.tsx`, `src/components/__tests__/LightCard.slider-usability.test.tsx` |
+| ClimateCard         | `climate`             | 3×3 (`src/components/ClimateCard.tsx:960`)       | No                         | mode + setpoints              | `src/components/ClimateCard.test.tsx`                                                                                                                                   |
+| CoverCard           | `cover`               | 2×3 (`src/components/CoverCard.tsx:420`)         | No                         | open/close/stop/position/tilt | `src/components/CoverCard.test.tsx`                                                                                                                                     |
+| FanCard             | `fan`                 | 2×2 (`src/components/FanCard.tsx:384`)           | No                         | toggle + speed + preset       | —                                                                                                                                                                       |
+| SensorCard          | `sensor`              | 2×2 (`src/components/SensorCard.tsx:244`)        | No                         | read-only                     | `src/components/__tests__/SensorCard.test.tsx`                                                                                                                          |
+| BinarySensorCard    | `binary_sensor`       | 2×2 (`src/components/BinarySensorCard.tsx:198`)  | Yes (icons)                | read-only                     | — (previewed in CardConfig)                                                                                                                                             |
+| ButtonCard          | `switch` + fallback   | 2×1 (`src/components/ButtonCard.tsx:155`)        | No                         | toggle                        | `src/components/__tests__/ButtonCard.test.tsx`                                                                                                                          |
+| WeatherCard         | `weather`             | 4×3 (`src/components/WeatherCard/index.tsx:311`) | Yes (variant/unit)         | read-only                     | `src/components/WeatherCard.test.tsx`                                                                                                                                   |
+| WeatherCardDefault  | variant               | 4×3                                              | via parent                 | read-only                     | —                                                                                                                                                                       |
+| WeatherCardModern   | variant               | 3×3                                              | via parent                 | read-only                     | —                                                                                                                                                                       |
+| WeatherCardDetailed | variant               | 4×4                                              | via parent                 | read-only                     | —                                                                                                                                                                       |
+| WeatherCardMinimal  | variant               | 2×2                                              | via parent                 | read-only                     | —                                                                                                                                                                       |
+| InputBooleanCard    | `input_boolean`       | 2×1 (`src/components/InputBooleanCard.tsx:128`)  | No                         | toggle                        | `src/components/InputBooleanCard.test.tsx`                                                                                                                              |
+| InputNumberCard     | `input_number`        | none → 2×2                                       | No                         | stepper + edit                | `src/components/InputNumberCard.test.tsx`                                                                                                                               |
+| InputSelectCard     | `input_select`        | none → 2×2                                       | No                         | select                        | `src/components/InputSelectCard.test.tsx`                                                                                                                               |
+| InputTextCard       | `input_text`          | none → 2×2                                       | No                         | inline edit                   | `src/components/InputTextCard.test.tsx`                                                                                                                                 |
+| InputDateTimeCard   | `input_datetime`      | none → 2×2                                       | No                         | native picker                 | `src/components/InputDateTimeCard.test.tsx`                                                                                                                             |
+| TextCard            | grid type `text`      | 3×2 (`src/components/TextCard.tsx:343`)          | via CardConfig (text)      | inline edit                   | —                                                                                                                                                                       |
+| Separator           | grid type `separator` | 4×1 (`src/components/Separator.tsx:133`)         | via CardConfig (separator) | edit-select only              | —                                                                                                                                                                       |
 
-Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }` (`utils/cardDimensions.ts:8-17`). Most cards export as `Object.assign(memo(Component, comparator), { defaultDimensions })`; `Separator` is a plain function with a static `.defaultDimensions` and no memo. Every card except `SensorCard`/`ButtonCard`/`TextCard`/`Separator` reads the store `mode` either directly or through `GridCard`.
+Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }` (`src/utils/cardDimensions.ts:8-17`). Most cards export as `Object.assign(memo(Component, comparator), { defaultDimensions })`; `Separator` is a plain function with a static `.defaultDimensions` and no memo. Every card except `SensorCard`/`ButtonCard`/`TextCard`/`Separator` reads the store `mode` either directly or through `GridCard`.
 
 ## Lights
 
-**Services** (`LightCard.tsx`): `light.turn_on` / `light.turn_off` on toggle (`145-158`); brightness commit sends `light.turn_on` with `{ brightness }` on 0–255 scale, or `turn_off` when the committed value is 0 (`66-81`).
+**Services** (`src/components/LightCard.tsx`): `light.turn_on` / `light.turn_off` on toggle (`145-158`); brightness commit sends `light.turn_on` with `{ brightness }` on 0–255 scale, or `turn_off` when the committed value is 0 (`66-81`).
 
 **Feature detection**: `SUPPORT_BRIGHTNESS = 1` (`22`). Brightness is supported when `supported_color_modes` includes any of `brightness`, `color_temp`, `hs`, `xy`, `rgb`, `rgbw`, `rgbww`, else the legacy `supported_features & 1` (`87-102`). Color and color-temp checks are stubbed as comments (`104-111`, `171`).
 
 **Slider** (`226-244`): visible only when `!isEditMode && isOn && supportsBrightness && config.enableBrightness !== false`. Uses `localBrightness` + `isDragging` while dragging, `onValueCommit` to send. Display is `round(brightness/255*100)`; card click is suppressed while dragging (`185`).
 
-**Config**: `enableBrightness` boolean, default true (`configurations/cardConfigurations.ts:13-24`), edited via `CardConfig.Modal` (`LightCard.tsx:267-274`).
+**Config**: `enableBrightness` boolean, default true (`src/components/configurations/cardConfigurations.ts:13-24`), edited via `CardConfig.Modal` (`src/components/LightCard.tsx:267-274`).
 
 **States**: skeleton `124-126`; ErrorDisplay `129-138`; `on` styling amber-3 bg / amber-6 border, 2px border when selected/error/on (`191-193`).
 
 ### Scenarios (from the three LightCard test files)
 
-- **Toggle off→on**: GIVEN an off light, WHEN the card is clicked, THEN `light.turn_on` is called for the entity (`LightCard.test.tsx`, toggle test).
-- **Brightness commit**: GIVEN an on light at 100%, WHEN the slider is dragged to 50% and released, THEN `turn_on` is called with `brightness ≈ 128` (`LightCard.tsx:66-81`; `LightCard.brightness.test.tsx`).
-- **Commit 0 turns off**: GIVEN an on light, WHEN brightness is committed at 0, THEN `light.turn_off` is called instead of `turn_on` (`LightCard.tsx:72-76`).
-- **Slider hidden in edit mode**: GIVEN edit mode, WHEN the on light renders, THEN no brightness slider appears (`LightCard.tsx:222`; `LightCard.slider-usability.test.tsx`).
+- **Toggle off→on**: GIVEN an off light, WHEN the card is clicked, THEN `light.turn_on` is called for the entity (`src/components/__tests__/LightCard.test.tsx`, toggle test).
+- **Brightness commit**: GIVEN an on light at 100%, WHEN the slider is dragged to 50% and released, THEN `turn_on` is called with `brightness ≈ 128` (`src/components/LightCard.tsx:66-81`; `src/components/__tests__/LightCard.brightness.test.tsx`).
+- **Commit 0 turns off**: GIVEN an on light, WHEN brightness is committed at 0, THEN `light.turn_off` is called instead of `turn_on` (`src/components/LightCard.tsx:72-76`).
+- **Slider hidden in edit mode**: GIVEN edit mode, WHEN the on light renders, THEN no brightness slider appears (`src/components/LightCard.tsx:222`; `src/components/__tests__/LightCard.slider-usability.test.tsx`).
 - **No slider without brightness support**: GIVEN a light whose `supported_color_modes` is `['onoff']`, THEN the slider is not rendered (`87-102`).
 
 ## Climate
@@ -58,7 +58,7 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 **Sizing**: arc radius 50/70/90; container `minHeight` 220/280/320px (`282`, `482`). All controls hidden in edit mode. No config modal (`cardConfigurations` has a placeholder only, `25-29`).
 
-### Scenarios (`ClimateCard.test.tsx`)
+### Scenarios (`src/components/ClimateCard.test.tsx`)
 
 - **Increase setpoint**: GIVEN `heat` at 21, step 0.5, WHEN increase clicked, THEN `set_temperature { temperature: 21.5 }` (`127-156`).
 - **Min limit disables decrease**: GIVEN temp 7 with `min_temp: 7`, THEN the decrease button is disabled (`189-210`).
@@ -77,7 +77,7 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 **Sizing**: button size 1/2/3; container `minHeight` 160/180/200px (`264`) — but the test asserts 60/80/100px (see index Open Questions). Controls hidden in edit mode; no config modal.
 
-**Scenarios** (`CoverCard.test.tsx`):
+**Scenarios** (`src/components/CoverCard.test.tsx`):
 
 - **Open**: GIVEN `supported_features: 1`, WHEN "Open cover" clicked, THEN `open_cover` no-data (`139-159`).
 - **State-based disable**: GIVEN `closed` at position 0 with features 3, THEN open enabled and close disabled (`207-222`).
@@ -99,7 +99,7 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 **Icon by `device_class`** (`getSensorIcon`, `35-65`): temperature→Value, humidity→Circle, motion/occupancy/moving→ActivityLog, power/energy/current/voltage→LightningBolt, pressure→Mix, timestamp/duration→Clock, default→Home. Icon size 24/20/16; value font 2/3/4; container `minHeight` 120/100/80px. No config modal, no `onConfigure`.
 
-**Scenarios** (`__tests__/SensorCard.test.tsx`):
+**Scenarios** (`src/components/__tests__/SensorCard.test.tsx`):
 
 - Temperature `21.5` °C → `21.5 °C` with friendly name.
 - Power `1250` W → `1.3 kW`.
@@ -114,28 +114,28 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 `on = entity.state === 'on'` (`74`). Icon resolution (`64-71`): `config.onIcon`/`config.offIcon` → `device_class` default pair (`getDefaultIcons`, `23-44`) → `getTablerIcon || getIcon || (isOn ? CircleCheck : Circle)`. Device-class defaults include occupancy, door/window, motion, moisture, lock, safety, smoke, sound, vibration, light. Status text is `entity.state.toUpperCase()`. `on` uses amber background/border (2px) and amber icon/text.
 
-**Config**: `onIcon` (default `CircleCheck`) / `offIcon` (default `Circle`), both `icon`-type (`cardConfigurations.ts:59-76`); wires `onConfigure`, `hasConfiguration={!!item}`, and a `CardConfig.Modal` saving to `item.config`. States mirror SensorCard (skeleton / ErrorDisplay / unavailable). The icon `useMemo` runs before early returns to keep hook order stable.
+**Config**: `onIcon` (default `CircleCheck`) / `offIcon` (default `Circle`), both `icon`-type (`src/components/configurations/cardConfigurations.ts:59-76`); wires `onConfigure`, `hasConfiguration={!!item}`, and a `CardConfig.Modal` saving to `item.config`. States mirror SensorCard (skeleton / ErrorDisplay / unavailable). The icon `useMemo` runs before early returns to keep hook order stable.
 
 ## Weather
 
-Variant selection: `config.variant || config.preset || 'default'` (`WeatherCard/index.tsx:248`); saving migrates `preset` → `variant` (`268-282`). Variants registered on first render via `registerCardVariant` (`15-22`).
+Variant selection: `config.variant || config.preset || 'default'` (`src/components/WeatherCard/index.tsx:248`); saving migrates `preset` → `variant` (`268-282`). Variants registered on first render via `registerCardVariant` (`15-22`).
 
 **Per-variant attributes and display:**
 
-| Variant                              | Reads                                                 | Displays                                                                 | Background                          |
-| ------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------- |
-| Default (`WeatherCardDefault.tsx`)   | temperature, humidity, temperature_unit               | emoji icon, temp (Thermometer), humidity % (Droplets), capitalized state | Yes; `backdrop` off when bg present |
-| Modern (`WeatherCardModern.tsx`)     | temperature, humidity, temperature_unit               | lucide icon, large temp, "{humidity}% humidity", state                   | Yes; emphasis text shadow           |
-| Detailed (`WeatherCardDetailed.tsx`) | temperature, humidity, **pressure**, temperature_unit | labeled Temperature/Humidity/Pressure rows (`{round(pressure)} hPa`)     | Yes; header icon does not whiten    |
-| Minimal (`WeatherCardMinimal.tsx`)   | temperature, temperature_unit only                    | name, large temp, state                                                  | No — `transparent`, no icon         |
+| Variant                                                         | Reads                                                 | Displays                                                                 | Background                          |
+| --------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------- |
+| Default (`src/components/WeatherCard/WeatherCardDefault.tsx`)   | temperature, humidity, temperature_unit               | emoji icon, temp (Thermometer), humidity % (Droplets), capitalized state | Yes; `backdrop` off when bg present |
+| Modern (`src/components/WeatherCard/WeatherCardModern.tsx`)     | temperature, humidity, temperature_unit               | lucide icon, large temp, "{humidity}% humidity", state                   | Yes; emphasis text shadow           |
+| Detailed (`src/components/WeatherCard/WeatherCardDetailed.tsx`) | temperature, humidity, **pressure**, temperature_unit | labeled Temperature/Humidity/Pressure rows (`{round(pressure)} hPa`)     | Yes; header icon does not whiten    |
+| Minimal (`src/components/WeatherCard/WeatherCardMinimal.tsx`)   | temperature, temperature_unit only                    | name, large temp, state                                                  | No — `transparent`, no icon         |
 
 **Temperature unit** (duplicated `convertTemperature` + `getTemperatureDisplay` in each variant): native unit inferred from whether `temperature_unit` contains `f`; `auto` shows native, `celsius`/`fahrenheit` convert (C→F `t*9/5+32`, F→C `(t-32)*5/9`); value is `Math.round(...)`.
 
 **Condition→icon**: Default uses emoji (`☀️ 🌧️ ☁️ ❄️ ⛈️`, fallback `🌤️`); Modern/Detailed use lucide (`Sun`, `CloudRain`, `CloudDrizzle`, `CloudSnow`, `Zap`, fallback `Cloud`); Minimal none.
 
-**Backgrounds (PR #140)**: `getWeatherBackground(condition)` (`index.tsx:136-232`) maps Pirate-Weather icon names and common HA conditions to one of 10 PNGs under `public/weather-backgrounds/` (`clear-day`, `clear-night`, `rain`, `snow`, `sleet`, `wind`, `fog`, `cloudy`, `partly-cloudy-day`, `partly-cloudy-night`), with partial-match fallbacks, returning `null` when nothing matches. URLs are prefixed by `getAssetBaseUrl()` → `window.__LIEBE_ASSET_BASE_URL__` or `/` (`123-133`). When a background exists, `getWeatherTextStyles`/`getWeatherTextColor` switch text to white with shadows and icons to white with drop-shadow.
+**Backgrounds (PR #140)**: `getWeatherBackground(condition)` (`src/components/WeatherCard/index.tsx:136-232`) maps Pirate-Weather icon names and common HA conditions to one of 10 PNGs under `public/weather-backgrounds/` (`clear-day`, `clear-night`, `rain`, `snow`, `sleet`, `wind`, `fog`, `cloudy`, `partly-cloudy-day`, `partly-cloudy-night`), with partial-match fallbacks, returning `null` when nothing matches. URLs are prefixed by `getAssetBaseUrl()` → `window.__LIEBE_ASSET_BASE_URL__` or `/` (`123-133`). When a background exists, `getWeatherTextStyles`/`getWeatherTextColor` switch text to white with shadows and icons to white with drop-shadow.
 
-**Scenarios** (`WeatherCard.test.tsx`):
+**Scenarios** (`src/components/WeatherCard.test.tsx`):
 
 - Unit conversion: 22°C default → `22°C`; with `temperatureUnit: 'fahrenheit'` → `72°F` (`44-50`).
 - Preset backwards-compat: `preset: 'minimal' | 'detailed' | 'modern'` render the matching variant (`53-84`).
@@ -147,7 +147,7 @@ Variant selection: `config.variant || config.preset || 'default'` (`WeatherCard/
 
 ## Input helper cards
 
-Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name || entity_id.split('.')[1]`; uniform skeleton / ErrorDisplay / unavailable states; error state = `grid-card-error`, red 2px border, error string as `title`. `useServiceCall.setValue` maps `input_number`/`input_text` → `set_value { value }` and `input_select` → `select_option { option }` (`hooks/useServiceCall.ts:150-179`); there is **no** `input_datetime` branch.
+Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name || entity_id.split('.')[1]`; uniform skeleton / ErrorDisplay / unavailable states; error state = `grid-card-error`, red 2px border, error string as `title`. `useServiceCall.setValue` maps `input_number`/`input_text` → `set_value { value }` and `input_select` → `select_option { option }` (`src/hooks/useServiceCall.ts:150-179`); there is **no** `input_datetime` branch.
 
 ### InputBooleanCard
 
@@ -178,13 +178,13 @@ Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name |
 
 ## Button and fallback card
 
-`ButtonCard` (`switch` + fallback, 2×1). Toggles via `useServiceCall.toggle` on click, guarded against loading/unavailable (`63-72`). Icon by domain: light→Sun, switch→LightningBolt, input_boolean→Check, default→LightningBolt (`17-30`). `on` styling amber-3/amber-6, 2px border. Status shows `ERROR` on failure or the uppercased state. No config modal. Scenario (`ButtonCard.test.tsx`): clicking an on switch calls `toggle` for the entity.
+`ButtonCard` (`switch` + fallback, 2×1). Toggles via `useServiceCall.toggle` on click, guarded against loading/unavailable (`63-72`). Icon by domain: light→Sun, switch→LightningBolt, input_boolean→Check, default→LightningBolt (`17-30`). `on` styling amber-3/amber-6, 2px border. Status shows `ERROR` on failure or the uppercased state. No config modal. Scenario (`src/components/__tests__/ButtonCard.test.tsx`): clicking an on switch calls `toggle` for the entity.
 
 ## Text and separator widgets
 
 ### TextCard (grid type `text`, 3×2)
 
-- Renders Markdown via `react-markdown` with Radix components for h1–h3/p/strong/em/ul/ol/li/code/blockquote. Props resolve `config?.X || propX || default` (`TextCard.tsx:35-38`): `content`, `alignment` (left/center/right), `textSize` (small/medium/large → Radix 1/2/3), `textColor` (`default` → undefined, else Radix color). Note the `||` chains treat valid falsy values as absent — clearing `content` to an empty string falls back to the placeholder. Fixing this to nullish semantics is tracked in [0002-repo-hygiene](../../changes/0002-repo-hygiene.md).
+- Renders Markdown via `react-markdown` with Radix components for h1–h3/p/strong/em/ul/ol/li/code/blockquote. Props resolve `config?.X || propX || default` (`src/components/TextCard.tsx:35-38`): `content`, `alignment` (left/center/right), `textSize` (small/medium/large → Radix 1/2/3), `textColor` (`default` → undefined, else Radix color). Note the `||` chains treat valid falsy values as absent — clearing `content` to an empty string falls back to the placeholder. Fixing this to nullish semantics is tracked in [0002-repo-hygiene](../../changes/0002-repo-hygiene.md).
 - Edit mode renders an auto-focused `TextArea`; `handleContentChange` persists live via `dashboardActions.updateGridItem(currentScreenId, itemId, { content })` (`80-91`). `onDelete`/`onConfigure` are accepted but unused. No entity binding → no loading/error states. Config is edited through `CardConfig` as direct item properties.
 
 ### Separator (grid type `separator`, 4×1)
@@ -193,11 +193,11 @@ Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name |
 
 ## Configuration modal (CardConfig)
 
-`CardConfig.Modal` (`CardConfig.tsx:407-533`) is a 900px two-pane dialog. Left pane: `Content` builds a form from `cardConfigurations[cardType].definition` via `Component`, rendering one control per `ConfigOption` type — boolean (`Switch`), string (`TextField`), textarea (`TextArea`), number (`TextField type=number` reverting empty to default), select (`Select`), icon (`IconSelect`) (`90-229`). Right pane: `Preview` renders the live card inside `ViewModeWrapper` (temporarily forces store mode `view`, restores on unmount) with `pointer-events: none` (`296-405`) — implemented for weather, light, binary_sensor, text, and separator; other types show a "Preview not available" note.
+`CardConfig.Modal` (`src/components/CardConfig.tsx:407-533`) is a 900px two-pane dialog. Left pane: `Content` builds a form from `cardConfigurations[cardType].definition` via `Component`, rendering one control per `ConfigOption` type — boolean (`Switch`), string (`TextField`), textarea (`TextArea`), number (`TextField type=number` reverting empty to default), select (`Select`), icon (`IconSelect`) (`90-229`). Right pane: `Preview` renders the live card inside `ViewModeWrapper` (temporarily forces store mode `view`, restores on unmount) with `pointer-events: none` (`296-405`) — implemented for weather, light, binary_sensor, text, and separator; other types show a "Preview not available" note.
 
 Local config initializes from the item (`text`/`separator` from direct properties, else `item.config`), updates on change, and persists only on "Save Changes" — `text`/`separator` are saved as direct properties, entity cards under `config` (`407-460`).
 
-**Scenarios** (`__tests__/CardConfig.test.tsx`):
+**Scenarios** (`src/components/__tests__/CardConfig.test.tsx`):
 
 - Weather config renders a variant select and opens/selects it (`60-129`).
 - Save persists the chosen config (`130-170`); temperature-unit select works (`171-207`).
@@ -206,9 +206,9 @@ Local config initializes from the item (`text`/`separator` from direct propertie
 
 ## Entity discovery (EntityBrowser)
 
-`EntityBrowser` (`EntityBrowser.tsx`) is a fullscreen modal with Entities and Cards tabs. `EntitiesBrowserTab` virtualizes the list (`@tanstack/react-virtual`, 64px rows), debounces search 300ms over id/friendly-name/domain, filters `SYSTEM_DOMAINS` (`persistent_notification`, `person`, `sun`, `zone`, `EntitiesBrowserTab.tsx:66`), and pre-excludes domains not in `SUPPORTED_DOMAINS` (`77-92`). `getFriendlyDomain` maps domains to display names (`41-63`). Adding creates one `GridItem` per selected entity, each sized by `getDefaultCardDimensions` and positioned via `findOptimalPositionsForBatch` (`278-337`). `CardsBrowserTab` adds Text and Separator widgets (Separator via a configuration dialog).
+`EntityBrowser` (`src/components/EntityBrowser.tsx`) is a fullscreen modal with Entities and Cards tabs. `EntitiesBrowserTab` virtualizes the list (`@tanstack/react-virtual`, 64px rows), debounces search 300ms over id/friendly-name/domain, filters `SYSTEM_DOMAINS` (`persistent_notification`, `person`, `sun`, `zone`, `src/components/EntitiesBrowserTab.tsx:66`), and pre-excludes domains not in `SUPPORTED_DOMAINS` (`77-92`). `getFriendlyDomain` maps domains to display names (`41-63`). Adding creates one `GridItem` per selected entity, each sized by `getDefaultCardDimensions` and positioned via `findOptimalPositionsForBatch` (`278-337`). `CardsBrowserTab` adds Text and Separator widgets (Separator via a configuration dialog).
 
-**Scenarios** (`__tests__/EntityBrowser.test.tsx`):
+**Scenarios** (`src/components/__tests__/EntityBrowser.test.tsx`):
 
 - Renders/omits the dialog by `open` (`111-123`); shows both tabs (`124`).
 - Groups entities by domain (`131`); filters out system domains (`144`); search filters the list (`150-172`).

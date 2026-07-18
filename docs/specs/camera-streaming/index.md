@@ -8,7 +8,7 @@ Liebe renders live camera feeds inside the dashboard grid using a WebRTC peer co
 
 Home Assistant exposes cameras as entities in the `camera` domain. Modern HA installations stream camera video over WebRTC, typically brokered by the [go2rtc](https://github.com/AlexxIT/go2rtc#quick-start) component that ships with recent HA releases. Rather than embed HA's own `<ha-camera-stream>` element, Liebe negotiates its own `RTCPeerConnection` directly against HA's `camera/webrtc/offer` / `candidate` WebSocket commands, which lets the panel own the video element, its styling, and its lifecycle.
 
-The camera surface was introduced in PR #104 and extended incrementally: fullscreen and mute controls (PR #134), fit/matting/debug-stats configuration (PR #141), an `InvalidStateError` guard in signaling (PR #131), and exclusion from stale-entity tracking (PR #139, issue-driven fullscreen-modal scoping from issue #136). The card and hook total roughly 1400 lines (`CameraCard.tsx` 852 lines, `useWebRTC.ts` 584 lines) and have essentially no direct automated coverage — see [Open Questions](#open-questions).
+The camera surface was introduced in PR #104 and extended incrementally: fullscreen and mute controls (PR #134), fit/matting/debug-stats configuration (PR #141), an `InvalidStateError` guard in signaling (PR #131), and exclusion from stale-entity tracking (PR #139, issue-driven fullscreen-modal scoping from issue #136). The card and hook total roughly 1400 lines (`src/components/CameraCard.tsx` 852 lines, `src/hooks/useWebRTC.ts` 584 lines) and have essentially no direct automated coverage — see [Open Questions](#open-questions).
 
 This spec covers the camera card, the WebRTC hook, stale-tracking exclusion for cameras, and the camera fullscreen modal. It does NOT cover the general card registry (see [../entity-cards/](../entity-cards/)) or the entity state pipeline (see [../entity-state/](../entity-state/)); those are linked rather than duplicated.
 
@@ -20,7 +20,7 @@ This spec covers the camera card, the WebRTC hook, stale-tracking exclusion for 
 - When the camera is not stream-capable, the card MUST render a static video icon instead of a video element, tinted blue while recording or streaming and gray otherwise.
 - WebRTC negotiation MUST be enabled only when an entity exists, Home Assistant is connected, and the camera supports streaming.
 
-`CameraCard.tsx:38` defines the flag, and support is derived and gated at `CameraCard.tsx:430`-`440`:
+`src/components/CameraCard.tsx:38` defines the flag, and support is derived and gated at `src/components/CameraCard.tsx:430`-`440`:
 
 ```typescript
 const SUPPORT_STREAM = 2
@@ -56,7 +56,7 @@ const webRTCEnabled = useMemo(() => {
 - The hook MUST queue inbound ICE candidates that arrive before the remote description is set, and flush them immediately after the remote description resolves.
 - Initialization MUST be debounced (200 ms) and guarded by `initializing`/`pending`/existing-connection refs so rapid re-renders do not open duplicate peer connections.
 
-The signaling flow, message handling, and the state guard live in `useWebRTC.ts:271`-`478`:
+The signaling flow, message handling, and the state guard live in `src/hooks/useWebRTC.ts:271`-`478`:
 
 ```typescript
 // Create peer connection with STUN servers
@@ -125,7 +125,7 @@ const unsubscribePromise = hass.connection.subscribeMessage<WebRTCReceiveMessage
 - The hook MUST raise `hasFrameWarning` after 500 ms without a new frame and MUST force a cleanup-and-reconnect after 5 s without a new frame.
 - On connection-state `failed` the hook MUST set an error and clean up; on `disconnected` it MUST set an error; on `connected` it MUST clear the error; on `closed` it MUST stop streaming.
 
-`useWebRTC.ts:118`-`269` implements frame monitoring; the 500 ms warning and 5 s reconnect thresholds are at `useWebRTC.ts:226` and `useWebRTC.ts:241`. Connection-state handling is at `useWebRTC.ts:328`-`351`.
+`src/hooks/useWebRTC.ts:118`-`269` implements frame monitoring; the 500 ms warning and 5 s reconnect thresholds are at `src/hooks/useWebRTC.ts:226` and `src/hooks/useWebRTC.ts:241`. Connection-state handling is at `src/hooks/useWebRTC.ts:328`-`351`.
 
 #### Scenario: First frame received
 
@@ -145,7 +145,7 @@ const unsubscribePromise = hass.connection.subscribeMessage<WebRTCReceiveMessage
 - The hook MUST fully tear down the peer connection, unsubscribe from the WebSocket subscription (ignoring `not_found` errors), clear the video `srcObject`, and stop frame monitoring on cleanup, disable, entity change, and unmount.
 - The card MUST expose a manual `retry` that re-triggers initialization for recoverable errors.
 
-Visibility handling is at `useWebRTC.ts:541`-`567`; cleanup at `useWebRTC.ts:64`-`115`; unmount cleanup at `useWebRTC.ts:570`-`574`.
+Visibility handling is at `src/hooks/useWebRTC.ts:541`-`567`; cleanup at `src/hooks/useWebRTC.ts:64`-`115`; unmount cleanup at `src/hooks/useWebRTC.ts:570`-`574`.
 
 #### Scenario: Return to a backgrounded tab
 
@@ -161,7 +161,7 @@ Visibility handling is at `useWebRTC.ts:541`-`567`; cleanup at `useWebRTC.ts:64`
 - Clicking the video (not in edit mode, no error) MUST open the in-app fullscreen modal.
 - When the stream error indicates the camera is not yet configured, the card MUST show go2rtc setup guidance linking to `https://github.com/AlexxIT/go2rtc#quick-start`; other errors MUST show the message plus a Retry button.
 
-Status resolution is at `CameraCard.tsx:316`-`328`; controls at `CameraCard.tsx:333`-`394`; mute default at `CameraCard.tsx:412`; the go2rtc guidance branch at `CameraCard.tsx:580`-`617`.
+Status resolution is at `src/components/CameraCard.tsx:316`-`328`; controls at `src/components/CameraCard.tsx:333`-`394`; mute default at `src/components/CameraCard.tsx:412`; the go2rtc guidance branch at `src/components/CameraCard.tsx:580`-`617`.
 
 #### Scenario: Streaming card in view mode
 
@@ -181,7 +181,7 @@ Status resolution is at `CameraCard.tsx:316`-`328`; controls at `CameraCard.tsx:
 - The modal MUST close on backdrop click or ESC, MUST render the feed with `object-fit: contain`, and MUST show mute/fullscreen controls scaled to the viewport plus an "Click or press ESC to exit" hint.
 - The native-fullscreen button MUST request/exit `requestFullscreen()` on the underlying `<video>` element directly.
 
-The `KeepAlive` portal (`KeepAlive.tsx`) moves the single cached video element between the normal container and the fullscreen container (`CameraCard.tsx:633`-`649`), so entering/leaving the modal does not tear down the WebRTC session. The modal is `FullscreenModal` (`CameraCard.tsx:731`-`814`); native fullscreen at `CameraCard.tsx:461`-`475`.
+The `KeepAlive` portal (`src/components/KeepAlive.tsx`) moves the single cached video element between the normal container and the fullscreen container (`src/components/CameraCard.tsx:633`-`649`), so entering/leaving the modal does not tear down the WebRTC session. The modal is `FullscreenModal` (`src/components/CameraCard.tsx:731`-`814`); native fullscreen at `src/components/CameraCard.tsx:461`-`475`.
 
 #### Scenario: Enter and leave in-app fullscreen
 
@@ -194,7 +194,7 @@ The `KeepAlive` portal (`KeepAlive.tsx`) moves the single cached video element b
 - When `showStats` is enabled, the card MUST overlay FPS, bitrate (kbps), decoded frame count, dropped frame count, and resolution, sampled once per second from the video element and the peer connection's `getStats()`.
 - The overlay MUST render a compact single line at `small` size and a labeled multi-column layout at `medium`/`large`, and MUST appear in both the normal and fullscreen views.
 
-`CameraStats` is at `CameraCard.tsx:41`-`230`; bitrate is computed from `inbound-rtp` video reports at `CameraCard.tsx:105`-`116`.
+`CameraStats` is at `src/components/CameraCard.tsx:41`-`230`; bitrate is computed from `inbound-rtp` video reports at `src/components/CameraCard.tsx:105`-`116`.
 
 #### Scenario: Debug stats enabled
 
@@ -207,7 +207,7 @@ The `KeepAlive` portal (`KeepAlive.tsx`) moves the single cached video element b
 - The camera card MUST expose three per-card configuration options: `fit` (`cover` default, or `contain`), `matting` (`none` / `small` default / `large` card padding), and `showStats` (boolean, default false).
 - The card MUST map `matting` to Radix space tokens relative to the card size (`small` matches the size's default padding; `large` uses `--space-5`; `none` uses `0`).
 
-Option schema is at `cardConfigurations.ts:77`-`109`; the card reads them at `CameraCard.tsx:419`-`422` and maps matting at `CameraCard.tsx:520`-`529`.
+Option schema is at `src/components/configurations/cardConfigurations.ts:77`-`109`; the card reads them at `src/components/CameraCard.tsx:419`-`422` and maps matting at `src/components/CameraCard.tsx:520`-`529`.
 
 #### Scenario: Contain fit with large matting
 
@@ -220,7 +220,7 @@ Option schema is at `cardConfigurations.ts:77`-`109`; the card reads them at `Ca
 - Camera entities MUST be excluded from stale-entity tracking; a camera MUST never be reported stale even if it produces no state events for longer than the stale threshold (PR #139).
 - If a camera was previously marked stale, the monitor MUST mark it fresh on its next pass.
 
-`StaleEntityMonitor` excludes the `camera` domain (`staleEntityMonitor.ts:9`, `:48`-`54`, `:98`-`104`). The full stale pipeline is specified in [../entity-state/](../entity-state/); only the camera exclusion is in scope here.
+`StaleEntityMonitor` excludes the `camera` domain (`src/services/staleEntityMonitor.ts:9`, `:48`-`54`, `:98`-`104`). The full stale pipeline is specified in [../entity-state/](../entity-state/); only the camera exclusion is in scope here.
 
 #### Scenario: Camera with no recent state updates
 
@@ -246,11 +246,11 @@ CameraCard.tsx ──uses──► useWebRTC.ts ──► HA WebSocket (camera/w
 staleEntityMonitor.ts ── excludes 'camera' domain (independent path)
 ```
 
-The card owns UI, state labels, configuration, mute/fullscreen, and the stats overlay. The hook owns the peer connection, signaling, frame monitoring, and reconnection. `KeepAlive` owns a single cached `<video>` element per camera so it survives moving between the grid and the fullscreen modal. Camera registration into the card system is via the card registry (`cardRegistry.ts:43`, `camera: CameraCard`) — see [../entity-cards/](../entity-cards/).
+The card owns UI, state labels, configuration, mute/fullscreen, and the stats overlay. The hook owns the peer connection, signaling, frame monitoring, and reconnection. `KeepAlive` owns a single cached `<video>` element per camera so it survives moving between the grid and the fullscreen modal. Camera registration into the card system is via the card registry (`src/components/cardRegistry.ts:43`, `camera: CameraCard`) — see [../entity-cards/](../entity-cards/).
 
 ### Data Models
 
-Hook interfaces (`useWebRTC.ts:5`-`36`):
+Hook interfaces (`src/hooks/useWebRTC.ts:5`-`36`):
 
 ```typescript
 interface UseWebRTCOptions {
@@ -282,7 +282,7 @@ interface ExtendedRTCPeerConnection extends RTCPeerConnection {
 }
 ```
 
-Camera attributes read by the card (`CameraCard.tsx:29`-`35`): `access_token`, `entity_picture`, `frontend_stream_type` (declared but currently unused), `friendly_name`, `supported_features`.
+Camera attributes read by the card (`src/components/CameraCard.tsx:29`-`35`): `access_token`, `entity_picture`, `frontend_stream_type` (declared but currently unused), `friendly_name`, `supported_features`.
 
 Configuration values live on the grid item (`item.config`): `fit`, `matting`, `showStats`.
 
@@ -293,36 +293,36 @@ WebSocket commands sent to Home Assistant:
 - `camera/webrtc/offer` — subscription carrying `{ entity_id, offer: sdp }`; streams back `session`/`answer`/`candidate`/`error` messages.
 - `camera/webrtc/candidate` — `sendMessagePromise` with `{ entity_id, session_id, candidate }` per locally-gathered ICE candidate.
 
-STUN servers are hardcoded to Google's public STUN (`useWebRTC.ts:294`-`296`); no TURN servers are configured.
+STUN servers are hardcoded to Google's public STUN (`src/hooks/useWebRTC.ts:294`-`296`); no TURN servers are configured.
 
 ### UI Components
 
-- `CameraCardComponent` (`CameraCard.tsx:399`) — memoized (`CameraCard.tsx:838`), default grid dimensions 4×2 (`CameraCard.tsx:850`-`852`).
-- `CameraControls` (`CameraCard.tsx:233`) — status label + mute/fullscreen buttons, `em`-scaled by card size.
-- `CameraStats` (`CameraCard.tsx:41`) — debug overlay.
-- `FullscreenModal` (`ui/FullscreenModal.tsx`) — body-portaled modal (default z-index 99999 to escape shadow DOM), used camera-only per issue #136.
-- `KeepAlive` (`KeepAlive.tsx`) — portal cache keyed `camera-${entityId}` that relocates the live `<video>` between containers without unmounting.
+- `CameraCardComponent` (`src/components/CameraCard.tsx:399`) — memoized (`src/components/CameraCard.tsx:838`), default grid dimensions 4×2 (`src/components/CameraCard.tsx:850`-`852`).
+- `CameraControls` (`src/components/CameraCard.tsx:233`) — status label + mute/fullscreen buttons, `em`-scaled by card size.
+- `CameraStats` (`src/components/CameraCard.tsx:41`) — debug overlay.
+- `FullscreenModal` (`src/components/ui/FullscreenModal.tsx`) — body-portaled modal (default z-index 99999 to escape shadow DOM), used camera-only per issue #136.
+- `KeepAlive` (`src/components/KeepAlive.tsx`) — portal cache keyed `camera-${entityId}` that relocates the live `<video>` between containers without unmounting.
 
 ### Business Logic
 
-The video element uses `muted={isMuted}` (default true), `autoPlay`, `playsInline`, and toggles visibility via `display: isStreaming ? 'block' : 'none'` (`CameraCard.tsx:637`-`648`). A combined ref callback (`CameraCard.tsx:489`-`495`) feeds the element to both the hook's `videoRef` and a local ref used by the stats overlay and native-fullscreen handler.
+The video element uses `muted={isMuted}` (default true), `autoPlay`, `playsInline`, and toggles visibility via `display: isStreaming ? 'block' : 'none'` (`src/components/CameraCard.tsx:637`-`648`). A combined ref callback (`src/components/CameraCard.tsx:489`-`495`) feeds the element to both the hook's `videoRef` and a local ref used by the stats overlay and native-fullscreen handler.
 
-The commented-out block at `useWebRTC.ts:536`-`538` documents a deliberate design decision from PR #139: camera streams do NOT reconnect on global entity-update events, only on their own connection state — consistent with excluding cameras from stale tracking.
+The commented-out block at `src/hooks/useWebRTC.ts:536`-`538` documents a deliberate design decision from PR #139: camera streams do NOT reconnect on global entity-update events, only on their own connection state — consistent with excluding cameras from stale tracking.
 
 ## Constraints
 
-- **No TURN / hardcoded STUN.** Only Google public STUN is configured (`useWebRTC.ts:294`-`296`); cameras that require TURN relaying (strict NATs) will fail to connect. There is no configuration surface for ICE servers.
+- **No TURN / hardcoded STUN.** Only Google public STUN is configured (`src/hooks/useWebRTC.ts:294`-`296`); cameras that require TURN relaying (strict NATs) will fail to connect. There is no configuration surface for ICE servers.
 - **HA/go2rtc dependency.** Streaming requires the HA `camera/webrtc/*` WebSocket API, which in practice depends on go2rtc; unconfigured cameras surface the "Camera Configuration Required" guidance rather than video.
 - **`trust_external_script` tradeoff.** When Liebe is loaded from the hosted `panel.js` (`https://fx.github.io/liebe/panel.js`), HA may raise an `alert()` unless `trust_external_script: true` is set in `panel_custom`. The README warns this disables certain security protections and recommends self-hosting the build for maximum security (README.md:18-45). This affects the whole panel, not only cameras, but is load-bearing for camera users on the hosted build.
 - **Single cached video element per camera.** `KeepAlive` caches one `<video>` per `entityId`; two cards for the same camera would contend for the same portal element.
-- **Component size.** `CameraCard.tsx` (852 lines) and `useWebRTC.ts` (584 lines) are large and mix rendering, signaling, frame heuristics, and stats in single files.
+- **Component size.** `src/components/CameraCard.tsx` (852 lines) and `src/hooks/useWebRTC.ts` (584 lines) are large and mix rendering, signaling, frame heuristics, and stats in single files.
 
 ## Open Questions
 
-- **Zero direct automated coverage of ~1400 lines.** There are no tests exercising `CameraCard.tsx` rendering or `useWebRTC.ts` signaling/frame-monitoring/reconnection logic. Only two peripheral tests touch cameras: `useEntity.test.tsx:100` (camera excluded from stale tracking) and `cardDimensions.test.ts:9` (default 4×2 dimensions). All scenarios above are derived from code paths and `docs/test-camera-card.md`, not from executable tests. Should the signaling state machine and frame-monitoring heuristics get unit/integration coverage?
-- **Hardcoded Google STUN (`useWebRTC.ts:295`).** No TURN and no user configuration — is this acceptable for the target deployments, or should ICE servers be configurable / sourced from HA?
-- **Component size / separation.** Should `CameraStats`, `CameraControls`, and the frame-monitoring logic be extracted into their own modules to reduce the size and interleaving of `CameraCard.tsx` and `useWebRTC.ts`?
-- **`frontend_stream_type` unused.** The attribute is declared (`CameraCard.tsx:32`) but never read; is HLS/native-stream-type branching intended?
+- **Zero direct automated coverage of ~1400 lines.** There are no tests exercising `src/components/CameraCard.tsx` rendering or `src/hooks/useWebRTC.ts` signaling/frame-monitoring/reconnection logic. Only two peripheral tests touch cameras: `src/hooks/__tests__/useEntity.test.tsx:100` (camera excluded from stale tracking) and `src/utils/__tests__/cardDimensions.test.ts:9` (default 4×2 dimensions). All scenarios above are derived from code paths and `docs/test-camera-card.md`, not from executable tests. Should the signaling state machine and frame-monitoring heuristics get unit/integration coverage?
+- **Hardcoded Google STUN (`src/hooks/useWebRTC.ts:295`).** No TURN and no user configuration — is this acceptable for the target deployments, or should ICE servers be configurable / sourced from HA?
+- **Component size / separation.** Should `CameraStats`, `CameraControls`, and the frame-monitoring logic be extracted into their own modules to reduce the size and interleaving of `src/components/CameraCard.tsx` and `src/hooks/useWebRTC.ts`?
+- **`frontend_stream_type` unused.** The attribute is declared (`src/components/CameraCard.tsx:32`) but never read; is HLS/native-stream-type branching intended?
 
 ## References
 
