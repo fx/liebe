@@ -1,9 +1,12 @@
 import { ReactNode, useCallback, useState, useEffect, useRef } from 'react'
-import GridLayout, { Layout } from 'react-grid-layout'
+import GridLayout, { getCompactor, type Layout, type LayoutItem } from 'react-grid-layout'
 import { Box } from '@radix-ui/themes'
 import { GridItem } from '../store/types'
 import { dashboardActions } from '../store'
 import { useBreakpoint, getGridConfig } from '../../app/utils/responsive'
+
+// Preserve v1 behavior: no auto-compaction, and block items from overlapping.
+const freeFormCompactor = getCompactor(null, false, true)
 
 interface GridLayoutSectionProps {
   screenId: string
@@ -30,8 +33,8 @@ export function GridLayoutSection({
       ? resolution.columns
       : responsiveConfig.columns
 
-  // Convert GridItem[] to Layout[] for react-grid-layout
-  const layouts: Layout[] = items.map((item) => {
+  // Convert GridItem[] to react-grid-layout's Layout (readonly LayoutItem[])
+  const layouts: LayoutItem[] = items.map((item) => {
     // Scale item dimensions based on column ratio
     const columnRatio = effectiveColumns / resolution.columns
     const scaledWidth = Math.max(1, Math.round(item.width * columnRatio))
@@ -52,7 +55,7 @@ export function GridLayoutSection({
 
   // Handle layout changes (drag/resize)
   const handleLayoutChange = useCallback(
-    (newLayout: Layout[]) => {
+    (newLayout: Layout) => {
       // If we're on a responsive breakpoint, we need to scale back to original resolution
       const columnRatio = resolution.columns / effectiveColumns
 
@@ -113,18 +116,23 @@ export function GridLayoutSection({
       <GridLayout
         className="layout"
         layout={layouts}
-        cols={effectiveColumns}
-        rowHeight={rowHeight}
         width={containerWidth}
         onLayoutChange={handleLayoutChange}
-        isDraggable={isEditMode}
-        isResizable={isEditMode}
-        compactType={null} // Disable auto-compacting to preserve user positions
-        preventCollision={true} // Prevent items from overlapping
-        margin={responsiveConfig.margin} // Responsive gap between items
-        containerPadding={responsiveConfig.containerPadding} // Responsive container padding
-        resizeHandles={isEditMode ? ['se', 'sw', 'ne', 'nw', 'e', 'w', 'n', 's'] : []}
-        draggableCancel="button, input, textarea, select, [role='button'], .no-drag"
+        gridConfig={{
+          cols: effectiveColumns,
+          rowHeight,
+          margin: responsiveConfig.margin, // Responsive gap between items
+          containerPadding: responsiveConfig.containerPadding, // Responsive container padding
+        }}
+        dragConfig={{
+          enabled: isEditMode,
+          cancel: "button, input, textarea, select, [role='button'], .no-drag",
+        }}
+        resizeConfig={{
+          enabled: isEditMode,
+          handles: isEditMode ? ['se', 'sw', 'ne', 'nw', 'e', 'w', 'n', 's'] : [],
+        }}
+        compactor={freeFormCompactor} // No auto-compacting; preserve user positions and prevent overlap
       >
         {items.map((item) => (
           <div key={item.id} className="grid-item">
