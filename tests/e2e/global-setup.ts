@@ -7,7 +7,11 @@ export default async function globalSetup(): Promise<void> {
   const deadline = Date.now() + 120_000
   for (;;) {
     try {
-      const res = await fetch(`${HASS_URL}/manifest.json`)
+      // Per-attempt timeout so a stalled connection can't consume the whole
+      // 120s deadline in a single hung fetch.
+      const res = await fetch(`${HASS_URL}/manifest.json`, {
+        signal: AbortSignal.timeout(5_000),
+      })
       if (res.ok) break
     } catch {
       // not up yet

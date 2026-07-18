@@ -4,6 +4,13 @@ import { openPanel, seedConfig, flagSwitchChecked, setFlag, E2E_FLAG } from './h
 test('card reacts to an external state change without reload', async ({ page }) => {
   const { accessToken } = await openPanel(page, seedConfig())
 
+  // Tag the live document. A full reload/navigation would replace the window
+  // and wipe this marker, so its survival at the end proves the card updated
+  // in-place rather than via a page reload.
+  await page.evaluate(() => {
+    ;(window as unknown as { __e2eNoReload?: boolean }).__e2eNoReload = true
+  })
+
   // Start from a known off state and confirm the switch reflects it.
   await setFlag(accessToken, false)
   await expect.poll(() => flagSwitchChecked(page), { timeout: 15_000 }).toBe('false')
@@ -24,4 +31,10 @@ test('card reacts to an external state change without reload', async ({ page }) 
     return panel?._hass?.states?.[id]?.state ?? null
   }, E2E_FLAG)
   expect(state).toBe('on')
+
+  // The marker set before the flip must still be present: no reload happened.
+  const noReload = await page.evaluate(
+    () => (window as unknown as { __e2eNoReload?: boolean }).__e2eNoReload === true
+  )
+  expect(noReload, 'panel updated without a page reload').toBe(true)
 })

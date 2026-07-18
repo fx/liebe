@@ -11,8 +11,9 @@ default_config:
 # media_player, etc.) so cards have real entities to render.
 demo:
 
-# Register the built Liebe panel as a real custom panel. `name` must match the
-# production custom-element name defined in src/config/panel.ts (liebe-panel).
+# Register the built Liebe panel as a real custom panel. `name` and `url_path`
+# MUST match the production values in src/config/panel.ts (liebe-panel, /liebe);
+# the panel-config parity test in tests/e2e/panel-loads.spec.ts guards this.
 # The bundle is mounted at /config/www/dist and served from /local/dist.
 panel_custom:
   - name: liebe-panel

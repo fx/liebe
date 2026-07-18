@@ -56,7 +56,7 @@ export async function openPanel(
   page: Page,
   config?: ReturnType<typeof seedConfig>
 ): Promise<{ accessToken: string }> {
-  const creds = await getCredentials()
+  const { panelUrl, accessToken } = await getCredentials()
 
   if (config) {
     await page.addInitScript((cfgJson: string) => {
@@ -65,7 +65,7 @@ export async function openPanel(
     }, JSON.stringify(config))
   }
 
-  await page.goto(creds.panelUrl)
+  await page.goto(panelUrl)
 
   // Wait until the custom element has mounted and its websocket is connected.
   await page.waitForFunction(
@@ -90,7 +90,7 @@ export async function openPanel(
     )
   }
 
-  return { accessToken: creds.accessToken }
+  return { accessToken }
 }
 
 // Minimal shape of the panel element exposed on window by src/panel.ts.
@@ -148,26 +148,14 @@ export async function flagSwitchChecked(page: Page): Promise<string | null> {
   })
 }
 
-// Click the title of the card for the given friendly name. Clicking the card
-// body (not the switch) triggers exactly one service call — clicking the switch
-// itself would bubble to the card and double-toggle.
+// Click the title of the card for the given friendly name via a real, trusted
+// Playwright click. Clicking the card body (not the switch) triggers exactly one
+// service call — clicking the switch itself would bubble to the card and
+// double-toggle. Playwright's CSS locators pierce the panel's open shadow root.
 export async function clickCardTitle(page: Page, title: string): Promise<void> {
-  const clicked = await page.evaluate((label) => {
-    const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
-    const root = panel?.shadowRoot
-    if (!root) return false
-    const item = Array.from(root.querySelectorAll('.grid-item')).find((el) =>
-      (el.textContent ?? '').includes(label)
-    )
-    if (!item) return false
-    const titleEl = Array.from(item.querySelectorAll<HTMLElement>('*')).find(
-      (el) => el.children.length === 0 && (el.textContent ?? '').trim() === label
-    )
-    if (!titleEl) return false
-    titleEl.click()
-    return true
-  }, title)
-  expect(clicked, `card titled "${title}" should be clickable`).toBe(true)
+  const card = page.locator('.grid-item').filter({ hasText: title })
+  await expect(card, `card titled "${title}" should be present`).toHaveCount(1)
+  await card.getByText(title, { exact: true }).click()
 }
 
 // --- REST helpers (bypass the UI to set up / verify state deterministically) ---
@@ -183,8 +171,9 @@ export async function callService(
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) {
-    throw new Error(`service ${domain}.${service} failed: ${res.status} ${await res.text()}`)
+  const { ok, status } = res
+  if (!ok) {
+    throw new Error(`service ${domain}.${service} failed: ${status} ${await res.text()}`)
   }
 }
 
@@ -192,11 +181,12 @@ export async function getRestState(token: string, entityId: string): Promise<str
   const res = await fetch(`${HASS_URL}/api/states/${entityId}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!res.ok) {
-    throw new Error(`get state ${entityId} failed: ${res.status}`)
+  const { ok, status } = res
+  if (!ok) {
+    throw new Error(`get state ${entityId} failed: ${status}`)
   }
-  const body = (await res.json()) as { state: string }
-  return body.state
+  const { state } = (await res.json()) as { state: string }
+  return state
 }
 
 // Force an input_boolean to a known state via REST, for deterministic setup.

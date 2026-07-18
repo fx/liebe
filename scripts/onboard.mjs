@@ -17,6 +17,8 @@
 //
 // Diagnostics go to stderr; the CLI's JSON result is the only thing on stdout.
 
+import { pathToFileURL } from 'node:url'
+
 // The URL used for server-to-server requests (from the host or CI runner).
 export const HASS_URL = process.env.HASS_URL || 'http://127.0.0.1:8123'
 // The origin the *browser* uses. Auth codes are bound to this client_id, so it
@@ -205,8 +207,9 @@ async function main() {
   process.stdout.write(JSON.stringify(result, null, 2) + '\n')
 }
 
-// Run main only when executed directly (not when imported).
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+// Run main only when executed directly (not when imported). Compare via
+// pathToFileURL so relative or special-character argv paths resolve correctly.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     log('FAILED:', err.message)
     process.exit(1)
