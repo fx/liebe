@@ -106,6 +106,10 @@ The wrapper MUST implement this compat matrix:
 - **Decision: truthful pill in still-image fallback** — when the element cannot be bootstrapped, the card shows the raw entity state (e.g. IDLE) instead of a forever-CONNECTING pill, and suppresses the loading spinner overlay. The still image also participates in the fullscreen KeepAlive swap (fullscreen forces `contain` fit, same as the stream).
 - **Decision: native fullscreen falls back to the element host** — the native-fullscreen button targets the element's inner `<video>` when present, else the `<ha-camera-stream>` host itself (e.g. MJPEG mode, which renders an `<img>`).
 - **Decision: personal stream via env substitution only** — go2rtc config references `${RTSP_TEST_URL:}`; compose passes `RTSP_TEST_URL` through to the container. The value lives only in untracked `.env.local`/CI secrets; `scripts/check-rtsp-leak.sh` fails CI if a credentialed RTSP URL or the actual value appears in tracked files.
+- **Verified at runtime: fullscreen in-tree portal survives as `position: fixed`** — the e2e spec asserts, via `getBoundingClientRect()`, that the fullscreen overlay's fixed backdrop covers the viewport (±2px) while `<ha-camera-stream>` remains a shadow-DOM descendant of `<home-assistant>` (parent/host chain walk). No HA ancestor creates a containing block for the portalled overlay, so the plan's contingency (absolute-inset positioning relative to the panel) was NOT needed.
+- **Decision: go2rtc config is copied into a writable `/config` at container start** — HA's go2rtc integration registers `camera.*` streams via `PUT /api/streams`, which go2rtc persists into its config file; with `/config` bind-mounted `:ro` that write failed (400) and every WebRTC offer was aborted before HLS fallback. The compose service now mounts the committed config read-only at `/ro` and copies it into a container-local `/config` on start, keeping the repo file pristine.
+- **Known environment quirk: WebRTC offers fail while the exec producer is active** — HA 2026.7's `go2rtc-client` (0.4.0) requires a `url` field on every producer, but go2rtc reports _active_ `exec:` sessions with `source`/`remote_addr` instead, so `streams.list()` (run on every offer) raises and the offer fails with `{code: "unknown_error"}`. `<ha-camera-stream>` then falls back to HLS — matching this change's "WebRTC best-effort, HLS guaranteed" contract. The e2e spec filters that specific unhandled rejection as benign; in practice WebRTC wins on a cold stack and HLS wins once the exec producer is warm.
+- **Fixed: HA's service worker reloaded the panel ~4s after load in e2e** — in a fresh browser context the HA frontend reloads the page when its service worker first takes control, and tokens from the panel's single-use auth code are not persisted, so the reload bounced to the login screen and killed any test still running (every existing spec just happened to finish in under 4s; the camera spec, waiting on stream startup, did not). `openPanel` now neutralizes `navigator.serviceWorker.register` via an init script (the API surface stays present — `serviceWorkers: 'block'` would remove `navigator.serviceWorker` entirely, which HA frontend code touches unguarded).
 
 ### Non-Goals
 
@@ -122,8 +126,8 @@ The wrapper MUST implement this compat matrix:
 - [x] `<ha-camera-stream>` React wrapper: injection ladder (hass property / @lit/context) + still-image fallback
 - [x] CameraCard status machine + chrome extraction (stats via `getVideoPlaybackQuality`, bitrate removed)
 - [x] The swap: CameraCard renders the wrapper; delete `useWebRTC.ts` and Liebe-owned signaling
-- [ ] E2E camera spec: seeded CameraCard plays `camera.e2e_pattern` (HLS guaranteed, WebRTC best-effort)
-- [ ] CI wiring: leak gate ordering, e2e workflow updates for go2rtc
+- [x] E2E camera spec: seeded CameraCard plays `camera.e2e_pattern` (HLS guaranteed, WebRTC best-effort)
+- [x] CI wiring: leak gate ordering, e2e workflow updates for go2rtc — verified: the existing workflow already runs `scripts/check-rtsp-leak.sh` before tests and `e2e:ha:up` brings up go2rtc via the same compose file; no workflow changes were needed
 - [ ] Rewrite [Camera Streaming](../specs/camera-streaming/) spec to the new architecture
 
 ## Open Questions

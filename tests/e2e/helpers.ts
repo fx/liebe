@@ -5,6 +5,8 @@ import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
 // the light; the input_boolean is a deterministic helper from configuration.yaml.
 export const DEMO_LIGHT = 'light.bed_light'
 export const E2E_FLAG = 'input_boolean.e2e_flag'
+// Synthetic ffmpeg camera fed by the go2rtc testsrc2 stream (docs/changes/0007).
+export const E2E_CAMERA = 'camera.e2e_pattern'
 
 // A deterministic dashboard config seeded into localStorage before the panel
 // boots, so cards render without any UI drag/drop. The panel reads `liebe-config`
@@ -47,16 +49,66 @@ export function seedConfig() {
   }
 }
 
+// DEDICATED camera seed — a separate screen/config from seedConfig() so the
+// camera spec cannot perturb the deterministic seed the existing serial specs
+// assert against. Places camera.e2e_pattern as a single 4x2 grid item.
+export function seedCameraConfig() {
+  return {
+    version: '1.0.0',
+    theme: 'auto',
+    screens: [
+      {
+        id: 'e2e-camera-screen',
+        name: 'E2E Camera',
+        slug: 'e2e-camera',
+        type: 'grid',
+        grid: {
+          resolution: { columns: 12, rows: 8 },
+          items: [
+            {
+              id: 'item-camera',
+              type: 'entity',
+              entityId: E2E_CAMERA,
+              x: 0,
+              y: 0,
+              width: 4,
+              height: 2,
+            },
+          ],
+        },
+      },
+    ],
+  }
+}
+
 // Open the Liebe panel in a real HA session. Optionally seeds a dashboard config
 // into localStorage first. Returns an access token for REST state mutation.
 //
 // Each call mints a fresh, single-use auth code; HA does not persist tokens for
 // externally-authed panels, so every navigation needs its own code.
+//
+// Navigation is a direct deep link to the panel URL in a fresh context — no
+// Lovelace warm-up — so specs relying on this exercise the panel's deep-link
+// bootstrap path (window.loadCardHelpers undefined at first paint).
 export async function openPanel(
   page: Page,
-  config?: ReturnType<typeof seedConfig>
+  config?: ReturnType<typeof seedConfig> | ReturnType<typeof seedCameraConfig>
 ): Promise<{ accessToken: string }> {
   const { panelUrl, accessToken } = await getCredentials()
+
+  // Neutralize service-worker registration. The HA frontend reloads the page
+  // when its service worker first takes control (~4s after load in a fresh
+  // browser context), and tokens from the panel's single-use auth code are
+  // not persisted — so that reload bounces the panel to the login screen and
+  // kills any test still running past it (e.g. anything waiting on camera
+  // stream startup). Keeping navigator.serviceWorker present but making
+  // register() never settle prevents installation without breaking HA
+  // frontend code that touches the API unguarded.
+  await page.addInitScript(() => {
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.register = () => new Promise<never>(() => {})
+    }
+  })
 
   if (config) {
     await page.addInitScript((cfgJson: string) => {

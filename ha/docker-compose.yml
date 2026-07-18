@@ -43,7 +43,17 @@ services:
       - '${HA_BIND:-127.0.0.1}:8555:8555'
       - '${HA_BIND:-127.0.0.1}:8555:8555/udp'
     volumes:
-      - ./go2rtc:/config:ro
+      # Staged read-only: HA's go2rtc integration registers `camera.*` streams
+      # via PUT /api/streams, which go2rtc persists into its config file. With
+      # /config itself mounted :ro that write fails and go2rtc answers 400,
+      # aborting every WebRTC offer. Copying the committed file into a
+      # writable container-local /config at start keeps the repo file pristine
+      # while letting the API persist runtime streams.
+      - ./go2rtc:/ro:ro
+    command:
+      - sh
+      - -c
+      - cp /ro/go2rtc.yaml /config/go2rtc.yaml && exec go2rtc -config /config/go2rtc.yaml
     healthcheck:
       # The image ships wget/curl; the API answers on :1984 once ready.
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:1984/api || exit 1']
