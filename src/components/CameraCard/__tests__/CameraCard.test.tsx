@@ -311,6 +311,53 @@ describe('CameraCard', () => {
       expect(img.style.objectFit).toBe('fill')
     })
 
+    it('does not arm the stream for an unavailable entity and shows the raw pill', () => {
+      mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
+      const { container } = renderCard()
+
+      // No stream attempt: no element and a disabled status machine, so no
+      // connect timeout can ever surface 'Stream failed to start' + Retry.
+      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
+      expect(lastStatusOptions().enabled).toBe(false)
+      // Still-image fallback with the truthful raw-state pill: no fake
+      // CONNECTING pill, no spinner overlay.
+      expect(container.querySelector('img')).toBeInTheDocument()
+      expect(container.querySelectorAll('.rt-Spinner').length).toBe(0)
+      expect(screen.queryByText('CONNECTING')).toBeNull()
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+    })
+
+    it('recovers the stream automatically when the entity leaves unavailable', () => {
+      const item: GridItem = {
+        id: 'item-1',
+        type: 'entity',
+        entityId: 'camera.front_door',
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 2,
+      }
+      mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
+      const { rerender } = render(
+        <Theme>
+          <CameraCard entityId="camera.front_door" item={item} />
+        </Theme>
+      )
+      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
+      expect(lastStatusOptions().enabled).toBe(false)
+
+      // Entity comes back (new item identity forces the memoized card to
+      // re-read the updated entity, as a live state change would).
+      mockEntityReturn({ entity: makeEntity({ state: 'idle' }) })
+      rerender(
+        <Theme>
+          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+        </Theme>
+      )
+      expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
+      expect(lastStatusOptions().enabled).toBe(true)
+    })
+
     it('enables the status machine and exposes the stream handle when ready', () => {
       mockInnerVideo = document.createElement('video')
       mockMjpegImg = document.createElement('img')

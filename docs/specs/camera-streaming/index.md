@@ -33,7 +33,8 @@ Each component has a matching unit test in `src/components/CameraCard/__tests__/
 
 - The card MUST treat a camera as stream-capable only when its `supported_features` attribute has the `SUPPORT_STREAM` bit (value `2`) set (`src/components/CameraCard/index.tsx:39`, `:82`-`85`).
 - When the camera is not stream-capable, the card MUST render a static video icon instead of a stream, tinted blue while recording or streaming and gray otherwise.
-- The stream path MUST be enabled only when an entity exists, Home Assistant is connected, the camera supports streaming, AND the bootstrap ladder reports `ready` (`streamEnabled`, `src/components/CameraCard/index.tsx:92`).
+- The stream path MUST be enabled only when an entity exists, Home Assistant is connected, the camera supports streaming, the entity is NOT `unavailable`, AND the bootstrap ladder reports `ready` (`streamEnabled`, `src/components/CameraCard/index.tsx`).
+- **Unavailable gating:** an `unavailable` entity MUST NOT arm the stream or its connect timeout — otherwise the card would burn 20 s of CONNECTING into a red `Stream failed to start` with a pointless Retry, contradicting GridCard's unavailable chrome. It MUST instead render the still-image fallback with the raw-state pill (`UNAVAILABLE`), no spinner overlay, and MUST recover the stream automatically when the entity leaves `unavailable`.
 
 #### Scenario: Camera without stream support
 
@@ -41,17 +42,25 @@ Each component has a matching unit test in `src/components/CameraCard/__tests__/
 - **WHEN** the card renders
 - **THEN** no stream element is mounted and a static video icon is shown
 
+#### Scenario: Unavailable camera
+
+- **GIVEN** a stream-capable camera whose entity state is `unavailable`
+- **WHEN** the card renders
+- **THEN** no stream is attempted (no element, no connect timer), the still-image fallback and the `UNAVAILABLE` pill show with the unavailable card chrome, and the stream arms itself automatically once the entity recovers
+
 ### Element Bootstrap Ladder
 
 `<ha-camera-stream>` is defined by a lazily-loaded HA frontend module chunk, so on a deep link straight into the panel it is usually NOT yet in the custom-element registry. `useCameraStreamReady` (`src/components/CameraCard/useCameraStreamReady.ts`) runs a bootstrap ladder that MUST:
 
 1. Return `ready` immediately if `customElements.get('ha-camera-stream')` already resolves.
-2. Otherwise poll `window.loadCardHelpers` (HA defines it lazily) every 250 ms for up to 20 attempts; if it never appears (standalone dev outside HA), return `unavailable`.
-3. Otherwise call `loadCardHelpers()` and create a **throwaway** `picture-entity` card with `camera_view: 'live'` — creating that Lovelace card makes the HA frontend import the module chunk that defines `<ha-camera-stream>`. The throwaway card is never attached to the DOM.
-4. Race `customElements.whenDefined('ha-camera-stream')` against a 10 s timeout; resolve `ready` on definition, `unavailable` on timeout or any thrown error.
+2. Otherwise, if there is no HA frontend document context — `isHaFrontendContext()` checks synchronously for the `<home-assistant>` root element, which the panel always lives inside when embedded in HA — resolve `unavailable` IMMEDIATELY. Standalone dev must get its still-image fallback instantly instead of burning the 5 s helpers poll on every card mount, and this negative MAY be cached permanently: a standalone page can never become an HA frontend later.
+3. Otherwise poll `window.loadCardHelpers` (HA defines it lazily) every 250 ms for up to 20 attempts; if it never appears, return `unavailable`.
+4. Otherwise call `loadCardHelpers()` and create a **throwaway** `picture-entity` card with `camera_view: 'live'` — creating that Lovelace card makes the HA frontend import the module chunk that defines `<ha-camera-stream>`. The throwaway card is never attached to the DOM.
+5. Race `customElements.whenDefined('ha-camera-stream')` against a 10 s timeout; resolve `ready` on definition, `unavailable` on timeout or any thrown error.
 
 - The ladder MUST be single-flight per tag: all camera cards share one in-flight promise (`ladderPromises` in `src/utils/haFrontend.ts`), so N cards create at most one throwaway card per attempt. A test-only `resetEnsureHaElementForTests()` clears the cache.
-- Only a **successful** (true) resolution MUST stay cached. A false resolution can be transient (the `loadCardHelpers` poll window missed on a slow HA load, `whenDefined` timeout), so the cache entry MUST be evicted on failure — the next consumer (a remounted card, the retry path) re-runs the ladder instead of being pinned to `unavailable` until a full page reload. `useCameraStreamReady` calls `ensureHaElement` on every mount, so a component remount is a genuine fresh chance.
+- In HA contexts, only a **successful** (true) resolution MUST stay cached. A false resolution can be transient (the `loadCardHelpers` poll window missed on a slow HA load, `whenDefined` timeout), so the cache entry MUST be evicted on failure — the next consumer (a remounted card, the retry path) re-runs the ladder instead of being pinned to `unavailable` until a full page reload. `useCameraStreamReady` calls `ensureHaElement` on every mount, so a component remount is a genuine fresh chance.
+- **Unavailable retry (HA contexts only):** while readiness is `unavailable` inside an HA context, the hook MUST re-attempt the ladder every `BOOTSTRAP_RETRY_INTERVAL_MS` (15 s) and flip to `ready` when an attempt succeeds — an already-mounted card that hit a transient miss must eventually converge with later-mounted streaming cards. No attempt cap is needed: attempts are cheap (failures are evicted; the already-defined short-circuit resolves instantly). Standalone MUST NOT retry — its negative is permanent.
 - The hook exposes three readiness states: `loading` (ladder in flight — card keeps the connecting state), `ready` (render `HaCameraStream`), `unavailable` (render `StillImageFallback`).
 
 #### Scenario: Deep link into the panel
@@ -62,9 +71,15 @@ Each component has a matching unit test in `src/components/CameraCard/__tests__/
 
 #### Scenario: Standalone dev outside HA
 
-- **GIVEN** the panel running without an HA frontend (no `loadCardHelpers` ever appears)
-- **WHEN** the ladder exhausts its 20 × 250 ms poll
-- **THEN** readiness is `unavailable` and the card falls back to the still image
+- **GIVEN** the panel running without an HA frontend (no `<home-assistant>` root element in the document)
+- **WHEN** a camera card mounts
+- **THEN** readiness is `unavailable` immediately (no helpers poll), the card falls back to the still image, and the permanent negative cache means later mounts skip the ladder too
+
+#### Scenario: Transient bootstrap miss converges
+
+- **GIVEN** a card inside HA whose first ladder run missed (slow HA load exhausted the helpers poll), showing the still image
+- **WHEN** the 15 s retry interval re-attempts the ladder after the frontend has caught up
+- **THEN** readiness flips to `ready` and the card starts streaming without a remount or page reload
 
 ### The `<ha-camera-stream>` Wrapper
 
@@ -122,11 +137,12 @@ When readiness is `unavailable`, the card MUST render `StillImageFallback` (`src
 - **Frame detection:** `isStreaming` MUST become true only after a decoded frame is observed — via `requestVideoFrameCallback` when the browser implements it (checked at runtime, not by type narrowing), otherwise by polling `currentTime` / `getVideoPlaybackQuality().totalVideoFrames` every 250 ms.
 - **Watchdog:** a 250 ms interval MUST raise `hasFrameWarning` after 500 ms without a new frame (`FRAME_WARNING_MS`) and MUST treat 5 s without a frame (`STALL_MS`) as a sustained stall.
 - **Visibility awareness:** hidden tabs suspend `requestVideoFrameCallback` (and throttle rendering) without the stream being unhealthy, so the watchdog MUST skip stall/warning evaluation entirely while `document.hidden`. On return to visible it MUST reset the frame clock to now (grace period before evaluation resumes) and MUST restore the auto-remount budget — a hidden tab must never burn the budget into a spurious `Stream stalled`.
-- **Connect (load-phase) timeout:** each element incarnation (enable/mount and every remount) MUST fire a `load`/`streams` event within `CONNECT_TIMEOUT_MS` (20 s) of **visible** time, or the machine surfaces the error `'Stream failed to start'` (Retry button appears via the normal error branch) instead of an infinite CONNECTING spinner. The timer is cleared by the incarnation's first stream event and paused while the tab is hidden (suspended loading is not a failure). This also covers a post-stall remount whose element never comes up.
+- **Connect (load-phase) timeout:** each element incarnation (enable/mount and every remount) MUST produce a stream event **with an attachable inner `<video>`/`<img>`** within `CONNECT_TIMEOUT_MS` (20 s) of **visible** time, or the machine surfaces the error `'Stream failed to start'` (Retry button appears via the normal error branch) instead of an infinite CONNECTING spinner. The timer MUST be cleared **at the attach point inside the watch effect** — never on the stream event itself: `streams` can fire when the camera capabilities resolve, before the player (and any attachable element) exists, and clearing then would disarm the timeout with nothing watching. It is implemented as a **single `setTimeout` for the remaining visible-time budget**, cancelled on hide and re-scheduled on return-to-visible (`createVisibleTimeout`) — not a polling interval — and paused while the tab is hidden (suspended loading is not a failure). This also covers a post-stall remount whose element never comes up and an early `streams` event whose player never appears.
 - **Auto-remount with cap:** on a stall the machine stops the current watch and bumps `remountKey` (recreating the element, whose new `load` event starts a fresh watch) — at most `MAX_AUTO_REMOUNTS` (3) consecutive times. Past the cap it MUST surface the error `'Stream stalled'` instead of looping forever. Any observed frame, entity-state transition, or return-to-visible restores the budget.
 - **Immediate video errors:** the machine MUST listen for the inner `<video>`'s `error` event during each watch and surface `'Video playback error'` immediately (stopping the watch) instead of waiting out the 5 s stall plus the remount budget. The listener is re-attached per watch (the video is recreated on remounts/player swaps) and removed on watch teardown.
 - **Retry:** `retry()` MUST clear the surfaced error, reset streaming/warning state, restore the auto-remount budget, bump `remountKey`, and re-arm the connect timeout. The card wires it to the Retry button in the error branch (semantics match the old `useWebRTC` retry).
 - **MJPEG path:** when there is no inner `<video>` but `getMjpegImg()` finds an `<img>`, the machine MUST poll `naturalWidth` every 500 ms and mark streaming once the image has decoded pixels — with NO frame watchdog (the browser owns the multipart stream). The load phase shares the connect budget: `naturalWidth` still 0 after `CONNECT_TIMEOUT_MS` of visible time, or an `error` event on the `<img>` (fast-fail signal), surfaces `'Stream failed to start'`.
+- **Warning reset across epochs:** a stale `hasFrameWarning` MUST NOT survive into a new watch epoch — a video watch that warned before a player swap would otherwise latch `NO SIGNAL` into MJPEG mode, which never raises or clears warnings itself. The epoch bump (`onStreamEvent`) resets the warning.
 - **Disable reset:** when `enabled` flips false, all surfaced status MUST reset in the effect cleanup.
 
 #### Scenario: Stream stalls and recovers via remount
@@ -143,8 +159,8 @@ When readiness is `unavailable`, the card MUST render `StillImageFallback` (`src
 
 #### Scenario: Camera never starts
 
-- **GIVEN** an enabled stream whose element never fires a `load`/`streams` event (or a post-stall remount that never comes up)
-- **WHEN** 20 s of visible time pass
+- **GIVEN** an enabled stream whose element never fires a `load`/`streams` event, fires one before any player/inner element exists, or is a post-stall remount that never comes up
+- **WHEN** 20 s of visible time pass without a watch attaching to a `<video>`/`<img>`
 - **THEN** the card shows `Stream failed to start` with a Retry button instead of an infinite CONNECTING spinner; time spent in a hidden tab does not count
 
 #### Scenario: Hidden tab does not fake a stall
@@ -180,7 +196,7 @@ When readiness is `unavailable`, the card MUST render `StillImageFallback` (`src
 
 - **GIVEN** a playing camera stream
 - **WHEN** the user clicks the feed and later taps the overlay's letterbox area (or presses ESC)
-- **THEN** the overlay opens covering the viewport, the stream element stays inside the `<home-assistant>`/`liebe-panel` tree, playback resumes after at most a brief renegotiation, and it recovers in the card after close (letterbox-click close asserted end-to-end in `tests/e2e/camera-stream.spec.ts`; ESC covered by FullscreenModal unit tests)
+- **THEN** the overlay opens covering the viewport, the stream element stays inside the `<home-assistant>`/`liebe-panel` tree, playback resumes after at most a brief renegotiation, and it recovers in the card after close (BOTH close paths — letterbox click and Escape — asserted end-to-end in `tests/e2e/camera-stream.spec.ts`, each followed by a playback-recovery assertion)
 
 ### Debug Statistics Overlay
 
@@ -276,7 +292,7 @@ interface UseCameraStreamStatusResult {
 }
 ```
 
-Thresholds (exported constants): `FRAME_WARNING_MS = 500`, `STALL_MS = 5000`, `MAX_AUTO_REMOUNTS = 3`, `CONNECT_TIMEOUT_MS = 20_000` (visible time only); internal intervals: watchdog/poll/connect-check 250 ms, MJPEG poll 500 ms, ladder poll 250 ms × 20, `whenDefined` timeout 10 s, still-image refresh 10 s.
+Thresholds (exported constants): `FRAME_WARNING_MS = 500`, `STALL_MS = 5000`, `MAX_AUTO_REMOUNTS = 3`, `CONNECT_TIMEOUT_MS = 20_000` (visible time only, single re-scheduled `setTimeout`), `BOOTSTRAP_RETRY_INTERVAL_MS = 15_000` (unavailable-readiness retry, HA contexts only); internal intervals: watchdog/poll 250 ms, MJPEG poll 500 ms, ladder poll 250 ms × 20, `whenDefined` timeout 10 s, still-image refresh 10 s.
 
 Configuration values live on the grid item (`item.config`): `fit`, `matting`, `showStats`.
 
@@ -288,14 +304,20 @@ Liebe sends no camera-specific WebSocket commands. All negotiation (`camera/webr
 
 Unit tests (`src/components/CameraCard/__tests__/`, jsdom):
 
-- `useCameraStreamReady.test.tsx` — ladder outcomes: already-defined, helpers-poll timeout, helpers rejection, `createCardElement` throw, `whenDefined` timeout, shared single-run promise across consumers, fresh ladder run on remount after a transient failure, no post-unmount state set. Failure eviction of the cache itself: `src/utils/__tests__/haFrontend.test.ts`.
-- `useCameraStreamStatus.test.tsx` — rVFC frame path, 500 ms warning + clear, 5 s stall → remount, remount cap → `Stream stalled` + recovery, `retry()` semantics, budget reset on entity-state transition, rVFC-absent polling fallback (with and without `getVideoPlaybackQuality`), MJPEG `naturalWidth` path + connect budget + `error` fast-fail, connect timeout (`Stream failed to start`, cleared by first event, paused while hidden, re-armed by retry/remount), visibility-aware watchdog (hidden skip, return-to-visible grace + budget restore), immediate `Video playback error` surfacing + listener cleanup, disabled reset, watchdog cleanup on unmount.
+- `useCameraStreamReady.test.tsx` — ladder outcomes: already-defined, helpers-poll timeout, helpers rejection, `createCardElement` throw, `whenDefined` timeout, shared single-run promise across consumers, fresh ladder run on remount after a transient failure, no post-unmount state set, unavailable-retry loop (interval re-attempts in HA contexts, convergence to `ready`, no retry standalone, unmount cancellation). Failure eviction and the standalone fast-path/permanent negative cache: `src/utils/__tests__/haFrontend.test.ts`.
+- `useCameraStreamStatus.test.tsx` — rVFC frame path, 500 ms warning + clear, 5 s stall → remount, remount cap → `Stream stalled` + recovery, `retry()` semantics, budget reset on entity-state transition, rVFC-absent polling fallback (with and without `getVideoPlaybackQuality`), MJPEG `naturalWidth` path + connect budget + `error` fast-fail, connect timeout (`Stream failed to start`, armed until a watch attaches — including an early `streams` event with no attachable element — paused while hidden, not scheduled while mounted hidden, re-armed by retry/remount), stale-warning reset across epochs (video warning → MJPEG epoch), visibility-aware watchdog (hidden skip, return-to-visible grace + budget restore), immediate `Video playback error` surfacing + listener cleanup, disabled reset, watchdog cleanup on unmount.
 - `HaCameraStream.test.tsx` — element creation/identity, property sync (incl. `hass: undefined`), remount on `remountKey`/entity change, event forwarding, shadow-piercing `getInnerVideo`/`getMjpegImg` across both players and MJPEG.
 - `StillImageFallback.test.tsx` — snapshot render, 10 s cache-buster refresh, `?`/`&` separator, no-picture icon branch.
-- `CameraCard.test.tsx` — skeleton/disconnected states, non-stream icon, readiness branches (ready/loading/unavailable + truthful pill), status wiring, error + retry branch, fullscreen modal + native fullscreen fallbacks, mute toggle, stats visibility, matting/chrome, edit mode, config modal.
+- `CameraCard.test.tsx` — skeleton/disconnected states, non-stream icon, readiness branches (ready/loading/unavailable + truthful pill), unavailable-entity gating (no stream attempt, raw pill, automatic recovery), status wiring, error + retry branch, fullscreen modal + native fullscreen fallbacks, mute toggle, stats visibility, matting/chrome, edit mode, config modal.
 - `CameraControls.test.tsx` / `CameraStats.test.tsx` — pill priority order, buttons, sizing; stats math + vendor fallbacks.
 
-E2E (`tests/e2e/camera-stream.spec.ts`, real HA + go2rtc): deep-link bootstrap ladder, element mounted in the panel, pill reaches STREAMING/RECORDING, inner `<video>` plays, fullscreen in-tree portal + fixed backdrop verification, recovery after a letterbox-area click close, no non-benign console errors/unhandled rejections. Benign filters are anchored on distinctive substrings of the specific known-benign messages (hls.js `networkError`/`*LoadError` retry payloads, the go2rtc `unknown_error` offer failure) — never on player names, since the collector appends source URLs like `ha-hls-player.js` and a broad `/hls/i` would swallow real player crashes.
+E2E (`tests/e2e/camera-stream.spec.ts`, real HA + go2rtc): deep-link bootstrap ladder, element mounted in the panel, pill reaches STREAMING/RECORDING, inner `<video>` plays, fullscreen in-tree portal + fixed backdrop verification, recovery after BOTH close paths (letterbox-area click, then reopen and Escape), no non-benign console errors/unhandled rejections. Benign filters are anchored on distinctive substrings of the specific known-benign messages — never on player names, since the collector appends source URLs like `ha-hls-player.js` and a broad `/hls/i` would swallow real player crashes:
+
+- hls.js `networkError`/`*LoadError` retry payloads while ffmpeg spins up, and the go2rtc `unknown_error` offer failure.
+- Recoverable hls.js `mediaError` payloads: anchored on the `"type": "mediaError"` field AND a known recoverable `details` value (`bufferStalledError`, `bufferAppendError`, `bufferAppendingError`, `bufferNudgeOnStall`, `bufferSeekOverHole`, `bufferFullError`), order-insensitively — a fatal `mediaError` with any other details still fails.
+- Circular hls.js `ErrorData` console args that serialize to `<unserializable>`: benign ONLY when the entire entry is unserializable parts and the recorded source URL is the hls player chunk (a real crash logs an Error/string that serializes to visible text and fails the anchored match).
+
+The console collector (`tests/e2e/helpers.ts`) tags object-reason unhandled rejections explicitly (`unhandled rejection (object):`) so the bare-`Object` pageerror dedupe is exact — including circular reasons whose JSON serialization fails and falls back to `[object Object]`, which a `{`-prefix heuristic would miss (leaving a spurious fatal placeholder).
 
 ## Constraints
 
@@ -330,8 +352,9 @@ E2E (`tests/e2e/camera-stream.spec.ts`, real HA + go2rtc): deep-link bootstrap l
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                                                                                    | Document                                       |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 2026-07-18 | Initial spec created (baseline of the hand-rolled WebRTC implementation)                                                                                                                                                                                                  | —                                              |
-| 2026-07-18 | Rewritten for the `<ha-camera-stream>` wrapper architecture (bootstrap ladder, status machine, in-tree fullscreen portal, still-image fallback, go2rtc e2e stack)                                                                                                         | [0007](../../changes/0007-ha-camera-stream.md) |
-| 2026-07-18 | Status-machine hardening: visibility-aware watchdog, 20 s connect timeout (`Stream failed to start`), immediate video/MJPEG error surfacing, ladder failure eviction (bootstrap retry), letterbox-click fullscreen exit, seeded FPS baseline, narrowed e2e benign filters | [0007](../../changes/0007-ha-camera-stream.md) |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                    | Document                                       |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of the hand-rolled WebRTC implementation)                                                                                                                                                                                                                                                                                                                  | —                                              |
+| 2026-07-18 | Rewritten for the `<ha-camera-stream>` wrapper architecture (bootstrap ladder, status machine, in-tree fullscreen portal, still-image fallback, go2rtc e2e stack)                                                                                                                                                                                                                         | [0007](../../changes/0007-ha-camera-stream.md) |
+| 2026-07-18 | Status-machine hardening: visibility-aware watchdog, 20 s connect timeout (`Stream failed to start`), immediate video/MJPEG error surfacing, ladder failure eviction (bootstrap retry), letterbox-click fullscreen exit, seeded FPS baseline, narrowed e2e benign filters                                                                                                                 | [0007](../../changes/0007-ha-camera-stream.md) |
+| 2026-07-18 | Review-fix pass: connect timer armed until a watch attaches (early `streams` gap), unavailable-entity gating with automatic recovery, standalone fast-path + unavailable-readiness retry interval, single-timeout connect budget, cross-epoch warning reset, exact object-rejection dedupe + recoverable hls.js mediaError/unserializable filters, ESC + letterbox close both covered e2e | [0007](../../changes/0007-ha-camera-stream.md) |

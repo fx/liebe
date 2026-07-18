@@ -23,6 +23,17 @@ const WHEN_DEFINED_TIMEOUT_MS = 10_000
 // config wins for that tag).
 const ladderPromises = new Map<string, Promise<boolean>>()
 
+/**
+ * Cheap synchronous environment check: inside the HA frontend the panel is
+ * always a shadow-DOM descendant of the `<home-assistant>` root element, which
+ * itself is a light-DOM child of `<body>` — so `document.querySelector` finds
+ * it. Its absence means standalone (dev server outside HA), where the ladder
+ * can never succeed and the environment can never become HA later.
+ */
+export function isHaFrontendContext(): boolean {
+  return document.querySelector('home-assistant') !== null
+}
+
 function getLoadCardHelpers(): LoadCardHelpers | undefined {
   return (window as unknown as WindowWithCardHelpers).loadCardHelpers
 }
@@ -90,11 +101,16 @@ async function runBootstrapLadder(
  * throwaway Lovelace card that forces the defining chunk to load. Resolves
  * true once the element is defined, false when it cannot be bootstrapped.
  *
- * Only successful (true) resolutions stay cached. A false resolution can be
- * transient (loadCardHelpers poll window missed on a slow HA load, whenDefined
- * timeout), so caching it would pin every later consumer to 'unavailable'
- * until a full page reload — instead the entry is evicted so the next caller
- * retries the ladder.
+ * Standalone (no `<home-assistant>` document context) resolves false
+ * IMMEDIATELY — no 5 s loadCardHelpers poll per card mount — and that negative
+ * is cached permanently, because a standalone page can never become an HA
+ * frontend later.
+ *
+ * In HA contexts, only successful (true) resolutions stay cached. A false
+ * resolution can be transient (loadCardHelpers poll window missed on a slow HA
+ * load, whenDefined timeout), so caching it would pin every later consumer to
+ * 'unavailable' until a full page reload — instead the entry is evicted so the
+ * next caller retries the ladder.
  */
 export function ensureHaElement(
   tag: string,
@@ -102,12 +118,17 @@ export function ensureHaElement(
 ): Promise<boolean> {
   let promise = ladderPromises.get(tag)
   if (!promise) {
-    promise = runBootstrapLadder(tag, triggerCardConfig).then((defined) => {
-      if (!defined) {
-        ladderPromises.delete(tag)
-      }
-      return defined
-    })
+    if (!customElements.get(tag) && !isHaFrontendContext()) {
+      // Standalone fast path: permanent negative cache (see doc above).
+      promise = Promise.resolve(false)
+    } else {
+      promise = runBootstrapLadder(tag, triggerCardConfig).then((defined) => {
+        if (!defined) {
+          ladderPromises.delete(tag)
+        }
+        return defined
+      })
+    }
     ladderPromises.set(tag, promise)
   }
   return promise

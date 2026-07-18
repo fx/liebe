@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ensureHaElement, resetEnsureHaElementForTests } from '../haFrontend'
+import { ensureHaElement, isHaFrontendContext, resetEnsureHaElementForTests } from '../haFrontend'
 
 // NOTE: jsdom cannot unregister custom elements, so the tests in this file are
 // order-sensitive: every test that needs 'ha-camera-stream' to be UNDEFINED
@@ -18,15 +18,51 @@ function setLoadCardHelpers(fn: LoadCardHelpers | undefined) {
 }
 
 describe('ensureHaElement', () => {
+  // Simulated HA frontend root: its presence is what distinguishes the
+  // panel-in-HA case from standalone dev (see isHaFrontendContext).
+  let haRoot: HTMLElement
+
   beforeEach(() => {
     vi.useFakeTimers()
     resetEnsureHaElementForTests()
     setLoadCardHelpers(undefined)
+    haRoot = document.createElement('home-assistant')
+    document.body.appendChild(haRoot)
   })
 
   afterEach(() => {
     vi.useRealTimers()
     setLoadCardHelpers(undefined)
+    haRoot.remove()
+  })
+
+  it('isHaFrontendContext reflects the presence of the <home-assistant> root', () => {
+    expect(isHaFrontendContext()).toBe(true)
+    haRoot.remove()
+    expect(isHaFrontendContext()).toBe(false)
+  })
+
+  it('standalone (no <home-assistant>): resolves false immediately and caches it permanently', async () => {
+    haRoot.remove()
+    const loadCardHelpers = vi.fn()
+    setLoadCardHelpers(loadCardHelpers as unknown as LoadCardHelpers)
+
+    // Resolves without any timer advancement: the 5s helpers poll never runs.
+    const promise = ensureHaElement('ha-standalone-element', TRIGGER_CONFIG)
+    await expect(promise).resolves.toBe(false)
+    expect(loadCardHelpers).not.toHaveBeenCalled()
+
+    // Standalone can never become HA: the negative result stays cached (no
+    // eviction, unlike transient HA-context failures).
+    expect(ensureHaElement('ha-standalone-element', TRIGGER_CONFIG)).toBe(promise)
+  })
+
+  it('standalone still short-circuits true when the element is already defined', async () => {
+    haRoot.remove()
+    customElements.define('ha-standalone-defined', class extends HTMLElement {})
+
+    const promise = ensureHaElement('ha-standalone-defined', TRIGGER_CONFIG)
+    await expect(promise).resolves.toBe(true)
   })
 
   it('resolves false when loadCardHelpers never appears (poll timeout)', async () => {

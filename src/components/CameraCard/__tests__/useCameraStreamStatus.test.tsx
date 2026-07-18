@@ -431,19 +431,103 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('does nothing when neither a video nor an mjpeg image is found', () => {
+  it('keeps the connect timeout armed when a stream event fires before any element exists', () => {
+    // `streams` fires when the camera capabilities resolve — potentially
+    // before the player (and its inner <video>/<img>) exists. The watch
+    // attaches nothing, so the load-phase timeout must still be able to
+    // expire instead of leaving an infinite CONNECTING spinner.
     const { result } = renderStatus()
 
     act(() => {
       result.current.onStreamEvent()
     })
     act(() => {
-      vi.advanceTimersByTime(10_000)
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 250)
     })
-
     expect(result.current.isStreaming).toBe(false)
     expect(result.current.hasFrameWarning).toBe(false)
     expect(result.current.remountKey).toBe(0)
+    expect(result.current.error).toBeNull()
+
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.error).toBe('Stream failed to start')
+  })
+
+  it('clears the connect timeout only when a watch attaches to a real element', () => {
+    const { video, fireFrame } = createRvfcVideo()
+    let currentVideo: HTMLVideoElement | null = null
+    const getInnerVideo = () => currentVideo
+    const getMjpegImg = () => null
+    const { result } = renderHook(() =>
+      useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState: 'streaming', enabled: true })
+    )
+
+    // First event arrives before the player exists: nothing attaches, and the
+    // connect timer stays armed.
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(result.current.error).toBeNull()
+
+    // The player comes up and fires again: the watch attaches, ending the
+    // load phase — frames keep the stream healthy well past the budget.
+    currentVideo = video
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      fireFrame()
+    })
+    act(() => {
+      for (let elapsed = 0; elapsed < CONNECT_TIMEOUT_MS + 5000; elapsed += 250) {
+        vi.advanceTimersByTime(250)
+        fireFrame()
+      }
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.isStreaming).toBe(true)
+  })
+
+  it('clears a stale frame warning when a new epoch starts in mjpeg mode', () => {
+    const { video } = createRvfcVideo()
+    const { img, setNaturalWidth } = createMjpegImg()
+    let currentVideo: HTMLVideoElement | null = video
+    let currentImg: HTMLImageElement | null = null
+    const getInnerVideo = () => currentVideo
+    const getMjpegImg = () => currentImg
+    const { result } = renderHook(() =>
+      useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState: 'streaming', enabled: true })
+    )
+
+    // Video watch warns after 500ms without frames.
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      vi.advanceTimersByTime(WARNING_TICK_MS)
+    })
+    expect(result.current.hasFrameWarning).toBe(true)
+
+    // Player swap to MJPEG: the new epoch must clear the stale warning (MJPEG
+    // mode never raises or clears warnings itself, so it would latch forever).
+    currentVideo = null
+    currentImg = img
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    expect(result.current.hasFrameWarning).toBe(false)
+
+    act(() => {
+      setNaturalWidth(640)
+      vi.advanceTimersByTime(500)
+    })
+    expect(result.current.isStreaming).toBe(true)
+    expect(result.current.hasFrameWarning).toBe(false)
   })
 
   it('resets all status and ignores events while disabled', () => {
@@ -546,7 +630,7 @@ describe('useCameraStreamStatus', () => {
       expect(result.current.error).toBe('Stream failed to start')
     })
 
-    it('is cleared by the first stream event and never fires for a healthy stream', () => {
+    it('is cleared when the watch attaches and never fires for a healthy stream', () => {
       const { video, fireFrame } = createRvfcVideo()
       const { result } = renderStatus({ video })
 
@@ -566,6 +650,53 @@ describe('useCameraStreamStatus', () => {
       })
       expect(result.current.error).toBeNull()
       expect(result.current.isStreaming).toBe(true)
+    })
+
+    it('is not scheduled while mounted hidden and arms the full budget on visibility', () => {
+      const { video } = createRvfcVideo()
+      act(() => {
+        setDocumentHidden(true)
+      })
+      const { result } = renderStatus({ video })
+
+      // Hidden from the start: no timeout is pending at all.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.error).toBeNull()
+
+      // Becoming visible schedules the untouched 20s budget.
+      act(() => {
+        setDocumentHidden(false)
+      })
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 250)
+      })
+      expect(result.current.error).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
+
+    it('handles redundant hidden events and disposes cleanly while hidden', () => {
+      const { video } = createRvfcVideo()
+      act(() => {
+        setDocumentHidden(true)
+      })
+      const { result, unmount } = renderStatus({ video })
+
+      // A redundant hidden event with no pending timer is a no-op.
+      act(() => {
+        setDocumentHidden(true)
+      })
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.error).toBeNull()
+
+      // Unmount while hidden: dispose has no pending timer to clear.
+      expect(() => unmount()).not.toThrow()
     })
 
     it('pauses while the tab is hidden and resumes with the remaining budget', () => {

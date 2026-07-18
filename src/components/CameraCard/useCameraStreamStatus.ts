@@ -8,10 +8,10 @@ const WATCHDOG_INTERVAL_MS = 250
 const MJPEG_POLL_INTERVAL_MS = 500
 export const MAX_AUTO_REMOUNTS = 3
 // Load-phase budget: a new element incarnation (mount, remount, or enable)
-// must produce a `load`/`streams` event — and the MJPEG image its first
-// decoded pixels — within this much VISIBLE time, or the machine surfaces
-// 'Stream failed to start' (with the Retry button) instead of leaving an
-// infinite CONNECTING spinner.
+// must produce a `load`/`streams` event WITH an attachable inner
+// <video>/<img> — and the MJPEG image its first decoded pixels — within this
+// much VISIBLE time, or the machine surfaces 'Stream failed to start' (with
+// the Retry button) instead of leaving an infinite CONNECTING spinner.
 export const CONNECT_TIMEOUT_MS = 20_000
 
 // Runtime capability checks (not `in` narrowing: lib.dom types the rVFC
@@ -61,6 +61,57 @@ function createVisibleElapsedTracker(): { elapsed: () => number; dispose: () => 
   }
 }
 
+// Single-shot timeout over VISIBLE time: fires onExpire once budgetMs of
+// visible time has elapsed. While hidden the pending timeout is cancelled and
+// the consumed visible span banked; returning to visible schedules the
+// remainder. One timer instead of a 4 Hz polling interval for the same
+// visible-time-only semantics.
+function createVisibleTimeout(budgetMs: number, onExpire: () => void): { dispose: () => void } {
+  let visibleElapsed = 0
+  let last = Date.now()
+  let id: ReturnType<typeof setTimeout> | null = null
+  const onVisibilityChange = () => {
+    const now = Date.now()
+    if (document.hidden) {
+      // Going hidden: bank the visible span and pause the timer.
+      visibleElapsed += now - last
+      if (id !== null) {
+        clearTimeout(id)
+        id = null
+      }
+    } else {
+      // Back to visible: schedule the remaining budget (the hidden span is
+      // simply never banked, so it costs nothing).
+      schedule()
+    }
+    last = now
+  }
+  const schedule = () => {
+    id = setTimeout(
+      () => {
+        id = null
+        document.removeEventListener('visibilitychange', onVisibilityChange)
+        onExpire()
+      },
+      Math.max(0, budgetMs - visibleElapsed)
+    )
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  // Mounted while hidden: nothing is scheduled until the tab becomes visible.
+  if (!document.hidden) {
+    schedule()
+  }
+  return {
+    dispose: () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      if (id !== null) {
+        clearTimeout(id)
+        id = null
+      }
+    },
+  }
+}
+
 export interface UseCameraStreamStatusOptions {
   getInnerVideo: () => HTMLVideoElement | null
   getMjpegImg: () => HTMLImageElement | null
@@ -86,9 +137,10 @@ export interface UseCameraStreamStatusResult {
 // remount after a sustained STALL_MS stall (capped at MAX_AUTO_REMOUNTS
 // consecutive remounts, after which it surfaces a "Stream stalled" error
 // instead of looping forever). A visibility-aware connect timeout covers the
-// load phase: an element that never fires a stream event (camera never starts,
-// or a post-stall remount that never comes up) surfaces 'Stream failed to
-// start' after CONNECT_TIMEOUT_MS of visible time.
+// load phase: an incarnation whose watch never attaches to an inner
+// <video>/<img> (camera never starts, a post-stall remount that never comes
+// up, or a `streams` event that fires before any player exists) surfaces
+// 'Stream failed to start' after CONNECT_TIMEOUT_MS of visible time.
 export function useCameraStreamStatus({
   getInnerVideo,
   getMjpegImg,
@@ -107,27 +159,29 @@ export function useCameraStreamStatus({
   // dispatch state only on transitions instead of on every decoded frame.
   const isStreamingRef = useRef(false)
   const hasFrameWarningRef = useRef(false)
-  // Active connect timer (load-phase timeout); cleared by the first stream
-  // event of the current element incarnation.
-  const connectTimerRef = useRef<{
-    id: ReturnType<typeof setInterval>
-    tracker: { elapsed: () => number; dispose: () => void }
-  } | null>(null)
+  // Active connect timer (load-phase timeout). Cleared only when a watch
+  // actually attaches to an inner <video>/<img> — NOT on the stream event
+  // itself: `streams` can fire when the camera capabilities resolve, before
+  // the player (and any attachable element) exists, and clearing then would
+  // leave an infinite CONNECTING spinner if the player never comes up.
+  const connectTimerRef = useRef<{ dispose: () => void } | null>(null)
 
   const clearConnectTimer = useCallback(() => {
-    const timer = connectTimerRef.current
-    if (timer) {
-      clearInterval(timer.id)
-      timer.tracker.dispose()
-      connectTimerRef.current = null
-    }
+    connectTimerRef.current?.dispose()
+    connectTimerRef.current = null
   }, [])
 
   const onStreamEvent = useCallback(() => {
-    // The element came up: the load-phase timeout no longer applies.
-    clearConnectTimer()
+    // A stale frame warning must not leak across epochs: a video watch that
+    // warned and then ended (player swap, element remount) would otherwise
+    // latch NO SIGNAL into a mode that never clears it (MJPEG in particular
+    // has no frame watchdog).
+    if (hasFrameWarningRef.current) {
+      hasFrameWarningRef.current = false
+      setHasFrameWarning(false)
+    }
     setWatchEpoch((epoch) => epoch + 1)
-  }, [clearConnectTimer])
+  }, [])
 
   const retry = useCallback(() => {
     consecutiveRemountsRef.current = 0
@@ -176,21 +230,17 @@ export function useCameraStreamStatus({
   }, [enabled])
 
   // Load-phase (connect) timeout: armed for every element incarnation
-  // (enable/mount and every remount), cleared by the incarnation's first
-  // `load`/`streams` event. Only visible time counts — a hidden tab's
-  // suspended loading must not trip it.
+  // (enable/mount and every remount), cleared when a watch attaches to the
+  // incarnation's inner <video>/<img>. Only visible time counts — a hidden
+  // tab's suspended loading must not trip it.
   useEffect(() => {
     if (!enabled) return
     // remountKey is an intentional dependency: each remount re-arms the timer.
     void remountKey
-    const tracker = createVisibleElapsedTracker()
-    const id = setInterval(() => {
-      if (tracker.elapsed() >= CONNECT_TIMEOUT_MS) {
-        clearConnectTimer()
-        setError('Stream failed to start')
-      }
-    }, WATCHDOG_INTERVAL_MS)
-    connectTimerRef.current = { id, tracker }
+    connectTimerRef.current = createVisibleTimeout(CONNECT_TIMEOUT_MS, () => {
+      connectTimerRef.current = null
+      setError('Stream failed to start')
+    })
     return clearConnectTimer
   }, [enabled, remountKey, clearConnectTimer])
 
@@ -199,6 +249,8 @@ export function useCameraStreamStatus({
 
     const video = getInnerVideo()
     if (video) {
+      // A watch is attaching to a real element: the load phase is over.
+      clearConnectTimer()
       const timers: {
         rvfcId: number | null
         poll: ReturnType<typeof setInterval> | null
@@ -315,7 +367,14 @@ export function useCameraStreamStatus({
     }
 
     const img = getMjpegImg()
+    // Nothing attachable yet (the event fired before the player came up):
+    // leave the connect timer armed so the load-phase timeout can still
+    // expire; a later event with a real element starts the watch.
     if (!img) return
+
+    // The MJPEG image is the attach point; its own poll below owns the
+    // remaining load budget.
+    clearConnectTimer()
 
     // MJPEG mode: streaming once the image has decoded pixels; no frame
     // watchdog (the browser owns the multipart stream), but the load phase
@@ -349,7 +408,7 @@ export function useCameraStreamStatus({
       }
     }, MJPEG_POLL_INTERVAL_MS)
     return stopMjpeg
-  }, [enabled, watchEpoch, getInnerVideo, getMjpegImg])
+  }, [enabled, watchEpoch, getInnerVideo, getMjpegImg, clearConnectTimer])
 
   return { isStreaming, hasFrameWarning, error, remountKey, onStreamEvent, retry }
 }
