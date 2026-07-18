@@ -62,5 +62,5 @@ changes:
     path: changes/0004-portable-config-contract.md
     description: Define one canonical portable configuration field set and align types, exports, imports, and dirty-tracking
     spec: dashboard-config
-    status: draft
+    status: complete
     depends_on: []

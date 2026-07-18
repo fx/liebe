@@ -42,10 +42,12 @@ export const dashboardStore = new Store<DashboardState>(initialState)
 
 export const dashboardActions = {
   setMode: (mode: DashboardMode) => {
+    // Mode is device-local: it is persisted separately under `liebe-mode` and is
+    // NOT part of the portable DashboardConfig, so it MUST NOT mark the config
+    // dirty (that would rewrite `liebe-config` on every view/edit toggle).
     dashboardStore.setState((state) => ({
       ...state,
       mode,
-      isDirty: true,
     }))
     // Import is deferred to avoid circular dependency
     import('./persistence').then(({ saveDashboardMode }) => {
@@ -273,10 +275,12 @@ export const dashboardActions = {
   },
 
   setGridResolution: (resolution: GridResolution) => {
+    // Top-level `gridResolution` is device-local: it is not part of the portable
+    // DashboardConfig (only per-screen `grid.resolution` round-trips), so it MUST
+    // NOT mark the config dirty. `loadConfiguration` resets it to the default.
     dashboardStore.setState((state) => ({
       ...state,
       gridResolution: resolution,
-      isDirty: true,
     }))
   },
 
@@ -291,18 +295,21 @@ export const dashboardActions = {
       theme: config.theme || 'auto',
       sidebarOpen: config.sidebarOpen ?? state.sidebarOpen,
       tabsExpanded: config.tabsExpanded ?? state.tabsExpanded,
+      sidebarWidgets: config.sidebarWidgets ?? state.sidebarWidgets,
       isDirty: false,
     }))
   },
 
   exportConfiguration: (): DashboardConfig => {
     const state = dashboardStore.state
+    // Serialize exactly the canonical portable set (see DashboardConfig).
     return {
       version: state.configuration.version,
       screens: state.screens,
       theme: state.theme,
       sidebarOpen: state.sidebarOpen,
       tabsExpanded: state.tabsExpanded,
+      sidebarWidgets: state.sidebarWidgets,
     }
   },
 

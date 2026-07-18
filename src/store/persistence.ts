@@ -239,8 +239,12 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
         // Load the configuration
         dashboardActions.loadConfiguration(migratedConfig)
 
-        // Save to localStorage
-        saveDashboardConfig(migratedConfig)
+        // Persist the RESOLVED portable config, not the raw import. When an
+        // imported file omits an optional portable field (e.g. `sidebarWidgets`
+        // from a pre-contract export), `loadConfiguration` fills it from the
+        // current store state; exporting after load captures that fallback so a
+        // reload restores the same portable state instead of dropping it.
+        saveDashboardConfig(dashboardActions.exportConfiguration())
 
         resolve()
       } catch (error) {
@@ -269,14 +273,19 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
 
 // Export configuration as YAML string
 export const exportConfigurationAsYAML = (): string => {
-  const config = dashboardActions.exportConfiguration()
+  // Serialize exactly the canonical portable set (see DashboardConfig), matching
+  // the JSON export so YAML and JSON round-trip to identical state.
+  const { version, theme, sidebarOpen, tabsExpanded, sidebarWidgets, screens } =
+    dashboardActions.exportConfiguration()
   const yamlConfig = {
     '# Liebe Dashboard Configuration': null,
     '# Generated': new Date().toISOString(),
-    version: config.version,
-    theme: config.theme || 'auto',
-    sidebarOpen: config.sidebarOpen,
-    screens: config.screens,
+    version,
+    theme: theme || 'auto',
+    sidebarOpen,
+    tabsExpanded,
+    sidebarWidgets,
+    screens,
   }
 
   return yaml.dump(yamlConfig, {
