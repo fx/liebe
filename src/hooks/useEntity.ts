@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { useStore } from '@tanstack/react-store'
 import { entityStore, entityStoreActions } from '../store/entityStore'
 import type { HassEntity } from '../store/entityTypes'
@@ -10,10 +10,21 @@ export function useEntity(entityId: string): {
   isLoading: boolean
   isStale: boolean
 } {
-  const entities = useStore(entityStore, (state) => state.entities)
+  // Select only this entity's slice so TanStack Store's selector equality
+  // short-circuits re-renders when the entity reference is unchanged. Because
+  // updateEntities preserves reference identity for entities that did not change
+  // in a batch, an unrelated entity update leaves this selector's result === the
+  // previous value and does not re-render the component.
+  const entity = useStore(entityStore, (state) => state.entities[entityId])
   const isConnected = useStore(entityStore, (state) => state.isConnected)
   const isInitialLoading = useStore(entityStore, (state) => state.isInitialLoading)
-  const staleEntities = useStore(entityStore, (state) => state.staleEntities)
+  // Select staleness for this entity only. getEntityStaleness reads the store
+  // singleton and honors excluded entity types (e.g. cameras are never stale);
+  // the selector returns a boolean so re-renders only occur when it flips.
+  const isStale = useStore(
+    entityStore,
+    () => staleEntityMonitor.getEntityStaleness(entityId).isStale
+  )
 
   // Subscribe to entity when component mounts
   useEffect(() => {
@@ -26,16 +37,6 @@ export function useEntity(entityId: string): {
       }
     }
   }, [entityId])
-
-  const entity = useMemo(() => {
-    return entities[entityId]
-  }, [entities, entityId])
-
-  const isStale = useMemo(() => {
-    // Use staleEntityMonitor to check staleness, which respects excluded entity types
-    return staleEntityMonitor.getEntityStaleness(entityId).isStale
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityId, staleEntities])
 
   return {
     entity,
