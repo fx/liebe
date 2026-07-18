@@ -4,7 +4,7 @@ export * from '@radix-ui/themes'
 // Export our custom modal components
 export { Modal } from './Modal'
 export { AlertModal } from './AlertModal'
-export { FullscreenModal } from './FullscreenModal'
+export { FullscreenModal, resolvePanelPortalContainer } from './FullscreenModal'
 
 // Export skeleton component
 export { SkeletonCard } from './SkeletonCard'
