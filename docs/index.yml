@@ -41,7 +41,7 @@ changes:
     path: changes/0001-per-entity-store-selectors.md
     description: Subscribe useEntity/useEntities to per-entity store slices so state batches only re-render affected cards
     spec: entity-state
-    status: draft
+    status: complete
     depends_on: []
   - id: '0002'
     name: repo-hygiene

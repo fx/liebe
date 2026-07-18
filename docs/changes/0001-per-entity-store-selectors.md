@@ -5,7 +5,7 @@
 Change `useEntity` (and the ID-filtered path of `useEntities`) to subscribe to individual entity slices of `entityStore` instead of the whole `entities` map, so a state batch only re-renders the components whose entities actually changed. This closes the performance gap documented in the [Entity State](../specs/entity-state/) spec's Open Questions.
 
 **Spec:** [Entity State](../specs/entity-state/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -89,11 +89,11 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 ## Tasks
 
-- [ ] Convert `useEntity`/`useEntities` to granular selectors, verify entity reference stability in `entityStore.updateEntities`, and add render-count regression tests
-  - [ ] Per-entity selectors in `src/hooks/useEntity.ts` (entity + staleness)
-  - [ ] Filtered-slice selection in `src/hooks/useEntities.ts`, documented full-map behavior for the no-arg form
-  - [ ] Render-count tests: unrelated-batch no-re-render, own-entity re-render, filtered `useEntities`
-  - [ ] Confirm/ensure unchanged-entity reference identity across batches in `src/store/entityStore.ts` (with test)
+- [x] Convert `useEntity`/`useEntities` to granular selectors, verify entity reference stability in `entityStore.updateEntities`, and add render-count regression tests
+  - [x] Per-entity selectors in `src/hooks/useEntity.ts` (entity + staleness)
+  - [x] Filtered-slice selection in `src/hooks/useEntities.ts`, documented full-map behavior for the no-arg form
+  - [x] Render-count tests: unrelated-batch no-re-render, own-entity re-render, filtered `useEntities`
+  - [x] Confirm/ensure unchanged-entity reference identity across batches in `src/store/entityStore.ts` (with test)
 
 ## Open Questions
 
