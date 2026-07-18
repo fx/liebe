@@ -17,8 +17,8 @@ import type { DashboardConfig } from './types'
 
 const gridResolutionSchema = z
   .object({
-    columns: z.number(),
-    rows: z.number(),
+    columns: z.number().int().positive(),
+    rows: z.number().int().positive(),
   })
   .passthrough()
 
@@ -36,18 +36,32 @@ const gridItemSchema = z
     textColor: z.string().optional(),
     hideBackground: z.boolean().optional(),
     config: z.record(z.unknown()).optional(),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
+    // Grid geometry is measured in whole grid cells: positions are non-negative
+    // integers and spans are positive integers. Reject negative/fractional values.
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+  })
+  .passthrough()
+
+// Legacy grid format: items were grouped under `sections`, which
+// `migrateScreenConfig` later flattens into `grid.items`. Validate those items
+// too, otherwise malformed section items would bypass the import gate.
+const gridSectionSchema = z
+  .object({
+    id: z.string(),
+    items: z.array(gridItemSchema),
   })
   .passthrough()
 
 const gridSchema = z
   .object({
     resolution: gridResolutionSchema.optional(),
-    // Optional so the legacy `sections` format (upgraded by migration) still validates.
+    // Both keys are optional so either the current (`items`) or the legacy
+    // (`sections`) format validates; migration reconciles them afterwards.
     items: z.array(gridItemSchema).optional(),
+    sections: z.array(gridSectionSchema).optional(),
   })
   .passthrough()
 
@@ -79,7 +93,12 @@ const screenConfigSchema: z.ZodType<ScreenConfigInput> = z.lazy(() =>
 
 export const dashboardConfigSchema = z
   .object({
-    version: z.string(),
+    // Require a dot-separated numeric version (e.g. "1.0.0") so downstream
+    // `checkVersionCompatibility` always parses a real major number — an empty
+    // or non-numeric version would otherwise compare as NaN and slip through.
+    version: z
+      .string()
+      .regex(/^\d+(\.\d+)*$/, 'version must be a dot-separated numeric version like "1.0.0"'),
     screens: z.array(screenConfigSchema),
     theme: z.enum(['light', 'dark', 'auto']).optional(),
     sidebarOpen: z.boolean().optional(),

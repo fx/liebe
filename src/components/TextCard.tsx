@@ -31,13 +31,26 @@ function TextCardComponent({
   textColor: propTextColor,
   config,
 }: TextCardProps) {
-  // Use config values if available, otherwise fall back to props. Nullish (`??`)
-  // per field so intentional empty/falsy values survive — clearing `content`
-  // must render empty, not restore the "Double-click to edit" placeholder.
-  const content = (config?.content as string) ?? propContent ?? 'Double-click to edit'
-  const alignment = (config?.alignment as 'left' | 'center' | 'right') ?? propAlignment ?? 'left'
-  const textSize = (config?.textSize as 'small' | 'medium' | 'large') ?? propTextSize ?? 'medium'
-  const textColor = (config?.textColor as string) ?? propTextColor ?? 'default'
+  // Resolve display values, preferring config over props. `content` uses nullish
+  // (`??`) so an intentional empty string is preserved — clearing content renders
+  // empty, not the "Double-click to edit" placeholder. The enum-like fields fall
+  // back on empty/invalid values (`||`), since an empty alignment/textSize/
+  // textColor has no valid rendering and must resolve to the prop/default.
+  const {
+    content: configContent,
+    alignment: configAlignment,
+    textSize: configTextSize,
+    textColor: configTextColor,
+  } = (config ?? {}) as {
+    content?: string
+    alignment?: 'left' | 'center' | 'right'
+    textSize?: 'small' | 'medium' | 'large'
+    textColor?: string
+  }
+  const content = configContent ?? propContent ?? 'Double-click to edit'
+  const alignment = configAlignment || propAlignment || 'left'
+  const textSize = configTextSize || propTextSize || 'medium'
+  const textColor = configTextColor || propTextColor || 'default'
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   const [editContent, setEditContent] = useState(content)

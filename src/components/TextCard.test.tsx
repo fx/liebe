@@ -38,4 +38,17 @@ describe('TextCard content resolution', () => {
     render(<TextCard content="Hello world" />)
     expect(screen.getByText('Hello world')).toBeInTheDocument()
   })
+
+  it('prefers config content over the prop', () => {
+    render(<TextCard config={{ content: 'from config' }} content="from prop" />)
+    expect(screen.getByText('from config')).toBeInTheDocument()
+    expect(screen.queryByText('from prop')).not.toBeInTheDocument()
+  })
+
+  it('falls back on empty enum-like config fields without breaking rendering', () => {
+    // Empty alignment/textSize/textColor are invalid; they must fall back to
+    // prop/default rather than being preserved as empty strings.
+    render(<TextCard config={{ content: 'Body', alignment: '', textSize: '', textColor: '' }} />)
+    expect(screen.getByText('Body')).toBeInTheDocument()
+  })
 })

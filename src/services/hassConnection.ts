@@ -157,9 +157,11 @@ export class HassConnectionManager {
   }
 
   private async subscribeToStateChanges(): Promise<void> {
-    // Check if we have a WebSocket connection
+    // Check if we have a WebSocket connection. This is a genuine failure that
+    // leaves the manager unable to receive updates, so it stays ungated
+    // (logger.error) rather than being hidden behind the debug flag.
     if (!this.hass?.connection) {
-      logger.warn('No WebSocket connection available')
+      logger.error('No WebSocket connection available')
       return
     }
 
