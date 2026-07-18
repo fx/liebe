@@ -115,8 +115,8 @@ The wrapper MUST implement this compat matrix:
 - [ ] Change doc 0007 + index sync
 - [ ] E2E infra: go2rtc service, synthetic `testsrc2` camera, HA ffmpeg/go2rtc config, `scripts/check-rtsp-leak.sh` + CI wiring
 - [ ] `FullscreenModal` `portalContainer` prop + `resolvePanelPortalContainer` util with tests
-- [ ] `<ha-camera-stream>` React wrapper: injection ladder (hass property / @lit/context) + still-image fallback
-- [ ] CameraCard status machine + chrome extraction (stats via `getVideoPlaybackQuality`, bitrate removed)
+- [x] `<ha-camera-stream>` React wrapper: injection ladder (hass property / @lit/context) + still-image fallback
+- [x] CameraCard status machine + chrome extraction (stats via `getVideoPlaybackQuality`, bitrate removed)
 - [ ] The swap: CameraCard renders the wrapper; delete `useWebRTC.ts` and Liebe-owned signaling
 - [ ] E2E camera spec: seeded CameraCard plays `camera.e2e_pattern` (HLS guaranteed, WebRTC best-effort)
 - [ ] CI wiring: leak gate ordering, e2e workflow updates for go2rtc
