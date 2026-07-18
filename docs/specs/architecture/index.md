@@ -28,8 +28,8 @@ Related feature specs (project-level document links; these live as sibling direc
 ### Tech Stack
 
 - The project MUST use React 19 (`react`/`react-dom` `^19.2.1`) with the automatic JSX runtime (`vite.config.ts:130`, `tsconfig.json` `"jsx": "react-jsx"`).
-- Routing MUST use TanStack Router / TanStack Start in SPA mode (`@tanstack/react-start` `^1.139.14`, `tanstackStart({ spa: { enabled: true } })` at `vite.config.ts:138-142`).
-- Global state MUST use TanStack Store (`@tanstack/react-store` `^0.8.0`).
+- Routing MUST use TanStack Router / TanStack Start in SPA mode (`@tanstack/react-start` `^1.160.0`, `tanstackStart({ spa: { enabled: true } })` at `vite.config.ts:138-142`).
+- Global state MUST use TanStack Store (`@tanstack/react-store` `^0.9.3`).
 - UI MUST use Radix UI Themes (`@radix-ui/themes` `^3.2.1`) as the primary component system, per project CLAUDE.md styling rules.
 - Grid layout MUST use `react-grid-layout` `^1.5.2`.
 - Home Assistant connectivity MUST use `home-assistant-js-websocket` `^9.5.0`.

@@ -3,7 +3,7 @@ import { connectionStore } from '~/store/connectionStore'
 import type { ConnectionState } from '~/store/connectionStore'
 
 export function useConnectionStatus(): ConnectionState {
-  return useStore(connectionStore)
+  return useStore(connectionStore, (state) => state)
 }
 
 export function useIsConnected(): boolean {
