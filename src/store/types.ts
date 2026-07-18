@@ -37,12 +37,17 @@ export interface ScreenConfig {
   }
 }
 
+// Canonical portable configuration contract. These are exactly the fields that
+// travel with a shared/exported dashboard (JSON + YAML) and whose mutation marks
+// the config dirty. Device-local state (`mode`, top-level `gridResolution`) is
+// deliberately excluded — see docs/specs/dashboard-config/index.md.
 export interface DashboardConfig {
   version: string
   screens: ScreenConfig[]
   theme?: 'light' | 'dark' | 'auto'
   sidebarOpen?: boolean
   tabsExpanded?: boolean
+  sidebarWidgets?: WidgetConfig[]
 }
 
 export type DashboardMode = 'view' | 'edit'

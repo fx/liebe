@@ -5,7 +5,7 @@
 Define one canonical set of portable (shareable/exportable) dashboard-configuration fields and make `DashboardConfig`, the JSON export, the YAML export, and dirty-tracking all follow it. Closes the contract inconsistencies documented in the [Dashboard Config](../specs/dashboard-config/) spec's Open Questions.
 
 **Spec:** [Dashboard Config](../specs/dashboard-config/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -56,7 +56,9 @@ Decide the canonical set first (see Open Questions), then align in one PR: `Dash
 
 ### Decisions
 
-- **Decision**: Deferred until the canonical set is chosen (Open Question below).
+- **Decision**: Adopted the default proposal as the canonical portable set. Portable (in `DashboardConfig`, JSON export, YAML export, import, and dirty-tracking): `version`, `screens`, `theme`, `sidebarOpen`, `tabsExpanded`, `sidebarWidgets`. Device-local (never in the portable document, never marks dirty): `mode` (persisted under `liebe-mode`) and the top-level `gridResolution` (per-screen `grid.resolution` still round-trips).
+- **Decision**: No version bump. The portable shape only gained optional fields, so existing current-version JSON/YAML exports remain importable unchanged; `checkVersionCompatibility` is untouched.
+- **Decision**: `importConfigurationFromFile` persists the resolved exported config (not the raw import) so an imported file that omits an optional portable field keeps the store's fallback value across reloads.
 
 ### Non-Goals
 
@@ -65,11 +67,11 @@ Decide the canonical set first (see Open Questions), then align in one PR: `Dash
 
 ## Tasks
 
-- [ ] Decide canonical portable set, align types/exports/imports/dirty-tracking, add round-trip and dirty-tracking tests, sync the dashboard-config spec
+- [x] Decide canonical portable set, align types/exports/imports/dirty-tracking, add round-trip and dirty-tracking tests, sync the dashboard-config spec
 
 ## Open Questions
 
-- [ ] Canonical set: are `sidebarWidgets` and `tabsExpanded` shareable dashboard content (include everywhere) or device-local preference (exclude everywhere, stop dirty-marking)? Default proposal: `version`, `screens`, `theme`, `sidebarOpen`, `tabsExpanded`, `sidebarWidgets` portable; `mode` and top-level `gridResolution` device-local.
+- [x] Canonical set: are `sidebarWidgets` and `tabsExpanded` shareable dashboard content (include everywhere) or device-local preference (exclude everywhere, stop dirty-marking)? **Resolved — adopted the default proposal:** `version`, `screens`, `theme`, `sidebarOpen`, `tabsExpanded`, `sidebarWidgets` are portable (in `DashboardConfig`, JSON + YAML export, import, dirty-tracking); `mode` (persisted under `liebe-mode`) and the top-level `gridResolution` are device-local — excluded from the portable document and no longer mark it dirty. No version bump is needed: the portable shape only gained optional fields (`tabsExpanded` was already in `DashboardConfig`/JSON, `sidebarWidgets` is new and optional), so existing current-version JSON/YAML exports remain importable.
 
 ## References
 

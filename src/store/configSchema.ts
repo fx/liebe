@@ -91,6 +91,17 @@ const screenConfigSchema: z.ZodType<ScreenConfigInput> = z.lazy(() =>
     .passthrough()
 )
 
+// Sidebar widgets are part of the portable config. Validate their shape (mirrors
+// `WidgetConfig` in ./types.ts) while staying tolerant of unknown extra fields.
+const widgetConfigSchema = z
+  .object({
+    id: z.string(),
+    type: z.enum(['clock', 'weather', 'quick-controls']),
+    position: z.number().int().nonnegative(),
+    config: z.record(z.unknown()).optional(),
+  })
+  .passthrough()
+
 export const dashboardConfigSchema = z
   .object({
     // Require a dot-separated numeric version (e.g. "1.0.0") so downstream
@@ -103,6 +114,7 @@ export const dashboardConfigSchema = z
     theme: z.enum(['light', 'dark', 'auto']).optional(),
     sidebarOpen: z.boolean().optional(),
     tabsExpanded: z.boolean().optional(),
+    sidebarWidgets: z.array(widgetConfigSchema).optional(),
   })
   .passthrough()
 
