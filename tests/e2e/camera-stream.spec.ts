@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
-import { openPanel, seedCameraConfig, gridItemCount, collectConsoleErrors } from './helpers'
+import {
+  openPanel,
+  seedCameraConfig,
+  gridItemCount,
+  collectConsoleErrors,
+  type BenignMatcher,
+} from './helpers'
 
 // Camera streaming e2e (docs/changes/0007): a seeded CameraCard must play the
 // synthetic go2rtc testsrc2 stream through HA's own <ha-camera-stream> element.
@@ -20,7 +26,20 @@ import { openPanel, seedCameraConfig, gridItemCount, collectConsoleErrors } from
 const RECOVERABLE_HLS_BUFFER_DETAILS =
   'buffer(?:StalledError|AppendError|AppendingError|NudgeOnStall|SeekOverHole|FullError)'
 
-const BENIGN_CONSOLE_PATTERNS: RegExp[] = [
+// hls.js recoverable mediaError payloads during spin-up: buffer hiccups
+// (bufferStalledError, bufferAppendError, bufferAppendingError,
+// bufferNudgeOnStall, bufferSeekOverHole, bufferFullError) that hls.js
+// recovers from by nudging/flushing. Anchored on BOTH the mediaError type and
+// a known recoverable details value (order-insensitive, since JSON key order
+// is not guaranteed) — a mediaError with any other details string still fails
+// the suite. Consumed by the predicate below, which additionally rejects
+// fatal payloads.
+const RECOVERABLE_HLS_MEDIA_ERROR = new RegExp(
+  `"type"\\s*:\\s*"mediaError"[\\s\\S]*"details"\\s*:\\s*"${RECOVERABLE_HLS_BUFFER_DETAILS}"` +
+    `|"details"\\s*:\\s*"${RECOVERABLE_HLS_BUFFER_DETAILS}"[\\s\\S]*"type"\\s*:\\s*"mediaError"`
+)
+
+const BENIGN_CONSOLE_PATTERNS: BenignMatcher[] = [
   // The HLS playlist/segment endpoints 404/503 briefly while ffmpeg spins up;
   // hls.js retries and recovers. Chrome logs these as console errors.
   /the server responded with a status of (404|5\d\d)/i,
@@ -36,24 +55,13 @@ const BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   // with {code: "unknown_error"} and <ha-camera-stream> falls back to HLS —
   // exactly the "WebRTC best-effort" contract of docs/changes/0007.
   /"code"\s*:\s*"unknown_error"/,
-  // hls.js recoverable mediaError payloads during spin-up: buffer hiccups
-  // (bufferStalledError, bufferAppendError, bufferAppendingError,
-  // bufferNudgeOnStall, bufferSeekOverHole, bufferFullError) that hls.js
-  // recovers from by nudging/flushing. Anchored on BOTH the mediaError type
-  // and a known recoverable details value (order-insensitive, since JSON key
-  // order is not guaranteed) — a fatal mediaError with any other details
-  // string still fails the suite.
-  new RegExp(
-    `"type"\\s*:\\s*"mediaError"[\\s\\S]*"details"\\s*:\\s*"${RECOVERABLE_HLS_BUFFER_DETAILS}"` +
-      `|"details"\\s*:\\s*"${RECOVERABLE_HLS_BUFFER_DETAILS}"[\\s\\S]*"type"\\s*:\\s*"mediaError"`
-  ),
-  // Circular hls.js ErrorData console args cannot be JSON-serialized by the
-  // collector and become '<unserializable>'. Benign ONLY when the WHOLE entry
-  // is unserializable parts and the recorded source URL is the hls player
-  // chunk — deliberately narrower than the old /hls/i (which matched any text
-  // mentioning a player): a real crash in the player logs an Error/string
-  // argument, which serializes to visible text and fails this anchored match.
-  /^(?:<unserializable>\s*)+\(at [^)]*hls[^)]*:\d+\)$/i,
+  // Recoverable buffer mediaError — but NEVER when hls.js flags it fatal:
+  // "fatal": true means recovery failed and playback is escalating, which
+  // must fail the suite even when the details value is a "recoverable" one.
+  // The collector's cycle-safe in-page stringifier guarantees ErrorData
+  // always serializes to inspectable text containing type/details/fatal, so
+  // no '<unserializable>' escape hatch exists (or is needed) anymore.
+  (text: string) => RECOVERABLE_HLS_MEDIA_ERROR.test(text) && !/"fatal"\s*:\s*true/.test(text),
 ]
 
 // Minimal window/panel shape used by the in-page evaluations below.

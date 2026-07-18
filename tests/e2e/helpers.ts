@@ -150,13 +150,85 @@ export async function openPanel(page: Page, config?: SeedConfig): Promise<{ acce
   return { accessToken }
 }
 
+// Depth-limited, cycle-safe stringifier for arbitrary page-side values.
+// Self-contained BY DESIGN: it is serialized into the page twice — embedded
+// into the init-script rejection recorder below, and evaluated against console
+// argument handles whose jsonValue() rejects (circular structures like hls.js
+// ErrorData) — so it must not reference anything outside its own body. Errors
+// stringify to their stack; cycles become '[circular]'; depth is capped so a
+// huge object graph (hls.js ErrorData drags in fragments, loaders, buffers)
+// still yields a bounded, inspectable string whose top-level fields (type,
+// details, fatal, ...) always survive.
+function safeStringify(value: unknown, maxDepth: number = 4): string {
+  const seen = new WeakSet<object>()
+  const encode = (input: unknown, depth: number): unknown => {
+    if (typeof input === 'function') return `[function ${input.name || 'anonymous'}]`
+    if (input === null || typeof input !== 'object') {
+      if (typeof input === 'bigint') return `${input}n`
+      if (typeof input === 'symbol') return input.toString()
+      if (input === undefined) return '[undefined]'
+      return input
+    }
+    if (input instanceof Error) return input.stack || `${input.name}: ${input.message}`
+    if (seen.has(input)) return '[circular]'
+    if (depth >= maxDepth) return '[depth limit]'
+    seen.add(input)
+    if (Array.isArray(input)) return input.map((item) => encode(item, depth + 1))
+    if (input instanceof Date) return input.toISOString()
+    const record: Record<string, unknown> = {}
+    const entries =
+      input instanceof Map
+        ? [...input.entries()].map(([key, val]) => [`[map] ${String(key)}`, val] as const)
+        : input instanceof Set
+          ? [...input.values()].map((val, index) => [`[set] ${index}`, val] as const)
+          : Object.keys(input).map((key) => [key, (input as Record<string, unknown>)[key]] as const)
+    for (const [key, val] of entries) {
+      try {
+        record[key] = encode(val, depth + 1)
+      } catch {
+        record[key] = '[unreadable]'
+      }
+    }
+    return record
+  }
+  const encoded = encode(value, 0)
+  return typeof encoded === 'string' ? encoded : JSON.stringify(encoded)
+}
+
+// Installed as an init script (serialized to source text, composed with
+// safeStringify above): records unhandled rejection reasons in-page so their
+// real payloads survive — Chromium's pageerror channel collapses plain-object
+// reasons to the useless literal "Object". Records are tagged '(object)' ONLY
+// for plain-object reasons (`[object Object]` toString tag, not an Error):
+// that is exactly the shape Chromium surfaces as a bare "Object" pageerror,
+// so fatalErrors() can dedupe one placeholder per tagged record. Arrays,
+// Dates, Maps, and class-tagged reasons produce distinguishable pageerrors of
+// their own and must NOT consume a placeholder.
+function installRejectionRecorder(stringify: (value: unknown) => string): void {
+  const rejections: string[] = []
+  ;(window as unknown as { __e2eRejections: string[] }).__e2eRejections = rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    const { reason } = event
+    const detail = stringify(reason)
+    const isPlainObjectReason =
+      !(reason instanceof Error) && Object.prototype.toString.call(reason) === '[object Object]'
+    rejections.push(
+      isPlainObjectReason
+        ? `unhandled rejection (object): ${detail}`
+        : `unhandled rejection: ${detail}`
+    )
+  })
+}
+
 // Collector for fatal browser-side errors: console errors (with object
 // arguments fully serialized — msg.text() renders them as the useless literal
 // "Object"), pageerrors, and unhandled promise rejections (whose plain-object
 // reasons surface through pageerror as "Object", so the real payloads are
 // recorded in-page and read back at the end). Must be installed BEFORE the
-// page navigates (it registers an init script). Benign patterns are filtered
-// out of fatalErrors(); everything else is fatal.
+// page navigates (it registers an init script). Benign matchers — regexes or
+// predicates — are filtered out of fatalErrors(); everything else is fatal.
+export type BenignMatcher = RegExp | ((text: string) => boolean)
+
 export interface ConsoleErrorCollector {
   /** Collected non-benign errors; await at the end of the test. */
   fatalErrors: () => Promise<string[]>
@@ -164,7 +236,7 @@ export interface ConsoleErrorCollector {
 
 export async function collectConsoleErrors(
   page: Page,
-  benignPatterns: RegExp[] = []
+  benignPatterns: BenignMatcher[] = []
 ): Promise<ConsoleErrorCollector> {
   const collected: string[] = []
   // In-flight console-arg serializations; fatalErrors() awaits them so late
@@ -186,7 +258,18 @@ export async function collectConsoleErrors(
         arg
           .jsonValue()
           .then((value) => (typeof value === 'string' ? value : JSON.stringify(value)))
-          .catch(() => '<unserializable>')
+          // jsonValue() rejects on values Playwright cannot serialize (and
+          // JSON.stringify throws on reconstructed cycles) — circular hls.js
+          // ErrorData in particular. Stringify in-page instead so the payload
+          // stays inspectable ("type"/"details"/"fatal" survive for the
+          // benign filter) rather than collapsing to an unfilterable
+          // placeholder. safeStringify is passed as the page function itself
+          // (self-contained), never referenced from a closure.
+          .catch(() =>
+            arg
+              .evaluate(safeStringify as (value: unknown) => string)
+              .catch(() => '<failed to serialize console argument>')
+          )
       )
     ).then((parts) => {
       const text = parts.length > 0 ? parts.join(' ') : msg.text()
@@ -209,34 +292,9 @@ export async function collectConsoleErrors(
     collected.push(text)
   })
 
-  await page.addInitScript(() => {
-    const rejections: string[] = []
-    ;(window as unknown as { __e2eRejections: string[] }).__e2eRejections = rejections
-    window.addEventListener('unhandledrejection', (event) => {
-      const { reason } = event
-      const isError = reason instanceof Error
-      let detail: string
-      try {
-        detail = isError
-          ? reason.stack || reason.message
-          : JSON.stringify(reason, Object.getOwnPropertyNames(reason ?? {}))
-      } catch {
-        // Circular or otherwise unserializable reason (String() cannot throw
-        // for objects with the default toString).
-        detail = String(reason)
-      }
-      // Non-Error object reasons ALSO surface as a bare "Object" pageerror.
-      // Tag them explicitly so fatalErrors() can dedupe exactly: a '{' prefix
-      // heuristic would miss circular reasons, whose detail is the
-      // String(reason) fallback "[object Object]" rather than JSON.
-      const isObjectReason = !isError && typeof reason === 'object' && reason !== null
-      rejections.push(
-        isObjectReason
-          ? `unhandled rejection (object): ${detail}`
-          : `unhandled rejection: ${detail}`
-      )
-    })
-  })
+  // addInitScript(fn) cannot close over helpers, so the recorder and the
+  // stringifier are composed as source text (both are self-contained).
+  await page.addInitScript(`(${installRejectionRecorder.toString()})(${safeStringify.toString()})`)
 
   return {
     fatalErrors: async () => {
@@ -249,19 +307,21 @@ export async function collectConsoleErrors(
       const rejections = await page.evaluate(
         () => (window as unknown as { __e2eRejections?: string[] }).__e2eRejections ?? []
       )
-      // Each object-reason rejection produced both an in-page record and a
-      // bare "Object" pageerror: drop one placeholder per such record. The
-      // recorder tags object-reason records explicitly ("(object)"), so this
-      // count is exact — including circular reasons whose detail is the
-      // unserializable "[object Object]" fallback. Any placeholder left over
-      // came from a synchronous object throw that only the pageerror channel
-      // saw — keep it so it can fail the test.
+      // Each plain-object-reason rejection produced both an in-page record
+      // and a bare "Object" pageerror: drop one placeholder per such record.
+      // The recorder tags exactly those records ("(object)"), so this count
+      // is exact. Any placeholder left over came from a synchronous object
+      // throw that only the pageerror channel saw — keep it so it can fail
+      // the test.
       const objectRejectionCount = rejections.filter((text) =>
         text.startsWith('unhandled rejection (object):')
       ).length
       const unmatchedObjectPageErrors = objectPageErrors.slice(objectRejectionCount)
       return [...collected, ...unmatchedObjectPageErrors, ...rejections].filter(
-        (text) => !benignPatterns.some((pattern) => pattern.test(text))
+        (text) =>
+          !benignPatterns.some((matcher) =>
+            typeof matcher === 'function' ? matcher(text) : matcher.test(text)
+          )
       )
     },
   }
