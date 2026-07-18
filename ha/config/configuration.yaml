@@ -24,6 +24,27 @@ panel_custom:
     embed_iframe: false
     require_admin: false
 
+# Camera streaming test infrastructure (docs/changes/0007). The go2rtc
+# sidecar (see ../docker-compose.yml) restreams over RTSP inside the compose
+# network; HA consumes those restreams as ffmpeg cameras and uses the go2rtc
+# server for WebRTC negotiation.
+ffmpeg:
+
+go2rtc:
+  url: 'http://go2rtc:1984'
+
+camera:
+  # Fully synthetic, deterministic test pattern — the guaranteed CI camera.
+  - platform: ffmpeg
+    name: E2E Pattern
+    input: rtsp://go2rtc:8554/e2e_pattern
+  # Optional personal stream, only live when RTSP_TEST_URL is exported to the
+  # go2rtc container (never committed). Unavailable/idle otherwise, which HA
+  # tolerates; e2e tests must not depend on this entity.
+  - platform: ffmpeg
+    name: Personal
+    input: rtsp://go2rtc:8554/personal
+
 # Deterministic helper entities for stable e2e assertions. These have fixed
 # entity_ids and known initial states, unlike the demo entities which may
 # drift between HA releases.

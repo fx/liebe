@@ -1,0 +1,15 @@
+# go2rtc configuration for the Liebe e2e camera stack. See docs/changes/0007.
+#
+# - e2e_pattern: fully synthetic ffmpeg testsrc2 stream — deterministic, no
+#   network access, the guaranteed CI camera.
+# - personal: optional real stream injected via the RTSP_TEST_URL environment
+#   variable (go2rtc `${VAR:default}` substitution, default empty). The value
+#   lives only in untracked .env.local / CI secrets and MUST never be
+#   committed; scripts/check-rtsp-leak.sh gates this.
+streams:
+  e2e_pattern: exec:ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=15 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -f rtsp {output}
+  personal: ${RTSP_TEST_URL:}
+
+webrtc:
+  candidates:
+    - 127.0.0.1:8555

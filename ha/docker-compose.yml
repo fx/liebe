@@ -1,6 +1,8 @@
 # Self-contained Home Assistant instance for Liebe e2e tests.
 # The built panel bundle (../dist) is mounted read-only into HA's www
 # directory and served at /local/dist/panel.js. See docs/changes/0005.
+# A go2rtc sidecar provides synthetic (and optional personal) camera
+# streams for the camera e2e tests. See docs/changes/0007.
 services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:2026.7.2
@@ -15,6 +17,9 @@ services:
     volumes:
       - ./config:/config
       - ../dist:/config/www/dist:ro
+    depends_on:
+      go2rtc:
+        condition: service_healthy
     healthcheck:
       # HA answers 200 on /manifest.json once the frontend is up.
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8123/manifest.json || exit 1']
@@ -22,3 +27,27 @@ services:
       timeout: 5s
       retries: 30
       start_period: 60s
+
+  go2rtc:
+    image: alexxit/go2rtc:1.9.14
+    container_name: liebe-e2e-go2rtc
+    environment:
+      # Optional personal RTSP stream, substituted into go2rtc.yaml as
+      # ${RTSP_TEST_URL:}. The value is never committed anywhere — see
+      # scripts/check-rtsp-leak.sh.
+      RTSP_TEST_URL: '${RTSP_TEST_URL:-}'
+    ports:
+      # Only the WebRTC media port is published (browser connects directly).
+      # The API (1984) and RTSP (8554) ports stay internal to the compose
+      # network; HA reaches them via the `go2rtc` hostname.
+      - '${HA_BIND:-127.0.0.1}:8555:8555'
+      - '${HA_BIND:-127.0.0.1}:8555:8555/udp'
+    volumes:
+      - ./go2rtc:/config:ro
+    healthcheck:
+      # The image ships wget/curl; the API answers on :1984 once ready.
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:1984/api || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s

@@ -617,6 +617,13 @@ All project automation scripts should be maintained in the `/scripts` directory.
   ./scripts/link-sub-issues.sh 1 12 13 14
   ```
 
+- **`scripts/check-rtsp-leak.sh`** - CI gate that fails if tracked files contain a credentialed RTSP URL or the literal `$RTSP_TEST_URL` value (only the `${RTSP_TEST_URL:}` placeholder may be committed)
+
+  ```bash
+  # Usage (optionally export RTSP_TEST_URL first to also scan for its value)
+  ./scripts/check-rtsp-leak.sh
+  ```
+
 ### Creating New Scripts
 
 When creating automation scripts:
