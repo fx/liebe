@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
+import { safeStringify } from './safeStringify'
 
 // Demo/helper entities the suite asserts against. The demo integration provides
 // the light; the input_boolean is a deterministic helper from configuration.yaml.
@@ -150,53 +151,12 @@ export async function openPanel(page: Page, config?: SeedConfig): Promise<{ acce
   return { accessToken }
 }
 
-// Depth-limited, cycle-safe stringifier for arbitrary page-side values.
-// Self-contained BY DESIGN: it is serialized into the page twice — embedded
-// into the init-script rejection recorder below, and evaluated against console
-// argument handles whose jsonValue() rejects (circular structures like hls.js
-// ErrorData) — so it must not reference anything outside its own body. Errors
-// stringify to their stack; cycles become '[circular]'; depth is capped so a
-// huge object graph (hls.js ErrorData drags in fragments, loaders, buffers)
-// still yields a bounded, inspectable string whose top-level fields (type,
-// details, fatal, ...) always survive.
-function safeStringify(value: unknown, maxDepth: number = 4): string {
-  const seen = new WeakSet<object>()
-  const encode = (input: unknown, depth: number): unknown => {
-    if (typeof input === 'function') return `[function ${input.name || 'anonymous'}]`
-    if (input === null || typeof input !== 'object') {
-      if (typeof input === 'bigint') return `${input}n`
-      if (typeof input === 'symbol') return input.toString()
-      if (input === undefined) return '[undefined]'
-      return input
-    }
-    if (input instanceof Error) return input.stack || `${input.name}: ${input.message}`
-    if (seen.has(input)) return '[circular]'
-    if (depth >= maxDepth) return '[depth limit]'
-    seen.add(input)
-    if (Array.isArray(input)) return input.map((item) => encode(item, depth + 1))
-    if (input instanceof Date) return input.toISOString()
-    const record: Record<string, unknown> = {}
-    const entries =
-      input instanceof Map
-        ? [...input.entries()].map(([key, val]) => [`[map] ${String(key)}`, val] as const)
-        : input instanceof Set
-          ? [...input.values()].map((val, index) => [`[set] ${index}`, val] as const)
-          : Object.keys(input).map((key) => [key, (input as Record<string, unknown>)[key]] as const)
-    for (const [key, val] of entries) {
-      try {
-        record[key] = encode(val, depth + 1)
-      } catch {
-        record[key] = '[unreadable]'
-      }
-    }
-    return record
-  }
-  const encoded = encode(value, 0)
-  return typeof encoded === 'string' ? encoded : JSON.stringify(encoded)
-}
+// The cycle-safe stringifier lives in ./safeStringify (still self-contained —
+// its source text is what gets serialized into the page) so its DAG-vs-cycle
+// semantics can be unit-tested outside the Playwright runner.
 
 // Installed as an init script (serialized to source text, composed with
-// safeStringify above): records unhandled rejection reasons in-page so their
+// safeStringify): records unhandled rejection reasons in-page so their
 // real payloads survive — Chromium's pageerror channel collapses plain-object
 // reasons to the useless literal "Object". Records are tagged '(object)' ONLY
 // for plain-object reasons (`[object Object]` toString tag, not an Error):
@@ -228,6 +188,13 @@ function installRejectionRecorder(stringify: (value: unknown) => string): void {
 // page navigates (it registers an init script). Benign matchers — regexes or
 // predicates — are filtered out of fatalErrors(); everything else is fatal.
 export type BenignMatcher = RegExp | ((text: string) => boolean)
+
+// Emitted when even the in-page safeStringify evaluation failed for a console
+// argument (e.g. the argument's execution context was destroyed at teardown).
+// Such entries carry NO inspectable content, so content-based benign filters
+// can never match them — they stay fatal by default; a spec may scope a
+// narrow benign predicate to purely-placeholder entries from a known source.
+export const SERIALIZATION_FAILURE_PLACEHOLDER = '<failed to serialize console argument>'
 
 export interface ConsoleErrorCollector {
   /** Collected non-benign errors; await at the end of the test. */
@@ -268,7 +235,7 @@ export async function collectConsoleErrors(
           .catch(() =>
             arg
               .evaluate(safeStringify as (value: unknown) => string)
-              .catch(() => '<failed to serialize console argument>')
+              .catch(() => SERIALIZATION_FAILURE_PLACEHOLDER)
           )
       )
     ).then((parts) => {

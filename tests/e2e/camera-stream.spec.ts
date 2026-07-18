@@ -4,6 +4,7 @@ import {
   seedCameraConfig,
   gridItemCount,
   collectConsoleErrors,
+  SERIALIZATION_FAILURE_PLACEHOLDER,
   type BenignMatcher,
 } from './helpers'
 
@@ -59,9 +60,29 @@ const BENIGN_CONSOLE_PATTERNS: BenignMatcher[] = [
   // "fatal": true means recovery failed and playback is escalating, which
   // must fail the suite even when the details value is a "recoverable" one.
   // The collector's cycle-safe in-page stringifier guarantees ErrorData
-  // always serializes to inspectable text containing type/details/fatal, so
-  // no '<unserializable>' escape hatch exists (or is needed) anymore.
+  // always serializes to inspectable text containing type/details/fatal
+  // whenever the argument is reachable at all, so no broad '<unserializable>'
+  // escape hatch exists (or is needed) anymore.
   (text: string) => RECOVERABLE_HLS_MEDIA_ERROR.test(text) && !/"fatal"\s*:\s*true/.test(text),
+  // Serialization-failure placeholders from the media-player chunks: when
+  // even the in-page safeStringify evaluation fails (the argument handle's
+  // execution context was destroyed — typically a player logging during
+  // teardown), the collector records SERIALIZATION_FAILURE_PLACEHOLDER,
+  // which no content filter can ever match. Benign ONLY when the WHOLE entry
+  // is such placeholders (no readable text beyond the collector's source
+  // suffix) AND the recorded source is an hls/webrtc player chunk — the same
+  // startup/teardown noise sources already benign-listed above when their
+  // payloads serialize. Content-bearing entries from those chunks still fail
+  // the suite, as does a bare placeholder from any other source.
+  (text: string) => {
+    const match = /^(.+) \(at (.+):\d+\)$/s.exec(text)
+    if (!match) return false
+    const [, body, sourceUrl] = match
+    const onlyPlaceholders = body
+      .split(SERIALIZATION_FAILURE_PLACEHOLDER)
+      .every((rest) => rest.trim() === '')
+    return onlyPlaceholders && /hls|web-?rtc/i.test(sourceUrl)
+  },
 ]
 
 // Minimal window/panel shape used by the in-page evaluations below.
