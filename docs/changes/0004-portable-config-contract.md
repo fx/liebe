@@ -14,7 +14,7 @@ The current code disagrees with itself about what constitutes shareable configur
 
 - `tabsExpanded` is part of `DashboardConfig` and the JSON export (`src/store/dashboardStore.ts:305`) but is omitted from `exportConfigurationAsYAML` (`src/store/persistence.ts`).
 - `mode`, `gridResolution`, and `sidebarWidgets` all set `isDirty` (triggering a config auto-save) yet are absent from `DashboardConfig`, so the state that marked the config dirty is not actually persisted or shared.
-- `gridResolution` is reset to the 12×8 default on every `loadConfiguration`; only per-screen `grid.resolution` round-trips.
+- `gridResolution` is reset to the 12×8 default on every `loadConfiguration` while still marking the config dirty when changed; only per-screen `grid.resolution` round-trips. (Whether the reset itself is a defect depends on the canonical-set decision below — under the default proposal it is device-local and the reset is expected; only the dirty-marking is then wrong.)
 - `setMode` marks the config dirty even though mode is persisted separately under `liebe-mode`.
 
 ## Requirements
