@@ -8,7 +8,7 @@ The grid layout system renders each dashboard screen as a responsive, react-grid
 
 Liebe organises a dashboard into a tree of screens; each screen of type `grid` carries a `grid` object with a `resolution` (`{ columns, rows }`) and an ordered array of `GridItem`s (`src/store/types.ts:27`). The grid layout system is the rendering and interaction layer that turns those stored items into a live, editable canvas.
 
-Rendering flows top-down: `Dashboard.tsx` selects the current screen and, when it has items, renders `GridView` (`src/components/Dashboard.tsx:94`). `GridView` owns selection/delete/config UI state and dispatches each item to the correct card via a render-prop child, while delegating the actual grid mechanics to `GridLayoutSection`, which wraps `react-grid-layout`. Shared card chrome (selection border, delete/configure buttons, loading/error/stale states, fullscreen overlay) lives in `GridCard`. Supporting pure utilities compute new-item placement (`gridPositioning.ts`), compaction (`gridPacking.ts`), and default card sizes (`cardDimensions.ts`).
+Rendering flows top-down: `src/components/Dashboard.tsx` selects the current screen and, when it has items, renders `GridView` (`src/components/Dashboard.tsx:94`). `GridView` owns selection/delete/config UI state and dispatches each item to the correct card via a render-prop child, while delegating the actual grid mechanics to `GridLayoutSection`, which wraps `react-grid-layout`. Shared card chrome (selection border, delete/configure buttons, loading/error/stale states, fullscreen overlay) lives in `GridCard`. Supporting pure utilities compute new-item placement (`src/utils/gridPositioning.ts`), compaction (`src/utils/gridPacking.ts`), and default card sizes (`src/utils/cardDimensions.ts`).
 
 This spec is the living baseline of the grid layout system as implemented. Entity card internals are out of scope (see `../entity-cards/`); store mutation and persistence semantics are out of scope (see `../dashboard-config/`).
 
@@ -36,7 +36,7 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 
 - **GIVEN** a grid with items `item-1`, `item-2`, `item-3`
 - **WHEN** the `items` prop is re-ordered
-- **THEN** each item is still rendered under its original id (`GridLayoutSection.test.tsx:248`)
+- **THEN** each item is still rendered under its original id (`src/components/__tests__/GridLayoutSection.test.tsx:248`)
 
 ### Item-Type Dispatch
 
@@ -102,25 +102,25 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 
 - **GIVEN** an item `{ id: 'item-1', x: 0, y: 0, width: 2, height: 2 }` at desktop resolution
 - **WHEN** `GridLayoutSection` builds the layout
-- **THEN** the emitted entry matches `{ i: 'item-1', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1, isDraggable: true, isResizable: true }` (`GridLayoutSection.test.tsx:141`)
+- **THEN** the emitted entry matches `{ i: 'item-1', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1, isDraggable: true, isResizable: true }` (`src/components/__tests__/GridLayoutSection.test.tsx:141`)
 
 #### Scenario: Edit mode enables interaction
 
 - **GIVEN** `isEditMode` is true
 - **WHEN** the grid renders
-- **THEN** the react-grid-layout is draggable and resizable (`GridLayoutSection.test.tsx:154`)
+- **THEN** the react-grid-layout is draggable and resizable (`src/components/__tests__/GridLayoutSection.test.tsx:154`)
 
 #### Scenario: View mode disables interaction
 
 - **GIVEN** `isEditMode` is false
 - **WHEN** the grid renders
-- **THEN** the grid is neither draggable nor resizable (`GridLayoutSection.test.tsx:162`)
+- **THEN** the grid is neither draggable nor resizable (`src/components/__tests__/GridLayoutSection.test.tsx:162`)
 
 #### Scenario: Whole card is the drag surface
 
 - **GIVEN** the grid is in edit mode
 - **WHEN** it renders
-- **THEN** no `draggableHandle` is set (`GridLayoutSection.test.tsx:170`)
+- **THEN** no `draggableHandle` is set (`src/components/__tests__/GridLayoutSection.test.tsx:170`)
 
 ### Responsive Column Scaling
 
@@ -138,7 +138,7 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 
 - **GIVEN** a mounted grid
 - **WHEN** the container mounts and later unmounts
-- **THEN** a `ResizeObserver` observes the container and is disconnected on unmount (`GridLayoutSection.test.tsx:261`)
+- **THEN** a `ResizeObserver` observes the container and is disconnected on unmount (`src/components/__tests__/GridLayoutSection.test.tsx:261`)
 
 ### Layout-Change Persistence
 
@@ -149,13 +149,13 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 
 - **GIVEN** `item-1` at `x: 0` is dragged to `x: 1`
 - **WHEN** `onLayoutChange` fires
-- **THEN** `updateGridItem('screen-1', 'item-1', { x: 1, y: 0, width: 2, height: 2 })` is called (`GridLayoutSection.test.tsx:178`)
+- **THEN** `updateGridItem('screen-1', 'item-1', { x: 1, y: 0, width: 2, height: 2 })` is called (`src/components/__tests__/GridLayoutSection.test.tsx:178`)
 
 #### Scenario: Only changed items update
 
 - **GIVEN** a layout change touching a single item
 - **WHEN** `onLayoutChange` fires
-- **THEN** `updateGridItem` is called exactly once (`GridLayoutSection.test.tsx:196`)
+- **THEN** `updateGridItem` is called exactly once (`src/components/__tests__/GridLayoutSection.test.tsx:196`)
 
 ### Card Chrome (GridCard)
 
@@ -252,13 +252,13 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 
 - **GIVEN** entity `weather.home`
 - **WHEN** `getDefaultCardDimensions` runs
-- **THEN** it returns `{ width: 4, height: 3 }` from `WeatherCard.defaultDimensions` (`cardDimensions.test.ts:23`)
+- **THEN** it returns `{ width: 4, height: 3 }` from `WeatherCard.defaultDimensions` (`src/utils/__tests__/cardDimensions.test.ts:23`)
 
 #### Scenario: Unknown domain default size
 
 - **GIVEN** entity `unknown.something`
 - **WHEN** `getDefaultCardDimensions` runs
-- **THEN** it returns `{ width: 2, height: 2 }` (`cardDimensions.test.ts:49`)
+- **THEN** it returns `{ width: 2, height: 2 }` (`src/utils/__tests__/cardDimensions.test.ts:49`)
 
 ### Touch-First Sizing
 
@@ -394,7 +394,7 @@ item.width >= 4 && item.height >= 3
 
 ## Open Questions
 
-- **`gridPacking.ts` and `gridPositioning.ts` have no direct unit tests.** Their behavior (overlap avoidance, compaction, batch threading) is asserted only indirectly through store/UI usage. `packGridItems` (the simple top-left variant) currently has no callers — only `packGridItemsCompact` is used (by `reorderGrid`, `src/store/dashboardStore.ts:393`); the simple variant may be dead code.
+- **`src/utils/gridPacking.ts` and `src/utils/gridPositioning.ts` have no direct unit tests.** Their behavior (overlap avoidance, compaction, batch threading) is asserted only indirectly through store/UI usage. `packGridItems` (the simple top-left variant) currently has no callers — only `packGridItemsCompact` is used (by `reorderGrid`, `src/store/dashboardStore.ts:393`); the simple variant may be dead code.
 - **Duplicated size ternary.** The `large`/`medium`/`small` threshold logic is copy-pasted four times in `GridView` (text, separator, entity, plus the `EntityCard` call site) with no shared helper — a change to thresholds must be made in every copy. A `sizeFromDimensions(width, height)` utility would remove the duplication.
 - **Round-trip coordinate drift.** Scaling `x`/`width` down for a responsive breakpoint and back up on `onLayoutChange` uses `Math.round` in both directions; on `mobile`/`tablet` breakpoints a drag can persist coordinates that differ from a pure identity round-trip. No test currently pins this behavior.
 - **`Separator` size prop is inert.** `GridView` computes and passes a `size` to `Separator`, but `Separator` destructures it as `size: _size` and never uses it (text sizing is derived only from orientation, `src/components/Separator.tsx:37`).

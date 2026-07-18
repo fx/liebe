@@ -143,25 +143,25 @@ When embedded in a Home Assistant panel, the app MUST bridge its internal router
 
 - **GIVEN** the app is at a panel path and mounted
 - **WHEN** the router resolves a navigation (the `onResolved` callback fires)
-- **THEN** a `liebe-route-change` event is dispatched with `detail.path` equal to the router's current pathname (`useHomeAssistantRouting.test.ts:81`).
+- **THEN** a `liebe-route-change` event is dispatched with `detail.path` equal to the router's current pathname (`src/hooks/__tests__/useHomeAssistantRouting.test.ts:81`).
 
 #### Scenario: Inbound navigation from the panel element
 
 - **GIVEN** the app is at a panel path and mounted
 - **WHEN** a `liebe-navigate` event fires with `detail.path = '/custom-path'`
-- **THEN** the hook calls `router.navigate({ to: '/custom-path' })` (`useHomeAssistantRouting.test.ts:106`).
+- **THEN** the hook calls `router.navigate({ to: '/custom-path' })` (`src/hooks/__tests__/useHomeAssistantRouting.test.ts:106`).
 
 #### Scenario: No-op outside Home Assistant
 
 - **GIVEN** the pathname is `/some-other-path`
 - **WHEN** the hook mounts
-- **THEN** it neither subscribes to the router nor registers a `liebe-navigate` listener (`useHomeAssistantRouting.test.ts:146`).
+- **THEN** it neither subscribes to the router nor registers a `liebe-navigate` listener (`src/hooks/__tests__/useHomeAssistantRouting.test.ts:146`).
 
 #### Scenario: Cleanup on unmount
 
 - **GIVEN** the hook is mounted at a panel path
 - **WHEN** the component unmounts
-- **THEN** the `liebe-navigate` listener is removed (`useHomeAssistantRouting.test.ts:128`).
+- **THEN** the `liebe-navigate` listener is removed (`src/hooks/__tests__/useHomeAssistantRouting.test.ts:128`).
 
 ### Environment detection
 
