@@ -423,5 +423,5 @@ export const dashboardActions = {
 }
 
 export const useDashboardStore = <TSelected = DashboardState>(
-  selector?: (state: DashboardState) => TSelected
+  selector: (state: DashboardState) => TSelected = (state) => state as unknown as TSelected
 ) => useStore(dashboardStore, selector)

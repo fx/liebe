@@ -40,7 +40,7 @@
     "@tanstack/react-router": "^1.160.0",
     "@tanstack/react-router-devtools": "^1.160.0",
     "@tanstack/react-start": "^1.160.0",
-    "@tanstack/react-store": "^0.8.1",
+    "@tanstack/react-store": "^0.9.3",
     "@tanstack/react-virtual": "^3.13.18",
     "@types/js-yaml": "^4.0.9",
     "home-assistant-js-websocket": "^9.5.0",
