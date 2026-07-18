@@ -31,11 +31,13 @@ function TextCardComponent({
   textColor: propTextColor,
   config,
 }: TextCardProps) {
-  // Use config values if available, otherwise fall back to props
-  const content = (config?.content as string) || propContent || 'Double-click to edit'
-  const alignment = (config?.alignment as 'left' | 'center' | 'right') || propAlignment || 'left'
-  const textSize = (config?.textSize as 'small' | 'medium' | 'large') || propTextSize || 'medium'
-  const textColor = (config?.textColor as string) || propTextColor || 'default'
+  // Use config values if available, otherwise fall back to props. Nullish (`??`)
+  // per field so intentional empty/falsy values survive — clearing `content`
+  // must render empty, not restore the "Double-click to edit" placeholder.
+  const content = (config?.content as string) ?? propContent ?? 'Double-click to edit'
+  const alignment = (config?.alignment as 'left' | 'center' | 'right') ?? propAlignment ?? 'left'
+  const textSize = (config?.textSize as 'small' | 'medium' | 'large') ?? propTextSize ?? 'medium'
+  const textColor = (config?.textColor as string) ?? propTextColor ?? 'default'
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   const [editContent, setEditContent] = useState(content)
