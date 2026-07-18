@@ -1,0 +1,12 @@
+coverage:
+  status:
+    # "Going forward, 100%": every line a PR changes or adds must be covered.
+    patch:
+      default:
+        target: '100%'
+    # No-regress: total coverage may stay equal or rise, never drop. The
+    # existing baseline is grandfathered but must not decrease.
+    project:
+      default:
+        target: auto
+        threshold: '0%'

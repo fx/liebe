@@ -69,6 +69,7 @@ export default [
       '.tanstack/',
       'dist/',
       'build/',
+      'coverage/',
       '*.gen.ts',
       '.nitro/',
       '.vite-temp/',

@@ -154,6 +154,7 @@ gh issue view <issue-number>
    - [ ] All TypeScript errors resolved
    - [ ] Linting passes (`npm run lint`)
    - [ ] **ALL TESTS PASS** (`npm test`) - **MANDATORY**
+   - [ ] **CHANGED/ADDED CODE IS 100% COVERED** — the `codecov/patch` gate requires every new or modified line to be exercised by tests; run `npm run test:coverage` locally to check before opening the PR
    - [ ] Manual testing completed
    - [ ] Todo items marked as completed
 

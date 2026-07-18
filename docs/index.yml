@@ -71,3 +71,10 @@ changes:
     spec: architecture
     status: complete
     depends_on: []
+  - id: '0006'
+    name: codecov-patch-coverage
+    path: changes/0006-codecov-patch-coverage.md
+    description: Codecov coverage reporting in CI with a blocking 100% patch-coverage gate and no-regress project gate
+    spec: architecture
+    status: complete
+    depends_on: []
