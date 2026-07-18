@@ -3,3 +3,7 @@
 pnpm-lock.yaml
 routeTree.gen.ts
 .tailscale/
+
+# Home Assistant e2e runtime state (only configuration.yaml is committed).
+ha/config/**
+!ha/config/configuration.yaml

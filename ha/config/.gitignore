@@ -1,0 +1,4 @@
+# Ignore all Home Assistant runtime state; only committed config is tracked.
+*
+!.gitignore
+!configuration.yaml

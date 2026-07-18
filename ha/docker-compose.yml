@@ -1,0 +1,23 @@
+# Self-contained Home Assistant instance for Liebe e2e tests.
+# The built panel bundle (../dist) is mounted read-only into HA's www
+# directory and served at /local/dist/panel.js. See docs/changes/0005.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.7.2
+    container_name: liebe-e2e-ha
+    environment:
+      - TZ=UTC
+    ports:
+      # Bind to loopback only: this is a throwaway instance with a known
+      # dev/dev admin account and must not be exposed on the local network.
+      - '127.0.0.1:8123:8123'
+    volumes:
+      - ./config:/config
+      - ../dist:/config/www/dist:ro
+    healthcheck:
+      # HA answers 200 on /manifest.json once the frontend is up.
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8123/manifest.json || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s

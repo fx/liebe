@@ -1,0 +1,74 @@
+# Home Assistant configuration for the Liebe e2e test environment.
+# Committed as-is; runtime state (.storage, logs, DBs) is gitignored.
+# See docs/changes/0005-dockerized-ha-e2e.md.
+
+# Loads the standard set of integrations (frontend, api, websocket_api,
+# config, history, etc.) needed for the panel and REST/WS APIs to work.
+default_config:
+
+# The demo integration provides a deterministic set of fake devices across
+# many domains (light, switch, climate, cover, fan, sensor, binary_sensor,
+# media_player, etc.) so cards have real entities to render.
+demo:
+
+# Register the built Liebe panel as a real custom panel. `name` and `url_path`
+# MUST match the production values in src/config/panel.ts (liebe-panel, /liebe);
+# the panel-config parity test in tests/e2e/panel-loads.spec.ts guards this.
+# The bundle is mounted at /config/www/dist and served from /local/dist.
+panel_custom:
+  - name: liebe-panel
+    sidebar_title: Liebe
+    sidebar_icon: mdi:heart
+    url_path: liebe
+    module_url: /local/dist/panel.js
+    embed_iframe: false
+    require_admin: false
+
+# Deterministic helper entities for stable e2e assertions. These have fixed
+# entity_ids and known initial states, unlike the demo entities which may
+# drift between HA releases.
+input_boolean:
+  e2e_flag:
+    name: E2E Flag
+    initial: false
+    icon: mdi:flag
+
+input_number:
+  e2e_level:
+    name: E2E Level
+    initial: 42
+    min: 0
+    max: 100
+    step: 1
+
+input_select:
+  e2e_mode:
+    name: E2E Mode
+    options:
+      - alpha
+      - beta
+      - gamma
+    initial: alpha
+
+input_text:
+  e2e_label:
+    name: E2E Label
+    initial: hello-e2e
+
+input_datetime:
+  e2e_moment:
+    name: E2E Moment
+    has_date: true
+    has_time: true
+    initial: '2026-01-01 12:00:00'
+
+# Template sensors derived from the helpers above give fully deterministic
+# values to assert on.
+template:
+  - sensor:
+      - name: E2E Level Doubled
+        unique_id: e2e_level_doubled
+        state: "{{ (states('input_number.e2e_level') | float(0)) * 2 }}"
+      - name: E2E Flag Text
+        unique_id: e2e_flag_text
+        state: "{{ 'on' if is_state('input_boolean.e2e_flag', 'on') else 'off' }}"
