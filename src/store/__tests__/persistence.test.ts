@@ -218,8 +218,9 @@ describe('persistence', () => {
         type: 'application/json',
       })
 
+      // Schema validation names the missing required fields.
       await expect(importConfigurationFromFile(file)).rejects.toThrow(
-        'Failed to import configuration: Invalid configuration format'
+        /Invalid configuration:.*version/
       )
     })
   })
