@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Flex, Text, Popover, Box, Separator, Spinner, Button } from '@radix-ui/themes'
 import {
   InfoCircledIcon,
