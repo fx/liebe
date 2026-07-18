@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, renderHook, act } from '@testing-library/react'
 import { useEntities } from '../useEntities'
 import { entityStoreActions } from '../../store/entityStore'
@@ -151,5 +151,53 @@ describe('useEntities', () => {
 
     expect(renders).toBe(initialRenders + 1)
     expect(lastKitchenState).toBe('off')
+  })
+
+  describe('subscription lifecycle', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('does not resubscribe when a new array with identical ids is passed', () => {
+      const subscribe = vi.spyOn(entityStoreActions, 'subscribeToEntity')
+      const unsubscribe = vi.spyOn(entityStoreActions, 'unsubscribeFromEntity')
+
+      const { rerender } = renderHook(({ ids }) => useEntities(ids), {
+        initialProps: { ids: ['light.kitchen', 'light.hall'] },
+      })
+
+      expect(subscribe).toHaveBeenCalledTimes(2)
+      subscribe.mockClear()
+
+      // New array identity, identical contents: must NOT churn subscriptions.
+      rerender({ ids: ['light.kitchen', 'light.hall'] })
+
+      expect(subscribe).not.toHaveBeenCalled()
+      expect(unsubscribe).not.toHaveBeenCalled()
+    })
+
+    it('resubscribes only for the changed ids when the id set changes', () => {
+      const subscribe = vi.spyOn(entityStoreActions, 'subscribeToEntity')
+      const unsubscribe = vi.spyOn(entityStoreActions, 'unsubscribeFromEntity')
+
+      const { rerender } = renderHook(({ ids }) => useEntities(ids), {
+        initialProps: { ids: ['light.kitchen', 'light.hall'] },
+      })
+      subscribe.mockClear()
+      unsubscribe.mockClear()
+
+      // The content key changes, so the effect tears down the old set and
+      // subscribes to the new one.
+      rerender({ ids: ['light.kitchen', 'light.office'] })
+
+      expect(unsubscribe.mock.calls.map((c) => c[0]).sort()).toEqual([
+        'light.hall',
+        'light.kitchen',
+      ])
+      expect(subscribe.mock.calls.map((c) => c[0]).sort()).toEqual([
+        'light.kitchen',
+        'light.office',
+      ])
+    })
   })
 })

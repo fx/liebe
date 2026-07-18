@@ -63,22 +63,27 @@ export function useEntities(entityIds?: string[]): {
     hasFilter ? shallowEqualEntities : undefined
   )
 
-  // Subscribe to specific entities when component mounts
+  // Subscribe to specific entities when component mounts. The effect is driven
+  // solely by the comma-joined content key and rebuilds the id list from it, so a
+  // caller passing a new array with identical ids does not trigger a spurious
+  // unsubscribe/resubscribe cycle. (Depending on the `entityIds` array itself
+  // would resubscribe on every new-but-equal array identity.)
   const entityIdsKey = entityIds?.join(',') || ''
   useEffect(() => {
-    if (entityIds && entityIds.length > 0) {
-      entityIds.forEach((entityId) => {
-        entityStoreActions.subscribeToEntity(entityId)
-      })
+    if (!entityIdsKey) return
 
-      // Cleanup subscriptions when component unmounts
-      return () => {
-        entityIds.forEach((entityId) => {
-          entityStoreActions.unsubscribeFromEntity(entityId)
-        })
-      }
+    const ids = entityIdsKey.split(',')
+    ids.forEach((entityId) => {
+      entityStoreActions.subscribeToEntity(entityId)
+    })
+
+    // Cleanup subscriptions when component unmounts or the id set changes
+    return () => {
+      ids.forEach((entityId) => {
+        entityStoreActions.unsubscribeFromEntity(entityId)
+      })
     }
-  }, [entityIds, entityIdsKey]) // Re-subscribe if entity list changes
+  }, [entityIdsKey]) // Re-subscribe only when the set of ids actually changes
 
   // For the filtered form the slice is already restricted to the requested,
   // present entities (in requested order); for the no-arg form this yields every
