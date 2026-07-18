@@ -56,6 +56,9 @@ async function postJson(path, body, token) {
 
 async function getSteps() {
   const res = await fetch(`${HASS_URL}/api/onboarding`)
+  // Once onboarding completes, HA deregisters the onboarding API on the next
+  // restart, so a 404 here means "fully onboarded", not an error.
+  if (res.status === 404) return null
   return readBody(res)
 }
 
@@ -146,6 +149,9 @@ async function completeStep(path, body, token) {
 // not-done (skipping already-completed steps, which would otherwise 4xx).
 export async function ensureOnboarded() {
   let steps = await getSteps()
+  // A restarted, fully-onboarded instance has no onboarding API at all —
+  // nothing left to complete, just log in.
+  if (steps === null) return tokenFromCode(await loginForCode())
   const isDone = (name) => Array.isArray(steps) && steps.find((s) => s.step === name)?.done === true
 
   const token = isDone('user')
