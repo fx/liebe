@@ -188,7 +188,7 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 ### Consumer Hooks
 
 - `useEntity(entityId)` MUST subscribe on mount and unsubscribe on unmount, and return `{ entity, isConnected, isLoading, isStale }` where `isLoading = isInitialLoading && !entity` and `isStale` is derived from `staleEntityMonitor.getEntityStaleness`.
-- `useEntities(entityIds?)` MUST subscribe to each id (re-subscribing when the id list changes), and return all entities plus a `filteredEntities` array (all entities when no ids are given).
+- `useEntities(entityIds?)` MUST subscribe to each id (re-subscribing when the id list changes), and return an `entities` map plus a `filteredEntities` array. With no ids it returns every entity (and re-renders on every batch — the accepted cost of needing the whole map). With a non-empty id list it subscribes to only those entities via a single shallow-equality selector, so unrelated batches do not re-render; `entities` and `filteredEntities` then contain exactly the requested, present entities (in requested order), and a non-requested id is absent from `entities`.
 - `useEntityAttribute(entityId, attribute, default)` MUST register/unregister attribute tracking on the batcher and return the tracked attribute value or the default.
 - `useEntityConnection()` MUST connect once per `hass` instance, wire the `liebe-websocket-check` window event to `checkConnectionHealth`, expose `reconnect`, and disconnect only when `hass` becomes absent.
 - `useServiceCall()` MUST expose `loading`/`error` plus `callService` and helpers, enforce a minimum visible loading time (400ms outside tests), and abort a prior in-flight call when a new one starts.
@@ -395,6 +395,7 @@ Service-call retry (`src/services/hassService.ts:61`):
 - **`hasSubscribedEntityUpdates` is unused by the pipeline.** The action exists and is exercised by tests, but the batcher no longer calls it (the batcher test names reference a `lastUpdateTime` concept that is not present in the current `EntityState`). Its intended role is unclear.
 - **Manual-reconnect status uses a fixed attempt number.** `reconnect()` reports `setReconnecting(1, …)` regardless of prior attempts, so the UI attempt counter can understate reconnection activity during a manual reconnect.
 - **Health check relies on `hass.connection.socket` being a `WebSocket`.** `checkConnectionHealth` casts `connection.socket` to `WebSocket` and reads `readyState`; if Home Assistant changes the socket shape this silently no-ops (`src/services/hassConnection.ts:309`).
+- **Entity subscriptions are not reference-counted.** `subscribedEntities` is a plain `Set`, so multiple consumers of the same `entityId` (e.g. two cards, or `useEntity` and `useEntities` on the same id) share a single Set entry. When one consumer unmounts, its `unsubscribeFromEntity` deletes the entry outright, dropping the subscription still needed by the others (`src/store/entityStore.ts:120`). A correct fix would refcount subscriptions (increment on subscribe, decrement on unsubscribe, remove only at zero). This is pre-existing store behavior left untouched by change 0001 (which mandates preserving the subscribe/unsubscribe side effects) and needs its own change.
 
 ## References
 

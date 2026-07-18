@@ -75,6 +75,26 @@ describe('entityStore', () => {
       expect(entityStore.state.entities['light.bedroom']).toBeDefined()
     })
 
+    it('should preserve reference identity for entities unchanged by a batch', () => {
+      const kitchen = mockEntity
+      const garage: HassEntity = {
+        ...mockEntity,
+        entity_id: 'sensor.garage',
+        state: '20',
+      }
+
+      entityStoreActions.updateEntities([kitchen, garage])
+      const kitchenRef = entityStore.state.entities['light.living_room']
+
+      // A batch that only updates sensor.garage must leave the light.living_room
+      // reference untouched, which is what lets the per-entity selectors in
+      // useEntity/useEntities short-circuit re-renders.
+      entityStoreActions.updateEntities([{ ...garage, state: '21' }])
+
+      expect(entityStore.state.entities['light.living_room']).toBe(kitchenRef)
+      expect(entityStore.state.entities['sensor.garage']?.state).toBe('21')
+    })
+
     it('should remove an entity', () => {
       entityStoreActions.updateEntity(mockEntity)
       entityStoreActions.subscribeToEntity('light.living_room')
