@@ -64,3 +64,10 @@ changes:
     spec: dashboard-config
     status: complete
     depends_on: []
+  - id: '0005'
+    name: dockerized-ha-e2e
+    path: changes/0005-dockerized-ha-e2e.md
+    description: Dockerized Home Assistant instance loading the real panel plus a Playwright e2e suite, runnable locally and in CI
+    spec: architecture
+    status: complete
+    depends_on: []
