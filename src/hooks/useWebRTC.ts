@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
+import { logger } from '../utils/logger'
 import type { UnsubscribeFunc } from 'home-assistant-js-websocket'
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
 
@@ -133,7 +134,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
         if (!hasReceivedFirstFrame) {
           hasReceivedFirstFrame = true
-          console.log('[WebRTC] First frame received via requestVideoFrameCallback')
+          logger.debug('[WebRTC] First frame received via requestVideoFrameCallback')
           setIsStreaming(true)
         }
 
@@ -195,11 +196,11 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         // We're receiving frames - set streaming to true
         if (!hasReceivedFirstFrame) {
           hasReceivedFirstFrame = true
-          console.log('[WebRTC] First frame received, setting isStreaming to true')
+          logger.debug('[WebRTC] First frame received, setting isStreaming to true')
           // For live streams that don't update currentTime or decoded frames,
           // we need to check if video dimensions are available as initial confirmation
           if (!isReceivingFrames && hasVideoDimensions && video.readyState >= 3) {
-            console.log('[WebRTC] Live stream detected with dimensions, considering as streaming')
+            logger.debug('[WebRTC] Live stream detected with dimensions, considering as streaming')
             frameMonitorRef.current.lastFrameTime = now
           }
         }
@@ -232,7 +233,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
           // Only log warning once per second
           const timeSinceLastWarning = now - frameMonitorRef.current.lastWarningTime
           if (timeSinceLastWarning >= 1000) {
-            console.log(`[WebRTC] Frame warning: No new frames for ${Math.round(timeDiff)}ms`)
+            logger.debug(`[WebRTC] Frame warning: No new frames for ${Math.round(timeDiff)}ms`)
             frameMonitorRef.current.lastWarningTime = now
           }
         }
@@ -240,7 +241,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         // Reconnect after 5 seconds without new frames (increased from 3s for stability)
         if (timeDiff > 5000 && !frameMonitorRef.current.reconnectTimer) {
           frameMonitorRef.current.reconnectTimer = setTimeout(() => {
-            console.log('[WebRTC] No frames received for 5 seconds, reconnecting...')
+            logger.debug('[WebRTC] No frames received for 5 seconds, reconnecting...')
             setHasFrameWarning(false)
             setIsStreaming(false)
             frameMonitorRef.current.reconnectTimer = null
@@ -326,7 +327,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
       // Handle connection state changes
       pc.onconnectionstatechange = () => {
-        console.log(`[WebRTC] Connection state changed to: ${pc.connectionState}`)
+        logger.debug(`[WebRTC] Connection state changed to: ${pc.connectionState}`)
 
         switch (pc.connectionState) {
           case 'failed':
@@ -403,7 +404,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
                     .then(() => {
                       // Process any pending ICE candidates
                       if (pendingCandidatesRef.current.length > 0) {
-                        console.log(
+                        logger.debug(
                           `[WebRTC] Processing ${pendingCandidatesRef.current.length} pending ICE candidates`
                         )
                         pendingCandidatesRef.current.forEach((candidate) => {
@@ -419,7 +420,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
                       setError('Failed to set remote description')
                     })
                 } else {
-                  console.warn(
+                  logger.warn(
                     `[WebRTC] Ignoring answer in wrong state: ${pc.signalingState}. This may indicate duplicate messages or timing issues.`
                   )
                 }
@@ -435,7 +436,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
                   } else {
                     // Queue the candidate to be added later when remote description is set
                     pendingCandidatesRef.current.push(message.candidate)
-                    console.log(
+                    logger.debug(
                       `[WebRTC] Queuing ICE candidate (${pendingCandidatesRef.current.length} pending)`
                     )
                   }
@@ -545,7 +546,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         if (peerConnectionRef.current) {
           const state = peerConnectionRef.current.connectionState
           if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-            console.log(
+            logger.debug(
               `[WebRTC] Reconnecting ${entityId} after visibility change (state: ${state})`
             )
             cleanup().then(() => {
@@ -554,7 +555,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
           }
         } else if (!initializingRef.current && !pendingInitRef.current) {
           // No connection exists and we're not initializing, trigger a retry
-          console.log(`[WebRTC] Initializing ${entityId} after visibility change`)
+          logger.debug(`[WebRTC] Initializing ${entityId} after visibility change`)
           setTimeout(() => setRetryCount((prev) => prev + 1), 500)
         }
       }

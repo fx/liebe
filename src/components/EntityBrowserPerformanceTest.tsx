@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { logger } from '../utils/logger'
 import { Button, Flex, Text, Card } from '@radix-ui/themes'
 import { EntityBrowser } from './EntityBrowser'
 
@@ -26,7 +27,7 @@ export function EntityBrowserPerformanceTest() {
           const endTime = performance.now()
           const duration = endTime - startTime
 
-          console.log(`EntityBrowser open time: ${duration.toFixed(2)}ms`)
+          logger.debug(`EntityBrowser open time: ${duration.toFixed(2)}ms`)
           performance.measure('modal-open', 'modal-open-start', 'modal-open-end')
 
           setMeasurements((prev) => [...prev, duration])

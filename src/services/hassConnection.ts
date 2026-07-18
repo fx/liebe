@@ -1,4 +1,5 @@
 import type { HomeAssistant } from '../contexts/HomeAssistantContext'
+import { logger } from '../utils/logger'
 import type { HassEntity } from '../store/entityTypes'
 import { entityStoreActions } from '../store/entityStore'
 import { entityDebouncer } from '../store/entityDebouncer'
@@ -32,7 +33,7 @@ export class HassConnectionManager {
   async connect(hass: HomeAssistant): Promise<void> {
     // If we already have a connection with the same hass instance, just update the reference
     if (this.hass && this.stateChangeUnsubscribe && this.isConnected()) {
-      console.log('HassConnectionManager: Already connected, updating hass reference')
+      logger.debug('HassConnectionManager: Already connected, updating hass reference')
       this.hass = hass
       return
     }
@@ -69,7 +70,7 @@ export class HassConnectionManager {
 
       // Mark as fully connected
       connectionActions.setConnected()
-      console.log('HassConnectionManager: Successfully connected')
+      logger.debug('HassConnectionManager: Successfully connected')
     } catch (error) {
       console.error('Failed to connect to Home Assistant:', error)
       const errorMessage =
@@ -91,7 +92,7 @@ export class HassConnectionManager {
 
     // Unsubscribe from state changes
     if (this.stateChangeUnsubscribe) {
-      console.log('HassConnectionManager: Unsubscribing from state changes')
+      logger.debug('HassConnectionManager: Unsubscribing from state changes')
       try {
         if (typeof this.stateChangeUnsubscribe === 'function') {
           const result = this.stateChangeUnsubscribe()
@@ -158,7 +159,7 @@ export class HassConnectionManager {
   private async subscribeToStateChanges(): Promise<void> {
     // Check if we have a WebSocket connection
     if (!this.hass?.connection) {
-      console.warn('No WebSocket connection available')
+      logger.warn('No WebSocket connection available')
       return
     }
 
@@ -230,20 +231,20 @@ export class HassConnectionManager {
   async reconnect(): Promise<void> {
     // Prevent multiple simultaneous reconnection attempts
     if (this.isReconnecting) {
-      console.log('HassConnectionManager: Reconnection already in progress, skipping')
+      logger.debug('HassConnectionManager: Reconnection already in progress, skipping')
       return
     }
 
     // Debounce reconnection attempts (minimum 5 seconds between attempts)
     const timeSinceLastReconnect = Date.now() - this.lastReconnectTime
     if (timeSinceLastReconnect < 5000) {
-      console.log(
+      logger.debug(
         `HassConnectionManager: Too soon since last reconnect (${timeSinceLastReconnect}ms), skipping`
       )
       return
     }
 
-    console.log('HassConnectionManager: Manual reconnect triggered')
+    logger.debug('HassConnectionManager: Manual reconnect triggered')
     this.isReconnecting = true
     this.lastReconnectTime = Date.now()
     this.reconnectAttempts = 0
@@ -313,7 +314,7 @@ export class HassConnectionManager {
 
     // Check WebSocket state
     if (socket.readyState !== WebSocket.OPEN) {
-      console.log(
+      logger.debug(
         `HassConnectionManager: WebSocket not open (readyState: ${socket.readyState}), triggering reconnection`
       )
 

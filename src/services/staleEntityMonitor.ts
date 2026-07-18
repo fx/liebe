@@ -1,4 +1,5 @@
 import { entityStore, entityStoreActions } from '../store/entityStore'
+import { logger } from '../utils/logger'
 
 export class StaleEntityMonitor {
   private checkInterval: NodeJS.Timeout | null = null
@@ -63,7 +64,7 @@ export class StaleEntityMonitor {
 
       if (shouldBeStale && !isCurrentlyStale) {
         entityStoreActions.markEntityStale(entityId)
-        console.log(
+        logger.debug(
           `Entity ${entityId} marked as stale (no updates for ${Math.round(timeSinceUpdate / 1000)}s)`
         )
       } else if (!shouldBeStale && isCurrentlyStale) {
