@@ -39,6 +39,8 @@ export interface UseCameraStreamStatusResult {
   onStreams: () => void
   /** Wire to HaCameraStream's onLoad. */
   onLoad: () => void
+  /** Manual retry: clears surfaced status, restores the auto-remount budget, and bumps remountKey. */
+  retry: () => void
 }
 
 function getDecodedFrames(video: HTMLVideoElement): number {
@@ -75,6 +77,14 @@ export function useCameraStreamStatus({
 
   const onLoad = useCallback(() => {
     setWatchEpoch((epoch) => epoch + 1)
+  }, [])
+
+  const retry = useCallback(() => {
+    consecutiveRemountsRef.current = 0
+    setIsStreaming(false)
+    setHasFrameWarning(false)
+    setError(null)
+    setRemountKey((key) => key + 1)
   }, [])
 
   // An entity state transition means the camera itself changed (restarted,
@@ -191,5 +201,5 @@ export function useCameraStreamStatus({
     return () => clearInterval(poll)
   }, [enabled, watchEpoch, getInnerVideo, getMjpegImg])
 
-  return { isStreaming, hasFrameWarning, error, remountKey, onStreams, onLoad }
+  return { isStreaming, hasFrameWarning, error, remountKey, onStreams, onLoad, retry }
 }

@@ -5,7 +5,7 @@ import {
   SpeakerOffIcon,
   ExclamationTriangleIcon,
 } from '@radix-ui/react-icons'
-import '../CameraCard.css'
+import './CameraCard.css'
 
 interface CameraAttributes {
   access_token?: string

@@ -194,6 +194,45 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.error).toBeNull()
   })
 
+  it('retry clears the surfaced error, restores the budget, and bumps remountKey', () => {
+    const { video, fireFrame } = createRvfcVideo()
+    const { result } = renderStatus({ video })
+
+    // Exhaust the auto-remount budget so the stall surfaces an error.
+    for (let cycle = 0; cycle <= MAX_AUTO_REMOUNTS; cycle += 1) {
+      act(() => {
+        result.current.onLoad()
+      })
+      act(() => {
+        vi.advanceTimersByTime(STALL_TICK_MS)
+      })
+    }
+    expect(result.current.error).toBe('Stream stalled')
+    expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS)
+
+    act(() => {
+      result.current.retry()
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.isStreaming).toBe(false)
+    expect(result.current.hasFrameWarning).toBe(false)
+    expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS + 1)
+
+    // Budget was restored: the next stall auto-remounts instead of erroring.
+    act(() => {
+      result.current.onLoad()
+    })
+    act(() => {
+      fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(true)
+    act(() => {
+      vi.advanceTimersByTime(STALL_TICK_MS)
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS + 2)
+  })
+
   it('restores the auto-remount budget on an entity state transition', () => {
     const { video } = createRvfcVideo()
     const getInnerVideo = () => video

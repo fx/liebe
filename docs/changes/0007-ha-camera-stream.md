@@ -101,6 +101,10 @@ The wrapper MUST implement this compat matrix:
 - **Decision: drop the bitrate stat** — bitrate came from our own `RTCPeerConnection.getStats()`; with the peer connection owned inside HA's element it is not reachable. FPS/resolution/decoded/dropped remain available via the inner video's `getVideoPlaybackQuality()`.
 - **Decision: accept player-swap blink on mute** — the element's `_streams()` logic may pick a different player (HLS vs WebRTC) depending on audio requirements; toggling mute can therefore swap players with a brief blink. Accepted rather than pinning stream type.
 - **Decision: HLS as the guaranteed CI path** — WebRTC in CI depends on UDP/host networking quirks; the suite asserts HLS playback deterministically and treats WebRTC as best-effort.
+- **Decision: drop the go2rtc-guidance error branch** — the old card special-cased a "not yet fully implemented" stream error with go2rtc setup instructions. That string came from Liebe's own `camera/webrtc/offer` signaling errors; with streaming delegated to `<ha-camera-stream>`, the status machine only ever surfaces `"Stream stalled"` (watchdog) — the guidance branch can no longer trigger and was removed in the swap.
+- **Decision: status machine exposes `retry()`** — the card's Retry button must clear the surfaced error, restore the auto-remount budget, and bump `remountKey`; `useCameraStreamStatus` gained a `retry()` callback for this (semantics match the old `useWebRTC` `retry`).
+- **Decision: truthful pill in still-image fallback** — when the element cannot be bootstrapped, the card shows the raw entity state (e.g. IDLE) instead of a forever-CONNECTING pill, and suppresses the loading spinner overlay. The still image also participates in the fullscreen KeepAlive swap (fullscreen forces `contain` fit, same as the stream).
+- **Decision: native fullscreen falls back to the element host** — the native-fullscreen button targets the element's inner `<video>` when present, else the `<ha-camera-stream>` host itself (e.g. MJPEG mode, which renders an `<img>`).
 - **Decision: personal stream via env substitution only** — go2rtc config references `${RTSP_TEST_URL:}`; compose passes `RTSP_TEST_URL` through to the container. The value lives only in untracked `.env.local`/CI secrets; `scripts/check-rtsp-leak.sh` fails CI if a credentialed RTSP URL or the actual value appears in tracked files.
 
 ### Non-Goals
@@ -117,7 +121,7 @@ The wrapper MUST implement this compat matrix:
 - [ ] `FullscreenModal` `portalContainer` prop + `resolvePanelPortalContainer` util with tests
 - [x] `<ha-camera-stream>` React wrapper: injection ladder (hass property / @lit/context) + still-image fallback
 - [x] CameraCard status machine + chrome extraction (stats via `getVideoPlaybackQuality`, bitrate removed)
-- [ ] The swap: CameraCard renders the wrapper; delete `useWebRTC.ts` and Liebe-owned signaling
+- [x] The swap: CameraCard renders the wrapper; delete `useWebRTC.ts` and Liebe-owned signaling
 - [ ] E2E camera spec: seeded CameraCard plays `camera.e2e_pattern` (HLS guaranteed, WebRTC best-effort)
 - [ ] CI wiring: leak gate ordering, e2e workflow updates for go2rtc
 - [ ] Rewrite [Camera Streaming](../specs/camera-streaming/) spec to the new architecture
