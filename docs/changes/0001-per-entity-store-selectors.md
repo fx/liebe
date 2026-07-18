@@ -57,7 +57,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 `useEntities(entityIds)` with a non-empty `entityIds` argument MUST NOT re-render when none of the requested entities changed.
 
-- The hook SHOULD derive its selection from the requested IDs only (per-ID selection or a selector with shallow equality over the requested slice).
+- The hook SHOULD derive its selection from the requested IDs only, via a single selector over the requested slice with shallow equality (one `useStore` call — never a hook call per ID).
 - The no-argument form (used by browsing UIs that genuinely need all entities, e.g. `EntityBrowser`) MAY continue to subscribe to the full map; this is an accepted cost and MUST be documented in the hook.
 - The public return shape MUST NOT change. Callers of the no-argument form MUST behave identically.
 
@@ -72,7 +72,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 ### Approach
 
 - `src/hooks/useEntity.ts` — replace the two whole-collection selections with per-entity selectors; drop the now-unneeded `useMemo` over `entities` (`useEntity.ts:30`) and the `eslint-disable-next-line react-hooks/exhaustive-deps` at `useEntity.ts:37` if the staleness selector makes it obsolete.
-- `src/hooks/useEntities.ts` — compute the filtered slice inside the selector (or via per-ID `useStore` calls behind a stable-key memo) so unrelated map replacement does not propagate; keep `Object.values(allEntities)` behavior for the no-argument form.
+- `src/hooks/useEntities.ts` — compute the filtered slice inside a single selector with shallow equality over the requested slice, so unrelated map replacement does not propagate; keep `Object.values(allEntities)` behavior for the no-argument form. Per-ID `useStore` calls in a loop are NOT an option — a hook call per `entityIds` entry violates the Rules of Hooks when the list length changes.
 - No store-side changes: `entityStore` update semantics (new map per batch, per-entity object identity preserved for unchanged entities) stay as-is. Implementation MUST verify unchanged entities keep reference identity across `updateEntities`; if they do not, fix that in `src/store/entityStore.ts` as part of this change (it is a prerequisite for selector short-circuiting).
 
 ### Decisions
@@ -97,7 +97,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 ## Open Questions
 
-- [ ] `useEntityAttribute` (`src/hooks/useEntityAttribute.ts`) — audit whether it has the same whole-map pattern and fold it in if trivial, or file a follow-up change if not.
+None. (`useEntityAttribute` was audited: it already selects `state.entities[entityId]` at `src/hooks/useEntityAttribute.ts:15` and serves as the reference pattern for this change.)
 
 ## References
 

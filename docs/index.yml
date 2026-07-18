@@ -57,3 +57,10 @@ changes:
     spec: architecture
     status: draft
     depends_on: []
+  - id: '0004'
+    name: portable-config-contract
+    path: changes/0004-portable-config-contract.md
+    description: Define one canonical portable configuration field set and align types, exports, imports, and dirty-tracking
+    spec: dashboard-config
+    status: draft
+    depends_on: []

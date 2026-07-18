@@ -92,6 +92,25 @@ Imported dashboard configuration MUST be schema-validated before being applied.
 - **WHEN** the user imports it
 - **THEN** the import succeeds (extras ignored or preserved, per existing round-trip behavior).
 
+### Small correctness fixes
+
+Two review-surfaced defects that fit this bundle:
+
+- `TextCard` prop resolution (`src/components/TextCard.tsx:35-38`) MUST use nullish (`??`) fallback semantics per field so intentional empty/falsy values are preserved — clearing `content` MUST NOT restore the placeholder.
+- The service-call failure message (`src/services/hassService.ts:73`) MUST report the true total attempt count (`retryDelays.length + 1`), matching the documented four total attempts.
+
+#### Scenario: Cleared text stays empty
+
+- **GIVEN** a text card whose `content` is set to an empty string
+- **WHEN** the card renders in view mode
+- **THEN** it renders empty content, not the "Double-click to edit" placeholder.
+
+#### Scenario: Accurate failure message
+
+- **GIVEN** a service call that fails on all four attempts
+- **WHEN** the `ServiceCallError` is thrown
+- **THEN** its message reports 4 attempts.
+
 ## Design
 
 ### Approach
@@ -124,6 +143,8 @@ Imported dashboard configuration MUST be schema-validated before being applied.
   - [ ] Resolve 5 `no-unused-vars` warnings
   - [ ] Remove `sharp`; regenerate lockfile; verify `build:ha:prod` + tests
   - [ ] `src/store/configSchema.ts` + `safeParse` wiring in both import paths + accept/reject tests
+  - [ ] `TextCard` nullish fallbacks (`??`) with cleared-content test
+  - [ ] Retry failure message reports `retryDelays.length + 1` attempts (update message + existing test expectation, and the quoted scenario in `docs/specs/entity-state/index.md`)
 
 ## Open Questions
 

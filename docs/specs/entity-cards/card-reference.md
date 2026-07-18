@@ -184,7 +184,7 @@ Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name |
 
 ### TextCard (grid type `text`, 3×2)
 
-- Renders Markdown via `react-markdown` with Radix components for h1–h3/p/strong/em/ul/ol/li/code/blockquote. Props resolve `config?.X || propX || default`: `content`, `alignment` (left/center/right), `textSize` (small/medium/large → Radix 1/2/3), `textColor` (`default` → undefined, else Radix color).
+- Renders Markdown via `react-markdown` with Radix components for h1–h3/p/strong/em/ul/ol/li/code/blockquote. Props resolve `config?.X || propX || default` (`TextCard.tsx:35-38`): `content`, `alignment` (left/center/right), `textSize` (small/medium/large → Radix 1/2/3), `textColor` (`default` → undefined, else Radix color). Note the `||` chains treat valid falsy values as absent — clearing `content` to an empty string falls back to the placeholder. Fixing this to nullish semantics is tracked in [0002-repo-hygiene](../../changes/0002-repo-hygiene.md).
 - Edit mode renders an auto-focused `TextArea`; `handleContentChange` persists live via `dashboardActions.updateGridItem(currentScreenId, itemId, { content })` (`80-91`). `onDelete`/`onConfigure` are accepted but unused. No entity binding → no loading/error states. Config is edited through `CardConfig` as direct item properties.
 
 ### Separator (grid type `separator`, 4×1)
