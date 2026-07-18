@@ -409,6 +409,9 @@ function CameraCardComponent({
   const normalContainerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const videoElementRef = useRef<HTMLVideoElement | null>(null)
+  // Reactive mirror of videoElementRef for children that render from it
+  // (reading the ref during render is unsafe per react-hooks/refs).
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null)
 
   // Get configuration values
   const config = item?.config || {}
@@ -485,6 +488,7 @@ function CameraCardComponent({
     (element: HTMLVideoElement | null) => {
       videoRef(element)
       videoElementRef.current = element
+      setVideoElement(element)
     },
     [videoRef]
   )
@@ -684,11 +688,7 @@ function CameraCardComponent({
 
           {/* Stats display (when enabled) */}
           {showStats && supportsStream && !streamError && (
-            <CameraStats
-              size={size}
-              videoElement={videoElementRef.current}
-              peerConnection={peerConnection}
-            />
+            <CameraStats size={size} videoElement={videoElement} peerConnection={peerConnection} />
           )}
 
           {/* Controls and info container positioned absolutely at bottom left */}
@@ -748,11 +748,7 @@ function CameraCardComponent({
 
         {/* Fullscreen stats display (when enabled) */}
         {showStats && (
-          <CameraStats
-            size="large"
-            videoElement={videoElementRef.current}
-            peerConnection={peerConnection}
-          />
+          <CameraStats size="large" videoElement={videoElement} peerConnection={peerConnection} />
         )}
 
         {/* Fullscreen controls and info container */}

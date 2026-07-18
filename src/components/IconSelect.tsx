@@ -47,7 +47,11 @@ export const IconSelect: React.FC<IconSelectProps> = ({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger>
         <Button variant="soft" color="gray" style={{ gap: '8px' }}>
-          {CurrentIcon ? <CurrentIcon size={20} /> : <Box style={{ width: 20, height: 20 }} />}
+          {CurrentIcon ? (
+            React.createElement(CurrentIcon, { size: 20 })
+          ) : (
+            <Box style={{ width: 20, height: 20 }} />
+          )}
           <Text>{value || buttonLabel}</Text>
         </Button>
       </Popover.Trigger>

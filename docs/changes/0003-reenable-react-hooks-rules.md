@@ -75,9 +75,9 @@ Each of the five rules MUST end enabled (at least at `warn`, target `error`) in 
 
 ## Tasks
 
-- [ ] Group A: enable `react-hooks/refs`, `react-hooks/static-components`, `react-hooks/incompatible-library`; fix all violations
-  - [ ] Violation inventory committed to the PR description
-  - [ ] Fixes + any justified suppressions
+- [x] Group A: enable `react-hooks/refs`, `react-hooks/static-components`, `react-hooks/incompatible-library`; fix all violations
+  - [x] Violation inventory committed to the PR description
+  - [x] Fixes + any justified suppressions
 - [ ] Group B: enable `react-hooks/set-state-in-effect`, `react-hooks/preserve-manual-memoization`; fix all violations; revisit stale `exhaustive-deps` suppressions
 
 ## Open Questions

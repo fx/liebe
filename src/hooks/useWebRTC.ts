@@ -47,6 +47,10 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [hasFrameWarning, setHasFrameWarning] = useState(false)
+  // Mirror of peerConnectionRef exposed to consumers. Reading the ref during
+  // render is unsafe (react-hooks/refs) and non-reactive; this state updates
+  // when the connection is created/torn down so consumers re-render.
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null)
   const cleanupRef = useRef<(() => Promise<void>) | null>(null)
   const frameMonitorRef = useRef<{
     lastFrameTime: number
@@ -84,6 +88,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
     // Clear the references immediately to prevent double cleanup
     peerConnectionRef.current = null
+    setPeerConnection(null)
     initializingRef.current = false
     pendingInitRef.current = false
     pendingCandidatesRef.current = []
@@ -298,6 +303,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
         ],
       })
       peerConnectionRef.current = pc
+      setPeerConnection(pc)
 
       // Add transceivers for receiving video/audio
       pc.addTransceiver('video', { direction: 'recvonly' })
@@ -580,6 +586,6 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     error,
     retry,
     hasFrameWarning,
-    peerConnection: peerConnectionRef.current,
+    peerConnection,
   }
 }

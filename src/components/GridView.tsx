@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { createElement, useState, useEffect } from 'react'
 import { Box } from '@radix-ui/themes'
 import { ButtonCard } from './ButtonCard'
 import { TextCard } from './TextCard'
@@ -59,7 +59,7 @@ function EntityCard({
 
   // If we have a card component, render it
   if (CardComponent) {
-    return <CardComponent {...cardProps} />
+    return createElement(CardComponent, cardProps)
   }
 
   // Default to ButtonCard for unmapped entities
