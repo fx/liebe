@@ -36,6 +36,10 @@ services:
       # ${RTSP_TEST_URL:}. The value is never committed anywhere — see
       # scripts/check-rtsp-leak.sh.
       RTSP_TEST_URL: '${RTSP_TEST_URL:-}'
+      # Advertised WebRTC candidate host (go2rtc.yaml substitution). Defaults
+      # to loopback for CI/local; set it to a remotely reachable address
+      # (e.g. Tailscale, together with HA_BIND=0.0.0.0) for remote WebRTC.
+      WEBRTC_CANDIDATE_HOST: '${WEBRTC_CANDIDATE_HOST:-127.0.0.1}'
     ports:
       # Only the WebRTC media port is published (browser connects directly).
       # The API (1984) and RTSP (8554) ports stay internal to the compose

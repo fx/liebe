@@ -556,6 +556,41 @@ describe('CameraCard', () => {
       expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
     })
 
+    it('exposes the stream surface as a keyboard button toggling fullscreen via Enter and Space', () => {
+      renderCard()
+      const surface = screen.getByRole('button', { name: 'Toggle fullscreen for Front Door' })
+      expect(surface.getAttribute('tabindex')).toBe('0')
+
+      fireEvent.keyDown(surface, { key: 'Enter' })
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+
+      // Enter toggles, exactly like a tap.
+      fireEvent.keyDown(surface, { key: 'Enter' })
+      expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
+
+      fireEvent.keyDown(surface, { key: ' ' })
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+    })
+
+    it('ignores non-activation keys on the stream surface', () => {
+      renderCard()
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Toggle fullscreen for Front Door' }), {
+        key: 'a',
+      })
+      expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
+    })
+
+    it('drops the button semantics in edit mode and while an error is shown', () => {
+      mockStoreMode('edit')
+      renderCard()
+      expect(screen.queryByRole('button', { name: /Toggle fullscreen for/ })).toBeNull()
+
+      mockStoreMode('view')
+      statusMock.error = 'Stream stalled'
+      renderCard()
+      expect(screen.queryByRole('button', { name: /Toggle fullscreen for/ })).toBeNull()
+    })
+
     it('renders fullscreen stats when showStats is enabled', () => {
       statusMock.isStreaming = true
       const item: GridItem = {

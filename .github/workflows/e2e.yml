@@ -36,6 +36,11 @@ jobs:
 
       - name: Start Home Assistant stack
         run: npm run e2e:ha:up
+        env:
+          # Optional personal RTSP stream; compose substitutes it into the
+          # go2rtc container environment (see ha/docker-compose.yml). Empty
+          # when the secret is unset — the synthetic stream is unaffected.
+          RTSP_TEST_URL: ${{ secrets.RTSP_TEST_URL }}
 
       - name: Run e2e tests
         run: npm run e2e

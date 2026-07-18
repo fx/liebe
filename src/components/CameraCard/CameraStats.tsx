@@ -12,7 +12,7 @@ const CODE_FONT = { fontFamily: 'var(--code-font-family)' } as const
 function StatItem({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
   return (
     <Flex direction="column" gap="0">
-      <Text size="1" color="gray" style={{ ...CODE_FONT, fontSize: '10px' }}>
+      <Text size="1" color="gray" style={CODE_FONT}>
         {label}
       </Text>
       <Text size="1" weight="medium" color={alert ? 'red' : undefined} style={CODE_FONT}>
@@ -103,7 +103,6 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
         backdropFilter: 'blur(16px)',
         border: '1px solid var(--gray-a5)',
         padding: 'var(--space-2)',
-        fontSize: '11px',
       }}
     >
       {size === 'small' ? (

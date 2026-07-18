@@ -20,15 +20,17 @@ cd "$(git rev-parse --show-toplevel)"
 
 status=0
 
-if matches=$(git grep -nE 'rtsps?://[^ "]*@'); then
-  printf '%s\n' "$matches"
+# Report FILENAMES ONLY (-l): printing matching line contents would leak the
+# very secret this gate exists to protect into CI logs.
+if files=$(git grep -lE 'rtsps?://[^ "]*@'); then
+  printf '%s\n' "$files"
   echo 'ERROR: credentialed RTSP URL found in tracked files.' >&2
   status=1
 fi
 
 if [ -n "${RTSP_TEST_URL:-}" ]; then
-  if matches=$(git grep -nF "$RTSP_TEST_URL"); then
-    printf '%s\n' "$matches"
+  if files=$(git grep -lF "$RTSP_TEST_URL"); then
+    printf '%s\n' "$files"
     echo 'ERROR: the RTSP_TEST_URL value appears in tracked files.' >&2
     status=1
   fi

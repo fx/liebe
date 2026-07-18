@@ -157,7 +157,7 @@ The wrapper MUST implement this compat matrix:
 - [x] CameraCard status machine + chrome extraction (stats via `getVideoPlaybackQuality`, bitrate removed)
 - [x] The swap: CameraCard renders the wrapper; delete `useWebRTC.ts` and Liebe-owned signaling
 - [x] E2E camera spec: seeded CameraCard plays `camera.e2e_pattern` (HLS guaranteed, WebRTC best-effort)
-- [x] CI wiring: leak gate ordering, e2e workflow updates for go2rtc — verified: the existing workflow already runs `scripts/check-rtsp-leak.sh` before tests and `e2e:ha:up` brings up go2rtc via the same compose file; no workflow changes were needed
+- [x] CI wiring: leak gate ordering, e2e workflow updates for go2rtc — the e2e workflow gained a leak-gate step running `scripts/check-rtsp-leak.sh` (with the `RTSP_TEST_URL` secret) before tests, and the compose-up step passes `RTSP_TEST_URL` through to `e2e:ha:up` so the optional personal stream reaches go2rtc; go2rtc itself comes up via the same compose file with no further workflow changes
 - [x] Rewrite [Camera Streaming](../specs/camera-streaming/) spec to the new architecture
 
 ## Open Questions

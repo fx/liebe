@@ -12,4 +12,9 @@ streams:
 
 webrtc:
   candidates:
-    - 127.0.0.1:8555
+    # Advertised WebRTC candidate host. The 127.0.0.1 default covers CI and
+    # local runs (browser on the compose host); set WEBRTC_CANDIDATE_HOST to a
+    # remotely reachable address (e.g. the Tailscale hostname/IP, paired with
+    # HA_BIND=0.0.0.0) so remote peers receive a usable candidate. The port
+    # must match the published 8555 port in ha/docker-compose.yml.
+    - ${WEBRTC_CANDIDATE_HOST:127.0.0.1}:8555

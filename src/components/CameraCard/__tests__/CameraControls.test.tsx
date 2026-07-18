@@ -30,7 +30,7 @@ describe('CameraControls status pill rendering', () => {
   it('renders ERROR in red with no icon', () => {
     const { getByText, container } = renderControls({ status: 'error' })
     expect(getByText('ERROR')).toBeInTheDocument()
-    expect(getPill(container).style.color).toBe('rgb(255, 107, 107)')
+    expect(getPill(container).style.color).toBe('var(--red-9)')
     expect(container.querySelector('.rt-Spinner')).toBeNull()
     expect(container.querySelector('.recording-dot')).toBeNull()
     expect(container.querySelectorAll('svg')).toHaveLength(0)
@@ -40,7 +40,7 @@ describe('CameraControls status pill rendering', () => {
     const { getByText, container } = renderControls({ status: 'connecting' })
     expect(getByText('CONNECTING')).toBeInTheDocument()
     expect(container.querySelector('.rt-Spinner')).not.toBeNull()
-    expect(getPill(container).style.color).toBe('rgb(134, 142, 150)')
+    expect(getPill(container).style.color).toBe('var(--gray-9)')
   })
 
   it('renders NO SIGNAL with the warning icon', () => {
@@ -49,21 +49,21 @@ describe('CameraControls status pill rendering', () => {
     expect(container.querySelectorAll('svg')).toHaveLength(1)
     expect(container.querySelector('.rt-Spinner')).toBeNull()
     expect(container.querySelector('.recording-dot')).toBeNull()
-    expect(getPill(container).style.color).toBe('rgb(77, 171, 247)')
+    expect(getPill(container).style.color).toBe('var(--blue-9)')
   })
 
   it('renders RECORDING with the pulsing dot in blue', () => {
     const { getByText, container } = renderControls({ status: 'recording' })
     expect(getByText('RECORDING')).toBeInTheDocument()
     expect(container.querySelector('.recording-dot')).not.toBeNull()
-    expect(getPill(container).style.color).toBe('rgb(77, 171, 247)')
+    expect(getPill(container).style.color).toBe('var(--blue-9)')
   })
 
   it('renders STREAMING with the pulsing dot in blue', () => {
     const { getByText, container } = renderControls({ status: 'streaming' })
     expect(getByText('STREAMING')).toBeInTheDocument()
     expect(container.querySelector('.recording-dot')).not.toBeNull()
-    expect(getPill(container).style.color).toBe('rgb(77, 171, 247)')
+    expect(getPill(container).style.color).toBe('var(--blue-9)')
   })
 
   it('renders IDLE without any icon', () => {
@@ -77,7 +77,7 @@ describe('CameraControls status pill rendering', () => {
   it('renders the uppercased raw entity state for the raw status', () => {
     const { getByText, container } = renderControls({ status: 'raw', rawState: 'paused' })
     expect(getByText('PAUSED')).toBeInTheDocument()
-    expect(getPill(container).style.color).toBe('rgb(134, 142, 150)')
+    expect(getPill(container).style.color).toBe('var(--gray-9)')
   })
 })
 

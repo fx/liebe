@@ -196,6 +196,13 @@ export type BenignMatcher = RegExp | ((text: string) => boolean)
 // narrow benign predicate to purely-placeholder entries from a known source.
 export const SERIALIZATION_FAILURE_PLACEHOLDER = '<failed to serialize console argument>'
 
+// Upper bound on a single console-argument serialization round-trip. A hung
+// jsonValue()/evaluate() must not be ABANDONED (a dropped entry could let a
+// fatal error pass silently): past the bound the entry is recorded as the
+// failure placeholder instead, which stays fatal unless a spec's narrowly
+// scoped placeholder predicate matches it.
+const SERIALIZATION_TIMEOUT_MS = 2000
+
 export interface ConsoleErrorCollector {
   /** Collected non-benign errors; await at the end of the test. */
   fatalErrors: () => Promise<string[]>
@@ -220,6 +227,15 @@ export async function collectConsoleErrors(
     // msg.text() renders object arguments as the literal "Object"; serialize
     // the argument values so the benign filter sees the real payload.
     const { url, lineNumber } = msg.location()
+    // Exactly ONE entry is recorded per console error, whichever settles
+    // first: the real serialization or the timeout's failure placeholder (a
+    // serialization landing after the timeout must not add a second entry).
+    let recorded = false
+    const record = (text: string) => {
+      if (recorded) return
+      recorded = true
+      collected.push(`${text} (at ${url}:${lineNumber})`)
+    }
     const serialization = Promise.all(
       msg.args().map((arg) =>
         arg
@@ -238,12 +254,22 @@ export async function collectConsoleErrors(
               .catch(() => SERIALIZATION_FAILURE_PLACEHOLDER)
           )
       )
-    ).then((parts) => {
-      const text = parts.length > 0 ? parts.join(' ') : msg.text()
-      collected.push(`${text} (at ${url}:${lineNumber})`)
+    ).then((parts) => record(parts.length > 0 ? parts.join(' ') : msg.text()))
+    // Bound every serialization individually: a hung round-trip resolves to
+    // the failure placeholder instead of being abandoned, so fatalErrors()
+    // can await ALL pending work and every console error stays represented.
+    const bounded = new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        record(SERIALIZATION_FAILURE_PLACEHOLDER)
+        resolve()
+      }, SERIALIZATION_TIMEOUT_MS)
+      void serialization.then(() => {
+        clearTimeout(timer)
+        resolve()
+      })
     })
-    pendingSerializations.add(serialization)
-    void serialization.finally(() => pendingSerializations.delete(serialization))
+    pendingSerializations.add(bounded)
+    void bounded.finally(() => pendingSerializations.delete(bounded))
   })
 
   page.on('pageerror', (err) => {
@@ -265,12 +291,10 @@ export async function collectConsoleErrors(
 
   return {
     fatalErrors: async () => {
-      // Let in-flight console-arg serializations land first (guarded by a
-      // timeout so a hung jsonValue cannot hang the test).
-      await Promise.race([
-        Promise.allSettled([...pendingSerializations]),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
-      ])
+      // Every pending serialization is individually bounded (real payload or
+      // failure placeholder within SERIALIZATION_TIMEOUT_MS), so awaiting
+      // them all cannot hang — and no console error can be dropped.
+      await Promise.all([...pendingSerializations])
       const rejections = await page.evaluate(
         () => (window as unknown as { __e2eRejections?: string[] }).__e2eRejections ?? []
       )

@@ -27,6 +27,21 @@ import {
 const RECOVERABLE_HLS_BUFFER_DETAILS =
   'buffer(?:StalledError|AppendError|AppendingError|NudgeOnStall|SeekOverHole|FullError)'
 
+// Recoverable hls.js network-error details during ffmpeg spin-up: the
+// playlist/segments simply do not exist yet, and hls.js retries them into
+// existence (manifest/level/frag load errors and their TimeOut variants).
+const RECOVERABLE_HLS_NETWORK_DETAILS = '(?:manifest|level|frag)Load(?:Error|TimeOut)'
+
+// A networkError payload is benign ONLY as the combination of the type AND a
+// recognized spin-up load detail (order-insensitive) — a bare "networkError"
+// with any other details, or a load-detail string on a different error type,
+// still fails the suite. The consuming predicate additionally rejects
+// payloads flagged "fatal": true (escalation past hls.js's own retries).
+const RECOVERABLE_HLS_NETWORK_ERROR = new RegExp(
+  `"type"\\s*:\\s*"networkError"[\\s\\S]*"details"\\s*:\\s*"${RECOVERABLE_HLS_NETWORK_DETAILS}"` +
+    `|"details"\\s*:\\s*"${RECOVERABLE_HLS_NETWORK_DETAILS}"[\\s\\S]*"type"\\s*:\\s*"networkError"`
+)
+
 // hls.js recoverable mediaError payloads during spin-up: buffer hiccups
 // (bufferStalledError, bufferAppendError, bufferAppendingError,
 // bufferNudgeOnStall, bufferSeekOverHole, bufferFullError) that hls.js
@@ -42,14 +57,17 @@ const RECOVERABLE_HLS_MEDIA_ERROR = new RegExp(
 
 const BENIGN_CONSOLE_PATTERNS: BenignMatcher[] = [
   // The HLS playlist/segment endpoints 404/503 briefly while ffmpeg spins up;
-  // hls.js retries and recovers. Chrome logs these as console errors.
-  /the server responded with a status of (404|5\d\d)/i,
-  // hls.js recoverable network-retry noise while ffmpeg spins up: structured
-  // error payloads like {type: "networkError", details: "manifestLoadError"}
-  // (also levelLoadError/fragLoadError and their TimeOut variants) that
-  // resolve once the playlist/segments exist.
-  /"type"\s*:\s*"networkError"/,
-  /"(manifest|level|frag)Load(Error|TimeOut)"/,
+  // hls.js retries and recovers. Chrome logs these as console errors. Scoped
+  // to the camera-stream endpoints (HA's HLS proxy and camera_proxy stills,
+  // whose URLs the collector appends as the entry source) — an HTTP failure
+  // from any other resource still fails the suite.
+  (text: string) =>
+    /the server responded with a status of (404|5\d\d)/i.test(text) &&
+    /\/api\/hls\/|\/api\/camera_proxy/i.test(text),
+  // hls.js recoverable network-retry noise while ffmpeg spins up — benign
+  // only as networkError + recognized load detail + explicitly nonfatal (see
+  // RECOVERABLE_HLS_NETWORK_ERROR above).
+  (text: string) => RECOVERABLE_HLS_NETWORK_ERROR.test(text) && !/"fatal"\s*:\s*true/.test(text),
   // HA's own frontend leaves the `camera/webrtc/offer` websocket promise
   // unhandled when the backend rejects it. In this stack the go2rtc `exec:`
   // producer trips a parse bug in HA's go2rtc client, so every offer fails

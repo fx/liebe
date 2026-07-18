@@ -214,6 +214,10 @@ export function useCameraStreamStatus({
   }, [])
 
   const onStreamEvent = useCallback(() => {
+    // A disabled machine ignores stray element events entirely: no warning
+    // mutation, no epoch churn (the watch effect would reject the epoch
+    // anyway, but state must not move while the disable-reset owns it).
+    if (!enabled) return
     // A stale frame warning must not leak across epochs: a video watch that
     // warned and then ended (player swap, element remount) would otherwise
     // latch NO SIGNAL into a mode that never clears it (MJPEG in particular
@@ -224,7 +228,7 @@ export function useCameraStreamStatus({
     }
     watchEpochRef.current += 1
     setWatchEpoch(watchEpochRef.current)
-  }, [])
+  }, [enabled])
 
   const retry = useCallback(() => {
     consecutiveRemountsRef.current = 0
@@ -400,8 +404,11 @@ export function useCameraStreamStatus({
       // EXCEPT while the entity is unavailable: the backend dying during a
       // blip must not surface a sticky 'Video playback error' (the machine is
       // suspended like a hidden tab; on recovery the resumed watchdog's stall
-      // remount brings the stream back automatically).
+      // remount brings the stream back automatically). Like every callback of
+      // this watch, a superseded epoch no-ops: the old player erroring during
+      // its teardown window must not surface an error over the replacement.
       function onVideoError() {
+        if (watchEpochRef.current !== epoch) return
         if (!entityAvailableRef.current) return
         stop()
         isStreamingRef.current = false
@@ -439,16 +446,22 @@ export function useCameraStreamStatus({
 
       if (hasRequestVideoFrameCallback(video)) {
         const onFrame = () => {
-          if (stopped) return
+          // A frame callback already queued by the browser can fire between
+          // onStreamEvent's synchronous epoch bump and this watch's cleanup:
+          // it must not mark frames (or re-register) on the old video's
+          // behalf — the new epoch owns the frame clock now.
+          if (stopped || watchEpochRef.current !== epoch) return
           markFrame()
           timers.rvfcId = video.requestVideoFrameCallback(onFrame)
         }
         timers.rvfcId = video.requestVideoFrameCallback(onFrame)
       } else {
-        // rVFC unavailable: poll playback progress instead.
+        // rVFC unavailable: poll playback progress instead. The poll tick
+        // carries the same superseded-epoch guard as the watchdog below.
         let lastTime = video.currentTime
         let lastFrames = getPlaybackQuality(video).decodedFrames
         timers.poll = setInterval(() => {
+          if (watchEpochRef.current !== epoch) return
           const frames = getPlaybackQuality(video).decodedFrames
           if (video.currentTime !== lastTime || frames > lastFrames) {
             lastTime = video.currentTime
@@ -500,6 +513,19 @@ export function useCameraStreamStatus({
     // nothing to watch. The load-budget timer is owned by connection state,
     // so it stays armed regardless.
     if (!img) return
+
+    // A video→MJPEG player swap can arrive with the streaming flag still
+    // true from the superseded video watch. MJPEG has no frame watchdog to
+    // ever flip it false, so an image that never decodes would leave a stale
+    // STREAMING forever. Falling back to false here re-arms the
+    // connection-state load budget (CONNECT_TIMEOUT_MS) for the swap — the
+    // documented "streaming falling back to false re-arms a fresh budget"
+    // contract — so a dead MJPEG swap fails into 'Stream failed to start'.
+    if (img.naturalWidth === 0 && isStreamingRef.current) {
+      isStreamingRef.current = false
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the stale streaming flag is only detectable when the new epoch's watch attaches to the MJPEG image; it is a one-shot event response to the player swap, not state derivable during render.
+      setIsStreaming(false)
+    }
 
     // MJPEG mode: streaming once the image has decoded pixels; no frame
     // watchdog (the browser owns the multipart stream). The load phase is

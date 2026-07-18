@@ -227,6 +227,78 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.hasFrameWarning).toBe(false)
   })
 
+  it('ignores a queued frame callback from a superseded epoch', () => {
+    const { video, fireFrame } = createRvfcVideo()
+    const { result } = renderStatus({ video })
+
+    act(() => {
+      result.current.onStreamEvent()
+    })
+
+    // Epoch 2 is announced synchronously; a frame callback the browser had
+    // already queued for epoch 1's watch fires before the cleanup runs. It
+    // must neither mark frames nor re-register on the old video's behalf.
+    act(() => {
+      result.current.onStreamEvent()
+      fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(false)
+
+    // The new epoch's own frames still flip the machine to streaming.
+    act(() => {
+      fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(true)
+  })
+
+  it('ignores a media error from a superseded epoch', () => {
+    const { video, fireFrame, fireError } = createRvfcVideo()
+    const { result } = renderStatus({ video })
+
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(true)
+
+    // The old player errors during its teardown window (after the new epoch
+    // was announced, before the old watch's cleanup): no error may surface
+    // over the replacement stream.
+    act(() => {
+      result.current.onStreamEvent()
+      fireError()
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.isStreaming).toBe(true)
+  })
+
+  it('ignores a poll tick from a superseded epoch', () => {
+    const video = withListenerApi({ currentTime: 0 }) as unknown as HTMLVideoElement
+    const { result } = renderStatus({ video })
+
+    act(() => {
+      result.current.onStreamEvent()
+    })
+
+    // Epoch 1's poll interval fires once more after epoch 2 was announced:
+    // the progress it sees belongs to the old watch and must not mark frames.
+    act(() => {
+      result.current.onStreamEvent()
+      ;(video as unknown as { currentTime: number }).currentTime = 5
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.isStreaming).toBe(false)
+
+    // The new epoch's poll (baselined at 5) detects fresh progress normally.
+    act(() => {
+      ;(video as unknown as { currentTime: number }).currentTime = 6
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.isStreaming).toBe(true)
+  })
+
   it('requests a remount after a sustained 5s stall, then errors when the remount never comes up', () => {
     const { video } = createRvfcVideo()
     const { result } = renderStatus({ video })
@@ -808,11 +880,12 @@ describe('useCameraStreamStatus', () => {
 
     it('clears a pending "Stream failed to start" when frames flow while streaming', () => {
       // Belt-and-braces on markFrame: streaming-true-with-that-error is
-      // reachable when an MJPEG epoch fast-fails while the streaming flag is
-      // still true from a superseded video watch — the next decoded frame
+      // reachable when an MJPEG epoch whose image already had decoded pixels
+      // (so the swap keeps the streaming flag true) fast-fails on the image
+      // `error` event before its first poll tick — the next decoded frame
       // must clear the stale failure.
       const { video, fireFrame } = createRvfcVideo()
-      const { img, fireError } = createMjpegImg()
+      const { img, fireError } = createMjpegImg(640)
       let currentVideo: HTMLVideoElement | null = video
       let currentImg: HTMLImageElement | null = null
       const getInnerVideo = () => currentVideo
@@ -1422,6 +1495,93 @@ describe('useCameraStreamStatus', () => {
       })
       expect(result.current.isStreaming).toBe(true)
       expect(result.current.error).toBeNull()
+    })
+
+    it('re-arms the load budget when a video-to-mjpeg swap arrives with a stale streaming flag', () => {
+      // MJPEG has no frame watchdog: a swap from a streaming video watch to an
+      // image that never decodes would otherwise leave STREAMING latched
+      // forever. The attach point drops the stale flag, which re-arms the
+      // connection-state budget — the swap fails after a fresh 20 s instead.
+      const { video, fireFrame } = createRvfcVideo()
+      const { img } = createMjpegImg()
+      let currentVideo: HTMLVideoElement | null = video
+      let currentImg: HTMLImageElement | null = null
+      const getInnerVideo = () => currentVideo
+      const getMjpegImg = () => currentImg
+      const { result } = renderHook(() =>
+        useCameraStreamStatus({
+          getInnerVideo,
+          getMjpegImg,
+          entityState: 'streaming',
+          enabled: true,
+          entityAvailable: true,
+        })
+      )
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      // Player swap to an MJPEG image with no decoded pixels.
+      currentVideo = null
+      currentImg = img
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      expect(result.current.isStreaming).toBe(false)
+
+      // The re-armed budget is a FRESH 20 s from the swap.
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 250)
+      })
+      expect(result.current.error).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
+
+    it('keeps streaming across a swap to an mjpeg image that already has pixels', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { img } = createMjpegImg(640)
+      let currentVideo: HTMLVideoElement | null = video
+      let currentImg: HTMLImageElement | null = null
+      const getInnerVideo = () => currentVideo
+      const getMjpegImg = () => currentImg
+      const { result } = renderHook(() =>
+        useCameraStreamStatus({
+          getInnerVideo,
+          getMjpegImg,
+          entityState: 'streaming',
+          enabled: true,
+          entityAvailable: true,
+        })
+      )
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      // Decoded pixels are real streaming evidence: no false blink, no budget.
+      currentVideo = null
+      currentImg = img
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      expect(result.current.isStreaming).toBe(true)
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS + 5000)
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.isStreaming).toBe(true)
     })
 
     it('does not grant a fresh budget when the mjpeg image attaches mid-load', () => {

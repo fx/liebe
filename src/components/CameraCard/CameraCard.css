@@ -16,13 +16,21 @@
 .recording-dot {
   width: 0.625em;
   height: 0.625em;
-  background-color: #dc2626;
+  /* Radix theme token, not a fixed hex, so the dot follows the palette. */
+  background-color: var(--red-9);
   border-radius: 50%;
   display: inline-block;
   animation: recording-pulse 1.5s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .recording-dot {
+    animation: none;
+  }
+}
+
 .camera-control-button {
+  position: relative;
   width: 2.5em;
   height: 2.5em;
   border-radius: 0.5em;
@@ -40,4 +48,18 @@
 
 .camera-control-button:hover {
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Touch-target expansion: the visual button scales with card size (2.5em of
+   an 8-11.2px base) and can render well below the 44px minimum touch target.
+   A centered pseudo-element extends the HIT AREA to at least 44px in each
+   dimension without changing the visual size or the overlay layout. */
+.camera-control-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
 }

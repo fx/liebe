@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ensureHaElement, isHaFrontendContext, resetEnsureHaElementForTests } from '../haFrontend'
 
-// NOTE: jsdom cannot unregister custom elements, so the tests in this file are
-// order-sensitive: every test that needs 'ha-camera-stream' to be UNDEFINED
-// must run before the success-path test that defines it. The ladder's promise
-// cache is reset per test via resetEnsureHaElementForTests().
+// NOTE: jsdom cannot unregister custom elements, so every test uses its OWN
+// unique tag (registrations leak across tests within the file). That keeps the
+// tests order-independent: a tag a test needs UNDEFINED is never defined by
+// any other test. The ladder's promise cache is reset per test via
+// resetEnsureHaElementForTests().
 
 interface CardHelpers {
   createCardElement: (config: Record<string, unknown>) => HTMLElement
@@ -67,7 +68,7 @@ describe('ensureHaElement', () => {
 
   it('resolves false when loadCardHelpers never appears (poll timeout)', async () => {
     let settled: boolean | null = null
-    ensureHaElement('ha-camera-stream', TRIGGER_CONFIG).then((value) => {
+    ensureHaElement('ha-poll-timeout-element', TRIGGER_CONFIG).then((value) => {
       settled = value
     })
 
@@ -83,7 +84,7 @@ describe('ensureHaElement', () => {
   it('resolves false when loadCardHelpers rejects', async () => {
     setLoadCardHelpers(vi.fn().mockRejectedValue(new Error('boom')))
 
-    const promise = ensureHaElement('ha-camera-stream', TRIGGER_CONFIG)
+    const promise = ensureHaElement('ha-helpers-reject-element', TRIGGER_CONFIG)
     await vi.advanceTimersByTimeAsync(0)
     await expect(promise).resolves.toBe(false)
   })
@@ -97,7 +98,7 @@ describe('ensureHaElement', () => {
       })
     )
 
-    const promise = ensureHaElement('ha-camera-stream', TRIGGER_CONFIG)
+    const promise = ensureHaElement('ha-card-throws-element', TRIGGER_CONFIG)
     await vi.advanceTimersByTimeAsync(0)
     await expect(promise).resolves.toBe(false)
   })
@@ -106,7 +107,7 @@ describe('ensureHaElement', () => {
     const createCardElement = vi.fn(() => document.createElement('div'))
 
     let settled: boolean | null = null
-    ensureHaElement('ha-camera-stream', TRIGGER_CONFIG).then((value) => {
+    ensureHaElement('ha-never-defined-element', TRIGGER_CONFIG).then((value) => {
       settled = value
     })
 
@@ -155,7 +156,7 @@ describe('ensureHaElement', () => {
   it('caches the ladder per tag: same tag shares one run, other tags run their own', async () => {
     const createCardElement = vi.fn((config: Record<string, unknown>) => {
       if (config.entity === 'camera.first') {
-        customElements.define('ha-camera-stream', class extends HTMLElement {})
+        customElements.define('ha-shared-tag-element', class extends HTMLElement {})
       }
       return document.createElement('div')
     })
@@ -164,12 +165,12 @@ describe('ensureHaElement', () => {
 
     // Same tag: every caller gets the very same promise, so only one ladder
     // runs and the first caller's trigger config wins.
-    const first = ensureHaElement('ha-camera-stream', {
+    const first = ensureHaElement('ha-shared-tag-element', {
       ...TRIGGER_CONFIG,
       entity: 'camera.first',
     })
     expect(
-      ensureHaElement('ha-camera-stream', { ...TRIGGER_CONFIG, entity: 'camera.second' })
+      ensureHaElement('ha-shared-tag-element', { ...TRIGGER_CONFIG, entity: 'camera.second' })
     ).toBe(first)
 
     await vi.advanceTimersByTimeAsync(0)
@@ -187,12 +188,14 @@ describe('ensureHaElement', () => {
   })
 
   it('resolves true immediately when the element is already defined', async () => {
-    // The previous test defined 'ha-camera-stream'; the cache was reset in
-    // beforeEach, so this run takes the already-defined short-circuit.
+    // Define the tag up front (own tag, so no cross-test coupling): the
+    // ladder takes the already-defined short-circuit without ever touching
+    // loadCardHelpers.
+    customElements.define('ha-predefined-element', class extends HTMLElement {})
     const loadCardHelpers = vi.fn()
     setLoadCardHelpers(loadCardHelpers as unknown as LoadCardHelpers)
 
-    const promise = ensureHaElement('ha-camera-stream', TRIGGER_CONFIG)
+    const promise = ensureHaElement('ha-predefined-element', TRIGGER_CONFIG)
     await vi.advanceTimersByTimeAsync(0)
     await expect(promise).resolves.toBe(true)
     expect(loadCardHelpers).not.toHaveBeenCalled()

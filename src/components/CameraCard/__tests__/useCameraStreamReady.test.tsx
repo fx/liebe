@@ -205,6 +205,24 @@ describe('useCameraStreamReady', () => {
       expect(ensureHaElement).toHaveBeenCalledTimes(1)
     })
 
+    it('does not schedule a retry when the initial ladder resolves false after unmount', async () => {
+      vi.mocked(isHaFrontendContext).mockReturnValue(true)
+      const gate = deferred<boolean>()
+      vi.mocked(ensureHaElement).mockReturnValue(gate.promise)
+      const { unmount } = renderHook(() => useCameraStreamReady('camera.demo'))
+
+      // Unmount while the initial ladder is still pending, THEN let it
+      // resolve false: the cancelled resolution sets no state, so the
+      // unavailable-retry effect never arms — no backoff attempt ever fires.
+      unmount()
+      await act(async () => {
+        gate.resolve(false)
+        await gate.promise
+        await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_INTERVAL_MS)
+      })
+      expect(ensureHaElement).toHaveBeenCalledTimes(1)
+    })
+
     it('stops retrying on unmount and ignores an in-flight retry resolution', async () => {
       vi.mocked(isHaFrontendContext).mockReturnValue(true)
       const gate = deferred<boolean>()

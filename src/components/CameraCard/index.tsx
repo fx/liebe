@@ -175,6 +175,18 @@ function CameraCardComponent({
     }
   }, [streamError, isEditMode, isFullscreen])
 
+  // Keyboard parity for the clickable stream surface: Enter and Space toggle
+  // fullscreen exactly like a tap (Space's default scroll is suppressed).
+  const handleVideoKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleVideoClick()
+      }
+    },
+    [handleVideoClick]
+  )
+
   const handleVideoFullscreen = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -247,6 +259,9 @@ function CameraCardComponent({
     entityState: entity.state,
   })
   const showControls = pillSupportsStream && isStreaming && !streamError && !isEditMode
+  // The stream surface is tappable (fullscreen toggle) outside edit mode and
+  // while no error branch is shown; when it is, it is also a keyboard button.
+  const videoClickable = !isEditMode && !streamError
 
   // Calculate matting/padding based on configuration
   // Map matting values to Radix UI space tokens
@@ -292,6 +307,9 @@ function CameraCardComponent({
           {supportsStream ? (
             <div
               ref={normalContainerRef}
+              role={videoClickable ? 'button' : undefined}
+              tabIndex={videoClickable ? 0 : undefined}
+              aria-label={videoClickable ? `Toggle fullscreen for ${friendlyName}` : undefined}
               style={{
                 width: '100%',
                 height: '100%',
@@ -302,9 +320,10 @@ function CameraCardComponent({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: !isEditMode && !streamError ? 'pointer' : 'default',
+                cursor: videoClickable ? 'pointer' : 'default',
               }}
               onClick={handleVideoClick}
+              onKeyDown={videoClickable ? handleVideoKeyDown : undefined}
             >
               {streamError ? (
                 <Flex direction="column" align="center" gap="2" style={{ padding: '12px' }}>
@@ -445,13 +464,15 @@ function CameraCardComponent({
           <CameraStats size="large" videoElement={innerVideo} />
         )}
 
-        {/* Fullscreen controls and info container */}
+        {/* Fullscreen controls and info container. No z-index: the container
+            is a positioned element following the (static) stream container in
+            DOM order, so it paints above the video without one — stacking is
+            otherwise delegated to the fullscreen portal (Radix guidance). */}
         <div
           style={{
             position: 'absolute',
             bottom: '2%',
             left: '2%',
-            zIndex: 10,
             fontSize: 'min(3.2vw, 19.2px)', // Scale based on viewport width (reduced by 20%)
           }}
         >

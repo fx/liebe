@@ -29,16 +29,22 @@ const STATUS_LABELS: Record<Exclude<CameraStatus, 'raw'>, string> = {
   idle: 'IDLE',
 }
 
+// Radix theme color tokens (not fixed hex values) so the pill follows the
+// active theme's palette.
 function statusColor(status: CameraStatus): string {
-  if (status === 'error') return '#ff6b6b'
-  if (status === 'recording' || status === 'streaming' || status === 'no-signal') return '#4dabf7'
-  return '#868e96'
+  if (status === 'error') return 'var(--red-9)'
+  if (status === 'recording' || status === 'streaming' || status === 'no-signal') {
+    return 'var(--blue-9)'
+  }
+  return 'var(--gray-9)'
 }
 
 function StatusIcon({ status }: { status: CameraStatus }) {
   if (status === 'connecting') return <Spinner size="1" />
   if (status === 'no-signal') {
-    return <ExclamationTriangleIcon style={{ color: '#f59e0b', width: '1em', height: '1em' }} />
+    return (
+      <ExclamationTriangleIcon style={{ color: 'var(--amber-9)', width: '1em', height: '1em' }} />
+    )
   }
   if (status === 'recording' || status === 'streaming') return <span className="recording-dot" />
   return null
