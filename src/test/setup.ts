@@ -19,11 +19,15 @@ Object.defineProperty(window, 'matchMedia', {
 })
 
 // Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
+// Uses a function expression (not an arrow) so it is constructable with `new`,
+// which vitest 4 requires for vi.fn() mocks invoked as constructors.
+global.ResizeObserver = vi.fn(function () {
+  return {
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  }
+}) as unknown as typeof ResizeObserver
 
 // Mock scrollIntoView
 Element.prototype.scrollIntoView = vi.fn()

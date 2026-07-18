@@ -74,11 +74,14 @@ vi.mock('~/store', () => ({
 }))
 
 // Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
+// Function expression (not arrow) so it is constructable with `new` under vitest 4.
+global.ResizeObserver = vi.fn(function () {
+  return {
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  }
+}) as unknown as typeof ResizeObserver
 
 describe('GridLayoutSection', () => {
   const mockItems: GridItem[] = [
@@ -260,10 +263,12 @@ describe('GridLayoutSection', () => {
   it('observes container resize', () => {
     const observeMock = vi.fn()
     const disconnectMock = vi.fn()
-    global.ResizeObserver = vi.fn().mockImplementation(() => ({
-      observe: observeMock,
-      disconnect: disconnectMock,
-    }))
+    global.ResizeObserver = vi.fn(function () {
+      return {
+        observe: observeMock,
+        disconnect: disconnectMock,
+      }
+    }) as unknown as typeof ResizeObserver
 
     const { unmount } = render(<GridLayoutSection {...defaultProps} />)
 

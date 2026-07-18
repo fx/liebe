@@ -155,9 +155,10 @@ describe('InputBooleanCard', () => {
     const card = container.querySelector('.rt-Card')
     expect(card).toHaveStyle({
       backgroundColor: 'var(--blue-3)',
-      borderColor: 'var(--blue-7)',
       borderWidth: '2px',
     })
+    // See note above: assert the border-color shorthand via the inline style.
+    expect((card as HTMLElement).style.borderColor).toBe('var(--blue-7)')
   })
 
   it('shows delete button in edit mode', () => {
@@ -209,10 +210,10 @@ describe('InputBooleanCard', () => {
 
     const card = container.querySelector('.rt-Card')
     expect(card).toHaveClass('grid-card-error')
-    expect(card).toHaveStyle({
-      borderColor: 'var(--red-6)',
-      borderWidth: '2px',
-    })
+    expect(card).toHaveStyle({ borderWidth: '2px' })
+    // jsdom 27's getComputedStyle resolves var() (to a fallback color here) and
+    // returns "" for the border-color shorthand, so assert the inline value directly.
+    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
     expect(card).toHaveAttribute('title', 'Failed to toggle')
   })
 

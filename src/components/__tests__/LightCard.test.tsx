@@ -273,7 +273,9 @@ describe('LightCard', () => {
     // Check that the card shows selection styling (blue border in edit mode)
     expect(card).toBeInTheDocument()
     expect(card).toHaveClass('grid-card')
-    expect(card).toHaveStyle('border-color: var(--blue-7)')
+    // jsdom 27's getComputedStyle resolves var() and returns "" for the
+    // border-color shorthand, so assert the inline value directly.
+    expect((card as HTMLElement).style.borderColor).toBe('var(--blue-7)')
     expect(card).toHaveStyle('border-width: 2px')
     // Background color is applied but CSS variables don't resolve in tests
   })
