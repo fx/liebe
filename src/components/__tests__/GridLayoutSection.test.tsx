@@ -8,31 +8,30 @@ import * as React from 'react'
 // Mock react-grid-layout
 vi.mock('react-grid-layout', () => {
   return {
+    getCompactor: () => ({ type: null, allowOverlap: false, compact: (layout: unknown) => layout }),
     default: ({
       children,
       layout,
       onLayoutChange,
-      isDraggable,
-      isResizable,
-      draggableHandle,
+      dragConfig,
+      resizeConfig,
     }: {
       children: React.ReactNode[]
       layout: Array<{ i: string; x: number; y: number; w: number; h: number }>
       onLayoutChange?: (
         layout: Array<{ i: string; x: number; y: number; w: number; h: number }>
       ) => void
-      isDraggable?: boolean
-      isResizable?: boolean
-      draggableHandle?: string
+      dragConfig?: { enabled?: boolean; handle?: string }
+      resizeConfig?: { enabled?: boolean }
     }) => {
       return React.createElement(
         'div',
         {
           className: 'react-grid-layout',
           'data-testid': 'grid-layout',
-          'data-draggable': isDraggable,
-          'data-resizable': isResizable,
-          'data-handle': draggableHandle,
+          'data-draggable': dragConfig?.enabled,
+          'data-resizable': resizeConfig?.enabled,
+          'data-handle': dragConfig?.handle,
         },
         layout.map((item, index) =>
           React.createElement(
