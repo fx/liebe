@@ -29,13 +29,15 @@ function getOrCreatePortalElement(cacheKey: string): HTMLDivElement | null {
 export function KeepAlive({ children, cacheKey, containerRef }: KeepAliveProps) {
   // Resolve the portal element during render (no setState in an effect). The
   // element is stable per cacheKey, so children keep their state across moves.
+  // getOrCreatePortalElement is idempotent, so deriving the expected element
+  // each render and syncing state only when it changes keeps the value current
+  // without tracking the previous cacheKey.
   const [portalElement, setPortalElement] = useState<HTMLDivElement | null>(() =>
     getOrCreatePortalElement(cacheKey)
   )
-  const [prevCacheKey, setPrevCacheKey] = useState(cacheKey)
-  if (cacheKey !== prevCacheKey) {
-    setPrevCacheKey(cacheKey)
-    setPortalElement(getOrCreatePortalElement(cacheKey))
+  const expectedElement = getOrCreatePortalElement(cacheKey)
+  if (expectedElement !== portalElement) {
+    setPortalElement(expectedElement)
   }
 
   useEffect(() => {
