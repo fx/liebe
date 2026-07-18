@@ -1,0 +1,66 @@
+# Documentation Index
+# Auto-updated by /spec-writer and /project-management skills
+
+specs:
+  - name: architecture
+    path: specs/architecture/
+    description: Project-level tech stack, repository layout, build system, dev workflow, testing/linting conventions, and GitHub Pages deployment
+    status: active
+  - name: camera-streaming
+    path: specs/camera-streaming/
+    description: WebRTC camera cards — stream negotiation via Home Assistant/go2rtc, fullscreen and mute controls, fit/matting/debug configuration
+    status: active
+  - name: dashboard-config
+    path: specs/dashboard-config/
+    description: Dashboard configuration state — screen tree, view/edit mode, localStorage persistence, and single-file YAML/JSON import/export
+    status: active
+  - name: entity-cards
+    path: specs/entity-cards/
+    description: Entity card system — domain-to-card registry, all card components and variants, size variants, config modal, and entity browser
+    status: active
+  - name: entity-state
+    path: specs/entity-state/
+    description: Home Assistant WebSocket connection and entity-state pipeline — debouncing, batching, stores, consumer hooks, and service calls
+    status: active
+  - name: grid-layout
+    path: specs/grid-layout/
+    description: Grid layout system — react-grid-layout screens, item types, placement, drag/resize in edit mode, and layout persistence
+    status: active
+  - name: navigation
+    path: specs/navigation/
+    description: Base-path-aware routing, Home Assistant URL sync, screen slugs, and taskbar/sidebar screen-tree navigation
+    status: active
+  - name: panel-lifecycle
+    path: specs/panel-lifecycle/
+    description: LiebePanel custom element — shadow-DOM React mount, hass propagation, and lifecycle-resilience mechanisms
+    status: active
+
+changes:
+  - id: '0001'
+    name: per-entity-store-selectors
+    path: changes/0001-per-entity-store-selectors.md
+    description: Subscribe useEntity/useEntities to per-entity store slices so state batches only re-render affected cards
+    spec: entity-state
+    status: draft
+    depends_on: []
+  - id: '0002'
+    name: repo-hygiene
+    path: changes/0002-repo-hygiene.md
+    description: Debug-gate console logging, fix 5 lint warnings, remove unused sharp dependency, zod-validate config imports
+    spec: architecture
+    status: draft
+    depends_on: []
+  - id: '0003'
+    name: reenable-react-hooks-rules
+    path: changes/0003-reenable-react-hooks-rules.md
+    description: Gradually re-enable the five disabled react-hooks v7 lint rules and fix their violations
+    spec: architecture
+    status: draft
+    depends_on: []
+  - id: '0004'
+    name: portable-config-contract
+    path: changes/0004-portable-config-contract.md
+    description: Define one canonical portable configuration field set and align types, exports, imports, and dirty-tracking
+    spec: dashboard-config
+    status: draft
+    depends_on: []
