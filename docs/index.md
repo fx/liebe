@@ -18,6 +18,6 @@
 | #    | Change                                                                            | Spec                                        | Status   | Depends On |
 | ---- | --------------------------------------------------------------------------------- | ------------------------------------------- | -------- | ---------- |
 | 0001 | [Per-Entity Store Selectors](changes/0001-per-entity-store-selectors.md)          | [Entity State](specs/entity-state/)         | complete | —          |
-| 0002 | [Repository Hygiene Bundle](changes/0002-repo-hygiene.md)                         | [Architecture](specs/architecture/)         | draft    | —          |
+| 0002 | [Repository Hygiene Bundle](changes/0002-repo-hygiene.md)                         | [Architecture](specs/architecture/)         | complete | —          |
 | 0003 | [Re-enable react-hooks v7 Lint Rules](changes/0003-reenable-react-hooks-rules.md) | [Architecture](specs/architecture/)         | draft    | —          |
 | 0004 | [Portable Configuration Contract](changes/0004-portable-config-contract.md)       | [Dashboard Config](specs/dashboard-config/) | draft    | —          |

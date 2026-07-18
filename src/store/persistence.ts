@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { dashboardStore, dashboardActions } from './dashboardStore'
 import type { DashboardConfig } from './types'
 import { generateSlug, ensureUniqueSlug } from '../utils/slug'
+import { validateDashboardConfig } from './configSchema'
 import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
@@ -212,12 +213,15 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
           throw new Error('Unsupported file format. Please use .json, .yaml, or .yml files.')
         }
 
-        // Validate basic structure
-        if (!config.version || !Array.isArray(config.screens)) {
-          throw new Error('Invalid configuration format')
+        // Validate the configuration shape before applying anything. Rejection
+        // here means the current dashboard is left untouched (no partial apply).
+        const validation = validateDashboardConfig(config)
+        if (!validation.success) {
+          throw new Error(validation.error)
         }
+        config = validation.config
 
-        // Check version compatibility
+        // Check version compatibility (after shape validation)
         const versionCheck = checkVersionCompatibility(config.version)
         if (!versionCheck.compatible) {
           throw new Error(versionCheck.message)
@@ -383,12 +387,14 @@ export const parseConfigurationFromFile = (
           throw new Error('Unsupported file format. Please use .json, .yaml, or .yml files.')
         }
 
-        // Validate basic structure
-        if (!config.version || !Array.isArray(config.screens)) {
-          throw new Error('Invalid configuration format')
+        // Validate the configuration shape before returning a preview.
+        const validation = validateDashboardConfig(config)
+        if (!validation.success) {
+          throw new Error(validation.error)
         }
+        config = validation.config
 
-        // Check version compatibility
+        // Check version compatibility (after shape validation)
         const versionCheck = checkVersionCompatibility(config.version)
         if (!versionCheck.compatible) {
           throw new Error(versionCheck.message)

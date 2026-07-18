@@ -224,7 +224,7 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 
 - **GIVEN** a `callService` that always rejects
 - **WHEN** it is invoked
-- **THEN** it returns `success: false` with `Failed to call service after 3 attempts` after 4 total calls (`src/services/__tests__/hassService.test.ts:94`).
+- **THEN** it returns `success: false` with `Failed to call service after 4 attempts` after 4 total calls (`src/services/__tests__/hassService.test.ts:94`).
 
 #### Scenario: Minimum loading time
 
@@ -375,7 +375,7 @@ Service-call retry (`src/services/hassService.ts:61`):
     return this.callServiceWithRetry(options, retryCount + 1)
   }
   throw new ServiceCallError(
-    `Failed to call service after ${this.retryDelays.length} attempts: ${errorMessage}`,
+    `Failed to call service after ${this.retryDelays.length + 1} attempts: ${errorMessage}`,
     options.domain, options.service, options.entityId
   )
 }
