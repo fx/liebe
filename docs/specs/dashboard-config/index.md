@@ -4,6 +4,8 @@
 
 The dashboard configuration subsystem owns the in-memory representation of a Liebe dashboard — the tree of screens, the current screen, view/edit mode, sidebar and theme state — and the persistence of that representation to `localStorage` and to portable JSON/YAML files. The store MUST be the single source of truth mutated exclusively through `dashboardActions`, and every mutation that changes shareable configuration MUST mark the state dirty so it can be auto-saved. The entire dashboard MUST be exportable as, and importable from, a single self-contained YAML (or JSON) document so a configuration can be shared or backed up as one file. Configuration import from untrusted files MUST validate at least the presence of a `version` string and a `screens` array before applying.
 
+The set of shareable fields is a single **canonical portable contract**: `version`, `screens`, `theme`, `sidebarOpen`, `tabsExpanded`, and `sidebarWidgets`. `DashboardConfig`, the JSON export, the YAML export, and import MUST all serialize exactly this set, and `isDirty` MUST be set by exactly the mutations that change one of these fields — no more, no fewer. Device-local state (`mode`, persisted separately under `liebe-mode`, and the top-level `gridResolution`) is deliberately outside the contract: it never travels with the portable document and never marks it dirty.
+
 This spec covers configuration _state and persistence_ only. Grid rendering and layout mechanics are specified in [../grid-layout/](../grid-layout/), the card components placed into grids in [../entity-cards/](../entity-cards/), and the sidebar/navigation UI structure in [../navigation/](../navigation/).
 
 ## Background
@@ -27,7 +29,7 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 
 ### Dirty Tracking & Auto-Save
 
-- Every action that changes shareable configuration (screens, grid items, theme, grid resolution, sidebar open/expanded, sidebar widgets, mode) MUST set `isDirty` to `true`.
+- Every action that changes a portable field (screens, grid items, theme, sidebar open/expanded, sidebar widgets) MUST set `isDirty` to `true`, and only those actions may. Device-local mutations — `setMode` and the top-level `setGridResolution` — MUST NOT set `isDirty`.
 - `markClean()` MUST set `isDirty` to `false` without otherwise altering state.
 - `loadConfiguration()` MUST leave `isDirty` `false` (a freshly loaded config is not a pending change).
 - `useDashboardPersistence()` MUST subscribe to the store and, whenever `isDirty` is true, write the exported configuration to `localStorage` and then call `markClean()`. `useAutoSave(interval)` MUST perform the same save-if-dirty check on a timer (default 5000 ms).
@@ -82,7 +84,7 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 
 ### Mode Toggle & Persistence
 
-- `setMode(mode)` MUST update `mode`, set `isDirty` true, and asynchronously persist the raw mode string to `localStorage` under `liebe-mode` (via a deferred import to avoid a circular dependency).
+- `setMode(mode)` MUST update `mode` and asynchronously persist the raw mode string to `localStorage` under `liebe-mode` (via a deferred import to avoid a circular dependency). Because `mode` is device-local and outside the portable contract, `setMode` MUST NOT set `isDirty` (a mode toggle MUST NOT rewrite `liebe-config`).
 - `loadDashboardMode()` MUST return the stored mode only when it is exactly `'view'` or `'edit'`, and MUST default to `'view'` for a missing, invalid, or unreadable value.
 - The `ModeToggle` component MUST toggle between `view` and `edit` on click and on the `Ctrl/⌘ + E` keyboard shortcut (preventing that event's default), and MUST remove its key listener on unmount.
 
@@ -97,6 +99,12 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 - **GIVEN** the dashboard is in `view` mode and `ModeToggle` is mounted
 - **WHEN** the user presses `Ctrl+E`
 - **THEN** the default is prevented and `mode` becomes `edit`
+
+#### Scenario: Mode switch does not rewrite config
+
+- **GIVEN** a clean (non-dirty) dashboard
+- **WHEN** the user toggles view/edit mode
+- **THEN** `liebe-mode` is updated but `isDirty` stays `false` and `liebe-config` is not rewritten
 
 ### Theme Selection & Application
 
@@ -119,8 +127,8 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 ### Sidebar & Tabs State
 
 - `toggleSidebar(open?)` and `toggleTabsExpanded(expanded?)` MUST set the value explicitly when the argument is provided, otherwise invert the current value, and MUST set `isDirty` true.
-- `sidebarOpen` and `tabsExpanded` MUST be included in `exportConfiguration()` and restored by `loadConfiguration()`, but `loadConfiguration()` MUST fall back to the existing store value (via `??`) when the incoming config omits them.
-- The `sidebarWidgets` list is mutated by `updateSidebarWidgets`/`addSidebarWidget`/`removeSidebarWidget` (all set `isDirty` true) but is NOT part of the exported `DashboardConfig`. (Widget rendering belongs to [../navigation/](../navigation/).)
+- `sidebarOpen`, `tabsExpanded`, and `sidebarWidgets` MUST be included in `exportConfiguration()` and restored by `loadConfiguration()`, but `loadConfiguration()` MUST fall back to the existing store value (via `??`) when the incoming config omits them.
+- The `sidebarWidgets` list is mutated by `updateSidebarWidgets`/`addSidebarWidget`/`removeSidebarWidget` (all set `isDirty` true) and IS part of the portable `DashboardConfig`, so it round-trips through JSON and YAML export/import. (Widget rendering belongs to [../navigation/](../navigation/).)
 
 #### Scenario: Sidebar state round-trips through export
 
@@ -150,7 +158,7 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 ### File Export
 
 - `exportConfigurationToFile()` MUST download the current configuration as pretty-printed JSON named `liebe-<YYYY-MM-DD>.json`.
-- `exportConfigurationAsYAML()` MUST serialize `version`, `theme` (defaulting to `auto`), `sidebarOpen`, and `screens` — with leading comment keys — into a single YAML document; `exportConfigurationToYAMLFile()` downloads it as `liebe-<YYYY-MM-DD>.yaml`, and `copyYAMLToClipboard()` writes it to the clipboard.
+- `exportConfigurationAsYAML()` MUST serialize the full canonical portable set — `version`, `theme` (defaulting to `auto`), `sidebarOpen`, `tabsExpanded`, `sidebarWidgets`, and `screens` — with leading comment keys — into a single YAML document, matching the JSON export field-for-field; `exportConfigurationToYAMLFile()` downloads it as `liebe-<YYYY-MM-DD>.yaml`, and `copyYAMLToClipboard()` writes it to the clipboard.
 
 #### Scenario: YAML contains the whole dashboard
 
@@ -250,8 +258,11 @@ export interface DashboardConfig {
   theme?: 'light' | 'dark' | 'auto'
   sidebarOpen?: boolean
   tabsExpanded?: boolean
+  sidebarWidgets?: WidgetConfig[]
 }
 ```
+
+These six fields are the canonical portable contract: `exportConfiguration` (JSON) and `exportConfigurationAsYAML` serialize exactly this set, and the import paths validate these fields via `dashboardConfigSchema` while tolerating unknown extra keys (`.passthrough()`) for forward compatibility.
 
 Screens form a recursive tree (`src/store/types.ts:27`):
 
@@ -312,7 +323,7 @@ export interface DashboardState {
 }
 ```
 
-Note the divergence: `gridResolution`, `mode`, `currentScreenId`, `configuration`, and `sidebarWidgets` live in state but are NOT fields of `DashboardConfig`, so they are not part of the shared YAML. `mode` is persisted separately under `liebe-mode`.
+Note the divergence: `gridResolution`, `mode`, `currentScreenId`, and `configuration` live in state but are NOT fields of `DashboardConfig`, so they are not part of the shared YAML. `mode` is persisted separately under `liebe-mode`; the top-level `gridResolution` is reset to the 12×8 default on load. `sidebarWidgets` IS a portable field and does travel with the document.
 
 ### API Surface
 
@@ -320,7 +331,7 @@ Note the divergence: `gridResolution`, `mode`, `currentScreenId`, `configuration
 
 | Action                                                      | Effect                                       | Dirty           |
 | ----------------------------------------------------------- | -------------------------------------------- | --------------- |
-| `setMode(mode)`                                             | set mode; async-persist to `liebe-mode`      | ✓               |
+| `setMode(mode)`                                             | set mode; async-persist to `liebe-mode`      | —               |
 | `setCurrentScreen(id)`                                      | set `currentScreenId`                        | —               |
 | `addScreen(screen, parentId?)`                              | append top-level or into parent's children   | ✓               |
 | `removeScreen(id)`                                          | recursive delete; null current if matched    | ✓               |
@@ -329,7 +340,7 @@ Note the divergence: `gridResolution`, `mode`, `currentScreenId`, `configuration
 | `addGridItem/updateGridItem/removeGridItem`                 | grid item CRUD                               | ✓               |
 | `reorderGrid(id)`                                           | compact-pack items                           | ✓               |
 | `setTheme(theme)`                                           | set theme                                    | ✓               |
-| `setGridResolution(res)`                                    | set resolution                               | ✓               |
+| `setGridResolution(res)`                                    | set top-level resolution (device-local)      | —               |
 | `toggleSidebar/toggleTabsExpanded`                          | set-or-invert                                | ✓               |
 | `updateSidebarWidgets/addSidebarWidget/removeSidebarWidget` | widget list CRUD                             | ✓               |
 | `loadConfiguration(config)`                                 | replace tree/theme/sidebar; mode→view; clean | resets to false |
@@ -359,18 +370,14 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 ## Constraints
 
 - **Radix Theme, no custom CSS** — theme is applied through the Radix `Theme` `appearance` prop, not bespoke stylesheets.
-- **Single-file portability** — a configuration MUST remain fully described by one `DashboardConfig` document so it can be exported/shared as one YAML (or JSON) file; anything not in `DashboardConfig` (mode, grid resolution, sidebar widgets, current screen) does not travel with that file.
+- **Single-file portability** — a configuration MUST remain fully described by one `DashboardConfig` document so it can be exported/shared as one YAML (or JSON) file; anything not in `DashboardConfig` (mode, top-level grid resolution, current screen) does not travel with that file.
 - **localStorage budget** — persistence targets a ~5 MB `localStorage` budget; `getStorageInfo` warns at 90 %.
 - **Store-only mutation** — components MUST NOT mutate store state directly; all writes go through `dashboardActions`.
 - **Backward compatibility on load** — older on-disk shapes MUST continue to load via migration rather than being rejected.
 
 ## Open Questions
 
-- **Import validation is shallow and trusts untyped input.** `parseConfigurationFromFile`/`importConfigurationFromFile` only check that `version` is truthy and `screens` is an array, then cast the parsed YAML/JSON to `DashboardConfig`. Individual `ScreenConfig`/`GridItem` fields are never validated, so a malformed-but-array `screens` payload from an untrusted file is loaded as-is. `zod` (`^3.24.2`) is a project dependency but is not imported anywhere in `src/` — schema validation of imported configurations is available but unused. Recursive schema validation of the full config (screens, nested children, grid items with bounds) is planned in [0002-repo-hygiene](../../changes/0002-repo-hygiene.md).
-- **`exportConfigurationAsYAML` drops `tabsExpanded`.** The YAML export serializes `version`, `theme`, `sidebarOpen`, and `screens`, but omits `tabsExpanded` even though it is part of `DashboardConfig` and is included in the JSON export. Whether this is intentional is unclear.
-- **`gridResolution` is state-only.** `loadConfiguration` always resets `gridResolution` to the 12×8 default and `exportConfiguration` never emits it, so a per-dashboard grid resolution is not actually persisted or shared. Only per-screen `grid.resolution` round-trips.
 - **`StoreActions` interface is stale.** The exported `StoreActions` type (`src/store/types.ts:72`) omits several actions that exist on `dashboardActions` (sidebar/tabs/widget toggles, `reorderGrid`) and types `updateScreen` more broadly than the implementation, which only patches `name`/`slug`.
-- **`setMode` marks the config dirty.** Toggling view/edit sets `isDirty` true (triggering a full config auto-save) in addition to writing `liebe-mode`, so a mode switch rewrites `liebe-config` even though mode is not part of that document.
 
 ## References
 
@@ -385,6 +392,7 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 
 ## Changelog
 
-| Date       | Change                                                     | Document |
-| ---------- | ---------------------------------------------------------- | -------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation) | —        |
+| Date       | Change                                                                                                                                                          | Document                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                      | —                                                      |
+| 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying | [0004](../../changes/0004-portable-config-contract.md) |
