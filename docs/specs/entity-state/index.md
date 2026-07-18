@@ -395,6 +395,7 @@ Service-call retry (`src/services/hassService.ts:61`):
 - **`hasSubscribedEntityUpdates` is unused by the pipeline.** The action exists and is exercised by tests, but the batcher no longer calls it (the batcher test names reference a `lastUpdateTime` concept that is not present in the current `EntityState`). Its intended role is unclear.
 - **Manual-reconnect status uses a fixed attempt number.** `reconnect()` reports `setReconnecting(1, …)` regardless of prior attempts, so the UI attempt counter can understate reconnection activity during a manual reconnect.
 - **Health check relies on `hass.connection.socket` being a `WebSocket`.** `checkConnectionHealth` casts `connection.socket` to `WebSocket` and reads `readyState`; if Home Assistant changes the socket shape this silently no-ops (`src/services/hassConnection.ts:309`).
+- **Entity subscriptions are not reference-counted.** `subscribedEntities` is a plain `Set`, so multiple consumers of the same `entityId` (e.g. two cards, or `useEntity` and `useEntities` on the same id) share a single Set entry. When one consumer unmounts, its `unsubscribeFromEntity` deletes the entry outright, dropping the subscription still needed by the others (`src/store/entityStore.ts:120`). A correct fix would refcount subscriptions (increment on subscribe, decrement on unsubscribe, remove only at zero). This is pre-existing store behavior left untouched by change 0001 (which mandates preserving the subscribe/unsubscribe side effects) and needs its own change.
 
 ## References
 
