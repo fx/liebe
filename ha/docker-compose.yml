@@ -8,9 +8,10 @@ services:
     environment:
       - TZ=UTC
     ports:
-      # Bind to loopback only: this is a throwaway instance with a known
-      # dev/dev admin account and must not be exposed on the local network.
-      - '127.0.0.1:8123:8123'
+      # Defaults to loopback only: this is a throwaway instance with a known
+      # dev/dev admin account. Set HA_BIND=0.0.0.0 to expose it (e.g. for
+      # Tailscale access from another machine).
+      - '${HA_BIND:-127.0.0.1}:8123:8123'
     volumes:
       - ./config:/config
       - ../dist:/config/www/dist:ro
