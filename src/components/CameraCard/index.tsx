@@ -238,6 +238,7 @@ function CameraCardComponent({
         variant="card"
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
+        size="3"
       />
     )
   }
