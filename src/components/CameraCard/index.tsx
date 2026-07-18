@@ -390,8 +390,16 @@ function CameraCardComponent({
           position: 'relative',
         }}
       >
+        {/* Any tap on the overlay exits — including the letterbox area. The
+            modal's content div swallows clicks (stopPropagation), so without
+            this handler only taps landing on the video itself would close
+            (bubbling through the KeepAlive portal to handleVideoClick), making
+            the "Click or press ESC to exit" hint wrong for the letterbox.
+            CameraControls' buttons stopPropagation and are siblings of this
+            container, so mute/native-fullscreen never trigger it. */}
         <div
           ref={fullscreenContainerRef}
+          onClick={() => setIsFullscreen(false)}
           style={{
             width: '100%',
             height: '100%',

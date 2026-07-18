@@ -167,13 +167,21 @@ export async function collectConsoleErrors(
   benignPatterns: RegExp[] = []
 ): Promise<ConsoleErrorCollector> {
   const collected: string[] = []
+  // In-flight console-arg serializations; fatalErrors() awaits them so late
+  // errors are never silently dropped.
+  const pendingSerializations = new Set<Promise<void>>()
+  // Bare "Object" pageerrors: object-reason unhandled rejections surface here
+  // AND in the in-page records below; synchronous `throw {…}` surfaces ONLY
+  // here. Kept separately so fatalErrors() can dedupe against the in-page
+  // records instead of dropping (or double-reporting) them.
+  const objectPageErrors: string[] = []
 
   page.on('console', (msg) => {
     if (msg.type() !== 'error') return
     // msg.text() renders object arguments as the literal "Object"; serialize
     // the argument values so the benign filter sees the real payload.
     const { url, lineNumber } = msg.location()
-    void Promise.all(
+    const serialization = Promise.all(
       msg.args().map((arg) =>
         arg
           .jsonValue()
@@ -184,13 +192,21 @@ export async function collectConsoleErrors(
       const text = parts.length > 0 ? parts.join(' ') : msg.text()
       collected.push(`${text} (at ${url}:${lineNumber})`)
     })
+    pendingSerializations.add(serialization)
+    void serialization.finally(() => pendingSerializations.delete(serialization))
   })
 
-  // The bare "Object" pageerror duplicates of unhandled rejections are dropped
-  // in favor of the serialized in-page records below.
   page.on('pageerror', (err) => {
     const text = err.stack || err.message
-    if (text !== 'Object') collected.push(text)
+    if (text === 'Object') {
+      // A thrown/rejected plain object renders as the useless "Object". Never
+      // drop it outright: record a placeholder that fatalErrors() dedupes
+      // against the in-page rejection records (a leftover means a synchronous
+      // object throw the in-page recorder cannot see).
+      objectPageErrors.push('pageerror: [unserializable object]')
+      return
+    }
+    collected.push(text)
   })
 
   await page.addInitScript(() => {
@@ -213,10 +229,24 @@ export async function collectConsoleErrors(
 
   return {
     fatalErrors: async () => {
+      // Let in-flight console-arg serializations land first (guarded by a
+      // timeout so a hung jsonValue cannot hang the test).
+      await Promise.race([
+        Promise.allSettled([...pendingSerializations]),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ])
       const rejections = await page.evaluate(
         () => (window as unknown as { __e2eRejections?: string[] }).__e2eRejections ?? []
       )
-      return [...collected, ...rejections].filter(
+      // Each object-reason rejection produced both an in-page record and a
+      // bare "Object" pageerror: drop one placeholder per such record. Any
+      // placeholder left over came from a synchronous object throw that only
+      // the pageerror channel saw — keep it so it can fail the test.
+      const objectRejectionCount = rejections.filter((text) =>
+        text.startsWith('unhandled rejection: {')
+      ).length
+      const unmatchedObjectPageErrors = objectPageErrors.slice(objectRejectionCount)
+      return [...collected, ...unmatchedObjectPageErrors, ...rejections].filter(
         (text) => !benignPatterns.some((pattern) => pattern.test(text))
       )
     },

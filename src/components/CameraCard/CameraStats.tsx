@@ -27,8 +27,11 @@ function StatItem({ label, value, alert }: { label: string; value: string; alert
 // fallbacks). Bitrate is gone: Liebe no longer owns an RTCPeerConnection to
 // read it from.
 export function CameraStats({ size, videoElement }: CameraStatsProps) {
+  // fps is null until two samples exist: a rate needs a real interval, and a
+  // zero baseline against a long-running video would inflate the first sample
+  // into an absurd number (all frames ever decoded divided by ~one second).
   const [stats, setStats] = useState({
-    fps: 0,
+    fps: null as number | null,
     decodedFrames: 0,
     droppedFrames: 0,
     resolution: '',
@@ -39,7 +42,10 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
     if (!videoElement) return
 
     let lastTime = Date.now()
-    let lastDecodedFrames = 0
+    // Seed the baseline from the video's current counters so the first
+    // interval measures only frames decoded while this overlay was watching.
+    let lastDecodedFrames = getPlaybackQuality(videoElement).decodedFrames
+    let isFirstSample = true
 
     const updateStats = () => {
       const now = Date.now()
@@ -47,9 +53,11 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
 
       const { decodedFrames, droppedFrames } = getPlaybackQuality(videoElement)
 
-      // Calculate FPS based on decoded frames
+      // Calculate FPS based on decoded frames; no rate exists until the
+      // second sample (the first only establishes the baseline).
       const framesDelta = decodedFrames - lastDecodedFrames
-      const fps = deltaTime > 0 ? Math.round(framesDelta / deltaTime) : 0
+      const fps = !isFirstSample && deltaTime > 0 ? Math.round(framesDelta / deltaTime) : null
+      isFirstSample = false
 
       // Get video resolution
       const resolution =
@@ -101,12 +109,12 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
       {size === 'small' ? (
         // Compact single line for small size
         <Text size="1" style={CODE_FONT}>
-          {stats.fps} FPS • {stats.resolution}
+          {stats.fps ?? '—'} FPS • {stats.resolution}
         </Text>
       ) : (
         // Flex layout for medium/large
         <Flex gap="3" align="center">
-          <StatItem label="FPS" value={String(stats.fps)} />
+          <StatItem label="FPS" value={stats.fps === null ? '—' : String(stats.fps)} />
           <StatItem label="Resolution" value={stats.resolution} />
           <StatItem label="Frames" value={String(stats.decodedFrames)} />
           <StatItem

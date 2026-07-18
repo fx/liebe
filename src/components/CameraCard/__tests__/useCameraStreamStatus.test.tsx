@@ -1,30 +1,57 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useCameraStreamStatus, MAX_AUTO_REMOUNTS } from '../useCameraStreamStatus'
+import {
+  useCameraStreamStatus,
+  MAX_AUTO_REMOUNTS,
+  CONNECT_TIMEOUT_MS,
+} from '../useCameraStreamStatus'
 
 // Watchdog ticks every 250ms; one tick past the 500ms warning threshold.
 const WARNING_TICK_MS = 750
 // One tick past the 5s stall threshold.
 const STALL_TICK_MS = 5250
 
+// Toggle document.hidden (jsdom exposes it as a prototype getter; an instance
+// property shadows it) and fire the visibilitychange event, as a real tab
+// switch would.
+function setDocumentHidden(hidden: boolean) {
+  Object.defineProperty(document, 'hidden', { value: hidden, configurable: true })
+  document.dispatchEvent(new Event('visibilitychange'))
+}
+
 interface RvfcVideo {
   video: HTMLVideoElement
   fireFrame: () => void
+  fireError: () => void
   requestSpy: ReturnType<typeof vi.fn>
   cancelSpy?: ReturnType<typeof vi.fn>
+  addListenerSpy: ReturnType<typeof vi.fn>
+  removeListenerSpy: ReturnType<typeof vi.fn>
 }
 
 function createRvfcVideo({ withCancel = true }: { withCancel?: boolean } = {}): RvfcVideo {
   const callbacks: Array<() => void> = []
+  const errorListeners: EventListener[] = []
   const requestSpy = vi.fn((callback: () => void) => {
     callbacks.push(callback)
     return callbacks.length
   })
   const cancelSpy = vi.fn()
-  const video = { currentTime: 0, requestVideoFrameCallback: requestSpy } as unknown as Record<
-    string,
-    unknown
-  >
+  const addListenerSpy = vi.fn((type: string, listener: EventListener) => {
+    if (type === 'error') errorListeners.push(listener)
+  })
+  const removeListenerSpy = vi.fn((type: string, listener: EventListener) => {
+    if (type === 'error') {
+      const index = errorListeners.indexOf(listener)
+      if (index !== -1) errorListeners.splice(index, 1)
+    }
+  })
+  const video = {
+    currentTime: 0,
+    requestVideoFrameCallback: requestSpy,
+    addEventListener: addListenerSpy,
+    removeEventListener: removeListenerSpy,
+  } as unknown as Record<string, unknown>
   if (withCancel) {
     video.cancelVideoFrameCallback = cancelSpy
   }
@@ -32,11 +59,52 @@ function createRvfcVideo({ withCancel = true }: { withCancel?: boolean } = {}): 
     const pending = callbacks.splice(0, callbacks.length)
     pending.forEach((callback) => callback())
   }
+  const fireError = () => {
+    ;[...errorListeners].forEach((listener) => listener(new Event('error')))
+  }
   return {
     video: video as unknown as HTMLVideoElement,
     fireFrame,
+    fireError,
     requestSpy,
     cancelSpy: withCancel ? cancelSpy : undefined,
+    addListenerSpy,
+    removeListenerSpy,
+  }
+}
+
+// Plain (rVFC-less) video mocks still need the listener API the hook wires up.
+function withListenerApi<T extends Record<string, unknown>>(mock: T): T {
+  return { addEventListener: () => {}, removeEventListener: () => {}, ...mock }
+}
+
+interface MjpegImg {
+  img: HTMLImageElement
+  fireError: () => void
+  setNaturalWidth: (width: number) => void
+  addListenerSpy: ReturnType<typeof vi.fn>
+  removeListenerSpy: ReturnType<typeof vi.fn>
+}
+
+function createMjpegImg(naturalWidth = 0): MjpegImg {
+  const errorListeners: EventListener[] = []
+  const addListenerSpy = vi.fn((type: string, listener: EventListener) => {
+    if (type === 'error') errorListeners.push(listener)
+  })
+  const removeListenerSpy = vi.fn()
+  const img = {
+    naturalWidth,
+    addEventListener: addListenerSpy,
+    removeEventListener: removeListenerSpy,
+  }
+  return {
+    img: img as unknown as HTMLImageElement,
+    fireError: () => [...errorListeners].forEach((listener) => listener(new Event('error'))),
+    setNaturalWidth: (width: number) => {
+      img.naturalWidth = width
+    },
+    addListenerSpy,
+    removeListenerSpy,
   }
 }
 
@@ -60,6 +128,8 @@ describe('useCameraStreamStatus', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    // Restore jsdom's prototype getter (visible) if a test shadowed it.
+    delete (document as { hidden?: boolean }).hidden
   })
 
   it('is idle until a load or streams event starts a watch', () => {
@@ -127,7 +197,7 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.hasFrameWarning).toBe(false)
   })
 
-  it('requests a remount after a sustained 5s stall', () => {
+  it('requests a remount after a sustained 5s stall, then errors when the remount never comes up', () => {
     const { video } = createRvfcVideo()
     const { result } = renderStatus({ video })
 
@@ -144,11 +214,13 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.error).toBeNull()
 
     // The stalled watch stopped itself: no further remounts without a new
-    // load event.
+    // load event. The remounted element never fires one, so the connect
+    // timeout surfaces an error instead of spinning forever.
     act(() => {
-      vi.advanceTimersByTime(60_000)
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS)
     })
     expect(result.current.remountKey).toBe(1)
+    expect(result.current.error).toBe('Stream failed to start')
   })
 
   it('surfaces "Stream stalled" after the auto-remount cap and recovers on frames', () => {
@@ -268,10 +340,10 @@ describe('useCameraStreamStatus', () => {
 
   it('falls back to playback polling when requestVideoFrameCallback is absent', () => {
     let totalVideoFrames = 0
-    const video = {
+    const video = withListenerApi({
       currentTime: 0,
       getVideoPlaybackQuality: () => ({ totalVideoFrames }),
-    } as unknown as HTMLVideoElement
+    }) as unknown as HTMLVideoElement
 
     const { result } = renderStatus({ video })
     act(() => {
@@ -304,7 +376,7 @@ describe('useCameraStreamStatus', () => {
   })
 
   it('polls without getVideoPlaybackQuality and with an empty quality report', () => {
-    const bareVideo = { currentTime: 0 } as unknown as HTMLVideoElement
+    const bareVideo = withListenerApi({ currentTime: 0 }) as unknown as HTMLVideoElement
     const bare = renderStatus({ video: bareVideo })
     act(() => {
       bare.result.current.onStreamEvent()
@@ -316,10 +388,10 @@ describe('useCameraStreamStatus', () => {
     expect(bare.result.current.isStreaming).toBe(true)
     bare.unmount()
 
-    const emptyQualityVideo = {
+    const emptyQualityVideo = withListenerApi({
       currentTime: 0,
       getVideoPlaybackQuality: () => ({}),
-    } as unknown as HTMLVideoElement
+    }) as unknown as HTMLVideoElement
     const empty = renderStatus({ video: emptyQualityVideo })
     act(() => {
       empty.result.current.onStreamEvent()
@@ -332,7 +404,7 @@ describe('useCameraStreamStatus', () => {
   })
 
   it('treats an mjpeg image as streaming once it has decoded pixels, without a watchdog', () => {
-    const img = { naturalWidth: 0 } as unknown as HTMLImageElement
+    const { img, setNaturalWidth, removeListenerSpy } = createMjpegImg()
     const { result } = renderStatus({ img })
 
     act(() => {
@@ -344,10 +416,11 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.isStreaming).toBe(false)
 
     act(() => {
-      ;(img as unknown as { naturalWidth: number }).naturalWidth = 640
+      setNaturalWidth(640)
       vi.advanceTimersByTime(500)
     })
     expect(result.current.isStreaming).toBe(true)
+    expect(removeListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
 
     // No frame watchdog in MJPEG mode: no warning, no remount, ever.
     act(() => {
@@ -396,15 +469,16 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.hasFrameWarning).toBe(false)
     expect(result.current.error).toBeNull()
 
-    // Events while disabled start no watch.
+    // Events while disabled start no watch, and no connect timeout is armed.
     act(() => {
       result.current.onStreamEvent()
     })
     act(() => {
-      vi.advanceTimersByTime(10_000)
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS + 10_000)
     })
     expect(result.current.isStreaming).toBe(false)
     expect(result.current.remountKey).toBe(0)
+    expect(result.current.error).toBeNull()
   })
 
   it('cancels the pending video frame callback on unmount and ignores late frames', () => {
@@ -434,5 +508,300 @@ describe('useCameraStreamStatus', () => {
     })
 
     expect(() => unmount()).not.toThrow()
+  })
+
+  describe('connect timeout (load phase)', () => {
+    it('errors with "Stream failed to start" when no stream event ever arrives, and retry re-arms it', () => {
+      const { video } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 250)
+      })
+      expect(result.current.error).toBeNull()
+
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+      expect(result.current.isStreaming).toBe(false)
+      expect(result.current.remountKey).toBe(0)
+
+      // The expired timer fired once; nothing else happens afterwards.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+      expect(result.current.remountKey).toBe(0)
+
+      // Retry clears the error, remounts, and grants a fresh connect budget.
+      act(() => {
+        result.current.retry()
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.remountKey).toBe(1)
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
+
+    it('is cleared by the first stream event and never fires for a healthy stream', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+
+      // Frames keep flowing well past the connect budget: no error.
+      act(() => {
+        for (let elapsed = 0; elapsed < CONNECT_TIMEOUT_MS + 5000; elapsed += 250) {
+          vi.advanceTimersByTime(250)
+          fireFrame()
+        }
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.isStreaming).toBe(true)
+    })
+
+    it('pauses while the tab is hidden and resumes with the remaining budget', () => {
+      const { video } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      // 10s of the budget spent while visible.
+      act(() => {
+        vi.advanceTimersByTime(10_000)
+      })
+      act(() => {
+        setDocumentHidden(true)
+      })
+      // A whole minute hidden does not trip the timeout.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.error).toBeNull()
+
+      act(() => {
+        setDocumentHidden(false)
+      })
+      // Only the remaining ~10s of visible budget applies.
+      act(() => {
+        vi.advanceTimersByTime(10_000 - 250)
+      })
+      expect(result.current.error).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
+  })
+
+  describe('visibility-aware watchdog', () => {
+    it('skips stall and warning evaluation while the tab is hidden', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      act(() => {
+        setDocumentHidden(true)
+      })
+      // rVFC is suspended in hidden tabs: a minute without frames must not
+      // warn, stall, remount, or error.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.isStreaming).toBe(true)
+      expect(result.current.hasFrameWarning).toBe(false)
+      expect(result.current.remountKey).toBe(0)
+      expect(result.current.error).toBeNull()
+    })
+
+    it('grants a grace period after returning to a visible tab before resuming evaluation', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      act(() => {
+        setDocumentHidden(true)
+      })
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+
+      // Back to visible: the frame clock restarts from now instead of
+      // instantly reporting a 60s stall.
+      act(() => {
+        setDocumentHidden(false)
+      })
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(result.current.hasFrameWarning).toBe(false)
+      expect(result.current.remountKey).toBe(0)
+
+      // The watchdog resumed: a real frame gap now warns again.
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.hasFrameWarning).toBe(true)
+    })
+
+    it('restores the auto-remount budget when the tab becomes visible again', () => {
+      const { video } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      // Burn the whole budget with visible stalls.
+      for (let cycle = 0; cycle < MAX_AUTO_REMOUNTS; cycle += 1) {
+        act(() => {
+          result.current.onStreamEvent()
+        })
+        act(() => {
+          vi.advanceTimersByTime(STALL_TICK_MS)
+        })
+      }
+      expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS)
+
+      // Hide and return: the visible session starts with a fresh budget, so
+      // the next stall remounts instead of surfacing "Stream stalled".
+      act(() => {
+        setDocumentHidden(true)
+      })
+      act(() => {
+        setDocumentHidden(false)
+      })
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        vi.advanceTimersByTime(STALL_TICK_MS)
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS + 1)
+    })
+  })
+
+  describe('video element errors', () => {
+    it('surfaces "Video playback error" immediately and stops the watch', () => {
+      const { video, fireFrame, fireError, removeListenerSpy } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      act(() => {
+        fireError()
+      })
+      expect(result.current.error).toBe('Video playback error')
+      expect(result.current.isStreaming).toBe(false)
+      expect(result.current.hasFrameWarning).toBe(false)
+      expect(removeListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
+
+      // The watch stopped: no stall remount ever fires afterwards.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.remountKey).toBe(0)
+      expect(result.current.error).toBe('Video playback error')
+    })
+
+    it('attaches the error listener per watch and removes it on unmount', () => {
+      const { video, addListenerSpy, removeListenerSpy } = createRvfcVideo()
+      const { result, unmount } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      expect(addListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
+
+      unmount()
+      expect(removeListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
+    })
+  })
+
+  describe('mjpeg connect handling', () => {
+    it('errors when the image never decodes pixels within the connect budget', () => {
+      const { img, setNaturalWidth } = createMjpegImg()
+      const { result } = renderStatus({ img })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 500)
+      })
+      expect(result.current.error).toBeNull()
+
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+      expect(result.current.isStreaming).toBe(false)
+
+      // The poll stopped: pixels arriving later change nothing.
+      act(() => {
+        setNaturalWidth(640)
+        vi.advanceTimersByTime(1000)
+      })
+      expect(result.current.isStreaming).toBe(false)
+    })
+
+    it('fails fast on an image error event', () => {
+      const { img, fireError, removeListenerSpy } = createMjpegImg()
+      const { result } = renderStatus({ img })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireError()
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+      expect(removeListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
+    })
+
+    it('pauses the mjpeg connect budget while the tab is hidden', () => {
+      const { img } = createMjpegImg()
+      const { result } = renderStatus({ img })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        setDocumentHidden(true)
+      })
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.error).toBeNull()
+
+      act(() => {
+        setDocumentHidden(false)
+      })
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
   })
 })

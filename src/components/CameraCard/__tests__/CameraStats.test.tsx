@@ -17,6 +17,42 @@ describe('CameraStats', () => {
     vi.useRealTimers()
   })
 
+  it('does not inflate the first sample against a long-running video', () => {
+    let totalVideoFrames = 250_000
+    const video = makeVideo({
+      getVideoPlaybackQuality: () => ({ totalVideoFrames, droppedVideoFrames: 0 }),
+    })
+    const { getByText } = render(<CameraStats size="medium" videoElement={video} />)
+
+    // First sample: the baseline is seeded from the video's current counters,
+    // and no FPS renders until a second sample exists — NOT ~250000 fps from
+    // a zero baseline.
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
+    expect(getByText('FPS').nextElementSibling?.textContent).toBe('—')
+    expect(getByText('250000')).toBeInTheDocument()
+
+    // Second sample measures only the frames decoded since the baseline.
+    totalVideoFrames = 250_030
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(getByText('30')).toBeInTheDocument()
+  })
+
+  it('renders an FPS placeholder in the compact line until the second sample', () => {
+    const video = makeVideo({
+      getVideoPlaybackQuality: () => ({ totalVideoFrames: 9000, droppedVideoFrames: 0 }),
+    })
+    const { container } = render(<CameraStats size="small" videoElement={video} />)
+
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
+    expect(container.textContent).toContain('— FPS • 1920x1080')
+  })
+
   it('computes fps, frames, dropped, and resolution from getVideoPlaybackQuality', () => {
     let totalVideoFrames = 0
     let droppedVideoFrames = 0
@@ -27,11 +63,12 @@ describe('CameraStats', () => {
       <CameraStats size="medium" videoElement={video} />
     )
 
-    // Initial update runs at delta 0: fps guard yields 0.
+    // Initial update only establishes the baseline: FPS renders as '—'.
     act(() => {
       vi.advanceTimersByTime(0)
     })
     expect(getAllByText('0').length).toBeGreaterThan(0)
+    expect(getByText('FPS').nextElementSibling?.textContent).toBe('—')
     expect(getByText('1920x1080')).toBeInTheDocument()
 
     // 25 new frames in one second: fps 25, frames 25, dropped 2 (in red).

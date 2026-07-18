@@ -51,6 +51,20 @@ describe('useCameraStreamReady', () => {
     await waitFor(() => expect(result.current).toBe('unavailable'))
   })
 
+  it('re-runs the ladder on remount, so a transient failure gets a fresh chance', async () => {
+    // ensureHaElement evicts false resolutions from its cache, so a remounted
+    // consumer (retry/remountKey paths) triggers a genuine new ladder run.
+    vi.mocked(ensureHaElement).mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+
+    const first = renderHook(() => useCameraStreamReady('camera.demo'))
+    await waitFor(() => expect(first.result.current).toBe('unavailable'))
+    first.unmount()
+
+    const second = renderHook(() => useCameraStreamReady('camera.demo'))
+    await waitFor(() => expect(second.result.current).toBe('ready'))
+    expect(ensureHaElement).toHaveBeenCalledTimes(2)
+  })
+
   it('does not set state after unmount while the ladder is pending', async () => {
     const gate = deferred<boolean>()
     vi.mocked(ensureHaElement).mockReturnValue(gate.promise)

@@ -424,6 +424,30 @@ describe('CameraCard', () => {
       expect(getStreamHost().getAttribute('data-fit')).toBe('cover')
     })
 
+    it('closes on a letterbox-area click inside the fullscreen container', () => {
+      renderCard()
+      fireEvent.click(getStreamHost())
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+
+      // The fullscreen container is the letterbox surface (the KeepAlive
+      // portal div sits between it and the stream host). A click there —
+      // not on the video itself — must also exit.
+      const fullscreenContainer = getStreamHost().parentElement!.parentElement as HTMLElement
+      fireEvent.click(fullscreenContainer)
+      expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
+    })
+
+    it('does not close fullscreen when clicking the overlay controls', () => {
+      statusMock.isStreaming = true
+      renderCard()
+      fireEvent.click(getStreamHost())
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+
+      // Second controls instance is the fullscreen one; mute must not exit.
+      fireEvent.click(screen.getAllByTitle('Unmute')[1])
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+    })
+
     it('does not open tap-fullscreen in edit mode', () => {
       mockStoreMode('edit')
       renderCard()
@@ -588,7 +612,7 @@ describe('CameraCard', () => {
         config: { showStats: true },
       }
       renderCard({ item, size: 'small' })
-      expect(screen.getByText(/0 FPS •/)).toBeInTheDocument()
+      expect(screen.getByText(/— FPS •/)).toBeInTheDocument()
     })
   })
 

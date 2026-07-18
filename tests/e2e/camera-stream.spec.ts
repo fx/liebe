@@ -12,15 +12,20 @@ import { openPanel, seedCameraConfig, gridItemCount, collectConsoleErrors } from
 
 // Console noise that is expected from the HA frontend/players during stream
 // startup and teardown, and must not fail the suite. Everything else is fatal.
+// Patterns are anchored on distinctive substrings of the SPECIFIC known-benign
+// messages — never on player names (the collector appends source URLs like
+// ha-hls-player.js, so a broad /hls/i would swallow real crashes in the
+// players).
 const BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   // The HLS playlist/segment endpoints 404/503 briefly while ffmpeg spins up;
   // hls.js retries and recovers. Chrome logs these as console errors.
   /the server responded with a status of (404|5\d\d)/i,
-  // hls.js recoverable media/network errors during startup or player teardown.
-  /hls/i,
-  // WebRTC best-effort path: signaling may fail in CI without failing the card
-  // (the element falls back to HLS).
-  /webrtc/i,
+  // hls.js recoverable network-retry noise while ffmpeg spins up: structured
+  // error payloads like {type: "networkError", details: "manifestLoadError"}
+  // (also levelLoadError/fragLoadError and their TimeOut variants) that
+  // resolve once the playlist/segments exist.
+  /"type"\s*:\s*"networkError"/,
+  /"(manifest|level|frag)Load(Error|TimeOut)"/,
   // HA's own frontend leaves the `camera/webrtc/offer` websocket promise
   // unhandled when the backend rejects it. In this stack the go2rtc `exec:`
   // producer trips a parse bug in HA's go2rtc client, so every offer fails
@@ -177,8 +182,12 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   // on the container swap is accepted — hence the generous timeout).
   await expectVideoPlaying(page, 30_000)
 
-  // 6. Close fullscreen with ESC; the stream must recover in the card.
-  await page.keyboard.press('Escape')
+  // 6. Close fullscreen by clicking the letterbox area (top-left corner —
+  // clear of the video controls at bottom-left and the exit hint at
+  // top-right): ANY tap on the overlay must exit, not just taps landing on
+  // the video itself. The stream must recover in the card. (The ESC path is
+  // covered by FullscreenModal unit tests.)
+  await page.mouse.click(8, 8)
   await expect(exitHint, 'fullscreen overlay closes').toBeHidden({ timeout: 15_000 })
 
   await expect(card, 'stream recovers to STREAMING/RECORDING after fullscreen').toContainText(

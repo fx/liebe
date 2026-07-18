@@ -89,6 +89,12 @@ async function runBootstrapLadder(
  * Ensure the HA frontend has defined `tag`, using `triggerCardConfig` as the
  * throwaway Lovelace card that forces the defining chunk to load. Resolves
  * true once the element is defined, false when it cannot be bootstrapped.
+ *
+ * Only successful (true) resolutions stay cached. A false resolution can be
+ * transient (loadCardHelpers poll window missed on a slow HA load, whenDefined
+ * timeout), so caching it would pin every later consumer to 'unavailable'
+ * until a full page reload — instead the entry is evicted so the next caller
+ * retries the ladder.
  */
 export function ensureHaElement(
   tag: string,
@@ -96,7 +102,12 @@ export function ensureHaElement(
 ): Promise<boolean> {
   let promise = ladderPromises.get(tag)
   if (!promise) {
-    promise = runBootstrapLadder(tag, triggerCardConfig)
+    promise = runBootstrapLadder(tag, triggerCardConfig).then((defined) => {
+      if (!defined) {
+        ladderPromises.delete(tag)
+      }
+      return defined
+    })
     ladderPromises.set(tag, promise)
   }
   return promise

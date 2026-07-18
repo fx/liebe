@@ -89,6 +89,33 @@ describe('ensureHaElement', () => {
     expect(settled).toBe(false)
   })
 
+  it('does not cache a false resolution: the next caller retries the ladder', async () => {
+    // First run: helpers never appear → false (e.g. slow HA load missed the
+    // poll window).
+    let first: boolean | null = null
+    ensureHaElement('ha-retry-element', TRIGGER_CONFIG).then((value) => {
+      first = value
+    })
+    await vi.advanceTimersByTimeAsync(250 * 20)
+    expect(first).toBe(false)
+
+    // The failed entry was evicted: a new caller (e.g. a remounted camera
+    // card) re-runs the ladder, which now succeeds.
+    const createCardElement = vi.fn(() => {
+      customElements.define('ha-retry-element', class extends HTMLElement {})
+      return document.createElement('div')
+    })
+    setLoadCardHelpers(vi.fn().mockResolvedValue({ createCardElement }))
+
+    const second = ensureHaElement('ha-retry-element', TRIGGER_CONFIG)
+    await vi.advanceTimersByTimeAsync(0)
+    await expect(second).resolves.toBe(true)
+    expect(createCardElement).toHaveBeenCalledTimes(1)
+
+    // Only the successful resolution stays cached.
+    expect(ensureHaElement('ha-retry-element', TRIGGER_CONFIG)).toBe(second)
+  })
+
   it('caches the ladder per tag: same tag shares one run, other tags run their own', async () => {
     const createCardElement = vi.fn((config: Record<string, unknown>) => {
       if (config.entity === 'camera.first') {
