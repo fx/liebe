@@ -1,7 +1,7 @@
 import { Flex, Text, Box, IconButton, Select } from '@radix-ui/themes'
 import { Fan, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
-import React, { memo, useCallback, useRef } from 'react'
+import React, { memo, useCallback } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore } from '~/store'
@@ -41,9 +41,6 @@ function FanCardComponent({
   const { loading: isLoading, error, turnOn, turnOff, callService, clearError } = useServiceCall()
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
-
-  // Only track display state on significant changes (not every render)
-  const prevDisplayRef = useRef({ displayPercentage: 0, selectedButton: '0' })
 
   // No separate loading state - use main card loading
 
@@ -172,12 +169,6 @@ function FanCardComponent({
   }
 
   const selectedButton = getSelectedButton(displayPercentage)
-  if (
-    prevDisplayRef.current.displayPercentage !== displayPercentage ||
-    prevDisplayRef.current.selectedButton !== selectedButton
-  ) {
-    prevDisplayRef.current = { displayPercentage, selectedButton }
-  }
 
   // Determine animation speed class based on percentage
   const getAnimationClass = () => {

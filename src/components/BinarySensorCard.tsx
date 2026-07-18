@@ -1,6 +1,6 @@
 import { Flex, Text } from '@radix-ui/themes'
 import { useEntity } from '~/hooks'
-import { memo, useState, useMemo } from 'react'
+import { createElement, memo, useState, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { useDashboardStore, dashboardStore, dashboardActions } from '~/store'
@@ -138,7 +138,7 @@ function BinarySensorCardComponent({
                 transition: 'opacity 0.2s ease',
               }}
             >
-              <IconComponent size={iconSize} />
+              {createElement(IconComponent, { size: iconSize })}
             </span>
           </GridCard.Icon>
 

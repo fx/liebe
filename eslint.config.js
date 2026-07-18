@@ -33,12 +33,12 @@ export default [
       'react/prop-types': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-undef': 'off',
-      // Disable new experimental React Compiler rules from react-hooks v7
-      // These can be enabled gradually as the codebase is refactored
-      'react-hooks/refs': 'off',
-      'react-hooks/static-components': 'off',
+      // react-hooks v7 rules. Structural rules (change 0003 Group A) are enforced.
+      // The remaining two stateful rules are enabled separately in Group B.
+      'react-hooks/refs': 'error',
+      'react-hooks/static-components': 'error',
+      'react-hooks/incompatible-library': 'error',
       'react-hooks/set-state-in-effect': 'off',
-      'react-hooks/incompatible-library': 'off',
       'react-hooks/preserve-manual-memoization': 'off',
     },
     settings: {

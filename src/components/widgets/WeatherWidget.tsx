@@ -1,6 +1,6 @@
 import { Card, Flex, Text, Heading, Grid, Separator, ScrollArea } from '@radix-ui/themes'
 import { useStore } from '@tanstack/react-store'
-import { useMemo } from 'react'
+import { createElement, useMemo } from 'react'
 import { entityStore } from '../../store/entityStore'
 import {
   Cloud,
@@ -137,7 +137,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
           <Heading size="4" weight="bold">
             Weather
           </Heading>
-          <CurrentWeatherIcon size={24} />
+          {createElement(CurrentWeatherIcon, { size: 24 })}
         </Flex>
 
         {/* Current conditions */}

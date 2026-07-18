@@ -339,6 +339,7 @@ export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProp
   const totalEntities = filteredEntities.length
 
   // Initialize virtualizer
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual's useVirtualizer returns functions that cannot be memoized; this is a React Compiler advisory only and the project does not use the compiler, so there is nothing to fix here.
   const virtualizer = useVirtualizer({
     count: filteredEntities.length,
     getScrollElement: () => scrollAreaRef.current,
