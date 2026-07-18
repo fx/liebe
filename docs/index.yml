@@ -8,7 +8,7 @@ specs:
     status: active
   - name: camera-streaming
     path: specs/camera-streaming/
-    description: WebRTC camera cards — stream negotiation via Home Assistant/go2rtc, fullscreen and mute controls, fit/matting/debug configuration
+    description: Camera cards wrapping HA's ha-camera-stream element — bootstrap ladder, stream status machine, still-image fallback, in-tree fullscreen, fit/matting/debug configuration
     status: active
   - name: dashboard-config
     path: specs/dashboard-config/
@@ -83,5 +83,5 @@ changes:
     path: changes/0007-ha-camera-stream.md
     description: Replace the hand-rolled WebRTC pipeline with HA's ha-camera-stream element, still-image fallback, and a go2rtc synthetic e2e camera
     spec: camera-streaming
-    status: in-progress
+    status: complete
     depends_on: []

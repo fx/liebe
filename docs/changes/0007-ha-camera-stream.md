@@ -5,7 +5,7 @@
 Replace the hand-rolled WebRTC camera pipeline (`useWebRTC.ts`, ~594 lines of `camera/webrtc/offer` signaling, plus the CameraCard-owned `<video>` element) with Home Assistant frontend's own `<ha-camera-stream>` custom element wrapped in React. The HA element owns stream negotiation (WebRTC and HLS), so Liebe stops duplicating protocol logic it cannot keep in sync with HA. When the element is unavailable (deep-link bootstrap failure or standalone dev outside HA), the card falls back to the entity's `entity_picture` still image.
 
 **Spec:** [Camera Streaming](../specs/camera-streaming/)
-**Status:** in progress
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -120,15 +120,15 @@ The wrapper MUST implement this compat matrix:
 
 ## Tasks
 
-- [ ] Change doc 0007 + index sync
-- [ ] E2E infra: go2rtc service, synthetic `testsrc2` camera, HA ffmpeg/go2rtc config, `scripts/check-rtsp-leak.sh` + CI wiring
-- [ ] `FullscreenModal` `portalContainer` prop + `resolvePanelPortalContainer` util with tests
+- [x] Change doc 0007 + index sync
+- [x] E2E infra: go2rtc service, synthetic `testsrc2` camera, HA ffmpeg/go2rtc config, `scripts/check-rtsp-leak.sh` + CI wiring
+- [x] `FullscreenModal` `portalContainer` prop + `resolvePanelPortalContainer` util with tests
 - [x] `<ha-camera-stream>` React wrapper: injection ladder (hass property / @lit/context) + still-image fallback
 - [x] CameraCard status machine + chrome extraction (stats via `getVideoPlaybackQuality`, bitrate removed)
 - [x] The swap: CameraCard renders the wrapper; delete `useWebRTC.ts` and Liebe-owned signaling
 - [x] E2E camera spec: seeded CameraCard plays `camera.e2e_pattern` (HLS guaranteed, WebRTC best-effort)
 - [x] CI wiring: leak gate ordering, e2e workflow updates for go2rtc — verified: the existing workflow already runs `scripts/check-rtsp-leak.sh` before tests and `e2e:ha:up` brings up go2rtc via the same compose file; no workflow changes were needed
-- [ ] Rewrite [Camera Streaming](../specs/camera-streaming/) spec to the new architecture
+- [x] Rewrite [Camera Streaming](../specs/camera-streaming/) spec to the new architecture
 
 ## Open Questions
 
