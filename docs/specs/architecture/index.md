@@ -128,16 +128,16 @@ This subsection is the project's standing testing and quality bar; other specs l
 
 ### Linting & Formatting
 
-- ESLint MUST use the flat-config file `eslint.config.js` (ESLint 9), composing `@eslint/js` recommended, `@typescript-eslint` recommended (type-aware via `parserOptions.project`), `eslint-plugin-react` recommended, and `eslint-plugin-react-hooks` recommended, with `eslint-config-prettier` last to disable stylistic conflicts (`eslint.config.js:1-78`).
+- ESLint MUST use the flat-config file `eslint.config.js` (ESLint 9), composing `@eslint/js` recommended, `@typescript-eslint` recommended (type-aware via `parserOptions.project`), `eslint-plugin-react` recommended, and `eslint-plugin-react-hooks` recommended, with `eslint-config-prettier` last to disable stylistic conflicts (`eslint.config.js:1-80`).
 - Prettier MUST enforce: no semicolons, single quotes, 2-space tabs, `es5` trailing commas, 100-char print width, always-parenthesized arrow params (`.prettierrc`).
 - The pre-commit hook MUST run `lint-staged`, which runs `eslint --fix` + `prettier --write` on staged `*.{ts,tsx}` and `prettier --write` on staged `*.{json,md,yml,yaml}` (`.husky/pre-commit`, `package.json` `lint-staged`).
 - Generated and build output (`*.gen.ts`, `dist/`, `.output/`, `.tanstack/`, `.nitro/`, `.vite-temp/`, `node_modules/`) MUST be excluded from linting (`eslint.config.js` `ignores`).
 
-#### Scenario: React Compiler rules are intentionally off
+#### Scenario: React Compiler rules are enabled incrementally
 
 - **GIVEN** `eslint-plugin-react-hooks` v7 ships experimental React Compiler rules
 - **WHEN** ESLint runs
-- **THEN** `react-hooks/refs`, `static-components`, `set-state-in-effect`, `incompatible-library`, and `preserve-manual-memoization` are explicitly disabled (`eslint.config.js:53-59`), to be enabled gradually as the codebase is refactored.
+- **THEN** the structural rules `react-hooks/refs`, `react-hooks/static-components`, and `react-hooks/incompatible-library` are enabled at `error` (change 0003 Group A), while `react-hooks/set-state-in-effect` and `react-hooks/preserve-manual-memoization` remain disabled pending change 0003 Group B (`eslint.config.js:36-42`).
 
 ### Deployment
 
@@ -206,7 +206,7 @@ Build-mode branching is entirely `NODE_ENV`/`--mode`-driven:
 ## Open Questions
 
 - **`sharp` in runtime dependencies.** `sharp@^0.34.3` is listed under `dependencies` (not `devDependencies`) in `package.json`, but the shipped panel is a browser IIFE and cannot use a native Node image library. It appears to be dead/misplaced for the panel build; whether any tooling path needs it is unverified.
-- **Disabled `react-hooks` rules.** Five experimental React Compiler rules are turned off in `eslint.config.js:53-59` with a comment to enable them "gradually as the codebase is refactored." There is no tracked plan or owner for re-enabling them.
+- **Partially enabled `react-hooks` rules.** Change 0003 tracks incremental enablement of the five experimental React Compiler rules. Group A (`react-hooks/refs`, `static-components`, `incompatible-library`) is enabled at `error`; the two stateful rules (`set-state-in-effect`, `preserve-manual-memoization`) remain disabled in `eslint.config.js:36-42` pending Group B.
 - **`.env.local` has no application consumer.** Project docs reference `.env.local` (HA URL/credentials) for MCP browser testing, but no application source reads `import.meta.env`/`process.env` for those values — the file is a testing convention only, so its documented `HASS_*` keys are not load-bearing for the build.
 - **Two test-setup files.** `vitest.config.ts` references `./src/test/setup.ts`, but a second file `src/test-setup.ts` also exists at the source root; the latter is not wired into the Vitest config and its status (stale vs. intentional) is unverified.
 - **CI uses `npm install`, not `npm ci`.** The CI workflow (`.github/workflows/ci.yml`) runs `npm install` while the deploy workflow uses `npm ci`; the inconsistency means CI does not strictly honor the lockfile.
