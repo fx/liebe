@@ -15,11 +15,12 @@
 
 ## Changes
 
-| #    | Change                                                                            | Spec                                        | Status   | Depends On |
-| ---- | --------------------------------------------------------------------------------- | ------------------------------------------- | -------- | ---------- |
-| 0001 | [Per-Entity Store Selectors](changes/0001-per-entity-store-selectors.md)          | [Entity State](specs/entity-state/)         | complete | —          |
-| 0002 | [Repository Hygiene Bundle](changes/0002-repo-hygiene.md)                         | [Architecture](specs/architecture/)         | complete | —          |
-| 0003 | [Re-enable react-hooks v7 Lint Rules](changes/0003-reenable-react-hooks-rules.md) | [Architecture](specs/architecture/)         | complete | —          |
-| 0004 | [Portable Configuration Contract](changes/0004-portable-config-contract.md)       | [Dashboard Config](specs/dashboard-config/) | complete | —          |
-| 0005 | [Dockerized Home Assistant E2E Environment](changes/0005-dockerized-ha-e2e.md)    | [Architecture](specs/architecture/)         | complete | —          |
-| 0006 | [Codecov & 100% Patch Coverage](changes/0006-codecov-patch-coverage.md)           | [Architecture](specs/architecture/)         | complete | —          |
+| #    | Change                                                                            | Spec                                        | Status      | Depends On |
+| ---- | --------------------------------------------------------------------------------- | ------------------------------------------- | ----------- | ---------- |
+| 0001 | [Per-Entity Store Selectors](changes/0001-per-entity-store-selectors.md)          | [Entity State](specs/entity-state/)         | complete    | —          |
+| 0002 | [Repository Hygiene Bundle](changes/0002-repo-hygiene.md)                         | [Architecture](specs/architecture/)         | complete    | —          |
+| 0003 | [Re-enable react-hooks v7 Lint Rules](changes/0003-reenable-react-hooks-rules.md) | [Architecture](specs/architecture/)         | complete    | —          |
+| 0004 | [Portable Configuration Contract](changes/0004-portable-config-contract.md)       | [Dashboard Config](specs/dashboard-config/) | complete    | —          |
+| 0005 | [Dockerized Home Assistant E2E Environment](changes/0005-dockerized-ha-e2e.md)    | [Architecture](specs/architecture/)         | complete    | —          |
+| 0006 | [Codecov & 100% Patch Coverage](changes/0006-codecov-patch-coverage.md)           | [Architecture](specs/architecture/)         | complete    | —          |
+| 0007 | [HA Camera Stream Element](changes/0007-ha-camera-stream.md)                      | [Camera Streaming](specs/camera-streaming/) | in progress | —          |

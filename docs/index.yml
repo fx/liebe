@@ -78,3 +78,10 @@ changes:
     spec: architecture
     status: complete
     depends_on: []
+  - id: '0007'
+    name: ha-camera-stream
+    path: changes/0007-ha-camera-stream.md
+    description: Replace the hand-rolled WebRTC pipeline with HA's ha-camera-stream element, still-image fallback, and a go2rtc synthetic e2e camera
+    spec: camera-streaming
+    status: in-progress
+    depends_on: []
