@@ -1,5 +1,6 @@
 **/build
 **/public
+coverage/
 pnpm-lock.yaml
 routeTree.gen.ts
 .tailscale/

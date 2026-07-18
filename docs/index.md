@@ -22,3 +22,4 @@
 | 0003 | [Re-enable react-hooks v7 Lint Rules](changes/0003-reenable-react-hooks-rules.md) | [Architecture](specs/architecture/)         | complete | —          |
 | 0004 | [Portable Configuration Contract](changes/0004-portable-config-contract.md)       | [Dashboard Config](specs/dashboard-config/) | complete | —          |
 | 0005 | [Dockerized Home Assistant E2E Environment](changes/0005-dockerized-ha-e2e.md)    | [Architecture](specs/architecture/)         | complete | —          |
+| 0006 | [Codecov & 100% Patch Coverage](changes/0006-codecov-patch-coverage.md)           | [Architecture](specs/architecture/)         | complete | —          |
