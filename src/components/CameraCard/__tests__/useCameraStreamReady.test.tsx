@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useCameraStreamReady, BOOTSTRAP_RETRY_INTERVAL_MS } from '../useCameraStreamReady'
+import {
+  useCameraStreamReady,
+  BOOTSTRAP_RETRY_INTERVAL_MS,
+  BOOTSTRAP_RETRY_MAX_DELAY_MS,
+  BOOTSTRAP_RETRY_MAX_ATTEMPTS,
+} from '../useCameraStreamReady'
 import { ensureHaElement, isHaFrontendContext } from '~/utils/haFrontend'
 
 // The bootstrap ladder itself is covered by the haFrontend util tests; this
@@ -95,36 +100,74 @@ describe('useCameraStreamReady', () => {
       vi.useRealTimers()
     })
 
-    it('re-attempts the ladder on an interval in an HA context and flips to ready', async () => {
+    it('re-attempts the ladder with exponential backoff in an HA context and flips to ready', async () => {
       vi.mocked(isHaFrontendContext).mockReturnValue(true)
       vi.mocked(ensureHaElement)
         .mockResolvedValueOnce(false) // initial mount misses (transient)
-        .mockResolvedValueOnce(false) // first retry tick still misses
-        .mockResolvedValueOnce(true) // second retry succeeds
+        .mockResolvedValueOnce(false) // first retry (after 15s) still misses
+        .mockResolvedValueOnce(true) // second retry (after +30s) succeeds
 
       const { result } = renderHook(() => useCameraStreamReady('camera.demo'))
       await act(async () => {})
       expect(result.current).toBe('unavailable')
 
-      // A failed retry keeps 'unavailable' (and the interval alive).
+      // A failed retry keeps 'unavailable' (and the backoff chain alive).
       await act(async () => {
         await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_INTERVAL_MS)
       })
       expect(result.current).toBe('unavailable')
       expect(ensureHaElement).toHaveBeenCalledTimes(2)
 
-      // A later success converges the already-mounted card to 'ready'.
+      // The next gap doubles: nothing fires within another base interval...
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_INTERVAL_MS)
+      })
+      expect(ensureHaElement).toHaveBeenCalledTimes(2)
+
+      // ...but the 30s mark converges the already-mounted card to 'ready'.
       await act(async () => {
         await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_INTERVAL_MS)
       })
       expect(result.current).toBe('ready')
       expect(ensureHaElement).toHaveBeenCalledTimes(3)
 
-      // Once ready, the retry interval is gone.
+      // Once ready, the retry chain is gone.
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_INTERVAL_MS * 4)
+        await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_MAX_DELAY_MS * 4)
       })
       expect(ensureHaElement).toHaveBeenCalledTimes(3)
+    })
+
+    it('caps the delay at 5 minutes and stops for good after the attempt cap', async () => {
+      vi.mocked(isHaFrontendContext).mockReturnValue(true)
+      // The element never defines on this frontend.
+      vi.mocked(ensureHaElement).mockResolvedValue(false)
+
+      const { result } = renderHook(() => useCameraStreamReady('camera.demo'))
+      await act(async () => {})
+      expect(result.current).toBe('unavailable')
+      expect(ensureHaElement).toHaveBeenCalledTimes(1)
+
+      // Walk the whole backoff ladder: 15s, 30s, 60s, 120s, 240s, then capped
+      // at 300s per gap until the attempt cap.
+      for (let attempt = 0; attempt < BOOTSTRAP_RETRY_MAX_ATTEMPTS; attempt += 1) {
+        const delay = Math.min(
+          BOOTSTRAP_RETRY_INTERVAL_MS * 2 ** attempt,
+          BOOTSTRAP_RETRY_MAX_DELAY_MS
+        )
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(delay)
+        })
+        expect(ensureHaElement).toHaveBeenCalledTimes(attempt + 2)
+      }
+      expect(result.current).toBe('unavailable')
+
+      // Cap reached: permanently 'unavailable' — no attempt ever fires again.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_MAX_DELAY_MS * 10)
+      })
+      expect(ensureHaElement).toHaveBeenCalledTimes(BOOTSTRAP_RETRY_MAX_ATTEMPTS + 1)
+      expect(result.current).toBe('unavailable')
     })
 
     it('does not retry outside an HA frontend context (standalone)', async () => {
@@ -140,6 +183,25 @@ describe('useCameraStreamReady', () => {
         await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_INTERVAL_MS * 4)
       })
       expect(result.current).toBe('unavailable')
+      expect(ensureHaElement).toHaveBeenCalledTimes(1)
+    })
+
+    it('clears a pending (unfired) retry timeout on unmount', async () => {
+      vi.mocked(isHaFrontendContext).mockReturnValue(true)
+      vi.mocked(ensureHaElement).mockResolvedValue(false)
+
+      const { result, unmount } = renderHook(() => useCameraStreamReady('camera.demo'))
+      await act(async () => {})
+      expect(result.current).toBe('unavailable')
+      expect(ensureHaElement).toHaveBeenCalledTimes(1)
+
+      // Unmount midway through the first backoff gap: the scheduled attempt
+      // is cancelled and never fires.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_INTERVAL_MS / 2)
+      })
+      unmount()
+      await vi.advanceTimersByTimeAsync(BOOTSTRAP_RETRY_MAX_DELAY_MS * 4)
       expect(ensureHaElement).toHaveBeenCalledTimes(1)
     })
 

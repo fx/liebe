@@ -108,6 +108,12 @@ function createMjpegImg(naturalWidth = 0): MjpegImg {
   }
 }
 
+interface StatusProps {
+  enabled: boolean
+  entityState: string
+  entityAvailable: boolean
+}
+
 function renderStatus({
   video = null as HTMLVideoElement | null,
   img = null as HTMLImageElement | null,
@@ -115,9 +121,9 @@ function renderStatus({
   const getInnerVideo = () => video
   const getMjpegImg = () => img
   return renderHook(
-    ({ enabled, entityState }: { enabled: boolean; entityState: string }) =>
-      useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState, enabled }),
-    { initialProps: { enabled: true, entityState: 'streaming' } }
+    ({ enabled, entityState, entityAvailable }: StatusProps) =>
+      useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState, enabled, entityAvailable }),
+    { initialProps: { enabled: true, entityState: 'streaming', entityAvailable: true } }
   )
 }
 
@@ -193,6 +199,30 @@ describe('useCameraStreamStatus', () => {
 
     act(() => {
       fireFrame()
+    })
+    expect(result.current.hasFrameWarning).toBe(false)
+  })
+
+  it('ignores a queued watchdog tick from a superseded epoch', () => {
+    const { video } = createRvfcVideo()
+    const { result } = renderStatus({ video })
+
+    // Epoch 1 warns after 750ms without frames.
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      vi.advanceTimersByTime(WARNING_TICK_MS)
+    })
+    expect(result.current.hasFrameWarning).toBe(true)
+
+    // A new stream event clears the warning and announces epoch 2
+    // synchronously — but epoch 1's watchdog interval is still installed
+    // until React runs the effect cleanup. A tick firing in that window must
+    // no-op instead of re-raising the warning the new epoch just cleared.
+    act(() => {
+      result.current.onStreamEvent()
+      vi.advanceTimersByTime(250)
     })
     expect(result.current.hasFrameWarning).toBe(false)
   })
@@ -306,21 +336,35 @@ describe('useCameraStreamStatus', () => {
   })
 
   it('restores the auto-remount budget on an entity state transition', () => {
-    const { video } = createRvfcVideo()
+    const { video, fireFrame } = createRvfcVideo()
     const getInnerVideo = () => video
     const getMjpegImg = () => null
     const { result, rerender } = renderHook(
       ({ entityState }: { entityState: string }) =>
-        useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState, enabled: true }),
+        useCameraStreamStatus({
+          getInnerVideo,
+          getMjpegImg,
+          entityState,
+          enabled: true,
+          entityAvailable: true,
+        }),
       { initialProps: { entityState: 'streaming' } }
     )
 
+    // Stream once so the load budget re-arms fresh at the first stall (a
+    // stream that never started would legitimately hit the load budget first).
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      fireFrame()
+    })
     for (let cycle = 0; cycle < MAX_AUTO_REMOUNTS; cycle += 1) {
       act(() => {
-        result.current.onStreamEvent()
+        vi.advanceTimersByTime(STALL_TICK_MS)
       })
       act(() => {
-        vi.advanceTimersByTime(STALL_TICK_MS)
+        result.current.onStreamEvent()
       })
     }
     expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS)
@@ -328,9 +372,6 @@ describe('useCameraStreamStatus', () => {
     // Entity state changed (camera restarted): the next stall remounts again
     // instead of erroring.
     rerender({ entityState: 'idle' })
-    act(() => {
-      result.current.onStreamEvent()
-    })
     act(() => {
       vi.advanceTimersByTime(STALL_TICK_MS)
     })
@@ -455,17 +496,24 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.error).toBe('Stream failed to start')
   })
 
-  it('clears the connect timeout only when a watch attaches to a real element', () => {
+  it('disarms the load budget on streaming, not on attach: frames end the load phase', () => {
     const { video, fireFrame } = createRvfcVideo()
     let currentVideo: HTMLVideoElement | null = null
     const getInnerVideo = () => currentVideo
     const getMjpegImg = () => null
     const { result } = renderHook(() =>
-      useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState: 'streaming', enabled: true })
+      useCameraStreamStatus({
+        getInnerVideo,
+        getMjpegImg,
+        entityState: 'streaming',
+        enabled: true,
+        entityAvailable: true,
+      })
     )
 
     // First event arrives before the player exists: nothing attaches, and the
-    // connect timer stays armed.
+    // load budget stays armed (it is owned by connection state, not by the
+    // watch).
     act(() => {
       result.current.onStreamEvent()
     })
@@ -474,8 +522,9 @@ describe('useCameraStreamStatus', () => {
     })
     expect(result.current.error).toBeNull()
 
-    // The player comes up and fires again: the watch attaches, ending the
-    // load phase — frames keep the stream healthy well past the budget.
+    // The player comes up and fires again: decoded frames flip the machine to
+    // streaming, which disarms the budget — frames keep the stream healthy
+    // well past it.
     currentVideo = video
     act(() => {
       result.current.onStreamEvent()
@@ -493,6 +542,25 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.isStreaming).toBe(true)
   })
 
+  it('keeps the load budget armed after a watch attaches without ever producing frames', () => {
+    // Attaching to a real <video> is NOT the end of the load phase: only
+    // decoded frames are. An attached element that never decodes must still
+    // expire into 'Stream failed to start' instead of spinning forever (the
+    // stall path may remount along the way; the budget survives it because it
+    // is owned by connection state, not by any single incarnation).
+    const { video } = createRvfcVideo()
+    const { result } = renderStatus({ video })
+
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS)
+    })
+    expect(result.current.error).toBe('Stream failed to start')
+    expect(result.current.isStreaming).toBe(false)
+  })
+
   it('clears a stale frame warning when a new epoch starts in mjpeg mode', () => {
     const { video } = createRvfcVideo()
     const { img, setNaturalWidth } = createMjpegImg()
@@ -501,7 +569,13 @@ describe('useCameraStreamStatus', () => {
     const getInnerVideo = () => currentVideo
     const getMjpegImg = () => currentImg
     const { result } = renderHook(() =>
-      useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState: 'streaming', enabled: true })
+      useCameraStreamStatus({
+        getInnerVideo,
+        getMjpegImg,
+        entityState: 'streaming',
+        enabled: true,
+        entityAvailable: true,
+      })
     )
 
     // Video watch warns after 500ms without frames.
@@ -536,7 +610,13 @@ describe('useCameraStreamStatus', () => {
     const getMjpegImg = () => null
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
-        useCameraStreamStatus({ getInnerVideo, getMjpegImg, entityState: 'streaming', enabled }),
+        useCameraStreamStatus({
+          getInnerVideo,
+          getMjpegImg,
+          entityState: 'streaming',
+          enabled,
+          entityAvailable: true,
+        }),
       { initialProps: { enabled: true } }
     )
 
@@ -731,6 +811,109 @@ describe('useCameraStreamStatus', () => {
     })
   })
 
+  describe('entity availability (load-budget pause)', () => {
+    it('pauses the budget while the entity is unavailable and resumes with the remainder', () => {
+      const { video } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      // 10s of the budget spent while available.
+      act(() => {
+        vi.advanceTimersByTime(10_000)
+      })
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      // A whole minute unavailable does not burn budget.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.error).toBeNull()
+
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      // Only the remaining ~10s applies.
+      act(() => {
+        vi.advanceTimersByTime(10_000 - 250)
+      })
+      expect(result.current.error).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
+
+    it('arms paused when enabled while the entity is already unavailable', () => {
+      const { video } = createRvfcVideo()
+      const getInnerVideo = () => video
+      const getMjpegImg = () => null
+      const { result, rerender } = renderHook(
+        ({ entityAvailable }: { entityAvailable: boolean }) =>
+          useCameraStreamStatus({
+            getInnerVideo,
+            getMjpegImg,
+            entityState: 'unavailable',
+            enabled: true,
+            entityAvailable,
+          }),
+        { initialProps: { entityAvailable: false } }
+      )
+
+      // Unavailable from the start: the budget never runs.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.error).toBeNull()
+
+      // Recovery grants the untouched 20s budget.
+      rerender({ entityAvailable: true })
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 250)
+      })
+      expect(result.current.error).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
+
+    it('keeps a playing stream and its status across an unavailability blip', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      // Blip: nothing resets, no error ever surfaces (budget is disarmed
+      // while streaming and paused while unavailable).
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      expect(result.current.isStreaming).toBe(true)
+      expect(result.current.error).toBeNull()
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+      expect(result.current.error).toBeNull()
+    })
+
+    it('does not wipe a surfaced error on availability blips', () => {
+      const { video } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      expect(result.current.error).toBe('Stream failed to start')
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      expect(result.current.error).toBe('Stream failed to start')
+    })
+  })
+
   describe('visibility-aware watchdog', () => {
     it('skips stall and warning evaluation while the tab is hidden', () => {
       const { video, fireFrame } = createRvfcVideo()
@@ -794,16 +977,23 @@ describe('useCameraStreamStatus', () => {
     })
 
     it('restores the auto-remount budget when the tab becomes visible again', () => {
-      const { video } = createRvfcVideo()
+      const { video, fireFrame } = createRvfcVideo()
       const { result } = renderStatus({ video })
 
-      // Burn the whole budget with visible stalls.
+      // Stream once (so the load budget re-arms fresh at the first stall),
+      // then burn the whole auto-remount budget with visible stalls.
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
       for (let cycle = 0; cycle < MAX_AUTO_REMOUNTS; cycle += 1) {
         act(() => {
-          result.current.onStreamEvent()
+          vi.advanceTimersByTime(STALL_TICK_MS)
         })
         act(() => {
-          vi.advanceTimersByTime(STALL_TICK_MS)
+          result.current.onStreamEvent()
         })
       }
       expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS)
@@ -815,9 +1005,6 @@ describe('useCameraStreamStatus', () => {
       })
       act(() => {
         setDocumentHidden(false)
-      })
-      act(() => {
-        result.current.onStreamEvent()
       })
       act(() => {
         vi.advanceTimersByTime(STALL_TICK_MS)
@@ -889,12 +1076,34 @@ describe('useCameraStreamStatus', () => {
       expect(result.current.error).toBe('Stream failed to start')
       expect(result.current.isStreaming).toBe(false)
 
-      // The poll stopped: pixels arriving later change nothing.
+      // Pixels decoding later are a genuine recovery — mirroring the video
+      // path, where frames on a later watch clear a surfaced error.
       act(() => {
         setNaturalWidth(640)
         vi.advanceTimersByTime(1000)
       })
-      expect(result.current.isStreaming).toBe(false)
+      expect(result.current.isStreaming).toBe(true)
+      expect(result.current.error).toBeNull()
+    })
+
+    it('does not grant a fresh budget when the mjpeg image attaches mid-load', () => {
+      // The MJPEG branch used to own "the remaining load budget" with its own
+      // 20 s tracker started at attach time — an image attaching at t=10 s
+      // effectively got 30 s. The budget is now owned by connection state:
+      // attach changes nothing, and expiry lands at 20 s from CONNECTING.
+      const { img } = createMjpegImg()
+      const { result } = renderStatus({ img })
+
+      act(() => {
+        vi.advanceTimersByTime(10_000)
+      })
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 10_000)
+      })
+      expect(result.current.error).toBe('Stream failed to start')
     })
 
     it('fails fast on an image error event', () => {

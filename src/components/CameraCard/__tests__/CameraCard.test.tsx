@@ -311,23 +311,39 @@ describe('CameraCard', () => {
       expect(img.style.objectFit).toBe('fill')
     })
 
-    it('does not arm the stream for an unavailable entity and shows the raw pill', () => {
+    it('keeps the stream mounted for an unavailable entity with a paused budget and the raw pill', () => {
       mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
       const { container } = renderCard()
 
-      // No stream attempt: no element and a disabled status machine, so no
-      // connect timeout can ever surface 'Stream failed to start' + Retry.
-      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
-      expect(lastStatusOptions().enabled).toBe(false)
-      // Still-image fallback with the truthful raw-state pill: no fake
-      // CONNECTING pill, no spinner overlay.
-      expect(container.querySelector('img')).toBeInTheDocument()
+      // The element stays MOUNTED (an unavailable blip must not tear down a
+      // live stream); the status machine stays enabled but its load budget is
+      // paused via entityAvailable, so a dead camera can never burn 20s of
+      // CONNECTING into 'Stream failed to start'.
+      expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
+      expect(lastStatusOptions().enabled).toBe(true)
+      expect(lastStatusOptions().entityAvailable).toBe(false)
+      // Truthful unavailable chrome: raw-state pill, no fake CONNECTING pill,
+      // no spinner overlay.
       expect(container.querySelectorAll('.rt-Spinner').length).toBe(0)
       expect(screen.queryByText('CONNECTING')).toBeNull()
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
     })
 
-    it('recovers the stream automatically when the entity leaves unavailable', () => {
+    it('keeps the STREAMING pill when a live stream survives an unavailability blip', () => {
+      statusMock.isStreaming = true
+      mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
+      const { container } = renderCard()
+
+      // The stream is still delivering frames through the blip: the pill
+      // stays STREAMING while GridCard's unavailable chrome shows.
+      expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
+      expect(screen.getByText('STREAMING')).toBeInTheDocument()
+      expect(screen.queryByText('UNAVAILABLE')).toBeNull()
+      const card = container.querySelector('.camera-card') as HTMLElement
+      expect(card.className).toContain('opacity-50')
+    })
+
+    it('resumes the load budget when the entity leaves unavailable, without a remount', () => {
       const item: GridItem = {
         id: 'item-1',
         type: 'entity',
@@ -343,11 +359,13 @@ describe('CameraCard', () => {
           <CameraCard entityId="camera.front_door" item={item} />
         </Theme>
       )
-      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
-      expect(lastStatusOptions().enabled).toBe(false)
+      expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
+      expect(lastStatusOptions().enabled).toBe(true)
+      expect(lastStatusOptions().entityAvailable).toBe(false)
 
       // Entity comes back (new item identity forces the memoized card to
-      // re-read the updated entity, as a live state change would).
+      // re-read the updated entity, as a live state change would): the SAME
+      // mounted element continues, only the budget pause lifts.
       mockEntityReturn({ entity: makeEntity({ state: 'idle' }) })
       rerender(
         <Theme>
@@ -356,6 +374,7 @@ describe('CameraCard', () => {
       )
       expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
       expect(lastStatusOptions().enabled).toBe(true)
+      expect(lastStatusOptions().entityAvailable).toBe(true)
     })
 
     it('enables the status machine and exposes the stream handle when ready', () => {
@@ -365,6 +384,7 @@ describe('CameraCard', () => {
 
       const options = lastStatusOptions()
       expect(options.enabled).toBe(true)
+      expect(options.entityAvailable).toBe(true)
       expect(options.entityState).toBe('idle')
       expect(options.getInnerVideo()).toBe(mockInnerVideo)
       expect(options.getMjpegImg()).toBe(mockMjpegImg)
@@ -443,6 +463,18 @@ describe('CameraCard', () => {
       renderCard()
       fireEvent.click(screen.getByText('Stream stalled'))
       expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
+    })
+
+    it('keeps showing a surfaced error while the entity blips unavailable', () => {
+      statusMock.error = 'Stream failed to start'
+      mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
+      renderCard()
+
+      // Errors are never wiped by availability blips: the error branch (with
+      // Retry) outranks the unavailable pill.
+      expect(screen.getByText('Stream failed to start')).toBeInTheDocument()
+      expect(screen.getByText('Retry')).toBeInTheDocument()
+      expect(screen.queryByText('UNAVAILABLE')).toBeNull()
     })
   })
 
@@ -913,6 +945,40 @@ describe('deriveCameraStatus priority', () => {
         supportsStream: true,
         isStreaming: true,
         entityState: 'streaming',
+      })
+    ).toBe('error')
+  })
+
+  it('unavailable (raw) wins over connecting and no-signal when not streaming', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        supportsStream: true,
+        isStreaming: false,
+        isReconnecting: true,
+        hasFrameWarning: true,
+        entityState: 'unavailable',
+      })
+    ).toBe('raw')
+  })
+
+  it('streaming through an unavailability blip outranks the unavailable pill', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        supportsStream: true,
+        isStreaming: true,
+        entityState: 'unavailable',
+      })
+    ).toBe('streaming')
+  })
+
+  it('an error outranks the unavailable pill', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        streamError: 'Stream failed to start',
+        entityState: 'unavailable',
       })
     ).toBe('error')
   })

@@ -49,9 +49,9 @@ export interface CameraStatusInput {
 }
 
 // Single derivation of the status pill, in strict priority order:
-// ERROR > CONNECTING > NO SIGNAL > RECORDING > STREAMING > IDLE > raw state.
-// CameraControls maps label, icon, and color from the returned status, so
-// they can never disagree.
+// ERROR > UNAVAILABLE (entity unavailable and not streaming) > CONNECTING >
+// NO SIGNAL > RECORDING > STREAMING > IDLE > raw state. CameraControls maps
+// label, icon, and color from the returned status, so they can never disagree.
 export function deriveCameraStatus({
   streamError,
   isReconnecting,
@@ -61,6 +61,11 @@ export function deriveCameraStatus({
   entityState,
 }: CameraStatusInput): CameraStatus {
   if (streamError) return 'error'
+  // An unavailable entity that is not actively delivering frames shows the
+  // truthful UNAVAILABLE pill (raw state) instead of CONNECTING or NO SIGNAL
+  // — the load budget is paused, so CONNECTING would be a lie. A stream that
+  // keeps playing through the blip keeps its STREAMING pill below.
+  if (entityState === 'unavailable' && !isStreaming) return 'raw'
   if (isReconnecting || (supportsStream && !isStreaming)) return 'connecting'
   if (hasFrameWarning) return 'no-signal'
   if (
@@ -116,13 +121,15 @@ function CameraCardComponent({
   // falls back to the still image, 'loading' keeps the connecting state.
   const readiness = useCameraStreamReady(entityId)
 
-  // An unavailable entity must not arm the stream (or its connect timeout):
-  // it would burn 20 s of CONNECTING into a red 'Stream failed to start' with
-  // a pointless Retry, contradicting the card's unavailable chrome. When the
-  // entity leaves 'unavailable' this flips true again and the stream recovers
-  // automatically.
-  const streamEnabled =
-    !!entity && isConnected && supportsStream && readiness === 'ready' && !isUnavailable
+  // Entity availability does NOT gate mounting: a 1-2 s 'unavailable' blip
+  // (HA reconnect) must not hard-unmount <ha-camera-stream> — the underlying
+  // stream often keeps playing straight through. Instead the card shows the
+  // unavailable chrome/pill immediately and the status hook PAUSES its load
+  // budget while the entity is unavailable (unavailable time doesn't count,
+  // like hidden-tab time), so a dead camera can never burn 20 s of CONNECTING
+  // into a pointless 'Stream failed to start'. Surfaced errors are never
+  // wiped by blips; the budget resumes when the entity recovers.
+  const streamEnabled = !!entity && isConnected && supportsStream && readiness === 'ready'
 
   const getInnerVideo = useCallback(() => streamHandleRef.current?.getInnerVideo() ?? null, [])
   const getMjpegImg = useCallback(() => streamHandleRef.current?.getMjpegImg() ?? null, [])
@@ -139,6 +146,7 @@ function CameraCardComponent({
     getMjpegImg,
     entityState: entity?.state,
     enabled: streamEnabled,
+    entityAvailable: !isUnavailable,
   })
 
   // Wire element events into the status machine and refresh the reactive inner
@@ -210,10 +218,11 @@ function CameraCardComponent({
   const isRecording = entity.state === 'recording'
   const isStreamingState = entity.state === 'streaming'
   const activeFit: FitMode = isFullscreen ? 'contain' : fit
-  // When the element cannot be bootstrapped, or the entity is unavailable, the
-  // still-image fallback renders; derive the pill from the raw entity state
-  // (e.g. UNAVAILABLE) instead of a forever-CONNECTING.
-  const pillSupportsStream = supportsStream && readiness !== 'unavailable' && !isUnavailable
+  // When the element cannot be bootstrapped the still-image fallback renders;
+  // derive the pill from the raw entity state instead of a forever-CONNECTING.
+  // (Entity unavailability is handled inside deriveCameraStatus: UNAVAILABLE
+  // unless the stream is still actively playing through the blip.)
+  const pillSupportsStream = supportsStream && readiness !== 'unavailable'
   const status = deriveCameraStatus({
     streamError,
     isReconnecting,
@@ -298,7 +307,7 @@ function CameraCardComponent({
                     cacheKey={`camera-${entityId}`}
                     containerRef={isFullscreen ? fullscreenContainerRef : normalContainerRef}
                   >
-                    {readiness === 'ready' && !isUnavailable ? (
+                    {readiness === 'ready' ? (
                       <HaCameraStream
                         ref={streamHandleRef}
                         entity={entity}
@@ -308,7 +317,7 @@ function CameraCardComponent({
                         remountKey={remountKey}
                         onStreamEvent={handleStreamEvent}
                       />
-                    ) : readiness === 'unavailable' || isUnavailable ? (
+                    ) : readiness === 'unavailable' ? (
                       <StillImageFallback entity={entity} objectFit={activeFit} />
                     ) : null}
                   </KeepAlive>
