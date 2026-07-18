@@ -8,77 +8,85 @@ export const E2E_FLAG = 'input_boolean.e2e_flag'
 // Synthetic ffmpeg camera fed by the go2rtc testsrc2 stream (docs/changes/0007).
 export const E2E_CAMERA = 'camera.e2e_pattern'
 
-// A deterministic dashboard config seeded into localStorage before the panel
+// Deterministic dashboard configs seeded into localStorage before the panel
 // boots, so cards render without any UI drag/drop. The panel reads `liebe-config`
 // synchronously on load (see src/store/persistence.ts).
-export function seedConfig() {
+
+export interface SeedGridItem {
+  id: string
+  type: 'entity'
+  entityId: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface SeedConfig {
+  version: string
+  theme: string
+  screens: Array<{
+    id: string
+    name: string
+    slug: string
+    type: 'grid'
+    grid: {
+      resolution: { columns: number; rows: number }
+      items: SeedGridItem[]
+    }
+  }>
+}
+
+// Single-screen config builder shared by every seed below.
+export function buildSeedConfig(screen: {
+  id: string
+  name: string
+  slug: string
+  items: SeedGridItem[]
+}): SeedConfig {
+  const { id, name, slug, items } = screen
   return {
     version: '1.0.0',
     theme: 'auto',
     screens: [
       {
-        id: 'e2e-screen',
-        name: 'E2E',
-        slug: 'e2e',
+        id,
+        name,
+        slug,
         type: 'grid',
         grid: {
           resolution: { columns: 12, rows: 8 },
-          items: [
-            {
-              id: 'item-light',
-              type: 'entity',
-              entityId: DEMO_LIGHT,
-              x: 0,
-              y: 0,
-              width: 2,
-              height: 2,
-            },
-            {
-              id: 'item-flag',
-              type: 'entity',
-              entityId: E2E_FLAG,
-              x: 2,
-              y: 0,
-              width: 2,
-              height: 2,
-            },
-          ],
+          items,
         },
       },
     ],
   }
 }
 
+export function seedConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-screen',
+    name: 'E2E',
+    slug: 'e2e',
+    items: [
+      { id: 'item-light', type: 'entity', entityId: DEMO_LIGHT, x: 0, y: 0, width: 2, height: 2 },
+      { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 2, y: 0, width: 2, height: 2 },
+    ],
+  })
+}
+
 // DEDICATED camera seed — a separate screen/config from seedConfig() so the
 // camera spec cannot perturb the deterministic seed the existing serial specs
 // assert against. Places camera.e2e_pattern as a single 4x2 grid item.
-export function seedCameraConfig() {
-  return {
-    version: '1.0.0',
-    theme: 'auto',
-    screens: [
-      {
-        id: 'e2e-camera-screen',
-        name: 'E2E Camera',
-        slug: 'e2e-camera',
-        type: 'grid',
-        grid: {
-          resolution: { columns: 12, rows: 8 },
-          items: [
-            {
-              id: 'item-camera',
-              type: 'entity',
-              entityId: E2E_CAMERA,
-              x: 0,
-              y: 0,
-              width: 4,
-              height: 2,
-            },
-          ],
-        },
-      },
+export function seedCameraConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-camera-screen',
+    name: 'E2E Camera',
+    slug: 'e2e-camera',
+    items: [
+      { id: 'item-camera', type: 'entity', entityId: E2E_CAMERA, x: 0, y: 0, width: 4, height: 2 },
     ],
-  }
+  })
 }
 
 // Open the Liebe panel in a real HA session. Optionally seeds a dashboard config
@@ -90,10 +98,7 @@ export function seedCameraConfig() {
 // Navigation is a direct deep link to the panel URL in a fresh context — no
 // Lovelace warm-up — so specs relying on this exercise the panel's deep-link
 // bootstrap path (window.loadCardHelpers undefined at first paint).
-export async function openPanel(
-  page: Page,
-  config?: ReturnType<typeof seedConfig> | ReturnType<typeof seedCameraConfig>
-): Promise<{ accessToken: string }> {
+export async function openPanel(page: Page, config?: SeedConfig): Promise<{ accessToken: string }> {
   const { panelUrl, accessToken } = await getCredentials()
 
   // Neutralize service-worker registration. The HA frontend reloads the page
@@ -143,6 +148,79 @@ export async function openPanel(
   }
 
   return { accessToken }
+}
+
+// Collector for fatal browser-side errors: console errors (with object
+// arguments fully serialized — msg.text() renders them as the useless literal
+// "Object"), pageerrors, and unhandled promise rejections (whose plain-object
+// reasons surface through pageerror as "Object", so the real payloads are
+// recorded in-page and read back at the end). Must be installed BEFORE the
+// page navigates (it registers an init script). Benign patterns are filtered
+// out of fatalErrors(); everything else is fatal.
+export interface ConsoleErrorCollector {
+  /** Collected non-benign errors; await at the end of the test. */
+  fatalErrors: () => Promise<string[]>
+}
+
+export async function collectConsoleErrors(
+  page: Page,
+  benignPatterns: RegExp[] = []
+): Promise<ConsoleErrorCollector> {
+  const collected: string[] = []
+
+  page.on('console', (msg) => {
+    if (msg.type() !== 'error') return
+    // msg.text() renders object arguments as the literal "Object"; serialize
+    // the argument values so the benign filter sees the real payload.
+    const { url, lineNumber } = msg.location()
+    void Promise.all(
+      msg.args().map((arg) =>
+        arg
+          .jsonValue()
+          .then((value) => (typeof value === 'string' ? value : JSON.stringify(value)))
+          .catch(() => '<unserializable>')
+      )
+    ).then((parts) => {
+      const text = parts.length > 0 ? parts.join(' ') : msg.text()
+      collected.push(`${text} (at ${url}:${lineNumber})`)
+    })
+  })
+
+  // The bare "Object" pageerror duplicates of unhandled rejections are dropped
+  // in favor of the serialized in-page records below.
+  page.on('pageerror', (err) => {
+    const text = err.stack || err.message
+    if (text !== 'Object') collected.push(text)
+  })
+
+  await page.addInitScript(() => {
+    const rejections: string[] = []
+    ;(window as unknown as { __e2eRejections: string[] }).__e2eRejections = rejections
+    window.addEventListener('unhandledrejection', (event) => {
+      const { reason } = event
+      let detail: string
+      try {
+        detail =
+          reason instanceof Error
+            ? reason.stack || reason.message
+            : JSON.stringify(reason, Object.getOwnPropertyNames(reason ?? {}))
+      } catch {
+        detail = String(reason)
+      }
+      rejections.push(`unhandled rejection: ${detail}`)
+    })
+  })
+
+  return {
+    fatalErrors: async () => {
+      const rejections = await page.evaluate(
+        () => (window as unknown as { __e2eRejections?: string[] }).__e2eRejections ?? []
+      )
+      return [...collected, ...rejections].filter(
+        (text) => !benignPatterns.some((pattern) => pattern.test(text))
+      )
+    },
+  }
 }
 
 // Minimal shape of the panel element exposed on window by src/panel.ts.

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { test, expect } from '@playwright/test'
 import { load } from 'js-yaml'
-import { openPanel, panelInfo } from './helpers'
+import { openPanel, panelInfo, collectConsoleErrors } from './helpers'
 import { getPanelConfig } from '../../src/config/panel'
 
 test('configuration.yaml panel entry matches src/config/panel.ts', () => {
@@ -56,11 +56,9 @@ test('configuration.yaml panel entry matches src/config/panel.ts', () => {
 })
 
 test('panel mounts inline and connects to Home Assistant', async ({ page }) => {
-  const errors: string[] = []
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') errors.push(msg.text())
-  })
-  page.on('pageerror', (err) => errors.push(err.message))
+  // No benign filters: any console error, pageerror, or unhandled rejection
+  // during a plain panel load is fatal.
+  const errors = await collectConsoleErrors(page)
 
   await openPanel(page)
 
@@ -71,5 +69,5 @@ test('panel mounts inline and connects to Home Assistant', async ({ page }) => {
   expect(connected, 'websocket connection is established').toBe(true)
   expect(stateCount, 'demo entities are available').toBeGreaterThan(50)
 
-  expect(errors, 'no fatal console errors').toEqual([])
+  expect(await errors.fatalErrors(), 'no fatal console errors').toEqual([])
 })

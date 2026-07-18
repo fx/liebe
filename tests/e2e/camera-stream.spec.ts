@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { openPanel, seedCameraConfig, gridItemCount } from './helpers'
+import { openPanel, seedCameraConfig, gridItemCount, collectConsoleErrors } from './helpers'
 
 // Camera streaming e2e (docs/changes/0007): a seeded CameraCard must play the
 // synthetic go2rtc testsrc2 stream through HA's own <ha-camera-stream> element.
@@ -29,10 +29,6 @@ const BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   /"code"\s*:\s*"unknown_error"/,
 ]
 
-function isBenign(text: string): boolean {
-  return BENIGN_CONSOLE_PATTERNS.some((pattern) => pattern.test(text))
-}
-
 // Minimal window/panel shape used by the in-page evaluations below.
 interface PanelWindow {
   __liebePanel?: { shadowRoot: ShadowRoot | null }
@@ -61,54 +57,25 @@ async function innerVideoInfo(page: Page): Promise<{
   })
 }
 
+// The inner <video> must have real dimensions and be actively playing.
+async function expectVideoPlaying(page: Page, timeout: number): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const { videoWidth, paused } = await innerVideoInfo(page)
+        return videoWidth > 0 && !paused
+      },
+      { timeout }
+    )
+    .toBe(true)
+}
+
 test('seeded camera card plays the synthetic stream and survives fullscreen', async ({ page }) => {
   // Stream startup + two fullscreen renegotiations do not fit the default 60s
   // per-test budget; extend for this spec only (global config untouched).
   test.setTimeout(240_000)
 
-  const consoleErrors: string[] = []
-  page.on('console', (msg) => {
-    if (msg.type() !== 'error') return
-    // msg.text() renders object arguments as the literal "Object"; serialize
-    // the argument values so the benign filter sees the real payload.
-    const { url, lineNumber } = msg.location()
-    void Promise.all(
-      msg.args().map((arg) =>
-        arg
-          .jsonValue()
-          .then((value) => (typeof value === 'string' ? value : JSON.stringify(value)))
-          .catch(() => '<unserializable>')
-      )
-    ).then((parts) => {
-      const text = parts.length > 0 ? parts.join(' ') : msg.text()
-      consoleErrors.push(`${text} (at ${url}:${lineNumber})`)
-    })
-  })
-  // Unhandled rejections with a plain-object reason (e.g. HA websocket API
-  // errors) surface through pageerror as the useless string "Object", so the
-  // real payloads are recorded in-page and read back for the final assertion;
-  // the bare "Object" pageerror duplicates are dropped in their favor.
-  page.on('pageerror', (err) => {
-    const text = err.stack || err.message
-    if (text !== 'Object') consoleErrors.push(text)
-  })
-  await page.addInitScript(() => {
-    const rejections: string[] = []
-    ;(window as unknown as { __e2eRejections: string[] }).__e2eRejections = rejections
-    window.addEventListener('unhandledrejection', (event) => {
-      const { reason } = event
-      let detail: string
-      try {
-        detail =
-          reason instanceof Error
-            ? reason.stack || reason.message
-            : JSON.stringify(reason, Object.getOwnPropertyNames(reason ?? {}))
-      } catch {
-        detail = String(reason)
-      }
-      rejections.push(`unhandled rejection: ${detail}`)
-    })
-  })
+  const consoleErrors = await collectConsoleErrors(page, BENIGN_CONSOLE_PATTERNS)
 
   // 1. Open the panel with the dedicated camera seed. openPanel deep-links
   // straight into the panel in a fresh context (no Lovelace warm-up), so this
@@ -142,15 +109,7 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
 
   // 4. Shadow-pierce to the inner <video>: it must have real dimensions and be
   // playing. Which player won is NOT asserted.
-  await expect
-    .poll(
-      async () => {
-        const { videoWidth, paused } = await innerVideoInfo(page)
-        return videoWidth > 0 && !paused
-      },
-      { timeout: 60_000 }
-    )
-    .toBe(true)
+  await expectVideoPlaying(page, 60_000)
   const { player } = await innerVideoInfo(page)
   test.info().annotations.push({ type: 'camera-player', description: player ?? 'unknown' })
   console.log(`[camera-stream] player in use: ${player ?? 'unknown'}`)
@@ -216,15 +175,7 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
 
   // The stream must keep playing in fullscreen (one sub-second renegotiation
   // on the container swap is accepted — hence the generous timeout).
-  await expect
-    .poll(
-      async () => {
-        const { videoWidth, paused } = await innerVideoInfo(page)
-        return videoWidth > 0 && !paused
-      },
-      { timeout: 30_000 }
-    )
-    .toBe(true)
+  await expectVideoPlaying(page, 30_000)
 
   // 6. Close fullscreen with ESC; the stream must recover in the card.
   await page.keyboard.press('Escape')
@@ -234,21 +185,9 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
     /STREAMING|RECORDING/,
     { timeout: 30_000 }
   )
-  await expect
-    .poll(
-      async () => {
-        const { videoWidth, paused } = await innerVideoInfo(page)
-        return videoWidth > 0 && !paused
-      },
-      { timeout: 30_000 }
-    )
-    .toBe(true)
+  await expectVideoPlaying(page, 30_000)
 
   // 7. No fatal console errors or unhandled rejections across the whole flow
-  // (benign HA/player startup noise filtered above).
-  const rejections = await page.evaluate(
-    () => (window as unknown as { __e2eRejections?: string[] }).__e2eRejections ?? []
-  )
-  const fatal = [...consoleErrors, ...rejections].filter((text) => !isBenign(text))
-  expect(fatal, 'no fatal console errors').toEqual([])
+  // (benign HA/player startup noise filtered by the collector).
+  expect(await consoleErrors.fatalErrors(), 'no fatal console errors').toEqual([])
 })
