@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createRef } from 'react'
 import { render, act } from '@testing-library/react'
 import { HaCameraStream } from '../HaCameraStream'
-import type { HaCameraStreamHandle, CameraStreamsDetail } from '../HaCameraStream'
+import type { HaCameraStreamHandle } from '../HaCameraStream'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { HomeAssistantState } from '../../../contexts/HomeAssistantContext'
 
@@ -140,26 +140,28 @@ describe('HaCameraStream', () => {
     expect(second.stateObj).toBe(other)
   })
 
-  it('forwards streams and load events to the callbacks', () => {
-    const onStreams = vi.fn()
-    const onLoad = vi.fn()
+  it('forwards both streams and load events to the single onStreamEvent callback', () => {
+    const onStreamEvent = vi.fn()
     const { container } = render(
-      <HaCameraStream entity={makeEntity()} hass={null} onStreams={onStreams} onLoad={onLoad} />
+      <HaCameraStream entity={makeEntity()} hass={null} onStreamEvent={onStreamEvent} />
     )
     const element = getStreamElement(container)
 
-    const detail: CameraStreamsDetail = { hasAudio: true, hasVideo: true, codecs: ['h264'] }
     act(() => {
-      element.dispatchEvent(new CustomEvent('streams', { detail, bubbles: true, composed: true }))
+      element.dispatchEvent(
+        new CustomEvent('streams', {
+          detail: { hasAudio: true, hasVideo: true },
+          bubbles: true,
+          composed: true,
+        })
+      )
       element.dispatchEvent(new Event('load', { bubbles: true, composed: true }))
     })
 
-    expect(onStreams).toHaveBeenCalledTimes(1)
-    expect(onStreams).toHaveBeenCalledWith(detail)
-    expect(onLoad).toHaveBeenCalledTimes(1)
+    expect(onStreamEvent).toHaveBeenCalledTimes(2)
   })
 
-  it('ignores streams and load events when no callbacks are provided', () => {
+  it('ignores streams and load events when no callback is provided', () => {
     const { container } = render(<HaCameraStream entity={makeEntity()} hass={null} />)
     const element = getStreamElement(container)
 

@@ -2,12 +2,6 @@ import { useImperativeHandle, useLayoutEffect, useRef } from 'react'
 import type { Ref } from 'react'
 import type { HomeAssistant, HomeAssistantState } from '../../contexts/HomeAssistantContext'
 
-export interface CameraStreamsDetail {
-  hasAudio: boolean
-  hasVideo: boolean
-  codecs?: string[]
-}
-
 export interface HaCameraStreamHandle {
   getInnerVideo: () => HTMLVideoElement | null
   getMjpegImg: () => HTMLImageElement | null
@@ -29,8 +23,8 @@ export interface HaCameraStreamProps {
   fitMode?: 'cover' | 'contain' | 'fill'
   /** Bumping this recreates the underlying element (used to recover stalls). */
   remountKey?: number
-  onStreams?: (detail: CameraStreamsDetail) => void
-  onLoad?: () => void
+  /** Fired for both `streams` and `load` element events (a new watch trigger). */
+  onStreamEvent?: () => void
   ref?: Ref<HaCameraStreamHandle>
 }
 
@@ -40,8 +34,7 @@ export function HaCameraStream({
   muted = true,
   fitMode = 'cover',
   remountKey = 0,
-  onStreams,
-  onLoad,
+  onStreamEvent,
   ref,
 }: HaCameraStreamProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -84,19 +77,16 @@ export function HaCameraStream({
   // listener on the container survives element recreation.
   useLayoutEffect(() => {
     const container = containerRef.current as HTMLDivElement
-    const handleStreams = (event: Event) => {
-      onStreams?.((event as CustomEvent<CameraStreamsDetail>).detail)
+    const handleStreamEvent = () => {
+      onStreamEvent?.()
     }
-    const handleLoad = () => {
-      onLoad?.()
-    }
-    container.addEventListener('streams', handleStreams)
-    container.addEventListener('load', handleLoad)
+    container.addEventListener('streams', handleStreamEvent)
+    container.addEventListener('load', handleStreamEvent)
     return () => {
-      container.removeEventListener('streams', handleStreams)
-      container.removeEventListener('load', handleLoad)
+      container.removeEventListener('streams', handleStreamEvent)
+      container.removeEventListener('load', handleStreamEvent)
     }
-  }, [onStreams, onLoad])
+  }, [onStreamEvent])
 
   useImperativeHandle(
     ref,

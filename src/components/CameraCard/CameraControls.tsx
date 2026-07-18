@@ -1,4 +1,5 @@
 import { Spinner } from '@radix-ui/themes'
+import type { ReactNode } from 'react'
 import {
   EnterFullScreenIcon,
   SpeakerLoudIcon,
@@ -7,26 +8,66 @@ import {
 } from '@radix-ui/react-icons'
 import './CameraCard.css'
 
-interface CameraAttributes {
-  access_token?: string
-  entity_picture?: string
-  frontend_stream_type?: string
-  friendly_name?: string
-  supported_features?: number
+// Single status enum for the pill, derived once in the card (see
+// deriveCameraStatus in index.tsx). Label, icon, and color all map from this
+// value, so they can never disagree.
+export type CameraStatus =
+  | 'error'
+  | 'connecting'
+  | 'no-signal'
+  | 'recording'
+  | 'streaming'
+  | 'idle'
+  | 'raw'
+
+const STATUS_LABELS: Record<Exclude<CameraStatus, 'raw'>, string> = {
+  error: 'ERROR',
+  connecting: 'CONNECTING',
+  'no-signal': 'NO SIGNAL',
+  recording: 'RECORDING',
+  streaming: 'STREAMING',
+  idle: 'IDLE',
+}
+
+function statusColor(status: CameraStatus): string {
+  if (status === 'error') return '#ff6b6b'
+  if (status === 'recording' || status === 'streaming' || status === 'no-signal') return '#4dabf7'
+  return '#868e96'
+}
+
+function StatusIcon({ status }: { status: CameraStatus }) {
+  if (status === 'connecting') return <Spinner size="1" />
+  if (status === 'no-signal') {
+    return <ExclamationTriangleIcon style={{ color: '#f59e0b', width: '1em', height: '1em' }} />
+  }
+  if (status === 'recording' || status === 'streaming') return <span className="recording-dot" />
+  return null
+}
+
+function ControlButton({
+  onClick,
+  title,
+  children,
+}: {
+  onClick: (e: React.MouseEvent) => void
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <button onClick={onClick} title={title} className="camera-control-button">
+      {children}
+    </button>
+  )
 }
 
 export interface CameraControlsProps {
   friendlyName: string
-  entity: { state: string; attributes: CameraAttributes }
-  streamError: string | null
-  isRecording: boolean
-  isStreaming: boolean
-  isIdle: boolean
-  supportsStream: boolean
-  isEditMode: boolean
+  status: CameraStatus
+  /** Raw entity state; uppercased as the label for the 'raw' status. */
+  rawState: string
+  /** Whether the mute/fullscreen buttons render (active stream outside edit mode). */
+  showControls: boolean
   isMuted: boolean
-  isReconnecting: boolean
-  hasFrameWarning: boolean
   handleToggleMute: (e: React.MouseEvent) => void
   handleVideoFullscreen: (e: React.MouseEvent) => void
   size: 'small' | 'medium' | 'large'
@@ -36,16 +77,10 @@ export interface CameraControlsProps {
 // Custom-styled camera controls for both regular and fullscreen views
 export function CameraControls({
   friendlyName,
-  entity,
-  streamError,
-  isRecording,
-  isStreaming,
-  isIdle,
-  supportsStream,
-  isEditMode,
+  status,
+  rawState,
+  showControls,
   isMuted,
-  isReconnecting,
-  hasFrameWarning,
   handleToggleMute,
   handleVideoFullscreen,
   size,
@@ -84,7 +119,7 @@ export function CameraControls({
         </div>
         <div
           style={{
-            color: streamError ? '#ff6b6b' : isRecording || isStreaming ? '#4dabf7' : '#868e96',
+            color: statusColor(status),
             fontSize: '0.8em',
             lineHeight: 1.2,
             textTransform: 'uppercase',
@@ -94,90 +129,24 @@ export function CameraControls({
             gap: `${0.4 * scaleFactor}em`,
           }}
         >
-          {isReconnecting || (supportsStream && !isStreaming && !streamError) ? (
-            <Spinner size="1" />
-          ) : hasFrameWarning && !streamError ? (
-            <ExclamationTriangleIcon style={{ color: '#f59e0b', width: '1em', height: '1em' }} />
-          ) : (isRecording || isStreaming) && !streamError ? (
-            <span className="recording-dot" />
-          ) : null}
-          {streamError
-            ? 'ERROR'
-            : isReconnecting || (supportsStream && !isStreaming && !streamError)
-              ? 'CONNECTING'
-              : hasFrameWarning
-                ? 'NO SIGNAL'
-                : supportsStream && isStreaming && (isRecording || entity.state === 'streaming')
-                  ? 'RECORDING'
-                  : supportsStream && isStreaming
-                    ? 'STREAMING'
-                    : isIdle
-                      ? 'IDLE'
-                      : entity.state.toUpperCase()}
+          <StatusIcon status={status} />
+          {status === 'raw' ? rawState.toUpperCase() : STATUS_LABELS[status]}
         </div>
       </div>
 
       {/* Control buttons */}
-      {supportsStream && isStreaming && !streamError && !isEditMode && (
+      {showControls && (
         <div style={{ display: 'flex', gap: `${0.4 * scaleFactor}em` }}>
-          <button
-            onClick={handleToggleMute}
-            title={isMuted ? 'Unmute' : 'Mute'}
-            style={{
-              width: '2.5em',
-              height: '2.5em',
-              borderRadius: '0.5em',
-              border: 'none',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s ease',
-              padding: 0,
-              fontSize: 'inherit',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
-            }}
-          >
+          <ControlButton onClick={handleToggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
             {isMuted ? (
               <SpeakerOffIcon style={{ width: '55%', height: '55%' }} />
             ) : (
               <SpeakerLoudIcon style={{ width: '55%', height: '55%' }} />
             )}
-          </button>
-          <button
-            onClick={handleVideoFullscreen}
-            title="Toggle native fullscreen"
-            style={{
-              width: '2.5em',
-              height: '2.5em',
-              borderRadius: '0.5em',
-              border: 'none',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s ease',
-              padding: 0,
-              fontSize: 'inherit',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
-            }}
-          >
+          </ControlButton>
+          <ControlButton onClick={handleVideoFullscreen} title="Toggle native fullscreen">
             <EnterFullScreenIcon style={{ width: '55%', height: '55%' }} />
-          </button>
+          </ControlButton>
         </div>
       )}
     </div>

@@ -6,16 +6,10 @@ import type { CameraControlsProps } from '../CameraControls'
 function renderControls(overrides: Partial<CameraControlsProps> = {}) {
   const props: CameraControlsProps = {
     friendlyName: 'Demo Cam',
-    entity: { state: 'idle', attributes: {} },
-    streamError: null,
-    isRecording: false,
-    isStreaming: false,
-    isIdle: false,
-    supportsStream: false,
-    isEditMode: false,
+    status: 'idle',
+    rawState: 'idle',
+    showControls: false,
     isMuted: true,
-    isReconnecting: false,
-    hasFrameWarning: false,
     handleToggleMute: vi.fn(),
     handleVideoFullscreen: vi.fn(),
     size: 'medium',
@@ -24,120 +18,76 @@ function renderControls(overrides: Partial<CameraControlsProps> = {}) {
   return { ...render(<CameraControls {...props} />), props }
 }
 
-// Every state below the one under test is also asserted true, proving the
-// pill priority: ERROR > CONNECTING > NO SIGNAL > RECORDING > STREAMING >
-// IDLE > raw state.
-describe('CameraControls status pill priority', () => {
-  it('ERROR wins over everything', () => {
-    const { getByText } = renderControls({
-      streamError: 'boom',
-      isReconnecting: true,
-      hasFrameWarning: true,
-      isRecording: true,
-      isStreaming: true,
-      isIdle: true,
-      supportsStream: true,
-      entity: { state: 'streaming', attributes: {} },
-    })
+function getPill(container: HTMLElement): HTMLElement {
+  // The pill is the second child of the entity-info column.
+  const info = container.firstElementChild!.firstElementChild as HTMLElement
+  return info.children[1] as HTMLElement
+}
+
+// Every status maps to exactly one label, icon, and color — the priority
+// matrix itself lives in deriveCameraStatus (see the CameraCard tests).
+describe('CameraControls status pill rendering', () => {
+  it('renders ERROR in red with no icon', () => {
+    const { getByText, container } = renderControls({ status: 'error' })
     expect(getByText('ERROR')).toBeInTheDocument()
-  })
-
-  it('CONNECTING (reconnecting) wins over NO SIGNAL and below', () => {
-    const { getByText, container } = renderControls({
-      isReconnecting: true,
-      hasFrameWarning: true,
-      isRecording: true,
-      isStreaming: true,
-      isIdle: true,
-      supportsStream: true,
-      entity: { state: 'streaming', attributes: {} },
-    })
-    expect(getByText('CONNECTING')).toBeInTheDocument()
-    expect(container.querySelector('.rt-Spinner')).not.toBeNull()
-  })
-
-  it('CONNECTING also shows while a supported stream has not started', () => {
-    const { getByText } = renderControls({
-      supportsStream: true,
-      isStreaming: false,
-      hasFrameWarning: true,
-      isRecording: true,
-      isIdle: true,
-    })
-    expect(getByText('CONNECTING')).toBeInTheDocument()
-  })
-
-  it('NO SIGNAL wins over RECORDING and below', () => {
-    const { getByText, container } = renderControls({
-      hasFrameWarning: true,
-      isRecording: true,
-      isStreaming: true,
-      isIdle: true,
-      supportsStream: true,
-      isEditMode: true, // hide buttons so the only svg is the warning icon
-      entity: { state: 'streaming', attributes: {} },
-    })
-    expect(getByText('NO SIGNAL')).toBeInTheDocument()
-    expect(container.querySelectorAll('svg')).toHaveLength(1)
-    expect(container.querySelector('.rt-Spinner')).toBeNull()
-    expect(container.querySelector('.recording-dot')).toBeNull()
-  })
-
-  it('RECORDING wins over STREAMING and IDLE while recording', () => {
-    const { getByText, container } = renderControls({
-      isRecording: true,
-      isStreaming: true,
-      isIdle: true,
-      supportsStream: true,
-    })
-    expect(getByText('RECORDING')).toBeInTheDocument()
-    expect(container.querySelector('.recording-dot')).not.toBeNull()
-  })
-
-  it('RECORDING also shows when the entity state is streaming', () => {
-    const { getByText } = renderControls({
-      isStreaming: true,
-      supportsStream: true,
-      entity: { state: 'streaming', attributes: {} },
-    })
-    expect(getByText('RECORDING')).toBeInTheDocument()
-  })
-
-  it('STREAMING wins over IDLE', () => {
-    const { getByText } = renderControls({
-      isStreaming: true,
-      isIdle: true,
-      supportsStream: true,
-      entity: { state: 'idle', attributes: {} },
-    })
-    expect(getByText('STREAMING')).toBeInTheDocument()
-  })
-
-  it('IDLE wins over the raw entity state', () => {
-    const { getByText, container } = renderControls({
-      isIdle: true,
-      entity: { state: 'unavailable', attributes: {} },
-    })
-    expect(getByText('IDLE')).toBeInTheDocument()
-    // No spinner, warning, or recording dot for an idle camera.
+    expect(getPill(container).style.color).toBe('rgb(255, 107, 107)')
     expect(container.querySelector('.rt-Spinner')).toBeNull()
     expect(container.querySelector('.recording-dot')).toBeNull()
     expect(container.querySelectorAll('svg')).toHaveLength(0)
   })
 
-  it('falls back to the uppercased raw entity state', () => {
-    const { getByText } = renderControls({ entity: { state: 'paused', attributes: {} } })
+  it('renders CONNECTING with a spinner', () => {
+    const { getByText, container } = renderControls({ status: 'connecting' })
+    expect(getByText('CONNECTING')).toBeInTheDocument()
+    expect(container.querySelector('.rt-Spinner')).not.toBeNull()
+    expect(getPill(container).style.color).toBe('rgb(134, 142, 150)')
+  })
+
+  it('renders NO SIGNAL with the warning icon', () => {
+    const { getByText, container } = renderControls({ status: 'no-signal' })
+    expect(getByText('NO SIGNAL')).toBeInTheDocument()
+    expect(container.querySelectorAll('svg')).toHaveLength(1)
+    expect(container.querySelector('.rt-Spinner')).toBeNull()
+    expect(container.querySelector('.recording-dot')).toBeNull()
+    expect(getPill(container).style.color).toBe('rgb(77, 171, 247)')
+  })
+
+  it('renders RECORDING with the pulsing dot in blue', () => {
+    const { getByText, container } = renderControls({ status: 'recording' })
+    expect(getByText('RECORDING')).toBeInTheDocument()
+    expect(container.querySelector('.recording-dot')).not.toBeNull()
+    expect(getPill(container).style.color).toBe('rgb(77, 171, 247)')
+  })
+
+  it('renders STREAMING with the pulsing dot in blue', () => {
+    const { getByText, container } = renderControls({ status: 'streaming' })
+    expect(getByText('STREAMING')).toBeInTheDocument()
+    expect(container.querySelector('.recording-dot')).not.toBeNull()
+    expect(getPill(container).style.color).toBe('rgb(77, 171, 247)')
+  })
+
+  it('renders IDLE without any icon', () => {
+    const { getByText, container } = renderControls({ status: 'idle' })
+    expect(getByText('IDLE')).toBeInTheDocument()
+    expect(container.querySelector('.rt-Spinner')).toBeNull()
+    expect(container.querySelector('.recording-dot')).toBeNull()
+    expect(container.querySelectorAll('svg')).toHaveLength(0)
+  })
+
+  it('renders the uppercased raw entity state for the raw status', () => {
+    const { getByText, container } = renderControls({ status: 'raw', rawState: 'paused' })
     expect(getByText('PAUSED')).toBeInTheDocument()
+    expect(getPill(container).style.color).toBe('rgb(134, 142, 150)')
   })
 })
 
 describe('CameraControls buttons', () => {
-  it('shows mute and fullscreen buttons for an active stream and fires the handlers', () => {
+  it('shows mute and fullscreen buttons and fires the handlers', () => {
     const handleToggleMute = vi.fn()
     const handleVideoFullscreen = vi.fn()
     const { getByTitle } = renderControls({
-      supportsStream: true,
-      isStreaming: true,
+      status: 'streaming',
+      showControls: true,
       handleToggleMute,
       handleVideoFullscreen,
     })
@@ -151,38 +101,24 @@ describe('CameraControls buttons', () => {
 
   it('shows the mute title and loud speaker icon when unmuted', () => {
     const { getByTitle, queryByTitle } = renderControls({
-      supportsStream: true,
-      isStreaming: true,
+      status: 'streaming',
+      showControls: true,
       isMuted: false,
     })
     expect(getByTitle('Mute')).toBeInTheDocument()
     expect(queryByTitle('Unmute')).toBeNull()
   })
 
-  it('hides the buttons in edit mode', () => {
-    const { queryByTitle } = renderControls({
-      supportsStream: true,
-      isStreaming: true,
-      isEditMode: true,
-    })
+  it('hides the buttons when showControls is off', () => {
+    const { queryByTitle } = renderControls({ status: 'streaming', showControls: false })
     expect(queryByTitle('Unmute')).toBeNull()
     expect(queryByTitle('Toggle native fullscreen')).toBeNull()
   })
 
-  it('hides the buttons when there is no active stream', () => {
-    const { queryByTitle } = renderControls({ supportsStream: true, isStreaming: false })
-    expect(queryByTitle('Unmute')).toBeNull()
-  })
-
-  it('highlights buttons on hover and restores on leave', () => {
-    const { getByTitle } = renderControls({ supportsStream: true, isStreaming: true })
-
+  it('styles both buttons via the shared hoverable class', () => {
+    const { getByTitle } = renderControls({ status: 'streaming', showControls: true })
     for (const title of ['Unmute', 'Toggle native fullscreen']) {
-      const button = getByTitle(title)
-      fireEvent.mouseEnter(button)
-      expect(button.style.backgroundColor).toBe('rgba(255, 255, 255, 0.2)')
-      fireEvent.mouseLeave(button)
-      expect(button.style.backgroundColor).toBe('rgba(255, 255, 255, 0.1)')
+      expect(getByTitle(title).className).toBe('camera-control-button')
     }
   })
 })

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createElement } from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
-import { CameraCard } from '../index'
+import { CameraCard, deriveCameraStatus } from '../index'
+import type { CameraStatusInput } from '../index'
 import { useEntity, useIsConnecting } from '~/hooks'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { HomeAssistantProvider } from '../../../contexts/HomeAssistantContext'
@@ -40,14 +41,13 @@ const statusMock: Pick<
   UseCameraStreamStatusResult,
   'isStreaming' | 'hasFrameWarning' | 'error' | 'remountKey'
 > = { isStreaming: false, hasFrameWarning: false, error: null, remountKey: 0 }
-const mockOnStreams = vi.fn()
-const mockOnLoad = vi.fn()
+const mockOnStreamEvent = vi.fn()
 const mockRetry = vi.fn()
 const statusOptionsLog: UseCameraStreamStatusOptions[] = []
 vi.mock('../useCameraStreamStatus', () => ({
   useCameraStreamStatus: (options: UseCameraStreamStatusOptions): UseCameraStreamStatusResult => {
     statusOptionsLog.push(options)
-    return { ...statusMock, onStreams: mockOnStreams, onLoad: mockOnLoad, retry: mockRetry }
+    return { ...statusMock, onStreamEvent: mockOnStreamEvent, retry: mockRetry }
   },
 }))
 
@@ -331,7 +331,7 @@ describe('CameraCard', () => {
       expect(getStreamHost().getAttribute('data-remount-key')).toBe('7')
     })
 
-    it('forwards streams/load events to the status machine and refreshes the stats video', async () => {
+    it('forwards stream events to the status machine and refreshes the stats video', async () => {
       const video = document.createElement('video')
       Object.defineProperty(video, 'videoWidth', { value: 640 })
       Object.defineProperty(video, 'videoHeight', { value: 480 })
@@ -352,14 +352,9 @@ describe('CameraCard', () => {
 
       const props = lastStreamProps()
       act(() => {
-        props.onStreams?.({ hasAudio: true, hasVideo: true })
+        props.onStreamEvent?.()
       })
-      expect(mockOnStreams).toHaveBeenCalledTimes(1)
-
-      act(() => {
-        props.onLoad?.()
-      })
-      expect(mockOnLoad).toHaveBeenCalledTimes(1)
+      expect(mockOnStreamEvent).toHaveBeenCalledTimes(1)
 
       // The reactive inner video reached CameraStats: resolution appears.
       await waitFor(() => expect(screen.getByText('640x480')).toBeInTheDocument())
@@ -449,10 +444,16 @@ describe('CameraCard', () => {
         config: { showStats: true },
       }
       renderCard({ item })
+      // In-card stats before fullscreen.
+      expect(screen.getAllByText('FPS').length).toBe(1)
 
       fireEvent.click(getStreamHost())
-      // Card stats + fullscreen stats.
-      expect(screen.getAllByText('FPS').length).toBe(2)
+      // Only the fullscreen instance runs while the overlay is open (the
+      // in-card one is gated off so two intervals never poll concurrently).
+      expect(screen.getAllByText('FPS').length).toBe(1)
+
+      fireEvent.click(screen.getByText('Click or press ESC to exit').parentElement!.parentElement!)
+      expect(screen.getAllByText('FPS').length).toBe(1)
     })
   })
 
@@ -816,5 +817,113 @@ describe('CameraCard', () => {
     it('exposes defaultDimensions', () => {
       expect(CameraCard.defaultDimensions).toEqual({ width: 4, height: 2 })
     })
+  })
+})
+
+// Every state below the one under test is also asserted true, proving the
+// pill priority: ERROR > CONNECTING > NO SIGNAL > RECORDING > STREAMING >
+// IDLE > raw state.
+describe('deriveCameraStatus priority', () => {
+  const base: CameraStatusInput = {
+    streamError: null,
+    isReconnecting: false,
+    supportsStream: false,
+    isStreaming: false,
+    hasFrameWarning: false,
+    entityState: 'idle',
+  }
+
+  it('error wins over everything', () => {
+    expect(
+      deriveCameraStatus({
+        streamError: 'boom',
+        isReconnecting: true,
+        hasFrameWarning: true,
+        supportsStream: true,
+        isStreaming: true,
+        entityState: 'streaming',
+      })
+    ).toBe('error')
+  })
+
+  it('connecting (reconnecting) wins over no-signal and below', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        isReconnecting: true,
+        hasFrameWarning: true,
+        supportsStream: true,
+        isStreaming: true,
+        entityState: 'streaming',
+      })
+    ).toBe('connecting')
+  })
+
+  it('connecting also shows while a supported stream has not started', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        supportsStream: true,
+        isStreaming: false,
+        hasFrameWarning: true,
+        entityState: 'recording',
+      })
+    ).toBe('connecting')
+  })
+
+  it('no-signal wins over recording and below', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        hasFrameWarning: true,
+        supportsStream: true,
+        isStreaming: true,
+        entityState: 'streaming',
+      })
+    ).toBe('no-signal')
+  })
+
+  it('recording wins over streaming and idle while the entity records', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        supportsStream: true,
+        isStreaming: true,
+        entityState: 'recording',
+      })
+    ).toBe('recording')
+  })
+
+  it('recording also shows when a live stream reports the streaming state', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        supportsStream: true,
+        isStreaming: true,
+        entityState: 'streaming',
+      })
+    ).toBe('recording')
+  })
+
+  it('recording shows for a non-stream camera in the recording state', () => {
+    // Without stream support the raw-state fallback used to uppercase
+    // 'recording' into the same label; the fold makes it explicit.
+    expect(deriveCameraStatus({ ...base, entityState: 'recording' })).toBe('recording')
+  })
+
+  it('streaming wins over idle', () => {
+    expect(
+      deriveCameraStatus({ ...base, supportsStream: true, isStreaming: true, entityState: 'idle' })
+    ).toBe('streaming')
+  })
+
+  it('idle wins over the raw entity state', () => {
+    expect(deriveCameraStatus({ ...base, entityState: 'idle' })).toBe('idle')
+  })
+
+  it('falls back to raw for any other entity state', () => {
+    expect(deriveCameraStatus({ ...base, entityState: 'paused' })).toBe('raw')
+    // A non-stream camera reporting 'streaming' has no frame evidence: raw.
+    expect(deriveCameraStatus({ ...base, entityState: 'streaming' })).toBe('raw')
   })
 })

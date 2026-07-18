@@ -1,13 +1,14 @@
 import { Flex, Text, Button, Spinner } from '@radix-ui/themes'
 import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import { useEntity, useIsConnecting } from '~/hooks'
 import { useHomeAssistantOptional } from '../../contexts/HomeAssistantContext'
-import { SkeletonCard, ErrorDisplay, FullscreenModal, resolvePanelPortalContainer } from '../ui'
+import { SkeletonCard, ErrorDisplay, FullscreenModal, usePanelPortalContainer } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { KeepAlive } from '../KeepAlive'
 import { CardConfig } from '../CardConfig'
+import { logger } from '~/utils/logger'
 import type { GridItem } from '~/store/types'
 import { HaCameraStream } from './HaCameraStream'
 import type { HaCameraStreamHandle } from './HaCameraStream'
@@ -15,6 +16,7 @@ import { useCameraStreamReady } from './useCameraStreamReady'
 import { useCameraStreamStatus } from './useCameraStreamStatus'
 import { StillImageFallback } from './StillImageFallback'
 import { CameraControls } from './CameraControls'
+import type { CameraStatus } from './CameraControls'
 import { CameraStats } from './CameraStats'
 import './CameraCard.css'
 
@@ -28,10 +30,6 @@ interface CameraCardProps {
 }
 
 interface CameraAttributes {
-  access_token?: string
-  entity_picture?: string
-  frontend_stream_type?: string
-  friendly_name?: string
   supported_features?: number
 }
 
@@ -39,6 +37,42 @@ interface CameraAttributes {
 const SUPPORT_STREAM = 2
 
 type FitMode = 'cover' | 'contain' | 'fill'
+
+export interface CameraStatusInput {
+  streamError: string | null
+  isReconnecting: boolean
+  /** Streaming is supported AND the <ha-camera-stream> bootstrap has not failed. */
+  supportsStream: boolean
+  isStreaming: boolean
+  hasFrameWarning: boolean
+  entityState: string
+}
+
+// Single derivation of the status pill, in strict priority order:
+// ERROR > CONNECTING > NO SIGNAL > RECORDING > STREAMING > IDLE > raw state.
+// CameraControls maps label, icon, and color from the returned status, so
+// they can never disagree.
+export function deriveCameraStatus({
+  streamError,
+  isReconnecting,
+  supportsStream,
+  isStreaming,
+  hasFrameWarning,
+  entityState,
+}: CameraStatusInput): CameraStatus {
+  if (streamError) return 'error'
+  if (isReconnecting || (supportsStream && !isStreaming)) return 'connecting'
+  if (hasFrameWarning) return 'no-signal'
+  if (
+    entityState === 'recording' ||
+    (supportsStream && isStreaming && entityState === 'streaming')
+  ) {
+    return 'recording'
+  }
+  if (supportsStream && isStreaming) return 'streaming'
+  if (entityState === 'idle') return 'idle'
+  return 'raw'
+}
 
 function CameraCardComponent({
   entityId,
@@ -59,7 +93,7 @@ function CameraCardComponent({
   // Fullscreen overlay portal target: resolved from the card's root DOM node so
   // the overlay stays inside the liebe-panel shadow root (keeps @lit/context
   // resolution working on HA ≥ 2026.7). Falls back to document.body standalone.
-  const [portalContainer, setPortalContainer] = useState<Element | undefined>(undefined)
+  const { ref: rootRefCallback, container: portalContainer } = usePanelPortalContainer()
   // Reactive mirror of the element's inner <video> for CameraStats (reading a
   // ref during render is unsafe per react-hooks/refs).
   const [innerVideo, setInnerVideo] = useState<HTMLVideoElement | null>(null)
@@ -73,23 +107,15 @@ function CameraCardComponent({
   const matting = (config.matting as string) || 'small'
   const showStats = config.showStats === true
 
-  // Memoize camera attributes and stream support to prevent re-renders
-  const cameraAttributes = useMemo(
-    () => entity?.attributes as CameraAttributes | undefined,
-    [entity]
-  )
-
-  const supportsStream = useMemo(
-    () => !!((cameraAttributes?.supported_features ?? 0) & SUPPORT_STREAM),
-    [cameraAttributes?.supported_features]
+  const supportsStream = !!(
+    ((entity?.attributes as CameraAttributes | undefined)?.supported_features ?? 0) & SUPPORT_STREAM
   )
 
   // Bootstrap <ha-camera-stream>: 'ready' renders the element, 'unavailable'
   // falls back to the still image, 'loading' keeps the connecting state.
   const readiness = useCameraStreamReady(entityId)
 
-  const hasEntity = !!entity
-  const streamEnabled = hasEntity && isConnected && supportsStream && readiness === 'ready'
+  const streamEnabled = !!entity && isConnected && supportsStream && readiness === 'ready'
 
   const getInnerVideo = useCallback(() => streamHandleRef.current?.getInnerVideo() ?? null, [])
   const getMjpegImg = useCallback(() => streamHandleRef.current?.getMjpegImg() ?? null, [])
@@ -99,8 +125,7 @@ function CameraCardComponent({
     hasFrameWarning,
     error: streamError,
     remountKey,
-    onStreams,
-    onLoad,
+    onStreamEvent,
     retry: retryStream,
   } = useCameraStreamStatus({
     getInnerVideo,
@@ -111,21 +136,10 @@ function CameraCardComponent({
 
   // Wire element events into the status machine and refresh the reactive inner
   // <video> (it is recreated when the element remounts or swaps players).
-  const handleStreams = useCallback(() => {
-    onStreams()
+  const handleStreamEvent = useCallback(() => {
+    onStreamEvent()
     setInnerVideo(getInnerVideo())
-  }, [onStreams, getInnerVideo])
-
-  const handleLoad = useCallback(() => {
-    onLoad()
-    setInnerVideo(getInnerVideo())
-  }, [onLoad, getInnerVideo])
-
-  const rootRefCallback = useCallback((node: HTMLDivElement | null) => {
-    if (node) {
-      setPortalContainer(resolvePanelPortalContainer(node))
-    }
-  }, [])
+  }, [onStreamEvent, getInnerVideo])
 
   const handleVideoClick = useCallback(() => {
     if (!streamError && !isEditMode) {
@@ -151,7 +165,7 @@ function CameraCardComponent({
           await target.requestFullscreen()
         }
       } catch (error) {
-        console.error('Fullscreen error:', error)
+        logger.error('Fullscreen error:', error)
       }
     },
     [isFullscreen]
@@ -188,12 +202,20 @@ function CameraCardComponent({
   const isUnavailable = entity.state === 'unavailable'
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
   const isRecording = entity.state === 'recording'
-  const isIdle = entity.state === 'idle'
   const isStreamingState = entity.state === 'streaming'
   const activeFit: FitMode = isFullscreen ? 'contain' : fit
   // When the element cannot be bootstrapped the still-image fallback renders;
-  // report the raw entity state instead of a forever-CONNECTING pill.
+  // derive the pill from the raw entity state instead of a forever-CONNECTING.
   const pillSupportsStream = supportsStream && readiness !== 'unavailable'
+  const status = deriveCameraStatus({
+    streamError,
+    isReconnecting,
+    supportsStream: pillSupportsStream,
+    isStreaming,
+    hasFrameWarning,
+    entityState: entity.state,
+  })
+  const showControls = pillSupportsStream && isStreaming && !streamError && !isEditMode
 
   // Calculate matting/padding based on configuration
   // Map matting values to Radix UI space tokens
@@ -277,8 +299,7 @@ function CameraCardComponent({
                         muted={isMuted}
                         fitMode={activeFit}
                         remountKey={remountKey}
-                        onStreams={handleStreams}
-                        onLoad={handleLoad}
+                        onStreamEvent={handleStreamEvent}
                       />
                     ) : readiness === 'unavailable' ? (
                       <StillImageFallback entity={entity} objectFit={activeFit} />
@@ -324,8 +345,9 @@ function CameraCardComponent({
             </Flex>
           )}
 
-          {/* Stats display (when enabled) */}
-          {showStats && supportsStream && !streamError && (
+          {/* Stats display (when enabled; the fullscreen overlay renders its
+              own instance, so the in-card one pauses while it is open) */}
+          {showStats && !isFullscreen && supportsStream && !streamError && (
             <CameraStats size={size} videoElement={innerVideo} />
           )}
 
@@ -340,16 +362,10 @@ function CameraCardComponent({
           >
             <CameraControls
               friendlyName={friendlyName}
-              entity={entity}
-              streamError={streamError}
-              isRecording={isRecording}
-              isStreaming={isStreaming}
-              isIdle={isIdle}
-              supportsStream={pillSupportsStream}
-              isEditMode={isEditMode}
+              status={status}
+              rawState={entity.state}
+              showControls={showControls}
               isMuted={isMuted}
-              isReconnecting={isReconnecting}
-              hasFrameWarning={hasFrameWarning}
               handleToggleMute={handleToggleMute}
               handleVideoFullscreen={handleVideoFullscreen}
               size={size}
@@ -386,7 +402,9 @@ function CameraCardComponent({
         />
 
         {/* Fullscreen stats display (when enabled) */}
-        {showStats && <CameraStats size="large" videoElement={innerVideo} />}
+        {showStats && supportsStream && !streamError && (
+          <CameraStats size="large" videoElement={innerVideo} />
+        )}
 
         {/* Fullscreen controls and info container */}
         <div
@@ -400,16 +418,10 @@ function CameraCardComponent({
         >
           <CameraControls
             friendlyName={friendlyName}
-            entity={entity}
-            streamError={streamError}
-            isRecording={isRecording}
-            isStreaming={isStreaming}
-            isIdle={isIdle}
-            supportsStream={pillSupportsStream}
-            isEditMode={isEditMode}
+            status={status}
+            rawState={entity.state}
+            showControls={showControls}
             isMuted={isMuted}
-            isReconnecting={isReconnecting}
-            hasFrameWarning={hasFrameWarning}
             handleToggleMute={handleToggleMute}
             handleVideoFullscreen={handleVideoFullscreen}
             size="large"
@@ -458,18 +470,9 @@ function CameraCardComponent({
   )
 }
 
-// Memoize the component to prevent unnecessary re-renders
-const MemoizedCameraCard = memo(CameraCardComponent, (prevProps, nextProps) => {
-  // Re-render if any of these props change
-  return (
-    prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
-    prevProps.onDelete === nextProps.onDelete &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onSelect === nextProps.onSelect &&
-    prevProps.item === nextProps.item
-  )
-})
+// Memoize the component to prevent unnecessary re-renders (default shallow
+// prop comparison).
+const MemoizedCameraCard = memo(CameraCardComponent)
 
 export const CameraCard = Object.assign(MemoizedCameraCard, {
   defaultDimensions: { width: 4, height: 2 },

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render } from '@testing-library/react'
-import { FullscreenModal, resolvePanelPortalContainer } from './FullscreenModal'
+import { cleanup, fireEvent, render, renderHook, act } from '@testing-library/react'
+import {
+  FullscreenModal,
+  resolvePanelPortalContainer,
+  usePanelPortalContainer,
+} from './FullscreenModal'
 
 describe('FullscreenModal portal target', () => {
   afterEach(() => {
@@ -132,6 +136,25 @@ describe('resolvePanelPortalContainer', () => {
     }
   })
 
+  it('prefers the data-liebe-root tagged container over the first div', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    try {
+      const shadow = host.attachShadow({ mode: 'open' })
+      // An untagged div (e.g. an injected style host) precedes the tagged
+      // React root, mirroring the panel.ts contract.
+      shadow.appendChild(document.createElement('div'))
+      const tagged = document.createElement('div')
+      tagged.setAttribute('data-liebe-root', '')
+      shadow.appendChild(tagged)
+      const inner = document.createElement('span')
+      tagged.appendChild(inner)
+      expect(resolvePanelPortalContainer(inner)).toBe(tagged)
+    } finally {
+      host.remove()
+    }
+  })
+
   it('falls back to document.body when the shadow root has no div container', () => {
     const host = document.createElement('div')
     document.body.appendChild(host)
@@ -140,6 +163,33 @@ describe('resolvePanelPortalContainer', () => {
       const inner = document.createElement('span')
       shadow.appendChild(inner)
       expect(resolvePanelPortalContainer(inner)).toBe(document.body)
+    } finally {
+      host.remove()
+    }
+  })
+})
+
+describe('usePanelPortalContainer', () => {
+  it('resolves the container once the callback ref receives an element', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    try {
+      const shadow = host.attachShadow({ mode: 'open' })
+      const root = document.createElement('div')
+      root.setAttribute('data-liebe-root', '')
+      shadow.appendChild(root)
+      const inner = document.createElement('span')
+      root.appendChild(inner)
+
+      const { result } = renderHook(() => usePanelPortalContainer())
+      expect(result.current.container).toBeUndefined()
+
+      act(() => result.current.ref(inner))
+      expect(result.current.container).toBe(root)
+
+      // Detach (null ref) keeps the last resolved container.
+      act(() => result.current.ref(null))
+      expect(result.current.container).toBe(root)
     } finally {
       host.remove()
     }

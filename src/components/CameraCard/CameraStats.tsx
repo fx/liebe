@@ -1,13 +1,29 @@
 import { Card, Flex, Text } from '@radix-ui/themes'
 import { useEffect, useState } from 'react'
+import { getPlaybackQuality } from './videoQuality'
 
 export interface CameraStatsProps {
   size: 'small' | 'medium' | 'large'
   videoElement: HTMLVideoElement | null
 }
 
+const CODE_FONT = { fontFamily: 'var(--code-font-family)' } as const
+
+function StatItem({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
+  return (
+    <Flex direction="column" gap="0">
+      <Text size="1" color="gray" style={{ ...CODE_FONT, fontSize: '10px' }}>
+        {label}
+      </Text>
+      <Text size="1" weight="medium" color={alert ? 'red' : undefined} style={CODE_FONT}>
+        {value}
+      </Text>
+    </Flex>
+  )
+}
+
 // Stats display component. Reads FPS, resolution, decoded frames, and dropped
-// frames from the video via getVideoPlaybackQuality (with webkit/moz
+// frames from the video via getPlaybackQuality (standard API with webkit/moz
 // fallbacks). Bitrate is gone: Liebe no longer owns an RTCPeerConnection to
 // read it from.
 export function CameraStats({ size, videoElement }: CameraStatsProps) {
@@ -29,30 +45,10 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
       const now = Date.now()
       const deltaTime = (now - lastTime) / 1000 // Convert to seconds
 
-      // Get video quality stats
-      const videoElem = videoElement as HTMLVideoElement & {
-        getVideoPlaybackQuality?: () => { totalVideoFrames?: number; droppedVideoFrames?: number }
-        webkitDecodedFrameCount?: number
-        webkitDroppedFrameCount?: number
-        mozDecodedFrames?: number
-        mozParsedFrames?: number
-      }
-      const videoQuality = videoElem.getVideoPlaybackQuality?.()
-      const currentDecodedFrames =
-        videoQuality?.totalVideoFrames ||
-        videoElem.webkitDecodedFrameCount ||
-        videoElem.mozDecodedFrames ||
-        0
-      const currentDroppedFrames =
-        videoQuality?.droppedVideoFrames ||
-        videoElem.webkitDroppedFrameCount ||
-        (videoElem.mozParsedFrames && videoElem.mozDecodedFrames
-          ? videoElem.mozParsedFrames - videoElem.mozDecodedFrames
-          : 0) ||
-        0
+      const { decodedFrames, droppedFrames } = getPlaybackQuality(videoElement)
 
       // Calculate FPS based on decoded frames
-      const framesDelta = currentDecodedFrames - lastDecodedFrames
+      const framesDelta = decodedFrames - lastDecodedFrames
       const fps = deltaTime > 0 ? Math.round(framesDelta / deltaTime) : 0
 
       // Get video resolution
@@ -61,15 +57,20 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
           ? `${videoElement.videoWidth}x${videoElement.videoHeight}`
           : ''
 
-      setStats({
-        fps,
-        decodedFrames: currentDecodedFrames,
-        droppedFrames: currentDroppedFrames,
-        resolution,
-      })
+      // Return the previous object when nothing changed so React bails out of
+      // the re-render instead of reconciling a fresh-but-equal object every
+      // second.
+      setStats((prev) =>
+        prev.fps === fps &&
+        prev.decodedFrames === decodedFrames &&
+        prev.droppedFrames === droppedFrames &&
+        prev.resolution === resolution
+          ? prev
+          : { fps, decodedFrames, droppedFrames, resolution }
+      )
 
       lastTime = now
-      lastDecodedFrames = currentDecodedFrames
+      lastDecodedFrames = decodedFrames
     }
 
     // Initial update (deferred a tick so the reset happens outside the effect body)
@@ -99,68 +100,20 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
     >
       {size === 'small' ? (
         // Compact single line for small size
-        <Text size="1" style={{ fontFamily: 'var(--code-font-family)' }}>
+        <Text size="1" style={CODE_FONT}>
           {stats.fps} FPS • {stats.resolution}
         </Text>
       ) : (
         // Flex layout for medium/large
         <Flex gap="3" align="center">
-          <Flex direction="column" gap="0">
-            <Text
-              size="1"
-              color="gray"
-              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
-            >
-              FPS
-            </Text>
-            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
-              {stats.fps}
-            </Text>
-          </Flex>
-
-          <Flex direction="column" gap="0">
-            <Text
-              size="1"
-              color="gray"
-              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
-            >
-              Resolution
-            </Text>
-            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
-              {stats.resolution}
-            </Text>
-          </Flex>
-
-          <Flex direction="column" gap="0">
-            <Text
-              size="1"
-              color="gray"
-              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
-            >
-              Frames
-            </Text>
-            <Text size="1" weight="medium" style={{ fontFamily: 'var(--code-font-family)' }}>
-              {stats.decodedFrames}
-            </Text>
-          </Flex>
-
-          <Flex direction="column" gap="0">
-            <Text
-              size="1"
-              color="gray"
-              style={{ fontFamily: 'var(--code-font-family)', fontSize: '10px' }}
-            >
-              Dropped
-            </Text>
-            <Text
-              size="1"
-              weight="medium"
-              color={stats.droppedFrames > 0 ? 'red' : undefined}
-              style={{ fontFamily: 'var(--code-font-family)' }}
-            >
-              {stats.droppedFrames}
-            </Text>
-          </Flex>
+          <StatItem label="FPS" value={String(stats.fps)} />
+          <StatItem label="Resolution" value={stats.resolution} />
+          <StatItem label="Frames" value={String(stats.decodedFrames)} />
+          <StatItem
+            label="Dropped"
+            value={String(stats.droppedFrames)}
+            alert={stats.droppedFrames > 0}
+          />
         </Flex>
       )}
     </Card>

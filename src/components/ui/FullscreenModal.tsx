@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode, type CSSProperties } from 'react'
+import { useCallback, useEffect, useState, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Theme } from '@radix-ui/themes'
 
@@ -50,10 +50,31 @@ interface FullscreenModalProps {
 export function resolvePanelPortalContainer(el: Element | null): Element {
   const root = el?.getRootNode()
   if (root instanceof ShadowRoot) {
-    const container = root.querySelector('div')
+    // Contract with src/panel.ts: the React root container is tagged with
+    // data-liebe-root. Fall back to the first-div heuristic for older embeds.
+    const container = root.querySelector('[data-liebe-root]') ?? root.querySelector('div')
     if (container) return container
   }
   return document.body
+}
+
+/**
+ * Callback-ref + state wiring around resolvePanelPortalContainer: attach
+ * `ref` to any element rendered by the panel and `container` resolves to the
+ * portal target for FullscreenModal's portalContainer prop (undefined until
+ * the element mounts, i.e. FullscreenModal's document.body default).
+ */
+export function usePanelPortalContainer(): {
+  ref: (el: Element | null) => void
+  container: Element | undefined
+} {
+  const [container, setContainer] = useState<Element | undefined>(undefined)
+  const ref = useCallback((el: Element | null) => {
+    if (el) {
+      setContainer(resolvePanelPortalContainer(el))
+    }
+  }, [])
+  return { ref, container }
 }
 
 /**

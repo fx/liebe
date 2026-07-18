@@ -84,7 +84,7 @@ describe('useCameraStreamStatus', () => {
     const { result } = renderStatus({ video })
 
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     expect(result.current.isStreaming).toBe(false)
 
@@ -109,7 +109,7 @@ describe('useCameraStreamStatus', () => {
     const { result } = renderStatus({ video })
 
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       fireFrame()
@@ -132,7 +132,7 @@ describe('useCameraStreamStatus', () => {
     const { result } = renderStatus({ video })
 
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       vi.advanceTimersByTime(STALL_TICK_MS)
@@ -157,7 +157,7 @@ describe('useCameraStreamStatus', () => {
 
     for (let cycle = 0; cycle < MAX_AUTO_REMOUNTS; cycle += 1) {
       act(() => {
-        result.current.onLoad()
+        result.current.onStreamEvent()
       })
       act(() => {
         vi.advanceTimersByTime(STALL_TICK_MS)
@@ -168,7 +168,7 @@ describe('useCameraStreamStatus', () => {
 
     // Budget exhausted: the next stall errors instead of remounting.
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       vi.advanceTimersByTime(STALL_TICK_MS)
@@ -179,7 +179,7 @@ describe('useCameraStreamStatus', () => {
 
     // A healthy frame on a later watch clears the error and the budget.
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       fireFrame()
@@ -201,7 +201,7 @@ describe('useCameraStreamStatus', () => {
     // Exhaust the auto-remount budget so the stall surfaces an error.
     for (let cycle = 0; cycle <= MAX_AUTO_REMOUNTS; cycle += 1) {
       act(() => {
-        result.current.onLoad()
+        result.current.onStreamEvent()
       })
       act(() => {
         vi.advanceTimersByTime(STALL_TICK_MS)
@@ -220,7 +220,7 @@ describe('useCameraStreamStatus', () => {
 
     // Budget was restored: the next stall auto-remounts instead of erroring.
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       fireFrame()
@@ -245,7 +245,7 @@ describe('useCameraStreamStatus', () => {
 
     for (let cycle = 0; cycle < MAX_AUTO_REMOUNTS; cycle += 1) {
       act(() => {
-        result.current.onLoad()
+        result.current.onStreamEvent()
       })
       act(() => {
         vi.advanceTimersByTime(STALL_TICK_MS)
@@ -257,7 +257,7 @@ describe('useCameraStreamStatus', () => {
     // instead of erroring.
     rerender({ entityState: 'idle' })
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       vi.advanceTimersByTime(STALL_TICK_MS)
@@ -275,7 +275,7 @@ describe('useCameraStreamStatus', () => {
 
     const { result } = renderStatus({ video })
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
 
     // No progress: not streaming.
@@ -307,7 +307,7 @@ describe('useCameraStreamStatus', () => {
     const bareVideo = { currentTime: 0 } as unknown as HTMLVideoElement
     const bare = renderStatus({ video: bareVideo })
     act(() => {
-      bare.result.current.onLoad()
+      bare.result.current.onStreamEvent()
     })
     act(() => {
       ;(bareVideo as unknown as { currentTime: number }).currentTime = 2
@@ -322,7 +322,7 @@ describe('useCameraStreamStatus', () => {
     } as unknown as HTMLVideoElement
     const empty = renderStatus({ video: emptyQualityVideo })
     act(() => {
-      empty.result.current.onLoad()
+      empty.result.current.onStreamEvent()
     })
     act(() => {
       ;(emptyQualityVideo as unknown as { currentTime: number }).currentTime = 2
@@ -336,7 +336,7 @@ describe('useCameraStreamStatus', () => {
     const { result } = renderStatus({ img })
 
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       vi.advanceTimersByTime(500)
@@ -362,7 +362,7 @@ describe('useCameraStreamStatus', () => {
     const { result } = renderStatus()
 
     act(() => {
-      result.current.onStreams()
+      result.current.onStreamEvent()
     })
     act(() => {
       vi.advanceTimersByTime(10_000)
@@ -384,7 +384,7 @@ describe('useCameraStreamStatus', () => {
     )
 
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       fireFrame()
@@ -398,7 +398,7 @@ describe('useCameraStreamStatus', () => {
 
     // Events while disabled start no watch.
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     act(() => {
       vi.advanceTimersByTime(10_000)
@@ -412,7 +412,7 @@ describe('useCameraStreamStatus', () => {
     const { result, unmount } = renderStatus({ video })
 
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
     expect(requestSpy).toHaveBeenCalledTimes(1)
 
@@ -430,7 +430,7 @@ describe('useCameraStreamStatus', () => {
     const { result, unmount } = renderStatus({ video })
 
     act(() => {
-      result.current.onLoad()
+      result.current.onStreamEvent()
     })
 
     expect(() => unmount()).not.toThrow()

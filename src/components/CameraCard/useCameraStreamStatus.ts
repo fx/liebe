@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getPlaybackQuality } from './videoQuality'
 
 // Thresholds preserved from the old useWebRTC frame monitor.
 export const FRAME_WARNING_MS = 500
@@ -35,19 +36,10 @@ export interface UseCameraStreamStatusResult {
   error: string | null
   /** Pass as HaCameraStream's remountKey: bumps request an element remount. */
   remountKey: number
-  /** Wire to HaCameraStream's onStreams. */
-  onStreams: () => void
-  /** Wire to HaCameraStream's onLoad. */
-  onLoad: () => void
+  /** Wire to HaCameraStream's onStreamEvent (fires on both `streams` and `load`). */
+  onStreamEvent: () => void
   /** Manual retry: clears surfaced status, restores the auto-remount budget, and bumps remountKey. */
   retry: () => void
-}
-
-function getDecodedFrames(video: HTMLVideoElement): number {
-  const extendedVideo = video as HTMLVideoElement & {
-    getVideoPlaybackQuality?: () => { totalVideoFrames?: number }
-  }
-  return extendedVideo.getVideoPlaybackQuality?.().totalVideoFrames ?? 0
 }
 
 // Status machine for the <ha-camera-stream> element: watches decoded frames on
@@ -70,17 +62,19 @@ export function useCameraStreamStatus({
   // recreated when the element remounts or swaps players).
   const [watchEpoch, setWatchEpoch] = useState(0)
   const consecutiveRemountsRef = useRef(0)
+  // Mirrors of the surfaced flags so the per-frame path (30-60 calls/s) can
+  // dispatch state only on transitions instead of on every decoded frame.
+  const isStreamingRef = useRef(false)
+  const hasFrameWarningRef = useRef(false)
 
-  const onStreams = useCallback(() => {
-    setWatchEpoch((epoch) => epoch + 1)
-  }, [])
-
-  const onLoad = useCallback(() => {
+  const onStreamEvent = useCallback(() => {
     setWatchEpoch((epoch) => epoch + 1)
   }, [])
 
   const retry = useCallback(() => {
     consecutiveRemountsRef.current = 0
+    isStreamingRef.current = false
+    hasFrameWarningRef.current = false
     setIsStreaming(false)
     setHasFrameWarning(false)
     setError(null)
@@ -101,6 +95,8 @@ export function useCameraStreamStatus({
     if (!enabled) return
     return () => {
       consecutiveRemountsRef.current = 0
+      isStreamingRef.current = false
+      hasFrameWarningRef.current = false
       setIsStreaming(false)
       setHasFrameWarning(false)
       setError(null)
@@ -136,12 +132,22 @@ export function useCameraStreamStatus({
         }
       }
 
+      // Per-frame path: only record the frame time and restore the remount
+      // budget; the surfaced flags flip on transition only (an error is only
+      // ever set while isStreaming is false, so the streaming transition also
+      // clears it).
       const markFrame = () => {
         lastFrameTime = Date.now()
         consecutiveRemountsRef.current = 0
-        setIsStreaming(true)
-        setHasFrameWarning(false)
-        setError(null)
+        if (hasFrameWarningRef.current) {
+          hasFrameWarningRef.current = false
+          setHasFrameWarning(false)
+        }
+        if (!isStreamingRef.current) {
+          isStreamingRef.current = true
+          setIsStreaming(true)
+          setError(null)
+        }
       }
 
       if (hasRequestVideoFrameCallback(video)) {
@@ -154,9 +160,9 @@ export function useCameraStreamStatus({
       } else {
         // rVFC unavailable: poll playback progress instead.
         let lastTime = video.currentTime
-        let lastFrames = getDecodedFrames(video)
+        let lastFrames = getPlaybackQuality(video).decodedFrames
         timers.poll = setInterval(() => {
-          const frames = getDecodedFrames(video)
+          const frames = getPlaybackQuality(video).decodedFrames
           if (video.currentTime !== lastTime || frames > lastFrames) {
             lastTime = video.currentTime
             lastFrames = frames
@@ -171,6 +177,8 @@ export function useCameraStreamStatus({
           // Sustained stall: stop this watch (a remount fires a new `load`
           // event which starts a fresh one).
           stop()
+          isStreamingRef.current = false
+          hasFrameWarningRef.current = false
           setIsStreaming(false)
           setHasFrameWarning(false)
           if (consecutiveRemountsRef.current >= MAX_AUTO_REMOUNTS) {
@@ -179,7 +187,8 @@ export function useCameraStreamStatus({
             consecutiveRemountsRef.current += 1
             setRemountKey((key) => key + 1)
           }
-        } else if (elapsed > FRAME_WARNING_MS) {
+        } else if (elapsed > FRAME_WARNING_MS && !hasFrameWarningRef.current) {
+          hasFrameWarningRef.current = true
           setHasFrameWarning(true)
         }
       }, WATCHDOG_INTERVAL_MS)
@@ -195,11 +204,12 @@ export function useCameraStreamStatus({
     const poll = setInterval(() => {
       if (img.naturalWidth > 0) {
         clearInterval(poll)
+        isStreamingRef.current = true
         setIsStreaming(true)
       }
     }, MJPEG_POLL_INTERVAL_MS)
     return () => clearInterval(poll)
   }, [enabled, watchEpoch, getInnerVideo, getMjpegImg])
 
-  return { isStreaming, hasFrameWarning, error, remountKey, onStreams, onLoad, retry }
+  return { isStreaming, hasFrameWarning, error, remountKey, onStreamEvent, retry }
 }

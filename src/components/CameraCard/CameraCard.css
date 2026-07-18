@@ -21,3 +21,23 @@
   display: inline-block;
   animation: recording-pulse 1.5s ease-in-out infinite;
 }
+
+.camera-control-button {
+  width: 2.5em;
+  height: 2.5em;
+  border-radius: 0.5em;
+  border: none;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  padding: 0;
+  font-size: inherit;
+}
+
+.camera-control-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
