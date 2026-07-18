@@ -779,6 +779,88 @@ describe('useCameraStreamStatus', () => {
       expect(() => unmount()).not.toThrow()
     })
 
+    it('no-ops when the budget expires after the first frame already won the race', () => {
+      // markFrame flips isStreamingRef synchronously, but React commits the
+      // re-render (whose effect cleanup disposes the timer) later — the
+      // pending timeout can therefore still fire after frames started. Keep
+      // both inside ONE act() so the cleanup deterministically has not run
+      // when the timer expires: onExpire must see the ref and no-op instead
+      // of surfacing 'Stream failed to start' over a live stream.
+      const { video, fireFrame } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        // Frames every watchdog tick (no stall) up to the budget boundary;
+        // the un-disposed timer fires at exactly CONNECT_TIMEOUT_MS, AFTER
+        // the last frame — no later frame can paper over a wrongly surfaced
+        // error, so this isolates the onExpire guard itself.
+        for (let elapsed = 0; elapsed < CONNECT_TIMEOUT_MS; elapsed += 250) {
+          fireFrame()
+          vi.advanceTimersByTime(250)
+        }
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.isStreaming).toBe(true)
+    })
+
+    it('clears a pending "Stream failed to start" when frames flow while streaming', () => {
+      // Belt-and-braces on markFrame: streaming-true-with-that-error is
+      // reachable when an MJPEG epoch fast-fails while the streaming flag is
+      // still true from a superseded video watch — the next decoded frame
+      // must clear the stale failure.
+      const { video, fireFrame } = createRvfcVideo()
+      const { img, fireError } = createMjpegImg()
+      let currentVideo: HTMLVideoElement | null = video
+      let currentImg: HTMLImageElement | null = null
+      const getInnerVideo = () => currentVideo
+      const getMjpegImg = () => currentImg
+      const { result } = renderHook(() =>
+        useCameraStreamStatus({
+          getInnerVideo,
+          getMjpegImg,
+          entityState: 'streaming',
+          enabled: true,
+          entityAvailable: true,
+        })
+      )
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      // Player swap to MJPEG; the image errors while the streaming flag from
+      // the video watch is still true.
+      currentVideo = null
+      currentImg = img
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireError()
+      })
+      expect(result.current.error).toBe('Stream failed to start')
+      expect(result.current.isStreaming).toBe(true)
+
+      // Swap back to a video epoch: the first frame clears the stale error.
+      currentVideo = video
+      currentImg = null
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.isStreaming).toBe(true)
+    })
+
     it('pauses while the tab is hidden and resumes with the remaining budget', () => {
       const { video } = createRvfcVideo()
       const { result } = renderStatus({ video })
@@ -811,7 +893,7 @@ describe('useCameraStreamStatus', () => {
     })
   })
 
-  describe('entity availability (load-budget pause)', () => {
+  describe('entity availability (machine suspension)', () => {
     it('pauses the budget while the entity is unavailable and resumes with the remainder', () => {
       const { video } = createRvfcVideo()
       const { result, rerender } = renderStatus({ video })
@@ -898,7 +980,7 @@ describe('useCameraStreamStatus', () => {
       expect(result.current.error).toBeNull()
     })
 
-    it('does not wipe a surfaced error on availability blips', () => {
+    it('auto-retries a surfaced error when the entity recovers from unavailable', () => {
       const { video } = createRvfcVideo()
       const { result, rerender } = renderStatus({ video })
 
@@ -907,10 +989,266 @@ describe('useCameraStreamStatus', () => {
       })
       expect(result.current.error).toBe('Stream failed to start')
 
+      // The error keeps showing while unavailable (no mid-blip wipe)...
       rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
       expect(result.current.error).toBe('Stream failed to start')
+
+      // ...but recovery auto-retries: the error clears and the element is
+      // remounted without any manual Retry click.
       rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      expect(result.current.error).toBeNull()
+      expect(result.current.remountKey).toBe(1)
+
+      // The cleared error re-arms a FRESH connect budget for the remounted
+      // element (connecting again), so a camera that stays dead re-errors.
+      act(() => {
+        vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 250)
+      })
+      expect(result.current.error).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
       expect(result.current.error).toBe('Stream failed to start')
+    })
+
+    it('does not auto-remount on recovery when no error was surfaced', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      // A healthy blip must not churn the element: no remount, status intact.
+      expect(result.current.remountKey).toBe(0)
+      expect(result.current.isStreaming).toBe(true)
+      expect(result.current.error).toBeNull()
+    })
+
+    it('suspends warning and stall evaluation while the entity is unavailable', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      // A minute of frozen frames during the blip: no warning, no stall
+      // remount, no error — and the auto-remount budget does not burn.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(result.current.isStreaming).toBe(true)
+      expect(result.current.hasFrameWarning).toBe(false)
+      expect(result.current.remountKey).toBe(0)
+      expect(result.current.error).toBeNull()
+    })
+
+    it('grants a grace period after entity recovery before resuming evaluation', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+
+      // Recovery: the frame clock restarts from now (like return-to-visible)
+      // instead of instantly reporting a 60s stall.
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(result.current.hasFrameWarning).toBe(false)
+      expect(result.current.remountKey).toBe(0)
+
+      // The watchdog resumed: a real frame gap now warns again.
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(result.current.hasFrameWarning).toBe(true)
+    })
+
+    it('restores the auto-remount budget when the entity recovers', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      // Stream once (so the load budget re-arms fresh at the first stall),
+      // then burn the whole auto-remount budget with available-entity stalls.
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      for (let cycle = 0; cycle < MAX_AUTO_REMOUNTS; cycle += 1) {
+        act(() => {
+          vi.advanceTimersByTime(STALL_TICK_MS)
+        })
+        act(() => {
+          result.current.onStreamEvent()
+        })
+      }
+      expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS)
+
+      // Blip and recover: the machine resumes with a fresh budget, so the
+      // next stall remounts instead of surfacing "Stream stalled".
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      act(() => {
+        vi.advanceTimersByTime(STALL_TICK_MS)
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS + 1)
+    })
+
+    it('suppresses the video error fast-fail while the entity is unavailable and recovers via stall remount', () => {
+      const { video, fireFrame, fireError } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+
+      // Backend dies during the blip: the media error must NOT surface a
+      // sticky 'Video playback error'.
+      act(() => {
+        fireError()
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.isStreaming).toBe(true)
+
+      // Recovery: the resumed watchdog stalls out the dead element and
+      // auto-remounts it (budget restored), bringing the stream back without
+      // any manual Retry.
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      act(() => {
+        vi.advanceTimersByTime(STALL_TICK_MS)
+      })
+      expect(result.current.error).toBeNull()
+      expect(result.current.remountKey).toBe(1)
+    })
+
+    it('suppresses the mjpeg error fast-fail while the entity is unavailable', () => {
+      const { img, fireError } = createMjpegImg()
+      const { result, rerender } = renderStatus({ img })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      act(() => {
+        fireError()
+      })
+      expect(result.current.error).toBeNull()
+    })
+  })
+
+  describe('recent-frame evidence (isActivelyStreaming)', () => {
+    it('is false while the entity is available, even when streaming', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      expect(result.current.isStreaming).toBe(true)
+      // Only the UNAVAILABLE pill precedence consumes it; while available it
+      // stays false rather than tracking every frame.
+      expect(result.current.isActivelyStreaming).toBe(false)
+    })
+
+    it('is true during a blip while frames demonstrably flow, and resets on recovery', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      // Evaluated immediately on the transition: frames are recent.
+      expect(result.current.isActivelyStreaming).toBe(true)
+
+      // Frames keep flowing through the blip: evidence holds.
+      act(() => {
+        vi.advanceTimersByTime(250)
+        fireFrame()
+        vi.advanceTimersByTime(250)
+        fireFrame()
+      })
+      expect(result.current.isActivelyStreaming).toBe(true)
+
+      // Recovery: the evidence resets (the pill no longer needs it).
+      rerender({ enabled: true, entityState: 'streaming', entityAvailable: true })
+      expect(result.current.isActivelyStreaming).toBe(false)
+    })
+
+    it('is false immediately when the entity goes unavailable over a stale frame', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      // Frame freezes well past FRAME_WARNING_MS before the entity drops:
+      // a dead camera must read UNAVAILABLE right away, not STREAMING.
+      act(() => {
+        vi.advanceTimersByTime(WARNING_TICK_MS)
+      })
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      expect(result.current.isStreaming).toBe(true)
+      expect(result.current.isActivelyStreaming).toBe(false)
+    })
+
+    it('demotes the evidence when frames stop mid-blip', () => {
+      const { video, fireFrame } = createRvfcVideo()
+      const { result, rerender } = renderStatus({ video })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+      act(() => {
+        fireFrame()
+      })
+      rerender({ enabled: true, entityState: 'unavailable', entityAvailable: false })
+      expect(result.current.isActivelyStreaming).toBe(true)
+
+      // Frames freeze during the blip: the 250ms evaluator flips the
+      // evidence false once FRAME_WARNING_MS passes without a frame.
+      act(() => {
+        vi.advanceTimersByTime(WARNING_TICK_MS)
+      })
+      expect(result.current.isActivelyStreaming).toBe(false)
     })
   })
 

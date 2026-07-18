@@ -44,6 +44,13 @@ export interface CameraStatusInput {
   /** Streaming is supported AND the <ha-camera-stream> bootstrap has not failed. */
   supportsStream: boolean
   isStreaming: boolean
+  /**
+   * Recent-frame evidence from the status hook (frames observed within
+   * FRAME_WARNING_MS) — NOT the lagging isStreaming flag, which a frozen
+   * frame never flips false while the watchdog is suspended during entity
+   * unavailability.
+   */
+  isActivelyStreaming: boolean
   hasFrameWarning: boolean
   entityState: string
 }
@@ -57,15 +64,18 @@ export function deriveCameraStatus({
   isReconnecting,
   supportsStream,
   isStreaming,
+  isActivelyStreaming,
   hasFrameWarning,
   entityState,
 }: CameraStatusInput): CameraStatus {
   if (streamError) return 'error'
-  // An unavailable entity that is not actively delivering frames shows the
-  // truthful UNAVAILABLE pill (raw state) instead of CONNECTING or NO SIGNAL
-  // — the load budget is paused, so CONNECTING would be a lie. A stream that
-  // keeps playing through the blip keeps its STREAMING pill below.
-  if (entityState === 'unavailable' && !isStreaming) return 'raw'
+  // An unavailable entity shows the truthful UNAVAILABLE pill (raw state)
+  // unless frames are DEMONSTRABLY flowing — recent-frame evidence, not the
+  // lagging isStreaming flag, which stays true over a frozen frame while the
+  // status machine is suspended. A dead camera therefore reads UNAVAILABLE
+  // immediately instead of NO SIGNAL followed by a stall error; a stream
+  // that keeps playing through the blip keeps its STREAMING pill below.
+  if (entityState === 'unavailable' && !isActivelyStreaming) return 'raw'
   if (isReconnecting || (supportsStream && !isStreaming)) return 'connecting'
   if (hasFrameWarning) return 'no-signal'
   if (
@@ -124,11 +134,13 @@ function CameraCardComponent({
   // Entity availability does NOT gate mounting: a 1-2 s 'unavailable' blip
   // (HA reconnect) must not hard-unmount <ha-camera-stream> — the underlying
   // stream often keeps playing straight through. Instead the card shows the
-  // unavailable chrome/pill immediately and the status hook PAUSES its load
-  // budget while the entity is unavailable (unavailable time doesn't count,
-  // like hidden-tab time), so a dead camera can never burn 20 s of CONNECTING
-  // into a pointless 'Stream failed to start'. Surfaced errors are never
-  // wiped by blips; the budget resumes when the entity recovers.
+  // unavailable chrome/pill immediately and the status hook SUSPENDS its
+  // entire machine while the entity is unavailable (load budget paused,
+  // watchdog silent, media-error fast-fails suppressed — exactly like a
+  // hidden tab), so a dead camera can never burn budgets or surface sticky
+  // errors during the blip. On recovery the hook resumes with a frame-clock
+  // grace, a restored remount budget, and an automatic retry of any surfaced
+  // error — no manual Retry click needed.
   const streamEnabled = !!entity && isConnected && supportsStream && readiness === 'ready'
 
   const getInnerVideo = useCallback(() => streamHandleRef.current?.getInnerVideo() ?? null, [])
@@ -136,6 +148,7 @@ function CameraCardComponent({
 
   const {
     isStreaming,
+    isActivelyStreaming,
     hasFrameWarning,
     error: streamError,
     remountKey,
@@ -221,13 +234,15 @@ function CameraCardComponent({
   // When the element cannot be bootstrapped the still-image fallback renders;
   // derive the pill from the raw entity state instead of a forever-CONNECTING.
   // (Entity unavailability is handled inside deriveCameraStatus: UNAVAILABLE
-  // unless the stream is still actively playing through the blip.)
+  // unless recent-frame evidence proves the stream is still playing through
+  // the blip.)
   const pillSupportsStream = supportsStream && readiness !== 'unavailable'
   const status = deriveCameraStatus({
     streamError,
     isReconnecting,
     supportsStream: pillSupportsStream,
     isStreaming,
+    isActivelyStreaming,
     hasFrameWarning,
     entityState: entity.state,
   })

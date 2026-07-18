@@ -126,15 +126,28 @@ export interface UseCameraStreamStatusOptions {
   enabled: boolean
   /**
    * Entity availability: while false (entity `unavailable`, e.g. an HA
-   * reconnect blip) the load budget is PAUSED — unavailable time does not
-   * count, exactly like hidden-tab time — and resumes when the entity
-   * recovers. Surfaced status is never reset by availability changes.
+   * reconnect blip) the ENTIRE status machine is suspended, exactly like a
+   * hidden tab — the load budget is paused, the watchdog evaluates neither
+   * warnings nor stalls (so the auto-remount budget cannot burn), and the
+   * fast-fail media `error` listeners are suppressed (a backend dying during
+   * a blip must not surface a sticky error). On recovery the frame clock is
+   * grace-reset, the remount budget is restored, and any surfaced error is
+   * AUTO-RETRIED (cleared + remount) — recovery never needs a manual Retry.
    */
   entityAvailable: boolean
 }
 
 export interface UseCameraStreamStatusResult {
   isStreaming: boolean
+  /**
+   * Recent-frame evidence: true only while decoded frames were observed
+   * within FRAME_WARNING_MS. Maintained (via a 250 ms evaluator) ONLY while
+   * the entity is unavailable — the pill needs proof that frames are
+   * demonstrably flowing NOW, not the lagging isStreaming flag (the watchdog
+   * is suspended during unavailability, so a frozen frame never flips
+   * isStreaming false). False whenever the entity is available.
+   */
+  isActivelyStreaming: boolean
   hasFrameWarning: boolean
   error: string | null
   /** Pass as HaCameraStream's remountKey: bumps request an element remount. */
@@ -166,6 +179,7 @@ export function useCameraStreamStatus({
   entityAvailable,
 }: UseCameraStreamStatusOptions): UseCameraStreamStatusResult {
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isActivelyStreaming, setIsActivelyStreaming] = useState(false)
   const [hasFrameWarning, setHasFrameWarning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [remountKey, setRemountKey] = useState(0)
@@ -180,11 +194,24 @@ export function useCameraStreamStatus({
   // Mirrors of the surfaced flags so the per-frame path (30-60 calls/s) can
   // dispatch state only on transitions instead of on every decoded frame.
   const isStreamingRef = useRef(false)
+  const isActivelyStreamingRef = useRef(false)
   const hasFrameWarningRef = useRef(false)
+  const errorRef = useRef<string | null>(null)
+  // Hook-level frame clock shared by the active watch's watchdog, the
+  // recent-frame pill evidence, and the unavailability-recovery grace reset.
+  // Watches run strictly sequentially, so one clock suffices.
+  const lastFrameTimeRef = useRef(0)
   // Active load-budget timer, plus a mirror of entityAvailable so a timer
   // armed while the entity is already unavailable starts paused.
   const loadBudgetTimerRef = useRef<ReturnType<typeof createVisibleTimeout> | null>(null)
   const entityAvailableRef = useRef(entityAvailable)
+
+  // Every surfaced-error write goes through this so errorRef always mirrors
+  // the state (markFrame and the recovery path need a synchronous read).
+  const setSurfacedError = useCallback((value: string | null) => {
+    errorRef.current = value
+    setError(value)
+  }, [])
 
   const onStreamEvent = useCallback(() => {
     // A stale frame warning must not leak across epochs: a video watch that
@@ -205,9 +232,9 @@ export function useCameraStreamStatus({
     hasFrameWarningRef.current = false
     setIsStreaming(false)
     setHasFrameWarning(false)
-    setError(null)
+    setSurfacedError(null)
     setRemountKey((key) => key + 1)
-  }, [])
+  }, [setSurfacedError])
 
   // An entity state transition means the camera itself changed (restarted,
   // went idle, ...) — restore the auto-remount budget.
@@ -233,7 +260,8 @@ export function useCameraStreamStatus({
 
   // Reset all surfaced status when the hook is disabled (cleanup-phase reset,
   // mirroring useWebRTC's teardown pattern). Availability changes are NOT a
-  // disable: surfaced errors survive entity blips.
+  // disable: surfaced status persists through a blip and is auto-retried on
+  // recovery (below) instead of being wiped mid-blip.
   useEffect(() => {
     if (!enabled) return
     return () => {
@@ -242,17 +270,57 @@ export function useCameraStreamStatus({
       hasFrameWarningRef.current = false
       setIsStreaming(false)
       setHasFrameWarning(false)
-      setError(null)
+      setSurfacedError(null)
     }
-  }, [enabled])
+  }, [enabled, setSurfacedError])
 
   // Entity availability pauses/resumes the active load-budget timer (declared
   // BEFORE the arming effect so a timer armed on the same render reads the
-  // fresh value from the ref).
+  // fresh value from the ref). On the unavailable→available transition the
+  // machine resumes exactly like a return-to-visible: the frame clock is
+  // grace-reset (frames were legitimately frozen while HA reconnected), the
+  // auto-remount budget is restored, and any surfaced error is AUTO-RETRIED
+  // (cleared + remount) — the backend just came back, so recovery must never
+  // require a manual Retry click. Errors surfaced while the entity was
+  // available still require manual Retry as before.
   useEffect(() => {
+    const wasAvailable = entityAvailableRef.current
     entityAvailableRef.current = entityAvailable
     loadBudgetTimerRef.current?.setPaused(!entityAvailable)
-  }, [entityAvailable])
+    if (!wasAvailable && entityAvailable) {
+      consecutiveRemountsRef.current = 0
+      lastFrameTimeRef.current = Date.now()
+      if (errorRef.current !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- the unavailable→available transition is an external HA signal, and the auto-retry (clear error + bump remountKey) must fire exactly once per transition; it is a one-shot event response, not state derivable during render.
+        retry()
+      }
+    }
+  }, [entityAvailable, retry])
+
+  // Recent-frame pill evidence: maintained only while the entity is
+  // unavailable (the only consumer is the UNAVAILABLE-vs-STREAMING pill
+  // precedence). Evaluated immediately on the transition — a dead camera's
+  // frozen frame must read UNAVAILABLE right away — and re-evaluated every
+  // watchdog interval so frames stopping mid-blip demote the pill too.
+  useEffect(() => {
+    const setActivelyStreaming = (value: boolean) => {
+      if (isActivelyStreamingRef.current !== value) {
+        isActivelyStreamingRef.current = value
+        setIsActivelyStreaming(value)
+      }
+    }
+    if (!enabled || entityAvailable) {
+      setActivelyStreaming(false)
+      return
+    }
+    const evaluate = () =>
+      setActivelyStreaming(
+        isStreamingRef.current && Date.now() - lastFrameTimeRef.current <= FRAME_WARNING_MS
+      )
+    evaluate()
+    const interval = setInterval(evaluate, WATCHDOG_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [enabled, entityAvailable])
 
   // THE load-budget timer — owned by connection state. Armed exactly when the
   // machine is CONNECTING (enabled && !isStreaming && !error): streaming
@@ -265,7 +333,12 @@ export function useCameraStreamStatus({
     if (!connecting) return
     const timer = createVisibleTimeout(CONNECT_TIMEOUT_MS, () => {
       loadBudgetTimerRef.current = null
-      setError('Stream failed to start')
+      // Expiry race: the first frame can beat the timer inside the same task
+      // window (markFrame flips the ref synchronously, but React has not yet
+      // committed the re-render whose cleanup disposes this timer). Frames
+      // won: no-op instead of surfacing a stale failure over a live stream.
+      if (isStreamingRef.current) return
+      setSurfacedError('Stream failed to start')
     })
     timer.setPaused(!entityAvailableRef.current)
     loadBudgetTimerRef.current = timer
@@ -275,7 +348,7 @@ export function useCameraStreamStatus({
       }
       timer.dispose()
     }
-  }, [connecting])
+  }, [connecting, setSurfacedError])
 
   useEffect(() => {
     if (!enabled || watchEpoch === 0) return
@@ -292,14 +365,14 @@ export function useCameraStreamStatus({
         poll: ReturnType<typeof setInterval> | null
         watchdog: ReturnType<typeof setInterval> | null
       } = { rvfcId: null, poll: null, watchdog: null }
-      let lastFrameTime = Date.now()
+      lastFrameTimeRef.current = Date.now()
       let stopped = false
 
       const onVisibilityChange = () => {
         if (!document.hidden) {
           // Grace period on tab return: rVFC was suspended while hidden, so
           // the frame clock restarts instead of reporting a phantom stall.
-          lastFrameTime = Date.now()
+          lastFrameTimeRef.current = Date.now()
         }
       }
       document.addEventListener('visibilitychange', onVisibilityChange)
@@ -323,14 +396,19 @@ export function useCameraStreamStatus({
       }
 
       // The media element erroring is an immediate, fatal signal: surface it
-      // right away instead of burning the 5 s stall plus the remount budget.
+      // right away instead of burning the 5 s stall plus the remount budget —
+      // EXCEPT while the entity is unavailable: the backend dying during a
+      // blip must not surface a sticky 'Video playback error' (the machine is
+      // suspended like a hidden tab; on recovery the resumed watchdog's stall
+      // remount brings the stream back automatically).
       function onVideoError() {
+        if (!entityAvailableRef.current) return
         stop()
         isStreamingRef.current = false
         hasFrameWarningRef.current = false
         setIsStreaming(false)
         setHasFrameWarning(false)
-        setError('Video playback error')
+        setSurfacedError('Video playback error')
       }
       video.addEventListener('error', onVideoError)
 
@@ -339,7 +417,7 @@ export function useCameraStreamStatus({
       // ever set while isStreaming is false, so the streaming transition also
       // clears it).
       const markFrame = () => {
-        lastFrameTime = Date.now()
+        lastFrameTimeRef.current = Date.now()
         consecutiveRemountsRef.current = 0
         if (hasFrameWarningRef.current) {
           hasFrameWarningRef.current = false
@@ -348,7 +426,14 @@ export function useCameraStreamStatus({
         if (!isStreamingRef.current) {
           isStreamingRef.current = true
           setIsStreaming(true)
-          setError(null)
+          setSurfacedError(null)
+        } else if (errorRef.current === 'Stream failed to start') {
+          // Belt-and-braces against any load-budget expiry that slipped past
+          // the isStreamingRef guard: flowing frames must ALWAYS clear a
+          // pending 'Stream failed to start' (reachable e.g. when an MJPEG
+          // epoch fast-failed while the streaming flag was still true from a
+          // superseded video watch).
+          setSurfacedError(null)
         }
       }
 
@@ -380,9 +465,13 @@ export function useCameraStreamStatus({
         if (watchEpochRef.current !== epoch) return
         // Hidden tabs suspend rVFC (and throttle rendering) without the stream
         // being unhealthy: skip stall/warning evaluation entirely while
-        // hidden. The visibilitychange grace above re-baselines on return.
-        if (document.hidden) return
-        const elapsed = Date.now() - lastFrameTime
+        // hidden. An unavailable entity suspends the machine the same way —
+        // frames may legitimately freeze while HA reconnects, and the
+        // auto-remount budget must not burn during the blip. The
+        // visibilitychange grace above (and the recovery grace in the
+        // availability effect) re-baseline the frame clock on resume.
+        if (document.hidden || !entityAvailableRef.current) return
+        const elapsed = Date.now() - lastFrameTimeRef.current
         if (elapsed > STALL_MS) {
           // Sustained stall: stop this watch (a remount fires a new `load`
           // event which starts a fresh one).
@@ -392,7 +481,7 @@ export function useCameraStreamStatus({
           setIsStreaming(false)
           setHasFrameWarning(false)
           if (consecutiveRemountsRef.current >= MAX_AUTO_REMOUNTS) {
-            setError('Stream stalled')
+            setSurfacedError('Stream stalled')
           } else {
             consecutiveRemountsRef.current += 1
             setRemountKey((key) => key + 1)
@@ -427,8 +516,12 @@ export function useCameraStreamStatus({
       img.removeEventListener('error', onImgError)
     }
     function onImgError() {
+      // Suppressed while the entity is unavailable, mirroring the video
+      // path: a backend blip must not surface a sticky 'Stream failed to
+      // start' (the paused load budget covers the post-recovery load phase).
+      if (!entityAvailableRef.current) return
       stopMjpeg()
-      setError('Stream failed to start')
+      setSurfacedError('Stream failed to start')
     }
     img.addEventListener('error', onImgError)
     timers.poll = setInterval(() => {
@@ -436,11 +529,19 @@ export function useCameraStreamStatus({
         stopMjpeg()
         isStreamingRef.current = true
         setIsStreaming(true)
-        setError(null)
+        setSurfacedError(null)
       }
     }, MJPEG_POLL_INTERVAL_MS)
     return stopMjpeg
-  }, [enabled, watchEpoch, getInnerVideo, getMjpegImg])
+  }, [enabled, watchEpoch, getInnerVideo, getMjpegImg, setSurfacedError])
 
-  return { isStreaming, hasFrameWarning, error, remountKey, onStreamEvent, retry }
+  return {
+    isStreaming,
+    isActivelyStreaming,
+    hasFrameWarning,
+    error,
+    remountKey,
+    onStreamEvent,
+    retry,
+  }
 }

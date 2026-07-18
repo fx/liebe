@@ -39,8 +39,14 @@ vi.mock('../useCameraStreamReady', () => ({
 // control its outputs and record its inputs (same API as the real hook).
 const statusMock: Pick<
   UseCameraStreamStatusResult,
-  'isStreaming' | 'hasFrameWarning' | 'error' | 'remountKey'
-> = { isStreaming: false, hasFrameWarning: false, error: null, remountKey: 0 }
+  'isStreaming' | 'isActivelyStreaming' | 'hasFrameWarning' | 'error' | 'remountKey'
+> = {
+  isStreaming: false,
+  isActivelyStreaming: false,
+  hasFrameWarning: false,
+  error: null,
+  remountKey: 0,
+}
 const mockOnStreamEvent = vi.fn()
 const mockRetry = vi.fn()
 const statusOptionsLog: UseCameraStreamStatusOptions[] = []
@@ -157,6 +163,7 @@ describe('CameraCard', () => {
     vi.clearAllMocks()
     readiness = 'ready'
     statusMock.isStreaming = false
+    statusMock.isActivelyStreaming = false
     statusMock.hasFrameWarning = false
     statusMock.error = null
     statusMock.remountKey = 0
@@ -331,16 +338,30 @@ describe('CameraCard', () => {
 
     it('keeps the STREAMING pill when a live stream survives an unavailability blip', () => {
       statusMock.isStreaming = true
+      statusMock.isActivelyStreaming = true
       mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
       const { container } = renderCard()
 
-      // The stream is still delivering frames through the blip: the pill
-      // stays STREAMING while GridCard's unavailable chrome shows.
+      // Recent-frame evidence proves frames are flowing through the blip:
+      // the pill stays STREAMING while GridCard's unavailable chrome shows.
       expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
       expect(screen.getByText('STREAMING')).toBeInTheDocument()
       expect(screen.queryByText('UNAVAILABLE')).toBeNull()
       const card = container.querySelector('.camera-card') as HTMLElement
       expect(card.className).toContain('opacity-50')
+    })
+
+    it('shows UNAVAILABLE over a frozen frame despite a lagging isStreaming flag', () => {
+      // The watchdog is suspended while unavailable, so isStreaming never
+      // flips false over a frozen frame — the pill must key off recent-frame
+      // evidence instead, so a dead camera reads UNAVAILABLE immediately.
+      statusMock.isStreaming = true
+      statusMock.isActivelyStreaming = false
+      mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
+      renderCard()
+
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.queryByText('STREAMING')).toBeNull()
     })
 
     it('resumes the load budget when the entity leaves unavailable, without a remount', () => {
@@ -470,8 +491,9 @@ describe('CameraCard', () => {
       mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
       renderCard()
 
-      // Errors are never wiped by availability blips: the error branch (with
-      // Retry) outranks the unavailable pill.
+      // A surfaced error keeps showing (with Retry) for the DURATION of a
+      // blip — it outranks the unavailable pill; the status hook auto-retries
+      // it once the entity recovers (covered in the hook's own tests).
       expect(screen.getByText('Stream failed to start')).toBeInTheDocument()
       expect(screen.getByText('Retry')).toBeInTheDocument()
       expect(screen.queryByText('UNAVAILABLE')).toBeNull()
@@ -932,6 +954,7 @@ describe('deriveCameraStatus priority', () => {
     isReconnecting: false,
     supportsStream: false,
     isStreaming: false,
+    isActivelyStreaming: false,
     hasFrameWarning: false,
     entityState: 'idle',
   }
@@ -944,6 +967,7 @@ describe('deriveCameraStatus priority', () => {
         hasFrameWarning: true,
         supportsStream: true,
         isStreaming: true,
+        isActivelyStreaming: true,
         entityState: 'streaming',
       })
     ).toBe('error')
@@ -962,12 +986,27 @@ describe('deriveCameraStatus priority', () => {
     ).toBe('raw')
   })
 
-  it('streaming through an unavailability blip outranks the unavailable pill', () => {
+  it('unavailable (raw) wins over a lagging isStreaming flag without frame evidence', () => {
+    // A frozen frame keeps isStreaming true (the watchdog is suspended while
+    // unavailable): only recent-frame evidence may outrank UNAVAILABLE.
     expect(
       deriveCameraStatus({
         ...base,
         supportsStream: true,
         isStreaming: true,
+        isActivelyStreaming: false,
+        entityState: 'unavailable',
+      })
+    ).toBe('raw')
+  })
+
+  it('actively streaming through an unavailability blip outranks the unavailable pill', () => {
+    expect(
+      deriveCameraStatus({
+        ...base,
+        supportsStream: true,
+        isStreaming: true,
+        isActivelyStreaming: true,
         entityState: 'unavailable',
       })
     ).toBe('streaming')
