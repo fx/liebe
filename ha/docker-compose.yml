@@ -8,7 +8,9 @@ services:
     environment:
       - TZ=UTC
     ports:
-      - '8123:8123'
+      # Bind to loopback only: this is a throwaway instance with a known
+      # dev/dev admin account and must not be exposed on the local network.
+      - '127.0.0.1:8123:8123'
     volumes:
       - ./config:/config
       - ../dist:/config/www/dist:ro

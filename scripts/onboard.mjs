@@ -6,8 +6,9 @@
 //     which the HA frontend exchanges itself on load
 //
 // Zero dependencies (Node 18+ global fetch). Idempotent: on a fresh instance it
-// runs the full onboarding flow; on an already-onboarded (persisted) instance it
-// falls back to a password login, so it works either way.
+// runs the full onboarding flow; on a partially-onboarded instance it finishes
+// the remaining steps; on a fully-onboarded (persisted) instance it falls back
+// to a password login — so it works in every state.
 //
 // Usable two ways:
 //   1. CLI:    `node scripts/onboard.mjs`  -> prints the JSON result to stdout.
@@ -96,9 +97,23 @@ export async function loginForCode() {
   return step.data.result
 }
 
-// Full onboarding for a fresh instance. Returns an access token.
-async function runOnboarding() {
-  log('fresh instance: creating user', USERNAME)
+// A complete, valid core configuration. HA's onboarding requires this step to
+// finish before the frontend leaves /onboarding; posting an empty body relies on
+// undocumented defaults, so send explicit deterministic values instead.
+const CORE_CONFIG = {
+  currency: 'USD',
+  country: 'US',
+  language: LANGUAGE,
+  time_zone: 'UTC',
+  unit_system: 'metric',
+  latitude: 0,
+  longitude: 0,
+  elevation: 0,
+}
+
+// Create the admin user and exchange the returned code for an access token.
+async function createUserAndToken() {
+  log('creating user', USERNAME)
   const user = await postJson('/api/onboarding/users', {
     client_id: CLIENT_ID,
     name: NAME,
@@ -106,38 +121,52 @@ async function runOnboarding() {
     password: PASSWORD,
     language: LANGUAGE,
   })
-  if (!user.data.auth_code) {
+  if (!user.res.ok || !user.data.auth_code) {
     throw new Error(`user creation failed (${user.res.status}): ${JSON.stringify(user.data)}`)
   }
-  const token = await tokenFromCode(user.data.auth_code)
-
-  // Complete the remaining steps so HA stops redirecting to /onboarding.
-  const coreConfig = await postJson('/api/onboarding/core_config', {}, token)
-  log('core_config:', coreConfig.res.status)
-
-  const analytics = await postJson('/api/onboarding/analytics', {}, token)
-  log('analytics:', analytics.res.status)
-
-  const integration = await postJson(
-    '/api/onboarding/integration',
-    { client_id: CLIENT_ID, redirect_uri: REDIRECT_URI },
-    token
-  )
-  log('integration:', integration.res.status)
-
-  return token
+  return tokenFromCode(user.data.auth_code)
 }
 
-// Ensure the instance is onboarded and return a valid access token. Safe to call
-// repeatedly: creates the user only when needed, otherwise logs in.
-export async function ensureOnboarded() {
-  const steps = await getSteps()
-  const userStep = Array.isArray(steps) && steps.find((s) => s.step === 'user')
-  if (userStep && !userStep.done) {
-    return runOnboarding()
+// POST an onboarding step and fail loudly on any non-2xx response, so an
+// incomplete onboarding surfaces immediately instead of silently letting the
+// panel time out later.
+async function completeStep(path, body, token) {
+  const { res, data } = await postJson(path, body, token)
+  log(`${path}:`, res.status)
+  if (!res.ok) {
+    throw new Error(`onboarding step ${path} failed (${res.status}): ${JSON.stringify(data)}`)
   }
-  log('already onboarded: logging in as', USERNAME)
-  return tokenFromCode(await loginForCode())
+}
+
+// Ensure the instance is fully onboarded and return a valid access token. Safe
+// to call repeatedly and against a partially-onboarded instance: it creates the
+// user only when needed, logs in otherwise, and completes any step still marked
+// not-done (skipping already-completed steps, which would otherwise 4xx).
+export async function ensureOnboarded() {
+  let steps = await getSteps()
+  const isDone = (name) => Array.isArray(steps) && steps.find((s) => s.step === name)?.done === true
+
+  const token = isDone('user')
+    ? await tokenFromCode(await loginForCode())
+    : await createUserAndToken()
+
+  // Re-read: creating the user flips its step (and may auto-complete others).
+  steps = await getSteps()
+  if (!isDone('core_config')) {
+    await completeStep('/api/onboarding/core_config', CORE_CONFIG, token)
+  }
+  if (!isDone('analytics')) {
+    await completeStep('/api/onboarding/analytics', {}, token)
+  }
+  if (!isDone('integration')) {
+    await completeStep(
+      '/api/onboarding/integration',
+      { client_id: CLIENT_ID, redirect_uri: REDIRECT_URI },
+      token
+    )
+  }
+
+  return token
 }
 
 // Base64-encoded state the HA frontend reads to learn its own URL + client_id.
