@@ -245,7 +245,9 @@ describe('ButtonCard', () => {
     // Should show error state
     expect(screen.getByText('ERROR')).toBeInTheDocument()
     expect(card).toHaveAttribute('title', 'Service call failed')
-    expect(card).toHaveStyle({ borderColor: 'var(--red-6)' })
+    // jsdom 27's getComputedStyle resolves var() and returns "" for the
+    // border-color shorthand, so assert the inline value directly.
+    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
   })
 
   it('should not call service when loading', async () => {

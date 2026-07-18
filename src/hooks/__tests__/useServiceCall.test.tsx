@@ -206,7 +206,10 @@ describe('useServiceCall', () => {
     }
 
     // Mock AbortController
-    global.AbortController = vi.fn(() => abortControllerMock) as unknown as typeof AbortController
+    // Function expression (not arrow) so it is constructable with `new` under vitest 4.
+    global.AbortController = vi.fn(function () {
+      return abortControllerMock
+    }) as unknown as typeof AbortController
 
     vi.mocked(hassService.callService).mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve({ success: true }), 100))

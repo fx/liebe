@@ -315,10 +315,10 @@ describe('InputTextCard', () => {
 
     const card = container.querySelector('.rt-Card')
     expect(card).toHaveClass('grid-card-error')
-    expect(card).toHaveStyle({
-      borderColor: 'var(--red-6)',
-      borderWidth: '2px',
-    })
+    expect(card).toHaveStyle({ borderWidth: '2px' })
+    // jsdom 27's getComputedStyle resolves var() and returns "" for the
+    // border-color shorthand, so assert the inline value directly.
+    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
     expect(card).toHaveAttribute('title', 'Failed to set value')
   })
 
