@@ -73,6 +73,7 @@ export default [
       '*.gen.ts',
       '.nitro/',
       '.vite-temp/',
+      '.tailscale/',
     ],
   },
   prettierConfig,
