@@ -141,7 +141,7 @@ if (typeof window !== 'undefined') {
 export const useDashboardPersistence = () => {
   // Auto-save when changes occur
   useEffect(() => {
-    const unsubscribe = dashboardStore.subscribe(() => {
+    const subscription = dashboardStore.subscribe(() => {
       const state = dashboardStore.state
       if (state.isDirty) {
         const config = dashboardActions.exportConfiguration()
@@ -150,7 +150,7 @@ export const useDashboardPersistence = () => {
       }
     })
 
-    return unsubscribe
+    return () => subscription.unsubscribe()
   }, [])
 }
 
