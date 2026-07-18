@@ -176,7 +176,7 @@ describe('useEntities', () => {
       expect(unsubscribe).not.toHaveBeenCalled()
     })
 
-    it('resubscribes only for the changed ids when the id set changes', () => {
+    it('subscribes only added ids and unsubscribes only removed ids on an id-set change', () => {
       const subscribe = vi.spyOn(entityStoreActions, 'subscribeToEntity')
       const unsubscribe = vi.spyOn(entityStoreActions, 'unsubscribeFromEntity')
 
@@ -186,15 +186,27 @@ describe('useEntities', () => {
       subscribe.mockClear()
       unsubscribe.mockClear()
 
-      // The content key changes, so the effect tears down the old set and
-      // subscribes to the new one.
+      // hall is dropped, office is added, kitchen is retained: only the delta
+      // should touch subscriptions — kitchen must not churn.
       rerender({ ids: ['light.kitchen', 'light.office'] })
 
+      expect(unsubscribe.mock.calls.map((c) => c[0])).toEqual(['light.hall'])
+      expect(subscribe.mock.calls.map((c) => c[0])).toEqual(['light.office'])
+    })
+
+    it('unsubscribes from every currently-held id on unmount', () => {
+      const unsubscribe = vi.spyOn(entityStoreActions, 'unsubscribeFromEntity')
+
+      const { rerender, unmount } = renderHook(({ ids }) => useEntities(ids), {
+        initialProps: { ids: ['light.kitchen', 'light.hall'] },
+      })
+      // Change the set so the ref reflects the latest ids, not the initial ones.
+      rerender({ ids: ['light.kitchen', 'light.office'] })
+      unsubscribe.mockClear()
+
+      unmount()
+
       expect(unsubscribe.mock.calls.map((c) => c[0]).sort()).toEqual([
-        'light.hall',
-        'light.kitchen',
-      ])
-      expect(subscribe.mock.calls.map((c) => c[0]).sort()).toEqual([
         'light.kitchen',
         'light.office',
       ])

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useStore } from '@tanstack/react-store'
 import { entityStore, entityStoreActions } from '../store/entityStore'
 import type { HassEntity } from '../store/entityTypes'
@@ -63,27 +63,45 @@ export function useEntities(entityIds?: string[]): {
     hasFilter ? shallowEqualEntities : undefined
   )
 
-  // Subscribe to specific entities when component mounts. The effect is driven
-  // solely by the comma-joined content key and rebuilds the id list from it, so a
-  // caller passing a new array with identical ids does not trigger a spurious
-  // unsubscribe/resubscribe cycle. (Depending on the `entityIds` array itself
-  // would resubscribe on every new-but-equal array identity.)
+  // Manage subscriptions with a delta against the previously-subscribed ids.
+  //
+  // The effect is driven solely by the comma-joined content key (so a new array
+  // with identical ids is a no-op), and on a genuine id-set change it only
+  // subscribes the added ids and unsubscribes the removed ids — retained ids are
+  // left untouched, avoiding needless unsubscribe/resubscribe churn. The teardown
+  // for the whole set lives in a separate unmount-only effect: a cleanup on this
+  // effect would run on every key change and tear down the entire set before the
+  // next run, which would defeat the delta.
   const entityIdsKey = entityIds?.join(',') || ''
+  const subscribedIdsRef = useRef<string[]>([])
   useEffect(() => {
-    if (!entityIdsKey) return
+    const nextIds = entityIdsKey ? entityIdsKey.split(',') : []
+    const prevSet = new Set(subscribedIdsRef.current)
+    const nextSet = new Set(nextIds)
 
-    const ids = entityIdsKey.split(',')
-    ids.forEach((entityId) => {
-      entityStoreActions.subscribeToEntity(entityId)
+    nextIds.forEach((entityId) => {
+      if (!prevSet.has(entityId)) {
+        entityStoreActions.subscribeToEntity(entityId)
+      }
+    })
+    subscribedIdsRef.current.forEach((entityId) => {
+      if (!nextSet.has(entityId)) {
+        entityStoreActions.unsubscribeFromEntity(entityId)
+      }
     })
 
-    // Cleanup subscriptions when component unmounts or the id set changes
+    subscribedIdsRef.current = nextIds
+  }, [entityIdsKey]) // Re-evaluate the delta only when the set of ids actually changes
+
+  // Unsubscribe from every currently-held id when the component unmounts.
+  useEffect(() => {
     return () => {
-      ids.forEach((entityId) => {
+      subscribedIdsRef.current.forEach((entityId) => {
         entityStoreActions.unsubscribeFromEntity(entityId)
       })
+      subscribedIdsRef.current = []
     }
-  }, [entityIdsKey]) // Re-subscribe only when the set of ids actually changes
+  }, [])
 
   // For the filtered form the slice is already restricted to the requested,
   // present entities (in requested order); for the no-arg form this yields every
