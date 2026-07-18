@@ -26,7 +26,12 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      # Fork PRs run without repository secrets, so CODECOV_TOKEN is empty and
+      # the upload would fail — with fail_ci_if_error that would sink the whole
+      # Test job. Skip the upload for cross-repo PRs; same-repo pushes/PRs still
+      # upload and fail hard on any error.
       - name: Upload coverage to Codecov
+        if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

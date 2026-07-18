@@ -21,15 +21,16 @@ export default defineConfig({
         '**/__tests__/**',
         '**/*.test.*',
         'tests/e2e/**',
-        // Test setup, helpers, mocks, and dev-only test scaffolding — not
-        // production code, so they must not inflate the denominator or fall
-        // under the patch gate.
+        // Test setup, helpers, and mocks that are imported only by tests and
+        // never bundled — they must not inflate the denominator or fall under
+        // the patch gate. Dev-only pages like src/routes/test-store.tsx and
+        // src/components/EntityBrowserPerformanceTest.tsx are intentionally NOT
+        // excluded: they are reachable from src/routeTree.gen.ts and ship in
+        // the production bundle, so they belong in the denominator.
         'src/test/**',
         '**/test-setup.ts',
         'src/test-utils/**',
         'src/testUtils/**',
-        'src/routes/test-store.tsx',
-        'src/components/EntityBrowserPerformanceTest.tsx',
         // Build output, generated code, and config files
         'dist/**',
         '**/*.gen.ts',

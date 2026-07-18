@@ -111,7 +111,7 @@ This subsection is the project's standing testing and quality bar; other specs l
 - Component tests MUST use `@testing-library/react` + `@testing-library/jest-dom` + `@testing-library/user-event`; the setup file MUST provide jsdom polyfills for `matchMedia`, `ResizeObserver`, `scrollIntoView`, and pointer-capture (required by Radix Slider) (`src/test/setup.ts:5-45`).
 - Test files MUST be excluded from the dev panel rebuild and colocated as `*.test.ts(x)` (dev plugin skips `.test.`; tests live in `__tests__/` folders across `components`, `hooks`, `services`, `store`, `routes`, `utils`).
 - `npm run lint` MUST be treated as the composite gate it is: it runs `tsc --noEmit`, then `eslint . --ext .ts,.tsx`, then `prettier --check .` (`package.json`).
-- CI MUST enforce these gates: the `test` job runs `npm test` and the `lint` job runs `npm run lint` on every push to `main` and every PR targeting `main` (`.github/workflows/ci.yml`).
+- CI MUST enforce these gates: the `test` job runs `npm run test:coverage` and the `lint` job runs `npm run lint` on every push to `main` and every PR targeting `main` (`.github/workflows/ci.yml`).
 - The `pre-push` git hook MUST run typecheck, lint, and `npm test -- --run` and MUST block the push on any failure (`.husky/pre-push`).
 - Coverage MUST be measured on every CI test run (`npm run test:coverage`, Vitest `v8` provider, `lcov` report uploaded to Codecov) and enforced as two blocking PR statuses: `codecov/patch` MUST be 100% — every line added or changed by a PR MUST be covered by tests — and `codecov/project` MUST NOT regress (`codecov.yml`, change 0006). Weakening either gate to land a PR is a defect in the PR.
 - Contributors SHOULD run `npm run test:coverage` before opening a PR to check the patch bar locally.
