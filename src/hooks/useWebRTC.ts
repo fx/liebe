@@ -494,9 +494,8 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
 
   // Initialize WebRTC when conditions are met
   useEffect(() => {
-    // Cleanup if disabled or entity changed
+    // Teardown when disabled is handled by the dedicated teardown effect below.
     if (!enabled) {
-      cleanup()
       return
     }
 
@@ -533,7 +532,7 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
       clearTimeout(timer)
       pendingInitRef.current = false
     }
-  }, [enabled, hass, entityId, retryCount, cleanup, initializeWebRTC])
+  }, [enabled, hass, entityId, retryCount, initializeWebRTC])
 
   // Store cleanup function in ref for access in event listener
   useEffect(() => {
@@ -573,12 +572,16 @@ export function useWebRTC({ entityId, enabled = true }: UseWebRTCOptions): UseWe
     }
   }, [enabled, entityId, cleanup])
 
-  // Cleanup on unmount
+  // Tear down the connection when the hook becomes disabled or on unmount.
+  // Teardown runs in the effect-cleanup (not the effect body), so the state
+  // reset inside cleanup() is not a synchronous setState in an effect body
+  // (react-hooks/set-state-in-effect).
   useEffect(() => {
+    if (!enabled) return
     return () => {
       cleanup()
     }
-  }, [cleanup])
+  }, [enabled, cleanup])
 
   return {
     videoRef,

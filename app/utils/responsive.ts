@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react'
 
 export const breakpoints = {
   mobile: 480,
@@ -60,31 +60,23 @@ export function useBreakpoint(): Breakpoint {
 }
 
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => {
-    // Default to false for SSR
-    if (typeof window === 'undefined') return false
-    return window.matchMedia(query).matches
-  })
+  // Subscribe to the media query as an external store so the value stays in
+  // sync (including when `query` changes) without calling setState in an effect.
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mediaQuery = window.matchMedia(query)
+      mediaQuery.addEventListener('change', onChange)
+      return () => mediaQuery.removeEventListener('change', onChange)
+    },
+    [query]
+  )
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(query)
+  const getSnapshot = useCallback(() => window.matchMedia(query).matches, [query])
 
-    // Sync state when query changes (useState initializer only runs on mount)
-    setMatches(mediaQuery.matches)
+  // Default to false for SSR (no window).
+  const getServerSnapshot = () => false
 
-    const handleChange = (e: MediaQueryListEvent) => {
-      setMatches(e.matches)
-    }
-
-    // Add listener
-    mediaQuery.addEventListener('change', handleChange)
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange)
-    }
-  }, [query])
-
-  return matches
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }
 
 export function useIsMobile(): boolean {
