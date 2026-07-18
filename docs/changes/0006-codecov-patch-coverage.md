@@ -41,7 +41,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 ### CI upload
 
 - The CI `Test` job MUST run `npm run test:coverage` (replacing the bare `npm test` run — the suite still runs exactly once) and upload `coverage/lcov.info` to Codecov via the official `codecov/codecov-action`, authenticated with the `CODECOV_TOKEN` repository secret.
-- The upload step MUST fail the job on upload error (`fail_ci_if_error: true`) so a silent token/config problem cannot masquerade as a passing gate.
+- The upload step MUST fail the job on upload error (`fail_ci_if_error: true`) for same-repo runs (pushes and non-fork PRs) so a silent token/config problem cannot masquerade as a passing gate; for fork PRs it MUST be best-effort (`fail_ci_if_error: false`), because forks run without the `CODECOV_TOKEN` secret and rely on codecov-action's public-repo tokenless upload — which can be rate-limited and MUST NOT brick fork CI.
 - The action MUST be pinned to an immutable commit SHA with a version comment, matching the e2e workflow's pinning convention.
 
 #### Scenario: Coverage reported on every PR
