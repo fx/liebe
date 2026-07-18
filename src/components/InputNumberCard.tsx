@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState, useEffect } from 'react'
+import React, { memo, useCallback, useState } from 'react'
 import { Box, Flex, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Hash, Minus, Plus } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -34,15 +34,21 @@ export const InputNumberCard = memo(function InputNumberCard({
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
 
-  const [localValue, setLocalValue] = useState<string>('')
+  const [localValue, setLocalValue] = useState<string>(entity?.state ?? '')
   const [isEditing, setIsEditing] = useState(false)
 
-  // Update local value when entity changes
-  useEffect(() => {
+  // Sync the local value from the entity while the user is not editing. Done
+  // during render (not in an effect) per react-hooks/set-state-in-effect; the
+  // previous-value guards reproduce the old effect's [entity, isEditing] triggers.
+  const [prevEntity, setPrevEntity] = useState(entity)
+  const [prevIsEditing, setPrevIsEditing] = useState(isEditing)
+  if (entity !== prevEntity || isEditing !== prevIsEditing) {
+    setPrevEntity(entity)
+    setPrevIsEditing(isEditing)
     if (entity && !isEditing) {
       setLocalValue(entity.state)
     }
-  }, [entity, isEditing])
+  }
 
   const handleClick = useCallback(() => {
     // Card click is handled by GridCard

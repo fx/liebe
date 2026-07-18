@@ -55,7 +55,7 @@ changes:
     path: changes/0003-reenable-react-hooks-rules.md
     description: Gradually re-enable the five disabled react-hooks v7 lint rules and fix their violations
     spec: architecture
-    status: draft
+    status: complete
     depends_on: []
   - id: '0004'
     name: portable-config-contract

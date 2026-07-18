@@ -5,7 +5,7 @@
 Gradually re-enable the five `eslint-plugin-react-hooks` v7 rules that were disabled wholesale during the December 2025 ESLint upgrade, fixing each rule's violations as it is turned on. Anchored to the [Architecture](../specs/architecture/) spec's linting conventions.
 
 **Spec:** [Architecture](../specs/architecture/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -78,11 +78,11 @@ Each of the five rules MUST end enabled (at least at `warn`, target `error`) in 
 - [x] Group A: enable `react-hooks/refs`, `react-hooks/static-components`, `react-hooks/incompatible-library`; fix all violations
   - [x] Violation inventory committed to the PR description
   - [x] Fixes + any justified suppressions
-- [ ] Group B: enable `react-hooks/set-state-in-effect`, `react-hooks/preserve-manual-memoization`; fix all violations; revisit stale `exhaustive-deps` suppressions
+- [x] Group B: enable `react-hooks/set-state-in-effect`, `react-hooks/preserve-manual-memoization`; fix all violations; revisit stale `exhaustive-deps` suppressions
 
 ## Open Questions
 
-- [ ] Final severity: `error` for all five, or keep compiler-preview rules at `warn`? — Default: `error`, matching the zero-warning bar.
+- [x] Final severity: `error` for all five, or keep compiler-preview rules at `warn`? — Resolved: all five are enabled at `error`, matching the zero-warning bar.
 
 ## References
 

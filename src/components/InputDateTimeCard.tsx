@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState, useEffect } from 'react'
+import React, { memo, useCallback, useState } from 'react'
 import { Box, Flex, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Calendar, Check, Clock, Edit2, X } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -31,15 +31,21 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
 
-  const [localValue, setLocalValue] = useState<string>('')
+  const [localValue, setLocalValue] = useState<string>(entity?.state ?? '')
   const [isEditing, setIsEditing] = useState(false)
 
-  // Update local value when entity changes
-  useEffect(() => {
+  // Sync the local value from the entity while the user is not editing. Done
+  // during render (not in an effect) per react-hooks/set-state-in-effect; the
+  // previous-value guards reproduce the old effect's [entity, isEditing] triggers.
+  const [prevEntity, setPrevEntity] = useState(entity)
+  const [prevIsEditing, setPrevIsEditing] = useState(isEditing)
+  if (entity !== prevEntity || isEditing !== prevIsEditing) {
+    setPrevEntity(entity)
+    setPrevIsEditing(isEditing)
     if (entity && !isEditing) {
       setLocalValue(entity.state)
     }
-  }, [entity, isEditing])
+  }
 
   const handleClick = useCallback(() => {
     if (!isEditing) {

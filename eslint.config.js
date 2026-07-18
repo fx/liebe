@@ -33,13 +33,12 @@ export default [
       'react/prop-types': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-undef': 'off',
-      // react-hooks v7 rules. Structural rules (change 0003 Group A) are enforced.
-      // The remaining two stateful rules are enabled separately in Group B.
+      // react-hooks v7 rules, all enforced at error (change 0003, Groups A & B).
       'react-hooks/refs': 'error',
       'react-hooks/static-components': 'error',
       'react-hooks/incompatible-library': 'error',
-      'react-hooks/set-state-in-effect': 'off',
-      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/set-state-in-effect': 'error',
+      'react-hooks/preserve-manual-memoization': 'error',
     },
     settings: {
       react: {
