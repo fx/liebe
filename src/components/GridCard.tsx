@@ -50,7 +50,6 @@ export const GridCard = React.memo(
         size = 'medium',
         isLoading = false,
         isError = false,
-        isStale = false,
         transparent = false,
         isSelected = false,
         isOn = false,
@@ -120,7 +119,9 @@ export const GridCard = React.memo(
           borderStyle: 'dotted',
         }
       }
-      // Note: isStale styling removed - we track stale state but don't display it visually
+      // The `isStale` prop is still accepted (callers pass it) but intentionally
+      // not rendered — stale entities are tracked without a visual indicator.
+      // See docs/specs/entity-state/index.md for the stale-display decision.
 
       // Background for selected/on states
       const backgroundColor =

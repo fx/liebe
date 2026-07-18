@@ -70,7 +70,8 @@ export class HassService {
       }
 
       throw new ServiceCallError(
-        `Failed to call service after ${this.retryDelays.length} attempts: ${errorMessage}`,
+        // Total attempts = the initial call plus one per retry delay.
+        `Failed to call service after ${this.retryDelays.length + 1} attempts: ${errorMessage}`,
         options.domain,
         options.service,
         options.entityId

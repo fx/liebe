@@ -5,7 +5,7 @@
 One focused clean-up pass over mechanical debt: gate the ~80 unguarded `console.*` calls behind a debug flag, fix the 5 outstanding ESLint warnings, remove the unused `sharp` production dependency, and validate dashboard-configuration imports with a zod schema. Cross-cutting; anchored to the [Architecture](../specs/architecture/) spec's quality conventions, with the import-validation piece closing an Open Question in [Dashboard Config](../specs/dashboard-config/).
 
 **Spec:** [Architecture](../specs/architecture/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -137,14 +137,14 @@ Two review-surfaced defects that fit this bundle:
 
 ## Tasks
 
-- [ ] Hygiene pass: logger utility + call-site migration, 5 lint warnings fixed, `sharp` removed, zod import validation with tests
-  - [ ] `src/utils/logger.ts` with dev/localStorage gating + suppression test
-  - [ ] Migrate `console.*` call sites (panel, useWebRTC, persistence, hassConnection, remaining pockets)
-  - [ ] Resolve 5 `no-unused-vars` warnings
-  - [ ] Remove `sharp`; regenerate lockfile; verify `build:ha:prod` + tests
-  - [ ] `src/store/configSchema.ts` + `safeParse` wiring in both import paths + accept/reject tests
-  - [ ] `TextCard` nullish fallbacks (`??`) with cleared-content test
-  - [ ] Retry failure message reports `retryDelays.length + 1` attempts (update message + existing test expectation, and the quoted scenario in `docs/specs/entity-state/index.md`)
+- [x] Hygiene pass: logger utility + call-site migration, 5 lint warnings fixed, `sharp` removed, zod import validation with tests
+  - [x] `src/utils/logger.ts` with dev/localStorage gating + suppression test
+  - [x] Migrate `console.*` call sites (panel, useWebRTC, persistence, hassConnection, remaining pockets)
+  - [x] Resolve 5 `no-unused-vars` warnings
+  - [x] Remove `sharp`; regenerate lockfile; verify `build:ha:prod` + tests
+  - [x] `src/store/configSchema.ts` + `safeParse` wiring in both import paths + accept/reject tests
+  - [x] `TextCard` nullish fallbacks (`??`) with cleared-content test
+  - [x] Retry failure message reports `retryDelays.length + 1` attempts (update message + existing test expectation, and the quoted scenario in `docs/specs/entity-state/index.md`)
 
 ## Open Questions
 

@@ -40,18 +40,13 @@ const SUPPORT_STREAM = 2
 // Stats display component
 function CameraStats({
   size,
-  _hasFrameWarning,
-  isStreaming,
   videoElement,
   peerConnection,
 }: {
   size: 'small' | 'medium' | 'large'
-  _hasFrameWarning: boolean
-  isStreaming: boolean
   videoElement: HTMLVideoElement | null
   peerConnection: RTCPeerConnection | null
 }) {
-  const scaleFactor = size === 'small' ? 0.64 : size === 'large' ? 0.96 : 0.8
   const [stats, setStats] = useState({
     timestamp: new Date().toLocaleTimeString(),
     fps: 0,
@@ -691,8 +686,6 @@ function CameraCardComponent({
           {showStats && supportsStream && !streamError && (
             <CameraStats
               size={size}
-              _hasFrameWarning={hasFrameWarning}
-              isStreaming={isStreaming}
               videoElement={videoElementRef.current}
               peerConnection={peerConnection}
             />
@@ -757,8 +750,6 @@ function CameraCardComponent({
         {showStats && (
           <CameraStats
             size="large"
-            _hasFrameWarning={hasFrameWarning}
-            isStreaming={isStreaming}
             videoElement={videoElementRef.current}
             peerConnection={peerConnection}
           />

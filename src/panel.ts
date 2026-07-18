@@ -1,4 +1,5 @@
 import React from 'react'
+import { logger } from './utils/logger'
 import ReactDOM from 'react-dom/client'
 import { HomeAssistantProvider } from './contexts/HomeAssistantContext'
 import { PanelApp } from './components/PanelApp'
@@ -32,7 +33,7 @@ class LiebePanel extends HTMLElement {
 
   constructor() {
     super()
-    console.log(`[Liebe Panel ${this.instanceId}] Constructor called`)
+    logger.debug(`[Liebe Panel ${this.instanceId}] Constructor called`)
 
     // Prevent panel from being garbage collected
     ;(window as unknown as { __liebePanel?: LiebePanel }).__liebePanel = this
@@ -40,7 +41,7 @@ class LiebePanel extends HTMLElement {
     // Override remove method to prevent removal
     const originalRemove = this.remove
     this.remove = () => {
-      console.log(`[Liebe Panel ${this.instanceId}] remove() called - ignoring if we have hass`)
+      logger.debug(`[Liebe Panel ${this.instanceId}] remove() called - ignoring if we have hass`)
       if (!this._hass) {
         originalRemove.call(this)
       }
@@ -64,7 +65,7 @@ class LiebePanel extends HTMLElement {
       })
 
       if (hasSubscribedChanges) {
-        console.log(
+        logger.debug(
           `[Liebe Panel ${this.instanceId}] hass setter called with subscribed entity updates`,
           {
             subscribedCount: subscribedEntities.size,
@@ -91,7 +92,7 @@ class LiebePanel extends HTMLElement {
         // Just check if WebSocket is alive
         const socket = this._hass.connection?.socket as WebSocket
         if (socket && socket.readyState !== WebSocket.OPEN) {
-          console.log(
+          logger.debug(
             `[Liebe Panel ${this.instanceId}] WebSocket disconnected (readyState: ${socket.readyState})`
           )
         }
@@ -107,7 +108,7 @@ class LiebePanel extends HTMLElement {
   }
 
   connectedCallback() {
-    console.log(`[Liebe Panel ${this.instanceId}] connectedCallback called`, {
+    logger.debug(`[Liebe Panel ${this.instanceId}] connectedCallback called`, {
       initialized: this.initialized,
       hasHass: !!this._hass,
       isConnected: this.isConnected,
@@ -118,7 +119,7 @@ class LiebePanel extends HTMLElement {
     const needsInit = !this.initialized || !this.shadowRoot || !this.root
 
     if (needsInit) {
-      console.log(`[Liebe Panel ${this.instanceId}] Initializing/Re-initializing panel`)
+      logger.debug(`[Liebe Panel ${this.instanceId}] Initializing/Re-initializing panel`)
       this.initialized = true
 
       // Create or get shadow root
@@ -159,7 +160,7 @@ class LiebePanel extends HTMLElement {
 
       // Track visibility changes
       this.visibilityHandler = () => {
-        console.log(`[Liebe Panel ${this.instanceId}] Visibility changed`, {
+        logger.debug(`[Liebe Panel ${this.instanceId}] Visibility changed`, {
           hidden: document.hidden,
           visibilityState: document.visibilityState,
           timestamp: new Date().toISOString(),
@@ -173,7 +174,7 @@ class LiebePanel extends HTMLElement {
 
           // If we're not connected but should be, try to reconnect
           if (!this.isConnected && this._hass && this.lastParentElement) {
-            console.log(`[Liebe Panel ${this.instanceId}] Attempting to reconnect to parent`)
+            logger.debug(`[Liebe Panel ${this.instanceId}] Attempting to reconnect to parent`)
             try {
               this.lastParentElement.appendChild(this)
             } catch (error) {
@@ -188,7 +189,7 @@ class LiebePanel extends HTMLElement {
           if (this._hass) {
             const socket = this._hass.connection?.socket as WebSocket
             if (socket && socket.readyState !== WebSocket.OPEN) {
-              console.log(
+              logger.debug(
                 `[Liebe Panel ${this.instanceId}] WebSocket not open after visibility restore`
               )
               // Dispatch event to trigger reconnection check
@@ -207,7 +208,7 @@ class LiebePanel extends HTMLElement {
 
       // Track page unload
       this.beforeUnloadHandler = () => {
-        console.log(`[Liebe Panel ${this.instanceId}] Page unloading`)
+        logger.debug(`[Liebe Panel ${this.instanceId}] Page unloading`)
       }
       window.addEventListener('beforeunload', this.beforeUnloadHandler)
 
@@ -235,7 +236,7 @@ class LiebePanel extends HTMLElement {
   }
 
   disconnectedCallback() {
-    console.log(`[Liebe Panel ${this.instanceId}] disconnectedCallback called`, {
+    logger.debug(`[Liebe Panel ${this.instanceId}] disconnectedCallback called`, {
       initialized: this.initialized,
       hasHass: !!this._hass,
       timestamp: new Date().toISOString(),
@@ -274,7 +275,7 @@ class LiebePanel extends HTMLElement {
           const timeSinceInteraction = Date.now() - this.lastInteraction
           // Only re-render if page has been inactive for more than 5 minutes
           if (timeSinceInteraction > 5 * 60 * 1000) {
-            console.log(`[Liebe Panel ${this.instanceId}] Keep-alive render triggered`)
+            logger.debug(`[Liebe Panel ${this.instanceId}] Keep-alive render triggered`)
             this.render()
             this.lastInteraction = Date.now()
           }
@@ -300,7 +301,7 @@ class LiebePanel extends HTMLElement {
               node === this ||
               (node.nodeType === Node.ELEMENT_NODE && (node as Element).contains(this))
             ) {
-              console.log(
+              logger.debug(
                 `[Liebe Panel ${this.instanceId}] Detected removal from parent, attempting to prevent`
               )
               // If we're being removed and we have a parent, try to add ourselves back
@@ -310,7 +311,7 @@ class LiebePanel extends HTMLElement {
 
                 setTimeout(() => {
                   if (!this.isConnected && mutation.target) {
-                    console.log(`[Liebe Panel ${this.instanceId}] Re-adding panel to parent`)
+                    logger.debug(`[Liebe Panel ${this.instanceId}] Re-adding panel to parent`)
                     try {
                       mutation.target.appendChild(this)
                     } catch (error) {
@@ -353,7 +354,7 @@ class LiebePanel extends HTMLElement {
     // Check periodically if we need to reconnect
     this.reconnectCheckInterval = window.setInterval(() => {
       if (!this.isConnected && this._hass && this.lastParentElement && !document.hidden) {
-        console.log(`[Liebe Panel ${this.instanceId}] Reconnect check: attempting to reconnect`)
+        logger.debug(`[Liebe Panel ${this.instanceId}] Reconnect check: attempting to reconnect`)
 
         // Try to find the panel container in Home Assistant
         const panelContainer =
@@ -364,7 +365,7 @@ class LiebePanel extends HTMLElement {
         if (panelContainer && !panelContainer.contains(this)) {
           try {
             panelContainer.appendChild(this)
-            console.log(
+            logger.debug(
               `[Liebe Panel ${this.instanceId}] Successfully reconnected to panel container`
             )
           } catch (error) {
@@ -419,7 +420,7 @@ const startGlobalPanelGuardian = () => {
     if (panel && document.visibilityState === 'visible') {
       // Check if panel is disconnected from DOM
       if (!panel.isConnected) {
-        console.log(
+        logger.debug(
           '[Global Panel Guardian] Panel disconnected while page visible, attempting recovery'
         )
 
@@ -435,7 +436,7 @@ const startGlobalPanelGuardian = () => {
           if (container && !container.contains(panel)) {
             try {
               container.appendChild(panel)
-              console.log('[Global Panel Guardian] Successfully restored panel to container')
+              logger.debug('[Global Panel Guardian] Successfully restored panel to container')
               break
             } catch {
               // Continue trying other containers

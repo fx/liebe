@@ -101,7 +101,7 @@ describe('HassService', () => {
       })
 
       expect(result.success).toBe(false)
-      expect(result.error).toContain('Failed to call service after 3 attempts')
+      expect(result.error).toContain('Failed to call service after 4 attempts')
       expect(mockHass.callService).toHaveBeenCalledTimes(4) // Initial + 3 retries
     }, 10000) // Increase timeout to 10 seconds
   })

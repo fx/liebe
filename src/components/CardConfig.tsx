@@ -10,7 +10,6 @@ import {
   Select,
   TextField,
   TextArea,
-  Card,
   Dialog,
 } from '@radix-ui/themes'
 import { X } from 'lucide-react'

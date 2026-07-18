@@ -48,7 +48,7 @@ changes:
     path: changes/0002-repo-hygiene.md
     description: Debug-gate console logging, fix 5 lint warnings, remove unused sharp dependency, zod-validate config imports
     spec: architecture
-    status: draft
+    status: complete
     depends_on: []
   - id: '0003'
     name: reenable-react-hooks-rules
