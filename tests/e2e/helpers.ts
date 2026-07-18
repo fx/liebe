@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test'
+import { type ConsoleMessage, type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
 import { safeStringify } from './safeStringify'
 
@@ -222,7 +222,7 @@ export async function collectConsoleErrors(
   // records instead of dropping (or double-reporting) them.
   const objectPageErrors: string[] = []
 
-  page.on('console', (msg) => {
+  const onConsoleMessage = (msg: ConsoleMessage) => {
     if (msg.type() !== 'error') return
     // msg.text() renders object arguments as the literal "Object"; serialize
     // the argument values so the benign filter sees the real payload.
@@ -270,7 +270,8 @@ export async function collectConsoleErrors(
     })
     pendingSerializations.add(bounded)
     void bounded.finally(() => pendingSerializations.delete(bounded))
-  })
+  }
+  page.on('console', onConsoleMessage)
 
   page.on('pageerror', (err) => {
     const text = err.stack || err.message
@@ -291,6 +292,10 @@ export async function collectConsoleErrors(
 
   return {
     fatalErrors: async () => {
+      // Freeze collection first: detaching the console listener means no new
+      // work can be added while (or after) the pending set drains, so the
+      // final read below is deterministic.
+      page.off('console', onConsoleMessage)
       // Every pending serialization is individually bounded (real payload or
       // failure placeholder within SERIALIZATION_TIMEOUT_MS), so awaiting
       // them all cannot hang — and no console error can be dropped.

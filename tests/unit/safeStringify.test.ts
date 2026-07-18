@@ -102,4 +102,50 @@ describe('safeStringify', () => {
     })
     expect(JSON.parse(safeStringify(value))).toEqual({ boom: '[unreadable]' })
   })
+
+  it('caps oversized arrays with a deterministic truncation marker', () => {
+    const parsed = JSON.parse(safeStringify(Array.from({ length: 120 }, (_, i) => i))) as unknown[]
+    expect(parsed).toHaveLength(51)
+    expect(parsed[0]).toBe(0)
+    expect(parsed[49]).toBe(49)
+    expect(parsed[50]).toBe('[+70 more entries]')
+  })
+
+  it('caps oversized objects, Maps, and Sets with a truncation marker', () => {
+    const wide = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`k${i}`, i]))
+    const parsedObject = JSON.parse(safeStringify(wide)) as Record<string, unknown>
+    expect(Object.keys(parsedObject)).toHaveLength(51)
+    expect(parsedObject['[truncated]']).toBe('+10 more entries')
+
+    const map = new Map(Array.from({ length: 55 }, (_, i) => [`m${i}`, i]))
+    const parsedMap = JSON.parse(safeStringify(map)) as Record<string, unknown>
+    expect(parsedMap['[map] m0']).toBe(0)
+    expect(parsedMap['[truncated]']).toBe('+5 more entries')
+
+    const set = new Set(Array.from({ length: 53 }, (_, i) => i))
+    const parsedSet = JSON.parse(safeStringify(set)) as Record<string, unknown>
+    expect(parsedSet['[set] 0']).toBe(0)
+    expect(parsedSet['[truncated]']).toBe('+3 more entries')
+  })
+
+  it('keeps top-level fields inspectable in a wide typed-array-like payload', () => {
+    // hls.js ErrorData can drag in typed arrays; their index keys are capped
+    // per container while the leading diagnostic fields survive.
+    const payload = {
+      type: 'mediaError',
+      details: 'bufferStalledError',
+      fatal: false,
+      buffer: Object.fromEntries(Array.from({ length: 500 }, (_, i) => [i, 255])),
+    }
+    const text = safeStringify(payload)
+    expect(text).toContain('"type":"mediaError"')
+    expect(text).toContain('"fatal":false')
+    expect(text).toContain('+450 more entries')
+  })
+
+  it('caps the final output length with an explicit marker', () => {
+    const text = safeStringify({ blob: 'x'.repeat(30_000) })
+    expect(text.length).toBe(20_000 + '[output truncated]'.length)
+    expect(text.endsWith('[output truncated]')).toBe(true)
+  })
 })

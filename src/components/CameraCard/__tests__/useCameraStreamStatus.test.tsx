@@ -1618,6 +1618,48 @@ describe('useCameraStreamStatus', () => {
       expect(removeListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
     })
 
+    it('ignores an image error from a superseded mjpeg epoch', () => {
+      const { img, fireError } = createMjpegImg()
+      const { result } = renderStatus({ img })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+
+      // The old image errors after the new epoch was announced but before the
+      // old watch's cleanup: no error may surface on the replacement's behalf.
+      act(() => {
+        result.current.onStreamEvent()
+        fireError()
+      })
+      expect(result.current.error).toBeNull()
+    })
+
+    it('ignores a poll tick from a superseded mjpeg epoch', () => {
+      const { img, setNaturalWidth } = createMjpegImg()
+      const { result } = renderStatus({ img })
+
+      act(() => {
+        result.current.onStreamEvent()
+      })
+
+      // Epoch 1's poll interval fires once more after epoch 2 was announced:
+      // the decoded pixels it sees belong to the old watch and must not flip
+      // the machine to streaming.
+      act(() => {
+        result.current.onStreamEvent()
+        setNaturalWidth(640)
+        vi.advanceTimersByTime(500)
+      })
+      expect(result.current.isStreaming).toBe(false)
+
+      // The new epoch's own poll reports the pixels normally.
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(result.current.isStreaming).toBe(true)
+    })
+
     it('pauses the mjpeg connect budget while the tab is hidden', () => {
       const { img } = createMjpegImg()
       const { result } = renderStatus({ img })

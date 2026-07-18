@@ -22,16 +22,27 @@ status=0
 
 # Report FILENAMES ONLY (-l): printing matching line contents would leak the
 # very secret this gate exists to protect into CI logs.
-if files=$(git grep -lE 'rtsps?://[^ "]*@'); then
+#
+# git grep exits 0 on matches, 1 on no matches, and >1 on ERROR. An error must
+# fail the gate too — treating it as "no match" would let a broken scan pass.
+files=$(git grep -lE 'rtsps?://[^ "]*@') && grep_status=0 || grep_status=$?
+if [ "$grep_status" -eq 0 ]; then
   printf '%s\n' "$files"
   echo 'ERROR: credentialed RTSP URL found in tracked files.' >&2
+  status=1
+elif [ "$grep_status" -ne 1 ]; then
+  echo "ERROR: git grep failed (exit $grep_status) while scanning for credentialed RTSP URLs." >&2
   status=1
 fi
 
 if [ -n "${RTSP_TEST_URL:-}" ]; then
-  if files=$(git grep -lF "$RTSP_TEST_URL"); then
+  files=$(git grep -lF "$RTSP_TEST_URL") && grep_status=0 || grep_status=$?
+  if [ "$grep_status" -eq 0 ]; then
     printf '%s\n' "$files"
     echo 'ERROR: the RTSP_TEST_URL value appears in tracked files.' >&2
+    status=1
+  elif [ "$grep_status" -ne 1 ]; then
+    echo "ERROR: git grep failed (exit $grep_status) while scanning for the RTSP_TEST_URL value." >&2
     status=1
   fi
 fi

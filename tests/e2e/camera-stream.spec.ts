@@ -65,23 +65,27 @@ const BENIGN_CONSOLE_PATTERNS: BenignMatcher[] = [
     /the server responded with a status of (404|5\d\d)/i.test(text) &&
     /\/api\/hls\/|\/api\/camera_proxy/i.test(text),
   // hls.js recoverable network-retry noise while ffmpeg spins up — benign
-  // only as networkError + recognized load detail + explicitly nonfatal (see
-  // RECOVERABLE_HLS_NETWORK_ERROR above).
-  (text: string) => RECOVERABLE_HLS_NETWORK_ERROR.test(text) && !/"fatal"\s*:\s*true/.test(text),
+  // only as networkError + recognized load detail + an EXPLICIT
+  // `"fatal": false` (a payload that omits the flag — e.g. truncated — is
+  // NOT presumed nonfatal; see RECOVERABLE_HLS_NETWORK_ERROR above).
+  (text: string) => RECOVERABLE_HLS_NETWORK_ERROR.test(text) && /"fatal"\s*:\s*false/.test(text),
   // HA's own frontend leaves the `camera/webrtc/offer` websocket promise
   // unhandled when the backend rejects it. In this stack the go2rtc `exec:`
   // producer trips a parse bug in HA's go2rtc client, so every offer fails
   // with {code: "unknown_error"} and <ha-camera-stream> falls back to HLS —
   // exactly the "WebRTC best-effort" contract of docs/changes/0007.
-  /"code"\s*:\s*"unknown_error"/,
-  // Recoverable buffer mediaError — but NEVER when hls.js flags it fatal:
-  // "fatal": true means recovery failed and playback is escalating, which
-  // must fail the suite even when the details value is a "recoverable" one.
+  // Anchored to the in-page recorder's unhandled-rejection prefix so a
+  // "unknown_error" code inside any OTHER error channel still fails the
+  // suite.
+  /^unhandled rejection(?: \(object\))?: [\s\S]*"code"\s*:\s*"unknown_error"/,
+  // Recoverable buffer mediaError — benign only with an EXPLICIT
+  // `"fatal": false`: "fatal": true means recovery failed and playback is
+  // escalating, and a payload missing the flag is not presumed nonfatal.
   // The collector's cycle-safe in-page stringifier guarantees ErrorData
   // always serializes to inspectable text containing type/details/fatal
   // whenever the argument is reachable at all, so no broad '<unserializable>'
   // escape hatch exists (or is needed) anymore.
-  (text: string) => RECOVERABLE_HLS_MEDIA_ERROR.test(text) && !/"fatal"\s*:\s*true/.test(text),
+  (text: string) => RECOVERABLE_HLS_MEDIA_ERROR.test(text) && /"fatal"\s*:\s*false/.test(text),
   // Serialization-failure placeholders from the media-player chunks: when
   // even the in-page safeStringify evaluation fails (the argument handle's
   // execution context was destroyed — typically a player logging during

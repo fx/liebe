@@ -21,7 +21,7 @@ This change MUST satisfy the project's standing testing rules (see [Testing & Qu
 - `npm test`, `npm run lint`, and `npm run typecheck` MUST all pass before each PR is opened.
 - Changed/added lines MUST be 100% covered (`codecov/patch` gate; check with `npm run test:coverage`).
 - E2E assertions MUST be made against the live DOM / accessibility tree, REST/websocket state, and console output — never against screenshots.
-- The RTSP leak gate (`scripts/check-rtsp-leak.sh`) MUST pass in CI: no credentialed `rtsp://` URL and no `$RTSP_TEST_URL` value may appear in tracked files. Only the literal env-var reference `${RTSP_TEST_URL:}` may be committed.
+- The RTSP leak gate (`scripts/check-rtsp-leak.sh`) MUST pass in CI: no credentialed `rtsp://` URL and no `$RTSP_TEST_URL` value may appear in tracked files. Only literal env-var placeholder references may be committed — go2rtc's `${RTSP_TEST_URL:}` and Compose's `${RTSP_TEST_URL:-}` substitution syntax — never the actual value.
 
 Skipping or weakening any of these rules to land a PR MUST be treated as a bug in the PR, not in the rule.
 

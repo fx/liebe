@@ -179,9 +179,14 @@ describe('CameraCard', () => {
   })
 
   afterEach(() => {
-    // Native fullscreen tests stub this; make sure no test leaks it.
+    // Native fullscreen tests stub these as own properties; deleting the own
+    // property restores the (jsdom prototype) original, so no test leaks a
+    // stub into the next one.
     if (Object.getOwnPropertyDescriptor(document, 'fullscreenElement')) {
       delete (document as { fullscreenElement?: unknown }).fullscreenElement
+    }
+    if (Object.getOwnPropertyDescriptor(document, 'exitFullscreen')) {
+      delete (document as { exitFullscreen?: unknown }).exitFullscreen
     }
   })
 
@@ -713,6 +718,31 @@ describe('CameraCard', () => {
     })
   })
 
+  describe('fit configuration', () => {
+    const itemWithFit = (fit: unknown): GridItem => ({
+      id: 'item-1',
+      type: 'entity',
+      entityId: 'camera.front_door',
+      x: 0,
+      y: 0,
+      width: 4,
+      height: 2,
+      config: { fit },
+    })
+
+    it('passes a whitelisted fit value through to the stream', () => {
+      renderCard({ item: itemWithFit('fill') })
+      expect(getStreamHost().getAttribute('data-fit')).toBe('fill')
+    })
+
+    it('degrades an unknown fit value to the cover default', () => {
+      // Persisted config is user-editable YAML: a bogus value must never flow
+      // into CSS/HaCameraStream.
+      renderCard({ item: itemWithFit('stretch-bogus') })
+      expect(getStreamHost().getAttribute('data-fit')).toBe('cover')
+    })
+  })
+
   describe('stats', () => {
     it('hides stats without the showStats config', () => {
       statusMock.isStreaming = true
@@ -749,6 +779,24 @@ describe('CameraCard', () => {
       }
       renderCard({ item, size: 'small' })
       expect(screen.getByText(/— FPS •/)).toBeInTheDocument()
+    })
+
+    it('hides stats in the still-image fallback (element not ready)', () => {
+      // The fallback has no video to read playback quality from.
+      readiness = 'unavailable'
+      const item: GridItem = {
+        id: 'item-1',
+        type: 'entity',
+        entityId: 'camera.front_door',
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 2,
+        config: { showStats: true },
+      }
+      renderCard({ item })
+      expect(screen.queryByText('FPS')).toBeNull()
+      expect(screen.queryByText(/FPS •/)).toBeNull()
     })
   })
 

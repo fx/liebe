@@ -542,6 +542,11 @@ export function useCameraStreamStatus({
       img.removeEventListener('error', onImgError)
     }
     function onImgError() {
+      // Superseded epochs no-op, mirroring the video watch's callbacks: the
+      // old image erroring in the window between onStreamEvent's synchronous
+      // epoch bump and this watch's cleanup must not surface an error (or
+      // stop the poll) on the replacement's behalf.
+      if (watchEpochRef.current !== epoch) return
       // Suppressed while the entity is unavailable, mirroring the video
       // path: a backend blip must not surface a sticky 'Stream failed to
       // start' (the paused load budget covers the post-recovery load phase).
@@ -551,6 +556,8 @@ export function useCameraStreamStatus({
     }
     img.addEventListener('error', onImgError)
     timers.poll = setInterval(() => {
+      // Same superseded-epoch guard as the error path above.
+      if (watchEpochRef.current !== epoch) return
       if (img.naturalWidth > 0) {
         stopMjpeg()
         isStreamingRef.current = true

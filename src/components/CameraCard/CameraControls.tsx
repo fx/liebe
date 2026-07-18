@@ -60,7 +60,7 @@ function ControlButton({
   children: ReactNode
 }) {
   return (
-    <button onClick={onClick} title={title} className="camera-control-button">
+    <button type="button" onClick={onClick} title={title} className="camera-control-button">
       {children}
     </button>
   )

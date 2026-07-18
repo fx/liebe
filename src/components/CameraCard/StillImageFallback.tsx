@@ -16,6 +16,7 @@ export interface StillImageFallbackProps {
 // cache-busting query param.
 export function StillImageFallback({ entity, objectFit = 'cover' }: StillImageFallbackProps) {
   const [refreshCounter, setRefreshCounter] = useState(0)
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const { entity_picture: entityPicture, friendly_name: friendlyName } = entity.attributes as {
     entity_picture?: string
     friendly_name?: string
@@ -29,7 +30,15 @@ export function StillImageFallback({ entity, objectFit = 'cover' }: StillImageFa
     return () => clearInterval(interval)
   }, [entityPicture])
 
-  if (!entityPicture) {
+  // Deterministic cache-buster: an incrementing counter (not Date.now()) so
+  // the refresh cadence is fully controllable in tests.
+  const separator = entityPicture?.includes('?') ? '&' : '?'
+  const src = entityPicture ? `${entityPicture}${separator}_ts=${refreshCounter}` : null
+
+  // A failed snapshot request shows the icon placeholder instead of the
+  // browser's broken-image glyph. The error is keyed to the exact failed src,
+  // so the next cache-buster tick (new src) automatically retries the image.
+  if (!src || failedSrc === src) {
     return (
       <Flex align="center" justify="center" style={{ width: '100%', height: '100%' }}>
         <VideoIcon
@@ -40,15 +49,11 @@ export function StillImageFallback({ entity, objectFit = 'cover' }: StillImageFa
     )
   }
 
-  // Deterministic cache-buster: an incrementing counter (not Date.now()) so
-  // the refresh cadence is fully controllable in tests.
-  const separator = entityPicture.includes('?') ? '&' : '?'
-  const src = `${entityPicture}${separator}_ts=${refreshCounter}`
-
   return (
     <img
       src={src}
       alt={friendlyName || entity.entity_id}
+      onError={() => setFailedSrc(src)}
       style={{ width: '100%', height: '100%', objectFit, display: 'block' }}
     />
   )

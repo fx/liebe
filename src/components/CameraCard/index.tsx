@@ -37,6 +37,7 @@ interface CameraAttributes {
 const SUPPORT_STREAM = 2
 
 type FitMode = 'cover' | 'contain' | 'fill'
+const FIT_MODES: readonly FitMode[] = ['cover', 'contain', 'fill']
 
 export interface CameraStatusInput {
   streamError: string | null
@@ -116,9 +117,11 @@ function CameraCardComponent({
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const streamHandleRef = useRef<HaCameraStreamHandle | null>(null)
 
-  // Get configuration values
+  // Get configuration values. `fit` is whitelisted against the supported
+  // modes (persisted config is user-editable YAML — an unknown value must
+  // degrade to the cover default, not flow into CSS/HaCameraStream).
   const config = item?.config || {}
-  const fit = ((config.fit as string) || 'cover') as FitMode
+  const fit = FIT_MODES.find((mode) => mode === config.fit) ?? 'cover'
   const matting = (config.matting as string) || 'small'
   const showStats = config.showStats === true
 
@@ -330,7 +333,8 @@ function CameraCardComponent({
                   <Text size="2" color="red">
                     {streamError}
                   </Text>
-                  <Button size="2" variant="soft" onClick={retryStream}>
+                  {/* size 3+: minimum 44px touch target (touch-first UI). */}
+                  <Button size="3" variant="soft" onClick={retryStream}>
                     <ReloadIcon />
                     Retry
                   </Button>
@@ -396,10 +400,14 @@ function CameraCardComponent({
           )}
 
           {/* Stats display (when enabled; the fullscreen overlay renders its
-              own instance, so the in-card one pauses while it is open) */}
-          {showStats && !isFullscreen && supportsStream && !streamError && (
-            <CameraStats size={size} videoElement={innerVideo} />
-          )}
+              own instance, so the in-card one pauses while it is open).
+              Gated on readiness: the still-image fallback has no video to
+              read playback quality from, so no stats overlay renders there. */}
+          {showStats &&
+            !isFullscreen &&
+            supportsStream &&
+            readiness === 'ready' &&
+            !streamError && <CameraStats size={size} videoElement={innerVideo} />}
 
           {/* Controls and info container positioned absolutely at bottom left */}
           <div
@@ -459,8 +467,9 @@ function CameraCardComponent({
           }}
         />
 
-        {/* Fullscreen stats display (when enabled) */}
-        {showStats && supportsStream && !streamError && (
+        {/* Fullscreen stats display (when enabled; readiness-gated like the
+            in-card instance — the still-image fallback has no video). */}
+        {showStats && supportsStream && readiness === 'ready' && !streamError && (
           <CameraStats size="large" videoElement={innerVideo} />
         )}
 

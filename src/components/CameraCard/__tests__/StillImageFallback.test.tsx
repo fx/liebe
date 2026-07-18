@@ -89,6 +89,35 @@ describe('StillImageFallback', () => {
     clearIntervalSpy.mockRestore()
   })
 
+  it('shows the icon placeholder when the snapshot fails and retries on the next refresh', () => {
+    const entity = makeEntity({ entity_picture: '/local/still.jpg', friendly_name: 'Demo Cam' })
+    const { container, getByAltText, getByLabelText, queryByLabelText } = render(
+      <StillImageFallback entity={entity} />
+    )
+
+    // The snapshot request fails: the broken image is replaced by the icon
+    // placeholder.
+    act(() => {
+      ;(getByAltText('Demo Cam') as HTMLImageElement).dispatchEvent(new Event('error'))
+    })
+    expect(getByLabelText('No camera image available')).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+
+    // The next cache-buster tick produces a NEW src, which retries the image.
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    const retried = getByAltText('Demo Cam') as HTMLImageElement
+    expect(retried.getAttribute('src')).toBe('/local/still.jpg?_ts=1')
+    expect(queryByLabelText('No camera image available')).toBeNull()
+
+    // A retry that fails again re-shows the placeholder (keyed per src).
+    act(() => {
+      retried.dispatchEvent(new Event('error'))
+    })
+    expect(getByLabelText('No camera image available')).toBeInTheDocument()
+  })
+
   it('renders the video-icon placeholder when there is no entity picture', () => {
     const entity = makeEntity({ friendly_name: 'Demo Cam' })
     const { container, getByLabelText } = render(<StillImageFallback entity={entity} />)
