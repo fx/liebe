@@ -242,14 +242,16 @@ function CameraCardComponent({
     return <SkeletonCard size={size} showIcon={true} lines={2} />
   }
 
-  // Show error state when disconnected or entity not found
+  // Show error state when disconnected or the entity is missing. The skeleton
+  // guard above already swallows the connected-but-missing-entity case, so
+  // this block only ever renders while disconnected — no per-prop ternaries.
   if (!entity || !isConnected) {
     return (
       <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        error="Disconnected from Home Assistant"
         variant="card"
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
+        title="Disconnected"
+        onRetry={() => window.location.reload()}
         size="3"
       />
     )

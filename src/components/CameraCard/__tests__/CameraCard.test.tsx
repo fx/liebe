@@ -266,6 +266,19 @@ describe('CameraCard', () => {
       expect(container.querySelectorAll('.rt-Spinner').length).toBeGreaterThan(0)
     })
 
+    it('falls back to the entity id when friendly_name is missing', () => {
+      mockEntityReturn({
+        entity: makeEntity({
+          attributes: {
+            supported_features: 2,
+            entity_picture: '/api/camera_proxy/camera.front_door?token=abc',
+          },
+        }),
+      })
+      renderCard()
+      expect(screen.getByLabelText('Toggle fullscreen for camera.front_door')).toBeInTheDocument()
+    })
+
     it('forwards hass from the HomeAssistant context to the stream element', () => {
       const hass = createMockHomeAssistant()
       render(
