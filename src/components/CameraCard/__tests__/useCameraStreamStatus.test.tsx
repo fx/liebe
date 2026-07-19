@@ -407,6 +407,45 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.remountKey).toBe(MAX_AUTO_REMOUNTS + 2)
   })
 
+  it('invalidates the pre-retry watch so a late frame cannot mark the replacement as streaming', () => {
+    // The load-budget expiry path surfaces an error WITHOUT stopping the
+    // active watch, so retry() must bump the epoch itself: a frame callback
+    // already queued by the old element would otherwise mark the replacement
+    // as streaming and cancel its load budget.
+    const rvfc = createRvfcVideo()
+    let video: HTMLVideoElement | null = rvfc.video
+    const { result } = renderHook(() =>
+      useCameraStreamStatus({
+        getInnerVideo: () => video,
+        getMjpegImg: () => null,
+        entityState: 'streaming',
+        enabled: true,
+        entityAvailable: true,
+      })
+    )
+    act(() => {
+      result.current.onStreamEvent()
+    })
+
+    // The remounting element has no inner video yet when retry() commits.
+    video = null
+    act(() => {
+      result.current.retry()
+    })
+
+    // Late frame from the superseded pre-retry watch: must no-op.
+    act(() => {
+      rvfc.fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(false)
+
+    // The replacement's load budget stayed armed: it still expires on schedule.
+    act(() => {
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS + 250)
+    })
+    expect(result.current.error).toBe('Stream failed to start')
+  })
+
   it('restores the auto-remount budget on an entity state transition', () => {
     const { video, fireFrame } = createRvfcVideo()
     const getInnerVideo = () => video

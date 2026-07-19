@@ -92,32 +92,35 @@ describe('CameraControls buttons', () => {
       handleVideoFullscreen,
     })
 
-    fireEvent.click(getByTitle('Unmute'))
+    fireEvent.click(getByTitle('Mute'))
     expect(handleToggleMute).toHaveBeenCalledTimes(1)
 
     fireEvent.click(getByTitle('Toggle native fullscreen'))
     expect(handleVideoFullscreen).toHaveBeenCalledTimes(1)
   })
 
-  it('shows the mute title and loud speaker icon when unmuted', () => {
-    const { getByTitle, queryByTitle } = renderControls({
-      status: 'streaming',
-      showControls: true,
-      isMuted: false,
-    })
-    expect(getByTitle('Mute')).toBeInTheDocument()
-    expect(queryByTitle('Unmute')).toBeNull()
+  it('keeps the accessible name fixed across mute states while the icon changes', () => {
+    // WAI-ARIA toggle-button pattern: the name stays "Mute" in BOTH states —
+    // aria-pressed (asserted below) and the speaker icon carry the state.
+    const muted = renderControls({ status: 'streaming', showControls: true, isMuted: true })
+    const mutedIcon = muted.getByTitle('Mute').innerHTML
+    expect(muted.queryByTitle('Unmute')).toBeNull()
+    muted.unmount()
+
+    const unmuted = renderControls({ status: 'streaming', showControls: true, isMuted: false })
+    expect(unmuted.queryByTitle('Unmute')).toBeNull()
+    expect(unmuted.getByTitle('Mute').innerHTML).not.toBe(mutedIcon)
   })
 
   it('hides the buttons when showControls is off', () => {
     const { queryByTitle } = renderControls({ status: 'streaming', showControls: false })
-    expect(queryByTitle('Unmute')).toBeNull()
+    expect(queryByTitle('Mute')).toBeNull()
     expect(queryByTitle('Toggle native fullscreen')).toBeNull()
   })
 
   it('exposes accessible names and mute toggle state when muted', () => {
     const { getByLabelText } = renderControls({ status: 'streaming', showControls: true })
-    expect(getByLabelText('Unmute').getAttribute('aria-pressed')).toBe('true')
+    expect(getByLabelText('Mute').getAttribute('aria-pressed')).toBe('true')
     expect(getByLabelText('Toggle native fullscreen').getAttribute('aria-pressed')).toBeNull()
   })
 
@@ -132,7 +135,7 @@ describe('CameraControls buttons', () => {
 
   it('styles both buttons via the shared hoverable class', () => {
     const { getByTitle } = renderControls({ status: 'streaming', showControls: true })
-    for (const title of ['Unmute', 'Toggle native fullscreen']) {
+    for (const title of ['Mute', 'Toggle native fullscreen']) {
       expect(getByTitle(title).className).toBe('camera-control-button')
     }
   })

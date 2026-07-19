@@ -563,7 +563,7 @@ describe('CameraCard', () => {
       expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
 
       // Second controls instance is the fullscreen one; mute must not exit.
-      fireEvent.click(screen.getAllByTitle('Unmute')[1])
+      fireEvent.click(screen.getAllByTitle('Mute')[1])
       expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
     })
 
@@ -814,9 +814,13 @@ describe('CameraCard', () => {
       statusMock.isStreaming = true
       renderCard()
 
+      // The toggle keeps a fixed "Mute" accessible name; state is reflected
+      // via aria-pressed (and the host's data-muted).
       expect(getStreamHost().getAttribute('data-muted')).toBe('true')
-      fireEvent.click(screen.getByTitle('Unmute'))
+      expect(screen.getByTitle('Mute').getAttribute('aria-pressed')).toBe('true')
+      fireEvent.click(screen.getByTitle('Mute'))
       expect(getStreamHost().getAttribute('data-muted')).toBe('false')
+      expect(screen.getByTitle('Mute').getAttribute('aria-pressed')).toBe('false')
       fireEvent.click(screen.getByTitle('Mute'))
       expect(getStreamHost().getAttribute('data-muted')).toBe('true')
     })

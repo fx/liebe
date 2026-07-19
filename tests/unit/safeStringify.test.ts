@@ -202,6 +202,25 @@ describe('safeStringify', () => {
     expect(text).toContain('+450 more entries')
   })
 
+  it('summarizes typed arrays without enumerating their numeric indices', () => {
+    // Object.keys on a real typed array would materialize every index string
+    // BEFORE any truncation could apply; the view collapses to a summary.
+    const data = new Uint8Array(1_000_000)
+    expect(safeStringify(data)).toBe('[Uint8Array(1000000)]')
+
+    const text = safeStringify({ type: 'mediaError', fatal: true, data })
+    expect(text).toContain('"type":"mediaError"')
+    expect(text).toContain('"data":"[Uint8Array(1000000)]"')
+    expect(text).not.toContain('"0":')
+  })
+
+  it('summarizes DataViews by byte length and tolerates views without a constructor', () => {
+    expect(safeStringify(new DataView(new ArrayBuffer(16)))).toBe('[DataView(16)]')
+    const anonymous = new Uint8Array(4)
+    Object.setPrototypeOf(anonymous, null)
+    expect(safeStringify(anonymous)).toMatch(/^\[ArrayBufferView\(/)
+  })
+
   it('caps the final output length with an explicit marker', () => {
     const text = safeStringify({ blob: 'x'.repeat(30_000) })
     expect(text.length).toBe(20_000 + '[output truncated]'.length)

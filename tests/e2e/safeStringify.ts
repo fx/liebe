@@ -16,11 +16,14 @@
 // type/details/fatal fields the benign filters inspect. With the path stack,
 // shared siblings serialize fully and only genuine ancestor cycles are marked.
 //
-// Size budgets: the depth cap alone does NOT bound WIDE containers (a typed
-// array or 1M-entry array at depth 1 would serialize entirely, hanging the
-// in-page evaluation), so every container is additionally capped at
-// maxEntries per level with an explicit truncation marker, and the final
-// string is capped at maxLength — deterministic markers, never silent loss.
+// Size budgets: the depth cap alone does NOT bound WIDE containers (a
+// 1M-entry array at depth 1 would serialize entirely, hanging the in-page
+// evaluation), so every container is additionally capped at maxEntries per
+// level with an explicit truncation marker, and the final string is capped at
+// maxLength — deterministic markers, never silent loss. ArrayBuffer views
+// (typed arrays, DataViews) collapse to a `[Uint8Array(N)]` summary outright:
+// even Object.keys on one materializes every numeric index string before any
+// truncation could apply, and binary payloads are not inspectable anyway.
 export function safeStringify(
   value: unknown,
   maxDepth: number = 4,
@@ -37,6 +40,15 @@ export function safeStringify(
       return input
     }
     if (input instanceof Error) return input.stack || `${input.name}: ${input.message}`
+    // Typed arrays / DataViews summarize to a marker BEFORE any key handling:
+    // Object.keys on a large typed array would materialize every numeric index
+    // string before truncation could apply, defeating the budget. Binary
+    // payloads are not inspectable anyway — the type and size are the signal.
+    if (ArrayBuffer.isView(input)) {
+      const name = input.constructor?.name || 'ArrayBufferView'
+      const size = 'length' in input ? (input as { length: number }).length : input.byteLength
+      return `[${name}(${size})]`
+    }
     if (stack.has(input)) return '[circular]'
     if (depth >= maxDepth) return '[depth limit]'
     stack.add(input)

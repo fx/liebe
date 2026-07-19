@@ -154,7 +154,10 @@ export interface UseCameraStreamStatusResult {
   remountKey: number
   /** Wire to HaCameraStream's onStreamEvent (fires on both `streams` and `load`). */
   onStreamEvent: () => void
-  /** Manual retry: clears surfaced status, restores the auto-remount budget, and bumps remountKey. */
+  /**
+   * Manual retry: invalidates the active watch epoch, clears surfaced status,
+   * restores the auto-remount budget, and bumps remountKey.
+   */
   retry: () => void
 }
 
@@ -231,6 +234,13 @@ export function useCameraStreamStatus({
   }, [enabled])
 
   const retry = useCallback(() => {
+    // Invalidate the pre-retry watch synchronously: a late frame callback (or
+    // queued tick) from the element being replaced would otherwise mark the
+    // replacement as streaming and cancel its load budget — the surviving
+    // load-budget expiry path leaves the old watch alive with a matching
+    // epoch, so only an epoch bump can supersede it.
+    watchEpochRef.current += 1
+    setWatchEpoch(watchEpochRef.current)
     consecutiveRemountsRef.current = 0
     isStreamingRef.current = false
     hasFrameWarningRef.current = false
@@ -295,7 +305,10 @@ export function useCameraStreamStatus({
       consecutiveRemountsRef.current = 0
       lastFrameTimeRef.current = Date.now()
       if (errorRef.current !== null) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- the unavailable→available transition is an external HA signal, and the auto-retry (clear error + bump remountKey) must fire exactly once per transition; it is a one-shot event response, not state derivable during render.
+        // The unavailable→available transition is an external HA signal, and
+        // the auto-retry (clear error + bump remountKey) must fire exactly
+        // once per transition; it is a one-shot event response, not state
+        // derivable during render.
         retry()
       }
     }

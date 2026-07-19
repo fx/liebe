@@ -153,11 +153,10 @@ export function CameraControls({
       {/* Control buttons */}
       {showControls && (
         <div style={{ display: 'flex', gap: `${0.4 * scaleFactor}em` }}>
-          <ControlButton
-            onClick={handleToggleMute}
-            title={isMuted ? 'Unmute' : 'Mute'}
-            ariaPressed={isMuted}
-          >
+          {/* Toggle button (aria-pressed): per the WAI-ARIA button pattern the
+              accessible name stays fixed — state is conveyed via aria-pressed
+              and the icon, never by swapping the label to "Unmute". */}
+          <ControlButton onClick={handleToggleMute} title="Mute" ariaPressed={isMuted}>
             {isMuted ? (
               <SpeakerOffIcon style={{ width: '55%', height: '55%' }} />
             ) : (
