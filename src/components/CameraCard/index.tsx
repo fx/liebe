@@ -202,7 +202,19 @@ function CameraCardComponent({
       if (!target) return
 
       try {
-        if (document.fullscreenElement === target) {
+        // Fullscreen state must be read from the target's OWN root: for a
+        // target inside a shadow root (ha-camera-stream's inner <video>),
+        // document.fullscreenElement is retargeted to the shadow HOST, so a
+        // document-level comparison never matches and toggle-off would call
+        // requestFullscreen again. A light-DOM target's root IS the document;
+        // anything else (e.g. a detached node) falls back to the document
+        // check.
+        const root = target.getRootNode()
+        const fullscreenElement =
+          root instanceof Document || root instanceof ShadowRoot
+            ? root.fullscreenElement
+            : document.fullscreenElement
+        if (fullscreenElement === target) {
           await document.exitFullscreen()
         } else {
           await target.requestFullscreen()

@@ -511,8 +511,24 @@ export function useCameraStreamStatus({
     const img = getMjpegImg()
     // Nothing attachable yet (the event fired before the player came up):
     // nothing to watch. The load-budget timer is owned by connection state,
-    // so it stays armed regardless.
-    if (!img) return
+    // so it stays armed regardless — EXCEPT when the streaming flag is still
+    // true from a superseded watch (a player swap, e.g. a mute toggle, can
+    // announce a new epoch before either media element exists). No watch
+    // attaches in this epoch, so nothing could ever flip the stale flag
+    // false, and `connecting` being false means no load budget is armed —
+    // the machine would show STREAMING forever if no later `load` fires.
+    // Dropping the stale flag re-arms the connection-state budget by
+    // construction (the documented "streaming falling back to false re-arms
+    // a fresh budget" contract), so the swap either comes up or expires into
+    // 'Stream failed to start'.
+    if (!img) {
+      if (isStreamingRef.current) {
+        isStreamingRef.current = false
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- the stale streaming flag is only detectable when the new epoch's watch finds no media target; it is a one-shot event response to the player swap, not state derivable during render.
+        setIsStreaming(false)
+      }
+      return
+    }
 
     // A video→MJPEG player swap can arrive with the streaming flag still
     // true from the superseded video watch. MJPEG has no frame watchdog to
@@ -523,7 +539,6 @@ export function useCameraStreamStatus({
     // contract — so a dead MJPEG swap fails into 'Stream failed to start'.
     if (img.naturalWidth === 0 && isStreamingRef.current) {
       isStreamingRef.current = false
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- the stale streaming flag is only detectable when the new epoch's watch attaches to the MJPEG image; it is a one-shot event response to the player swap, not state derivable during render.
       setIsStreaming(false)
     }
 

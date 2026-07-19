@@ -66,14 +66,26 @@ export function safeStringify(
           record['[truncated]'] = `+${total - maxEntries} more entries`
         }
       }
+      // Map/Set entries are pulled lazily from the iterator, stopping at
+      // maxEntries: spreading first (`[...map].slice(...)`) would materialize
+      // the ENTIRE collection before truncating, defeating the budget for
+      // huge collections — and the collector's 2s outer timeout cannot cancel
+      // in-page work already underway.
       if (input instanceof Map) {
-        const entries = [...input.entries()].slice(0, maxEntries)
-        for (const [key, val] of entries) assign(`[map] ${String(key)}`, () => val)
+        let count = 0
+        for (const [key, val] of input) {
+          if (count >= maxEntries) break
+          count += 1
+          assign(`[map] ${String(key)}`, () => val)
+        }
         truncate(input.size)
       } else if (input instanceof Set) {
-        ;[...input.values()]
-          .slice(0, maxEntries)
-          .forEach((val, index) => assign(`[set] ${index}`, () => val))
+        let index = 0
+        for (const val of input) {
+          if (index >= maxEntries) break
+          assign(`[set] ${index}`, () => val)
+          index += 1
+        }
         truncate(input.size)
       } else {
         const keys = Object.keys(input)

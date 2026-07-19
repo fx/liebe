@@ -128,6 +128,65 @@ describe('safeStringify', () => {
     expect(parsedSet['[truncated]']).toBe('+3 more entries')
   })
 
+  it('caps a huge Map at the entry budget with a truncation marker', () => {
+    const huge = new Map(Array.from({ length: 100_000 }, (_, i) => [`m${i}`, i]))
+    const parsed = JSON.parse(safeStringify(huge)) as Record<string, unknown>
+    // Only maxEntries (50) entries serialize, plus the truncation marker.
+    expect(Object.keys(parsed)).toHaveLength(51)
+    expect(parsed['[map] m0']).toBe(0)
+    expect(parsed['[map] m49']).toBe(49)
+    expect(parsed['[map] m50']).toBeUndefined()
+    expect(parsed['[truncated]']).toBe('+99950 more entries')
+  })
+
+  it('caps a huge Set at the entry budget with a truncation marker', () => {
+    const huge = new Set(Array.from({ length: 100_000 }, (_, i) => i))
+    const parsed = JSON.parse(safeStringify(huge)) as Record<string, unknown>
+    expect(Object.keys(parsed)).toHaveLength(51)
+    expect(parsed['[set] 0']).toBe(0)
+    expect(parsed['[set] 49']).toBe(49)
+    expect(parsed['[set] 50']).toBeUndefined()
+    expect(parsed['[truncated]']).toBe('+99950 more entries')
+  })
+
+  it('stops pulling the Map/Set iterators at the budget instead of materializing the collection', () => {
+    // Spreading (`[...map].slice(0, maxEntries)`) would materialize the whole
+    // collection before truncating, defeating the budget — and the e2e
+    // collector's 2s outer timeout cannot cancel in-page work already
+    // underway. Count iterator pulls to prove the iteration itself stops.
+    let mapPulls = 0
+    const map = new Map(Array.from({ length: 10_000 }, (_, i) => [`k${i}`, i]))
+    const mapIterator = Map.prototype[Symbol.iterator]
+    Object.defineProperty(map, Symbol.iterator, {
+      value: function* (this: Map<string, number>) {
+        for (const entry of mapIterator.call(this)) {
+          mapPulls += 1
+          yield entry
+        }
+      },
+    })
+    const parsedMap = JSON.parse(safeStringify(map)) as Record<string, unknown>
+    expect(Object.keys(parsedMap)).toHaveLength(51)
+    // The loop pulls one entry past the budget to detect there is more, then
+    // breaks — far from the 10k a spread would have materialized.
+    expect(mapPulls).toBe(51)
+
+    let setPulls = 0
+    const set = new Set(Array.from({ length: 10_000 }, (_, i) => i))
+    const setIterator = Set.prototype[Symbol.iterator]
+    Object.defineProperty(set, Symbol.iterator, {
+      value: function* (this: Set<number>) {
+        for (const entry of setIterator.call(this)) {
+          setPulls += 1
+          yield entry
+        }
+      },
+    })
+    const parsedSet = JSON.parse(safeStringify(set)) as Record<string, unknown>
+    expect(Object.keys(parsedSet)).toHaveLength(51)
+    expect(setPulls).toBe(51)
+  })
+
   it('keeps top-level fields inspectable in a wide typed-array-like payload', () => {
     // hls.js ErrorData can drag in typed arrays; their index keys are capped
     // per container while the leading diagnostic fields survive.

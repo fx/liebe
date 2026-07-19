@@ -568,6 +568,97 @@ describe('useCameraStreamStatus', () => {
     expect(result.current.error).toBe('Stream failed to start')
   })
 
+  it('clears stale streaming and re-arms the load budget when a swap epoch finds no media target', () => {
+    // Player swap race (e.g. a mute toggle recreating the player): an early
+    // `streams` event can arrive while the streaming flag is still true from
+    // the superseded video watch and NEITHER a video nor an MJPEG img exists
+    // yet. The epoch must drop the stale flag — leaving it true would mean no
+    // watch, `connecting` false (no load budget), and a STREAMING pill
+    // forever if no later `load` ever fires.
+    const { video, fireFrame } = createRvfcVideo()
+    let currentVideo: HTMLVideoElement | null = video
+    const getInnerVideo = () => currentVideo
+    const getMjpegImg = () => null
+    const { result } = renderHook(() =>
+      useCameraStreamStatus({
+        getInnerVideo,
+        getMjpegImg,
+        entityState: 'streaming',
+        enabled: true,
+        entityAvailable: true,
+      })
+    )
+
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(true)
+
+    // The swap announces a new epoch before any media element exists.
+    currentVideo = null
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    expect(result.current.isStreaming).toBe(false)
+
+    // Dropping the flag re-armed the connection-state budget: a swap that
+    // never comes up expires into a surfaced error instead of spinning.
+    act(() => {
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 250)
+    })
+    expect(result.current.error).toBeNull()
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.error).toBe('Stream failed to start')
+  })
+
+  it('recovers normally when the swapped player comes up after a targetless epoch', () => {
+    const { video, fireFrame } = createRvfcVideo()
+    let currentVideo: HTMLVideoElement | null = video
+    const getInnerVideo = () => currentVideo
+    const getMjpegImg = () => null
+    const { result } = renderHook(() =>
+      useCameraStreamStatus({
+        getInnerVideo,
+        getMjpegImg,
+        entityState: 'streaming',
+        enabled: true,
+        entityAvailable: true,
+      })
+    )
+
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(true)
+
+    // Early `streams` with no media target drops the stale flag...
+    currentVideo = null
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    expect(result.current.isStreaming).toBe(false)
+
+    // ...and the replacement player's `load` starts a fresh watch whose
+    // frames flip the machine back to streaming with no error surfaced.
+    currentVideo = video
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      fireFrame()
+    })
+    expect(result.current.isStreaming).toBe(true)
+    expect(result.current.error).toBeNull()
+  })
+
   it('disarms the load budget on streaming, not on attach: frames end the load phase', () => {
     const { video, fireFrame } = createRvfcVideo()
     let currentVideo: HTMLVideoElement | null = null

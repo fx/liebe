@@ -655,6 +655,97 @@ describe('CameraCard', () => {
       expect(video.requestFullscreen).not.toHaveBeenCalled()
     })
 
+    it('exits fullscreen for a shadow-root video via its own root, despite document retargeting', async () => {
+      // ha-camera-stream renders its <video> inside a shadow root. While that
+      // video is fullscreen, document.fullscreenElement is RETARGETED to the
+      // shadow host, so a document-level comparison never matches the target
+      // — the toggle must read the target's own root instead of calling
+      // requestFullscreen again.
+      const host = document.createElement('div')
+      const shadowRoot = host.attachShadow({ mode: 'open' })
+      const video = document.createElement('video')
+      shadowRoot.appendChild(video)
+      document.body.appendChild(host)
+      const requestSpy = vi.fn().mockResolvedValue(undefined)
+      video.requestFullscreen = requestSpy
+      mockInnerVideo = video
+      Object.defineProperty(shadowRoot, 'fullscreenElement', {
+        value: video,
+        configurable: true,
+      })
+      Object.defineProperty(document, 'fullscreenElement', {
+        value: host,
+        configurable: true,
+      })
+      const exitSpy = vi.fn().mockResolvedValue(undefined)
+      document.exitFullscreen = exitSpy
+
+      renderCard()
+      fireEvent.click(screen.getByTitle('Toggle native fullscreen'))
+      await waitFor(() => expect(exitSpy).toHaveBeenCalledTimes(1))
+      expect(requestSpy).not.toHaveBeenCalled()
+      host.remove()
+    })
+
+    it('requests fullscreen for a shadow-root video when its root reports none', async () => {
+      const host = document.createElement('div')
+      const shadowRoot = host.attachShadow({ mode: 'open' })
+      const video = document.createElement('video')
+      shadowRoot.appendChild(video)
+      document.body.appendChild(host)
+      const requestSpy = vi.fn().mockResolvedValue(undefined)
+      video.requestFullscreen = requestSpy
+      mockInnerVideo = video
+      Object.defineProperty(shadowRoot, 'fullscreenElement', {
+        value: null,
+        configurable: true,
+      })
+      const exitSpy = vi.fn().mockResolvedValue(undefined)
+      document.exitFullscreen = exitSpy
+
+      renderCard()
+      fireEvent.click(screen.getByTitle('Toggle native fullscreen'))
+      await waitFor(() => expect(requestSpy).toHaveBeenCalledTimes(1))
+      expect(exitSpy).not.toHaveBeenCalled()
+      host.remove()
+    })
+
+    it('exits fullscreen for a light-DOM video via the document root', async () => {
+      const video = document.createElement('video')
+      document.body.appendChild(video)
+      const requestSpy = vi.fn()
+      video.requestFullscreen = requestSpy
+      mockInnerVideo = video
+      Object.defineProperty(document, 'fullscreenElement', {
+        value: video,
+        configurable: true,
+      })
+      const exitSpy = vi.fn().mockResolvedValue(undefined)
+      document.exitFullscreen = exitSpy
+
+      renderCard()
+      fireEvent.click(screen.getByTitle('Toggle native fullscreen'))
+      await waitFor(() => expect(exitSpy).toHaveBeenCalledTimes(1))
+      expect(requestSpy).not.toHaveBeenCalled()
+      video.remove()
+    })
+
+    it('requests fullscreen for a light-DOM video when the document reports none', async () => {
+      const video = document.createElement('video')
+      document.body.appendChild(video)
+      const requestSpy = vi.fn().mockResolvedValue(undefined)
+      video.requestFullscreen = requestSpy
+      mockInnerVideo = video
+      const exitSpy = vi.fn()
+      document.exitFullscreen = exitSpy
+
+      renderCard()
+      fireEvent.click(screen.getByTitle('Toggle native fullscreen'))
+      await waitFor(() => expect(requestSpy).toHaveBeenCalledTimes(1))
+      expect(exitSpy).not.toHaveBeenCalled()
+      video.remove()
+    })
+
     it('falls back to the ha-camera-stream host when there is no inner video', async () => {
       renderCard()
       const host = getStreamHost()
