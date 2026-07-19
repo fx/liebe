@@ -115,6 +115,21 @@ describe('CameraControls buttons', () => {
     expect(queryByTitle('Toggle native fullscreen')).toBeNull()
   })
 
+  it('exposes accessible names and mute toggle state when muted', () => {
+    const { getByLabelText } = renderControls({ status: 'streaming', showControls: true })
+    expect(getByLabelText('Unmute').getAttribute('aria-pressed')).toBe('true')
+    expect(getByLabelText('Toggle native fullscreen').getAttribute('aria-pressed')).toBeNull()
+  })
+
+  it('reports the mute toggle as not pressed when unmuted', () => {
+    const { getByLabelText } = renderControls({
+      status: 'streaming',
+      showControls: true,
+      isMuted: false,
+    })
+    expect(getByLabelText('Mute').getAttribute('aria-pressed')).toBe('false')
+  })
+
   it('styles both buttons via the shared hoverable class', () => {
     const { getByTitle } = renderControls({ status: 'streaming', showControls: true })
     for (const title of ['Unmute', 'Toggle native fullscreen']) {

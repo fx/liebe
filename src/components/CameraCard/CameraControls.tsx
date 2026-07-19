@@ -53,14 +53,24 @@ function StatusIcon({ status }: { status: CameraStatus }) {
 function ControlButton({
   onClick,
   title,
+  ariaPressed,
   children,
 }: {
   onClick: (e: React.MouseEvent) => void
   title: string
+  /** Toggle state for toggle-style buttons (e.g. mute); omitted for plain actions. */
+  ariaPressed?: boolean
   children: ReactNode
 }) {
   return (
-    <button type="button" onClick={onClick} title={title} className="camera-control-button">
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      aria-pressed={ariaPressed}
+      className="camera-control-button"
+    >
       {children}
     </button>
   )
@@ -143,7 +153,11 @@ export function CameraControls({
       {/* Control buttons */}
       {showControls && (
         <div style={{ display: 'flex', gap: `${0.4 * scaleFactor}em` }}>
-          <ControlButton onClick={handleToggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
+          <ControlButton
+            onClick={handleToggleMute}
+            title={isMuted ? 'Unmute' : 'Mute'}
+            ariaPressed={isMuted}
+          >
             {isMuted ? (
               <SpeakerOffIcon style={{ width: '55%', height: '55%' }} />
             ) : (
