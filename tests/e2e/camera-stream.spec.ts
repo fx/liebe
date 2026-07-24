@@ -195,6 +195,7 @@ async function expectVideoPlaying(page: Page, timeout: number): Promise<void> {
 // serialized form (and stays correct under either theme) rather than pinned to a
 // literal rgb().
 async function readSurfaceOutline(page: Page): Promise<{
+  focused: boolean
   focusVisible: boolean
   outlineStyle: string
   outlineWidth: string
@@ -213,6 +214,7 @@ async function readSurfaceOutline(page: Page): Promise<{
     const focusColor = getComputedStyle(probe).color
     probe.remove()
     return {
+      focused: surface.matches(':focus'),
       focusVisible: surface.matches(':focus-visible'),
       outlineStyle,
       outlineWidth,
@@ -546,6 +548,9 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   // behind, which must show no ring at all. (The keyboard leg is asserted after
   // transition 4, once ESC has flipped :focus-visible on.)
   const ringAfterTap = await readSurfaceOutline(page)
+  // Focused is asserted explicitly: without it an UNfocused surface would
+  // satisfy the two checks below, proving nothing about the pointer-focus rule.
+  expect(ringAfterTap.focused, 'a tap leaves the surface focused').toBe(true)
   expect(ringAfterTap.focusVisible, 'a tap does not make the surface :focus-visible').toBe(false)
   expect(ringAfterTap.outlineStyle, 'no focus ring on the card after a pointer tap').toBe('none')
 
