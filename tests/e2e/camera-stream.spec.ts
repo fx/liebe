@@ -186,6 +186,23 @@ async function expectVideoPlaying(page: Page, timeout: number): Promise<void> {
     .toBe(true)
 }
 
+// Read the focus state and the resolved outline of the clickable stream surface
+// (the role=button container). `outlineStyle` is 'auto' only for Chrome's
+// unstyled UA focus ring — the white border this guards against.
+async function readSurfaceOutline(
+  page: Page
+): Promise<{ focusVisible: boolean; outlineStyle: string }> {
+  return page.evaluate(() => {
+    const panel = (window as unknown as PanelWindow).__liebePanel
+    const surface = panel?.shadowRoot?.querySelector('.camera-stream-surface')
+    if (!surface) throw new Error('camera stream surface not found')
+    return {
+      focusVisible: surface.matches(':focus-visible'),
+      outlineStyle: getComputedStyle(surface).outlineStyle,
+    }
+  })
+}
+
 // Coordinates over Home Assistant's own chrome (its left sidebar) — NOT over the
 // panel content. Before fullscreen a topmost hit-test here lands in HA's
 // <ha-sidebar>; while the in-place fullscreen overlay is open the overlay must
@@ -576,6 +593,32 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
     continuity[continuity.length - 1].currentTime,
     'currentTime keeps advancing across the toggles'
   ).toBeGreaterThan(continuity[0].currentTime)
+
+  // --- Focus-ring assertion -------------------------------------------------
+  // The stream surface is a role=button, so a tap focuses it, and the ESC in
+  // transition 4 flipped Chrome's :focus-visible heuristic on — exactly the
+  // state that used to leave the UA ring (`outline-style: auto`, painted white
+  // over the dark stream) stuck on the card and on the overlay for every later
+  // tap. The ring must now be the styled Radix one while the card is in the
+  // grid...
+  const ringInCard = await readSurfaceOutline(page)
+  expect(ringInCard.focusVisible, 'the stream surface is keyboard-focused after ESC').toBe(true)
+  expect(ringInCard.outlineStyle, 'no raw UA focus ring on the card').not.toBe('auto')
+  expect(ringInCard.outlineStyle, 'styled focus ring while keyboard-focused in the card').toBe(
+    'solid'
+  )
+  // ...and absent entirely in fullscreen, where the surface fills the viewport.
+  await page.locator('ha-camera-stream').click()
+  await expect(exitHint, 'fullscreen overlay reopens for the focus-ring check').toBeVisible({
+    timeout: 15_000,
+  })
+  const ringInFullscreen = await readSurfaceOutline(page)
+  expect(ringInFullscreen.focusVisible, 'still :focus-visible in fullscreen').toBe(true)
+  expect(ringInFullscreen.outlineStyle, 'no focus ring around the fullscreen overlay').toBe('none')
+  await page.keyboard.press('Escape')
+  await expect(exitHint, 'fullscreen overlay closes after the focus-ring check').toBeHidden({
+    timeout: 15_000,
+  })
 
   // 9. No fatal console errors or unhandled rejections across the whole flow
   // (benign HA/player startup noise filtered by the collector).

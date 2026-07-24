@@ -560,6 +560,27 @@ describe('CameraCard', () => {
       expect(host.getAttribute('data-fit')).toBe('cover')
     })
 
+    // The surface is a role=button, so a tap focuses it and Chrome paints its
+    // UA focus ring (a white border over the dark stream) — stickily, once any
+    // keyboard interaction has flipped :focus-visible on. These classes carry
+    // the CSS that replaces that ring with the Radix one in the card and drops
+    // it entirely in fullscreen, where the surface fills the viewport.
+    it('marks the stream surface so its focus ring is styled, and flags fullscreen', () => {
+      renderCard()
+      const host = getStreamHost()
+      const streamContainer = host.parentElement as HTMLElement
+
+      expect(streamContainer).toHaveClass('camera-stream-surface')
+      expect(streamContainer).not.toHaveClass('camera-stream-surface-fullscreen')
+
+      fireEvent.click(host)
+      expect(streamContainer).toHaveClass('camera-stream-surface')
+      expect(streamContainer).toHaveClass('camera-stream-surface-fullscreen')
+
+      fireEvent.click(host)
+      expect(streamContainer).not.toHaveClass('camera-stream-surface-fullscreen')
+    })
+
     it('keeps the exact same stream element instance across toggles (no remount)', () => {
       renderCard()
       const host = getStreamHost()

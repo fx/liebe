@@ -402,6 +402,7 @@ function CameraCardComponent({
           {supportsStream ? (
             <div
               ref={streamContainerRef}
+              className={`camera-stream-surface${isFullscreen ? ' camera-stream-surface-fullscreen' : ''}`}
               role={videoClickable ? 'button' : undefined}
               tabIndex={videoClickable ? 0 : undefined}
               aria-label={videoClickable ? `Toggle fullscreen for ${friendlyName}` : undefined}
