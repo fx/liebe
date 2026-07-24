@@ -36,20 +36,26 @@
    (pressing ESC to leave the zoom is the usual one), every later tap keeps the
    ring until the card unmounts. Hence "sometimes, and it goes away on a
    re-render". Replace the UA ring with the Radix focus token, and drop it for
-   pointer-only focus. */
+   pointer-only focus.
+   Ordered so the ring is the FALLBACK, not the enhancement: a browser without
+   :focus-visible support drops the `:not(:focus-visible)` rule as invalid and
+   keeps the plain `:focus` ring, rather than being left with no keyboard focus
+   indicator at all. */
 .camera-stream-surface:focus {
-  outline: none;
-}
-
-.camera-stream-surface:focus-visible {
   outline: 2px solid var(--focus-8);
   /* Inset so the ring is not clipped by the card's overflow: hidden. */
   outline-offset: -2px;
 }
 
+.camera-stream-surface:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* In zoom the surface IS the viewport, so a ring hugging the screen edges is
    pure noise — the always-visible "Click or press ESC to exit" hint is the
-   affordance there. */
+   affordance there. Both selectors, so the ring stays suppressed where
+   :focus-visible is unsupported too. */
+.camera-stream-surface-fullscreen:focus,
 .camera-stream-surface-fullscreen:focus-visible {
   outline: none;
 }

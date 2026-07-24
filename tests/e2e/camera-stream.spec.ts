@@ -186,19 +186,39 @@ async function expectVideoPlaying(page: Page, timeout: number): Promise<void> {
     .toBe(true)
 }
 
-// Read the focus state and the resolved outline of the clickable stream surface
-// (the role=button container). `outlineStyle` is 'auto' only for Chrome's
-// unstyled UA focus ring — the white border this guards against.
-async function readSurfaceOutline(
-  page: Page
-): Promise<{ focusVisible: boolean; outlineStyle: string }> {
+// Read the focus state and the fully resolved outline of the clickable stream
+// surface (the role=button container). `outlineStyle` is 'auto' only for
+// Chrome's unstyled UA focus ring — the white border this guards against. The
+// width/offset/color come along so a regression to a clipped (offset 0), hairline,
+// or off-token ring fails too. `focusColor` resolves --focus-8 through a probe
+// element parented to the surface, so the expected color is compared in the same
+// serialized form (and stays correct under either theme) rather than pinned to a
+// literal rgb().
+async function readSurfaceOutline(page: Page): Promise<{
+  focusVisible: boolean
+  outlineStyle: string
+  outlineWidth: string
+  outlineOffset: string
+  outlineColor: string
+  focusColor: string
+}> {
   return page.evaluate(() => {
     const panel = (window as unknown as PanelWindow).__liebePanel
     const surface = panel?.shadowRoot?.querySelector('.camera-stream-surface')
     if (!surface) throw new Error('camera stream surface not found')
+    const { outlineStyle, outlineWidth, outlineOffset, outlineColor } = getComputedStyle(surface)
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--focus-8)'
+    surface.appendChild(probe)
+    const focusColor = getComputedStyle(probe).color
+    probe.remove()
     return {
       focusVisible: surface.matches(':focus-visible'),
-      outlineStyle: getComputedStyle(surface).outlineStyle,
+      outlineStyle,
+      outlineWidth,
+      outlineOffset,
+      outlineColor,
+      focusColor,
     }
   })
 }
@@ -521,6 +541,14 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   await expectVideoPlaying(page, 30_000)
   continuity.push(await sampleContinuity(page)) // checkpoint 2: letterbox-closed
 
+  // Focus ring, pointer-only leg: transitions 1-2 were both taps, so the
+  // surface is focused but NOT :focus-visible — the state a plain tap leaves
+  // behind, which must show no ring at all. (The keyboard leg is asserted after
+  // transition 4, once ESC has flipped :focus-visible on.)
+  const ringAfterTap = await readSurfaceOutline(page)
+  expect(ringAfterTap.focusVisible, 'a tap does not make the surface :focus-visible').toBe(false)
+  expect(ringAfterTap.outlineStyle, 'no focus ring on the card after a pointer tap').toBe('none')
+
   // 7. TRANSITION 3 (reopen): the ESC path shares the same in-place overlay, but
   // the key handler wiring is only exercised in a real browser. Reopen first.
   await page.locator('ha-camera-stream').click()
@@ -604,9 +632,21 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   const ringInCard = await readSurfaceOutline(page)
   expect(ringInCard.focusVisible, 'the stream surface is keyboard-focused after ESC').toBe(true)
   expect(ringInCard.outlineStyle, 'no raw UA focus ring on the card').not.toBe('auto')
-  expect(ringInCard.outlineStyle, 'styled focus ring while keyboard-focused in the card').toBe(
-    'solid'
-  )
+  expect(
+    {
+      style: ringInCard.outlineStyle,
+      width: ringInCard.outlineWidth,
+      // Negative: an outward ring would be clipped by the card's overflow.
+      offset: ringInCard.outlineOffset,
+      color: ringInCard.outlineColor,
+    },
+    'the full styled focus ring while keyboard-focused in the card'
+  ).toEqual({
+    style: 'solid',
+    width: '2px',
+    offset: '-2px',
+    color: ringInCard.focusColor,
+  })
   // ...and absent entirely in fullscreen, where the surface fills the viewport.
   await page.locator('ha-camera-stream').click()
   await expect(exitHint, 'fullscreen overlay reopens for the focus-ring check').toBeVisible({
