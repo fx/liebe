@@ -24,4 +24,4 @@
 | 0005 | [Dockerized Home Assistant E2E Environment](changes/0005-dockerized-ha-e2e.md)       | [Architecture](specs/architecture/)         | complete | —          |
 | 0006 | [Codecov & 100% Patch Coverage](changes/0006-codecov-patch-coverage.md)              | [Architecture](specs/architecture/)         | complete | —          |
 | 0007 | [HA Camera Stream Element](changes/0007-ha-camera-stream.md)                         | [Camera Streaming](specs/camera-streaming/) | complete | —          |
-| 0008 | [Camera Fullscreen Without DOM Moves](changes/0008-camera-fullscreen-no-dom-move.md) | [Camera Streaming](specs/camera-streaming/) | draft    | —          |
+| 0008 | [Camera Fullscreen Without DOM Moves](changes/0008-camera-fullscreen-no-dom-move.md) | [Camera Streaming](specs/camera-streaming/) | complete | —          |

@@ -93,6 +93,7 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 ### react-grid-layout Integration
 
 - `GridLayoutSection` MUST convert every `GridItem` to a react-grid-layout `Layout` entry `{ i, x, y, w, h, minW: 1, minH: 1, isDraggable, isResizable }`, where `isDraggable`/`isResizable` equal the edit-mode flag.
+- **Absolute (`top`/`left`) item positioning (change 0008):** the grid MUST position items with `positionStrategy={absoluteStrategy}` (imported from the `react-grid-layout/core` subpath — it is NOT re-exported from the package root), which lays each item out via `top`/`left` offsets instead of the default `transform: translate(...)`. This is a GLOBAL change affecting every card. Its purpose is load-bearing for the camera card's in-place fullscreen ([../camera-streaming/](../camera-streaming/index.md#fullscreen)): a `transform` on an ancestor establishes a CSS containing block that traps `position: fixed` descendants, so removing the grid-item transform lets the camera overlay promote to a viewport-filling fixed element in place — without moving the stream node out of the grid. Item placement, edit-mode drag, 8-handle resize, responsive breakpoint scaling, non-overlap, and persistence MUST behave exactly as before the switch.
 - The grid MUST disable auto-compaction (`compactType={null}`) and prevent overlap (`preventCollision={true}`) so user positions are preserved.
 - The grid MUST use `margin` and `containerPadding` from the responsive config for the current breakpoint.
 - The grid MUST NOT define a specific drag handle — the entire card MUST be draggable — but MUST cancel drags that begin on interactive elements via `draggableCancel="button, input, textarea, select, [role='button'], .no-drag"`.
@@ -121,6 +122,12 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 - **GIVEN** the grid is in edit mode
 - **WHEN** it renders
 - **THEN** no `draggableHandle` is set (`src/components/__tests__/GridLayoutSection.test.tsx:170`)
+
+#### Scenario: Items position via absolute offsets, not transforms
+
+- **GIVEN** a grid rendered with `positionStrategy={absoluteStrategy}`
+- **WHEN** an item is placed, dragged, or resized
+- **THEN** it is positioned via `top`/`left` (no `transform: translate(...)` on the item), so no grid-item ancestor establishes a containing block for a `position: fixed` descendant, while placement/drag/resize/persistence are unchanged
 
 ### Responsive Column Scaling
 
@@ -387,6 +394,7 @@ item.width >= 4 && item.height >= 3
 ## Constraints
 
 - **Radix-first styling**: cards are built on Radix `Card`/theme tokens; per project rules custom CSS and non-portal z-index are avoided. `GridCard` uses fixed-position action buttons at `zIndex: 10` and a fullscreen portal at `zIndex: 9999`.
+- **Absolute item positioning (`positionStrategy={absoluteStrategy}`)**: items are laid out with `top`/`left`, not `transform: translate(...)`. This is a deliberate global choice so no grid-item transform creates a containing block that would trap the camera card's in-place `position: fixed` fullscreen overlay ([../camera-streaming/](../camera-streaming/index.md#fullscreen)); the trade-off is `top`/`left` positioning instead of compositor-friendly transforms.
 - **compactType null + preventCollision**: user positions are never auto-compacted at render time; compaction happens only on explicit `reorderGrid`.
 - **Integer grid cells against stored resolution**: all persisted coordinates are integers relative to `resolution.columns`; scaling to/from responsive breakpoints uses `Math.round`, which can drift on repeated round-trips at non-integer ratios.
 - **Touch targets**: coarse-pointer resize handles are enlarged to ≥32px; the project's 44px touch-target principle is only partially met by handle CSS.
@@ -417,6 +425,7 @@ item.width >= 4 && item.height >= 3
 
 ## Changelog
 
-| Date       | Change                                                     | Document |
-| ---------- | ---------------------------------------------------------- | -------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation) | —        |
+| Date       | Change                                                                                                                                                                                                               | Document                                                    |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                           | —                                                           |
+| 2026-07-24 | Grid items position via `positionStrategy={absoluteStrategy}` (`top`/`left`) instead of `transform: translate(...)` — a global change enabling the camera card's in-place `position: fixed` fullscreen (no DOM move) | [0008](../../changes/0008-camera-fullscreen-no-dom-move.md) |
