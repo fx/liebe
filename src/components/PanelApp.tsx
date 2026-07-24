@@ -1,6 +1,6 @@
 import { Theme } from '@radix-ui/themes'
 import { dashboardActions, dashboardStore } from '~/store/dashboardStore'
-import { useCameraFullscreenActive } from '~/store/cameraFullscreenStore'
+import { useCameraFullscreenActive, CAMERA_FULLSCREEN_Z_INDEX } from '~/store/cameraFullscreenStore'
 import { useEffect } from 'react'
 import { RouterProvider } from '@tanstack/react-router'
 import { router } from '~/router'
@@ -24,7 +24,13 @@ export function PanelApp() {
   const cameraFullscreenActive = useCameraFullscreenActive()
 
   return (
-    <Theme style={cameraFullscreenActive ? { position: 'relative', zIndex: 99999 } : undefined}>
+    <Theme
+      style={
+        cameraFullscreenActive
+          ? { position: 'relative', zIndex: CAMERA_FULLSCREEN_Z_INDEX }
+          : undefined
+      }
+    >
       <RouterProvider router={router} />
     </Theme>
   )

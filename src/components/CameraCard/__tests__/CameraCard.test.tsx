@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createElement } from 'react'
+import { createElement, StrictMode } from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { CameraCard, deriveCameraStatus } from '../index'
@@ -712,6 +712,54 @@ describe('CameraCard', () => {
       )
       expect(screen.getByText('Disconnected')).toBeInTheDocument()
       expect(cameraFullscreenStore.state).toBe(0)
+    })
+
+    it('closes fullscreen during render without a re-render loop under StrictMode', () => {
+      // The render-phase close (setIsFullscreen(false) when the overlay can no
+      // longer render) is React's sanctioned "adjust state during render"
+      // pattern: the guard keys off isFullscreen, so once it flips false the
+      // condition is false and a second invocation is a no-op. StrictMode
+      // double-invokes render, so this proves the guard CONVERGES — a
+      // non-converging render-phase setState throws "Too many re-renders",
+      // which would surface here via a throw and via console.error.
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const item: GridItem = {
+        id: 'item-1',
+        type: 'entity',
+        entityId: 'camera.front_door',
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 2,
+      }
+      const { rerender } = render(
+        <StrictMode>
+          <Theme>
+            <CameraCard entityId="camera.front_door" item={item} />
+          </Theme>
+        </StrictMode>
+      )
+      fireEvent.click(getStreamHost())
+      expect(cameraFullscreenStore.state).toBe(1)
+
+      // Dropout while fullscreen forces the render-phase close under a
+      // double-rendering StrictMode tree.
+      mockEntityReturn({ entity: undefined, isConnected: false })
+      rerender(
+        <StrictMode>
+          <Theme>
+            <CameraCard entityId="camera.front_door" item={{ ...item }} />
+          </Theme>
+        </StrictMode>
+      )
+
+      expect(screen.getByText('Disconnected')).toBeInTheDocument()
+      expect(cameraFullscreenStore.state).toBe(0)
+      const loopError = errorSpy.mock.calls.find((c) =>
+        String(c[0]).includes('Too many re-renders')
+      )
+      expect(loopError).toBeUndefined()
+      errorSpy.mockRestore()
     })
 
     it('does not open tap-fullscreen in edit mode', () => {

@@ -15,6 +15,13 @@ import { useStore } from '@tanstack/react-store'
 // even if two overlays were ever open at once.
 export const cameraFullscreenStore = new Store<number>(0)
 
+// Stacking level applied while a camera overlay is open — to the root Theme
+// (PanelApp lifts the whole radix-themes stacking context) and to the in-place
+// overlay container itself (CameraCard). High enough to out-stack Home
+// Assistant's chrome, matching the retired FullscreenModal's z-index and the
+// e2e viewport-coverage parity assertion.
+export const CAMERA_FULLSCREEN_Z_INDEX = 99999
+
 export function enterCameraFullscreen(): void {
   cameraFullscreenStore.setState((count) => count + 1)
 }

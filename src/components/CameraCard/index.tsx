@@ -6,7 +6,11 @@ import { useHomeAssistantOptional } from '../../contexts/HomeAssistantContext'
 import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { useDashboardStore, dashboardActions } from '~/store'
-import { enterCameraFullscreen, exitCameraFullscreen } from '~/store/cameraFullscreenStore'
+import {
+  enterCameraFullscreen,
+  exitCameraFullscreen,
+  CAMERA_FULLSCREEN_Z_INDEX,
+} from '~/store/cameraFullscreenStore'
 import { CardConfig } from '../CardConfig'
 import { logger } from '~/utils/logger'
 import type { GridItem } from '~/store/types'
@@ -411,7 +415,7 @@ function CameraCardComponent({
                       // style flip, so no disconnect/reconnect fires.
                       position: 'fixed',
                       inset: 0,
-                      zIndex: 99999,
+                      zIndex: CAMERA_FULLSCREEN_Z_INDEX,
                       backgroundColor: 'black',
                       display: 'flex',
                       alignItems: 'center',
