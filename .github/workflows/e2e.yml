@@ -3,6 +3,10 @@ name: E2E
 on:
   pull_request:
     branches: [main]
+    # Docs-only PRs don't affect the panel or e2e stack — skip the suite.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 jobs:
   e2e:
