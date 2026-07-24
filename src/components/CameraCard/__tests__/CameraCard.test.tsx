@@ -6,6 +6,11 @@ import { CameraCard, deriveCameraStatus } from '../index'
 import type { CameraStatusInput } from '../index'
 import { useEntity, useIsConnecting } from '~/hooks'
 import { useDashboardStore, dashboardActions } from '~/store'
+// The barrel '~/store' is mocked below, but the camera-fullscreen store is
+// imported by CameraCard from its own module path, so it stays REAL — the card
+// increments it while its overlay is open (PanelApp reads it to lift the root
+// Theme's stacking). Reset it per test so the counter never leaks across tests.
+import { cameraFullscreenStore } from '~/store/cameraFullscreenStore'
 import { HomeAssistantProvider } from '../../../contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { HaCameraStreamProps, HaCameraStreamHandle } from '../HaCameraStream'
@@ -173,6 +178,7 @@ describe('CameraCard', () => {
     streamPropsLog.length = 0
     statusOptionsLog.length = 0
     cardConfigProps = null
+    cameraFullscreenStore.setState(() => 0)
     mockStoreMode('view')
     vi.mocked(useIsConnecting).mockReturnValue(false)
     mockEntityReturn()
@@ -518,52 +524,135 @@ describe('CameraCard', () => {
     })
   })
 
-  describe('fullscreen modal', () => {
-    it('opens on tap, portals to document.body, moves the stream, and closes on backdrop click', () => {
+  describe('in-app fullscreen (in-place, no DOM move)', () => {
+    it('promotes the stream container to a fixed overlay in place and closes on backdrop tap', () => {
       const { container } = renderCard()
       const host = getStreamHost()
+      const streamContainer = host.parentElement as HTMLElement
+      const card = container.querySelector('.camera-card') as HTMLElement
+
+      // Normal mode: in-card, relatively positioned, stream inside the card.
+      expect(streamContainer.style.position).toBe('relative')
+      expect(card.contains(host)).toBe(true)
 
       fireEvent.click(host)
 
-      const exitIndicator = screen.getByText('Click or press ESC to exit')
-      const backdrop = exitIndicator.parentElement!.parentElement as HTMLElement
-      // Portal container resolves to document.body outside a shadow root.
-      expect(backdrop.parentElement).toBe(document.body)
-      // KeepAlive moved the stream into the fullscreen container.
-      expect(backdrop.contains(getStreamHost())).toBe(true)
+      // Fullscreen: the SAME container element is promoted to a fixed overlay
+      // in place — the stream node never moves out of the card.
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+      expect(host.parentElement).toBe(streamContainer)
+      expect(streamContainer.style.position).toBe('fixed')
+      expect(streamContainer.style.zIndex).toBe('99999')
+      expect(card.contains(host)).toBe(true)
+      // The card drops paint containment so the fixed overlay can escape it.
+      expect(getCardStyle(container)).toContain('contain: none')
       // Fullscreen forces contain fit.
-      expect(getStreamHost().getAttribute('data-fit')).toBe('contain')
-      // A second (fullscreen) controls instance renders.
-      expect(screen.getAllByText('Front Door').length).toBe(2)
+      expect(host.getAttribute('data-fit')).toBe('contain')
+      // A SINGLE controls instance (no duplicated fullscreen copy).
+      expect(screen.getAllByText('Front Door').length).toBe(1)
 
-      fireEvent.click(backdrop)
+      // Tapping the container (backdrop/letterbox) closes.
+      fireEvent.click(streamContainer)
       expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
-      // Stream returned to the card.
-      expect(container.querySelector('.camera-card')!.contains(getStreamHost())).toBe(true)
-      expect(getStreamHost().getAttribute('data-fit')).toBe('cover')
+      expect(host.parentElement).toBe(streamContainer)
+      expect(streamContainer.style.position).toBe('relative')
+      expect(getCardStyle(container)).not.toContain('contain: none')
+      expect(host.getAttribute('data-fit')).toBe('cover')
     })
 
-    it('closes on a letterbox-area click inside the fullscreen container', () => {
+    it('keeps the exact same stream element instance across toggles (no remount)', () => {
+      renderCard()
+      const host = getStreamHost()
+      const streamContainer = host.parentElement
+
+      fireEvent.click(host) // open
+      expect(getStreamHost()).toBe(host)
+      expect(host.parentElement).toBe(streamContainer)
+
+      fireEvent.click(host) // close (tapping the video toggles back)
+      expect(getStreamHost()).toBe(host)
+      expect(host.parentElement).toBe(streamContainer)
+    })
+
+    it('closes on a letterbox-area tap (the container), not only on the video', () => {
+      renderCard()
+      const host = getStreamHost()
+      fireEvent.click(host)
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+
+      // Tap the container itself (letterbox surface), not the video host.
+      fireEvent.click(host.parentElement as HTMLElement)
+      expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
+    })
+
+    it('exits fullscreen on Escape', () => {
       renderCard()
       fireEvent.click(getStreamHost())
       expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
 
-      // The fullscreen container is the letterbox surface (the KeepAlive
-      // portal div sits between it and the stream host). A click there —
-      // not on the video itself — must also exit.
-      const fullscreenContainer = getStreamHost().parentElement!.parentElement as HTMLElement
-      fireEvent.click(fullscreenContainer)
+      fireEvent.keyDown(document, { key: 'Escape' })
       expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
     })
 
-    it('does not close fullscreen when clicking the overlay controls', () => {
+    it('lifts the shared camera-fullscreen store while open and clears it on close and unmount', () => {
+      const { unmount } = renderCard()
+      expect(cameraFullscreenStore.state).toBe(0)
+
+      fireEvent.click(getStreamHost()) // open
+      expect(cameraFullscreenStore.state).toBe(1)
+
+      fireEvent.click(getStreamHost()) // close
+      expect(cameraFullscreenStore.state).toBe(0)
+
+      // Reopen, then unmount while still open — cleanup must clear the lift.
+      fireEvent.click(getStreamHost())
+      expect(cameraFullscreenStore.state).toBe(1)
+      unmount()
+      expect(cameraFullscreenStore.state).toBe(0)
+    })
+
+    it('drops out of fullscreen when a stream error surfaces, showing the in-card error', () => {
+      const item: GridItem = {
+        id: 'item-1',
+        type: 'entity',
+        entityId: 'camera.front_door',
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 2,
+      }
+      const { rerender } = render(
+        <Theme>
+          <CameraCard entityId="camera.front_door" item={item} />
+        </Theme>
+      )
+      fireEvent.click(getStreamHost())
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+      expect(cameraFullscreenStore.state).toBe(1)
+
+      // An error surfaces on the next render (new item identity defeats memo,
+      // as a live status change would).
+      statusMock.error = 'Stream stalled'
+      rerender(
+        <Theme>
+          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+        </Theme>
+      )
+
+      expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
+      expect(screen.getByText('Stream stalled')).toBeInTheDocument()
+      expect(screen.getByText('Retry')).toBeInTheDocument()
+      expect(cameraFullscreenStore.state).toBe(0)
+    })
+
+    it('does not exit when tapping the overlay mute control', () => {
       statusMock.isStreaming = true
       renderCard()
       fireEvent.click(getStreamHost())
       expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
 
-      // Second controls instance is the fullscreen one; mute must not exit.
-      fireEvent.click(screen.getAllByTitle('Mute')[1])
+      // The single controls instance stopPropagation's — mute must not exit.
+      fireEvent.click(screen.getByTitle('Mute'))
       expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
     })
 
@@ -609,7 +698,7 @@ describe('CameraCard', () => {
       expect(screen.queryByRole('button', { name: /Toggle fullscreen for/ })).toBeNull()
     })
 
-    it('renders fullscreen stats when showStats is enabled', () => {
+    it('keeps a single stats instance across fullscreen, growing it to large', () => {
       statusMock.isStreaming = true
       const item: GridItem = {
         id: 'item-1',
@@ -622,15 +711,14 @@ describe('CameraCard', () => {
         config: { showStats: true },
       }
       renderCard({ item })
-      // In-card stats before fullscreen.
+      // One in-card stats instance before fullscreen.
       expect(screen.getAllByText('FPS').length).toBe(1)
 
       fireEvent.click(getStreamHost())
-      // Only the fullscreen instance runs while the overlay is open (the
-      // in-card one is gated off so two intervals never poll concurrently).
+      // Still exactly one instance while fullscreen (no duplicated overlay copy).
       expect(screen.getAllByText('FPS').length).toBe(1)
 
-      fireEvent.click(screen.getByText('Click or press ESC to exit').parentElement!.parentElement!)
+      fireEvent.click(getStreamHost())
       expect(screen.getAllByText('FPS').length).toBe(1)
     })
   })
@@ -770,7 +858,7 @@ describe('CameraCard', () => {
       await waitFor(() => expect(requestSpy).toHaveBeenCalledTimes(1))
     })
 
-    it('uses the fullscreen container to find the host while the modal is open', async () => {
+    it('finds the host via the stream container for native fullscreen while the overlay is open', async () => {
       renderCard()
       fireEvent.click(getStreamHost())
 
@@ -779,8 +867,9 @@ describe('CameraCard', () => {
       ;(host as HTMLElement & { requestFullscreen: () => Promise<void> }).requestFullscreen =
         requestSpy
 
-      // Second controls instance is the fullscreen one.
-      fireEvent.click(screen.getAllByTitle('Toggle native fullscreen')[1])
+      // The single controls instance drives native fullscreen off the one
+      // persistently-mounted stream container.
+      fireEvent.click(screen.getByTitle('Toggle native fullscreen'))
       await waitFor(() => expect(requestSpy).toHaveBeenCalledTimes(1))
     })
 

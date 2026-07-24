@@ -1,12 +1,12 @@
 import { Flex, Text, Button, Spinner } from '@radix-ui/themes'
 import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useEntity, useIsConnecting } from '~/hooks'
 import { useHomeAssistantOptional } from '../../contexts/HomeAssistantContext'
-import { SkeletonCard, ErrorDisplay, FullscreenModal, usePanelPortalContainer } from '../ui'
+import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { useDashboardStore, dashboardActions } from '~/store'
-import { KeepAlive } from '../KeepAlive'
+import { enterCameraFullscreen, exitCameraFullscreen } from '~/store/cameraFullscreenStore'
 import { CardConfig } from '../CardConfig'
 import { logger } from '~/utils/logger'
 import type { GridItem } from '~/store/types'
@@ -106,15 +106,14 @@ function CameraCardComponent({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // Start muted by default
   const [configOpen, setConfigOpen] = useState(false)
-  // Fullscreen overlay portal target: resolved from the card's root DOM node so
-  // the overlay stays inside the liebe-panel shadow root (keeps @lit/context
-  // resolution working on HA ≥ 2026.7). Falls back to document.body standalone.
-  const { ref: rootRefCallback, container: portalContainer } = usePanelPortalContainer()
   // Reactive mirror of the element's inner <video> for CameraStats (reading a
   // ref during render is unsafe per react-hooks/refs).
   const [innerVideo, setInnerVideo] = useState<HTMLVideoElement | null>(null)
-  const normalContainerRef = useRef<HTMLDivElement>(null)
-  const fullscreenContainerRef = useRef<HTMLDivElement>(null)
+  // The ONE persistently-mounted stream container. In-app fullscreen is a pure
+  // CSS/position flip on this element — the <ha-camera-stream> node it holds
+  // NEVER moves in the DOM, so it never disconnects/reconnects the stream. See
+  // docs/changes/0008-camera-fullscreen-no-dom-move.md.
+  const streamContainerRef = useRef<HTMLDivElement>(null)
   const streamHandleRef = useRef<HaCameraStreamHandle | null>(null)
 
   // Get configuration values. `fit` is whitelisted against the supported
@@ -165,6 +164,32 @@ function CameraCardComponent({
     entityAvailable: !isUnavailable,
   })
 
+  // Effective in-app fullscreen: a surfaced error always shows in-card with
+  // Retry, never trapped inside the overlay — so an error forces the overlay
+  // closed WITHOUT touching the isFullscreen state (deriving instead of
+  // setState-in-effect keeps the render/effects a pure function of inputs).
+  const showFullscreen = isFullscreen && !streamError
+
+  // ESC exits the in-app fullscreen overlay (the FullscreenModal that used to
+  // own this handling is gone — fullscreen is now in-place on the card).
+  useEffect(() => {
+    if (!showFullscreen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showFullscreen])
+
+  // While the overlay is open, lift the root Theme's stacking (PanelApp reads
+  // this store) so the in-place fixed overlay paints over Home Assistant's
+  // chrome — WITHOUT ever moving the stream node.
+  useEffect(() => {
+    if (!showFullscreen) return
+    enterCameraFullscreen()
+    return () => exitCameraFullscreen()
+  }, [showFullscreen])
+
   // Wire element events into the status machine and refresh the reactive inner
   // <video> (it is recreated when the element remounts or swaps players).
   const handleStreamEvent = useCallback(() => {
@@ -190,41 +215,37 @@ function CameraCardComponent({
     [handleVideoClick]
   )
 
-  const handleVideoFullscreen = useCallback(
-    async (e: React.MouseEvent) => {
-      e.stopPropagation()
-      const container = (isFullscreen ? fullscreenContainerRef : normalContainerRef).current
-      // Prefer the element's inner <video>; fall back to the <ha-camera-stream>
-      // host itself (e.g. MJPEG mode, where there is no inner video).
-      const target =
-        streamHandleRef.current?.getInnerVideo() ??
-        (container?.querySelector('ha-camera-stream') as HTMLElement | null)
-      if (!target) return
+  const handleVideoFullscreen = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Prefer the element's inner <video>; fall back to the <ha-camera-stream>
+    // host itself (e.g. MJPEG mode, where there is no inner video).
+    const target =
+      streamHandleRef.current?.getInnerVideo() ??
+      (streamContainerRef.current?.querySelector('ha-camera-stream') as HTMLElement | null)
+    if (!target) return
 
-      try {
-        // Fullscreen state must be read from the target's OWN root: for a
-        // target inside a shadow root (ha-camera-stream's inner <video>),
-        // document.fullscreenElement is retargeted to the shadow HOST, so a
-        // document-level comparison never matches and toggle-off would call
-        // requestFullscreen again. A light-DOM target's root IS the document;
-        // anything else (e.g. a detached node) falls back to the document
-        // check.
-        const root = target.getRootNode()
-        const fullscreenElement =
-          root instanceof Document || root instanceof ShadowRoot
-            ? root.fullscreenElement
-            : document.fullscreenElement
-        if (fullscreenElement === target) {
-          await document.exitFullscreen()
-        } else {
-          await target.requestFullscreen()
-        }
-      } catch (error) {
-        logger.error('Fullscreen error:', error)
+    try {
+      // Fullscreen state must be read from the target's OWN root: for a
+      // target inside a shadow root (ha-camera-stream's inner <video>),
+      // document.fullscreenElement is retargeted to the shadow HOST, so a
+      // document-level comparison never matches and toggle-off would call
+      // requestFullscreen again. A light-DOM target's root IS the document;
+      // anything else (e.g. a detached node) falls back to the document
+      // check.
+      const root = target.getRootNode()
+      const fullscreenElement =
+        root instanceof Document || root instanceof ShadowRoot
+          ? root.fullscreenElement
+          : document.fullscreenElement
+      if (fullscreenElement === target) {
+        await document.exitFullscreen()
+      } else {
+        await target.requestFullscreen()
       }
-    },
-    [isFullscreen]
-  )
+    } catch (error) {
+      logger.error('Fullscreen error:', error)
+    }
+  }, [])
 
   const handleToggleMute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -260,7 +281,7 @@ function CameraCardComponent({
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
   const isRecording = entity.state === 'recording'
   const isStreamingState = entity.state === 'streaming'
-  const activeFit: FitMode = isFullscreen ? 'contain' : fit
+  const activeFit: FitMode = showFullscreen ? 'contain' : fit
   // When the element cannot be bootstrapped the still-image fallback renders;
   // derive the pill from the raw entity state instead of a forever-CONNECTING.
   // (Entity unavailability is handled inside deriveCameraStatus: UNAVAILABLE
@@ -292,6 +313,40 @@ function CameraCardComponent({
         ? 'var(--space-5)'
         : `var(--space-${defaultPadding})`
 
+  // Status pill + controls: a SINGLE instance (replacing the old duplicated
+  // in-card/fullscreen pair). It lives inside the stream container so the
+  // container's normal→fullscreen position flip carries it with no DOM move;
+  // it also renders in the non-stream branch and during the error branch (the
+  // ERROR pill). Buttons stopPropagation so they never toggle fullscreen.
+  const controls = (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: showFullscreen ? '2%' : '8px',
+        left: showFullscreen ? '2%' : '8px',
+        fontSize: showFullscreen
+          ? 'min(3.2vw, 19.2px)' // Scale with viewport width (reduced by 20%)
+          : size === 'small'
+            ? '8px'
+            : size === 'large'
+              ? '11.2px'
+              : '9.6px',
+      }}
+    >
+      <CameraControls
+        friendlyName={friendlyName}
+        status={status}
+        rawState={entity.state}
+        showControls={showControls}
+        isMuted={isMuted}
+        handleToggleMute={handleToggleMute}
+        handleVideoFullscreen={handleVideoFullscreen}
+        size={showFullscreen ? 'large' : size}
+        isFullscreen={showFullscreen}
+      />
+    </div>
+  )
+
   return (
     <>
       <GridCard
@@ -319,61 +374,87 @@ function CameraCardComponent({
               ? 'var(--blue-6)'
               : undefined,
           borderWidth: isSelected || streamError || isRecording || isStreamingState ? '2px' : '1px',
+          // Drop the Radix card's `contain: paint` (a containing block AND a
+          // paint clip) for exactly the fullscreen duration so the in-place
+          // fixed stream container can escape the card and cover the viewport.
+          // Restored the instant the overlay closes.
+          ...(showFullscreen ? { contain: 'none' } : {}),
         }}
       >
-        <div ref={rootRefCallback} style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
           {supportsStream ? (
             <div
-              ref={normalContainerRef}
+              ref={streamContainerRef}
               role={videoClickable ? 'button' : undefined}
               tabIndex={videoClickable ? 0 : undefined}
               aria-label={videoClickable ? `Toggle fullscreen for ${friendlyName}` : undefined}
-              style={{
-                width: '100%',
-                height: '100%',
-                backgroundColor: 'var(--gray-3)',
-                borderRadius: 'var(--radius-2)',
-                overflow: 'hidden',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: videoClickable ? 'pointer' : 'default',
-              }}
               onClick={handleVideoClick}
               onKeyDown={videoClickable ? handleVideoKeyDown : undefined}
+              style={
+                showFullscreen
+                  ? {
+                      // In-place promotion to a viewport-filling fixed overlay.
+                      // The stream node inside NEVER moves — this is a pure
+                      // style flip, so no disconnect/reconnect fires.
+                      position: 'fixed',
+                      inset: 0,
+                      zIndex: 99999,
+                      backgroundColor: 'black',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                    }
+                  : {
+                      width: '100%',
+                      height: '100%',
+                      backgroundColor: 'var(--gray-3)',
+                      borderRadius: 'var(--radius-2)',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: videoClickable ? 'pointer' : 'default',
+                    }
+              }
             >
               {streamError ? (
                 <Flex direction="column" align="center" gap="2" style={{ padding: '12px' }}>
                   <Text size="2" color="red">
                     {streamError}
                   </Text>
-                  {/* size 3+: minimum 44px touch target (touch-first UI). */}
-                  <Button size="3" variant="soft" onClick={retryStream}>
+                  {/* size 3+: minimum 44px touch target (touch-first UI).
+                      Clear any lingering fullscreen intent so a successful
+                      retry recovers into the in-card view, not back into the
+                      overlay. */}
+                  <Button
+                    size="3"
+                    variant="soft"
+                    onClick={() => {
+                      setIsFullscreen(false)
+                      retryStream()
+                    }}
+                  >
                     <ReloadIcon />
                     Retry
                   </Button>
                 </Flex>
               ) : (
                 <>
-                  <KeepAlive
-                    cacheKey={`camera-${entityId}`}
-                    containerRef={isFullscreen ? fullscreenContainerRef : normalContainerRef}
-                  >
-                    {readiness === 'ready' ? (
-                      <HaCameraStream
-                        ref={streamHandleRef}
-                        entity={entity}
-                        hass={hass}
-                        muted={isMuted}
-                        fitMode={activeFit}
-                        remountKey={remountKey}
-                        onStreamEvent={handleStreamEvent}
-                      />
-                    ) : readiness === 'unavailable' ? (
-                      <StillImageFallback entity={entity} objectFit={activeFit} />
-                    ) : null}
-                  </KeepAlive>
+                  {readiness === 'ready' ? (
+                    <HaCameraStream
+                      ref={streamHandleRef}
+                      entity={entity}
+                      hass={hass}
+                      muted={isMuted}
+                      fitMode={activeFit}
+                      remountKey={remountKey}
+                      onStreamEvent={handleStreamEvent}
+                    />
+                  ) : readiness === 'unavailable' ? (
+                    <StillImageFallback entity={entity} objectFit={activeFit} />
+                  ) : null}
                   {readiness !== 'unavailable' && !isUnavailable && !isStreaming && (
                     <Flex
                       align="center"
@@ -390,8 +471,37 @@ function CameraCardComponent({
                       <Spinner size="3" />
                     </Flex>
                   )}
+                  {/* Debug stats overlay (single instance; grows to large in
+                      fullscreen). Readiness-gated: the still-image fallback has
+                      no video to read playback quality from. */}
+                  {showStats && readiness === 'ready' && (
+                    <CameraStats size={showFullscreen ? 'large' : size} videoElement={innerVideo} />
+                  )}
+                  {/* Exit hint (fullscreen only). pointerEvents:none so a tap
+                      landing on it still bubbles to the container's exit
+                      handler (letterbox/backdrop tap closes). */}
+                  {showFullscreen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '20px',
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        backdropFilter: 'blur(4px)',
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      Click or press ESC to exit
+                    </div>
+                  )}
                 </>
               )}
+              {controls}
             </div>
           ) : (
             <Flex
@@ -411,127 +521,11 @@ function CameraCardComponent({
                   }}
                 />
               </GridCard.Icon>
+              {controls}
             </Flex>
           )}
-
-          {/* Stats display (when enabled; the fullscreen overlay renders its
-              own instance, so the in-card one pauses while it is open).
-              Gated on readiness: the still-image fallback has no video to
-              read playback quality from, so no stats overlay renders there. */}
-          {showStats &&
-            !isFullscreen &&
-            supportsStream &&
-            readiness === 'ready' &&
-            !streamError && <CameraStats size={size} videoElement={innerVideo} />}
-
-          {/* Controls and info container positioned absolutely at bottom left */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '8px',
-              left: '8px',
-              fontSize: size === 'small' ? '8px' : size === 'large' ? '11.2px' : '9.6px',
-            }}
-          >
-            <CameraControls
-              friendlyName={friendlyName}
-              status={status}
-              rawState={entity.state}
-              showControls={showControls}
-              isMuted={isMuted}
-              handleToggleMute={handleToggleMute}
-              handleVideoFullscreen={handleVideoFullscreen}
-              size={size}
-            />
-          </div>
         </div>
       </GridCard>
-
-      {/* Fullscreen modal */}
-      <FullscreenModal
-        open={isFullscreen}
-        onClose={() => setIsFullscreen(false)}
-        includeTheme={false}
-        portalContainer={portalContainer}
-        backdropStyle={{
-          backgroundColor: 'black',
-          cursor: 'pointer',
-        }}
-        contentStyle={{
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-        }}
-      >
-        {/* Any tap on the overlay exits — including the letterbox area. The
-            modal's content div swallows clicks (stopPropagation), so without
-            this handler only taps landing on the video itself would close
-            (bubbling through the KeepAlive portal to handleVideoClick), making
-            the "Click or press ESC to exit" hint wrong for the letterbox.
-            CameraControls' buttons stopPropagation and are siblings of this
-            container, so mute/native-fullscreen never trigger it. */}
-        <div
-          ref={fullscreenContainerRef}
-          onClick={() => setIsFullscreen(false)}
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        />
-
-        {/* Fullscreen stats display (when enabled; readiness-gated like the
-            in-card instance — the still-image fallback has no video). */}
-        {showStats && supportsStream && readiness === 'ready' && !streamError && (
-          <CameraStats size="large" videoElement={innerVideo} />
-        )}
-
-        {/* Fullscreen controls and info container. No z-index: the container
-            is a positioned element following the (static) stream container in
-            DOM order, so it paints above the video without one — stacking is
-            otherwise delegated to the fullscreen portal (Radix guidance). */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '2%',
-            left: '2%',
-            fontSize: 'min(3.2vw, 19.2px)', // Scale based on viewport width (reduced by 20%)
-          }}
-        >
-          <CameraControls
-            friendlyName={friendlyName}
-            status={status}
-            rawState={entity.state}
-            showControls={showControls}
-            isMuted={isMuted}
-            handleToggleMute={handleToggleMute}
-            handleVideoFullscreen={handleVideoFullscreen}
-            size="large"
-            isFullscreen={true}
-          />
-        </div>
-
-        {/* Exit indicator */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            background: 'rgba(0, 0, 0, 0.7)',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            backdropFilter: 'blur(4px)',
-            color: 'white',
-            fontSize: '14px',
-            fontWeight: '500',
-            pointerEvents: 'none',
-          }}
-        >
-          Click or press ESC to exit
-        </div>
-      </FullscreenModal>
 
       {/* Configuration modal */}
       <CardConfig.Modal
