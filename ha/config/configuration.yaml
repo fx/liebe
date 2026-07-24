@@ -2,9 +2,26 @@
 # Committed as-is; runtime state (.storage, logs, DBs) is gitignored.
 # See docs/changes/0005-dockerized-ha-e2e.md.
 
-# Loads the standard set of integrations (frontend, api, websocket_api,
-# config, history, etc.) needed for the panel and REST/WS APIs to work.
-default_config:
+# Panel + REST/WS API surface. This deliberately does NOT use `default_config:`
+# because default_config hard-pulls the `go2rtc` integration (HA runs a bundled
+# go2rtc binary in Docker), which makes every camera a WebRTC (`WEB_RTC`) stream.
+# With no `default_config:` and no `go2rtc:` block, HA's go2rtc setup returns
+# early WITHOUT registering a WebRTC provider, so the ffmpeg cameras below fall
+# back to HLS through HA's own authenticated proxy (:8123) — robust to route
+# remotely (no ICE candidate host, no :8555) and free of go2rtc's active
+# `exec:`-producer quirks. See the camera block and docs/changes/0007 for the
+# full rationale; WebRTC parity is validated in production against real cameras.
+# (person/zone/automation/scene/script/tag persist from .storage; recorder,
+# http, auth, websocket_api, lovelace load transitively from the keys below.)
+frontend:
+config:
+api:
+stream:
+history:
+logbook:
+media_source:
+system_health:
+network:
 
 # The demo integration provides a deterministic set of fake devices across
 # many domains (light, switch, climate, cover, fan, sensor, binary_sensor,
@@ -26,12 +43,20 @@ panel_custom:
 
 # Camera streaming test infrastructure (docs/changes/0007). The go2rtc
 # sidecar (see ../docker-compose.yml) restreams over RTSP inside the compose
-# network; HA consumes those restreams as ffmpeg cameras and uses the go2rtc
-# server for WebRTC negotiation.
+# network; HA consumes those restreams as ffmpeg cameras and serves them as
+# HLS through its own authenticated proxy (:8123).
+#
+# The go2rtc WebRTC integration is intentionally DISABLED in the dev/e2e stack.
+# HA 2026.7.2's bundled go2rtc-client (0.4.0) crashes parsing go2rtc 1.9.14's
+# ACTIVE `exec:`-source producers — they report `source` instead of `url`, so
+# `rest.list()` raises `MissingField "url"` and every `ws_webrtc_offer` fails
+# with `unknown_error` once any synthetic stream goes active (breaks a
+# multi-camera dashboard; a single-camera test slips through). Dropping the
+# `go2rtc:` block makes HA treat these as plain ffmpeg cameras and stream over
+# HLS — robust to route remotely (no ICE candidate host, no :8555). WebRTC
+# parity is validated in production against real cameras; the go2rtc/WebRTC
+# demo setup is to be revisited separately. See docs/changes/0007.
 ffmpeg:
-
-go2rtc:
-  url: 'http://go2rtc:1984'
 
 camera:
   # Fully synthetic, deterministic test pattern — the guaranteed CI camera.

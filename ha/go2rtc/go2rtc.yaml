@@ -7,7 +7,12 @@
 #   lives only in untracked .env.local / CI secrets and MUST never be
 #   committed; scripts/check-rtsp-leak.sh gates this.
 streams:
-  e2e_pattern: exec:ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=15 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -f rtsp {output}
+  # `-g 30 -keyint_min 30` forces a keyframe every 2s (30 frames @ 15fps) and
+  # `-bf 0` drops B-frames: HA's HLS stream worker cannot cut a segment until it
+  # sees a keyframe, so the x264 default GOP (~250 frames ≈ 16s) left HLS unable
+  # to start within the card's load budget ("Stream failed to start"). WebRTC
+  # forwards RTP untouched so it never needed this; HLS does. See docs/changes/0007.
+  e2e_pattern: exec:ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=15 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 30 -keyint_min 30 -bf 0 -f rtsp {output}
   personal: ${RTSP_TEST_URL:}
 
 webrtc:
