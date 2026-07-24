@@ -85,3 +85,10 @@ changes:
     spec: camera-streaming
     status: complete
     depends_on: []
+  - id: '0008'
+    name: camera-fullscreen-no-dom-move
+    path: changes/0008-camera-fullscreen-no-dom-move.md
+    description: Camera in-app fullscreen as in-place CSS on a stationary stream node (grid switches to absolute positioning) — no DOM move, no reconnect on toggle, KeepAlive retired
+    spec: camera-streaming
+    status: draft
+    depends_on: []

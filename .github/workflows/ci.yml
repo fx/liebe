@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # Docs-only PRs don't affect the build/tests — skip the suite. (Adjust the
+    # required status checks in the branch ruleset accordingly so skipped runs
+    # don't block docs PRs.)
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 # Least privilege: no job needs write scopes (Codecov upload reads only).
 permissions:
