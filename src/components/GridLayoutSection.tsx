@@ -1,5 +1,11 @@
 import { ReactNode, useCallback, useState, useEffect, useRef } from 'react'
 import GridLayout, { getCompactor, type Layout, type LayoutItem } from 'react-grid-layout'
+// `absoluteStrategy` is only exported from the `react-grid-layout/core` subpath,
+// not the package root. It positions grid items via `top`/`left` instead of
+// `transform: translate(...)`, so items no longer establish a containing block
+// that would trap `position: fixed` descendants (needed by the camera card's
+// in-place fullscreen — change 0008).
+import { absoluteStrategy } from 'react-grid-layout/core'
 import { Box } from '@radix-ui/themes'
 import { GridItem } from '../store/types'
 import { dashboardActions } from '../store'
@@ -117,6 +123,7 @@ export function GridLayoutSection({
         className="layout"
         layout={layouts}
         width={containerWidth}
+        positionStrategy={absoluteStrategy}
         onLayoutChange={handleLayoutChange}
         gridConfig={{
           cols: effectiveColumns,
