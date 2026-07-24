@@ -445,7 +445,11 @@ const styles = `
       -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
     }
 
-    .grid-card:active {
+    /* The camera card is exempt: its tap opens an in-place fixed fullscreen
+       overlay, and this transform would establish a containing block whose
+       ~0.1s transition tail re-traps the just-promoted overlay mid-open. See
+       docs/changes/0008-camera-fullscreen-no-dom-move.md. */
+    .grid-card:not(.camera-card):active {
       transform: scale(0.98);
       transition: transform 0.1s ease;
     }

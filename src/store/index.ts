@@ -1,5 +1,6 @@
 export * from './types'
 export * from './dashboardStore'
+export * from './cameraFullscreenStore'
 export * from './persistence'
 export * from './entityTypes'
 export * from './entityStore'
