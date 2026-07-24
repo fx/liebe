@@ -128,6 +128,16 @@ describe('safeStringify', () => {
     expect(parsedSet['[truncated]']).toBe('+3 more entries')
   })
 
+  it('serializes only own enumerable keys, skipping inherited ones', () => {
+    const proto = { inherited: 'from-proto' }
+    const own = Object.create(proto) as Record<string, unknown>
+    own.mine = 'from-own'
+    const parsed = JSON.parse(safeStringify(own)) as Record<string, unknown>
+    expect(parsed.mine).toBe('from-own')
+    expect(parsed).not.toHaveProperty('inherited')
+    expect(Object.keys(parsed)).toEqual(['mine'])
+  })
+
   it('caps a huge Map at the entry budget with a truncation marker', () => {
     const huge = new Map(Array.from({ length: 100_000 }, (_, i) => [`m${i}`, i]))
     const parsed = JSON.parse(safeStringify(huge)) as Record<string, unknown>

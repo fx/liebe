@@ -20,10 +20,15 @@
 // 1M-entry array at depth 1 would serialize entirely, hanging the in-page
 // evaluation), so every container is additionally capped at maxEntries per
 // level with an explicit truncation marker, and the final string is capped at
-// maxLength — deterministic markers, never silent loss. ArrayBuffer views
-// (typed arrays, DataViews) collapse to a `[Uint8Array(N)]` summary outright:
-// even Object.keys on one materializes every numeric index string before any
-// truncation could apply, and binary payloads are not inspectable anyway.
+// maxLength — deterministic markers, never silent loss. Wide containers are
+// enumerated LAZILY (arrays slice to maxEntries; Map/Set/plain-object keys
+// pull from their iterator, stopping once maxEntries are serialized) so a
+// huge container never materializes its full entry/key list up front — the
+// same budget defeat that `Object.keys()` (which allocates the entire key
+// array before any truncation) would reintroduce. ArrayBuffer views (typed
+// arrays, DataViews) collapse to a `[Uint8Array(N)]` summary outright: even
+// enumerating one materializes every numeric index string, and binary
+// payloads are not inspectable anyway.
 export function safeStringify(
   value: unknown,
   maxDepth: number = 4,
@@ -100,11 +105,23 @@ export function safeStringify(
         }
         truncate(input.size)
       } else {
-        const keys = Object.keys(input)
-        for (const key of keys.slice(0, maxEntries)) {
-          assign(key, () => (input as Record<string, unknown>)[key])
+        // Enumerate own keys lazily rather than via Object.keys, which would
+        // allocate the ENTIRE key array before truncation — the budget defeat
+        // the Map/Set and typed-array paths above already avoid. Only the
+        // first maxEntries keys have their values read/encoded; the remaining
+        // keys are merely counted (no allocation, no value reads) so the
+        // `[truncated]` marker still reports an exact total.
+        let assigned = 0
+        let total = 0
+        for (const key in input) {
+          if (!Object.prototype.hasOwnProperty.call(input, key)) continue
+          total += 1
+          if (assigned < maxEntries) {
+            assign(key, () => (input as Record<string, unknown>)[key])
+            assigned += 1
+          }
         }
-        truncate(keys.length)
+        truncate(total)
       }
       return record
     } finally {
