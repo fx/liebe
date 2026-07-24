@@ -132,6 +132,9 @@ class LiebePanel extends HTMLElement {
 
       const container = document.createElement('div')
       container.style.height = '100%'
+      // Contract with resolvePanelPortalContainer: tag the React root so
+      // in-panel portals can target it without guessing.
+      container.setAttribute('data-liebe-root', '')
       shadow.appendChild(container)
 
       // Load CSS and set base URL for assets

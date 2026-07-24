@@ -1,0 +1,563 @@
+import { Flex, Text, Button, Spinner } from '@radix-ui/themes'
+import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
+import { memo, useCallback, useRef, useState } from 'react'
+import { useEntity, useIsConnecting } from '~/hooks'
+import { useHomeAssistantOptional } from '../../contexts/HomeAssistantContext'
+import { SkeletonCard, ErrorDisplay, FullscreenModal, usePanelPortalContainer } from '../ui'
+import { GridCardWithComponents as GridCard } from '../GridCard'
+import { useDashboardStore, dashboardActions } from '~/store'
+import { KeepAlive } from '../KeepAlive'
+import { CardConfig } from '../CardConfig'
+import { logger } from '~/utils/logger'
+import type { GridItem } from '~/store/types'
+import { HaCameraStream } from './HaCameraStream'
+import type { HaCameraStreamHandle } from './HaCameraStream'
+import { useCameraStreamReady } from './useCameraStreamReady'
+import { useCameraStreamStatus } from './useCameraStreamStatus'
+import { StillImageFallback } from './StillImageFallback'
+import { CameraControls } from './CameraControls'
+import type { CameraStatus } from './CameraControls'
+import { CameraStats } from './CameraStats'
+import './CameraCard.css'
+
+interface CameraCardProps {
+  entityId: string
+  size?: 'small' | 'medium' | 'large'
+  onDelete?: () => void
+  isSelected?: boolean
+  onSelect?: (selected: boolean) => void
+  item?: GridItem
+}
+
+interface CameraAttributes {
+  supported_features?: number
+}
+
+// Camera supported features bit flags from Home Assistant
+const SUPPORT_STREAM = 2
+
+type FitMode = 'cover' | 'contain' | 'fill'
+const FIT_MODES: readonly FitMode[] = ['cover', 'contain', 'fill']
+
+export interface CameraStatusInput {
+  streamError: string | null
+  isReconnecting: boolean
+  /** Streaming is supported AND the <ha-camera-stream> bootstrap has not failed. */
+  supportsStream: boolean
+  isStreaming: boolean
+  /**
+   * Recent-frame evidence from the status hook (frames observed within
+   * FRAME_WARNING_MS) — NOT the lagging isStreaming flag, which a frozen
+   * frame never flips false while the watchdog is suspended during entity
+   * unavailability.
+   */
+  isActivelyStreaming: boolean
+  hasFrameWarning: boolean
+  entityState: string
+}
+
+// Single derivation of the status pill, in strict priority order:
+// ERROR > UNAVAILABLE (entity unavailable and not streaming) > CONNECTING >
+// NO SIGNAL > RECORDING > STREAMING > IDLE > raw state. CameraControls maps
+// label, icon, and color from the returned status, so they can never disagree.
+export function deriveCameraStatus({
+  streamError,
+  isReconnecting,
+  supportsStream,
+  isStreaming,
+  isActivelyStreaming,
+  hasFrameWarning,
+  entityState,
+}: CameraStatusInput): CameraStatus {
+  if (streamError) return 'error'
+  // An unavailable entity shows the truthful UNAVAILABLE pill (raw state)
+  // unless frames are DEMONSTRABLY flowing — recent-frame evidence, not the
+  // lagging isStreaming flag, which stays true over a frozen frame while the
+  // status machine is suspended. A dead camera therefore reads UNAVAILABLE
+  // immediately instead of NO SIGNAL followed by a stall error; a stream
+  // that keeps playing through the blip keeps its STREAMING pill below.
+  if (entityState === 'unavailable' && !isActivelyStreaming) return 'raw'
+  if (isReconnecting || (supportsStream && !isStreaming)) return 'connecting'
+  if (hasFrameWarning) return 'no-signal'
+  if (
+    entityState === 'recording' ||
+    (supportsStream && isStreaming && entityState === 'streaming')
+  ) {
+    return 'recording'
+  }
+  if (supportsStream && isStreaming) return 'streaming'
+  if (entityState === 'idle') return 'idle'
+  return 'raw'
+}
+
+function CameraCardComponent({
+  entityId,
+  size = 'medium',
+  onDelete,
+  isSelected = false,
+  onSelect,
+  item,
+}: CameraCardProps) {
+  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const { mode, currentScreenId } = useDashboardStore()
+  const isEditMode = mode === 'edit'
+  const isReconnecting = useIsConnecting()
+  const hass = useHomeAssistantOptional()
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isMuted, setIsMuted] = useState(true) // Start muted by default
+  const [configOpen, setConfigOpen] = useState(false)
+  // Fullscreen overlay portal target: resolved from the card's root DOM node so
+  // the overlay stays inside the liebe-panel shadow root (keeps @lit/context
+  // resolution working on HA ≥ 2026.7). Falls back to document.body standalone.
+  const { ref: rootRefCallback, container: portalContainer } = usePanelPortalContainer()
+  // Reactive mirror of the element's inner <video> for CameraStats (reading a
+  // ref during render is unsafe per react-hooks/refs).
+  const [innerVideo, setInnerVideo] = useState<HTMLVideoElement | null>(null)
+  const normalContainerRef = useRef<HTMLDivElement>(null)
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null)
+  const streamHandleRef = useRef<HaCameraStreamHandle | null>(null)
+
+  // Get configuration values. `fit` is whitelisted against the supported
+  // modes (persisted config is user-editable YAML — an unknown value must
+  // degrade to the cover default, not flow into CSS/HaCameraStream).
+  const config = item?.config || {}
+  const fit = FIT_MODES.find((mode) => mode === config.fit) ?? 'cover'
+  const matting = (config.matting as string) || 'small'
+  const showStats = config.showStats === true
+
+  const supportsStream = !!(
+    ((entity?.attributes as CameraAttributes | undefined)?.supported_features ?? 0) & SUPPORT_STREAM
+  )
+  const isUnavailable = entity?.state === 'unavailable'
+
+  // Bootstrap <ha-camera-stream>: 'ready' renders the element, 'unavailable'
+  // falls back to the still image, 'loading' keeps the connecting state.
+  const readiness = useCameraStreamReady(entityId)
+
+  // Entity availability does NOT gate mounting: a 1-2 s 'unavailable' blip
+  // (HA reconnect) must not hard-unmount <ha-camera-stream> — the underlying
+  // stream often keeps playing straight through. Instead the card shows the
+  // unavailable chrome/pill immediately and the status hook SUSPENDS its
+  // entire machine while the entity is unavailable (load budget paused,
+  // watchdog silent, media-error fast-fails suppressed — exactly like a
+  // hidden tab), so a dead camera can never burn budgets or surface sticky
+  // errors during the blip. On recovery the hook resumes with a frame-clock
+  // grace, a restored remount budget, and an automatic retry of any surfaced
+  // error — no manual Retry click needed.
+  const streamEnabled = !!entity && isConnected && supportsStream && readiness === 'ready'
+
+  const getInnerVideo = useCallback(() => streamHandleRef.current?.getInnerVideo() ?? null, [])
+  const getMjpegImg = useCallback(() => streamHandleRef.current?.getMjpegImg() ?? null, [])
+
+  const {
+    isStreaming,
+    isActivelyStreaming,
+    hasFrameWarning,
+    error: streamError,
+    remountKey,
+    onStreamEvent,
+    retry: retryStream,
+  } = useCameraStreamStatus({
+    getInnerVideo,
+    getMjpegImg,
+    entityState: entity?.state,
+    enabled: streamEnabled,
+    entityAvailable: !isUnavailable,
+  })
+
+  // Wire element events into the status machine and refresh the reactive inner
+  // <video> (it is recreated when the element remounts or swaps players).
+  const handleStreamEvent = useCallback(() => {
+    onStreamEvent()
+    setInnerVideo(getInnerVideo())
+  }, [onStreamEvent, getInnerVideo])
+
+  const handleVideoClick = useCallback(() => {
+    if (!streamError && !isEditMode) {
+      setIsFullscreen(!isFullscreen)
+    }
+  }, [streamError, isEditMode, isFullscreen])
+
+  // Keyboard parity for the clickable stream surface: Enter and Space toggle
+  // fullscreen exactly like a tap (Space's default scroll is suppressed).
+  const handleVideoKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleVideoClick()
+      }
+    },
+    [handleVideoClick]
+  )
+
+  const handleVideoFullscreen = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation()
+      const container = (isFullscreen ? fullscreenContainerRef : normalContainerRef).current
+      // Prefer the element's inner <video>; fall back to the <ha-camera-stream>
+      // host itself (e.g. MJPEG mode, where there is no inner video).
+      const target =
+        streamHandleRef.current?.getInnerVideo() ??
+        (container?.querySelector('ha-camera-stream') as HTMLElement | null)
+      if (!target) return
+
+      try {
+        // Fullscreen state must be read from the target's OWN root: for a
+        // target inside a shadow root (ha-camera-stream's inner <video>),
+        // document.fullscreenElement is retargeted to the shadow HOST, so a
+        // document-level comparison never matches and toggle-off would call
+        // requestFullscreen again. A light-DOM target's root IS the document;
+        // anything else (e.g. a detached node) falls back to the document
+        // check.
+        const root = target.getRootNode()
+        const fullscreenElement =
+          root instanceof Document || root instanceof ShadowRoot
+            ? root.fullscreenElement
+            : document.fullscreenElement
+        if (fullscreenElement === target) {
+          await document.exitFullscreen()
+        } else {
+          await target.requestFullscreen()
+        }
+      } catch (error) {
+        logger.error('Fullscreen error:', error)
+      }
+    },
+    [isFullscreen]
+  )
+
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsMuted((prev) => !prev)
+  }, [])
+
+  const handleConfigSave = (updates: Partial<GridItem>) => {
+    if (item && currentScreenId) {
+      dashboardActions.updateGridItem(currentScreenId, item.id, updates)
+    }
+  }
+
+  // Show skeleton while loading initial data
+  if (isEntityLoading || (!entity && isConnected)) {
+    return <SkeletonCard size={size} showIcon={true} lines={2} />
+  }
+
+  // Show error state when disconnected or the entity is missing. The skeleton
+  // guard above already swallows the connected-but-missing-entity case, so
+  // this block only ever renders while disconnected — no per-prop ternaries.
+  if (!entity || !isConnected) {
+    return (
+      <ErrorDisplay
+        error="Disconnected from Home Assistant"
+        variant="card"
+        title="Disconnected"
+        onRetry={() => window.location.reload()}
+        size="3"
+      />
+    )
+  }
+
+  const friendlyName = entity.attributes.friendly_name || entity.entity_id
+  const isRecording = entity.state === 'recording'
+  const isStreamingState = entity.state === 'streaming'
+  const activeFit: FitMode = isFullscreen ? 'contain' : fit
+  // When the element cannot be bootstrapped the still-image fallback renders;
+  // derive the pill from the raw entity state instead of a forever-CONNECTING.
+  // (Entity unavailability is handled inside deriveCameraStatus: UNAVAILABLE
+  // unless recent-frame evidence proves the stream is still playing through
+  // the blip.)
+  const pillSupportsStream = supportsStream && readiness !== 'unavailable'
+  const status = deriveCameraStatus({
+    streamError,
+    isReconnecting,
+    supportsStream: pillSupportsStream,
+    isStreaming,
+    isActivelyStreaming,
+    hasFrameWarning,
+    entityState: entity.state,
+  })
+  const showControls = pillSupportsStream && isStreaming && !streamError && !isEditMode
+  // The stream surface is tappable (fullscreen toggle) outside edit mode and
+  // while no error branch is shown; when it is, it is also a keyboard button.
+  const videoClickable = !isEditMode && !streamError
+
+  // Calculate matting/padding based on configuration
+  // Map matting values to Radix UI space tokens
+  // Small matches the default padding for the current card size
+  const defaultPadding = size === 'small' ? '2' : size === 'large' ? '4' : '3'
+  const mattingPadding =
+    matting === 'none'
+      ? '0'
+      : matting === 'large'
+        ? 'var(--space-5)'
+        : `var(--space-${defaultPadding})`
+
+  return (
+    <>
+      <GridCard
+        size={size}
+        isLoading={false}
+        isError={!!streamError}
+        isStale={isStale}
+        isSelected={isSelected}
+        isOn={isRecording || isStreamingState}
+        isUnavailable={isUnavailable}
+        onSelect={() => onSelect?.(!isSelected)}
+        onDelete={onDelete}
+        onConfigure={() => setConfigOpen(true)}
+        hasConfiguration={true}
+        title={streamError || undefined}
+        className="camera-card"
+        customPadding={mattingPadding}
+        style={{
+          backgroundColor:
+            (isRecording || isStreamingState) && !isSelected && !streamError
+              ? 'var(--blue-3)'
+              : undefined,
+          borderColor:
+            (isRecording || isStreamingState) && !isSelected && !streamError
+              ? 'var(--blue-6)'
+              : undefined,
+          borderWidth: isSelected || streamError || isRecording || isStreamingState ? '2px' : '1px',
+        }}
+      >
+        <div ref={rootRefCallback} style={{ width: '100%', height: '100%', position: 'relative' }}>
+          {supportsStream ? (
+            <div
+              ref={normalContainerRef}
+              role={videoClickable ? 'button' : undefined}
+              tabIndex={videoClickable ? 0 : undefined}
+              aria-label={videoClickable ? `Toggle fullscreen for ${friendlyName}` : undefined}
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'var(--gray-3)',
+                borderRadius: 'var(--radius-2)',
+                overflow: 'hidden',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: videoClickable ? 'pointer' : 'default',
+              }}
+              onClick={handleVideoClick}
+              onKeyDown={videoClickable ? handleVideoKeyDown : undefined}
+            >
+              {streamError ? (
+                <Flex direction="column" align="center" gap="2" style={{ padding: '12px' }}>
+                  <Text size="2" color="red">
+                    {streamError}
+                  </Text>
+                  {/* size 3+: minimum 44px touch target (touch-first UI). */}
+                  <Button size="3" variant="soft" onClick={retryStream}>
+                    <ReloadIcon />
+                    Retry
+                  </Button>
+                </Flex>
+              ) : (
+                <>
+                  <KeepAlive
+                    cacheKey={`camera-${entityId}`}
+                    containerRef={isFullscreen ? fullscreenContainerRef : normalContainerRef}
+                  >
+                    {readiness === 'ready' ? (
+                      <HaCameraStream
+                        ref={streamHandleRef}
+                        entity={entity}
+                        hass={hass}
+                        muted={isMuted}
+                        fitMode={activeFit}
+                        remountKey={remountKey}
+                        onStreamEvent={handleStreamEvent}
+                      />
+                    ) : readiness === 'unavailable' ? (
+                      <StillImageFallback entity={entity} objectFit={activeFit} />
+                    ) : null}
+                  </KeepAlive>
+                  {readiness !== 'unavailable' && !isUnavailable && !isStreaming && (
+                    <Flex
+                      align="center"
+                      justify="center"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'var(--gray-3)',
+                      }}
+                    >
+                      <Spinner size="3" />
+                    </Flex>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              style={{ width: '100%', height: '100%' }}
+            >
+              <GridCard.Icon>
+                <VideoIcon
+                  style={{
+                    color: isRecording || isStreamingState ? 'var(--blue-9)' : 'var(--gray-9)',
+                    opacity: 1,
+                    transition: 'opacity 0.2s ease',
+                    width: 20,
+                    height: 20,
+                  }}
+                />
+              </GridCard.Icon>
+            </Flex>
+          )}
+
+          {/* Stats display (when enabled; the fullscreen overlay renders its
+              own instance, so the in-card one pauses while it is open).
+              Gated on readiness: the still-image fallback has no video to
+              read playback quality from, so no stats overlay renders there. */}
+          {showStats &&
+            !isFullscreen &&
+            supportsStream &&
+            readiness === 'ready' &&
+            !streamError && <CameraStats size={size} videoElement={innerVideo} />}
+
+          {/* Controls and info container positioned absolutely at bottom left */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              fontSize: size === 'small' ? '8px' : size === 'large' ? '11.2px' : '9.6px',
+            }}
+          >
+            <CameraControls
+              friendlyName={friendlyName}
+              status={status}
+              rawState={entity.state}
+              showControls={showControls}
+              isMuted={isMuted}
+              handleToggleMute={handleToggleMute}
+              handleVideoFullscreen={handleVideoFullscreen}
+              size={size}
+            />
+          </div>
+        </div>
+      </GridCard>
+
+      {/* Fullscreen modal */}
+      <FullscreenModal
+        open={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        includeTheme={false}
+        portalContainer={portalContainer}
+        backdropStyle={{
+          backgroundColor: 'black',
+          cursor: 'pointer',
+        }}
+        contentStyle={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+        }}
+      >
+        {/* Any tap on the overlay exits — including the letterbox area. The
+            modal's content div swallows clicks (stopPropagation), so without
+            this handler only taps landing on the video itself would close
+            (bubbling through the KeepAlive portal to handleVideoClick), making
+            the "Click or press ESC to exit" hint wrong for the letterbox.
+            CameraControls' buttons stopPropagation and are siblings of this
+            container, so mute/native-fullscreen never trigger it. */}
+        <div
+          ref={fullscreenContainerRef}
+          onClick={() => setIsFullscreen(false)}
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        />
+
+        {/* Fullscreen stats display (when enabled; readiness-gated like the
+            in-card instance — the still-image fallback has no video). */}
+        {showStats && supportsStream && readiness === 'ready' && !streamError && (
+          <CameraStats size="large" videoElement={innerVideo} />
+        )}
+
+        {/* Fullscreen controls and info container. No z-index: the container
+            is a positioned element following the (static) stream container in
+            DOM order, so it paints above the video without one — stacking is
+            otherwise delegated to the fullscreen portal (Radix guidance). */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '2%',
+            left: '2%',
+            fontSize: 'min(3.2vw, 19.2px)', // Scale based on viewport width (reduced by 20%)
+          }}
+        >
+          <CameraControls
+            friendlyName={friendlyName}
+            status={status}
+            rawState={entity.state}
+            showControls={showControls}
+            isMuted={isMuted}
+            handleToggleMute={handleToggleMute}
+            handleVideoFullscreen={handleVideoFullscreen}
+            size="large"
+            isFullscreen={true}
+          />
+        </div>
+
+        {/* Exit indicator */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(4px)',
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: '500',
+            pointerEvents: 'none',
+          }}
+        >
+          Click or press ESC to exit
+        </div>
+      </FullscreenModal>
+
+      {/* Configuration modal */}
+      <CardConfig.Modal
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        item={
+          item || {
+            id: '',
+            entityId,
+            type: 'entity',
+            x: 0,
+            y: 0,
+            width: CameraCard.defaultDimensions.width,
+            height: CameraCard.defaultDimensions.height,
+          }
+        }
+        onSave={handleConfigSave}
+      />
+    </>
+  )
+}
+
+// Memoize the component to prevent unnecessary re-renders (default shallow
+// prop comparison).
+const MemoizedCameraCard = memo(CameraCardComponent)
+
+export const CameraCard = Object.assign(MemoizedCameraCard, {
+  defaultDimensions: { width: 4, height: 2 },
+})

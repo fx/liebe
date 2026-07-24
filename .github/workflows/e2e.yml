@@ -14,6 +14,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Check for leaked RTSP secrets
+        run: scripts/check-rtsp-leak.sh
+        env:
+          RTSP_TEST_URL: ${{ secrets.RTSP_TEST_URL }}
+
       - name: Use Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -31,6 +36,11 @@ jobs:
 
       - name: Start Home Assistant stack
         run: npm run e2e:ha:up
+        env:
+          # Optional personal RTSP stream; compose substitutes it into the
+          # go2rtc container environment (see ha/docker-compose.yml). Empty
+          # when the secret is unset — the synthetic stream is unaffected.
+          RTSP_TEST_URL: ${{ secrets.RTSP_TEST_URL }}
 
       - name: Run e2e tests
         run: npm run e2e

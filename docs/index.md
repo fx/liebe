@@ -5,7 +5,7 @@
 | Spec                                        | Description                                                                                                                       | Status |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | [Architecture](specs/architecture/)         | Project-level tech stack, repository layout, build system, dev workflow, testing/linting conventions, and GitHub Pages deployment | active |
-| [Camera Streaming](specs/camera-streaming/) | WebRTC camera cards — stream negotiation via Home Assistant/go2rtc, fullscreen and mute controls, fit/matting/debug configuration | active |
+| [Camera Streaming](specs/camera-streaming/) | Camera cards wrapping HA's ha-camera-stream element — bootstrap ladder, status machine, still-image fallback, in-tree fullscreen  | active |
 | [Dashboard Config](specs/dashboard-config/) | Dashboard configuration state — screen tree, view/edit mode, localStorage persistence, and single-file YAML/JSON import/export    | active |
 | [Entity Cards](specs/entity-cards/)         | Entity card system — domain-to-card registry, all card components and variants, size variants, config modal, and entity browser   | active |
 | [Entity State](specs/entity-state/)         | Home Assistant WebSocket connection and entity-state pipeline — debouncing, batching, stores, consumer hooks, and service calls   | active |
@@ -23,3 +23,4 @@
 | 0004 | [Portable Configuration Contract](changes/0004-portable-config-contract.md)       | [Dashboard Config](specs/dashboard-config/) | complete | —          |
 | 0005 | [Dockerized Home Assistant E2E Environment](changes/0005-dockerized-ha-e2e.md)    | [Architecture](specs/architecture/)         | complete | —          |
 | 0006 | [Codecov & 100% Patch Coverage](changes/0006-codecov-patch-coverage.md)           | [Architecture](specs/architecture/)         | complete | —          |
+| 0007 | [HA Camera Stream Element](changes/0007-ha-camera-stream.md)                      | [Camera Streaming](specs/camera-streaming/) | complete | —          |

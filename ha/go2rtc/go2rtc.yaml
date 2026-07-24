@@ -1,0 +1,25 @@
+# go2rtc configuration for the Liebe e2e camera stack. See docs/changes/0007.
+#
+# - e2e_pattern: fully synthetic ffmpeg testsrc2 stream — deterministic, no
+#   network access, the guaranteed CI camera.
+# - personal: optional real stream injected via the RTSP_TEST_URL environment
+#   variable (go2rtc `${VAR:default}` substitution, default empty). The value
+#   lives only in untracked .env.local / CI secrets and MUST never be
+#   committed; scripts/check-rtsp-leak.sh gates this.
+streams:
+  # `-g 30 -keyint_min 30` forces a keyframe every 2s (30 frames @ 15fps) and
+  # `-bf 0` drops B-frames: HA's HLS stream worker cannot cut a segment until it
+  # sees a keyframe, so the x264 default GOP (~250 frames ≈ 16s) left HLS unable
+  # to start within the card's load budget ("Stream failed to start"). WebRTC
+  # forwards RTP untouched so it never needed this; HLS does. See docs/changes/0007.
+  e2e_pattern: exec:ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=15 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 30 -keyint_min 30 -bf 0 -f rtsp {output}
+  personal: ${RTSP_TEST_URL:}
+
+webrtc:
+  candidates:
+    # Advertised WebRTC candidate host. The 127.0.0.1 default covers CI and
+    # local runs (browser on the compose host); set WEBRTC_CANDIDATE_HOST to a
+    # remotely reachable address (e.g. the Tailscale hostname/IP, paired with
+    # HA_BIND=0.0.0.0) so remote peers receive a usable candidate. The port
+    # must match the published 8555 port in ha/docker-compose.yml.
+    - ${WEBRTC_CANDIDATE_HOST:127.0.0.1}:8555

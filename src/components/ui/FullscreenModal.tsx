@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode, type CSSProperties } from 'react'
+import { useCallback, useEffect, useState, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Theme } from '@radix-ui/themes'
 
@@ -30,6 +30,51 @@ interface FullscreenModalProps {
    * Z-index for the modal. Default 99999 to escape shadow DOM menus.
    */
   zIndex?: number
+  /**
+   * Element to portal into. Defaults to document.body. Pass a container inside
+   * the panel's shadow root (see resolvePanelPortalContainer) when the modal
+   * content must stay inside the <home-assistant> DOM tree, e.g. for HA
+   * elements that resolve their dependencies via @lit/context.
+   */
+  portalContainer?: Element
+}
+
+/**
+ * Resolve the portal container for content that must stay inside the panel's
+ * DOM tree. Given an element rendered by the panel, walks to its root node:
+ * when that is the panel's shadow root, returns the React root container
+ * <div> inside it (so portalled content keeps receiving @lit/context
+ * `context-request` resolution from <home-assistant>); otherwise falls back
+ * to document.body (light-DOM/standalone rendering).
+ */
+export function resolvePanelPortalContainer(el: Element | null): Element {
+  const root = el?.getRootNode()
+  if (root instanceof ShadowRoot) {
+    // Contract with src/panel.ts: the React root container is tagged with
+    // data-liebe-root. Fall back to the first-div heuristic for older embeds.
+    const container = root.querySelector('[data-liebe-root]') ?? root.querySelector('div')
+    if (container) return container
+  }
+  return document.body
+}
+
+/**
+ * Callback-ref + state wiring around resolvePanelPortalContainer: attach
+ * `ref` to any element rendered by the panel and `container` resolves to the
+ * portal target for FullscreenModal's portalContainer prop (undefined until
+ * the element mounts, i.e. FullscreenModal's document.body default).
+ */
+export function usePanelPortalContainer(): {
+  ref: (el: Element | null) => void
+  container: Element | undefined
+} {
+  const [container, setContainer] = useState<Element | undefined>(undefined)
+  const ref = useCallback((el: Element | null) => {
+    if (el) {
+      setContainer(resolvePanelPortalContainer(el))
+    }
+  }, [])
+  return { ref, container }
 }
 
 /**
@@ -38,7 +83,7 @@ interface FullscreenModalProps {
  * modals get trapped under menus.
  *
  * Features:
- * - Renders to document.body via React portal
+ * - Renders to document.body (or a custom portalContainer) via React portal
  * - High z-index to appear above everything
  * - ESC key support
  * - Click outside to close
@@ -54,6 +99,7 @@ export function FullscreenModal({
   closeOnBackdropClick = true,
   closeOnEsc = true,
   zIndex = 99999,
+  portalContainer = document.body,
 }: FullscreenModalProps) {
   // Handle ESC key
   useEffect(() => {
@@ -105,5 +151,5 @@ export function FullscreenModal({
     </>
   )
 
-  return createPortal(includeTheme ? <Theme>{content}</Theme> : content, document.body)
+  return createPortal(includeTheme ? <Theme>{content}</Theme> : content, portalContainer)
 }
