@@ -668,6 +668,52 @@ describe('CameraCard', () => {
       expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
     })
 
+    it('ignores Enter/Space bubbling up from a focused overlay control button', () => {
+      statusMock.isStreaming = true
+      renderCard()
+      fireEvent.click(getStreamHost())
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+
+      // The controls now live inside the keyboard surface: an Enter/Space that
+      // bubbles from the mute button must activate the button, NOT toggle the
+      // overlay closed (the surface only acts on keys targeting it directly).
+      fireEvent.keyDown(screen.getByTitle('Mute'), { key: 'Enter' })
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+      fireEvent.keyDown(screen.getByTitle('Mute'), { key: ' ' })
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+    })
+
+    it('clears the stacking lift when the overlay can no longer render', () => {
+      const item: GridItem = {
+        id: 'item-1',
+        type: 'entity',
+        entityId: 'camera.front_door',
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 2,
+      }
+      const { rerender } = render(
+        <Theme>
+          <CameraCard entityId="camera.front_door" item={item} />
+        </Theme>
+      )
+      fireEvent.click(getStreamHost())
+      expect(cameraFullscreenStore.state).toBe(1)
+
+      // Connection drops while fullscreen: the card falls back to its
+      // disconnected view, so no overlay renders — the root-Theme lift must not
+      // stay stranded on with nothing overlaid.
+      mockEntityReturn({ entity: undefined, isConnected: false })
+      rerender(
+        <Theme>
+          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+        </Theme>
+      )
+      expect(screen.getByText('Disconnected')).toBeInTheDocument()
+      expect(cameraFullscreenStore.state).toBe(0)
+    })
+
     it('does not open tap-fullscreen in edit mode', () => {
       mockStoreMode('edit')
       renderCard()

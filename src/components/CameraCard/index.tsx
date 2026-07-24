@@ -164,17 +164,19 @@ function CameraCardComponent({
     entityAvailable: !isUnavailable,
   })
 
-  // A surfaced stream error always shows in-card with Retry — never trapped
-  // inside the overlay — and a later recovery (including the status machine's
-  // automatic retry) must not silently reopen it. Closing the overlay the
-  // instant an error surfaces, via React's sanctioned render-phase state
-  // adjustment (converges on the next render, no setState-in-effect cascade),
-  // keeps recovery in-card: once isFullscreen is cleared, only a fresh tap
-  // reopens it.
-  const [errorSnapshot, setErrorSnapshot] = useState(streamError)
-  if (streamError !== errorSnapshot) {
-    setErrorSnapshot(streamError)
-    if (streamError) setIsFullscreen(false)
+  // The in-place overlay only actually renders when the card body shows the
+  // stream container. If it cannot — a surfaced error (shown in-card with
+  // Retry), an entity/connection dropout, initial loading, or lost stream
+  // support — close fullscreen during render (React's sanctioned state
+  // adjustment; converges on the next render with no setState-in-effect
+  // cascade). This keeps the ESC handler and the root-Theme stacking lift from
+  // staying active with nothing overlaid, and keeps any later recovery
+  // (including the status machine's automatic error retry) in-card until the
+  // user taps again — never a silent reopen.
+  const canShowOverlay =
+    !isEntityLoading && !!entity && isConnected && supportsStream && !streamError
+  if (isFullscreen && !canShowOverlay) {
+    setIsFullscreen(false)
   }
 
   // ESC exits the in-app fullscreen overlay (the FullscreenModal that used to
@@ -211,9 +213,13 @@ function CameraCardComponent({
   }, [streamError, isEditMode, isFullscreen])
 
   // Keyboard parity for the clickable stream surface: Enter and Space toggle
-  // fullscreen exactly like a tap (Space's default scroll is suppressed).
+  // fullscreen exactly like a tap (Space's default scroll is suppressed). Only
+  // the surface itself acts — Enter/Space bubbling up from a focused control
+  // button (mute, native fullscreen) must activate that button, not also flip
+  // the overlay (and Space's preventDefault must not swallow the activation).
   const handleVideoKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (e.target !== e.currentTarget) return
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
         handleVideoClick()
