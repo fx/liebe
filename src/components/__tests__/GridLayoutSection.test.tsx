@@ -131,14 +131,14 @@ describe('GridLayoutSection', () => {
     positionStrategyCapture.current = undefined
   })
 
-  it('positions items with the absolute (top/left) strategy, not CSS transforms', () => {
+  it('forwards the absolute (top/left) positionStrategy to GridLayout', () => {
     render(<GridLayoutSection {...defaultProps} />)
 
-    // Identity check against the real export: proves the component passes
-    // `absoluteStrategy` from the `react-grid-layout/core` subpath.
+    // Identity check against the real export: proves the component forwards
+    // `absoluteStrategy` from the `react-grid-layout/core` subpath, so GridLayout
+    // positions items via top/left rather than the default `transform: translate(...)`
+    // that would establish a containing block for `position: fixed` descendants.
     expect(positionStrategyCapture.current).toBe(absoluteStrategy)
-    // Absolute strategy positions via top/left, so items never carry the inline
-    // `transform: translate(...)` that would establish a containing block.
     expect((positionStrategyCapture.current as { type?: string }).type).not.toBe('transform')
   })
 
