@@ -9,10 +9,6 @@
   transition: none;
 }
 
-.react-grid-item.cssTransforms {
-  transition: none;
-}
-
 .react-grid-item.resizing {
   z-index: 1;
   will-change: width, height;

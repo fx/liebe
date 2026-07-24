@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+// `react-grid-layout/core` is the real module (only the package root is mocked
+// below), so this is the exact `absoluteStrategy` object the component passes.
+import { absoluteStrategy } from 'react-grid-layout/core'
 import { GridLayoutSection } from '~/components/GridLayoutSection'
 import { dashboardActions } from '~/store'
 import type { GridItem } from '~/store/types'
 import * as React from 'react'
+
+// Records the `positionStrategy` prop the component hands to <GridLayout>, so a
+// test can assert it is the absolute (top/left) strategy rather than the default
+// CSS-transform one. Hoisted so the vi.mock factory (which is hoisted above
+// imports) can safely reference it.
+const positionStrategyCapture = vi.hoisted(() => ({ current: undefined as unknown }))
 
 // Mock react-grid-layout
 vi.mock('react-grid-layout', () => {
@@ -15,6 +24,7 @@ vi.mock('react-grid-layout', () => {
       onLayoutChange,
       dragConfig,
       resizeConfig,
+      positionStrategy,
     }: {
       children: React.ReactNode[]
       layout: Array<{ i: string; x: number; y: number; w: number; h: number }>
@@ -23,7 +33,9 @@ vi.mock('react-grid-layout', () => {
       ) => void
       dragConfig?: { enabled?: boolean; handle?: string }
       resizeConfig?: { enabled?: boolean }
+      positionStrategy?: unknown
     }) => {
+      positionStrategyCapture.current = positionStrategy
       return React.createElement(
         'div',
         {
@@ -116,6 +128,18 @@ describe('GridLayoutSection', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    positionStrategyCapture.current = undefined
+  })
+
+  it('forwards the absolute (top/left) positionStrategy to GridLayout', () => {
+    render(<GridLayoutSection {...defaultProps} />)
+
+    // Identity check against the real export: proves the component forwards
+    // `absoluteStrategy` from the `react-grid-layout/core` subpath, so GridLayout
+    // positions items via top/left rather than the default `transform: translate(...)`
+    // that would establish a containing block for `position: fixed` descendants.
+    expect(positionStrategyCapture.current).toBe(absoluteStrategy)
+    expect((positionStrategyCapture.current as { type?: string }).type).not.toBe('transform')
   })
 
   it('renders grid items with correct layout', () => {
