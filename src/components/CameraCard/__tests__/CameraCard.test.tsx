@@ -643,6 +643,18 @@ describe('CameraCard', () => {
       expect(screen.getByText('Stream stalled')).toBeInTheDocument()
       expect(screen.getByText('Retry')).toBeInTheDocument()
       expect(cameraFullscreenStore.state).toBe(0)
+
+      // Recovery (the status machine auto-clears the error) must stay in-card —
+      // it must NOT silently reopen the overlay the tap had opened.
+      statusMock.error = null
+      rerender(
+        <Theme>
+          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+        </Theme>
+      )
+      expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
+      expect(screen.queryByText('Click or press ESC to exit')).toBeNull()
+      expect(cameraFullscreenStore.state).toBe(0)
     })
 
     it('does not exit when tapping the overlay mute control', () => {

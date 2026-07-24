@@ -164,31 +164,38 @@ function CameraCardComponent({
     entityAvailable: !isUnavailable,
   })
 
-  // Effective in-app fullscreen: a surfaced error always shows in-card with
-  // Retry, never trapped inside the overlay — so an error forces the overlay
-  // closed WITHOUT touching the isFullscreen state (deriving instead of
-  // setState-in-effect keeps the render/effects a pure function of inputs).
-  const showFullscreen = isFullscreen && !streamError
+  // A surfaced stream error always shows in-card with Retry — never trapped
+  // inside the overlay — and a later recovery (including the status machine's
+  // automatic retry) must not silently reopen it. Closing the overlay the
+  // instant an error surfaces, via React's sanctioned render-phase state
+  // adjustment (converges on the next render, no setState-in-effect cascade),
+  // keeps recovery in-card: once isFullscreen is cleared, only a fresh tap
+  // reopens it.
+  const [errorSnapshot, setErrorSnapshot] = useState(streamError)
+  if (streamError !== errorSnapshot) {
+    setErrorSnapshot(streamError)
+    if (streamError) setIsFullscreen(false)
+  }
 
   // ESC exits the in-app fullscreen overlay (the FullscreenModal that used to
   // own this handling is gone — fullscreen is now in-place on the card).
   useEffect(() => {
-    if (!showFullscreen) return
+    if (!isFullscreen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsFullscreen(false)
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [showFullscreen])
+  }, [isFullscreen])
 
   // While the overlay is open, lift the root Theme's stacking (PanelApp reads
   // this store) so the in-place fixed overlay paints over Home Assistant's
   // chrome — WITHOUT ever moving the stream node.
   useEffect(() => {
-    if (!showFullscreen) return
+    if (!isFullscreen) return
     enterCameraFullscreen()
     return () => exitCameraFullscreen()
-  }, [showFullscreen])
+  }, [isFullscreen])
 
   // Wire element events into the status machine and refresh the reactive inner
   // <video> (it is recreated when the element remounts or swaps players).
@@ -281,7 +288,7 @@ function CameraCardComponent({
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
   const isRecording = entity.state === 'recording'
   const isStreamingState = entity.state === 'streaming'
-  const activeFit: FitMode = showFullscreen ? 'contain' : fit
+  const activeFit: FitMode = isFullscreen ? 'contain' : fit
   // When the element cannot be bootstrapped the still-image fallback renders;
   // derive the pill from the raw entity state instead of a forever-CONNECTING.
   // (Entity unavailability is handled inside deriveCameraStatus: UNAVAILABLE
@@ -322,9 +329,9 @@ function CameraCardComponent({
     <div
       style={{
         position: 'absolute',
-        bottom: showFullscreen ? '2%' : '8px',
-        left: showFullscreen ? '2%' : '8px',
-        fontSize: showFullscreen
+        bottom: isFullscreen ? '2%' : '8px',
+        left: isFullscreen ? '2%' : '8px',
+        fontSize: isFullscreen
           ? 'min(3.2vw, 19.2px)' // Scale with viewport width (reduced by 20%)
           : size === 'small'
             ? '8px'
@@ -341,8 +348,8 @@ function CameraCardComponent({
         isMuted={isMuted}
         handleToggleMute={handleToggleMute}
         handleVideoFullscreen={handleVideoFullscreen}
-        size={showFullscreen ? 'large' : size}
-        isFullscreen={showFullscreen}
+        size={isFullscreen ? 'large' : size}
+        isFullscreen={isFullscreen}
       />
     </div>
   )
@@ -378,7 +385,7 @@ function CameraCardComponent({
           // paint clip) for exactly the fullscreen duration so the in-place
           // fixed stream container can escape the card and cover the viewport.
           // Restored the instant the overlay closes.
-          ...(showFullscreen ? { contain: 'none' } : {}),
+          ...(isFullscreen ? { contain: 'none' } : {}),
         }}
       >
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -391,7 +398,7 @@ function CameraCardComponent({
               onClick={handleVideoClick}
               onKeyDown={videoClickable ? handleVideoKeyDown : undefined}
               style={
-                showFullscreen
+                isFullscreen
                   ? {
                       // In-place promotion to a viewport-filling fixed overlay.
                       // The stream node inside NEVER moves — this is a pure
@@ -424,18 +431,8 @@ function CameraCardComponent({
                   <Text size="2" color="red">
                     {streamError}
                   </Text>
-                  {/* size 3+: minimum 44px touch target (touch-first UI).
-                      Clear any lingering fullscreen intent so a successful
-                      retry recovers into the in-card view, not back into the
-                      overlay. */}
-                  <Button
-                    size="3"
-                    variant="soft"
-                    onClick={() => {
-                      setIsFullscreen(false)
-                      retryStream()
-                    }}
-                  >
+                  {/* size 3+: minimum 44px touch target (touch-first UI). */}
+                  <Button size="3" variant="soft" onClick={retryStream}>
                     <ReloadIcon />
                     Retry
                   </Button>
@@ -475,12 +472,12 @@ function CameraCardComponent({
                       fullscreen). Readiness-gated: the still-image fallback has
                       no video to read playback quality from. */}
                   {showStats && readiness === 'ready' && (
-                    <CameraStats size={showFullscreen ? 'large' : size} videoElement={innerVideo} />
+                    <CameraStats size={isFullscreen ? 'large' : size} videoElement={innerVideo} />
                   )}
                   {/* Exit hint (fullscreen only). pointerEvents:none so a tap
                       landing on it still bubbles to the container's exit
                       handler (letterbox/backdrop tap closes). */}
-                  {showFullscreen && (
+                  {isFullscreen && (
                     <div
                       style={{
                         position: 'absolute',

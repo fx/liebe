@@ -34,11 +34,16 @@ describe('cameraFullscreenStore', () => {
     expect(cameraFullscreenStore.state).toBe(0)
   })
 
-  it('useCameraFullscreenActive tracks whether any overlay is open', () => {
+  it('useCameraFullscreenActive stays true until the last overlay closes', () => {
     const { result } = renderHook(() => useCameraFullscreenActive())
     expect(result.current).toBe(false)
 
     act(() => enterCameraFullscreen())
+    expect(result.current).toBe(true)
+
+    // A second overlay: the first exit must not flip the hook back to false.
+    act(() => enterCameraFullscreen())
+    act(() => exitCameraFullscreen())
     expect(result.current).toBe(true)
 
     act(() => exitCameraFullscreen())
