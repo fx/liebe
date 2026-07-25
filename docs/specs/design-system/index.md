@@ -161,7 +161,7 @@ Token layering (base → theme → user), application mechanism, and shadow-DOM 
 - Chrome and edit-mode UI (dialogs, selects, config forms) remain stock Radix Themes components.
 - Card anatomy parts are custom components styled by tokens; behavior-heavy controls (slider) build on unstyled Radix primitives (`@radix-ui/react-slider`) rather than bending `@radix-ui/themes` styled components.
 - The card surface uses a plain token-styled element (not `Card variant="classic"`, whose inset borders fight the flat look).
-- Per-domain coloring uses Radix per-instance `color` props or scale variables directly; the single Theme `accentColor` is not used for domain state.
+- Per-domain coloring MUST be applied by consuming the `--liebe-c-*` triplets, never by passing Radix per-instance `color` props or referencing Radix scale variables at the point of use. Those bypass the token contract: a component coloured by a Radix prop keeps its original hue when LCARS or user CSS remaps the triplet, silently breaking the remapping promise the token contract makes. The Radix scales remain the _source_ of the default theme's token values — the indirection through `--liebe-c-*` is what makes them themeable. The single Theme `accentColor` is not used for domain state.
 
 ## Constraints
 

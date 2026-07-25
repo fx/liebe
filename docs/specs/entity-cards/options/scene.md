@@ -115,7 +115,7 @@ Scenes are the canonical content of a header row of quick actions. When a scene 
 
 ## Open Questions
 
-- **Domain color for script/button.** The [design-system color table](../../design-system/#domain-color-discipline) assigns `--liebe-c-media` (indigo) to scenes; scripts and buttons have no token of their own. Sharing indigo across the family is the working default here, but whether scripts/buttons deserve a distinct token is unresolved.
+- **Domain color for script/button.** Settled for now by the [design-system table](../../design-system/#domain-color-discipline)'s fallback rule: `scene` takes `--liebe-c-media` (indigo), while `script`, `button`, and `input_button` are unlisted and therefore take `--liebe-c-default` (blue) — as the normative option text above states. Open only in the sense that the action family may eventually warrant a token of its own; until that is added to the design-system table, the fallback is the contract.
 - **What "success" means for the check.** `scene.turn_on` and `*.press` resolve when Home Assistant accepts the call, not when target devices actually change. The check therefore confirms dispatch, not outcome. Whether the card should attempt anything stronger (it likely cannot, generically) is open.
 - **Parallel/queued script runs.** Scripts in `queued`/`parallel` mode expose a `current` run count > 1. Whether the running state should surface the count ("Running ×2") or stay binary is open.
 - **Chip-row placement mechanism.** This spec defines the chip presentation; how a card is placed into a header/chip row (a grid-item flag, a dedicated row widget, or tier derivation) belongs to the [grid-layout spec](../../grid-layout/) and is not yet specified there.
