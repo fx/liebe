@@ -30,7 +30,7 @@ Related feature specs (project-level document links; these live as sibling direc
 - The project MUST use React 19 (`react`/`react-dom` `^19.2.1`) with the automatic JSX runtime (`vite.config.ts:130`, `tsconfig.json` `"jsx": "react-jsx"`).
 - Routing MUST use TanStack Router / TanStack Start in SPA mode (`@tanstack/react-start` `^1.160.0`, `tanstackStart({ spa: { enabled: true } })` at `vite.config.ts:138-142`).
 - Global state MUST use TanStack Store (`@tanstack/react-store` `^0.9.3`).
-- UI MUST use Radix UI Themes (`@radix-ui/themes` `^3.2.1`) as the primary component system, per project CLAUDE.md styling rules.
+- UI MUST use Radix UI Themes (`@radix-ui/themes` `^3.2.1`) as the primary component system, per project AGENTS.md styling rules.
 - Grid layout MUST use `react-grid-layout` `^1.5.2`.
 - Home Assistant connectivity MUST use `home-assistant-js-websocket` `^9.5.0`.
 - YAML import/export MUST use `js-yaml` `^4.1.0`; runtime schema validation MAY use `zod` `^3.24.2`.
@@ -47,7 +47,7 @@ Related feature specs (project-level document links; these live as sibling direc
 - Application source MUST live under `src/`, with the `~/*` path alias mapping to `./src/*` (`tsconfig.json` `paths`, mirrored in every Vite/Vitest config).
 - Feature code MUST be organized by concern: `src/components/` (UI, incl. `WeatherCard/`, `configurations/`, `ui/`, `widgets/`), `src/hooks/`, `src/services/`, `src/store/`, `src/routes/`, `src/contexts/`, `src/utils/`, `src/types/`, `src/config/`, `src/styles/`.
 - The custom-element entry MUST be `src/panel.ts`; the SPA router MUST be `src/router.tsx`; the generated route tree (`src/routeTree.gen.ts`) MUST NOT be hand-edited and is lint-ignored (`eslint.config.js` ignores `*.gen.ts`).
-- Component-specific code SHOULD be colocated in the component's own folder (e.g. `WeatherCard/`) rather than dumped into `src/utils/`, per project CLAUDE.md.
+- Component-specific code SHOULD be colocated in the component's own folder (e.g. `WeatherCard/`) rather than dumped into `src/utils/`, per project AGENTS.md.
 
 #### Scenario: Locating panel environment logic
 
@@ -93,7 +93,7 @@ Related feature specs (project-level document links; these live as sibling direc
 
 - Toolchain versions MUST be managed with mise; Node MUST be v22 (`mise.toml`).
 - Developers SHOULD run `mise install` then `npm install` after cloning (`README.md`, `CONTRIBUTING.md`).
-- Home Assistant integration testing MUST point `panel_custom.module_url` at the dev server's `panel.js`; the dev element name is `liebe-panel-dev` (project CLAUDE.md, README).
+- Home Assistant integration testing MUST point `panel_custom.module_url` at the dev server's `panel.js`; the dev element name is `liebe-panel-dev` (project AGENTS.md, README).
 
 #### Scenario: Wiring the dev panel into Home Assistant
 
@@ -105,7 +105,7 @@ Related feature specs (project-level document links; these live as sibling direc
 
 This subsection is the project's standing testing and quality bar; other specs link here rather than restating it.
 
-- Every pull request MUST have passing tests, lint, and type checks before merge; PRs with failing tests MUST NOT be merged (project CLAUDE.md, "CRITICAL: Pull Request Requirements").
+- Every pull request MUST have passing tests, lint, and type checks before merge; PRs with failing tests MUST NOT be merged (project AGENTS.md, "CRITICAL: Pull Request Requirements").
 - Before creating any PR, a contributor MUST run `npm test`, `npm run lint`, and `npm run typecheck`, and all three MUST pass.
 - Tests MUST run under Vitest with the `jsdom` environment, globals enabled, and the shared setup file `src/test/setup.ts` (`vitest.config.ts:6-11`).
 - Component tests MUST use `@testing-library/react` + `@testing-library/jest-dom` + `@testing-library/user-event`; the setup file MUST provide jsdom polyfills for `matchMedia`, `ResizeObserver`, `scrollIntoView`, and pointer-capture (required by Radix Slider) (`src/test/setup.ts:5-45`).
@@ -209,7 +209,7 @@ Build-mode branching is entirely `NODE_ENV`/`--mode`-driven:
 - Custom-element names are fixed contracts with users' `configuration.yaml`: `liebe-panel` (prod) and `liebe-panel-dev` (dev) MUST NOT change without a migration note, since they are referenced by `panel_custom.name`.
 - Node 22 is the supported toolchain for both local dev (`mise.toml`) and CI (`.github/workflows/*` use `node-version: 22`).
 - The dev server binds to port 3000; per project convention alternate ports MUST NOT be used.
-- Radix UI Themes is a relatively closed system; custom CSS and arbitrary z-index values are discouraged (project CLAUDE.md styling rules).
+- Radix UI Themes is a relatively closed system; custom CSS and arbitrary z-index values are discouraged (project AGENTS.md styling rules).
 
 ## Open Questions
 
@@ -232,7 +232,7 @@ Build-mode branching is entirely `NODE_ENV`/`--mode`-driven:
 - `.github/workflows/deploy.yml` — GitHub Pages deployment
 - `src/config/panel.ts`, `src/router.tsx`, `src/panel.ts` — panel/env wiring
 - `mise.toml` — Node 22 toolchain
-- `README.md`, `CONTRIBUTING.md`, `CLAUDE.md` — install, contribution, project rules
+- `README.md`, `CONTRIBUTING.md`, `AGENTS.md` — install, contribution, project rules
 
 ## Changelog
 

@@ -72,7 +72,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 ### Documentation
 
 - The [Architecture](../specs/architecture/) spec's Testing & Quality Conventions MUST document the coverage bar (100% patch, no-regress project) and the `test:coverage` script in the same PR.
-- The project `CLAUDE.md` pre-commit checklist MUST mention the patch-coverage requirement so contributors run coverage before opening PRs.
+- The project `AGENTS.md` pre-commit checklist MUST mention the patch-coverage requirement so contributors run coverage before opening PRs.
 
 ## Design
 
@@ -82,7 +82,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 - `vitest.config.ts`: `coverage` block — provider `v8`, reporters `['text', 'lcov']`, include `src/**` + `app/**`, exclude tests/e2e/config/generated files.
 - `.github/workflows/ci.yml`: Test job runs `npm run test:coverage`; new SHA-pinned `codecov/codecov-action` upload step with `token: ${{ secrets.CODECOV_TOKEN }}`, `files: coverage/lcov.info`, `fail_ci_if_error: true`.
 - `codecov.yml` (repo root): patch target 100%, project auto/0% threshold; comment layout default.
-- Spec + CLAUDE.md updates per Documentation requirements.
+- Spec + AGENTS.md updates per Documentation requirements.
 
 ### Decisions
 
@@ -104,7 +104,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
   - [x] `@vitest/coverage-v8` + `test:coverage` script + `vitest.config.ts` coverage block
   - [x] CI Test job coverage run + SHA-pinned codecov-action upload with `CODECOV_TOKEN`
   - [x] `codecov.yml`: patch 100%, project no-regress
-  - [x] Architecture spec Testing & Quality Conventions + CLAUDE.md checklist updates
+  - [x] Architecture spec Testing & Quality Conventions + AGENTS.md checklist updates
 
 ## Open Questions
 
