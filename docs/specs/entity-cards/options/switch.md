@@ -25,7 +25,7 @@ This document covers the switch card: the card registered for the `switch` domai
 For critical loads (pumps, heaters, servers) an accidental tap must not flip the entity. When `confirm: true`:
 
 - Any action on this card that would toggle the entity — `tapAction` of `default` **or** explicit `toggle`, a `toggle` bound to `holdAction` / `doubleTapAction`, **and a configured `call-service` targeting the same entity's toggle-equivalent services** (`switch.toggle`/`turn_on`/`turn_off`, and the generic `homeassistant.toggle`/`turn_on`/`turn_off` aliases — classification is by effect, per the common dispatch guarantees) — MUST first present a confirmation dialog (Radix `AlertDialog`) naming the entity and the target state (e.g. "Turn off Well Pump?"). The gate applies after action resolution (the lock-card pattern), so re-routing cannot bypass it; `call-service` targeting unrelated services stays ungated.
-- Confirming MUST fire exactly one toggle; cancelling (button, ESC, outside tap) MUST fire nothing and leave no pending state.
+- Confirming MUST fire exactly one toggle; cancelling (the cancel button or ESC) MUST fire nothing and leave no pending state. An outside tap MUST NOT dismiss the dialog — Radix `AlertDialog.Content` deliberately blocks interact-outside dismissal, and that modality is wanted here: a destructive confirm should require an explicit choice, not evaporate on a stray tap.
 - Non-toggling actions (`more-info`, `navigate`, `none`) MUST NOT be gated.
 - Applies identically for fallback domains. Behavioral only — no tier interaction; the dialog is a portal overlay, never in-card content.
 
