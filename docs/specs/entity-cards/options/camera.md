@@ -50,7 +50,7 @@ Tiers follow [design-system — size-adaptive layouts](../../design-system/#size
 
 - **2×2 is the minimum useful size** for a live camera: below it the card MUST NOT mount the stream element and MUST degrade to a still thumbnail (the same `entity_picture` snapshot the still-image fallback uses — refresh cadence owned by [camera-streaming — Still-Image Fallback](../../camera-streaming/#still-image-fallback)) plus the name. This is a graceful-degradation rule per the design system: content that does not fit is omitted, never clipped.
 - In degraded tiers `showNameOverlay`, `showLiveBadge`, and `showLastMotion` do not render; `hideName` still hides the name, leaving an image-only tile (which MUST remain a valid layout).
-- `tapAction: default` in degraded tiers still opens the in-place fullscreen overlay, via a **lazy mount**: because no stream element is mounted below 2×2, entering fullscreen MUST mount the stream element fresh (a new connection is acceptable here — nothing was connected) and exiting MUST unmount it, returning to the thumbnail. The no-reconnect-on-toggle invariant from [camera-streaming — Fullscreen](../../camera-streaming/#fullscreen) applies only when a live stream is already mounted (≥2×2); the lazy-mount path is a coordinated extension to that spec, not a violation of it.
+- `tapAction: default` in degraded tiers still opens the in-place fullscreen overlay. The stream lifecycle on that path — lazy mount on entry, unmount on exit, and why it does not violate the ≥2×2 no-reconnect guarantee — is owned by [camera-streaming — Fullscreen](../../camera-streaming/#fullscreen).
 
 ## Scenarios
 

@@ -62,7 +62,7 @@ No options beyond the [universal set](./common.md#universal-options).
 No options beyond the [universal set](./common.md#universal-options).
 
 - The card renders a native date/time/datetime input driven by `has_date`/`has_time` and shows `(not set)` for empty/unknown values (current behavior).
-- **Known gap:** saving currently never reaches Home Assistant — `useServiceCall.setValue` has no `input_datetime` branch, so the card cannot call `input_datetime.set_datetime` (see [entity-cards Open Questions](../index.md#open-questions)). This spec assumes the gap is fixed independently; no option here depends on or resolves it.
+- **Service mapping (owned by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md)).** `useServiceCall.setValue` has no `input_datetime` branch today, so saves fail with `setValue not supported for domain: input_datetime`. 0022 adds the branch calling `input_datetime.set_datetime` with the payload shaped by `has_date`/`has_time` (`date`, `time`, or `datetime`), and normalizes the state↔input formats — Home Assistant publishes `YYYY-MM-DD HH:MM:SS` while `<input type="datetime-local">` requires `YYYY-MM-DDTHH:mm`. No option here depends on that fix landing first; the picker behavior above is what the card renders either way.
 
 ## Tier layouts
 
@@ -115,7 +115,7 @@ Per the [design-system layout tiers](../../design-system/#size-adaptive-layouts)
 
 ## Open Questions
 
-- **`input_datetime` service mapping (carried forward, not resolved here).** `useServiceCall.setValue` has no `input_datetime` branch, so `InputDateTimeCard` saves fail at runtime with `setValue not supported for domain: input_datetime` instead of calling `input_datetime.set_datetime`. Tracked in [entity-cards Open Questions](../index.md#open-questions) and the [card reference](../card-reference.md#input-helper-cards); it must be fixed before this card's primary action is meaningful, but the fix is owned by the entity-state service layer, not this option surface.
+- ~~**`input_datetime` service mapping.**~~ Resolved: change [0022](../../../changes/0022-switch-input-helpers-to-spec.md) owns the `setValue` branch and the state↔input format normalization, with a component test covering the realistic space-separated state format in both directions. Not an open decision — a scheduled bugfix.
 - ~~**Domain color for input helpers.**~~ Resolved: input helpers use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/#domain-color-discipline) for the boolean active tint and the number slider fill.
 - **`glance` fallback action.** Several helpers fall back from `default` to `more-info` in `glance` because the control doesn't fit. Whether this per-tier action fallback should be promoted into the [common action type](./common.md#action-type) (so other control-centric cards can reuse it) is open.
 - ~~**Slider default vs. legacy stepper.**~~ Resolved per [common convention 7](./common.md#conventions-for-per-card-options): existing `input_number` items are pinned to `controlStyle: 'stepper'` by loader migration (change 0022); only newly added cards follow the helper's `mode` attribute default.

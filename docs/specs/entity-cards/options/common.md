@@ -33,6 +33,15 @@ An action value is one of:
 - `call-service` — arbitrary service (`service`, optional `data`, target defaults to the entity)
 - `none` — inert
 
+**Serialized form (normative — this is a portable-config contract).** Because these values round-trip through shared YAML, the persisted shape MUST be exactly the discriminated union below; a config written by one version MUST load in another, so no alternative spelling is permitted.
+
+- The four parameterless actions persist as **bare strings**: `tapAction: default`, `toggle`, `more-info`, `none`.
+- The two parameterized actions persist as **objects discriminated by an `action` key** whose value is the same identifier:
+  - `{ action: 'navigate', target: '<screen id or slug>' }` — `target` is REQUIRED.
+  - `{ action: 'call-service', service: '<domain.service>', data?: { … } }` — `service` is REQUIRED and MUST be `domain.service`; `data` is OPTIONAL and, when omitted, the entity is the target.
+- The discriminator key is `action`, not `type`; parameterless actions MUST NOT be written in object form (`{ action: 'toggle' }` is invalid), so each action has exactly one representation.
+- Schema validation MUST reject unknown action identifiers, unknown keys within an action object, and a parameterized action missing its required key — rather than silently falling back to `default`, which would turn a typo into a working-looking card that does the wrong thing.
+
 Actions MUST NOT fire from taps on embedded controls (sliders, pills, buttons) — controls consume their own events. Hold MUST NOT also fire tap. In edit mode all actions are suppressed (selection semantics apply, per [entity-cards](../index.md)).
 
 **Dispatch guarantees (normative for every action and every embedded control, on every card):** service dispatch is **non-retrying and at-most-once per gesture** — never routed through a retrying wrapper, since retried commands press buttons twice, skip tracks, re-run scripts, and repeat physical movement. Controls issuing consequential (state-changing) commands stay disabled from dispatch until the expected entity transition is observed or an acknowledgement timeout elapses — promise resolution alone is too early, because Home Assistant acknowledges before slow integrations update state. Every card change implementing dispatch MUST carry a boundary-level single-call test including the early-acknowledgement case. Per-card docs restate specifics only where a domain adds rules (inverse actions staying enabled, confirmation gates); the invariant itself lives here. **Confirmation gates classify routes by effect on the same entity, not by service name**: the generic `homeassistant.toggle`/`turn_on`/`turn_off` aliases are equivalent to the domain services they invoke and MUST pass the same gates — an enumeration that lists only `domain.*` services is a bypass, and gate tests MUST include the generic aliases.

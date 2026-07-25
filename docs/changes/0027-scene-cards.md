@@ -49,6 +49,6 @@ Spec restatements update **in the same PR** as each behavior change they describ
 ## Out of Scope
 
 - Chip/header-row rendering of these cards — the chip anatomy is specified, but the placement mechanism belongs to the grid-layout spec and is not yet defined there ([open question](../specs/entity-cards/options/scene.md#open-questions))
-- A distinct domain color token for script/button (they share `--liebe-c-media` for now) and surfacing parallel/queued run counts ("Running ×2") — both open questions in the option doc
+- A distinct domain color token for the action family (scene takes `--liebe-c-media`; script/button/input_button take the `--liebe-c-default` fallback per the design-system table) and surfacing parallel/queued run counts ("Running ×2") — both open questions in the option doc
 - Universal option infrastructure (action controller, detail dialog, display options) — landed in [0014](./0014-universal-card-options.md); tier derivation — [0011](./0011-layout-tiers.md)
 - Changes to `ButtonCard` itself, which remains the `switch` card and the fallback for still-unmapped domains
