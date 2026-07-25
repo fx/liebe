@@ -14,6 +14,10 @@ specs:
     path: specs/dashboard-config/
     description: Dashboard configuration state — screen tree, view/edit mode, localStorage persistence, and single-file YAML/JSON import/export
     status: active
+  - name: design-system
+    path: specs/design-system/
+    description: Target visual language — token contract, domain color discipline, card anatomy, size-adaptive layout tiers, typography, and motion (not yet implemented)
+    status: active
   - name: entity-cards
     path: specs/entity-cards/
     description: Entity card system — domain-to-card registry, all card components and variants, size variants, config modal, and entity browser
@@ -33,6 +37,14 @@ specs:
   - name: panel-lifecycle
     path: specs/panel-lifecycle/
     description: LiebePanel custom element — shadow-DOM React mount, hass propagation, and lifecycle-resilience mechanisms
+    status: active
+  - name: storybook
+    path: specs/storybook/
+    description: Component workshop — Storybook with entity fixtures, theme/appearance/grid-cell decorators, per-state story coverage, a11y checks, CI build gate, and Pages publishing (not yet implemented)
+    status: active
+  - name: theming
+    path: specs/theming/
+    description: CSS-token theming — theme model and cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection/custom CSS, and built-in Default, Liquid Glass, and LCARS themes (not yet implemented)
     status: active
 
 changes:
@@ -92,3 +104,136 @@ changes:
     spec: camera-streaming
     status: complete
     depends_on: []
+  - id: '0009'
+    name: storybook-setup
+    path: changes/0009-storybook-setup.md
+    description: Storybook workshop with entity fixtures, decorators, stories for all existing cards, a11y addon, CI build gate, and GitHub Pages publishing — lands ahead of design-system/theming work
+    spec: storybook
+    status: draft
+    depends_on: []
+  - id: '0010'
+    name: design-tokens-and-anatomy
+    path: changes/0010-design-tokens-and-anatomy.md
+    description: The --liebe-* token contract (dark+light, Radix-aliased), anatomy components with stable classes, tint-pattern state styling, slider primitive, and the flat card shell restyle
+    spec: design-system
+    status: draft
+    depends_on: ['0009']
+  - id: '0011'
+    name: layout-tiers
+    path: changes/0011-layout-tiers.md
+    description: Grid-span-derived glance/row/tall/full layout tiers across all existing cards, retiring the legacy size prop
+    spec: design-system
+    status: draft
+    depends_on: ['0010', '0014']
+  - id: '0012'
+    name: theming-engine
+    path: changes/0012-theming-engine.md
+    description: Layered style injection (base→theme→user), theme registry, appearance resolution, YAML-persisted theme config, and the in-panel picker + custom CSS editor
+    spec: theming
+    status: draft
+    depends_on: ['0010']
+  - id: '0013'
+    name: built-in-themes
+    path: changes/0013-built-in-themes.md
+    description: Liquid Glass (token-only) and LCARS (bundled Antonio, okudagram scoped rules) built-in themes with gallery stories as the visual acceptance surface
+    spec: theming
+    status: draft
+    depends_on: ['0012']
+  - id: '0014'
+    name: universal-card-options
+    path: changes/0014-universal-card-options.md
+    description: Universal option surface for all entity cards — name/icon overrides, hide toggles, color, tap/hold/double-tap action system, and the entity detail dialog
+    spec: entity-cards
+    status: draft
+    depends_on: ['0010']
+  - id: '0015'
+    name: history-and-forecast-data
+    path: changes/0015-history-and-forecast-data.md
+    description: Entity-state pipeline capabilities for downsampled numeric history (useEntityHistory) and weather forecasts (useWeatherForecast) with caching and graceful degradation, plus the detail-dialog history graph
+    spec: entity-state
+    status: draft
+    depends_on: ['0014']
+  - id: '0016'
+    name: light-card-to-spec
+    path: changes/0016-light-card-to-spec.md
+    description: Light card domain options — brightness slider key migration, color temperature and color controls, bulb-color theming, brightness presets
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0017'
+    name: climate-card-to-spec
+    path: changes/0017-climate-card-to-spec.md
+    description: Climate card domain options — dial/compact variants, mode/preset/fan pills, humidity display, display-unit conversion, and the arc-thermostat file split
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0018'
+    name: sensor-cards-to-spec
+    path: changes/0018-sensor-cards-to-spec.md
+    description: Sensor and binary sensor domain options — precision/unit overrides, history-backed sparklines and graphs, trend indicator, binary label/invert and alert-class coloring
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014', '0015']
+  - id: '0019'
+    name: cover-fan-cards-to-spec
+    path: changes/0019-cover-fan-cards-to-spec.md
+    description: Cover and fan domain options — position/tilt visibility, reversed-scale position inversion (boundary mapping on reads and commits), device-class icons, speed slider/steps, presets, oscillate/direction, animated icon
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0020'
+    name: weather-card-to-spec
+    path: changes/0020-weather-card-to-spec.md
+    description: Weather card domain options — tier-adaptive variants, hourly/daily forecasts via the forecast hook, secondary info selection, condition backgrounds with tests
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014', '0015']
+  - id: '0021'
+    name: camera-presentation-options
+    path: changes/0021-camera-presentation-options.md
+    description: Camera card presentation options — name overlay, live badge, motion line via linked motion entity, still-thumbnail small tiers with no stream mount below 2×2 and lazy fullscreen mount/unmount (the change's one scoped stream-lifecycle exception)
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0022'
+    name: switch-input-helpers-to-spec
+    path: changes/0022-switch-input-helpers-to-spec.md
+    description: Switch confirm/device-class/label options, input helper control styles, and the input_datetime set_datetime service-mapping bugfix
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0023'
+    name: media-player-card
+    path: changes/0023-media-player-card.md
+    description: New media player card — artwork modes, transport, volume, source picker, progress/seek, collapse-when-idle, feature-gated on supported_features
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0024'
+    name: security-cards
+    path: changes/0024-security-cards.md
+    description: New lock and alarm cards — confirmation-gated unlock, door-sensor linkage, jammed handling, arm-mode pills, code keypad flow, triggered alerting
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0025'
+    name: vacuum-card
+    path: changes/0025-vacuum-card.md
+    description: New vacuum card — state-machine primary action, commands/battery/fan-speed/locate/stats options, alert-colored error state
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0026'
+    name: person-card
+    path: changes/0026-person-card.md
+    description: New person card — avatar/presence badge rules, zone and since-time display, battery derivation; unhides the person domain (header-chip form deferred)
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']
+  - id: '0027'
+    name: scene-cards
+    path: changes/0027-scene-cards.md
+    description: New scene/script/button action-card family — per-domain activation, spinner-to-check feedback, confirm option, running-script stop
+    spec: entity-cards
+    status: draft
+    depends_on: ['0011', '0014']

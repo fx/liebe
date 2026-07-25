@@ -168,6 +168,12 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 - **WHEN** the user focuses it and types
 - **THEN** the content persists via `dashboardActions.updateGridItem` under the item id (`TextCard.tsx:80-116`).
 
+### Card options (target surface — specified, not yet implemented)
+
+The per-card option surface is specified in [options/](./options/common.md): a universal contract every entity card MUST adopt (name/icon overrides, hide toggles, accent color, tap/hold/double-tap actions) plus one document per card family defining domain options, defaults, and how content maps to the [design-system layout tiers](../design-system/index.md#size-adaptive-layouts). These documents describe the desired state; the requirements elsewhere in this spec remain the implemented baseline until implementing changes land. Per-card docs: [light](./options/light.md) · [switch](./options/switch.md) · [climate](./options/climate.md) · [sensor](./options/sensor.md) · [media-player](./options/media-player.md) · [camera](./options/camera.md) · [cover](./options/cover.md) · [fan](./options/fan.md) · [weather](./options/weather.md) · [security](./options/security.md) · [vacuum](./options/vacuum.md) · [person](./options/person.md) · [scene](./options/scene.md) · [input-helpers](./options/input-helpers.md)
+
+New card families introduced there (media player, lock/alarm, vacuum, person, scene/script/button) MUST register through the existing `domainToCard` registry and `CardProps` contract when implemented.
+
 ### Per-card configuration (CardConfig)
 
 - `CardConfig.Modal` MUST render a two-pane dialog: a form built from the card type's `ConfigDefinition` (boolean / string / number / select / textarea / icon controls) on the left, and a live, non-interactive preview forced into view mode on the right.
@@ -289,7 +295,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 - Radix UI Themes only; styling via component props and theme tokens (`var(--...)`), avoiding custom z-index per project conventions. Portalled overlays (fullscreen, dropdowns) manage their own stacking.
 - Cards run inside a Home Assistant custom panel (shadow DOM); overlays that must escape it use `createPortal` to `document.body`.
 - Asset URLs (weather backgrounds) MUST be resolved through `window.__LIEBE_ASSET_BASE_URL__` because the panel is served from a base path that differs between dev and the deployed panel.
-- All changes must pass `npm test`, `npm run lint`, and `npm run typecheck` before merge (see project `CLAUDE.md`).
+- The testing and quality bar is owned by [architecture — Testing & Quality Conventions](../architecture/index.md#testing--quality-conventions).
 - Card components memoize with custom prop comparators; new props must be added to the comparator or they will not trigger re-render.
 
 ## Open Questions
@@ -313,6 +319,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 
 ## Changelog
 
-| Date       | Change                                                     | Document |
-| ---------- | ---------------------------------------------------------- | -------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation) | —        |
+| Date       | Change                                                                                                             | Document |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ | -------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                         | —        |
+| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented) | —        |

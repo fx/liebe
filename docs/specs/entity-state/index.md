@@ -206,6 +206,33 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 - **WHEN** the store entity is updated to `off`
 - **THEN** the hook re-renders with `off` (`src/hooks/__tests__/useEntity.test.tsx:148`).
 
+### History & Forecast Hooks (specified, not yet implemented)
+
+Target contract for the two data capabilities cards consume beyond current state. Implemented by change [0015](../../changes/0015-history-and-forecast-data.md); the requirements above remain the implemented baseline until it lands.
+
+- `useEntityHistory(entityId, {hours, points, mode})` MUST return a downsampled numeric series for the window (default 24h), backed by the Home Assistant WebSocket history API, with `mode: 'sample' | 'delta'` (default `'sample'`).
+- **Caching MUST be two-level**: raw history cached per entity + window (the expensive fetch), with projections computed per subscriber request. If projections are cached, the key MUST include mode and `points` — point count changes bucket boundaries and therefore both sampled and delta values, so two consumers requesting different `points` MUST NOT share a projected series. Concurrent requests for the same entity + window MUST be deduped.
+- **Downsampling MUST bound returned points** (target ≤ ~100 per card) while preserving each bucket's min/max extremes, so graphs never flatten spikes.
+- **`delta` mode MUST compute per-bucket values from raw samples before downsampling** — a reset inside a bucket is invisible after min/max reduction (`0→10→0→5` must yield 15, not 10). `total_increasing` applies reset-aware summation (a decrease starts a new counter run); `total` uses signed differences (decreases are legitimate).
+- **Live appends MUST consume raw `state_changed` ingress before debouncing**, or refetch from the recorder. The debounced store slices intentionally keep only the latest update in a window, which would silently drop intermediate counter resets and measurement spikes before delta/min-max processing.
+- **Freshness MUST survive unmounting.** Live appends only keep an entry fresh while a subscriber is mounted, so cache entries MUST carry a fetched/last-appended timestamp. On (re)subscription the hook MUST prune points aged out of the rolling window — always retaining **one sentinel sample immediately before the window cutoff**, so `delta`'s first bucket keeps a predecessor as the window advances — and MUST refetch when the entry is stale (no active subscriber since its last append, or beyond a freshness TTL; SHOULD: 5 minutes). A remounting card MUST NOT render a series with a gap. While subscribers stay mounted the same maintenance MUST run periodically (SHOULD: each downsample-bucket interval), so a long-mounted card on a quiet entity never shows an indefinitely stale window.
+- Non-numeric entities MUST resolve to an explicit `unsupported` result rather than an error.
+- `useWeatherForecast(entityId, {type: hourly | daily | twice_daily})` MUST call `weather.get_forecasts` with response caching and a refresh interval (SHOULD: 30min hourly, 2h daily and twice-daily), resolving `unsupported` when the service or feature is unavailable. Integrations advertising only `FORECAST_TWICE_DAILY` MUST NOT resolve daily as unsupported: the hook MUST derive a daily view from twice-daily data, with daytime entries (`is_daytime: true`) carrying the day's condition and high and the paired nighttime entry supplying the low.
+- Both hooks MUST follow the existing store/subscription patterns (per-entity slices, change [0001](../../changes/0001-per-entity-store-selectors.md)) so graph updates do not re-render unrelated cards.
+- Failures MUST be non-fatal: errors surface via the hook result rather than thrown, and consumers render without graph or forecast.
+
+#### Scenario: Counter reset inside a bucket
+
+- **GIVEN** a `total_increasing` sensor whose raw history within one bucket reads `0 → 10 → 0 → 5`
+- **WHEN** a consumer requests `mode: 'delta'`
+- **THEN** the bucket's value is `15` — the reset is summed reset-aware from raw samples, not the `10` a min/max downsample would leave behind.
+
+#### Scenario: Forecast unsupported degrades silently
+
+- **GIVEN** a weather entity whose integration lacks `weather.get_forecasts`
+- **WHEN** `useWeatherForecast` resolves
+- **THEN** it returns `unsupported`, and consumers hide forecast content regardless of their options.
+
 ### Service Calls
 
 - `HassService.callService` MUST prepend `entity_id` into the service data when an `entityId` is supplied, and MUST return `{ success: true }` on success.
@@ -411,6 +438,7 @@ Service-call retry (`src/services/hassService.ts:61`):
 
 ## Changelog
 
-| Date       | Change                                                     | Document |
-| ---------- | ---------------------------------------------------------- | -------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation) | —        |
+| Date       | Change                                                               | Document                                                |
+| ---------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)           | —                                                       |
+| 2026-07-25 | Added target History & Forecast hook contracts (not yet implemented) | [0015](../../changes/0015-history-and-forecast-data.md) |

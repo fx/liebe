@@ -1,0 +1,6 @@
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    # Custom patterns APPEND to the defaults, they do not replace them.
+    filePatterns:
+      - '**/REVIEW.md'

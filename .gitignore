@@ -57,5 +57,7 @@ lerna-debug.log*
 
 # Temporary files
 tmp/
+# Local throwaway design mockups (specs are the tracked source of truth)
+mockups/
 # Workspace tooling artifacts
 .tailscale/
