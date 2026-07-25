@@ -692,9 +692,9 @@ When creating new entity card components:
 2. **Register in `src/components/cardRegistry.ts`**
    - Add the domain → component entry to `domainToCard`; `GridView` dispatches through `getCardForEntity`, so a domain missing from the registry silently falls through to the fallback card
    - Register any presentation variants via `registerCardVariant` (or the component's static `variants` map) rather than a switch inside the card — `getCardVariant` is a read-only lookup and cannot register anything
-   - Add the domain to `SUPPORTED_DOMAINS` so the EntityBrowser offers it
 
-3. **Update EntityBrowser if needed**
+3. **Update the EntityBrowser** (`src/components/EntitiesBrowserTab.tsx`)
+   - Add the domain to `SUPPORTED_DOMAINS` there — it is a local constant in that file, not part of `cardRegistry.ts` — so the browser offers the domain
    - Add domain to friendly name mapping in `getFriendlyDomain`
    - Remove from `SYSTEM_DOMAINS` if it should be visible
 

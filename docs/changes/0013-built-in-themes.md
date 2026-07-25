@@ -27,7 +27,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 The [theming spec](../specs/theming/index.md) owns both themes' token values, palettes, and the scoped-rule budget each is allowed — [Liquid Glass](../specs/theming/index.md#built-in-theme-liquid-glass) and [LCARS](../specs/theming/index.md#built-in-theme-lcars). This change ships them. What it owns:
 
-- **Liquid Glass MUST contain zero rules beyond token assignments.** This is the change's own acceptance bar, not just a spec restatement: the theme file carries a comment header stating the constraint, and a diff adding any selector to it fails review. If Liquid Glass needs a rule, the token contract is incomplete and that is the bug to fix.
+- The theme file for Liquid Glass carries a comment header quoting its token-only constraint from the [spec](../specs/theming/index.md#built-in-theme-liquid-glass), and a diff adding any selector to that file fails review. If Liquid Glass turns out to need a rule, the token contract is incomplete — fix the contract, not the theme.
 - **LCARS bundles Antonio** (woff2 + the OFL licence file, which MUST ship alongside the font) registered at document level via `__LIEBE_ASSET_BASE_URL__` — shadow roots do not load `@font-face` declared inside them, and registration MUST be idempotent across panel remounts.
 - The theme picker surfaces the `backdrop-filter` performance note for low-end tablets.
 - Both themes MUST work offline with no external fetches — Home Assistant installs are frequently LAN-only, so a webfont CDN reference would simply fail for a large share of users.

@@ -34,12 +34,6 @@ The [storybook spec](../specs/storybook/index.md) owns the workshop's observable
 - **The preview MUST NOT import panel bootstrap side effects** (custom-element registration, HA connection). Any provider extraction needed to achieve this MUST preserve current panel behavior and stay covered — this is the one place the change touches production code.
 - CI gains a `storybook` job running `build-storybook` on every PR, and the deploy workflow publishes the static build under `/storybook/` on merge to `main`.
 
-#### Scenario: Broken story blocks merge
-
-- **GIVEN** a PR that breaks a story import
-- **WHEN** CI runs
-- **THEN** the `storybook` job fails and the PR cannot merge.
-
 ## Design Decisions
 
 - **Vite builder, own config** — reuses `~/*` aliases; does not touch the panel build (spec requirement). Pin the current stable Storybook major at implementation time and record it here.
