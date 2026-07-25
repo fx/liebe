@@ -1,0 +1,109 @@
+# Card Options — Fan
+
+Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
+
+**Status: specified, not yet implemented.** The current `FanCard` implements toggle, a hardcoded four-step speed control (25/50/75/100), and a preset-mode select, with no per-card configuration modal. Everything below — the option surface, `percentage_step`-derived steps, oscillate/direction controls, the speed slider, tier layouts, and the speed-proportional icon animation contract — is new. See [entity-cards — Covers and fans](../index.md#covers-and-fans) for the implementation baseline.
+
+## Primary action
+
+`tapAction: default` MUST toggle the fan — with `unavailable`/`unknown` resolved first as **inert** (no service dispatch against an unavailable device): `fan.turn_off` when the entity state is `on`, `fan.turn_on` for any other real state. The whole tile is the tap target; embedded controls (speed slider, step pills, preset pills, oscillate/direction toggles) consume their own events and MUST NOT trigger the tap action (per [common contract — Action type](./common.md#action-type)).
+
+## Options
+
+All keys live under `item.config`, camelCase, and follow [common conventions](./common.md#conventions-for-per-card-options) — in particular convention 3: whether a control _can_ appear is derived from the entity's `supported_features` bit flags; these options only hide or tune capabilities the entity already has. The relevant fan feature bits are `SET_SPEED` (1), `OSCILLATE` (2), `DIRECTION` (4), and `PRESET_MODE` (8).
+
+| Key              | Type                                  | Default  | Behavior                                                                                                                                              |
+| ---------------- | ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `speedControl`   | select: `slider` \| `steps` \| `none` | `slider` | Style of the percentage control, shown when the entity supports `SET_SPEED`. Tiers: `row` (horizontal), `tall` (vertical), `full`. Never in `glance`. |
+| `showPresets`    | boolean                               | `true`   | Renders preset-mode pills when the entity supports `PRESET_MODE` and reports a non-empty `preset_modes` list. Tier: `full` only.                      |
+| `showOscillate`  | boolean                               | `true`   | Renders an oscillation toggle when the entity supports `OSCILLATE`. Tier: `full` only.                                                                |
+| `showDirection`  | boolean                               | `false`  | Renders a forward/reverse direction control when the entity supports `DIRECTION`. Tier: `full` only.                                                  |
+| `animateIcon`    | boolean                               | `true`   | Spins the fan glyph while the fan is `on`, at a rate proportional to the current speed. Affects all tiers (it animates existing content, adds none).  |
+| `showPercentage` | boolean                               | `true`   | Shows the current percentage in the state line (e.g. `On · 75%`). Affects all tiers with a state line.                                                |
+
+### Speed control (`speedControl`)
+
+- Shown only when the entity supports `SET_SPEED`; on a fan without it the option is inert and no speed control renders regardless of the value.
+- `slider` (the default) renders the embedded slider anatomy (`liebe-slider`, [design-system — card anatomy](../../design-system/index.md#card-anatomy)): horizontal in `row` and `full`, vertical in `tall`. Drag state MUST stay local until commit (optimistic drag, per [entity-cards](../index.md)); committing MUST call `fan.set_percentage` with `{ entity_id, percentage }`.
+- `steps` renders discrete equal-width pills (`liebe-pill`) derived from the entity's `percentage_step`: the step values are the exact multiples of `percentage_step` from one step up to 100, with the top value clamped to the largest multiple ≤ 100 (e.g. `percentage_step: 25` → pills 25 / 50 / 75 / 100). Non-divisor steps are deterministic too: **labels** round to the nearest integer while **payloads** send the exact multiple (`percentage_step: 33.33` → pills labeled 33 / 67 / 100 sending 33.33 / 66.66 / 99.99 — HA accepts fractional percentages), and the selected pill is the multiple nearest the current `percentage` within half a step. When `percentage_step` is absent, non-positive, or would yield more steps than fit the tier, the card MUST fall back to four quartile pills (25/50/75/100). The pill nearest the current percentage renders as selected (active tint pattern). Tapping a pill MUST call `fan.set_percentage` with that value.
+- `none` hides the percentage control entirely; speed is then adjustable only through presets (if shown) or the entity detail dialog.
+- Committing 0% — slider released at 0 — MUST call `fan.turn_off`, not `fan.set_percentage` with `0` (matching the shipped behavior). Step pills MUST NOT include a 0 pill; turning off is the tap action's job.
+- Interacting with the speed control while the fan is `off` MUST turn it on at the committed percentage (`fan.set_percentage` implies turn-on in Home Assistant); the card MUST NOT require a separate toggle first.
+
+### Preset modes (`showPresets`)
+
+- Rendered in the `full` tier as a pill row built from the entity's `preset_modes` attribute; the pill matching `preset_mode` renders as selected.
+- Tapping a pill MUST call `fan.set_preset_mode` with `{ entity_id, preset_mode }`.
+- When the entity does not support `PRESET_MODE`, or `preset_modes` is empty, the row MUST NOT appear even with `showPresets: true`.
+- Presets and the speed control are independent: a fan supporting both renders both in `full` (subject to fit — content that does not fit the tier is omitted, never clipped).
+
+### Oscillation (`showOscillate`)
+
+Rendered in the `full` tier as a toggle reflecting the `oscillating` attribute. Toggling MUST call `fan.oscillate` with `{ entity_id, oscillating: <bool> }`. When the entity does not support `OSCILLATE` the toggle MUST NOT appear even with `showOscillate: true`.
+
+### Direction (`showDirection`)
+
+Rendered in the `full` tier as a forward/reverse control reflecting the `direction` attribute (`forward` | `reverse`). Selecting a direction MUST call `fan.set_direction` with `{ entity_id, direction }`. Defaults to `false` because ceiling-fan direction is a seasonal, rarely-touched setting; users opt in per card. When the entity does not support `DIRECTION` the control MUST NOT appear even with `showDirection: true`.
+
+### Icon animation (`animateIcon`)
+
+- While the fan is `on` and `animateIcon` is `true`, the fan glyph MUST rotate continuously, with the rotation rate proportional to the current percentage (higher percentage → faster spin). A fan without `SET_SPEED` (no percentage) spins at a single fixed rate while on. While `off`, the glyph MUST be static.
+- The animation MUST be disabled under `prefers-reduced-motion: reduce`, regardless of this option's value, per [design-system — motion](../../design-system/index.md#motion). With animation suppressed, the on/off state remains fully conveyed by the active tint pattern and state text — the spin is decorative, never the sole state signal.
+- When `false`, the glyph never rotates in any state.
+
+### State-line percentage (`showPercentage`)
+
+When `true` (default), the fan supports `SET_SPEED`, and the fan is `on` with a nonzero `percentage`, the state line MUST include the current percentage (e.g. `On · 75%`; with an active preset, the preset name takes the primary slot: `Sleep · 30%`). When `false`, unsupported, or the fan is `off`, the state line shows the bare state/preset. This option composes with the universal `hideState` — hiding the state line hides the percentage with it.
+
+## Tier layouts
+
+Per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts):
+
+| Tier     | Content                                                                                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `glance` | Icon circle + name + state; whole tile toggles. No embedded controls.                                                                                            |
+| `row`    | Icon + name/state row + horizontal speed control (slider or step pills, when supported and `speedControl` ≠ `none`).                                             |
+| `tall`   | Icon on top, vertical speed slider filling the middle, name/state at the bottom. With `speedControl: steps`, a vertical stack of step pills replaces the slider. |
+| `full`   | `row` content plus, in order: preset pills, then an oscillate toggle and direction control side by side — each only when supported and enabled.                  |
+
+Content that does not fit MUST be omitted, never clipped or scrolled. The active icon circle uses the fan domain token (`--liebe-c-ok`, green — [design-system — domain color discipline](../../design-system/index.md#domain-color-discipline)) unless the universal `color` option overrides it.
+
+## Scenarios
+
+### Scenario: Step pills derive from percentage_step
+
+- **GIVEN** an `on` fan advertising `SET_SPEED` with `percentage_step: 25` and `percentage: 50`, on a `row`-tier card with `speedControl: steps`
+- **WHEN** the card renders
+- **THEN** it shows four pills — 25, 50, 75, 100 — with the 50 pill selected; and **WHEN** the user taps the 75 pill, **THEN** the card calls `fan.set_percentage` with `{ percentage: 75 }`.
+
+### Scenario: Reduced motion stops the spin
+
+- **GIVEN** an `on` fan at 80% on a card with `animateIcon: true`
+- **WHEN** the card renders in a browser reporting `prefers-reduced-motion: reduce`
+- **THEN** the fan glyph does not rotate, while the active tint and state text still indicate the fan is on.
+
+### Scenario: Options cannot enable an unsupported capability
+
+- **GIVEN** a fan with `supported_features: 1` (`SET_SPEED` only) on a `full`-tier card with `showOscillate: true` and `showDirection: true`
+- **WHEN** the card renders
+- **THEN** it shows the speed control but neither the oscillate toggle nor the direction control — the options are inert because the entity lacks the capabilities.
+
+### Scenario: Slider committed at zero turns the fan off
+
+- **GIVEN** an `on` fan at 40% on a `row`-tier card with default options
+- **WHEN** the user drags the speed slider to 0 and releases
+- **THEN** the card calls `fan.turn_off` (not `fan.set_percentage` with `0`), and the tile transitions to the inactive pattern.
+
+## Open Questions
+
+- **Turn-on percentage.** The shipped card turns a speed-capable fan on at a hardcoded 50%. Whether tap-on should instead send a bare `fan.turn_on` (letting the device restore its last speed) — or expose a `turnOnPercentage` option — is undecided; the hardcoded 50% is a baseline behavior, not a contract.
+- **Domain color migration.** The design system assigns fans the green `--liebe-c-ok` token, but the shipped card styles the on state cyan. The migration to the domain token lands with the design-system implementation; no compatibility shim is planned since no config key encodes the old color.
+- **Preset/speed precedence in `row`.** The shipped card shows the preset select _instead of_ speed buttons whenever presets exist. This spec makes them independent (`full` shows both), but `row` has space for only one control — whether a preset-capable fan's `row` tier should prefer the slider or the preset pills may need a follow-up option (a select is anticipated per common convention 5).
+- **Non-divisor `percentage_step`.** Real devices report steps like `33.33` (3-speed fans), producing non-integer multiples (33/67/100 after rounding). The rounding/labeling rule for such fans (and the matching of "current percentage → selected pill" with tolerance, as the shipped bucketing does) needs validation against real hardware before implementation.
+
+## References
+
+- [Common contract](./common.md) — universal options, action types, conventions
+- [Entity cards — Covers and fans](../index.md#covers-and-fans) — implementation baseline (toggle, `set_percentage`, `set_preset_mode`, feature bits)
+- [Design system](../../design-system/index.md) — tiers, card anatomy, domain color tokens, motion rules
+- `src/components/FanCard.tsx` — current implementation (hardcoded quartile buttons, percentage bucketing, spin-speed classes, preset select)
