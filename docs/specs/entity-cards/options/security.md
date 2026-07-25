@@ -4,7 +4,7 @@ Extends the [common contract](./common.md); universal options (`name`, `icon`, `
 
 **Status: specified, not yet implemented (new cards).** Neither the `lock` nor the `alarm_control_panel` domain has a card today — both currently fall back to `ButtonCard` via the registry ([entity-cards — registry](../index.md#card-dispatch-and-registry)). This document specifies the option surface for the two new cards. Both MUST be registered in `domainToCard` (`lock` → LockCard, `alarm_control_panel` → AlarmCard), MUST accept the shared `CardProps` contract, and MUST render through the common shell with the standard loading / error / unavailable lifecycle states ([entity-cards — common shell](../index.md#common-card-shell-sizing-and-lifecycle-states)).
 
-Security cards follow the [domain color discipline](../../design-system/#domain-color-discipline) strictly: secure states (locked, armed) take `--liebe-c-ok` (green); insecure and emergency states (unlocked, triggered, jammed) take `--liebe-c-alert` (red). No other card family inverts "active = colored" this way — here the _safe_ state is the colored-calm one and the _unsafe_ state is the loud one.
+Security cards follow the [domain color discipline](../../design-system/index.md#domain-color-discipline) strictly: secure states (locked, armed) take `--liebe-c-ok` (green); insecure and emergency states (unlocked, triggered, jammed) take `--liebe-c-alert` (red). No other card family inverts "active = colored" this way — here the _safe_ state is the colored-calm one and the _unsafe_ state is the loud one.
 
 ## Lock card
 
@@ -39,7 +39,7 @@ Prose notes:
 
 ### States
 
-State rendering MUST follow the [active-tint pattern](../../design-system/#domain-color-discipline):
+State rendering MUST follow the [active-tint pattern](../../design-system/index.md#domain-color-discipline):
 
 | Entity state            | Icon circle                                                                                                                                                                                                                                                     | State text                                    | Notes                                                                                                                                                                                                                                                                                                            |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -52,7 +52,7 @@ State rendering MUST follow the [active-tint pattern](../../design-system/#domai
 
 ### Tier layouts
 
-Per [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts); content that does not fit MUST be omitted, never clipped.
+Per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts); content that does not fit MUST be omitted, never clipped.
 
 | Tier           | Content                                                                                                                               |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |

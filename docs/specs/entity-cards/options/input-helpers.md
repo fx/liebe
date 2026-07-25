@@ -24,7 +24,7 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 | -------------- | ------ | ------- | ----- | -------------------------------------------- |
 | `controlStyle` | select | `tile`  | all   | `tile` \| `switch` — how the toggle presents |
 
-- `tile` (default): the card renders no discrete control; the **whole tile is the toggle**, and the `on` state renders with the active tint pattern (domain-colored glyph on a ~20%-alpha tint per the [design-system active-state pattern](../../design-system/#domain-color-discipline)).
+- `tile` (default): the card renders no discrete control; the **whole tile is the toggle**, and the `on` state renders with the active tint pattern (domain-colored glyph on a ~20%-alpha tint per the [design-system active-state pattern](../../design-system/index.md#domain-color-discipline)).
 - `switch`: the card additionally renders the discrete `Switch` control (current behavior, `InputBooleanCard.tsx`) in tiers with room for it (`row`, `tall`, `full`); the tile tap still toggles. In `glance` the switch is omitted and the card behaves as `tile` — degrade by omission, never clipping.
 - Either style MUST call `input_boolean.toggle`, keep the toggle blocked from dispatch until the expected state transition or an acknowledgement timeout (per change 0022 — a promise-scoped guard lets a second tap toggle the helper straight back after early acknowledgement), suppress it when `unavailable` or `unknown` (indeterminate direction — never actuate), and hide interactive controls in edit mode.
 
@@ -36,7 +36,7 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 
 - The default MUST follow the helper's own `mode` attribute: `box` → `stepper`, `slider` → `slider`. Setting the option overrides the entity's preference in either direction.
 - `stepper`: the current +/- buttons around a click-to-edit value field (`InputNumberCard.tsx`). Increment/decrement MUST step by `step` and clamp to `[min, max]`, with the buttons disabled at the respective bound; typed input MUST be validated, clamped to `[min, max]`, and invalid input MUST revert without calling the service (current behavior — these clamp/validation rules remain MUST regardless of `controlStyle`).
-- `slider`: the [design-system embedded slider](../../design-system/#card-anatomy) (`liebe-slider`, 42px track, domain-tint fill, value readout in-track), horizontal in `row`/`full` and vertical in `tall`. Drag MUST hold local state and commit `input_number.set_value` only on release; the committed value MUST be quantized to `step` and clamped to `[min, max]`.
+- `slider`: the [design-system embedded slider](../../design-system/index.md#card-anatomy) (`liebe-slider`, 42px track, domain-tint fill, value readout in-track), horizontal in `row`/`full` and vertical in `tall`. Drag MUST hold local state and commit `input_number.set_value` only on release; the committed value MUST be quantized to `step` and clamped to `[min, max]`.
 - Both styles send `input_number.set_value` with `{ value }`.
 
 ### `input_select`
@@ -46,7 +46,7 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 | `controlStyle` | select | `dropdown` | row/tall/full | `dropdown` \| `pills` — how options present |
 
 - `dropdown` (default): the current Radix `Select` of the entity's `options` (`InputSelectCard.tsx`); MUST be disabled when the helper has no options.
-- `pills`: an equal-width [pill group](../../design-system/#card-anatomy) (`liebe-pill`), one pill per option, the current state's pill selected via the active tint pattern. Pills render only in the `full` tier **and** only when the option count is ≤ 5; in other tiers, or with more than 5 options, the card MUST fall back to `dropdown` presentation (an oversized pill row would clip — degrade, never scroll).
+- `pills`: an equal-width [pill group](../../design-system/index.md#card-anatomy) (`liebe-pill`), one pill per option, the current state's pill selected via the active tint pattern. Pills render only in the `full` tier **and** only when the option count is ≤ 5; in other tiers, or with more than 5 options, the card MUST fall back to `dropdown` presentation (an oversized pill row would clip — degrade, never scroll).
 - Both styles send `input_select.select_option` with `{ option }`.
 
 ### `input_text`
@@ -66,7 +66,7 @@ No options beyond the [universal set](./common.md#universal-options).
 
 ## Tier layouts
 
-Per the [design-system layout tiers](../../design-system/#size-adaptive-layouts). Every input card implements `glance` and `row`; `tall` and `full` as below.
+Per the [design-system layout tiers](../../design-system/index.md#size-adaptive-layouts). Every input card implements `glance` and `row`; `tall` and `full` as below.
 
 | Helper           | `glance` (1×1)                                                                                                                            | `row` (≥2×1)                                                        | `tall` (1×≥2)                                                   | `full` (≥2×≥2)                                                           |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -76,7 +76,7 @@ Per the [design-system layout tiers](../../design-system/#size-adaptive-layouts)
 | `input_text`     | Icon + name + value as state (masked if password); tap → more-info                                                                        | Icon + meta + inline text field                                     | Icon top, text field, meta bottom                               | As `row`, wider field                                                    |
 | `input_datetime` | Icon + name + formatted value / `(not set)`; tap → more-info                                                                              | Icon + meta + native input(s)                                       | Icon top, input(s), meta bottom                                 | As `row`; datetime helpers MAY split date and time inputs onto two lines |
 
-- Content that does not fit a tier MUST be omitted, never clipped or scrolled ([design-system](../../design-system/#size-adaptive-layouts)).
+- Content that does not fit a tier MUST be omitted, never clipped or scrolled ([design-system](../../design-system/index.md#size-adaptive-layouts)).
 - All interactive controls are hidden in edit mode (selection semantics per [entity-cards](../index.md)).
 
 ## Scenarios
@@ -116,7 +116,7 @@ Per the [design-system layout tiers](../../design-system/#size-adaptive-layouts)
 ## Open Questions
 
 - ~~**`input_datetime` service mapping.**~~ Resolved: change [0022](../../../changes/0022-switch-input-helpers-to-spec.md) owns the `setValue` branch and the state↔input format normalization, with a component test covering the realistic space-separated state format in both directions. Not an open decision — a scheduled bugfix.
-- ~~**Domain color for input helpers.**~~ Resolved: input helpers use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/#domain-color-discipline) for the boolean active tint and the number slider fill.
+- ~~**Domain color for input helpers.**~~ Resolved: input helpers use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/index.md#domain-color-discipline) for the boolean active tint and the number slider fill.
 - **`glance` fallback action.** Several helpers fall back from `default` to `more-info` in `glance` because the control doesn't fit. Whether this per-tier action fallback should be promoted into the [common action type](./common.md#action-type) (so other control-centric cards can reuse it) is open.
 - ~~**Slider default vs. legacy stepper.**~~ Resolved per [common convention 7](./common.md#conventions-for-per-card-options): existing `input_number` items are pinned to `controlStyle: 'stepper'` by loader migration (change 0022); only newly added cards follow the helper's `mode` attribute default.
 

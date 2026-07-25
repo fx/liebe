@@ -27,9 +27,9 @@ This document specifies one **action card family** covering four domains: `scene
 Because these entities have no state change to observe on the card, the card itself MUST confirm that the tap did something:
 
 - On tap, the icon inside the icon circle MUST swap to a spinner while the service call is in flight.
-- On success, the spinner MUST swap to a success check glyph, hold for ~1.5s, then revert to the configured icon. During the check hold, the icon circle SHOULD use the active tint pattern ([design-system — domain color discipline](../../design-system/#domain-color-discipline)) even though the entity reports no active state.
+- On success, the spinner MUST swap to a success check glyph, hold for ~1.5s, then revert to the configured icon. During the check hold, the icon circle SHOULD use the active tint pattern ([design-system — domain color discipline](../../design-system/index.md#domain-color-discipline)) even though the entity reports no active state.
 - On failure, the card MUST show the standard entity-card error state (2px red border, `ERROR` status, error text as the card `title` — [entity-cards baseline](../index.md#common-card-shell-sizing-and-lifecycle-states)); no success check is shown.
-- Transitions between icon → spinner → check → icon follow the [design-system motion rules](../../design-system/#motion) (~280ms ease-out). Under `prefers-reduced-motion: reduce`, the spinner animation and swap transitions MUST be disabled — the glyph changes instantly and the success check still appears and holds ~1.5s, because the check is essential feedback, not decoration.
+- Transitions between icon → spinner → check → icon follow the [design-system motion rules](../../design-system/index.md#motion) (~280ms ease-out). Under `prefers-reduced-motion: reduce`, the spinner animation and swap transitions MUST be disabled — the glyph changes instantly and the success check still appears and holds ~1.5s, because the check is essential feedback, not decoration.
 - This behavior is intrinsic, not an option key: there is no way to disable activation feedback, per the convention that options exist for divergence, not correctness ([common — conventions](./common.md#conventions-for-per-card-options)).
 
 ### Running state for scripts (required behavior)
@@ -47,7 +47,7 @@ While a `script.*` entity is running (state `on`):
 | `confirm`           | boolean | `false` | Require a confirmation dialog before the primary action fires                 |
 | `showLastActivated` | boolean | `false` | Show relative "last activated" time derived from the entity's state timestamp |
 
-The universal options from the [common contract](./common.md#universal-options) apply unchanged — and for this family, **`icon` and `color` are the primary customization**, not an afterthought. Scenes are personal ("Movie night", "Good morning"); the domain default glyph is generic, so users are expected to set a distinct `icon` per scene card as the normal configuration path, with `color` as a deliberate accent override. The config modal SHOULD surface `icon` prominently for this card family. `color: auto` resolves to `--liebe-c-media` (indigo) for `scene`, which the [design-system table](../../design-system/#domain-color-discipline) assigns to scenes explicitly. `script`, `button`, and `input_button` are not in that table, so they resolve to the documented fallback `--liebe-c-default` (blue) rather than borrowing the scene token — the table's fallback rule is the contract, and a card doc cannot quietly extend another domain's row. Whether the action family should get a token of its own remains an Open Question.
+The universal options from the [common contract](./common.md#universal-options) apply unchanged — and for this family, **`icon` and `color` are the primary customization**, not an afterthought. Scenes are personal ("Movie night", "Good morning"); the domain default glyph is generic, so users are expected to set a distinct `icon` per scene card as the normal configuration path, with `color` as a deliberate accent override. The config modal SHOULD surface `icon` prominently for this card family. `color: auto` resolves to `--liebe-c-media` (indigo) for `scene`, which the [design-system table](../../design-system/index.md#domain-color-discipline) assigns to scenes explicitly. `script`, `button`, and `input_button` are not in that table, so they resolve to the documented fallback `--liebe-c-default` (blue) rather than borrowing the scene token — the table's fallback rule is the contract, and a card doc cannot quietly extend another domain's row. Whether the action family should get a token of its own remains an Open Question.
 
 ### `confirm`
 
@@ -64,11 +64,11 @@ All four domains encode "last activated" as a timestamp: `scene`, `button`, and 
 
 - The card renders a muted secondary line with a relative time ("2 h ago", "just now"), updating at least once per minute while visible, in the `--liebe-muted` color — never the domain color.
 - A never-activated entity (state/attribute unset or `unknown`) MUST render "Never" rather than a broken time.
-- Tier visibility: renders in `row`, `tall`, and `full`; in `glance` it MUST be omitted — the 1×1 stack has no room for a secondary line (degrade by omission, per [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts)). Hidden when `hideState` is set (this line is the card's state line — see tier layouts below).
+- Tier visibility: renders in `row`, `tall`, and `full`; in `glance` it MUST be omitted — the 1×1 stack has no room for a secondary line (degrade by omission, per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)). Hidden when `hideState` is set (this line is the card's state line — see tier layouts below).
 
 ## Tier layouts
 
-These are stateless trigger tiles: with no state line by default, they are **natural 1×1 cards** and SHOULD declare `defaultDimensions` of 1×1 — the first family to do so. Per the [design-system layout tiers](../../design-system/#size-adaptive-layouts):
+These are stateless trigger tiles: with no state line by default, they are **natural 1×1 cards** and SHOULD declare `defaultDimensions` of 1×1 — the first family to do so. Per the [design-system layout tiers](../../design-system/index.md#size-adaptive-layouts):
 
 | Tier     | Content                                                                                                                                                                   |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -81,7 +81,7 @@ In every tier, the script running state and the activation-feedback spinner/chec
 
 ### Scenes as header-row chips
 
-Scenes are the canonical content of a header row of quick actions. When a scene (or any card of this family) participates in a chip/header row, it MUST render as the design-system **chip** anatomy (`liebe-chip`, [design-system — card anatomy](../../design-system/#card-anatomy)): a 34px pill (`--liebe-chip-height`, `--liebe-chip-radius`) with icon-dot + label, using the same inactive-neutral tint at rest and the active tint pattern during the activation-feedback check hold. The chip is the whole touch target (≥44px hit area via padding), tap fires the same primary action with the same feedback sequence, and `confirm` applies unchanged. Chips never show the `showLastActivated` line.
+Scenes are the canonical content of a header row of quick actions. When a scene (or any card of this family) participates in a chip/header row, it MUST render as the design-system **chip** anatomy (`liebe-chip`, [design-system — card anatomy](../../design-system/index.md#card-anatomy)): a 34px pill (`--liebe-chip-height`, `--liebe-chip-radius`) with icon-dot + label, using the same inactive-neutral tint at rest and the active tint pattern during the activation-feedback check hold. The chip is the whole touch target (≥44px hit area via padding), tap fires the same primary action with the same feedback sequence, and `confirm` applies unchanged. Chips never show the `showLastActivated` line.
 
 ## Scenarios
 
@@ -115,7 +115,7 @@ Scenes are the canonical content of a header row of quick actions. When a scene 
 
 ## Open Questions
 
-- **Domain color for script/button.** Settled for now by the [design-system table](../../design-system/#domain-color-discipline)'s fallback rule: `scene` takes `--liebe-c-media` (indigo), while `script`, `button`, and `input_button` are unlisted and therefore take `--liebe-c-default` (blue) — as the normative option text above states. Open only in the sense that the action family may eventually warrant a token of its own; until that is added to the design-system table, the fallback is the contract.
+- **Domain color for script/button.** Settled for now by the [design-system table](../../design-system/index.md#domain-color-discipline)'s fallback rule: `scene` takes `--liebe-c-media` (indigo), while `script`, `button`, and `input_button` are unlisted and therefore take `--liebe-c-default` (blue) — as the normative option text above states. Open only in the sense that the action family may eventually warrant a token of its own; until that is added to the design-system table, the fallback is the contract.
 - **What "success" means for the check.** `scene.turn_on` and `*.press` resolve when Home Assistant accepts the call, not when target devices actually change. The check therefore confirms dispatch, not outcome. Whether the card should attempt anything stronger (it likely cannot, generically) is open.
 - **Parallel/queued script runs.** Scripts in `queued`/`parallel` mode expose a `current` run count > 1. Whether the running state should surface the count ("Running ×2") or stay binary is open.
 - **Chip-row placement mechanism.** This spec defines the chip presentation; how a card is placed into a header/chip row (a grid-item flag, a dedicated row widget, or tier derivation) belongs to the [grid-layout spec](../../grid-layout/) and is not yet specified there.

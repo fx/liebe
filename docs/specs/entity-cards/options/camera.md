@@ -6,7 +6,7 @@ This document covers only the camera card's **presentation** option surface. Eve
 
 ## Primary action
 
-- `tapAction: default` MUST open the in-place ("semi") fullscreen overlay — the existing behavior, where the tap toggles a pure CSS/positioning flip on the stationary stream container so the stream never reconnects (mechanics in [camera-streaming — Fullscreen](../../camera-streaming/#fullscreen)).
+- `tapAction: default` MUST open the in-place ("semi") fullscreen overlay — the existing behavior, where the tap toggles a pure CSS/positioning flip on the stationary stream container so the stream never reconnects (mechanics in [camera-streaming — Fullscreen](../../camera-streaming/index.md#fullscreen)).
 - The universal `holdAction: more-info` and `doubleTapAction: none` defaults from the [common contract](./common.md) apply unchanged.
 - Per the common contract, actions MUST NOT fire from taps on the card's embedded controls (mute, native fullscreen, Retry) — those consume their own events.
 
@@ -30,7 +30,7 @@ Rules:
 
 ### Existing keys (owned by camera-streaming — do not respecify)
 
-These per-card config keys already exist; their semantics, defaults, and schema location are specified in [camera-streaming — Camera Configuration Options](../../camera-streaming/#camera-configuration-options):
+These per-card config keys already exist; their semantics, defaults, and schema location are specified in [camera-streaming — Camera Configuration Options](../../camera-streaming/index.md#camera-configuration-options):
 
 - `fit` — feed object-fit (`cover` default / `contain`)
 - `matting` — card padding around the feed (`none` / `small` / `large`)
@@ -38,19 +38,19 @@ These per-card config keys already exist; their semantics, defaults, and schema 
 
 ## Tier layouts
 
-Tiers follow [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts). A live feed needs real area to be legible:
+Tiers follow [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts). A live feed needs real area to be legible:
 
-| Tier              | Span                | Content                                                                                                                                                                          |
-| ----------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `glance` (1×1)    | degraded            | Still thumbnail (entity snapshot) + name; no live stream, no overlay options                                                                                                     |
-| `row` (≥2×1)      | degraded            | Still thumbnail + name/state in a row; no live stream                                                                                                                            |
-| `tall` (1×≥2)     | degraded            | Still thumbnail on top, name below, stacked; no live stream, no overlay options — same degradation rules as `glance`                                                             |
-| `full` (≥2×≥2)    | minimum useful size | Live feed with overlay, LIVE badge, motion line, and controls per the options above                                                                                              |
-| wide `full` (4×2) | default             | The card's default grid dimensions (see [camera-streaming — Component Map](../../camera-streaming/#component-map)); same content as `full` with a comfortably wide 16:9-ish feed |
+| Tier              | Span                | Content                                                                                                                                                                                  |
+| ----------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `glance` (1×1)    | degraded            | Still thumbnail (entity snapshot) + name; no live stream, no overlay options                                                                                                             |
+| `row` (≥2×1)      | degraded            | Still thumbnail + name/state in a row; no live stream                                                                                                                                    |
+| `tall` (1×≥2)     | degraded            | Still thumbnail on top, name below, stacked; no live stream, no overlay options — same degradation rules as `glance`                                                                     |
+| `full` (≥2×≥2)    | minimum useful size | Live feed with overlay, LIVE badge, motion line, and controls per the options above                                                                                                      |
+| wide `full` (4×2) | default             | The card's default grid dimensions (see [camera-streaming — Component Map](../../camera-streaming/index.md#component-map)); same content as `full` with a comfortably wide 16:9-ish feed |
 
-- **2×2 is the minimum useful size** for a live camera: below it the card MUST NOT mount the stream element and MUST degrade to a still thumbnail (the same `entity_picture` snapshot the still-image fallback uses — refresh cadence owned by [camera-streaming — Still-Image Fallback](../../camera-streaming/#still-image-fallback)) plus the name. This is a graceful-degradation rule per the design system: content that does not fit is omitted, never clipped.
+- **2×2 is the minimum useful size** for a live camera: below it the card MUST NOT mount the stream element and MUST degrade to a still thumbnail (the same `entity_picture` snapshot the still-image fallback uses — refresh cadence owned by [camera-streaming — Still-Image Fallback](../../camera-streaming/index.md#still-image-fallback)) plus the name. This is a graceful-degradation rule per the design system: content that does not fit is omitted, never clipped.
 - In degraded tiers `showNameOverlay`, `showLiveBadge`, and `showLastMotion` do not render; `hideName` still hides the name, leaving an image-only tile (which MUST remain a valid layout).
-- `tapAction: default` in degraded tiers still opens the in-place fullscreen overlay. The stream lifecycle on that path — lazy mount on entry, unmount on exit, and why it does not violate the ≥2×2 no-reconnect guarantee — is owned by [camera-streaming — Fullscreen](../../camera-streaming/#fullscreen).
+- `tapAction: default` in degraded tiers still opens the in-place fullscreen overlay. The stream lifecycle on that path — lazy mount on entry, unmount on exit, and why it does not violate the ≥2×2 no-reconnect guarantee — is owned by [camera-streaming — Fullscreen](../../camera-streaming/index.md#fullscreen).
 
 ## Scenarios
 
@@ -80,10 +80,10 @@ Tiers follow [design-system — size-adaptive layouts](../../design-system/#size
 
 ## Open Questions
 
-- ~~**Overlay vs. existing status pill.**~~ Resolved (change 0021): `showLiveBadge` **subsumes the status pill's live states** — when enabled and the status machine reports streaming, the `LIVE` pill is the presentation of that state (recording variant preserved); non-live states (`CONNECTING`, `NO SIGNAL`, errors) keep the existing pill unchanged. Presentation-only skin over the pill slot; the status machine and its priority order stay owned by [camera-streaming](../../camera-streaming/#card-states-and-controls). Never two live-ness indicators.
+- ~~**Overlay vs. existing status pill.**~~ Resolved (change 0021): `showLiveBadge` **subsumes the status pill's live states** — when enabled and the status machine reports streaming, the `LIVE` pill is the presentation of that state (recording variant preserved); non-live states (`CONNECTING`, `NO SIGNAL`, errors) keep the existing pill unchanged. Presentation-only skin over the pill slot; the status machine and its priority order stay owned by [camera-streaming](../../camera-streaming/index.md#card-states-and-controls). Never two live-ness indicators.
 - **Motion source auto-discovery.** Should `motionEntity` offer suggestions from the camera's HA device registry (motion sensors on the same device), or stay a free entity picker? Auto-discovery improves zero-config but adds a registry dependency the card does not currently have.
 - **Degraded-tier snapshot cadence.** The still thumbnail in `glance`/`row` reuses the fallback's snapshot mechanism; whether small tiles should refresh less often (battery/bandwidth on wall tablets) is open.
-- **Legacy `size` prop.** The card still accepts `size: small|medium|large`; tier derivation from grid span supersedes it (see [design-system](../../design-system/#size-adaptive-layouts) open questions).
+- **Legacy `size` prop.** The card still accepts `size: small|medium|large`; tier derivation from grid span supersedes it (see [design-system](../../design-system/index.md#size-adaptive-layouts) open questions).
 
 ## References
 

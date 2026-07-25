@@ -19,7 +19,7 @@ The avatar is the card's identity anchor and its rendering is normative, not con
 - The card MUST render the entity's `entity_picture` as a circular avatar (`--liebe-circle-radius`) when the attribute is present.
 - When `entity_picture` is absent, the card MUST render the person's initials (first letters of up to two name words) on a **generated, stable background color** — derived deterministically from the entity id so the same person always gets the same color across sessions, screens, and exports.
 - A **presence badge dot** MUST overlap the avatar's edge (bottom-trailing), colored by presence:
-  - state `home` → `--liebe-c-ok` (green, per the [domain color discipline](../../design-system/#domain-color-discipline): home = ok)
+  - state `home` → `--liebe-c-ok` (green, per the [domain color discipline](../../design-system/index.md#domain-color-discipline): home = ok)
   - state `not_home` → `--liebe-c-alert` (red: away)
   - any named zone state → a **neutral** (gray-scale) dot; the zone's friendly name carries the information as the state text instead of hue.
   - `unknown` → a **hollow** (outlined, unfilled) neutral dot with state text "Unknown" — explicitly distinct from the named-zone treatment, so indeterminate presence never masquerades as a known location.
@@ -43,7 +43,7 @@ The avatar is the card's identity anchor and its rendering is normative, not con
 
 ## Tier layouts
 
-Tiers per [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts). Content that does not fit MUST be omitted, never clipped. The avatar takes the icon-circle slot in the shared anatomy (a 40px `liebe-icon`-sized circle) in `glance`/`row`; `full` MAY enlarge it.
+Tiers per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts). Content that does not fit MUST be omitted, never clipped. The avatar takes the icon-circle slot in the shared anatomy (a 40px `liebe-icon`-sized circle) in `glance`/`row`; `full` MAY enlarge it.
 
 | Tier     | Layout                                                                                                                                                                                                                                                                                                         |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -54,7 +54,7 @@ Tiers per [design-system — size-adaptive layouts](../../design-system/#size-ad
 
 ### Chip form
 
-A person renders naturally as a **header chip** — the compact presence row at the top of a screen. **Note:** no header/chip placement facility exists in the grid model yet, so this form is specified here but deferred beyond the initial card implementation (change 0026 excludes it; scene chips are deferred identically). When the facility lands, the chip form MUST follow the design-system chip anatomy ([`liebe-chip`](../../design-system/#card-anatomy): 34px height, `--liebe-chip-radius` pill, icon-dot + label, active tint pattern):
+A person renders naturally as a **header chip** — the compact presence row at the top of a screen. **Note:** no header/chip placement facility exists in the grid model yet, so this form is specified here but deferred beyond the initial card implementation (change 0026 excludes it; scene chips are deferred identically). When the facility lands, the chip form MUST follow the design-system chip anatomy ([`liebe-chip`](../../design-system/index.md#card-anatomy): 34px height, `--liebe-chip-radius` pill, icon-dot + label, active tint pattern):
 
 - The chip's icon-dot slot holds a miniature avatar (picture or initials) wrapped in a **presence ring** — a 2px ring in the badge-dot color (green home / red away / neutral in-zone) replacing the overlapping dot at chip scale.
 - The chip label is the person's first name; when `showZone` is `true` and the person is in a named zone, the label MAY append the zone ("Marian · Work").
@@ -91,7 +91,7 @@ A person renders naturally as a **header chip** — the compact presence row at 
 
 - **Distance to home.** Showing "3.2 km away" in `full` requires computing a distance from the person's `latitude`/`longitude` against the home zone's coordinates (`zone.home` lat/long) — the panel currently reads no zone geometry, and accuracy (`gps_accuracy`) handling is undefined. Open.
 - **Map preview in `full`.** A small static map (or map action target for `tapAction`) is the natural `full`-tier upgrade and the natural future meaning of a `map` action, but requires a map data source/renderer the panel does not have. Open / future.
-- **Zone history line.** The `full`-tier "Work → Home, arrived 17:42" line needs entity history, which the entity-state pipeline does not fetch — same dependency as the [design-system "Sparkline data source" open question](../../design-system/#open-questions).
+- **Zone history line.** The `full`-tier "Work → Home, arrived 17:42" line needs entity history, which the entity-state pipeline does not fetch — same dependency as the [design-system "Sparkline data source" open question](../../design-system/index.md#open-questions).
 - **Initials color algorithm.** The stable color MUST be deterministic per entity id; whether it hashes into the Radix scale set (excluding domain-reserved hues per the color discipline) or a dedicated avatar palette is an implementation choice to settle with the design system.
 - **Battery auto-derivation depth.** How far `batteryEntity: ''` should search (tracker attributes only, vs. walking the device registry for sibling battery sensors) affects both correctness and connection cost; the minimal attribute-only pass is the safe start.
 

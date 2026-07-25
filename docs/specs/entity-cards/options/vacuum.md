@@ -2,7 +2,7 @@
 
 Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
 
-**Status: specified, not yet implemented (new card).** No vacuum card exists; `vacuum` entities currently fall back to `ButtonCard` via the registry ([entity-cards — registry](../index.md#card-dispatch-and-registry)). The new `VacuumCard` MUST register under the `vacuum` domain in `domainToCard`, accept the shared `CardProps` contract, and render through the common shell like every other entity card. Its domain color is the vacuum token (`--liebe-c-vacuum`, teal — [design-system — domain color discipline](../../design-system/#domain-color-discipline)).
+**Status: specified, not yet implemented (new card).** No vacuum card exists; `vacuum` entities currently fall back to `ButtonCard` via the registry ([entity-cards — registry](../index.md#card-dispatch-and-registry)). The new `VacuumCard` MUST register under the `vacuum` domain in `domainToCard`, accept the shared `CardProps` contract, and render through the common shell like every other entity card. Its domain color is the vacuum token (`--liebe-c-vacuum`, teal — [design-system — domain color discipline](../../design-system/index.md#domain-color-discipline)).
 
 ## Primary action
 
@@ -60,7 +60,7 @@ All keys live under `item.config`, camelCase, per [common conventions](./common.
 - **Legacy toggle vacuums** — an entity advertising only `TURN_ON` (bit 1) / `TURN_OFF` (bit 2) supports none of the flags above, so the cluster MUST degrade to a single **on/off toggle button** in the start/pause slot: `off` → `vacuum.turn_on` (when `TURN_ON`), `on` → `vacuum.turn_off` (when `TURN_OFF`), disabled when the needed bit is absent. Without this branch a legacy vacuum would render an empty cluster despite `showCommands: true`, contradicting the [feature table](#supported-feature-flags) and the degradation that change [0025](../../../changes/0025-vacuum-card.md) requires in tests. The dock button still requires `RETURN_HOME` and is simply absent on these entities.
 - The start/pause button follows the primary-action state machine for command states (`docked`/`idle` → start, `cleaning` → pause, `paused` → resume) — **except `returning`**, where the state machine's `more-info` mapping applies only to the card tap: the button instead renders **Pause** and calls `vacuum.pause` when `PAUSE` is supported (the explicit interruption control), and renders disabled when it is not. This tap/button divergence in `returning` is deliberate: tap keeps the safe inspection default, the button offers the explicit command.
 - The dock button MUST render disabled while the state is `docked` or `returning` (nothing to return); **all command controls** (start/pause, dock, locate, fan-speed select) MUST render disabled while the state is `unavailable`, `unknown`, or `error` — no physical command may dispatch from an indeterminate or failed state (in `error` the tap's `more-info` is the escalation path), matching the primary-action matrix.
-- Buttons use the standard active/inactive tint pattern with the vacuum token and MUST meet the ≥44px touch-target minimum ([design-system — card anatomy](../../design-system/#card-anatomy)).
+- Buttons use the standard active/inactive tint pattern with the vacuum token and MUST meet the ≥44px touch-target minimum ([design-system — card anatomy](../../design-system/index.md#card-anatomy)).
 - With `showCommands: false` the card body carries no buttons in any tier; the tap action remains the only control surface.
 
 ### Battery (`showBattery`)
@@ -73,12 +73,12 @@ All keys live under `item.config`, camelCase, per [common conventions](./common.
 
 - Rendered in the `full` tier only, as a select whose options are exactly the entity's `fan_speed_list`, with the current `fan_speed` attribute selected.
 - Choosing an option MUST call `vacuum.set_fan_speed` with `{ fan_speed: <option> }`. An empty or missing `fan_speed_list` MUST hide the control even when the flag is set.
-- A select (not pills) is deliberate: `fan_speed_list` length varies widely across integrations and MUST NOT overflow the tier ([design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts)).
+- A select (not pills) is deliberate: `fan_speed_list` length varies widely across integrations and MUST NOT overflow the tier ([design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)).
 
 ### Stats (`showStats`)
 
 - The stats line renders whichever of `cleaned_area` (with unit, typically m²) and `cleaning_time` (formatted as a duration) the entity reports, separated by a middot; if neither attribute is present the line MUST NOT render.
-- Values are read-only, muted, and use `tabular-nums` per the [design-system typography rules](../../design-system/#typography).
+- Values are read-only, muted, and use `tabular-nums` per the [design-system typography rules](../../design-system/index.md#typography).
 
 ### Error state (required behavior, not an option)
 
@@ -87,7 +87,7 @@ All keys live under `item.config`, camelCase, per [common conventions](./common.
 
 ## Tier layouts
 
-Per [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts). Active states (`cleaning`, `returning`) use the teal active tint pattern; `docked`/`idle`/`paused` render inactive; `error` renders alert.
+Per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts). Active states (`cleaning`, `returning`) use the teal active tint pattern; `docked`/`idle`/`paused` render inactive; `error` renders alert.
 
 | Tier     | Content                                                                                                                                                                 |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

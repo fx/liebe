@@ -45,18 +45,18 @@ Both cards are **read-only**: they MUST NOT call services from any built-in inte
 
 #### Active color
 
-There is no separate `activeColor` option — the universal [`color`](./common.md#universal-options) option covers it. Reconciliation with the [domain color discipline](../../design-system/#domain-color-discipline):
+There is no separate `activeColor` option — the universal [`color`](./common.md#universal-options) option covers it. Reconciliation with the [domain color discipline](../../design-system/index.md#domain-color-discipline):
 
 - Today's implementation hardcodes amber emphasis for `on`. Under the design system, `color: auto` MUST resolve by `device_class`:
   - Alert-class device classes (`gas`, `smoke`, `carbon_monoxide`, `problem`, `safety`, `tamper`) SHOULD use `--liebe-c-alert` when active — an active smoke detector must read as an alarm, not a lit lamp.
   - `moisture` SHOULD use `--liebe-c-water`; `light` SHOULD use `--liebe-c-light`.
-  - All other device classes (and none) default to `--liebe-c-default` per the [design-system color table](../../design-system/#domain-color-discipline) — replacing today's amber emphasis, which the contract reserves for lights.
+  - All other device classes (and none) default to `--liebe-c-default` per the [design-system color table](../../design-system/index.md#domain-color-discipline) — replacing today's amber emphasis, which the contract reserves for lights.
 - A non-`auto` `color` value overrides this mapping and MUST style the active tint pattern (glyph + ~20% tint circle + state text), matching the design system's active-state pattern. `invert: true` moves the active styling to the presented-on state.
 - **Exception — active hazard sensors are not restylable, by any option.** A sensor whose **raw** state is active and whose `device_class` is alert-class (`gas`, `smoke`, `carbon_monoxide`, `problem`, `safety`, `tamper`) MUST render the danger presentation: `--liebe-c-alert`, the active icon, and a visible hazard label. This resolution happens **after** every presentation option, so no combination can defeat it — `color` cannot recolor it, `invert: true` cannot swap it to the off label/icon/inactive treatment (inversion applies only to its non-active state), and `hideState: true` cannot remove the label. A configuration that made a sounding smoke detector render calm, or read "Clear", would defeat the card's only job at the moment it matters. This is the same rule that protects jammed locks and triggered alarms ([options/security](./security.md)) — danger states are never configurable into looking safe, and the protection binds the final rendered output rather than any single option.
 
 ## Tier layouts
 
-Tiers per [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts). Content that does not fit MUST be omitted, never clipped.
+Tiers per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts). Content that does not fit MUST be omitted, never clipped.
 
 ### Sensor
 

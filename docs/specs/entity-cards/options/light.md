@@ -35,12 +35,12 @@ Rendered in the `full` tier as a warm→cool control: a row of temperature swatc
 
 ### Color (`showColorControl`)
 
-Rendered in the `full` tier for color-capable lights. Selecting a color MUST call `light.turn_on` with the corresponding color payload. The presentation is a **fixed single row of curated color swatches plus one recent-color slot** (the last color committed from this card) — decided in change 0016: one tap per selection suits touch-first, and a fixed row fits the `full` tier without scrolling by construction ([design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts)). A hue/saturation wheel is deferred to a future `colorControlStyle` select.
+Rendered in the `full` tier for color-capable lights. Selecting a color MUST call `light.turn_on` with the corresponding color payload. The presentation is a **fixed single row of curated color swatches plus one recent-color slot** (the last color committed from this card) — decided in change 0016: one tap per selection suits touch-first, and a fixed row fits the `full` tier without scrolling by construction ([design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)). A hue/saturation wheel is deferred to a future `colorControlStyle` select.
 
 ### Light-color theming (`useLightColor`)
 
 - When `true` and the light is `on` with a resolvable RGB color (`rgb_color`, or derivable from `hs_color` / `xy_color` / color temperature), the icon-circle tint and the slider fill MUST use that color instead of the domain token.
-- When the actual color is unavailable (no color attributes, `onoff`/`brightness`-only lights) or the light is `off`, rendering MUST fall back to the standard active/inactive pattern with the light domain token (`--liebe-c-light`, amber — [design-system — domain color discipline](../../design-system/#domain-color-discipline)).
+- When the actual color is unavailable (no color attributes, `onoff`/`brightness`-only lights) or the light is `off`, rendering MUST fall back to the standard active/inactive pattern with the light domain token (`--liebe-c-light`, amber — [design-system — domain color discipline](../../design-system/index.md#domain-color-discipline)).
 - When `false`, the domain token is always used. An explicit universal `color` (common contract) MUST win over everything, including the bulb-derived color — a named value pins the card's active treatment predictably, per the common contract. `useLightColor` therefore only governs behavior under `color: auto`: bulb color when available, domain token otherwise.
 - Very dark or desaturated bulb colors SHOULD be lightness-clamped for the tint so the active state remains distinguishable from inactive.
 
@@ -53,7 +53,7 @@ Rendered in the `full` tier for color-capable lights. Selecting a color MUST cal
 
 ## Tier layouts
 
-Per [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts):
+Per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts):
 
 | Tier     | Content                                                                                                                                 |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |

@@ -42,15 +42,15 @@ The universal `icon` option always wins over all of the above. Visible in every 
 
 ### `stateLabels`
 
-`stateLabels.onLabel` / `stateLabels.offLabel` replace the state line's text for the `on` / `off` states respectively ("Brewing" / "Idle" instead of "On" / "Off"). Empty or absent values fall back to the default capitalized state. States other than `on`/`off` (including any state a fallback-domain entity reports, and `unavailable`) MUST render the raw state unmodified — the overrides only ever remap `on` and `off`. Labels are plain text, single line, ellipsized per the [design-system typography](../../design-system/#typography). Renders wherever the state line renders (all tiers, unless `hideState` is set); state-line coloring (domain color when active, muted otherwise) is unaffected by the label text.
+`stateLabels.onLabel` / `stateLabels.offLabel` replace the state line's text for the `on` / `off` states respectively ("Brewing" / "Idle" instead of "On" / "Off"). Empty or absent values fall back to the default capitalized state. States other than `on`/`off` (including any state a fallback-domain entity reports, and `unavailable`) MUST render the raw state unmodified — the overrides only ever remap `on` and `off`. Labels are plain text, single line, ellipsized per the [design-system typography](../../design-system/index.md#typography). Renders wherever the state line renders (all tiers, unless `hideState` is set); state-line coloring (domain color when active, muted otherwise) is unaffected by the label text.
 
 ### `showLastChanged`
 
-When `true`, the state line gains muted secondary text derived from the entity's `last_changed`: a relative duration such as "· for 2 h" / "· 5 min ago". It MUST update at least once per minute while visible and MUST use the muted (`--liebe-muted`) color, never the domain color. Tier visibility: renders in `row`, `tall`, and `full`; in `glance` it MUST be omitted (the 1×1 stack has no room for a secondary line — degrade by omission, per [design-system — size-adaptive layouts](../../design-system/#size-adaptive-layouts)). Hidden entirely when `hideState` is set. Safe for fallback domains (`last_changed` exists on every entity).
+When `true`, the state line gains muted secondary text derived from the entity's `last_changed`: a relative duration such as "· for 2 h" / "· 5 min ago". It MUST update at least once per minute while visible and MUST use the muted (`--liebe-muted`) color, never the domain color. Tier visibility: renders in `row`, `tall`, and `full`; in `glance` it MUST be omitted (the 1×1 stack has no room for a secondary line — degrade by omission, per [design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)). Hidden entirely when `hideState` is set. Safe for fallback domains (`last_changed` exists on every entity).
 
 ## Tier layouts
 
-Per the [design-system layout tiers](../../design-system/#size-adaptive-layouts); the switch card has no embedded control, so its tiers differ only in arrangement and secondary content:
+Per the [design-system layout tiers](../../design-system/index.md#size-adaptive-layouts); the switch card has no embedded control, so its tiers differ only in arrangement and secondary content:
 
 | Tier     | Content                                                                                                                                          |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -59,7 +59,7 @@ Per the [design-system layout tiers](../../design-system/#size-adaptive-layouts)
 | `tall`   | Icon circle top, meta at bottom; `showLastChanged` on the state line; whole tile toggles                                                         |
 | `full`   | `row` arrangement with the extra area as breathing room; `showLastChanged` on the state line. The card declares no secondary controls for `full` |
 
-The active/inactive icon-circle tint pattern and state-text coloring follow the [design-system domain color discipline](../../design-system/#domain-color-discipline) in every tier.
+The active/inactive icon-circle tint pattern and state-text coloring follow the [design-system domain color discipline](../../design-system/index.md#domain-color-discipline) in every tier.
 
 ## Scenarios
 
@@ -95,7 +95,7 @@ The active/inactive icon-circle tint pattern and state-text coloring follow the 
 
 ## Open Questions
 
-- ~~**Switch domain color token.**~~ Resolved: switches (and all fallback domains) use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/#domain-color-discipline), replacing the current amber (`ButtonCard.tsx:90-99`) which collided with lights.
+- ~~**Switch domain color token.**~~ Resolved: switches (and all fallback domains) use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/index.md#domain-color-discipline), replacing the current amber (`ButtonCard.tsx:90-99`) which collided with lights.
 - ~~**Confirm scope for `call-service`.**~~ Resolved in the `confirm` section above: same-entity toggle-equivalent `call-service` routes (`switch.toggle`/`turn_on`/`turn_off`, `homeassistant.toggle`) ARE gated at action resolution; only unrelated services stay ungated — those may get a future per-action `confirm` flag in the [common action type](./common.md#action-type) rather than a card option.
 - ~~**Nested option shape.**~~ Resolved by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md): the config modal MUST render two plain `string` controls (`onLabel`, `offLabel`) that read and write into the nested `stateLabels` key — no `ConfigDefinition` schema extension. A generic object control is deferred until a second nested option exists to justify it.
 - **Fallback tap default.** Whether the fallback card should default `tapAction` to `more-info` for domains known not to support `homeassistant.toggle` (e.g. read-mostly domains) instead of attempting a toggle that errors.
