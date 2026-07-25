@@ -34,18 +34,6 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 - Theme switching applies live; token transitions cover the swap.
 - **Portalled overlays stay inside the theme scope** per the [spec's portal rule](../specs/theming/index.md#application-mechanism): existing Radix dialogs/dropdowns and the 0014 detail dialog portal to `document.body`, outside the shadow-root layers — this change MUST either provide a shadow-root portal host they mount into, or mirror all three synchronized layers into a scoped `.liebe-portal-root` document-level container (kept in sync on theme/appearance change), with a test asserting an open dialog renders active tokens.
 
-#### Scenario: Custom CSS layer wins
-
-- **GIVEN** the default theme and `theme.customCss` = `:host { --liebe-card-radius: 0; }` (or the documented root selector)
-- **WHEN** the dashboard renders
-- **THEN** cards are square while everything else stays default, and removing the CSS in the editor restores 20px live.
-
-#### Scenario: Theme config round-trips
-
-- **GIVEN** appearance `dark` and custom CSS set
-- **WHEN** YAML is exported and imported into a fresh instance
-- **THEN** the imported dashboard applies both without user action.
-
 ## Design Decisions
 
 - **Engine before themes** — 0013 must be pure payload; if it needs engine changes, the engine PR was wrong.

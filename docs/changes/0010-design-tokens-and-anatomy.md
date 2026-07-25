@@ -24,26 +24,18 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- Token contract per the [spec tables](../specs/design-system/index.md#token-contract): geometry, surface (dark + light sets), and domain color tokens, defined at the panel root inside the shadow DOM, aliasing Radix tokens where specified.
-- Anatomy components implement the [card anatomy](../specs/design-system/index.md#card-anatomy) with the stable class names and `data-domain`/`data-active` attributes from the [theming selector contract](../specs/theming/index.md#stable-selector-contract).
-- The slider anatomy MUST be built on the unstyled Radix slider primitive (drag/keyboard/touch), supporting horizontal and vertical orientation, 42px track, tint fill + 3px leading edge, in-track readout.
-- The card surface MUST render flat (no border/shadow) in dark and with the small shadow token in light; `Card variant="classic"` usage in the shell is replaced.
-- The active icon-circle treatment MUST use the derived companion tokens (`--liebe-c-<name>-tint` via `color-mix` from the base, `-text` per the triplet contract) — never a pinned Radix alpha for the active tint, or a base-only remap would leave the old-colored tint behind; the Radix `--gray-a3` alpha is reserved for the **inactive** neutral treatment, per the [design-system triplet rules](../specs/design-system/index.md#domain-color-discipline).
-- Motion: 280ms ease-out on state color transitions; press scale 0.98 on coarse pointers (camera exemption preserved per [entity-cards](../specs/entity-cards/index.md)); all honoring `prefers-reduced-motion`.
-- Existing cards MUST migrate their shell usage (`GridCard` compound slots) to the new anatomy without behavior change; edit-mode affordances (select/delete/configure) keep working.
-- The migration MUST eliminate inline visual declarations from cards (today's `backgroundColor`/`borderColor`/`color` style props in `ButtonCard.tsx`, `LightCard.tsx`, and the shell): inline styles outrank every cascade layer, making those properties untheme-able ([theming — layering rules](../specs/theming/index.md#application-mechanism)). Visual styling moves to layered classes/tokens; inline styles remain only for data-driven values (live percentages, actual bulb RGB).
+The [design-system spec](../specs/design-system/index.md) owns the token tables, card anatomy and its stable class names, the domain-colour triplet rules, and motion timings; the [theming spec](../specs/theming/index.md#stable-selector-contract) owns the selector contract those classes must satisfy. This change implements them across the existing cards. What it owns:
+
+- **Migration without behavior change:** existing cards move their `GridCard` compound-slot usage onto the new anatomy, and every edit-mode affordance (select, delete, configure) keeps working. Service-call behavior is untouched — the existing tests are the regression gate and MUST pass unmodified.
+- **Inline visual declarations must be eliminated**, not merely avoided in new code: today's `backgroundColor`/`borderColor`/`color` style props in `ButtonCard.tsx`, `LightCard.tsx`, and the shell outrank every cascade layer, so leaving them makes those properties permanently untheme-able and would silently break [0012](./0012-theming-engine.md)'s precedence contract before it lands. Visual styling moves to layered classes reading tokens; inline styles survive only for data-driven values (live percentages, actual bulb RGB).
+- `Card variant="classic"` usage in the shell is replaced — its inset borders fight the flat surface the token contract specifies.
+- Because this is the first change to stamp the anatomy classes and `data-*` attributes, it establishes the selector contract in real markup; 0013's LCARS theme is the downstream consumer that proves it.
 
 #### Scenario: Existing light card, new skin
 
 - **GIVEN** the light card after this change
 - **WHEN** its entity turns on
-- **THEN** the icon circle transitions to amber-on-amber-tint, the state line shows "On" in the amber text step — and every service-call test from before this change still passes unmodified.
-
-#### Scenario: Tokens flip with appearance
-
-- **GIVEN** a story rendered in dark appearance
-- **WHEN** the appearance toolbar switches to light
-- **THEN** surfaces, text tiers, and shadows all follow via tokens with no component-level conditionals.
+- **THEN** the icon circle transitions to the amber active treatment and the state line shows "On" in the amber text step — and every service-call test from before this change still passes unmodified.
 
 ## Design Decisions
 

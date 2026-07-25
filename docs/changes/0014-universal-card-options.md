@@ -34,12 +34,6 @@ The [common option contract](../specs/entity-cards/options/common.md) owns the u
 - **Secret redaction ships with the dialog, not with the card change that needs it.** The dialog renders entity state and attributes generically, and an `input_text` helper in `mode: password` holds its secret _in the state_ — so the moment hold-to-more-info exists, every password helper is one gesture from being displayed in clear text, months before [0022](./0022-switch-input-helpers-to-spec.md) touches helpers at all. PR 2 MUST therefore mask or omit password-helper values in the dialog's state display and attribute list, with a regression test, per the [per-value masking guarantee](../specs/entity-cards/options/input-helpers.md). A surface that can expose a secret must land already redacting it.
 - `navigate` targets a screen id or slug per the [navigation spec](../specs/navigation/index.md).
 
-#### Scenario: Hold never toggles
-
-- **GIVEN** a switch card with defaults
-- **WHEN** the user presses and holds 600ms then releases
-- **THEN** the detail dialog opens and no `switch.toggle` call is made (unit-tested with fake timers; e2e-verified once).
-
 ## Design Decisions
 
 - **One action controller in the shell** — gesture recognition (tap/hold/double-tap) lives in the card shell, cards declare only their `default` action; per-card changes never touch gesture code.

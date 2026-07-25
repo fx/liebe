@@ -685,15 +685,14 @@ When creating new entity card components:
 
 1. **Create the card component** in `src/components/`
    - Follow the pattern of existing cards (ButtonCard, LightCard, etc.)
-   - Include proper TypeScript types
+   - Implement the shared `CardProps` contract and include proper TypeScript types
    - Use ErrorBoundary wrapper
-   - Support size variants (small, medium, large)
    - Handle edit mode with delete button and selection
 
-2. **Register in GridView.tsx**
-   - Import the new card component
-   - Add a case in the EntityCard switch statement for the entity domain
-   - Map the domain to the appropriate card component
+2. **Register in `src/components/cardRegistry.ts`**
+   - Add the domain → component entry to `domainToCard`; `GridView` dispatches through `getCardForEntity`, so a domain missing from the registry silently falls through to the fallback card
+   - Register any presentation variants via `registerCardVariant` (or the component's static `variants` map) rather than a switch inside the card — `getCardVariant` is a read-only lookup and cannot register anything
+   - Add the domain to `SUPPORTED_DOMAINS` so the EntityBrowser offers it
 
 3. **Update EntityBrowser if needed**
    - Add domain to friendly name mapping in `getFriendlyDomain`
@@ -702,12 +701,13 @@ When creating new entity card components:
 Example:
 
 ```typescript
-// In GridView.tsx
+// In src/components/cardRegistry.ts
 import { WeatherCard } from './WeatherCard'
 
-// In EntityCard switch statement
-case 'weather':
-  return <WeatherCard entityId={entityId} ... />
+export const domainToCard: CardRegistry = {
+  // ...existing entries
+  weather: WeatherCard,
+}
 ```
 
 ## Important Reminders
