@@ -22,7 +22,8 @@ The avatar is the card's identity anchor and its rendering is normative, not con
   - state `home` → `--liebe-c-ok` (green, per the [domain color discipline](../../design-system/#domain-color-discipline): home = ok)
   - state `not_home` → `--liebe-c-alert` (red: away)
   - any named zone state → a **neutral** (gray-scale) dot; the zone's friendly name carries the information as the state text instead of hue.
-  - `unknown`/`unavailable` → a **hollow** (outlined, unfilled) neutral dot with state text "Unknown" — explicitly distinct from the named-zone treatment, so indeterminate presence never masquerades as a known location.
+  - `unknown` → a **hollow** (outlined, unfilled) neutral dot with state text "Unknown" — explicitly distinct from the named-zone treatment, so indeterminate presence never masquerades as a known location.
+  - `unavailable` → the same hollow dot, but the card renders the common shell's unavailable treatment (dimmed, dotted border, `UNAVAILABLE` status per [entity-cards](../index.md#common-card-shell-sizing-and-lifecycle-states)) rather than "Unknown". A person whose entity is disconnected is a different fact from a person whose location is indeterminate, and the two MUST stay distinguishable.
 - The universal `icon` override, when set, replaces the initials fallback glyph but MUST NOT suppress the badge dot; `entity_picture`, when present, always wins over both.
 - A **presence indicator** MUST ride on the avatar in every rendering of it, so presence is legible even when the state line is hidden — the overlapping badge **dot** in all card tiers, and (per the chip section) the 2px presence **ring** at chip scale, where an overlapping dot would be illegible. Same colors, same information; the form adapts to the scale.
 

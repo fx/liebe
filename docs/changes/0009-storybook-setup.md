@@ -27,21 +27,12 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 ### Functional requirements
 
-- `npm run storybook` MUST serve the workshop on `0.0.0.0`; `npm run build-storybook` MUST produce a static build; both MUST work offline with no HA instance.
-- Global decorators MUST wrap stories in Radix `Theme` + panel providers, seed entity stores from fixtures, and intercept service calls as logged actions ([spec — mocking](../specs/storybook/index.md#entity-data-mocking)).
-- Toolbar MUST offer appearance `dark | light`; the theme toolbar MUST be **registry-driven from the start**: this change ships a minimal theme-registry module (`id`, `label`, appearance support — containing only `default`) that the toolbar enumerates, satisfying the [spec's extensibility rule](../specs/storybook/index.md#global-decorators--toolbar). The theming engine (0012) adopts and extends this module as the runtime registry; themes then appear in the toolbar with no workshop changes.
-- A grid-cell decorator MUST frame card stories at real grid metrics with width/height span controls.
-- Every **entity card** currently in `domainToCard` (plus registered weather variants) MUST have a stories file covering the entity lifecycle matrix: default, active/on, unavailable, error, skeleton, edit-mode. Non-entity surfaces get their applicable stories instead — `TextCard`/`Separator` (no entity hooks, so no lifecycle states): content/alignment/color variants and edit-mode inline editing; `GridCard` shell parts: their own visual states (selected, loading pulse, error border, edit-mode action cluster).
-- The a11y addon MUST be enabled globally.
-- CI MUST add a `storybook` job running `build-storybook` on every PR; failure blocks merge.
-- The deploy workflow MUST publish the static build to GitHub Pages under `/storybook/` on merge to `main`.
-- Storybook's preview MUST NOT import panel bootstrap side effects (custom element registration, HA connection). Any provider extraction needed to achieve this MUST preserve current panel behavior and stay covered.
+The [storybook spec](../specs/storybook/index.md) owns the workshop's observable contract — decorators and entity mocking, the toolbar, story-coverage rules per surface, a11y, the CI gate, and Pages publishing. This change stands that up. What it owns beyond the spec:
 
-#### Scenario: Card story renders without Home Assistant
-
-- **GIVEN** a checkout with dependencies installed and no network
-- **WHEN** `npm run storybook` opens the LightCard "On" story
-- **THEN** the card renders from fixture state, and dragging its brightness slider logs a `light.turn_on` action instead of a network call.
+- **Scope is the cards that exist today**: every entity card currently in `domainToCard` plus the registered weather variants, and the non-entity surfaces (`TextCard`, `Separator`, `GridCard` shell parts). Cards introduced by 0023–0027 bring their own stories in their own changes.
+- **The theme toolbar is registry-driven from the start.** This change ships a minimal theme-registry module (`id`, `label`, appearance support) containing only `default`, which the toolbar enumerates. [0012](./0012-theming-engine.md) adopts and extends that same module as the runtime registry, so later themes appear in the toolbar with no workshop changes — the alternative, a hardcoded toolbar list, would have to be torn out three changes later.
+- **The preview MUST NOT import panel bootstrap side effects** (custom-element registration, HA connection). Any provider extraction needed to achieve this MUST preserve current panel behavior and stay covered — this is the one place the change touches production code.
+- CI gains a `storybook` job running `build-storybook` on every PR, and the deploy workflow publishes the static build under `/storybook/` on merge to `main`.
 
 #### Scenario: Broken story blocks merge
 

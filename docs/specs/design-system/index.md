@@ -52,6 +52,17 @@ Surface tokens (dark defaults / light values):
 
 These literal values are the design intent; the implementation SHOULD substitute the nearest Radix gray-scale tokens (`--color-background`, `--color-panel-solid`, `--gray-a*`) where the difference is imperceptible.
 
+Typography tokens:
+
+| Token                    | Default               | Purpose                                                |
+| ------------------------ | --------------------- | ------------------------------------------------------ |
+| `--liebe-font-family`    | system stack (Radix)  | Typeface for all dashboard text                        |
+| `--liebe-text-transform` | `none`                | Casing applied to names, state text, labels, and chips |
+| `--liebe-letter-spacing` | `normal`              | Tracking companion to the casing token                 |
+| `--liebe-font-numeric`   | `--liebe-font-family` | Typeface for numeric readouts, so figures can differ   |
+
+These MUST be declared on the themed root and inherited, not applied per component, so a theme that sets them restyles every text surface — including [portalled overlays](../theming/#application-mechanism), whose mirrored root carries the same declarations. This is what makes a whole-dashboard typographic reskin (LCARS: bundled Antonio, uppercase, slight tracking) expressible as token values rather than as rules targeting selectors outside the [stable contract](../theming/#stable-selector-contract). Casing MUST go through `--liebe-text-transform` rather than literal uppercase text or per-component `text-transform`, so the default theme's sentence case and a theme's uppercase are the same mechanism.
+
 #### Scenario: A theme changes one token and every card follows
 
 - **GIVEN** the default theme with `--liebe-card-radius: 20px`
@@ -90,7 +101,7 @@ These literal values are the design intent; the implementation SHOULD substitute
 
 ### Typography
 
-- Font family MUST be the system-native stack (Radix default); no webfont in the default theme.
+- Text MUST read its typeface, casing, and tracking from the typography tokens above rather than declaring them per component. The **default theme** sets `--liebe-font-family` to the system-native stack (Radix default) with `--liebe-text-transform: none`; no webfont ships in the default theme.
 - Type ramp (all MUST be expressed via tokens or the Radix size scale):
   - Entity name: 14px / 500 / 20px line-height, single line, ellipsized.
   - State line: 12.5px / 400, muted color, single line, ellipsized.
