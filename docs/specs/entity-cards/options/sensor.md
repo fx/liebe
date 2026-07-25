@@ -51,7 +51,8 @@ There is no separate `activeColor` option — the universal [`color`](./common.m
   - Alert-class device classes (`gas`, `smoke`, `carbon_monoxide`, `problem`, `safety`, `tamper`) SHOULD use `--liebe-c-alert` when active — an active smoke detector must read as an alarm, not a lit lamp.
   - `moisture` SHOULD use `--liebe-c-water`; `light` SHOULD use `--liebe-c-light`.
   - All other device classes (and none) default to `--liebe-c-default` per the [design-system color table](../../design-system/#domain-color-discipline) — replacing today's amber emphasis, which the contract reserves for lights.
-- A non-`auto` `color` value overrides this mapping entirely, and MUST style the active tint pattern (glyph + ~20% tint circle + state text), matching the design system's active-state pattern. `invert: true` moves the active styling to the presented-on state.
+- A non-`auto` `color` value overrides this mapping and MUST style the active tint pattern (glyph + ~20% tint circle + state text), matching the design system's active-state pattern. `invert: true` moves the active styling to the presented-on state.
+- **Exception — active hazard sensors are not restylable.** An **active** alert-class sensor (`gas`, `smoke`, `carbon_monoxide`, `problem`, `safety`, `tamper`) MUST render `--liebe-c-alert` regardless of any `color` value; a named override applies only to its inactive state. A configuration that made a sounding smoke detector render calm green would defeat the card's only job at the moment it matters. This is the same rule that protects jammed locks and triggered alarms ([options/security](./security.md)) — danger states are never configurable into looking safe.
 
 ## Tier layouts
 

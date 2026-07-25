@@ -55,6 +55,7 @@ No options beyond the [universal set](./common.md#universal-options).
 
 - Inline editing with the helper's `min`/`max` length and `pattern` validation stays as specified in [entity-cards](../index.md#input-helper-cards): `input_text.set_value` fires only for valid input.
 - Masking the displayed and edited value when the helper's `mode === 'password'` **remains a MUST** and is not configurable — a presentation option MUST NOT be able to unmask a password helper.
+- **The guarantee is per-value, not per-surface.** It binds every surface Liebe renders the helper's state on, not just the card: the [detail dialog](./common.md#action-type) MUST mask or omit a password helper's value in both its state display and any domain control it mounts. The `glance` tier's default tap resolves to `more-info`, so an unmasked dialog would expose exactly the value the card just hid — reachable in one tap, with no option involved.
 
 ### `input_datetime`
 

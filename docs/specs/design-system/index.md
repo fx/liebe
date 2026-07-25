@@ -54,12 +54,12 @@ These literal values are the design intent; the implementation SHOULD substitute
 
 Typography tokens:
 
-| Token                    | Default               | Purpose                                                |
-| ------------------------ | --------------------- | ------------------------------------------------------ |
-| `--liebe-font-family`    | system stack (Radix)  | Typeface for all dashboard text                        |
-| `--liebe-text-transform` | `none`                | Casing applied to names, state text, labels, and chips |
-| `--liebe-letter-spacing` | `normal`              | Tracking companion to the casing token                 |
-| `--liebe-font-numeric`   | `--liebe-font-family` | Typeface for numeric readouts, so figures can differ   |
+| Token                    | Default                    | Purpose                                                |
+| ------------------------ | -------------------------- | ------------------------------------------------------ |
+| `--liebe-font-family`    | system stack (Radix)       | Typeface for all dashboard text                        |
+| `--liebe-text-transform` | `none`                     | Casing applied to names, state text, labels, and chips |
+| `--liebe-letter-spacing` | `normal`                   | Tracking companion to the casing token                 |
+| `--liebe-font-numeric`   | `var(--liebe-font-family)` | Typeface for numeric readouts, so figures can differ   |
 
 These MUST be declared on the themed root and inherited, not applied per component, so a theme that sets them restyles every text surface — including [portalled overlays](../theming/#application-mechanism), whose mirrored root carries the same declarations. This is what makes a whole-dashboard typographic reskin (LCARS: bundled Antonio, uppercase, slight tracking) expressible as token values rather than as rules targeting selectors outside the [stable contract](../theming/#stable-selector-contract). Casing MUST go through `--liebe-text-transform` rather than literal uppercase text or per-component `text-transform`, so the default theme's sentence case and a theme's uppercase are the same mechanism.
 
