@@ -25,26 +25,12 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- Sensor options `displayPrecision`, `unitOverride`, `valueScale`, `showGraph`, `graphHours`, `graphMode`, `showTrend` with keys, types, defaults, and semantics exactly per the [sensor option table](../specs/entity-cards/options/sensor.md#sensor-sensor), stored under `item.config` on the 0014 shared config surface and edited via the config form.
-- **Existing behavior preserved (MUST):** `displayPrecision: auto` keeps the implemented `device_class` formatting matrix, and `valueScale: auto` keeps power/energy k-scaling (`1250 W` → `1.3 kW`); a fixed precision applies after scaling; `unitOverride` composes with the `k` prefix.
-- Graphs render from `useEntityHistory` ([0015](./0015-history-and-forecast-data.md)) with the **aggregation mode selected by the card**: `{hours: graphHours, mode: 'sample'}` for measurement graphs, `{hours: graphHours, mode: 'delta'}` whenever `graphMode: bar` renders a `total`/`total_increasing` sensor — the default `sample` downsampling destroys intra-bucket resets, so counters MUST request `delta` (see 0015's raw-samples-first rule): `liebe-spark` sparkline in `row`/`tall`, full-width graph (`graphMode` line/bar) in `full` with a min/max footer formatted through the same precision/scale/unit pipeline; never in `glance`. Loading, error, empty, and `unsupported` results degrade to the graph-less layout — never an error frame.
-- `glance` renders the big-value layout (`liebe-value`, tabular-nums, muted unit) with a trend arrow (↑/↓/→) and delta over `graphHours` when `showTrend` and history is available — computed reset-aware for `total_increasing` state classes (the delta-mode aggregation, never a naive start-to-current difference that shows a false downward arrow across a counter reset) and as a signed delta for `total`.
-- Numeric-ness is derived from the entity (parseable state / `state_class`), never from config; graph/trend options are hidden in the config form for non-numeric sensors.
-- Binary sensor `onLabel`/`offLabel` default to `device_class` naming ("Open"/"Closed", "Wet"/"Dry", "Detected"/"Clear", …), replacing the uppercased raw state; `invert` swaps the on/off presentation (icon, label, active tint) only — raw state and `more-info` are untouched.
-- Binary sensor `color: auto` resolves by `device_class` per the [active color rules](../specs/entity-cards/options/sensor.md#active-color): alert classes (`gas`, `smoke`, `carbon_monoxide`, `problem`, `safety`, `tamper`) use `--liebe-c-alert` when active, `moisture` → `--liebe-c-water`, `light` → `--liebe-c-light`, all others use `--liebe-c-default` per the [design-system color table](../specs/design-system/index.md#domain-color-discipline) (replacing today's amber emphasis, which the contract reserves for lights); an explicit `color` overrides the mapping.
-- Both cards stay read-only (`tapAction: default` resolves to `more-info` per 0014; the stored default stays literal `default`); tier layouts per the [spec's tier tables](../specs/entity-cards/options/sensor.md#tier-layouts), omitting (never clipping) content that does not fit.
+The [sensor option doc](../specs/entity-cards/options/sensor.md) owns the option keys, defaults, the formatting pipeline (precision, scale, unit override), tier layouts, binary-sensor labels and `invert`, the `device_class` active-colour rules, and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Full-tier graph with formatted min/max footer
-
-- **GIVEN** a `power` sensor on a `full`-tier card with defaults, whose 24h history spans `840`–`2310` W
-- **WHEN** the card renders with history loaded
-- **THEN** a line graph fills the card with the current value displayed big above it, and the footer shows min `840 W` / max `2.3 kW` — formatted through the same `displayPrecision`/`valueScale`/`unitOverride` pipeline as the main value.
-
-#### Scenario: Inverted alert sensor stays calm
-
-- **GIVEN** a `binary_sensor` with `device_class: problem`, `color: auto`, `invert: true`, raw state `on`
-- **WHEN** the card renders
-- **THEN** it shows the off presentation — `offIcon`, label "OK", inactive muted styling, no alert tint — while `more-info` still reports the raw `on` state.
+- Options are stored under `item.config` on the 0014 shared config surface and edited via the config form; graph and trend options are hidden in that form for non-numeric sensors, with numeric-ness derived from the entity (parseable state / `state_class`) and never from config.
+- **History aggregation mode is selected by the card, not defaulted**: measurement graphs request `{hours: graphHours, mode: 'sample'}` from `useEntityHistory` ([0015](./0015-history-and-forecast-data.md)), but `total`/`total_increasing` sensors MUST request `mode: 'delta'` — `sample` downsampling destroys intra-bucket counter resets, producing false downward trends. The same delta-mode series backs the reset-aware trend arrow.
+- Graph, loading, error, empty, and `unsupported` history results all degrade to the graph-less layout — never an error frame, since history is supplementary to a sensor's value.
+- **Labels come from a local `device_class` table** shipped with Liebe rather than HA frontend internals; the universal `name`/`icon` overrides from 0014 still win over it.
 
 ## Design Decisions
 

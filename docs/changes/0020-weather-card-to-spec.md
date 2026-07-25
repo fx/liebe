@@ -27,24 +27,11 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- Option keys, types, defaults, and tier placements exactly per the [weather options table](../specs/entity-cards/options/weather.md#options): `variant` (existing values and default preserved), `temperatureUnit` (existing, now also converting every forecast temperature and feels-like value), `showHourlyForecast` (row/tall/full, never glance) with `forecastHours` (1–12, default 4), `showDailyForecast` (full only) with `forecastDays` (1–7, default 4), `secondaryInfo` (row/tall/full), `showConditionBackground` (all tiers except where the variant opts out) — each editable via the weather card's `CardConfig` form alongside the shared 0014 fragment, round-tripping through YAML.
-- Variant and tier compose per [Variants and tiers](../specs/entity-cards/options/weather.md#variants-and-tiers): `variant` selects density and style, the grid span alone selects the tier, every variant implements all four tier layouts (a variant MAY render less than the tier allows — `minimal` stays temperature-only — but never more), and existing configs keep working unchanged including the `preset` → `variant` migration; a legacy `size` value never influences weather layout.
-- Forecast data comes exclusively from `useWeatherForecast` ([0015](./0015-history-and-forecast-data.md)); the card never calls `weather.get_forecasts` itself. When the hook resolves `unsupported` (or errors, or returns nothing) for a type, that section is hidden entirely — no empty strip, no placeholder, no error state — regardless of the option being `true` (common convention 3). `forecastHours`/`forecastDays` are upper bounds; the card renders what it received and never pads.
-- `secondaryInfo` features the selected attribute on the secondary/detail line; when absent on the entity it falls back through the specified order starting at `humidity`, omitting the line only when none are available; in `full` the detail line leads with the featured value and MAY append deduplicated extras per the tier table.
-- `showConditionBackground: true` renders the condition-mapped image as a cover background with white text/shadows exactly per shipped behavior; image URLs remain prefixed by `window.__LIEBE_ASSET_BASE_URL__` (falling back to `/`) — this constraint is load-bearing across dev/production base paths ([entity-cards — Constraints](../specs/entity-cards/index.md#constraints)). `false`, or an unresolved condition, renders the standard `--liebe-card-bg` surface with normal text; `minimal` never renders a background.
-- The card stays read-only: `tapAction: default` resolves to `more-info` (stored default stays literal `default`), no default action calls a service, forecast columns are non-interactive, and taps on them fall through to the card's tap action.
+The [weather option doc](../specs/entity-cards/options/weather.md) owns the option keys, defaults, tier placements, variant/tier composition, `secondaryInfo` fallback order, condition-background behavior, and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Existing variant config renders unchanged under tiers
-
-- **GIVEN** a stored grid item with `config: { variant: 'detailed', temperatureUnit: 'fahrenheit' }` created before this change
-- **WHEN** the dashboard loads and the card renders at a 2×2 span (`full` tier)
-- **THEN** the detailed variant renders with Fahrenheit temperatures and its pressure emphasis, with no config migration and no new keys required.
-
-#### Scenario: Forecast options degrade gracefully without the service
-
-- **GIVEN** a weather entity whose integration lacks `weather.get_forecasts`, on a `full`-tier card with defaults (`showHourlyForecast: true`, `showDailyForecast: true`)
-- **WHEN** `useWeatherForecast` resolves `unsupported` and the card renders
-- **THEN** neither the hourly strip nor the daily row appears — no placeholder, no error — and the current-conditions content lays out as if both options were `false`.
+- Options are stored under `item.config` and edited via the weather card's `CardConfig` form alongside the shared 0014 fragment, round-tripping through YAML. Existing weather configs keep working unchanged, including the already-shipped `preset` → `variant` migration; no new migration is introduced.
+- **Forecast data comes exclusively from `useWeatherForecast`** ([0015](./0015-history-and-forecast-data.md)); the card never calls `weather.get_forecasts` itself. `forecastHours`/`forecastDays` are upper bounds — the card renders what it received and never pads.
+- Condition-background image URLs stay prefixed by `window.__LIEBE_ASSET_BASE_URL__` (falling back to `/`). This is load-bearing across dev and deployed base paths ([entity-cards — Constraints](../specs/entity-cards/index.md#constraints)) and is easy to regress while restructuring the variants.
 
 ## Design Decisions
 

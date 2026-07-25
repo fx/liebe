@@ -6,12 +6,36 @@ Review conventions for Liebe — a Home Assistant custom panel (TanStack Start S
 
 Cross-reference every PR against task lists in `docs/changes/` and `docs/tasks.md`. If the PR completes work tracked in those files, the task checkboxes MUST be updated in this same PR. Request changes if missing.
 
-## Cross-Document Consistency
+## Single-Owner Contracts
 
-The specs (`docs/specs/`) and change documents (`docs/changes/`) restate the same behavioral contracts in multiple places — requirement bullets, GIVEN/WHEN/THEN scenarios, summaries, task lists, and paired spec/change documents. Partial updates are this repo's most common documentation defect.
+Every behavioral rule has exactly one owning document. Other documents **link** to it; they do not restate it.
 
-- When a PR changes a behavioral contract in one document, search for every restatement of that contract elsewhere — the paired spec/change doc, GIVEN/WHEN/THEN scenarios, task lists, summary paragraphs, and testing requirements — and flag any copy left stale. Partial syncs were the single largest defect class: the spec said one thing while the change doc's scenario or task line still said the old thing.
-- Specs state desired behavior; change docs implement a spec. If they disagree, one of them is wrong — request the sync, do not guess which.
+Restatement is the root cause of this repo's largest defect class. A contract written in the option spec, restated in the change doc's functional requirements, restated again in a GIVEN/WHEN/THEN scenario, and again in a task line is four copies and four chances to drift — and each fix that touches one copy manufactures the next finding. Treat the duplication as the defect, not the drift it eventually produces.
+
+- **Flag restatement itself.** When a change doc's functional requirements re-specify behavior the option/spec document already defines, request a reference (`per [options/cover — position slider](...)`) instead of a copy. This applies even when the two copies currently agree.
+- **What a change doc legitimately owns**, and should contain nothing else: sequencing and dependencies, migration/pinning decisions, file/PR breakdown, testing requirements specific to this change, design decisions made _for_ this change, and out-of-scope boundaries. Behavior belongs to the spec.
+- **Scenarios live with the contract.** A GIVEN/WHEN/THEN in a change doc that re-tests a spec scenario is a duplicate; change docs get scenarios only for behavior they introduce.
+- Specs state desired behavior; change docs implement a spec. If they genuinely disagree, one is wrong — request the sync, do not guess which.
+- Only when a contract is legitimately single-sourced and a PR changes it: check the linking documents still make sense. That is a cheap check; hunting copies is not.
+
+## Specification Altitude
+
+Specs describe **observable behavior**. They do not prescribe the implementation that produces it.
+
+Naming a library's components, methods, or built-in behaviors inside a normative bullet converts a third-party API into a checkable claim — and reviewers will then check it, correctly, forever. That is review surface the spec never needed.
+
+- **Do not flag missing implementation detail.** A spec that says "cancelling fires nothing" is complete. Which dialog primitive is used, what it does on outside-click, which props are passed, and how state is held are implementation-time decisions. Absence of that detail is not a gap.
+- **Do flag implementation detail that is present**, as over-constraint: component/method names (`AlertDialog.Content`), library-specific prop or event names, class or file layout, hook names, and "use library X's built-in Y" instructions. Ask for the observable rule instead. Exceptions are the genuine cross-cutting commitments — the `--liebe-*` token contract, the stable selector contract, cascade-layer ordering, the non-retrying dispatch path — which are architecture, not mechanism.
+- **`MUST` density is a smell.** Each `MUST` is an assertion someone must verify against every other one. If a requirement does not describe something a user could observe or a contract another document depends on, it should be prose or a design decision, not a `MUST`.
+- Prefer invariants to mechanism lists (see [Requirements Must Be Implementable as Written](#requirements-must-be-implementable-as-written)).
+
+## Open Questions Are Not Defects
+
+Specs carry an Open Questions section on purpose; deferring a decision is the section working as designed.
+
+- Do not flag an Open Question for existing, for being unresolved, or for lacking detail.
+- Flag one **only** when it contradicts a decision already recorded elsewhere — typically a change doc that settled it — in which case the fix is to mark it resolved and state the decision in the owning document.
+- Do not ask for an Open Question to be answered inline as a condition of merge.
 
 ## Home Assistant API Facts
 

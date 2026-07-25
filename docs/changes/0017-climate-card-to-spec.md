@@ -25,26 +25,12 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- **Legacy pinning** (common convention 7): existing climate items render the arc thermostat today, so the loader MUST write `variant: 'dial'` onto climate items that predate this change — only newly added climate cards get the `compact` default. Migration unit-tested (legacy item pinned; new item defaulted).
-- Options exactly per the [climate options table](../specs/entity-cards/options/climate.md#options): keys under `item.config`, camelCase, edited via the card config form, round-tripping through YAML; `show*` toggles only hide or tune what the entity's `supported_features`/attributes offer, never enable what it does not (common-contract rule 3, both ways).
-- `variant: compact` (default) renders the stepper/pills presentation per the [tier layouts](../specs/entity-cards/options/climate.md#tier-layouts); `variant: dial` renders the existing arc thermostat in the `full` tier only and MUST fall back to the compact layout in smaller tiers. The dial registers through the card registry's variant mechanism — `registerCardVariant('climate', 'dial', …)` (or the component's static `variants` map, which the registry reads), so that `getCardVariant('climate', 'dial')` resolves it at dispatch — not a private switch; note `getCardVariant` is read-only and cannot register anything. Changing `variant` changes presentation only — both variants call the same services with the same step/clamp rules.
-- Preserved MUSTs hold for every variant, tier, and option combination: setpoint changes step by `target_temp_step` (default 0.5) and clamp to `[min_temp, max_temp]` with bound-disabled steppers; `heat_cool` with `SUPPORT_TARGET_TEMPERATURE_RANGE` presents dual setpoints, sends `{ target_temp_low, target_temp_high }`, and rejects inverted ranges; all controls hidden in edit mode.
-- `showCurrentTemp` composes the state line as `<hvac state> · currently X°` (state colored per mode, "currently" muted); `hideState: true` from the universal contract suppresses the whole line and wins. `showHumidity` and mode/preset/fan pill rows render per their tier gating; options whose tier never renders are inert, not invalid.
-- Mode pills and the icon/state coloring follow the [domain color discipline](../specs/design-system/index.md#domain-color-discipline) with the spec's **total precedence**: entity state `unknown`/`unavailable` first → neutral rendering with every control inert (stale attributes never color the card); then active `hvac_action` values override the mode (`heating`/`preheating`/`defrosting` → heat, `cooling` → cool, `drying` → water, `fan` → neutral); `idle`, `off`, absent, or unrecognized actions fall back to the entity-state mode mapping — an entity in state `heat` with `hvac_action: idle` colors as heat-mode-inactive, not by the idle action.
-- `displayUnit` converts every displayed temperature (target, range, current) for presentation only; the native unit is `hass.config.unit_system.temperature` (climate entities carry no per-entity `temperature_unit` attribute — HA normalizes to the unit system), the stepper steps and clamps in it, and service calls always send native-unit values; fixtures model the unit system rather than a synthetic attribute.
-- `tapAction: default` means open more-info (never toggle), per the [primary action rule](../specs/entity-cards/options/climate.md#primary-action).
+The [climate option doc](../specs/entity-cards/options/climate.md) owns the option keys, defaults, tier layouts, the `hvac_action`-first colour precedence, `displayUnit` conversion semantics, the preserved step/clamp/range MUSTs, and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Dial variant falls back below full tier
-
-- **GIVEN** a climate card with `config.variant = 'dial'` on a 2×2 span showing the arc thermostat
-- **WHEN** the user resizes it to 2×1 in edit mode
-- **THEN** the card re-renders in the `row` compact layout (icon, meta, stepper) with identical service behavior, and restores the dial when resized back to ≥2×≥2.
-
-#### Scenario: Fahrenheit display keeps native service units
-
-- **GIVEN** a thermostat on a Celsius unit system (`hass.config.unit_system.temperature: '°C'`, `temperature: 21`, `target_temp_step: 0.5`) with `config.displayUnit = 'fahrenheit'`
-- **WHEN** the card renders and the user taps the increase stepper
-- **THEN** the readout converts for display only, and the service call is `climate.set_temperature` with `{ temperature: 21.5 }` in native units.
+- Options are stored under `item.config` and edited via the climate card's `CardConfig` form alongside the shared 0014 fragment, round-tripping through YAML.
+- **Legacy pinning** (common convention 7): existing climate items render the arc thermostat today, so the loader writes `variant: 'dial'` onto climate items predating this change — the `compact` default applies only to newly added cards. Unit-tested both ways (legacy item pinned, new item defaulted).
+- The `dial` variant registers through the card registry's existing variant mechanism rather than a private switch inside the card, consistent with the weather family.
+- The arc thermostat moves into its own file under the climate card's folder so the compact variant is not carried by the same component — see Design Decisions.
 
 ## Design Decisions
 

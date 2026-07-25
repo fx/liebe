@@ -26,27 +26,12 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- Option keys, types, defaults, and tier placements exactly per the [light options table](../specs/entity-cards/options/light.md#options): `showBrightnessSlider` (row/tall/full, never glance), `showColorTempControl` (full), `showColorControl` (full), `useLightColor` (all tiers), `brightnessPresets` (full) — each editable via the light card's `CardConfig` form alongside the shared 0014 fragment, round-tripping through YAML.
-- Config loader migrates `enableBrightness` → `showBrightnessSlider` (same semantics; never written back; exports contain only the new key), following the weather `preset` → `variant` migration pattern.
-- Options only hide or tune capabilities the entity has (common convention 3): controls derive availability from `supported_color_modes` with the legacy `supported_features` fallback; an unsupported capability renders nothing regardless of config.
-- Brightness stays 0–100 in the UI, converted to/from HA's 0–255; commit at 0 calls `light.turn_off` (retained); any nonzero position sends `brightness ≥ 1`; slider renders only while `on`; drag state stays local until commit.
-- The color-temperature and color controls are **additive** control surfaces (common convention 7): they appear on existing full-tier light cards with the new `true` defaults and require no legacy pinning — existing interactions (toggle, brightness) operate unchanged. Color-temperature control spans the entity-reported range with the payload key bound to the unit of the range it read: entities exposing `min_color_temp_kelvin`/`max_color_temp_kelvin` get `light.turn_on` with `color_temp_kelvin` (Kelvin value); legacy entities exposing only `min_mireds`/`max_mireds` get `color_temp` (mired value). Never mix (a Kelvin value under `color_temp`, or mireds under `color_temp_kelvin`, is an invalid target); both pairings unit-tested.
-- Color control renders the swatch palette decided below; selecting a swatch calls `light.turn_on` with the corresponding color payload; the control fits the `full` tier without scrolling.
-- `useLightColor: true` tints the icon circle and slider fill from the bulb's resolvable RGB (`rgb_color`, or derived from `hs_color`/`xy_color`/color temperature), lightness-clamped so dark/desaturated colors stay distinguishable from inactive; falls back to the `--liebe-c-light` domain token when off or when no color is resolvable; `false` always uses the domain token; an explicit named universal `color` wins over everything including bulb color (it pins the active treatment per the common contract), so `useLightColor` only governs behavior under `color: auto`.
-- `brightnessPresets` renders `liebe-pill` pills in `full` for values 1–100 (invalid entries filtered at render; empty-after-filter hides the row); tapping calls `light.turn_on` with the converted brightness even from `off`; the pill matching current brightness renders selected; requires brightness support.
-- Embedded controls (slider, temp control, swatches, pills) consume their own events and never trigger the card's tap action; when brightness is shown, the state line reads the percentage.
+The [light option doc](../specs/entity-cards/options/light.md) owns the option keys, defaults, tier placements, capability gating, control behavior (brightness, colour temperature, colour, presets, bulb-colour theming), and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Legacy key migrates and stays gone
-
-- **GIVEN** a stored grid item with `config: { enableBrightness: false }`
-- **WHEN** the dashboard configuration loads and the user later exports YAML
-- **THEN** the card renders no brightness slider in any tier, and the export contains `showBrightnessSlider: false` with no `enableBrightness` key.
-
-#### Scenario: Preset pill turns an off light on at the preset level
-
-- **GIVEN** an `off` dimmable light on a `full`-tier card with `brightnessPresets: [20, 50, 100]`
-- **WHEN** the user taps the `50` pill
-- **THEN** the card calls `light.turn_on` with `brightness ≈ 128` (`round(0.5 × 255)`) — it does not merely toggle, and the tap does not bubble into the card's tap action.
+- Options are stored under `item.config` and edited via the light card's `CardConfig` form alongside the shared 0014 fragment, round-tripping through YAML.
+- **Config migration:** the loader rewrites the legacy `enableBrightness` key to `showBrightnessSlider` (identical semantics), following the weather `preset` → `variant` pattern. The legacy key is never written back and exports contain only the new key.
+- **No legacy pinning for the new controls** (common convention 7): the colour-temperature and colour controls are _additive_ surfaces, so they appear on existing full-tier light cards under their new `true` defaults without a migration. Existing interactions are unchanged.
+- Brightness conversion between the 0–100 UI scale and HA's 0–255 lives in one place, shared by the slider and the preset pills.
 
 ## Design Decisions
 

@@ -24,25 +24,12 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- New `VacuumCard` registered under `vacuum` in `domainToCard`, accepting the shared `CardProps` contract and rendering through the common shell; `vacuum` added to `SUPPORTED_DOMAINS` so it appears in the EntityBrowser. Domain color is the vacuum token (`--liebe-c-vacuum`, teal).
-- **Legacy pinning** (common convention 7, mirroring 0023): `vacuum` items that predate this change (imported YAML / advanced discovery) render the fallback card today, whose tap is a power toggle — the loader MUST write `tapAction: 'toggle'` onto those items so their operation is preserved, while new cards get the state-machine `default`. Migration unit-tested.
-- `tapAction: default` resolves via the state machine in the [option doc's primary-action table](../specs/entity-cards/options/vacuum.md#primary-action); every mapping is feature-gated on `supported_features` (`PAUSE` 4, `STOP` 8, `RETURN_HOME` 16, `FAN_SPEED` 32, `BATTERY` 64, `LOCATE` 512, `START` 8192) and falls through as specified. `unavailable`/`unknown` are inert.
-- Options exactly per the [option table](../specs/entity-cards/options/vacuum.md#options): `showCommands` (default `true`; start/pause + dock cluster in `row`/`full`, dock disabled while `docked`/`returning`). **Every command dispatch** — start/pause/resume/stop, `vacuum.return_to_base`, and `vacuum.locate` — uses the non-retrying path from [0014](./0014-universal-card-options.md) (physical, non-idempotent commands; retries re-start runs or chirp the vacuum repeatedly), and every dispatch surface — command buttons **and the card body's default action**, which issues the same start/pause/resume services — stays guarded from dispatch until the expected state transition or an acknowledgement timeout (the 0024 guard pattern; a `vacuum.start` acknowledged before the entity leaves `docked` must not be dispatchable again by a second body tap), with single-call boundary tests per button and for the body action's laggy-integration case. `showBattery` (default `true`; battery segment appended to the state line, amber below 20%), `showFanSpeed` (default `true`; `full`-tier select over `fan_speed_list` calling `vacuum.set_fan_speed`), `showLocate` (default `false`), `showStats` (default `false`; `cleaned_area`/`cleaning_time` line). Options only hide or tune advertised capabilities — never surface an unsupported control.
-- Error state (required, not an option): state `error` renders icon and state text in the alert token (`--liebe-c-alert`) and shows the diagnostic message from the standardized `status` attribute (VacuumEntityFeature.STATUS, bit 128) when present, falling back to a custom `error` attribute, then to `Error` (ellipsized), with `more-info` as the default tap; fixtures include the standard `status` shape.
-- Tier layouts per the option doc: `glance` icon/name/state only, `row` adds the command cluster, `full` adds fan-speed select, locate, and stats in order; 1×N spans render `glance`; content that does not fit is omitted, never clipped.
-- Config-form controls for the five options in the card's `ConfigDefinition`, round-tripping through YAML with the universal options from 0014.
+The [vacuum option doc](../specs/entity-cards/options/vacuum.md) owns the option keys, defaults, the primary-action state machine and its feature gating, the command cluster (including the legacy on/off degradation), the required error state, tier layouts, and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Tap follows the state machine
-
-- **GIVEN** a vacuum card with defaults whose entity is `docked` and supports `START` and `PAUSE`
-- **WHEN** the user taps the card body
-- **THEN** the card calls `vacuum.start`; and **WHEN** the entity state becomes `cleaning` and the user taps again, **THEN** the card calls `vacuum.pause` — never a blind toggle.
-
-#### Scenario: Options cannot enable an unsupported capability
-
-- **GIVEN** a vacuum advertising only `START | RETURN_HOME` on a `full`-tier card with `showFanSpeed: true` and `showLocate: true`
-- **WHEN** the card renders
-- **THEN** it shows start and dock buttons but no fan-speed select and no locate button — the options are inert because `FAN_SPEED` and `LOCATE` are absent.
+- **Registration:** `VacuumCard` registers under `vacuum` in `domainToCard`, accepts the shared `CardProps` contract, renders through the common shell, and `vacuum` joins `SUPPORTED_DOMAINS`.
+- **Legacy pinning** (common convention 7, mirroring 0023): `vacuum` items predating this change render the fallback card, whose tap is a power toggle. The loader writes `tapAction: 'toggle'` onto those items to preserve their operation; new cards get the state-machine `default`. Migration unit-tested.
+- **Every command dispatch** — start/pause/resume/stop, `vacuum.return_to_base`, `vacuum.locate` — uses the non-retrying path from [0014](./0014-universal-card-options.md), since retries re-start runs or chirp the vacuum repeatedly. The guard covers **both the command buttons and the card body's default action**, which issues the same services: a `vacuum.start` acknowledged before the entity leaves `docked` must not be re-dispatchable by a second body tap. Boundary tests per button plus the body action's laggy-integration case.
+- Fixtures MUST model the standardized `status` attribute (`STATUS`, bit 128) shape the error state reads.
 
 ## Design Decisions
 

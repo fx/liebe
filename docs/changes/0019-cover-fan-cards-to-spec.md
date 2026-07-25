@@ -27,30 +27,13 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- Option keys, types, defaults, and tier placements exactly per the [cover options table](../specs/entity-cards/options/cover.md#options) and [fan options table](../specs/entity-cards/options/fan.md#options), stored under `item.config`, edited via each card's `CardConfig` form alongside the shared 0014 fragment, round-tripping through YAML. Both cards' baseline "MUST NOT expose a configuration modal" is retired.
-- Options only hide or tune capabilities the entity has (common convention 3): every control derives availability from its `supported_features` bit; an unsupported capability renders nothing regardless of config.
-- **Cover:** default tap resolves state-aware per the option doc — `unavailable`/`unknown` inert first; `more-info` for security-opening device classes (`garage`, `gate`, `door` — an accidental tap must not open the perimeter; movement stays behind explicit buttons, with the `confirmOpen` gate, default `true`, applied at action resolution to every open-direction route), else `cover.stop_cover` while `opening`/`closing` when STOP (bit 8) is supported (HA's `cover.toggle` does not guarantee stopping a moving cover), otherwise `cover.toggle`. **All cover movement commands** (toggle/open/close/stop, position and tilt commits) dispatch through the non-retrying path from [0014](./0014-universal-card-options.md) — a retried motor command reverses or repeats physical movement — and every dispatch surface holds the 0024-pattern guard (disabled from dispatch until the expected state transition or an acknowledgement timeout, not merely promise resolution), with boundary-level single-call tests including the early-acknowledgement case; position slider reads `current_position` (fallback `position`), optimistic drag, commits `cover.set_cover_position` — horizontal in `row`/`full`, vertical with **top = open** in `tall`; open/stop/close row (`full`) uses the refined disabling from the option doc — position-only disabling (effective `100`/`0`) when a position is available so partially open covers keep both directions enabled, state-based disabling only for non-positional covers, stop only while moving; tilt controls (`full`) per tilt bits with the same optimistic-drag rule; `invertPosition` maps the reversed scale once at the entity boundary (`effective = 100 − raw`) and the card operates on effective positions everywhere, converting commits back into the entity's reversed scale, tilt excluded, with the config form noting the consistently-reversed-integration scope; `deviceClassIcon` maps `device_class` to distinct open/closed glyphs (universal `icon` override wins); `stateLabels` defaults capability-derived (`percent` for positional, `open-closed` for binary), shows `Opening`/`Closing` while moving, and is inert-safe on binary covers.
-- **Fan:** default tap toggles — with `unavailable`/`unknown` resolved first as inert per the option contract (no physical command from an indeterminate state; both states in the action tests); `speedControl: slider` commits `fan.set_percentage` via optimistic drag (vertical in `tall`); `steps` renders pills at multiples of `percentage_step` up to 100 with a quartile fallback and nearest-pill selection; `none` hides the control; committing 0% calls `fan.turn_off` (no 0 pill exists); interacting with the speed control while `off` turns the fan on at the committed percentage; preset pills (`full`) call `fan.set_preset_mode` and hide when `preset_modes` is empty; oscillate and direction controls (`full`) call `fan.oscillate` / `fan.set_direction`; `animateIcon` spins the glyph while `on` at a rate proportional to percentage (fixed rate without `SET_SPEED`), always disabled under `prefers-reduced-motion: reduce`; `showPercentage` composes the state line (`On · 75%`, preset in the primary slot) and yields to `hideState`.
-- Embedded controls consume their own events and never trigger card actions; all controls hide in edit mode; content that does not fit a tier is omitted, never clipped or scrolled.
-- `CoverCard`'s fixed `minHeight` 160/180/200px override is removed; tier layouts from 0011 govern sizing, and the entity-cards open question is closed.
+The [cover](../specs/entity-cards/options/cover.md) and [fan](../specs/entity-cards/options/fan.md) option docs own the option keys, defaults, tier placements, primary-action matrices, capability gating, and control behavior — including their scenarios, which are this change's acceptance criteria and are not restated here. What implementing them requires of this change:
 
-#### Scenario: Inverted display, unchanged service semantics
-
-- **GIVEN** a positional cover reporting `current_position: 30` on a `row`-tier card with `invertPosition: true`
-- **WHEN** the card renders and the user drags the slider to `100` and releases
-- **THEN** the readout and slider showed `70%` before the drag, and the card calls `cover.set_cover_position` with `{ position: 0 }` — the effective target converted back into the entity's reversed scale, so the reversed device drives fully open; open/close disabling follows the effective position the user sees.
-
-#### Scenario: Step pills derive from percentage_step
-
-- **GIVEN** an `on` fan advertising `SET_SPEED` with `percentage_step: 25` and `percentage: 50`, on a `row`-tier card with `speedControl: steps`
-- **WHEN** the card renders and the user taps the 75 pill
-- **THEN** the card showed pills 25 / 50 / 75 / 100 with 50 selected, calls `fan.set_percentage` with `{ percentage: 75 }`, and the tap does not bubble into the card's tap action.
-
-#### Scenario: Reduced motion stops the spin
-
-- **GIVEN** an `on` fan at 80% on a card with `animateIcon: true`
-- **WHEN** the card renders in a browser reporting `prefers-reduced-motion: reduce`
-- **THEN** the fan glyph does not rotate, while the active tint and state text still convey that the fan is on.
+- Options are stored under `item.config` and edited via each card's `CardConfig` form alongside the shared 0014 fragment, round-tripping through YAML. Both cards' baseline "MUST NOT expose a configuration modal" is retired.
+- **All cover movement commands** (toggle, open/stop/close, position and tilt commits) and all fan commands migrate to the non-retrying dispatch path from [0014](./0014-universal-card-options.md) — a retried motor command reverses or repeats physical movement — each holding its guard from dispatch until the expected state transition or an acknowledgement timeout, not merely promise resolution.
+- `CoverCard`'s fixed `minHeight` override (160/180/200px) is removed; the 0011 tier layouts govern sizing. This closes the entity-cards spec's size-discrepancy open question and updates the contradictory 60/80/100 assertions rather than deleting that coverage.
+- Both cards register their primary controls in the detail dialog's domain control slot from [0014](./0014-universal-card-options.md), so covers stay operable at tiers where the button row does not render and fan speed stays adjustable at `glance` or under `speedControl: none`.
+- `invertPosition` is implemented once at the entity boundary as a symmetric conversion pair rather than per call site — see Design Decisions.
 
 ## Design Decisions
 

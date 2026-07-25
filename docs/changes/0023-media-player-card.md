@@ -26,36 +26,12 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- `MediaPlayerCard` registers in `domainToCard` under `media_player`, accepts the shared `CardProps` contract, renders through `GridCard`, and is wrapped in the entity error boundary by the existing `GridView` dispatch; `media_player` is added to `SUPPORTED_DOMAINS` so the EntityBrowser lists the domain. **Legacy pinning** (common convention 7): `media_player` items that predate this change (placed via imported YAML or advanced discovery) render the fallback card today, whose body tap is a power toggle — the loader MUST write `tapAction: 'toggle'` onto those items so their tap keeps toggling power (the family defines no `toggle` semantics, so it resolves to `homeassistant.toggle`), while newly created cards get the play/pause `default`. Migration unit-tested.
-- `tapAction: default` resolves in the option doc's exact precedence order (first match wins): 1) `unavailable`/`unknown` → inert regardless of retained feature bits; 2) `off`/`standby` → `media_player.turn_on` when `TURN_ON` (bit 128), else inert (standby groups with off — `turn_on` beats `media_play`); 3) `playing` → `media_player.media_pause` when `PAUSE` (bit 1), else inert; 4) any other state → `media_player.media_play` when `PLAY` (bit 16384), else inert. Never an unconditional `media_play_pause` (errors on volume-only receivers). The full precedence table is unit-tested state-by-state. Embedded controls consume their events and never fire the card's actions (0014 contract).
-- Option keys, types, defaults, feature gating, and tier visibility exactly per the [media-player options table](../specs/entity-cards/options/media-player.md#options), stored under `item.config`, edited via the card's `CardConfig` form merged with the shared 0014 fragment, round-tripping through YAML:
-  - `artworkMode` (`thumbnail` default): thumbnail replaces the icon circle with automatic per-render icon fallback when no artwork; `background` renders full-bleed artwork with a scrim in the `full` tier only, degrading to thumbnail behavior in smaller tiers; `none` always shows the icon circle. Artwork renders from the entity's `entity_picture` as provided: usually the HA-proxied relative URL, but integrations flagging artwork remotely accessible may supply an absolute external URL, which the card MAY render directly — artwork is content imagery from the user's own integration (matching HA frontend behavior), distinct from the theming no-external-fetch boundary. A failed artwork load falls back to the icon, never an error state, and the card itself never constructs an external fetch.
-  - `showVolume` (`slider` default): 42px slider mapped to `volume_level` 0–1 committing `media_player.volume_set` on release (optimistic drag); automatic degradation to `buttons` when only `VOLUME_STEP` is supported; `buttons` adds mute when `VOLUME_MUTE` is supported; no volume UI at all when the entity has no volume feature.
-  - `showTransport` (`true` default): prev / play-pause / next, each gated on its own feature bit, unsupported buttons omitted (not disabled), all targets ≥44px.
-  - `showSourcePicker` (`false` default): select over `source_list` sending `media_player.select_source` `{ source }`; gated on `SELECT_SOURCE`; `full` tier only.
-  - `showProgress` (`false` default): position bar extrapolated locally from `media_position` + `media_position_updated_at` (snapshot, not live); scrubbing sends `media_player.media_seek` `{ seek_position }` only when `SEEK` is supported, display-only otherwise; `full` tier only.
-  - `collapseWhenIdle` (`false` default): minimal idle presentation for `idle`/`off`/`standby` inside the unchanged grid span — no resize, no neighbor reflow.
-- The state line resolves `media_title` (appending ` — ${media_artist}` when present) → `app_name` → raw entity state; single-line, ellipsized, muted; indigo text step while `playing`. In `row`/`full`, `media_title` takes the name-style line and `media_artist` the muted line, with `hideName` applying to the entity name, not the track title.
-- Tier layouts per the option doc: stacked `glance`, compact/wide `row` (full transport cluster + volume at ≥4 wide), `tall` rendering the `glance` layout centered, and the `full` showcase (overlay stack over background artwork, or thumbnail-beside-meta with the control stack beneath), overflow sections omitted rather than scrolled.
-- Domain color is `--liebe-c-media`; the active tint pattern applies while `playing`.
+The [media-player option doc](../specs/entity-cards/options/media-player.md) owns the option keys, defaults, the primary-action precedence table, feature gating, artwork/volume/transport/source/progress behavior, state-line resolution, tier layouts, and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Tap toggles playback
-
-- **GIVEN** a `media_player` card with default options whose entity is `playing`
-- **WHEN** the user taps the card body (not an embedded control)
-- **THEN** the card calls `media_player.media_pause` for the entity (state-resolved, `PAUSE` supported), and no other action fires.
-
-#### Scenario: Transport gates on supported_features
-
-- **GIVEN** an entity supporting `PLAY`/`PAUSE` but neither `PREVIOUS_TRACK` (16) nor `NEXT_TRACK` (32), rendered at 4×1 with `showTransport: true`
-- **WHEN** the card renders its transport cluster
-- **THEN** only the play/pause button appears — no disabled prev/next buttons — and the volume control still renders per `showVolume`.
-
-#### Scenario: Idle collapse keeps the grid span
-
-- **GIVEN** a 2×2 card with `collapseWhenIdle: true` whose entity is `playing` with background artwork and overlay controls
-- **WHEN** the entity transitions to `idle`
-- **THEN** the card re-renders as the minimal idle presentation (icon + name + state) inside the same 2×2 tile, no grid item is resized, and neighboring cards do not move.
+- **Registration:** `domainToCard` gains `media_player` → `MediaPlayerCard`, which accepts the shared `CardProps` contract and renders through `GridCard` inside the existing `GridView` error boundary; `media_player` joins `SUPPORTED_DOMAINS` so the EntityBrowser lists it.
+- **Legacy pinning** (common convention 7): `media_player` items predating this change (placed via imported YAML or advanced discovery) render the fallback card, whose body tap is a power toggle. The loader writes `tapAction: 'toggle'` onto those items so their tap keeps toggling power, while newly created cards get the play/pause `default`. Migration unit-tested.
+- **Artwork is content, not chrome:** `entity_picture` renders as the integration supplies it, including the absolute external URLs some integrations use when artwork is flagged remotely accessible. This matches HA frontend behavior and is deliberately outside the theming no-external-fetch boundary, which governs CSS the panel injects. A failed artwork load falls back to the icon, never an error state, and the card never constructs an external fetch itself.
+- All transport, volume-step, and seek commands dispatch through the non-retrying path from [0014](./0014-universal-card-options.md) — these are non-idempotent and a retry would skip two tracks or double a volume step.
 
 ## Design Decisions
 

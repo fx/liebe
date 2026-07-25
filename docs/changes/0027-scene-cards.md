@@ -25,32 +25,12 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- One card component registered in `domainToCard` for `scene`, `script`, `button`, and `input_button` (four entries → one component, mirroring how `switch` and the fallback share `ButtonCard` today), implementing the shared `CardProps` contract; the four domains added to `SUPPORTED_DOMAINS` so the EntityBrowser offers them. Existing dashboards that already placed these entities get the new card automatically on dispatch — no grid-item migration, per common convention 7's **bugfix exemption**: the fallback's `homeassistant.toggle` on these domains is meaningless-to-broken (the very defect this change fixes), so replacing it is a bugfix, not a control-surface replacement requiring pinning; the new config keys are additive, so existing configs keep validating.
-- Per-domain primary action exactly per the [option doc's action table](../specs/entity-cards/options/scene.md#primary-action): whole tile is the touch target; the dispatch guard holds from tap until the entity reflects the activation (script state change, scene/button timestamp update) or the acknowledgement timeout elapses — never merely while the promise is in flight, since HA acknowledges before the entity updates and these actions are non-idempotent (per the [common dispatch guarantees](../specs/entity-cards/options/common.md#action-type), with the early-acknowledgement boundary test); the ~1.5s feedback window and the guard are independent — a tap after the check but inside the guard window fires nothing; action inert when `unavailable`, but **`unknown` stays activatable for `scene`/`button`/`input_button`** (their state is the last-activation timestamp, so a never-activated entity reports `unknown` and only an activation can move it out — an inert-on-`unknown` card would be permanently unusable), while `script` (`on`/`off` state) treats `unknown` as inert; explicit `tapAction: toggle` behaves as the domain default, never `homeassistant.toggle`.
-- **No automatic retries**: activation services (`scene.turn_on`, `script.turn_on`, `button.press`, `input_button.press`) are non-idempotent — a retried `button.press` presses twice, a retried queued/parallel `script.turn_on` runs the script again. These calls MUST use the non-retrying service path introduced by [0014](./0014-universal-card-options.md) (also used by 0023/0024), with a boundary-level unit test proving one tap yields exactly one service call even when the client observes a transient failure.
-- Intrinsic [activation feedback](../specs/entity-cards/options/scene.md#activation-feedback-required-behavior): icon → spinner in flight → success check on the active tint held ~1.5s → revert; failure shows the standard entity-card error state instead; transitions ~280ms per design-system motion rules; under `prefers-reduced-motion: reduce` glyphs swap instantly but the check still appears and holds. Not configurable.
-- [Script running state](../specs/entity-cards/options/scene.md#running-state-for-scripts-required-behavior): while state is `on`, active tint + "Running · tap to stop" with a stop glyph, tap calls `script.turn_off`; reverts to idle within one state update when the script finishes.
-- Options `confirm` (Radix `AlertDialog` gating every invocation of the primary action **classified after full action resolution** — gesture-resolved defaults, `toggle`, and configured `call-service`/generic-alias routes targeting the same entity's activation or stop services all pass one gate, per the option contract, with a rerouted-service confirmation test; exactly one call of the configured service on confirm, nothing on cancel; unrelated-service actions ungated) and `showLastActivated` (muted relative time from state/`last_triggered`, "Never" when unset, minute-fresh, omitted in `glance`, hidden by `hideState`) — keys, types, defaults per the [options table](../specs/entity-cards/options/scene.md#options), exposed in the card's `ConfigDefinition` with `icon` surfaced prominently.
-- [Tier layouts](../specs/entity-cards/options/scene.md#tier-layouts) for `glance`/`row`/`tall`/`full` per the option doc; static `defaultDimensions` of 1×1 (the first family to declare it); spinner/check/stop glyphs replace the icon in place with no layout shift.
-- `color: auto` resolves to `--liebe-c-media` (indigo) for all four domains.
+The [scene option doc](../specs/entity-cards/options/scene.md) owns the per-domain action table, the `unknown`-vs-`unavailable` rule, activation feedback, the script running state, the `confirm` gate's resolution-layer scope, `showLastActivated`, tier layouts, and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Scene tap shows spinner then check
-
-- **GIVEN** a `scene.movie_night` card with default options
-- **WHEN** the user taps the card and `scene.turn_on` succeeds
-- **THEN** the icon swaps to a spinner during the call, then to a success check on the active indigo tint for ~1.5s, then reverts — and taps during the feedback window fire no additional call.
-
-#### Scenario: Running script's tap becomes stop
-
-- **GIVEN** a `script.water_garden` card whose entity state is `on`
-- **WHEN** the card renders and the user taps it
-- **THEN** the card shows the active tint, a stop glyph, and "Running · tap to stop", the tap calls `script.turn_off`, and the card reverts to idle when the state returns to `off`.
-
-#### Scenario: Confirm gates a destructive script
-
-- **GIVEN** a `script.reset_all_devices` card with `confirm: true`
-- **WHEN** the user taps and cancels the dialog, then taps again and confirms
-- **THEN** the cancel fires nothing and leaves no pending state, and the confirm fires exactly one `script.turn_on` followed by the normal activation feedback.
+- **Registration:** one card component registered in `domainToCard` under all four of `scene`, `script`, `button`, and `input_button` (four entries → one component, mirroring how `switch` and the fallback share `ButtonCard` today), implementing the shared `CardProps` contract; the four domains join `SUPPORTED_DOMAINS`.
+- **No grid-item migration** (common convention 7's bugfix exemption): the fallback's `homeassistant.toggle` on these domains is meaningless-to-broken — the very defect this change fixes — so replacing it is a bugfix, not a control-surface replacement requiring pinning. The new config keys are additive, so existing configs keep validating.
+- **No automatic retries:** `scene.turn_on`, `script.turn_on`, `button.press`, and `input_button.press` are non-idempotent — a retried press presses twice, a retried queued/parallel script runs again. All four use the non-retrying path from [0014](./0014-universal-card-options.md), with a boundary-level test proving one tap yields exactly one call even when the client observes a transient failure.
+- This family is the first to declare a static `defaultDimensions` of 1×1; the glyph swaps (spinner, check, stop) replace the icon in place with no layout shift.
 
 ## Design Decisions
 

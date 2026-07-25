@@ -24,25 +24,13 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-- Card component, registry entry, and options exactly per the [person option doc](../specs/entity-cards/options/person.md): `showZone` (default `true`), `showLastChanged` (default `true`, live-updating compact durations), `showBattery` (default `true`, automatic control — hidden from the config form when no battery is derivable), `batteryEntity` (default `''` = auto-derive from `device_trackers`, non-empty pins the source).
-- Avatar rules are fixed, not options: `entity_picture` as a circular avatar when present; otherwise initials (up to two name words) on a stable color derived deterministically from the entity id; the presence badge dot (bottom-trailing: `--liebe-c-ok` home, `--liebe-c-alert` away, neutral for named zones, and a **hollow** neutral dot with "Unknown" state text for `unknown`/`unavailable` — indeterminate presence must never resemble a known zone, with rendering assertions for both states) rides on the avatar in every tier. The universal `icon` override replaces only the initials glyph and never suppresses the dot.
-- Zone display uses friendly names (`home` → "Home", `not_home` → "Away", zone states via the matching `zone.*` entity, title-cased raw state as fallback); `hideState` wins over `showZone` per the common contract.
-- Battery readout renders in `row` and `full` only, amber (`--liebe-c-light` text step) below 20%; derivability comes from the entity graph, never from config.
-- Read-only card: `tapAction: default` resolves to `more-info` (the common contract's read-only rule; the stored default stays literal `default`); no built-in interaction may call a service. No legacy pinning for pre-existing person items (common convention 7's bugfix exemption): the fallback's tap attempts `homeassistant.toggle` on a person entity, which fails — replacing an erroring tap with more-info is a bugfix, not a control-surface replacement.
-- Tier layouts per the option doc: avatar in the icon-circle slot for `glance`/`row`; `full` renders `row` content vertically centered until richer data sources exist. The header-chip form specified in the option doc is NOT implemented by this change (deferred with its placement facility — see Out of Scope).
-- EntityBrowser: `person` removed from `SYSTEM_DOMAINS` and added to `SUPPORTED_DOMAINS`.
+The [person option doc](../specs/entity-cards/options/person.md) owns the option keys, defaults, the fixed avatar and presence-badge rules, zone display, battery derivation and thresholds, tier layouts, and its scenarios — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
-#### Scenario: Person with no photo gets stable initials
-
-- **GIVEN** a `person.jane_doe` entity named "Jane Doe" with no `entity_picture`, state `home`, and zero per-card config
-- **WHEN** the card renders in any tier
-- **THEN** the avatar shows "JD" on a generated background color, a green (`--liebe-c-ok`) badge dot overlaps the avatar edge, and the state line reads "Home"; re-rendering after a reload produces the identical background color.
-
-#### Scenario: Low battery renders amber
-
-- **GIVEN** a `row`-tier person card with `showBattery: true`, `batteryEntity: ''`, whose `device_trackers` auto-derives a phone reporting `battery_level: 14`
-- **WHEN** the card renders
-- **THEN** "14%" appears as trailing secondary text in the amber text step; at `battery_level: 45` the same readout renders muted.
+- **Registration:** the card registers under `person` in `domainToCard`; `person` moves out of the EntityBrowser's hidden `SYSTEM_DOMAINS` into `SUPPORTED_DOMAINS` so person entities become addable from the Entities tab.
+- **No legacy pinning** (common convention 7's bugfix exemption): the fallback's tap attempts `homeassistant.toggle` on a person entity, which fails. Replacing an erroring tap with `more-info` is a bugfix, not a control-surface replacement.
+- The card is read-only — no built-in interaction may call a service.
+- Battery derivability comes from the entity graph, never from config, which is why `showBattery` is hidden from the config form rather than disabled when nothing is derivable.
+- **The option doc's header-chip form is NOT implemented here** — it is deferred with its placement facility (see Out of Scope), and the chip section of the option doc stands as the specification for that future change.
 
 ## Design Decisions
 
