@@ -55,9 +55,10 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ## Tasks
 
-- [ ] **PR 1 — Action system**: gesture controller in the shell; action resolution + per-card `default` declarations; edit-mode suppression; config schema + validation; unit tests
+- [ ] **PR 1 — Action system**: gesture controller in the shell; action resolution + per-card `default` declarations; edit-mode suppression; config schema + validation; the **action editor** form control (parameterized `navigate` targets and `call-service` service+data); unit tests
 - [ ] **PR 2 — Detail dialog**: entity detail dialog (portalled), `more-info` wiring, hold default across cards; component tests + story; e2e hold flow
 - [ ] **PR 3 — Display options**: `name`/`icon`/`hideName`/`hideState`/`color` in shell + shared ConfigDefinition fragment merged into all existing cards' config modals; icon-only glance layout; stories; YAML round-trip test
+- [ ] **PR 4 — Shared non-scalar form controls**: the remaining `ConfigDefinition` extensions this change's functional requirements mandate — **entity picker** (consumed later by `motionEntity`/`doorEntity`/`batteryEntity` in [0021](./0021-camera-presentation-options.md)/[0024](./0024-security-cards.md)/[0026](./0026-person-card.md)), **number array** (`brightnessPresets`, [0016](./0016-light-card-to-spec.md)), and **ordered multi-select** (`armModes`, [0024](./0024-security-cards.md)) — each schema-validated, unit-tested, and given a story. This change MUST NOT be marked complete without them: the later card changes assume these controls already exist rather than inventing one apiece.
 
 ## Out of Scope
 
