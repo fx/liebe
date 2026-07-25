@@ -110,7 +110,7 @@ Binary sensors have no numeric history, so no graph options apply; the extra `fu
 
 - ~~**History data source.**~~ Answered by change 0015 (pending implementation): `useEntityHistory` with sample/delta modes is the data contract; `showGraph`/`showTrend` ship in change 0018 consuming it, which is when these defaults become visible.
 - **Honoring HA-configured precision.** Home Assistant lets users set a per-entity display precision in its own settings (surfaced via `sensor` options / `display_precision`). Whether `displayPrecision: auto` should read that value (when exposed to the panel) before falling back to the `device_class` rules is open.
-- **Device-class label source.** The `onLabel`/`offLabel` defaults reference HA's `device_class` naming; whether Liebe ships its own translation table or derives labels from HA frontend data at runtime is an implementation question.
+- ~~**Device-class label source.**~~ Resolved by change [0018](../../../changes/0018-sensor-cards-to-spec.md): Liebe MUST ship its own local `device_class` → on/off label map rather than deriving labels from HA frontend internals at runtime. The universal `name`/`icon` overrides from [0014](../../../changes/0014-universal-card-options.md) still win over the table.
 - **Binary sensor `full` tier.** Whether the `full` tier should eventually show a state-change timeline (on/off bands over `graphHours`) once history data exists, or stay static as specified here.
 
 ## References

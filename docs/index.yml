@@ -226,7 +226,7 @@ changes:
   - id: '0026'
     name: person-card
     path: changes/0026-person-card.md
-    description: New person card — avatar/presence badge rules, zone and since-time display, battery derivation, header-chip form; unhides the person domain
+    description: New person card — avatar/presence badge rules, zone and since-time display, battery derivation; unhides the person domain (header-chip form deferred)
     spec: entity-cards
     status: draft
     depends_on: ['0011', '0014']

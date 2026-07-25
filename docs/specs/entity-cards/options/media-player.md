@@ -130,8 +130,8 @@ Per the [design-system size-adaptive layout rules](../../design-system/index.md#
 
 ## Open Questions
 
-- **Group controls scope.** Whether `showGroupControls` ships with the initial card (full per-member volume + join/unjoin) or the key is reserved and lands later. Per-member volume requires reading sibling entities' `volume_level` from the entity store — cheap with `useEntities`, but the join/unjoin UX (picking non-members to add) may deserve a dialog rather than in-card controls.
-- **Progress extrapolation cadence.** Extrapolating `media_position` implies a local ticker (~1s) while `playing`; the acceptable re-render cost across many media cards on one screen, and whether the bar should only tick when visible, needs an implementation decision.
+- ~~**Group controls scope.**~~ Resolved by change [0023](../../../changes/0023-media-player-card.md) along this doc's own MAY/later path: `showGroupControls` is **reserved but inert** for the initial card — the key exists in the option schema, the config form does not render a dead toggle, and the group-controls surface (per-member volume, join/unjoin, and whether join belongs in a dialog) lands in a follow-up change.
+- ~~**Progress extrapolation cadence.**~~ Resolved by change [0023](../../../changes/0023-media-player-card.md): the ~1s `media_position` ticker MUST run only while the entity is `playing` **and** the progress bar actually renders (`showProgress: true` on the `full` tier), so re-render cost is bounded to cards that display progress. The position derivation (`media_position` + elapsed since `media_position_updated_at`) is a pure, unit-testable function.
 - **`tall` layout.** A 1×≥2 layout with vertical volume slider (mirroring the light card's vertical dimmer) is natural but unspecified; deciding it here vs. a follow-up affects whether `tall` falls back to `glance` permanently.
 - ~~**Off vs. idle tap semantics.**~~ Resolved by the primary-action precedence order: an `off`/`standby` player without `TURN_ON` is **inert** (never `more-info` — hold remains the details gesture), as change 0023 tests state-by-state.
 

@@ -96,7 +96,7 @@ The active/inactive icon-circle tint pattern and state-text coloring follow the 
 
 - ~~**Switch domain color token.**~~ Resolved: switches (and all fallback domains) use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/#domain-color-discipline), replacing the current amber (`ButtonCard.tsx:90-99`) which collided with lights.
 - ~~**Confirm scope for `call-service`.**~~ Resolved in the `confirm` section above: same-entity toggle-equivalent `call-service` routes (`switch.toggle`/`turn_on`/`turn_off`, `homeassistant.toggle`) ARE gated at action resolution; only unrelated services stay ungated — those may get a future per-action `confirm` flag in the [common action type](./common.md#action-type) rather than a card option.
-- **Nested option shape.** `stateLabels` is the first nested object in a card config; the `ConfigDefinition` form types (`boolean | string | number | select | textarea | icon`) have no object control, so the modal will need either two flat string fields writing into the nested key or a schema extension.
+- ~~**Nested option shape.**~~ Resolved by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md): the config modal MUST render two plain `string` controls (`onLabel`, `offLabel`) that read and write into the nested `stateLabels` key — no `ConfigDefinition` schema extension. A generic object control is deferred until a second nested option exists to justify it.
 - **Fallback tap default.** Whether the fallback card should default `tapAction` to `more-info` for domains known not to support `homeassistant.toggle` (e.g. read-mostly domains) instead of attempting a toggle that errors.
 
 ## References
