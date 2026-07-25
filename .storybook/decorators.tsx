@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
 import type { Decorator } from '@storybook/react-vite'
 import { useGlobals } from 'storybook/preview-api'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
@@ -40,6 +40,9 @@ function seedStores(liebe: LiebeStoryParameters) {
     isConnected: connected,
     isInitialLoading: initialLoading,
     lastError: null,
+    // Every derived field is written explicitly: `...state` would otherwise
+    // carry a previous story's subscriptions and staleness into this one.
+    subscribedEntities: new Set<string>(),
     staleEntities: new Set<string>(),
   }))
 
@@ -54,6 +57,8 @@ function resetStores() {
     entities: {},
     isConnected: false,
     isInitialLoading: true,
+    lastError: null,
+    subscribedEntities: new Set<string>(),
     staleEntities: new Set<string>(),
   }))
   dashboardStore.setState((state) => ({ ...state, mode: 'view' }))
@@ -147,9 +152,15 @@ export const withProviders: Decorator = (Story) => {
   const requested = (globals.appearance as ThemeAppearance | undefined) ?? 'dark'
   const appearance = resolveAppearance(theme, requested)
 
-  if (appearance !== requested) {
-    updateGlobals({ appearance })
-  }
+  // Syncing the toolbar is a side effect on Storybook's global state: doing it
+  // inline would be a state update during render, which React warns about and
+  // which can re-enter this decorator.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (appearance !== requested) {
+      updateGlobals({ appearance })
+    }
+  }, [appearance, requested, updateGlobals])
 
   return (
     <LiebeThemeProvider appearance={appearance}>

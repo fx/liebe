@@ -35,7 +35,9 @@ export default defineConfig({
         // the decorators/fixtures they rely on never ship in the panel bundle,
         // so they must not inflate the denominator or fall under the patch
         // gate. See docs/changes/0009-storybook-setup.md.
-        '**/*.stories.tsx',
+        // `.storybook/main.ts` loads `*.stories.@(ts|tsx)`, so both extensions
+        // have to be excluded.
+        '**/*.stories.{ts,tsx}',
         '.storybook/**',
         // Build output, generated code, and config files
         'dist/**',
