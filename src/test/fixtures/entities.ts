@@ -136,7 +136,7 @@ export function createCoverEntity(overrides: EntityOverrides = {}): HassEntity {
       device_class: 'blind',
       current_position: 70,
       current_tilt_position: 40,
-      // OPEN | CLOSE | SET_POSITION | STOP | OPEN_TILT | CLOSE_TILT | SET_TILT_POSITION
+      // OPEN | CLOSE | SET_POSITION | STOP | OPEN_TILT | CLOSE_TILT | SET_TILT_POSITION | STOP_TILT
       supported_features: 255,
     },
     overrides

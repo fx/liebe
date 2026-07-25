@@ -7,6 +7,19 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import { build } from 'vite'
 
+// Path fragments that only ever belong to tests, test helpers, or Storybook.
+// None of them reach the panel bundle, so editing one must not trigger a panel
+// rebuild. Keep this in sync with the coverage `exclude` list in
+// vitest.config.ts — both encode the same "this is test-only" judgement.
+const NON_PANEL_SOURCES = [
+  'src/test/',
+  'src/test-utils/',
+  'src/testUtils/',
+  'test-setup.ts',
+  '.test.',
+  '.stories.',
+]
+
 function panelPlugin() {
   let panelContent = ''
   let cssContent = ''
@@ -91,13 +104,9 @@ function panelPlugin() {
     async configureServer(server: ViteDevServer) {
       await buildPanel()
       server.watcher.on('change', async (file: string) => {
-        // Tests, test helpers/fixtures, and Storybook stories never reach the
-        // panel bundle, so editing one must not trigger a panel rebuild.
         if (
           file.includes('src/') &&
-          !file.includes('src/test/') &&
-          !file.includes('.test.') &&
-          !file.includes('.stories.')
+          !NON_PANEL_SOURCES.some((fragment) => file.includes(fragment))
         ) {
           await buildPanel()
           server.ws.send({
