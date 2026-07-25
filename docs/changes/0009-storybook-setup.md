@@ -36,20 +36,21 @@ The [storybook spec](../specs/storybook/index.md) owns the workshop's observable
 
 ## Design Decisions
 
-- **Vite builder, own config** — reuses `~/*` aliases; does not touch the panel build (spec requirement). Pin the current stable Storybook major at implementation time and record it here.
+- **Vite builder, own config** — reuses `~/*` aliases; does not touch the panel build (spec requirement). **Pinned to Storybook 10** (`^10.5.4`, the current stable major), on Vite 7 / React 19. `.storybook/main.ts` sets `framework.options.builder.viteConfigPath` to a dedicated `.storybook/vite.config.ts`, because Storybook otherwise loads the repo's root Vite config — which carries the TanStack Start plugin and the dev-panel plugin that rebuilds `panel.js` on every change.
+- **The card registry must not be reachable from a card's module graph.** Standing up the workshop exposed a latent cycle (`cardRegistry` → every card → `CardConfig` → `WeatherCard` → `cardRegistry`) that crashes with a temporal-dead-zone error in any bundle whose entry reaches a card before the registry; the panel bundle only survived it by accident of entry order. Cards therefore declare presentation variants as a static `variants` map on the component (which `getCardVariant` already reads) instead of calling `registerCardVariant` at module scope.
 - **Fixtures as shared infrastructure** — entity factories live outside `.storybook/` (e.g. `src/test/fixtures/`) so Vitest can adopt them; stories and unit tests converge on one mock shape over time.
 - **Publishing path** — extend the existing Pages deploy (single artifact: panel at root, workshop under `/storybook/`) rather than a second workflow.
 - **No visual regression yet** — per spec Open Questions; theme gallery stories carry manual review until the theming work proves the need.
 
 ## Tasks
 
-- [ ] **PR 1 — Storybook scaffold + fixtures + first stories**
-  - [ ] Add Storybook (react-vite framework), `.storybook/main.ts` + `preview.tsx`, npm scripts; verify `~/*` alias resolution
-  - [ ] Extract/verify side-effect-free provider entry for preview use
-  - [ ] Entity fixture factories for all currently supported domains (`src/test/fixtures/`)
-  - [ ] Store-seeding + service-call-interception decorators; appearance toolbar; grid-cell decorator
-  - [ ] Stories: `GridCard` shell (all states) + `LightCard`, `ClimateCard`, `SensorCard`, `BinarySensorCard` (state matrix per spec)
-  - [ ] Coverage exclusions for stories/fixtures/.storybook; lint/prettier config extended to new files
+- [x] **PR 1 — Storybook scaffold + fixtures + first stories**
+  - [x] Add Storybook (react-vite framework), `.storybook/main.ts` + `preview.tsx`, npm scripts; verify `~/*` alias resolution
+  - [x] Extract/verify side-effect-free provider entry for preview use
+  - [x] Entity fixture factories for all currently supported domains (`src/test/fixtures/`)
+  - [x] Store-seeding + service-call-interception decorators; appearance toolbar; grid-cell decorator
+  - [x] Stories: `GridCard` shell (all states) + `LightCard`, `ClimateCard`, `SensorCard`, `BinarySensorCard` (state matrix per spec)
+  - [x] Coverage exclusions for stories/fixtures/.storybook; lint/prettier config extended to new files
 - [ ] **PR 2 — Full card coverage**
   - [ ] Stories for `CoverCard`, `FanCard`, `ButtonCard`, `WeatherCard` (all 4 variants), `CameraCard` (mock stream states), all 5 input helper cards, `TextCard`, `Separator`
   - [ ] a11y addon enabled globally; audit and record violations as issues (fixes out of scope)

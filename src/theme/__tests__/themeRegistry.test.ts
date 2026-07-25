@@ -16,10 +16,19 @@ describe('themeRegistry', () => {
     expect(listThemes()).toEqual([{ id: 'default', label: 'Default', appearances: 'both' }])
   })
 
-  it('hands out a copy so callers cannot mutate the registry', () => {
+  it('hands out a copy of the list so callers cannot add to the registry', () => {
     const themes = listThemes()
     themes.push(darkOnly)
     expect(listThemes()).toHaveLength(1)
+  })
+
+  it('freezes each definition so a caller cannot repoint a theme', () => {
+    const theme = getTheme(DEFAULT_THEME_ID)!
+    // The type still allows the write; the freeze is what makes it fail.
+    expect(() => {
+      theme.appearances = 'dark-only'
+    }).toThrow(TypeError)
+    expect(resolveAppearance(getTheme(DEFAULT_THEME_ID), 'light')).toBe('light')
   })
 
   it('looks a theme up by id', () => {

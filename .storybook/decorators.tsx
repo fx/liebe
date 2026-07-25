@@ -1,10 +1,16 @@
 import { useLayoutEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
 import type { Decorator } from '@storybook/react-vite'
+import { useGlobals } from 'storybook/preview-api'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { LiebeThemeProvider } from '~/components/LiebeThemeProvider'
 import { dashboardStore } from '~/store/dashboardStore'
 import { entityStore } from '~/store/entityStore'
-import { getTheme, resolveAppearance, type ThemeAppearance } from '~/theme/themeRegistry'
+import {
+  DEFAULT_THEME_ID,
+  getTheme,
+  resolveAppearance,
+  type ThemeAppearance,
+} from '~/theme/themeRegistry'
 import type { LiebeStoryParameters } from '~/test/fixtures'
 import { gridConfig } from '../app/utils/responsive'
 import { createMockHass } from './mockHass'
@@ -123,11 +129,27 @@ export const withServiceCalls: Decorator = (Story, context) => (
  * Wraps every story in the panel's provider shell and stamps the theming
  * engine's contract attributes (`data-liebe-theme`, `data-appearance`) so
  * scoped theme rules have the same hooks they get in the panel.
+ *
+ * Single-appearance themes force their appearance, and the forced value is
+ * written back into the toolbar global so the control shows what is actually
+ * rendered instead of a choice the theme cannot honour.
+ *
+ * `useGlobals` is Storybook's own hook for reading and writing toolbar state,
+ * and a decorator is where Storybook expects it — hence the rules-of-hooks
+ * exemption below, which the react-hooks plugin cannot infer from the name.
  */
-export const withProviders: Decorator = (Story, context) => {
-  const themeId = String(context.globals.theme ?? 'default')
-  const requested = (context.globals.appearance as ThemeAppearance | undefined) ?? 'dark'
-  const appearance = resolveAppearance(getTheme(themeId), requested)
+export const withProviders: Decorator = (Story) => {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [globals, updateGlobals] = useGlobals()
+
+  const themeId = String(globals.theme ?? DEFAULT_THEME_ID)
+  const theme = getTheme(themeId)
+  const requested = (globals.appearance as ThemeAppearance | undefined) ?? 'dark'
+  const appearance = resolveAppearance(theme, requested)
+
+  if (appearance !== requested) {
+    updateGlobals({ appearance })
+  }
 
   return (
     <LiebeThemeProvider appearance={appearance}>

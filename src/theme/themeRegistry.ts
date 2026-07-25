@@ -26,9 +26,13 @@ export interface ThemeDefinition {
 
 export const DEFAULT_THEME_ID = 'default'
 
-const builtInThemes: ThemeDefinition[] = [
-  { id: DEFAULT_THEME_ID, label: 'Default', appearances: 'both' },
-]
+// Frozen: `listThemes`/`getTheme` hand out the stored records themselves, so a
+// caller mutating one would change appearance resolution for every other
+// caller. Freezing keeps the registry the single source of truth without
+// cloning on every lookup.
+const builtInThemes: readonly ThemeDefinition[] = Object.freeze([
+  Object.freeze<ThemeDefinition>({ id: DEFAULT_THEME_ID, label: 'Default', appearances: 'both' }),
+])
 
 /** All registered themes, in registration order. */
 export function listThemes(): ThemeDefinition[] {
