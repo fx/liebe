@@ -31,6 +31,12 @@ export default defineConfig({
         '**/test-setup.ts',
         'src/test-utils/**',
         'src/testUtils/**',
+        // Storybook is development tooling: stories, the workshop config, and
+        // the decorators/fixtures they rely on never ship in the panel bundle,
+        // so they must not inflate the denominator or fall under the patch
+        // gate. See docs/changes/0009-storybook-setup.md.
+        '**/*.stories.tsx',
+        '.storybook/**',
         // Build output, generated code, and config files
         'dist/**',
         '**/*.gen.ts',

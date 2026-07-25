@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { CardConfig } from '../CardConfig'
 import { dashboardActions, useDashboardStore } from '~/store'
-import { registerCardVariant } from '../cardRegistry'
 import type { CardProps } from '../cardRegistry'
 import type { GridItem } from '~/store/types'
 import type { CSSProperties } from 'react'
@@ -9,17 +8,6 @@ import { WeatherCardDefault } from './WeatherCardDefault'
 import { WeatherCardMinimal } from './WeatherCardMinimal'
 import { WeatherCardModern } from './WeatherCardModern'
 import { WeatherCardDetailed } from './WeatherCardDetailed'
-
-// Register weather card variants - do this inside a component to avoid initialization issues
-let variantsRegistered = false
-function registerWeatherVariants() {
-  if (!variantsRegistered) {
-    registerCardVariant('weather', 'minimal', WeatherCardMinimal)
-    registerCardVariant('weather', 'modern', WeatherCardModern)
-    registerCardVariant('weather', 'detailed', WeatherCardDetailed)
-    variantsRegistered = true
-  }
-}
 
 interface WeatherCardConfig {
   preset?: 'default' | 'detailed' | 'minimal' | 'modern'
@@ -233,11 +221,6 @@ export function getWeatherBackground(condition: string): string | null {
 
 // Main WeatherCard that handles variant selection based on config
 export function WeatherCard(props: CardProps) {
-  // Register variants on first render
-  useEffect(() => {
-    registerWeatherVariants()
-  }, [])
-
   const [configOpen, setConfigOpen] = useState(false)
   const screens = useDashboardStore((state) => state.screens)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
@@ -307,7 +290,20 @@ export function WeatherCard(props: CardProps) {
   )
 }
 
-// Assign default dimensions
+// Default dimensions and the card's presentation variants.
+//
+// The variants are attached statically rather than pushed into the registry via
+// `registerCardVariant`: importing `cardRegistry` from here made the module
+// graph circular (`cardRegistry` → every card → `CardConfig` → `WeatherCard` →
+// `cardRegistry`), which crashes with a temporal-dead-zone error in any bundle
+// whose entry reaches a card before the registry. `getCardVariant` reads
+// `card.variants`, so lookups are unchanged — and the variants are now
+// registered before the first render instead of after it.
 Object.assign(WeatherCard, {
   defaultDimensions: { width: 4, height: 3 },
+  variants: {
+    minimal: WeatherCardMinimal,
+    modern: WeatherCardModern,
+    detailed: WeatherCardDetailed,
+  },
 })

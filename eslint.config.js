@@ -3,6 +3,7 @@ import tsParser from '@typescript-eslint/parser'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooksPlugin from 'eslint-plugin-react-hooks'
+import storybookPlugin from 'eslint-plugin-storybook'
 import prettierConfig from 'eslint-config-prettier'
 
 export default [
@@ -62,6 +63,8 @@ export default [
       'no-undef': 'off',
     },
   },
+  // Storybook's own rules for `*.stories.tsx` and `.storybook/` config files.
+  ...storybookPlugin.configs['flat/recommended'],
   {
     ignores: [
       'node_modules/',
@@ -74,6 +77,7 @@ export default [
       '.nitro/',
       '.vite-temp/',
       '.tailscale/',
+      'storybook-static/',
     ],
   },
   prettierConfig,

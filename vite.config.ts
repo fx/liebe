@@ -91,7 +91,9 @@ function panelPlugin() {
     async configureServer(server: ViteDevServer) {
       await buildPanel()
       server.watcher.on('change', async (file: string) => {
-        if (file.includes('src/') && !file.includes('.test.')) {
+        // Tests and Storybook stories never reach the panel bundle, so editing
+        // one must not trigger a panel rebuild.
+        if (file.includes('src/') && !file.includes('.test.') && !file.includes('.stories.')) {
           await buildPanel()
           server.ws.send({
             type: 'full-reload',

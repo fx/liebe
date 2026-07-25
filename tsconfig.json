@@ -1,5 +1,8 @@
 {
-  "include": ["**/*.ts", "**/*.tsx"],
+  // TypeScript's globs skip dot-directories, so the Storybook config files are
+  // listed explicitly — without them `tsc` and eslint (which needs the file to
+  // be in the project) both ignore `.storybook/`.
+  "include": ["**/*.ts", "**/*.tsx", ".storybook/**/*.ts", ".storybook/**/*.tsx"],
   "compilerOptions": {
     "strict": true,
     "esModuleInterop": true,
