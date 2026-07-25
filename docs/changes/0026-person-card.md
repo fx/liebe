@@ -29,7 +29,7 @@ The [person option doc](../specs/entity-cards/options/person.md) owns the option
 - **Registration:** the card registers under `person` in `domainToCard`; `person` moves out of the EntityBrowser's hidden `SYSTEM_DOMAINS` into `SUPPORTED_DOMAINS` so person entities become addable from the Entities tab.
 - **No legacy pinning** (common convention 7's bugfix exemption): the fallback's tap attempts `homeassistant.toggle` on a person entity, which fails. Replacing an erroring tap with `more-info` is a bugfix, not a control-surface replacement.
 - The card is read-only — no built-in interaction may call a service.
-- Battery derivability comes from the entity graph, never from config, which is why `showBattery` is hidden from the config form rather than disabled when nothing is derivable.
+- Battery resolution is sensor-first per the option doc (configured `batteryEntity` → device battery sensor → tracker attribute as legacy fallback); `showBattery` is hidden from the config form only when none of the three resolves. Fixtures MUST include a `device_class: battery` sensor path, not only the tracker attribute — Home Assistant is migrating tracker battery reporting off attributes.
 - **The option doc's header-chip form is NOT implemented here** — it is deferred with its placement facility (see Out of Scope), and the chip section of the option doc stands as the specification for that future change.
 
 ## Design Decisions

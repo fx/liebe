@@ -17,7 +17,7 @@ Create the new `VacuumCard` per the [vacuum option doc](../specs/entity-cards/op
 Per [architecture — Testing & Quality Conventions](../specs/architecture/index.md#testing--quality-conventions):
 
 - `npm test`, `npm run lint`, `npm run typecheck` MUST pass; `codecov/patch` 100%; `codecov/project` no regress.
-- The primary-action state machine MUST have exhaustive unit tests per state (`docked`, `idle`, `cleaning`, `paused`, `returning`, `error`, `unavailable`/`unknown`, and the legacy toggle-vacuum `on`/`off` states with their `TURN_ON`/`TURN_OFF` (bits 1/2) gating and on/off-toggle command degradation), including the feature-gated fallthroughs (`cleaning` without `PAUSE` → `vacuum.stop` when `STOP`, else `more-info`; `docked`/`idle` without `START` → `more-info`) and the `returning`-state button behavior (Pause calling `vacuum.pause` when `PAUSE` is supported, disabled otherwise, while tap stays `more-info`).
+- The primary-action state machine MUST have exhaustive unit tests per state (`docked`, `idle`, `cleaning`, `paused`, `returning`, `error`, `unavailable`/`unknown`), including the feature-gated fallthroughs (`cleaning` without `PAUSE` → `vacuum.stop` when `STOP`, else `more-info`; `docked`/`idle` without `START` → `more-info`) and the `returning`-state button behavior (Pause calling `vacuum.pause` when `PAUSE` is supported, disabled otherwise, while tap stays `more-info`).
 - Stories MUST cover the state × tier matrix (docked / cleaning / paused / returning / error / unavailable across `glance`/`row`/`full`), plus each option toggle, per [storybook — story coverage](../specs/storybook/index.md#story-coverage).
 
 Skipping or weakening any rule to land the PR is a bug in the PR.
@@ -29,7 +29,7 @@ The [vacuum option doc](../specs/entity-cards/options/vacuum.md) owns the option
 - **Registration:** `VacuumCard` registers under `vacuum` in `domainToCard`, accepts the shared `CardProps` contract, renders through the common shell, and `vacuum` joins `SUPPORTED_DOMAINS`.
 - **Legacy pinning** (common convention 7, mirroring 0023): `vacuum` items predating this change render the fallback card, whose tap is a power toggle. The loader writes `tapAction: 'toggle'` onto those items to preserve their operation; new cards get the state-machine `default`. Migration unit-tested.
 - **Every command dispatch** — start/pause/resume/stop, `vacuum.return_to_base`, `vacuum.locate` — uses the non-retrying path from [0014](./0014-universal-card-options.md), since retries re-start runs or chirp the vacuum repeatedly. The guard covers **both the command buttons and the card body's default action**, which issues the same services: a `vacuum.start` acknowledged before the entity leaves `docked` must not be re-dispatchable by a second body tap. Boundary tests per button plus the body action's laggy-integration case.
-- Fixtures MUST model the standardized `status` attribute (`STATUS`, bit 128) shape the error state reads.
+- Fixtures MUST model a battery **sensor** entity as the vacuum's battery source, not the deprecated `battery_level` attribute — Core 2025.8 deprecated it and it stops working in 2026.8, so a fixture built on the attribute would encode an API that expires during this change's lifetime.
 
 ## Design Decisions
 

@@ -48,11 +48,13 @@ Liebe runs as a web application that integrates with Home Assistant via custom p
 
 #### Development Setup
 
-1. **Start the development server**:
+1. **Ensure the development server is running**:
 
    ```bash
    npm install
-   npm run dev
+   # The USER starts and manages the dev server — see "Development Server Management".
+   # Verify it is up rather than starting it:
+   curl -sf http://localhost:3000/panel.js >/dev/null && echo "dev server up" || echo "ask the user to start it"
    ```
 
 2. **Add to Home Assistant configuration.yaml**:
@@ -132,9 +134,6 @@ gh issue view <issue-number>
 2. **Testing Approach**
 
    ```bash
-   # Run development server
-   npm run dev
-
    # Run tests (when implemented)
    npm run test
 
@@ -146,7 +145,7 @@ gh issue view <issue-number>
    ```
 
 3. **Home Assistant Integration Testing**
-   - Ensure dev server is running: `npm run dev`
+   - Confirm the user's dev server is running (never start it yourself)
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
 
@@ -376,23 +375,19 @@ Home Assistant custom panels provide full access to the `hass` object and proper
 
 **1. Local Development with Vite**
 
-For UI development without Home Assistant:
-
-```bash
-npm run dev
-```
-
-This starts a local development server with hot module replacement. You can develop the UI components without needing Home Assistant.
+For UI development without Home Assistant, the user runs the dev server (`npm run dev`) — it provides hot module replacement, and UI components can be developed without a Home Assistant instance. Agents never start, stop, or restart it; see "Development Server Management".
 
 **2. Integration Testing with Home Assistant**
 
-For testing the integration, ensure your dev server is running (`npm run dev`) and that Home Assistant is configured to use `http://localhost:3000/panel.js`.
+For testing the integration, confirm the user's dev server is running and that Home Assistant is configured to use `http://localhost:3000/panel.js`.
 
 #### Panel Registration
 
 ```javascript
 customElements.define(
-  'liebe',
+  // Production builds register `liebe-panel`; dev builds `liebe-panel-dev`.
+  // The name MUST match `panel_custom.name` in configuration.yaml.
+  'liebe-panel',
   class extends HTMLElement {
     set hass(hass) {
       // Store hass object for API access
@@ -529,16 +524,16 @@ try {
 
 1. **Always use panel_custom** for proper integration with full hass object access
 2. **Development workflow:**
-   - Run `npm run dev` for development with hot reload
+   - The user runs the dev server for development with hot reload
    - Configure Home Assistant to use `http://localhost:3000/panel.js`
    - For production, deploy to a web server and update the URL
 
 ### Quick Development Setup
 
 ```bash
-# Start development server
 npm install
-npm run dev
+# Ask the user to start the dev server if it is not already running (see
+# "Development Server Management" — agents never start, stop, or restart it).
 
 # Configure Home Assistant to use http://localhost:3000/panel.js
 # Restart Home Assistant

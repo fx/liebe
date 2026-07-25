@@ -295,7 +295,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 - Radix UI Themes only; styling via component props and theme tokens (`var(--...)`), avoiding custom z-index per project conventions. Portalled overlays (fullscreen, dropdowns) manage their own stacking.
 - Cards run inside a Home Assistant custom panel (shadow DOM); overlays that must escape it use `createPortal` to `document.body`.
 - Asset URLs (weather backgrounds) MUST be resolved through `window.__LIEBE_ASSET_BASE_URL__` because the panel is served from a base path that differs between dev and the deployed panel.
-- All changes must pass `npm test`, `npm run lint`, and `npm run typecheck` before merge (see project `AGENTS.md`).
+- The testing and quality bar is owned by [architecture — Testing & Quality Conventions](../architecture/index.md#testing--quality-conventions).
 - Card components memoize with custom prop comparators; new props must be added to the comparator or they will not trigger re-render.
 
 ## Open Questions

@@ -31,7 +31,7 @@ All keys live under `item.config`, camelCase, and follow [common conventions](./
 
 ### Color temperature (`showColorTempControl`)
 
-Rendered in the `full` tier as a warm→cool control: a row of temperature swatches or a gradient slider spanning the entity-reported range — `min_color_temp_kelvin`–`max_color_temp_kelvin` when present, else legacy `min_mireds`–`max_mireds` (never a hardcoded range). Selecting a value MUST call `light.turn_on` with the payload key matching the unit of the range read: `color_temp_kelvin` for Kelvin, `color_temp` for mireds — the units and key MUST always agree. When the entity does not support color temperature the control MUST NOT appear even with `showColorTempControl: true`.
+Rendered in the `full` tier as a warm→cool control: a row of temperature swatches or a gradient slider spanning the entity-reported range `min_color_temp_kelvin`–`max_color_temp_kelvin` (never a hardcoded range). Selecting a value MUST call `light.turn_on` with `color_temp_kelvin`. **Kelvin is the only color-temperature interface**: Home Assistant Core 2026.3 removed `LightEntity.color_temp`/`min_mireds`/`max_mireds`, the `ATTR_COLOR_TEMP`/`ATTR_MIN_MIREDS`/`ATTR_MAX_MIREDS` state attributes, and the `color_temp`/`kelvin` arguments to `light.turn_on`, so a mired fallback would target a deleted API. When the entity does not support color temperature the control MUST NOT appear even with `showColorTempControl: true`.
 
 ### Color (`showColorControl`)
 
@@ -93,7 +93,7 @@ Content that does not fit MUST be omitted, never clipped or scrolled. When brigh
 ## Open Questions
 
 - ~~**Color picker presentation.**~~ Resolved (change 0016): fixed swatch row + recent-color slot, specified in the color-control section above. A future `colorControlStyle` select remains anticipated (common convention 5) — the boolean gates visibility only, so adding styles later is non-breaking.
-- ~~**Color-temperature units.**~~ Resolved in the control section above: prefer Kelvin attributes with the `color_temp_kelvin` payload key, fall back to mireds with `color_temp` — the range's unit and the payload key always agree.
+- ~~**Color-temperature units.**~~ Resolved: Kelvin only (`min_color_temp_kelvin`/`max_color_temp_kelvin` read, `color_temp_kelvin` written). The mired path was removed from Home Assistant Core in 2026.3, so there is no fallback to specify.
 - **Slider while off.** The slider currently renders only when the light is on. An alternative — always render it, with commit implying turn-on — may test better for dimmer-first users; deferred until the tier layouts are implemented.
 
 ## References

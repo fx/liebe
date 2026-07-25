@@ -8,17 +8,15 @@ Extends the [common contract](./common.md); universal options (`name`, `icon`, `
 
 `tapAction: default` MUST resolve to a state-dependent command — the action a user most plausibly wants next:
 
-| Entity state                  | Default tap action | Service                                               |
-| ----------------------------- | ------------------ | ----------------------------------------------------- |
-| `docked`                      | Start cleaning     | `vacuum.start`                                        |
-| `idle`                        | Start cleaning     | `vacuum.start`                                        |
-| `cleaning`                    | Pause              | `vacuum.pause`                                        |
-| `paused`                      | Resume             | `vacuum.start`                                        |
-| `returning`                   | Open details       | `more-info`                                           |
-| `on` (legacy toggle vacuums)  | Stop/turn off      | `vacuum.turn_off` when `TURN_OFF` (bit 2), else inert |
-| `off` (legacy toggle vacuums) | Start/turn on      | `vacuum.turn_on` when `TURN_ON` (bit 1), else inert   |
-| `error`                       | Open details       | `more-info`                                           |
-| `unavailable` / `unknown`     | Inert              | —                                                     |
+| Entity state              | Default tap action | Service        |
+| ------------------------- | ------------------ | -------------- |
+| `docked`                  | Start cleaning     | `vacuum.start` |
+| `idle`                    | Start cleaning     | `vacuum.start` |
+| `cleaning`                | Pause              | `vacuum.pause` |
+| `paused`                  | Resume             | `vacuum.start` |
+| `returning`               | Open details       | `more-info`    |
+| `error`                   | Open details       | `more-info`    |
+| `unavailable` / `unknown` | Inert              | —              |
 
 - The whole tile is the tap target; embedded controls (command buttons, fan-speed select) consume their own events and MUST NOT trigger the tap action (per [common contract — Action type](./common.md#action-type)).
 - The mapping MUST be feature-gated on `supported_features`: a state whose service the entity does not support falls through. **GIVEN** a `cleaning` vacuum without `PAUSE` (bit 4), **WHEN** the user taps, **THEN** the card MUST call `vacuum.stop` if `STOP` (bit 8) is supported, otherwise `more-info`. **GIVEN** a `docked`/`idle` vacuum without `START` (bit 8192), **WHEN** the user taps, **THEN** the card MUST open `more-info`.
@@ -28,17 +26,14 @@ Extends the [common contract](./common.md); universal options (`name`, `icon`, `
 
 Controls and options in this document gate on these `supported_features` bits (Home Assistant `VacuumEntityFeature`):
 
-| Flag          | Bit  | Gates                                                                                                    |
-| ------------- | ---- | -------------------------------------------------------------------------------------------------------- |
-| `TURN_ON`     | 1    | Legacy toggle vacuums: `off` tap → `vacuum.turn_on`; command cluster degrades to an on/off toggle button |
-| `TURN_OFF`    | 2    | Legacy toggle vacuums: `on` tap → `vacuum.turn_off`                                                      |
-| `PAUSE`       | 4    | Pause command (button + default tap while `cleaning`)                                                    |
-| `STOP`        | 8    | Stop command; `cleaning` tap fallback when `PAUSE` is absent                                             |
-| `RETURN_HOME` | 16   | Dock button (`vacuum.return_to_base`)                                                                    |
-| `FAN_SPEED`   | 32   | Fan-speed select (`vacuum.set_fan_speed`, options from `fan_speed_list`)                                 |
-| `BATTERY`     | 64   | Battery readout                                                                                          |
-| `LOCATE`      | 512  | Locate button (`vacuum.locate`)                                                                          |
-| `START`       | 8192 | Start/resume command (button + default tap while `docked`/`idle`/`paused`)                               |
+| Flag          | Bit  | Gates                                                                      |
+| ------------- | ---- | -------------------------------------------------------------------------- |
+| `PAUSE`       | 4    | Pause command (button + default tap while `cleaning`)                      |
+| `STOP`        | 8    | Stop command; `cleaning` tap fallback when `PAUSE` is absent               |
+| `RETURN_HOME` | 16   | Dock button (`vacuum.return_to_base`)                                      |
+| `FAN_SPEED`   | 32   | Fan-speed select (`vacuum.set_fan_speed`, options from `fan_speed_list`)   |
+| `LOCATE`      | 512  | Locate button (`vacuum.locate`)                                            |
+| `START`       | 8192 | Start/resume command (button + default tap while `docked`/`idle`/`paused`) |
 
 Per [common convention 3](./common.md#conventions-for-per-card-options), options below only hide or tune capabilities the entity advertises — they MUST NOT surface a control whose flag is absent.
 
@@ -46,18 +41,17 @@ Per [common convention 3](./common.md#conventions-for-per-card-options), options
 
 All keys live under `item.config`, camelCase, per [common conventions](./common.md#conventions-for-per-card-options).
 
-| Key            | Type    | Default | Tiers         | Behavior                                                                                                                                    |
-| -------------- | ------- | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `showCommands` | boolean | `true`  | `row`, `full` | Renders the command button cluster. Which buttons appear is feature-gated (see below); the option only hides the cluster wholesale.         |
-| `showBattery`  | boolean | `true`  | all           | Appends battery percentage to the state line when `BATTERY` is supported. Under 20% the readout renders in amber (low-battery emphasis).    |
-| `showFanSpeed` | boolean | `true`  | `full`        | Renders a select of `fan_speed_list` when `FAN_SPEED` is supported; selecting an option calls `vacuum.set_fan_speed` with `{ fan_speed }`.  |
-| `showLocate`   | boolean | `false` | `full`        | Renders a locate button when `LOCATE` is supported; tapping calls `vacuum.locate`. Off by default — locating is occasional, not routine.    |
-| `showStats`    | boolean | `false` | `full`        | Renders a stats line from `cleaned_area` and/or `cleaning_time` attributes when present. Off by default — not all integrations report them. |
+| Key            | Type    | Default | Tiers         | Behavior                                                                                                                                                        |
+| -------------- | ------- | ------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `showCommands` | boolean | `true`  | `row`, `full` | Renders the command button cluster. Which buttons appear is feature-gated (see below); the option only hides the cluster wholesale.                             |
+| `showBattery`  | boolean | `true`  | all           | Appends battery percentage to the state line when a battery source resolves (see Battery below). Under 20% the readout renders in amber (low-battery emphasis). |
+| `showFanSpeed` | boolean | `true`  | `full`        | Renders a select of `fan_speed_list` when `FAN_SPEED` is supported; selecting an option calls `vacuum.set_fan_speed` with `{ fan_speed }`.                      |
+| `showLocate`   | boolean | `false` | `full`        | Renders a locate button when `LOCATE` is supported; tapping calls `vacuum.locate`. Off by default — locating is occasional, not routine.                        |
+| `showStats`    | boolean | `false` | `full`        | Renders a stats line from `cleaned_area` and/or `cleaning_time` attributes when present. Off by default — not all integrations report them.                     |
 
 ### Commands (`showCommands`)
 
 - The cluster MUST contain, in order and each only when its flag is supported: **start/pause** (a single button) and **dock** (`vacuum.return_to_base`, gated on `RETURN_HOME`).
-- **Legacy toggle vacuums** — an entity advertising only `TURN_ON` (bit 1) / `TURN_OFF` (bit 2) supports none of the flags above, so the cluster MUST degrade to a single **on/off toggle button** in the start/pause slot: `off` → `vacuum.turn_on` (when `TURN_ON`), `on` → `vacuum.turn_off` (when `TURN_OFF`), disabled when the needed bit is absent. Without this branch a legacy vacuum would render an empty cluster despite `showCommands: true`, contradicting the [feature table](#supported-feature-flags) and the degradation that change [0025](../../../changes/0025-vacuum-card.md) requires in tests. The dock button still requires `RETURN_HOME` and is simply absent on these entities.
 - The start/pause button follows the primary-action state machine for command states (`docked`/`idle` → start, `cleaning` → pause, `paused` → resume) — **except `returning`**, where the state machine's `more-info` mapping applies only to the card tap: the button instead renders **Pause** and calls `vacuum.pause` when `PAUSE` is supported (the explicit interruption control), and renders disabled when it is not. This tap/button divergence in `returning` is deliberate: tap keeps the safe inspection default, the button offers the explicit command.
 - The dock button MUST render disabled while the state is `docked` or `returning` (nothing to return); **all command controls** (start/pause, dock, locate, fan-speed select) MUST render disabled while the state is `unavailable`, `unknown`, or `error` — no physical command may dispatch from an indeterminate or failed state (in `error` the tap's `more-info` is the escalation path), matching the primary-action matrix.
 - Buttons use the standard active/inactive tint pattern with the vacuum token and MUST meet the ≥44px touch-target minimum ([design-system — card anatomy](../../design-system/index.md#card-anatomy)).
@@ -65,9 +59,11 @@ All keys live under `item.config`, camelCase, per [common conventions](./common.
 
 ### Battery (`showBattery`)
 
-- When `BATTERY` is supported and a battery percentage is available, the state line MUST read state + battery (e.g. `Docked · 87%`); the battery segment uses the muted supporting-value style.
+- **Battery comes from a battery sensor, not the vacuum entity.** Home Assistant deprecated `StateVacuumEntity.battery_level`/`battery_icon` in Core 2025.8 and they stop working in 2026.8; `VacuumEntityFeature.BATTERY` is likewise gone from the current feature set. The card MUST therefore read the percentage from a battery-sensor entity — the one on the vacuum's device (`device_class: battery`), or an explicitly configured `batteryEntity` — and MUST NOT gate on a `BATTERY` feature bit.
+- `battery_level` on the vacuum entity MAY be consulted as a **legacy fallback** for integrations that have not migrated, and MUST NOT be the primary path. Once 2026.8 is the minimum supported Core version, the fallback is dead code and should be removed.
+- When a percentage resolves, the state line MUST read state + battery (e.g. `Docked · 87%`) with the battery segment in the muted supporting-value style.
 - **GIVEN** a battery percentage below 20, **WHEN** the state line renders, **THEN** the battery segment MUST render in the amber emphasis color instead of muted — a glanceable low-battery warning that does not repaint the whole card.
-- When the entity does not support `BATTERY` (or reports no percentage), the option is inert and no battery segment renders regardless of its value. It composes with `hideState` (common contract): hiding the state line hides the battery with it.
+- When no battery source resolves, the option is inert and no battery segment renders regardless of its value. It composes with `hideState` (common contract): hiding the state line hides the battery with it.
 
 ### Fan speed (`showFanSpeed`)
 
@@ -82,7 +78,7 @@ All keys live under `item.config`, camelCase, per [common conventions](./common.
 
 ### Error state (required behavior, not an option)
 
-- **GIVEN** the entity state is `error`, **WHEN** the card renders in any tier, **THEN** the icon circle and state text MUST use the alert color token (`--liebe-c-alert`) instead of the vacuum token, and the state line MUST show the diagnostic message from the standardized `status` attribute (advertised by the `STATUS` feature, bit 128) when present, falling back to a custom `error` attribute, then to `Error`. Fixtures MUST include the standard `status` shape.
+- **GIVEN** the entity state is `error`, **WHEN** the card renders in any tier, **THEN** the icon circle and state text MUST use the alert color token (`--liebe-c-alert`) instead of the vacuum token, and the state line MUST show the diagnostic message from the entity's `error` attribute when present, falling back to `Error`. (`VacuumEntityFeature.STATUS` and its `status` attribute are not part of the current vacuum feature set and MUST NOT be relied on.)
 - The `error` attribute text MUST be ellipsized to one line per the state-line typography rules, with the full text available via `more-info` (the default tap in `error`).
 
 ## Tier layouts
@@ -113,7 +109,7 @@ A `tall` tier is not specified for this card generation; at 1×N spans the card 
 
 ### Scenario: Low battery renders amber
 
-- **GIVEN** a `docked` vacuum with `BATTERY` support reporting a battery percentage of 14, with default options
+- **GIVEN** a `docked` vacuum whose battery sensor reports 14, with default options
 - **WHEN** the state line renders
 - **THEN** it reads `Docked · 14%` with the `14%` segment in the amber low-battery emphasis; and **WHEN** the percentage rises to 20 or above, **THEN** the segment reverts to the muted style.
 
@@ -126,7 +122,7 @@ A `tall` tier is not specified for this card generation; at 1×N spans the card 
 ## Open Questions
 
 - **Room/zone map targeting is out of scope.** Interactive map rendering and per-room/zone cleaning commands are explicitly NOT part of this card generation — attribute shapes for maps and segment targeting are integration-specific and unstandardized. Noted as future work; a later `full`-tier extension or dedicated variant may add it without breaking this option surface.
-- **Battery source migration.** Home Assistant is moving vacuum battery reporting from the `battery_level` attribute toward separate battery sensor entities. `showBattery` is specified against the entity's own battery capability; whether the card should optionally bind a companion battery sensor entity needs a decision before implementation.
+- ~~**Battery source migration.**~~ Resolved against current Home Assistant: `battery_level`/`battery_icon` were deprecated in Core 2025.8 and stop working in 2026.8, so the Battery section above is sensor-first with the attribute as legacy fallback only. `showBattery` is specified against the entity's own battery capability; whether the card should optionally bind a companion battery sensor entity needs a decision before implementation.
 - **Stop as a visible button.** `STOP` currently serves only as the `cleaning`-tap fallback when `PAUSE` is absent. Whether a dedicated stop button belongs in the `row`+ command cluster (three buttons instead of two) is deferred until touch testing of the cluster width.
 
 ## References
