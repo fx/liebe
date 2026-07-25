@@ -2,7 +2,7 @@
 
 Part of the [entity-cards spec](../index.md). **Status: specified, not yet implemented** — this defines the target per-card option surface; current per-card config is sparse (see [card-reference](../card-reference.md)).
 
-Options are stored under `item.config`, edited through `CardConfig.Modal` from a per-card `ConfigDefinition`, and MUST round-trip through YAML export/import ([dashboard-config](../../dashboard-config/)). Per-card docs in this folder specify domain-specific options; this file specifies what **every** entity card MUST support.
+Options are stored under `item.config`, are editable from the card's own configuration UI in edit mode, and MUST round-trip through YAML export/import ([dashboard-config](../../dashboard-config/)). Per-card docs in this folder specify domain-specific options; this file specifies what **every** entity card MUST support.
 
 ## Universal options
 

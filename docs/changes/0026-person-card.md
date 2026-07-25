@@ -36,7 +36,7 @@ The [person option doc](../specs/entity-cards/options/person.md) owns the option
 
 - **Avatar rules are normative, not options** — identity rendering (picture > initials-on-stable-color, badge dot always present) is the card's anchor; making it configurable would fragment presence legibility across dashboards and exports.
 - **Deterministic color as a pure function** — the initials background hashes the entity id into a fixed palette (which palette — Radix scales minus domain-reserved hues vs. a dedicated avatar set — settles with the design system during implementation); a pure function keeps it trivially unit-testable and stable across sessions, screens, and YAML round-trips.
-- **Attribute-only battery derivation first** — `batteryEntity: ''` inspects the person's `device_trackers` for a `battery_level`-style attribute and takes the first match; walking the device registry for sibling battery sensors is deferred (correctness and connection cost, per the option doc's open question). `batteryEntity` exists precisely so households where the minimal pass picks wrong can pin the source.
+- **Sensor-first battery derivation** — `batteryEntity: ''` resolves a `device_class: battery` sensor on the device backing one of the person's `device_trackers`, falling back to a `battery_level`-style tracker attribute only for integrations that have not migrated. Home Assistant is moving tracker battery reporting onto dedicated sensor entities, so an attribute-first pass would be built on the path being retired.
 - **Presence ring replaces the dot at chip scale** (recorded for the deferred chip form, not built here) — an overlapping dot is illegible on a 34px chip; a 2px ring in the same presence color carries identical information within the chip anatomy's icon-dot slot. This design stands in the option doc for the future header-chip change.
 - **`full` stays calm** — until zone history and distance data sources exist, `full` renders `row` content vertically centered rather than inventing content; the tier upgrades arrive with their data, not before.
 
@@ -45,12 +45,11 @@ The [person option doc](../specs/entity-cards/options/person.md) owns the option
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
 - [ ] **PR 1 — Person card + discovery**: PersonCard component (avatar rules, badge dot, tier layouts, `showZone`/`showLastChanged` with live durations, `more-info` default tap); registry entry; `person` moved from `SYSTEM_DOMAINS` to `SUPPORTED_DOMAINS`; initials/color unit tests; tier + presence stories; entity-cards spec updated (person card section, EntityBrowser domain lists, changelog)
-- [ ] **PR 2 — Battery**: `showBattery`/`batteryEntity` with attribute-only auto-derivation, amber low-battery treatment, auto-hidden config control; derivation unit tests; battery stories
+- [ ] **PR 2 — Battery**: `showBattery`/`batteryEntity` with sensor-first auto-derivation (attribute fallback covered by tests), amber low-battery treatment, auto-hidden config control; derivation unit tests; battery stories
 
 ## Out of Scope
 
 - Distance-to-home ("3.2 km away") and the `full`-tier map preview / `map` action target — open questions in the option doc; no zone geometry or map renderer exists in the panel.
 - The **header-chip form**: the grid model and `GridView` have no header/chip placement facility, so a chip variant would be reachable only from stories. Deferred until such a facility exists (change 0027 defers scene chips for the same reason); the option doc's chip section stands as the specification for that future change.
 - Zone history line ("Work → Home, arrived 17:42") — needs entity history the state pipeline does not fetch.
-- Device-registry-walking battery derivation beyond the attribute-only pass.
 - Universal option mechanics (landed in 0014) and other new cards.

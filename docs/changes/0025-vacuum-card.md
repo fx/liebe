@@ -2,7 +2,7 @@
 
 ## Summary
 
-Create the new `VacuumCard` per the [vacuum option doc](../specs/entity-cards/options/vacuum.md): a state-machine primary action (docked/idle → start, cleaning → pause, paused → resume, returning/error → more-info), domain options `showCommands`, `showBattery` (amber under 20%), `showFanSpeed`, `showLocate`, and `showStats`, all feature-gated on the entity's `supported_features` bits, an alert-colored error state that surfaces the standardized `status` attribute's message (falling back to `error`, then `Error`), and the teal vacuum domain token. Registers the `vacuum` domain in `domainToCard`, the shared `CardProps` contract, and `SUPPORTED_DOMAINS` per the [entity-cards registry](../specs/entity-cards/index.md#card-dispatch-and-registry).
+Create the new `VacuumCard` per the [vacuum option doc](../specs/entity-cards/options/vacuum.md): a state-machine primary action (docked/idle → start, cleaning → pause, paused → resume, returning/error → more-info), domain options `showCommands`, `showBattery` (amber under 20%, sourced from a battery sensor), `showFanSpeed`, `showLocate`, and `showStats`, feature-gated on the entity's `supported_features` bits where the current `VacuumEntityFeature` set provides one, an alert-colored error state that surfaces the standardized `status` attribute's message (falling back to `error`, then `Error`), and the teal vacuum domain token. Registers the `vacuum` domain in `domainToCard`, the shared `CardProps` contract, and `SUPPORTED_DOMAINS` per the [entity-cards registry](../specs/entity-cards/index.md#card-dispatch-and-registry).
 
 **Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/vacuum](../specs/entity-cards/options/vacuum.md) · **Status:** draft · **Depends on:** 0011, 0014
 
@@ -37,7 +37,7 @@ The [vacuum option doc](../specs/entity-cards/options/vacuum.md) owns the option
 - **`returning` maps to `more-info`** — mid-return the least destructive default is inspection; the dock button renders disabled (the vacuum is already returning) and Pause is the explicit interruption control (per the option doc).
 - **Select for fan speed, not pills** — `fan_speed_list` length varies widely across integrations and must not overflow the tier.
 - **Locate and stats default off** — locating is occasional and not all integrations report stats; defaults keep the `full` tier quiet.
-- **Error text on the card, full text in the dialog** — the one-line ellipsized `status`/`error` message gives glanceability; `more-info` (the default tap in `error`) carries the full text, so the card never scrolls.
+- **Error text on the card, full text in the dialog** — the one-line ellipsized `error`-attribute message gives glanceability; `more-info` (the default tap in `error`) carries the full text, so the card never scrolls.
 
 ## Tasks
 
