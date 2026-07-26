@@ -37,6 +37,30 @@ export interface ScreenConfig {
   }
 }
 
+/** What the user asked the panel to look like; `auto` follows the environment. */
+export type ThemeAppearancePreference = 'auto' | 'dark' | 'light'
+
+/**
+ * The theming configuration, portable like everything else in
+ * `DashboardConfig`.
+ *
+ * Dashboards written before the theming engine persist `theme` as the bare
+ * appearance string; `migrateThemeConfig` (./themeConfig.ts) upgrades those on
+ * load and on import, and exports only ever write this object shape. See
+ * docs/specs/theming/index.md, "Configuration & selection".
+ */
+export interface ThemeConfig {
+  /** Registered theme id — `data-liebe-theme` on the panel root. */
+  id: string
+  /** Requested appearance, before the active theme has had its say. */
+  appearance: ThemeAppearancePreference
+  /** User CSS, sanitized at injection time and applied in the `liebe-user` layer. */
+  customCss: string
+}
+
+/** The pre-0012 shape of the `theme` field, still accepted on import. */
+export type LegacyThemeConfig = ThemeAppearancePreference
+
 // Canonical portable configuration contract. These are exactly the fields that
 // travel with a shared/exported dashboard (JSON + YAML) and whose mutation marks
 // the config dirty. Device-local state (`mode`, top-level `gridResolution`) is
@@ -44,7 +68,7 @@ export interface ScreenConfig {
 export interface DashboardConfig {
   version: string
   screens: ScreenConfig[]
-  theme?: 'light' | 'dark' | 'auto'
+  theme?: ThemeConfig | LegacyThemeConfig
   sidebarOpen?: boolean
   tabsExpanded?: boolean
   sidebarWidgets?: WidgetConfig[]
@@ -67,7 +91,7 @@ export interface DashboardState {
   currentScreenId: string | null
   configuration: DashboardConfig
   gridResolution: GridResolution
-  theme: 'light' | 'dark' | 'auto'
+  theme: ThemeConfig
   isDirty: boolean
   sidebarOpen: boolean
   tabsExpanded: boolean
@@ -84,7 +108,7 @@ export interface StoreActions {
   addGridItem: (screenId: string, item: GridItem) => void
   updateGridItem: (screenId: string, itemId: string, updates: Partial<GridItem>) => void
   removeGridItem: (screenId: string, itemId: string) => void
-  setTheme: (theme: 'light' | 'dark' | 'auto') => void
+  setTheme: (theme: Partial<ThemeConfig>) => void
   setGridResolution: (resolution: GridResolution) => void
   loadConfiguration: (config: DashboardConfig) => void
   exportConfiguration: () => DashboardConfig

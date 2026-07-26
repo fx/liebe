@@ -42,11 +42,11 @@ export function RootComponent() {
   // Check if we're running in Home Assistant
   const isInHomeAssistant = useIsHomeAssistant()
 
-  const { themeId, appearance } = useThemeSelection()
+  const { themeId, appearance, customCss } = useThemeSelection()
 
   return (
     <>
-      <LiebeThemeProvider themeId={themeId} appearance={appearance}>
+      <LiebeThemeProvider themeId={themeId} appearance={appearance} customCss={customCss}>
         <Outlet />
         {!isInHomeAssistant && <TanStackRouterDevtools position="bottom-right" />}
       </LiebeThemeProvider>

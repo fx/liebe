@@ -1,7 +1,8 @@
 import { Theme } from '@radix-ui/themes'
-import { useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useCameraFullscreenActive, CAMERA_FULLSCREEN_Z_INDEX } from '~/store/cameraFullscreenStore'
-import { applyThemeCssToRootOf } from '~/theme/styleInjection'
+import { sanitizeCustomCss } from '~/theme/customCss'
+import { applyThemeCssToRootOf, applyUserCssToRootOf } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from '~/theme/themeRegistry'
 
 export interface LiebeThemeProviderProps {
@@ -20,6 +21,13 @@ export interface LiebeThemeProviderProps {
    * build does not have still renders.
    */
   themeId?: string
+  /**
+   * The configuration's custom CSS, as authored. Sanitized here rather than
+   * anywhere upstream: this is the injection point, and an imported YAML
+   * applies its custom CSS the moment it loads, so the boundary has to be where
+   * the CSS reaches the DOM and not where a user typed it.
+   */
+  customCss?: string
 }
 
 /**
@@ -43,14 +51,16 @@ export interface LiebeThemeProviderProps {
  *    off a stamp on any other element would leave the companions behind on the
  *    old hue. `liebe-root` is the selector user CSS is documented to target;
  *    `.radix-themes` is a vendor name and not ours to promise.
- *  - **Theme layer injection.** The active theme's CSS is injected into the
- *    root this tree is mounted in — the shadow root in Home Assistant, the
- *    document in the workshop — so switching themes applies live.
+ *  - **Theme and user layer injection.** The active theme's CSS and the
+ *    sanitized custom CSS are injected into the root this tree is mounted in —
+ *    the shadow root in Home Assistant, the document in the workshop — so
+ *    switching themes and editing custom CSS apply live.
  */
 export function LiebeThemeProvider({
   children,
   appearance,
   themeId = DEFAULT_THEME_ID,
+  customCss = '',
 }: LiebeThemeProviderProps) {
   // This is the ROOT Theme (data-is-root-theme="true"), so it establishes a
   // stacking context (`position: relative; z-index: 0`) that would otherwise
@@ -75,6 +85,19 @@ export function LiebeThemeProvider({
   useLayoutEffect(() => {
     applyThemeCssToRootOf(themeRoot.current, themeCss)
   }, [themeCss])
+
+  // Parsing is not free, and the same CSS arrives on every render of every
+  // consumer of the store.
+  const sanitized = useMemo(() => sanitizeCustomCss(customCss), [customCss])
+
+  useLayoutEffect(() => {
+    // Input the sanitizer could not parse leaves the last good user layer in
+    // place: a half-typed rule in the editor must not strip the styling the
+    // dashboard is already wearing. The editor is where the rejection is
+    // reported (`sanitizeCustomCss` returns the notices).
+    if (sanitized.rejected) return
+    applyUserCssToRootOf(themeRoot.current, sanitized.css)
+  }, [sanitized])
 
   return (
     <Theme

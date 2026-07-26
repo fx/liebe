@@ -9,7 +9,7 @@ export function PanelApp() {
   // Resolved here rather than inside the provider: the provider is the shell
   // the workshop shares, and the workshop's toolbar — not the dashboard
   // configuration — decides what it renders.
-  const { themeId, appearance } = useThemeSelection()
+  const { themeId, appearance, customCss } = useThemeSelection()
 
   useEffect(() => {
     // Initialize the dashboard store
@@ -21,7 +21,7 @@ export function PanelApp() {
   }, [])
 
   return (
-    <LiebeThemeProvider themeId={themeId} appearance={appearance}>
+    <LiebeThemeProvider themeId={themeId} appearance={appearance} customCss={customCss}>
       <RouterProvider router={router} />
     </LiebeThemeProvider>
   )

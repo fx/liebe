@@ -21,6 +21,8 @@ export type StyleRoot = Document | ShadowRoot
 
 /** The `data-liebe` value identifying each injected layer element. */
 export const THEME_STYLE_SLOT = 'theme'
+/** The user layer's slot — custom CSS, already sanitized and layer-wrapped. */
+export const USER_STYLE_SLOT = 'user'
 
 /** Narrowing for `Node.getRootNode()`, which is typed as a bare `Node`. */
 export function isStyleRoot(node: Node | null | undefined): node is StyleRoot {
@@ -73,7 +75,19 @@ export function applyThemeCss(root: StyleRoot, css: string): HTMLStyleElement {
 }
 
 /**
- * Applies a theme to whichever root `node` is mounted in — the caller's way in
+ * Applies sanitized custom CSS as the `liebe-user` layer of `root`.
+ *
+ * The CSS is taken exactly as `sanitizeCustomCss` produced it — already
+ * serialised from an AST *inside* its layer block. Nothing here re-wraps or
+ * repairs it, because there is only one thing that may be injected as the user
+ * layer and this is not the module that decides what that is.
+ */
+export function applyUserCss(root: StyleRoot, css: string): HTMLStyleElement {
+  return applyLayerStyle(root, USER_STYLE_SLOT, css)
+}
+
+/**
+ * Applies a layer to whichever root `node` is mounted in — the caller's way in
  * from React, where the only handle on the root is an element inside it.
  *
  * A node that is in no document and no shadow root (a tree mid-mount, or one
@@ -81,21 +95,53 @@ export function applyThemeCss(root: StyleRoot, css: string): HTMLStyleElement {
  * returning `null` rather than throwing keeps that a non-event, and the next
  * render in a real root injects.
  *
- * From a shadow root the theme is mirrored into the owning document as well,
+ * From a shadow root the layer is mirrored into the owning document as well,
  * because Radix dialogs and dropdowns portal to `document.body` — outside the
  * shadow root and its layers. The mirror is inert elsewhere in the Home
- * Assistant frontend: theme CSS is scoped to the Radix theme root, a class only
- * Liebe's own trees carry. It is a stopgap for the portal host the theming spec
- * calls for ("Portalled UI MUST stay inside the token scope"), not a
- * replacement for it.
+ * Assistant frontend: theme and user CSS are scoped to the Radix theme root, a
+ * class only Liebe's own trees carry. It is a stopgap for the portal host the
+ * theming spec calls for ("Portalled UI MUST stay inside the token scope"), not
+ * a replacement for it.
  */
+function applyLayerToRootOf(
+  node: Node | null | undefined,
+  css: string,
+  apply: (root: StyleRoot, css: string) => HTMLStyleElement
+): HTMLStyleElement | null {
+  const root = node?.getRootNode()
+  if (!isStyleRoot(root)) return null
+
+  if (root instanceof ShadowRoot) apply(root.ownerDocument, css)
+  return apply(root, css)
+}
+
+/** Applies a theme to whichever root `node` is mounted in. */
 export function applyThemeCssToRootOf(
+  node: Node | null | undefined,
+  css: string
+): HTMLStyleElement | null {
+  return applyLayerToRootOf(node, css, applyThemeCss)
+}
+
+/**
+ * Applies sanitized custom CSS to whichever root `node` is mounted in — and to
+ * that root only.
+ *
+ * Deliberately unmirrored, unlike the theme layer. Mirroring copies a sheet
+ * into the Home Assistant document, where the theme layer is inert because it
+ * is first-party CSS scoped to the Radix theme root. Custom CSS is neither: its
+ * selectors are the user's, and the sanitizer judges what a declaration may
+ * *fetch*, not what it may *match* — so a mirrored `body { display: none }`
+ * from an imported configuration would restyle the frontend around the panel.
+ * Containment wins over reach: overlays portalled out of the shadow root render
+ * with base and theme tokens but without custom CSS until the scoped
+ * `.liebe-portal-root` host the theming spec calls for exists.
+ */
+export function applyUserCssToRootOf(
   node: Node | null | undefined,
   css: string
 ): HTMLStyleElement | null {
   const root = node?.getRootNode()
   if (!isStyleRoot(root)) return null
-
-  if (root instanceof ShadowRoot) applyThemeCss(root.ownerDocument, css)
-  return applyThemeCss(root, css)
+  return applyUserCss(root, css)
 }

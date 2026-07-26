@@ -5,6 +5,7 @@ import {
   importConfigurationFromFile,
   saveDashboardConfig,
 } from '../persistence'
+import { DEFAULT_THEME_CONFIG } from '../themeConfig'
 import type { DashboardConfig, DashboardState, GridItem, WidgetConfig } from '../types'
 
 // Mock localStorage so import/save paths don't touch a real store.
@@ -52,9 +53,11 @@ const richState: DashboardState = {
     },
   ],
   currentScreenId: 'screen-1',
-  configuration: { version: '1.0.0', screens: [], theme: 'auto' },
+  configuration: { version: '1.0.0', screens: [], theme: DEFAULT_THEME_CONFIG },
   gridResolution: { columns: 12, rows: 8 },
-  theme: 'dark',
+  // Every theming field non-default, custom CSS included, so a round-trip that
+  // dropped one shows up as a mismatch.
+  theme: { id: 'default', appearance: 'dark', customCss: '.liebe-card { color: red; }' },
   isDirty: false,
   sidebarOpen: true,
   tabsExpanded: true,
@@ -99,7 +102,7 @@ describe('portable configuration contract', () => {
       // a no-op import can't accidentally pass.
       dashboardStore.setState((s) => ({
         ...s,
-        theme: 'light',
+        theme: DEFAULT_THEME_CONFIG,
         sidebarOpen: false,
         tabsExpanded: false,
         sidebarWidgets: [],
@@ -133,7 +136,7 @@ describe('portable configuration contract', () => {
 
       dashboardStore.setState((s) => ({
         ...s,
-        theme: 'light',
+        theme: DEFAULT_THEME_CONFIG,
         sidebarOpen: false,
         tabsExpanded: false,
         sidebarWidgets: [],
@@ -178,7 +181,12 @@ describe('portable configuration contract', () => {
 
       await expect(importConfigurationFromFile(file)).resolves.toBeUndefined()
       expect(dashboardStore.state.screens).toHaveLength(1)
-      expect(dashboardStore.state.theme).toBe('dark')
+      // The pre-0012 scalar migrates to the object shape on the way in.
+      expect(dashboardStore.state.theme).toEqual({
+        id: 'default',
+        appearance: 'dark',
+        customCss: '',
+      })
       // The current (non-default) widgets are preserved in memory via the `??`
       // fallback since the legacy file omits sidebarWidgets.
       expect(dashboardStore.state.sidebarWidgets).toEqual(richWidgets)
@@ -237,7 +245,7 @@ describe('dirty tracking follows the portable contract', () => {
     ['updateGridItem', () => dashboardActions.updateGridItem('screen-1', 'item-1', { width: 4 })],
     ['removeGridItem', () => dashboardActions.removeGridItem('screen-1', 'item-1')],
     ['reorderGrid', () => dashboardActions.reorderGrid('screen-1')],
-    ['setTheme', () => dashboardActions.setTheme('light')],
+    ['setTheme', () => dashboardActions.setTheme({ appearance: 'light' })],
     ['toggleSidebar', () => dashboardActions.toggleSidebar(false)],
     ['toggleTabsExpanded', () => dashboardActions.toggleTabsExpanded(false)],
     ['updateSidebarWidgets', () => dashboardActions.updateSidebarWidgets([])],

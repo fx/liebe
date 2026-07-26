@@ -1,6 +1,21 @@
 import { Text, Flex, Box, ScrollArea, Badge, Callout, Modal } from '~/components/ui'
 import { InfoCircledIcon } from '@radix-ui/react-icons'
 import type { DashboardConfig } from '../store/types'
+import { migrateThemeConfig } from '../store/themeConfig'
+import { getThemeOrDefault } from '~/theme/themeRegistry'
+
+/**
+ * What the incoming file's theming amounts to, in one line: the theme that
+ * would actually render, its appearance, and whether custom CSS comes with it.
+ *
+ * Migrated first, because a preview may show a document written against the
+ * legacy scalar `theme` — the same upgrade the import itself would apply.
+ */
+function describeTheme(theme: DashboardConfig['theme']): string {
+  const { id, appearance, customCss } = migrateThemeConfig(theme)
+  const { label } = getThemeOrDefault(id)
+  return `${label} · ${appearance}${customCss ? ' · custom CSS' : ''}`
+}
 
 interface ImportPreviewDialogProps {
   open: boolean
@@ -78,7 +93,7 @@ export function ImportPreviewDialog({
             <Text size="2" weight="medium">
               Theme:
             </Text>
-            <Badge variant="outline">{config.theme || 'auto'}</Badge>
+            <Badge variant="outline">{describeTheme(config.theme)}</Badge>
           </Flex>
 
           <Flex align="center" gap="2">

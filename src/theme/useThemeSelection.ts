@@ -10,8 +10,8 @@
 import { useSyncExternalStore } from 'react'
 import { useStore } from '@tanstack/react-store'
 import { dashboardStore } from '~/store/dashboardStore'
-import { resolveThemeAppearance, type AppearancePreference } from './appearance'
-import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from './themeRegistry'
+import { resolveThemeAppearance } from './appearance'
+import { getThemeOrDefault, type ThemeAppearance } from './themeRegistry'
 
 const DARK_SCHEME_QUERY = '(prefers-color-scheme: dark)'
 
@@ -50,24 +50,27 @@ export interface ThemeSelection {
   themeId: string
   /** Appearance actually rendered, after the theme has had its say. */
   appearance: ThemeAppearance
+  /** The configuration's custom CSS, as authored — sanitized at injection. */
+  customCss: string
 }
 
 /**
- * Resolves the active theme and appearance from the dashboard configuration.
+ * Resolves what to render from the dashboard configuration's `theme` object.
  *
- * The configuration still stores appearance as the scalar `theme` field; change
- * 0012's PR 2 replaces it with `theme.{id, appearance, customCss}` and migrates
- * existing dashboards, at which point the theme id stops being pinned to the
- * default here. Everything downstream of this hook already takes both.
+ * The id is the theme that actually renders rather than the one that was asked
+ * for: a configuration naming a theme this build does not have falls back to
+ * Default, and everything downstream (the root stamp, the injected layer) must
+ * agree about which that is.
  */
 export function useThemeSelection(): ThemeSelection {
-  const preference: AppearancePreference = useStore(dashboardStore, (state) => state.theme)
+  const { id, appearance, customCss } = useStore(dashboardStore, (state) => state.theme)
   const prefersDark = usePrefersDark()
 
-  const theme = getThemeOrDefault(DEFAULT_THEME_ID)
+  const theme = getThemeOrDefault(id)
 
   return {
     themeId: theme.id,
-    appearance: resolveThemeAppearance(theme, preference, { prefersDark }),
+    appearance: resolveThemeAppearance(theme, appearance, { prefersDark }),
+    customCss,
   }
 }

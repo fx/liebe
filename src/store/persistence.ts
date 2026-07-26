@@ -3,6 +3,7 @@ import { dashboardStore, dashboardActions } from './dashboardStore'
 import type { DashboardConfig } from './types'
 import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 import { validateDashboardConfig } from './configSchema'
+import { migrateThemeConfig } from './themeConfig'
 import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
@@ -36,6 +37,22 @@ export const loadDashboardMode = (): 'view' | 'edit' => {
     console.error('Failed to load dashboard mode:', error)
   }
   return 'view' // Default to view mode
+}
+
+/**
+ * Upgrades a whole stored/imported document: screens to the flat grid format,
+ * and `theme` from the legacy scalar to `{ id, appearance, customCss }`.
+ *
+ * The theme step is repeated by `loadConfiguration` — deliberately, because the
+ * two cover different routes. This one is what makes the *preview* (which never
+ * touches the store) show the migrated shape, and what keeps the persisted
+ * document current; `loadConfiguration`'s is what covers the routes that skip
+ * this function, notably restoring from backup.
+ */
+const migrateConfig = (config: unknown): DashboardConfig => {
+  const migrated = migrateScreenConfig(config)
+  migrated.theme = migrateThemeConfig(migrated.theme)
+  return migrated
 }
 
 // Migrate old screen format to new format with items and slugs
@@ -104,7 +121,7 @@ export const loadDashboardConfig = (): DashboardConfig | null => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored)
-      return migrateScreenConfig(parsed)
+      return migrateConfig(parsed)
     }
   } catch (error) {
     console.error('Failed to load dashboard configuration:', error)
@@ -231,7 +248,7 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
         backupCurrentConfiguration()
 
         // Apply migration if needed
-        const migratedConfig = migrateScreenConfig(config)
+        const migratedConfig = migrateConfig(config)
 
         // Update version to current
         migratedConfig.version = CURRENT_VERSION
@@ -281,7 +298,9 @@ export const exportConfigurationAsYAML = (): string => {
     '# Liebe Dashboard Configuration': null,
     '# Generated': new Date().toISOString(),
     version,
-    theme: theme || 'auto',
+    // Always the object shape, never the legacy scalar: an export is a new
+    // document, and the migration only runs on the way in.
+    theme: migrateThemeConfig(theme),
     sidebarOpen,
     tabsExpanded,
     sidebarWidgets,
@@ -410,7 +429,7 @@ export const parseConfigurationFromFile = (
         }
 
         // Apply migration if needed (for preview)
-        const migratedConfig = migrateScreenConfig(config)
+        const migratedConfig = migrateConfig(config)
 
         resolve({
           config: migratedConfig,

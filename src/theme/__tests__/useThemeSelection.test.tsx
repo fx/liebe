@@ -1,6 +1,7 @@
 import { act, render, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dashboardStore } from '~/store/dashboardStore'
+import type { ThemeAppearancePreference } from '~/store/types'
 import { usePrefersDark, useThemeSelection } from '../useThemeSelection'
 import { DEFAULT_THEME_ID } from '../themeRegistry'
 
@@ -68,6 +69,10 @@ describe('usePrefersDark', () => {
 })
 
 describe('useThemeSelection', () => {
+  function setAppearance(appearance: ThemeAppearancePreference) {
+    dashboardStore.setState((state) => ({ ...state, theme: { ...state.theme, appearance } }))
+  }
+
   function selection() {
     return renderHook(() => useThemeSelection()).result.current
   }
@@ -83,21 +88,21 @@ describe('useThemeSelection', () => {
     [false, 'light'],
   ] as const)('follows the OS (dark: %s) while the preference is auto', (prefersDark, expected) => {
     stubMatchMedia(prefersDark)
-    dashboardStore.setState((state) => ({ ...state, theme: 'auto' }))
+    setAppearance('auto')
 
     expect(selection().appearance).toBe(expected)
   })
 
   it.each(['dark', 'light'] as const)('honours an explicit %s preference', (preference) => {
     stubMatchMedia(preference === 'light')
-    dashboardStore.setState((state) => ({ ...state, theme: preference }))
+    setAppearance(preference)
 
     expect(selection().appearance).toBe(preference)
   })
 
   it('re-resolves when the preference changes, without a reload', () => {
     stubMatchMedia(true)
-    dashboardStore.setState((state) => ({ ...state, theme: 'auto' }))
+    setAppearance('auto')
 
     const seen: string[] = []
     function Probe() {
@@ -106,9 +111,7 @@ describe('useThemeSelection', () => {
     }
     render(<Probe />)
 
-    act(() => {
-      dashboardStore.setState((state) => ({ ...state, theme: 'light' }))
-    })
+    act(() => setAppearance('light'))
 
     expect(seen[0]).toBe('dark')
     expect(seen.at(-1)).toBe('light')

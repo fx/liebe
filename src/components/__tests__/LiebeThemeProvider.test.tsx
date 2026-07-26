@@ -6,10 +6,11 @@ import {
   enterCameraFullscreen,
   exitCameraFullscreen,
 } from '~/store/cameraFullscreenStore'
-import { THEME_STYLE_SLOT } from '~/theme/styleInjection'
+import { THEME_STYLE_SLOT, USER_STYLE_SLOT } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getTheme } from '~/theme/themeRegistry'
 
 const THEME_STYLE_SELECTOR = `style[data-liebe="${THEME_STYLE_SLOT}"]`
+const USER_STYLE_SELECTOR = `style[data-liebe="${USER_STYLE_SLOT}"]`
 
 function getRootTheme(container: HTMLElement): HTMLElement {
   return container.querySelector('[data-is-root-theme="true"]') as HTMLElement
@@ -21,7 +22,9 @@ describe('LiebeThemeProvider', () => {
   })
 
   afterEach(() => {
-    document.head.querySelectorAll(THEME_STYLE_SELECTOR).forEach((style) => style.remove())
+    document.head
+      .querySelectorAll(`${THEME_STYLE_SELECTOR}, ${USER_STYLE_SELECTOR}`)
+      .forEach((style) => style.remove())
   })
 
   it('renders children inside the root Radix Theme', () => {
@@ -113,6 +116,60 @@ describe('LiebeThemeProvider', () => {
     const style = document.head.querySelector(THEME_STYLE_SELECTOR)
     expect(style?.textContent).toBe(getTheme(DEFAULT_THEME_ID)!.css)
     expect(getRootTheme(container).getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
+  })
+
+  it('injects sanitized custom CSS as the user layer', () => {
+    const { rerender } = render(
+      <LiebeThemeProvider customCss=".liebe-card { --liebe-card-radius: 0; }">
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const style = document.head.querySelector(USER_STYLE_SELECTOR)
+    expect(style?.textContent).toContain('@layer liebe-user {')
+    expect(style?.textContent).toContain('--liebe-card-radius: 0')
+
+    // Editing applies live, without a reload.
+    rerender(
+      <LiebeThemeProvider customCss=".liebe-card { --liebe-card-radius: 24px; }">
+        <span />
+      </LiebeThemeProvider>
+    )
+    expect(document.head.querySelector(USER_STYLE_SELECTOR)?.textContent).toContain('24px')
+  })
+
+  it('strips a remote reference before it reaches the DOM', () => {
+    // The sanitizer runs HERE, not in the editor: imported YAML applies its
+    // custom CSS immediately, so a warning would arrive after the request.
+    render(
+      <LiebeThemeProvider customCss=".liebe-card { background: url(https://evil.example/p.png); }">
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    expect(document.head.querySelector(USER_STYLE_SELECTOR)?.textContent).not.toContain(
+      'evil.example'
+    )
+  })
+
+  it('keeps the last good user CSS when the new input cannot be parsed', () => {
+    const { rerender } = render(
+      <LiebeThemeProvider customCss=".liebe-card { --liebe-card-radius: 0; }">
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    // A half-typed rule in the editor must not strip the styling the dashboard
+    // is already wearing.
+    rerender(
+      <LiebeThemeProvider customCss="} .liebe-card { --liebe-card-radius: 99px } /*">
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const css = document.head.querySelector(USER_STYLE_SELECTOR)?.textContent
+    expect(css).toContain('--liebe-card-radius: 0')
+    expect(css).not.toContain('99px')
   })
 
   it('lifts the root Theme stacking while a camera overlay is open', () => {

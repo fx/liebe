@@ -102,6 +102,31 @@ const widgetConfigSchema = z
   })
   .passthrough()
 
+// The theming configuration. Two accepted shapes, because a shared document may
+// predate the theming engine: the legacy scalar appearance, and the current
+// `{ id, appearance, customCss }` object (every field optional — the loader
+// fills in what an older or partial export omits).
+//
+// Deliberately NOT a catch-all: a scalar outside the three declared legacy
+// values (a typo like `theme: solarized`) fails here, naming the field, rather
+// than being swallowed into the defaults. Silently repairing a shared config
+// would hide a broken document from the person who has to fix it.
+const legacyThemeSchema = z.enum(['light', 'dark', 'auto'])
+
+const themeConfigSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    appearance: legacyThemeSchema.optional(),
+    customCss: z.string().optional(),
+  })
+  .passthrough()
+
+const themeSchema = z.union([legacyThemeSchema, themeConfigSchema], {
+  errorMap: () => ({
+    message: 'theme must be "light", "dark", "auto", or an object with id / appearance / customCss',
+  }),
+})
+
 export const dashboardConfigSchema = z
   .object({
     // Require a dot-separated numeric version (e.g. "1.0.0") so downstream
@@ -111,7 +136,7 @@ export const dashboardConfigSchema = z
       .string()
       .regex(/^\d+(\.\d+)*$/, 'version must be a dot-separated numeric version like "1.0.0"'),
     screens: z.array(screenConfigSchema),
-    theme: z.enum(['light', 'dark', 'auto']).optional(),
+    theme: themeSchema.optional(),
     sidebarOpen: z.boolean().optional(),
     tabsExpanded: z.boolean().optional(),
     sidebarWidgets: z.array(widgetConfigSchema).optional(),

@@ -78,17 +78,17 @@ function StoreTestPage() {
           </Flex>
 
           <Flex gap="2" align="center">
-            <Text>Theme:</Text>
-            <Badge>{theme}</Badge>
+            <Text>Appearance:</Text>
+            <Badge>{theme.appearance}</Badge>
             <Button
               size="1"
               onClick={() => {
-                const themes = ['light', 'dark', 'auto'] as const
-                const current = themes.indexOf(theme)
-                dashboardActions.setTheme(themes[(current + 1) % 3])
+                const appearances = ['light', 'dark', 'auto'] as const
+                const current = appearances.indexOf(theme.appearance)
+                dashboardActions.setTheme({ appearance: appearances[(current + 1) % 3] })
               }}
             >
-              Cycle Theme
+              Cycle Appearance
             </Button>
           </Flex>
 

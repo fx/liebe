@@ -7,8 +7,10 @@ import {
   importConfigurationFromFile,
   exportConfigurationAsYAML,
   getStorageInfo,
+  parseConfigurationFromFile,
 } from '../persistence'
 import { dashboardStore, dashboardActions } from '../dashboardStore'
+import { DEFAULT_THEME_CONFIG } from '../themeConfig'
 import type { DashboardConfig } from '../types'
 
 // Mock localStorage
@@ -41,7 +43,7 @@ describe('persistence', () => {
         },
       },
     ],
-    theme: 'auto',
+    theme: { id: 'default', appearance: 'auto', customCss: '' },
   }
 
   beforeEach(() => {
@@ -50,9 +52,9 @@ describe('persistence', () => {
       mode: 'view',
       screens: [],
       currentScreenId: null,
-      configuration: { version: '1.0.0', screens: [], theme: 'auto' },
+      configuration: { version: '1.0.0', screens: [], theme: DEFAULT_THEME_CONFIG },
       gridResolution: { columns: 12, rows: 8 },
-      theme: 'auto',
+      theme: DEFAULT_THEME_CONFIG,
       isDirty: false,
       sidebarOpen: false,
       tabsExpanded: false,
@@ -191,6 +193,23 @@ describe('persistence', () => {
     })
   })
 
+  describe('parseConfigurationFromFile', () => {
+    it('migrates the theme for the preview without touching the store', async () => {
+      // The preview has to describe the document the import WOULD apply, so the
+      // legacy scalar is upgraded here as well — and nothing is loaded.
+      const legacy = { version: '1.0.0', screens: [], theme: 'dark' }
+      const file = new File([JSON.stringify(legacy)], 'legacy.json', {
+        type: 'application/json',
+      })
+
+      const { config } = await parseConfigurationFromFile(file)
+
+      expect(config.theme).toEqual({ id: 'default', appearance: 'dark', customCss: '' })
+      expect(dashboardStore.state.theme).toEqual(DEFAULT_THEME_CONFIG)
+      expect(dashboardStore.state.screens).toHaveLength(0)
+    })
+  })
+
   describe('importConfigurationFromFile', () => {
     it('should import valid JSON configuration', async () => {
       const file = new File([JSON.stringify(mockConfig)], 'config.json', {
@@ -234,7 +253,10 @@ describe('persistence', () => {
       // js-yaml output format differs from manual format
       expect(yaml).toContain('Liebe Dashboard Configuration')
       expect(yaml).toContain('version: 1.0.0') // js-yaml doesn't quote numbers
-      expect(yaml).toContain('theme: auto')
+      // The theme is an object now, so YAML nests it.
+      expect(yaml).toContain('theme:')
+      expect(yaml).toContain('id: default')
+      expect(yaml).toContain('appearance: auto')
       expect(yaml).toContain('screens:')
       expect(yaml).toContain('name: Test Screen') // js-yaml doesn't quote unless necessary
     })

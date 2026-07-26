@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ScreenConfigDialog } from '../ScreenConfigDialog'
 import { useDashboardStore, dashboardActions } from '../../store'
 import { createTestScreen } from '../../test-utils/screen-helpers'
+import { DEFAULT_THEME_CONFIG } from '../../store/themeConfig'
 import type { DashboardState } from '../../store/types'
 
 vi.mock('../../store', () => ({
@@ -48,7 +49,7 @@ describe('ScreenConfigDialog', () => {
           theme: 'auto',
         },
         gridResolution: { columns: 12, rows: 8 },
-        theme: 'auto',
+        theme: DEFAULT_THEME_CONFIG,
         isDirty: false,
         sidebarOpen: false,
         tabsExpanded: false,
