@@ -192,15 +192,21 @@ async function dragAcross(track: HTMLElement, to: { clientX: number; clientY: nu
   }
   Object.assign(track, stubs)
 
-  await userEvent.pointer([
-    { keys: '[MouseLeft>]', target: track, coords: centre(track) },
-    { target: track, coords: to },
-    { keys: '[/MouseLeft]', target: track, coords: to },
-  ])
-
-  // Back to the prototype's implementations, so nothing leaks into the next
-  // interaction with this story.
-  for (const name of Object.keys(stubs)) Reflect.deleteProperty(track, name)
+  try {
+    await userEvent.pointer([
+      { keys: '[MouseLeft>]', target: track, coords: centre(track) },
+      { target: track, coords: to },
+      { keys: '[/MouseLeft]', target: track, coords: to },
+    ])
+  } finally {
+    // Back to the prototype's implementations even when the gesture throws. A
+    // stub left behind by a failed drag outlives the failure: every later
+    // interaction with this track — a second drag, a re-run of the play
+    // function against the same DOM — then runs against a pointer-capture that
+    // is permanently claimed, so the next assertion fails for a reason that has
+    // nothing to do with what it tests.
+    for (const name of Object.keys(stubs)) Reflect.deleteProperty(track, name)
+  }
 }
 
 /**
