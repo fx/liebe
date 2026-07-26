@@ -619,7 +619,18 @@ export const GridCard = React.memo(
            * dialog still standing over a card that is now draggable.
            */}
           {!isEditMode && detailFor && (
-            <EntityDetailDialog entityId={detailFor} open onOpenChange={() => setDetailFor(null)} />
+            <EntityDetailDialog
+              entityId={detailFor}
+              open
+              // Only a close is the shell's to act on. The dialog reports every
+              // open-state change through this one callback, `true` included —
+              // a controlled dialog can report the state it is already in while
+              // reconciling — so a handler that discarded the argument would
+              // tear down the dialog the hold just opened.
+              onOpenChange={(open) => {
+                if (!open) setDetailFor(null)
+              }}
+            />
           )}
         </GridCardContext.Provider>
       )

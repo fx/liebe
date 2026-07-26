@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { Text } from '@radix-ui/themes'
-import { EntityDetailDialog } from '../EntityDetailDialog'
+import { EntityDetailDialog, type EntityDetailDialogProps } from '../EntityDetailDialog'
 import {
   registerDetailControls,
   type EntityDetailControlsProps,
@@ -16,6 +16,35 @@ import { dashboardActions } from '~/store'
 import { HOLD_DURATION_MS } from '~/store/cardActions'
 import { createInputTextEntity, createSensorEntity } from '~/test/fixtures'
 import type { HassEntity } from '~/store/entityTypes'
+
+/**
+ * Every render of the dialog, in order — recorded by the transparent wrapper
+ * below so a test can call back into the shell exactly as the dialog would.
+ *
+ * The only reason this exists: Radix reports a *close* through `onOpenChange`
+ * and nothing else, so there is no gesture that makes a controlled dialog
+ * report `true`. That is a property of the dialog implementation, not a promise
+ * the callback's contract makes to its consumer, and the shell's handler has to
+ * be right for both arguments either way. So the caller is what gets
+ * substituted here, and the handler under test stays the real one.
+ */
+const dialogRenders = vi.hoisted(() => ({ props: [] as EntityDetailDialogProps[] }))
+
+/**
+ * Records the props and renders the real dialog — so every other test in this
+ * file, and the shell tests below, still exercise the genuine component.
+ */
+vi.mock('../EntityDetailDialog', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../EntityDetailDialog')>()
+
+  return {
+    ...actual,
+    EntityDetailDialog: (props: EntityDetailDialogProps) => {
+      dialogRenders.props.push(props)
+      return <actual.EntityDetailDialog {...props} />
+    },
+  }
+})
 
 /**
  * The entity detail dialog — what a hold opens on every card.
@@ -62,6 +91,7 @@ describe('EntityDetailDialog', () => {
   beforeEach(() => {
     entityStore.setState((state) => ({ ...state, entities: {}, isInitialLoading: false }))
     dashboardActions.resetState()
+    dialogRenders.props.length = 0
   })
 
   afterEach(() => {
@@ -325,6 +355,26 @@ describe('EntityDetailDialog', () => {
       act(() => {
         vi.runOnlyPendingTimers()
       })
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('closes only when the dialog reports a close, not on any report at all', () => {
+      // `onOpenChange` carries the state being reported, and the shell owns the
+      // state that keeps the dialog mounted. A handler that ignored the
+      // argument would take a reported `true` as a reason to unmount — closing
+      // the dialog the hold just opened.
+      seed(createSensorEntity())
+      renderCard()
+      hold(card())
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      // The shell rendered the dialog, so the wrapper recorded its handler.
+      const { onOpenChange } = dialogRenders.props[dialogRenders.props.length - 1]
+
+      act(() => onOpenChange(true))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      act(() => onOpenChange(false))
       expect(screen.queryByRole('dialog')).toBeNull()
     })
 
