@@ -46,7 +46,7 @@ The [design-system spec](../specs/design-system/index.md) owns the token tables,
 ## Tasks
 
 - [x] **PR 1 — Tokens**: token stylesheet (dark/light, Radix aliases), injected in the shadow root; token reference story; resolve alias-fidelity question in the spec
-- [ ] **PR 2 — Anatomy components**: icon circle, meta block, pills, chips, value, spark placeholder; stable classes/attributes; stories + a11y
+- [x] **PR 2 — Anatomy components**: icon circle, meta block, pills, chips, value, spark placeholder; stable classes/attributes; stories + a11y
 - [ ] **PR 3 — Slider primitive**: Radix-primitive slider (h/v), stories with play-function drag tests
 - [ ] **PR 4 — Shell restyle**: `GridCard` on tokens/anatomy, flat dark/shadow light, motion rules; migrate all existing cards' shell usage; all card tests green; gallery story updated
 

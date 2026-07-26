@@ -28,7 +28,7 @@ The token contract exists so that theming is data, not code: the Liquid Glass th
 
 ### Stable selector contract
 
-- The design-system anatomy classes (`liebe-card`, `liebe-icon`, `liebe-name`, `liebe-state`, `liebe-slider`, `liebe-pill`, `liebe-chip`, `liebe-value`, `liebe-spark`) plus structural hooks `liebe-screen`, `liebe-section`, `liebe-section-title`, and per-domain/state data attributes (`data-domain="light"`, `data-active`, `data-tier="glance|row|tall|full"`) MUST be present in rendered markup and MUST be treated as a public API: renames are breaking changes requiring a migration note here.
+- The design-system anatomy classes (`liebe-card`, `liebe-icon`, `liebe-name`, `liebe-state`, `liebe-slider`, `liebe-pill`, `liebe-chip`, `liebe-value`, `liebe-spark`) plus structural hooks `liebe-screen`, `liebe-section`, `liebe-section-title`, and per-domain/state data attributes (`data-domain="light"`, `data-active`, `data-color="light|heat|…"`, `data-tier="glance|row|tall|full"`) MUST be present in rendered markup and MUST be treated as a public API: renames are breaking changes requiring a migration note here. `data-active` is present **only** while a part is active, so themes select on the attribute (`[data-active]`) rather than on a value; `data-color` names the [domain colour triplet](../design-system/index.md#domain-color-discipline) the part's rendered state resolved to, and is what the base stylesheet maps onto the three `--liebe-c-*` tokens. Anything else a part renders — its inner elements, its internal custom properties — is not contract.
 - Themes MUST NOT rely on any selector outside this contract; internal class names MAY change freely.
 - Domain color tokens are part of the contract as **triplets** (`--liebe-c-<name>`, `--liebe-c-<name>-tint`, `--liebe-c-<name>-text` — [design-system](../design-system/index.md#domain-color-discipline)): themes MAY remap them (LCARS does). Remapping only the base recolors the whole treatment through whichever companions the active theme left derived, and a theme SHOULD set `-text` explicitly when the remapped base lacks contrast on its ground. **Default-theme caveat:** an explicitly set companion is an override like any other, and the Default theme pins each `-text` companion to Radix step 11 (raw step-9 hues lack text contrast). So under Default, user CSS remapping only a base recolors glyph and tint but leaves state text on the old hue — it SHOULD set `-text` too. Tints still follow automatically, since Default does not pin them.
 
@@ -145,6 +145,7 @@ Built-in themes live in-repo as CSS assets keyed by id (`default`, `liquid-glass
 
 ## Changelog
 
-| Date       | Change                                                    | Document |
-| ---------- | --------------------------------------------------------- | -------- |
-| 2026-07-25 | Initial spec created (theming model, not yet implemented) | —        |
+| Date       | Change                                                                                                                           | Document                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 2026-07-25 | Initial spec created (theming model, not yet implemented)                                                                        | —                                                       |
+| 2026-07-26 | Selector contract extended with `data-color` and the presence-only rule for `data-active`, as first stamped by the anatomy parts | [0010](../../changes/0010-design-tokens-and-anatomy.md) |

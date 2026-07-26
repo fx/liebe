@@ -1,0 +1,435 @@
+/*
+ * Card anatomy — the shared parts every entity card composes from.
+ *
+ * docs/specs/design-system/index.md ("Card anatomy") names each part and its
+ * class; docs/specs/theming/index.md ("Stable selector contract") makes those
+ * names public API. The classes that carry the contract are:
+ *
+ *   liebe-icon · liebe-name · liebe-state · liebe-pill · liebe-chip
+ *   liebe-value · liebe-spark
+ *
+ * (`liebe-card` belongs to the card shell and `liebe-slider` to the slider
+ * primitive — the two remaining tasks of change 0010.) Renaming any of them is
+ * a breaking change. Everything else here — `liebe-meta`, the `-label`,
+ * `-dot`, `-canvas` and `-unit` sub-elements, and the `--part-*` custom
+ * properties below — is internal and may change freely.
+ *
+ * LAYERING
+ * --------
+ * Wrapped in `liebe-base` like every other baseline sheet the panel injects:
+ * an unlayered author rule outranks all cascade layers, so leaving these
+ * styles unlayered would make the anatomy the one thing a theme could not
+ * restyle. The layer-order statement is repeated here (as in
+ * src/styles/tokens.css) so the order holds whichever sheet the bundler emits
+ * first, and no rule uses `!important` — importance is reversed across layers,
+ * so an important declaration in the base layer would beat the theme and user
+ * layers that are meant to win.
+ *
+ * DOMAIN COLOUR
+ * -------------
+ * Parts never name a Radix scale and never take a Radix `color` prop; they
+ * carry `data-color="<triplet>"` and the block below maps it onto the three
+ * `--liebe-c-*` tokens. That indirection is the whole point of the token
+ * contract: remapping `--liebe-c-light` recolours every part that resolved to
+ * it, which a `color="amber"` prop would not.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /* ------------------------------------------------------------------ *
+   * Domain colour resolution
+   *
+   * `--part-color` (saturated glyph/solid role), `--part-tint` (the ~20%
+   * surface role) and `--part-text` (the readable text role) are internal
+   * plumbing: parts read them, themes read the `--liebe-c-*` tokens they
+   * resolve from. Custom properties inherit, so stamping `data-color` on a
+   * container propagates the triplet to anything inside it that has not
+   * resolved one of its own.
+   *
+   * A data-driven colour — a bulb's actual RGB, the one exception the spec
+   * grants — arrives as an inline override of these three properties, which
+   * wins over these rules by being inline. See `anatomyPart.ts`.
+   * ------------------------------------------------------------------ */
+
+  [data-color='light'] {
+    --part-color: var(--liebe-c-light);
+    --part-tint: var(--liebe-c-light-tint);
+    --part-text: var(--liebe-c-light-text);
+  }
+
+  [data-color='heat'] {
+    --part-color: var(--liebe-c-heat);
+    --part-tint: var(--liebe-c-heat-tint);
+    --part-text: var(--liebe-c-heat-text);
+  }
+
+  [data-color='cool'] {
+    --part-color: var(--liebe-c-cool);
+    --part-tint: var(--liebe-c-cool-tint);
+    --part-text: var(--liebe-c-cool-text);
+  }
+
+  [data-color='ok'] {
+    --part-color: var(--liebe-c-ok);
+    --part-tint: var(--liebe-c-ok-tint);
+    --part-text: var(--liebe-c-ok-text);
+  }
+
+  [data-color='alert'] {
+    --part-color: var(--liebe-c-alert);
+    --part-tint: var(--liebe-c-alert-tint);
+    --part-text: var(--liebe-c-alert-text);
+  }
+
+  [data-color='media'] {
+    --part-color: var(--liebe-c-media);
+    --part-tint: var(--liebe-c-media-tint);
+    --part-text: var(--liebe-c-media-text);
+  }
+
+  [data-color='vacuum'] {
+    --part-color: var(--liebe-c-vacuum);
+    --part-tint: var(--liebe-c-vacuum-tint);
+    --part-text: var(--liebe-c-vacuum-text);
+  }
+
+  [data-color='water'] {
+    --part-color: var(--liebe-c-water);
+    --part-tint: var(--liebe-c-water-tint);
+    --part-text: var(--liebe-c-water-text);
+  }
+
+  [data-color='default'] {
+    --part-color: var(--liebe-c-default);
+    --part-tint: var(--liebe-c-default-tint);
+    --part-text: var(--liebe-c-default-text);
+  }
+
+  [data-color='brand'] {
+    --part-color: var(--liebe-c-brand);
+    --part-tint: var(--liebe-c-brand-tint);
+    --part-text: var(--liebe-c-brand-text);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The active/inactive treatment
+   *
+   * One pattern for every tinted part: a saturated glyph on the domain's 20%
+   * tint when active, a muted glyph on a 5% neutral when not. The neutral is
+   * `--gray-a3` by name — the spec pins the inactive ground to the Radix
+   * neutral rather than to a domain token, because an inactive part carries no
+   * state meaning and must not carry hue.
+   * ------------------------------------------------------------------ */
+
+  .liebe-icon,
+  .liebe-pill,
+  .liebe-chip {
+    align-items: center;
+    background: var(--gray-a3);
+    color: var(--liebe-faint);
+    display: inline-flex;
+    justify-content: center;
+    /* Spec motion rule: state-driven colour changes take ~280ms ease-out. */
+    transition:
+      background-color 280ms ease-out,
+      color 280ms ease-out;
+  }
+
+  .liebe-icon[data-active],
+  .liebe-pill[data-active],
+  .liebe-chip[data-active] {
+    background: var(--part-tint);
+    color: var(--part-color);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Icon circle
+   * ------------------------------------------------------------------ */
+
+  .liebe-icon {
+    block-size: var(--liebe-icon-circle);
+    border-radius: var(--liebe-circle-radius);
+    /* Never squeezed by a long name beside it in a row layout. */
+    flex: none;
+    inline-size: var(--liebe-icon-circle);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Meta block
+   *
+   * `min-inline-size: 0` is what lets the two lines ellipsize: a flex item's
+   * automatic minimum size is its content, so without it a long entity name
+   * pushes the block wider instead of truncating.
+   * ------------------------------------------------------------------ */
+
+  .liebe-meta {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+
+  .liebe-name,
+  .liebe-state {
+    /*
+     * The typography tokens are applied here rather than left to the root, so
+     * a theme that sets a typeface or uppercase casing reaches card text as
+     * soon as the anatomy is used. The card shell will hoist them once it is
+     * on the anatomy too (change 0010, PR 4) — inheritance makes that a
+     * no-op for these rules.
+     */
+    font-family: var(--liebe-font-family);
+    letter-spacing: var(--liebe-letter-spacing);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: var(--liebe-text-transform);
+    white-space: nowrap;
+  }
+
+  .liebe-name {
+    color: var(--liebe-fg);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+  }
+
+  .liebe-state {
+    color: var(--liebe-muted);
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 17px;
+    transition: color 280ms ease-out;
+  }
+
+  /* An active state line takes the domain's text step; supporting values that
+     sit beside it stay muted, which is the default above. */
+  .liebe-state[data-active] {
+    color: var(--part-text);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Pill controls
+   *
+   * Radius comes from `--liebe-control-radius`, whose documented purpose names
+   * mode pills; `--liebe-chip-radius` is the fully-round one the chip uses.
+   * ------------------------------------------------------------------ */
+
+  .liebe-pill-group {
+    display: grid;
+    /* Equal-width columns, however many pills the card puts in the group. */
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
+    gap: 6px;
+  }
+
+  .liebe-pill {
+    appearance: none;
+    block-size: 38px;
+    border: none;
+    border-radius: var(--liebe-control-radius);
+    cursor: pointer;
+    font-family: var(--liebe-font-family);
+    font-size: 13px;
+    font-weight: 500;
+    gap: 6px;
+    letter-spacing: var(--liebe-letter-spacing);
+    /* Touch-first: 38px tall, so the ≥44px target is met on the other axis. */
+    min-inline-size: 44px;
+    padding-inline: 10px;
+    text-transform: var(--liebe-text-transform);
+  }
+
+  .liebe-pill-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /*
+   * Text inside a tinted part does NOT take the tint pattern's colours.
+   *
+   * The pattern colours a *glyph* — a large graphical object, which needs 3:1
+   * — while a 12.5px label needs 4.5:1, and neither end of the triplet clears
+   * that on the tint: the base hue (Radix step 9) on its own 20% tint is
+   * nowhere near, and even the text step measures 4.1:1 in light (amber) and
+   * 3.6:1 (orange), because step 11 is calibrated against step 1, not against
+   * a tinted ground. The hue is already carried by the surface and the glyph,
+   * so the label takes the neutral foreground and the whole part stays
+   * readable in both appearances. Inactive labels take `--liebe-muted` rather
+   * than the glyph's fainter `--liebe-faint`, for the same reason.
+   */
+  .liebe-pill-label,
+  .liebe-chip-label {
+    color: var(--liebe-muted);
+    transition: color 280ms ease-out;
+  }
+
+  .liebe-pill[data-active] .liebe-pill-label,
+  .liebe-chip[data-active] .liebe-chip-label {
+    color: var(--liebe-fg);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Chip
+   * ------------------------------------------------------------------ */
+
+  .liebe-chip {
+    block-size: var(--liebe-chip-height);
+    border: none;
+    border-radius: var(--liebe-chip-radius);
+    font-family: var(--liebe-font-family);
+    font-size: 12.5px;
+    font-weight: 500;
+    gap: 6px;
+    letter-spacing: var(--liebe-letter-spacing);
+    padding-inline: 12px;
+    text-transform: var(--liebe-text-transform);
+  }
+
+  /* A button chip is still a chip; only the pointer differs. */
+  button.liebe-chip {
+    appearance: none;
+    cursor: pointer;
+  }
+
+  .liebe-chip-icon {
+    align-items: center;
+    display: inline-flex;
+  }
+
+  /* The default leading mark when a chip has no icon of its own. */
+  .liebe-chip-dot {
+    background: currentcolor;
+    block-size: 8px;
+    border-radius: var(--liebe-circle-radius);
+    flex: none;
+    inline-size: 8px;
+  }
+
+  .liebe-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Interactive parts keep a visible focus ring, in the colour they already
+     carry — the UA ring would be invisible against a tinted surface. */
+  .liebe-pill:focus-visible,
+  button.liebe-chip:focus-visible {
+    outline: 2px solid var(--part-color);
+    outline-offset: 2px;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Big value
+   * ------------------------------------------------------------------ */
+
+  .liebe-value {
+    align-items: baseline;
+    color: var(--liebe-fg);
+    display: inline-flex;
+    font-family: var(--liebe-font-numeric);
+    font-size: 30px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 300;
+    gap: 4px;
+    line-height: 1.1;
+    transition: color 280ms ease-out;
+  }
+
+  .liebe-value[data-active] {
+    color: var(--part-text);
+  }
+
+  /* The unit is a supporting value, so it stays muted whatever the number
+     does. */
+  .liebe-value-unit {
+    color: var(--liebe-muted);
+    font-family: var(--liebe-font-family);
+    font-size: 14px;
+    font-weight: 400;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Sparkline
+   *
+   * The line and area live in an SVG stretched to the box
+   * (`preserveAspectRatio="none"`), which is what lets a card of any width
+   * show the same series; `vector-effect` on the path keeps the stroke 2px
+   * through that non-uniform scaling. The endpoint dot cannot use the same
+   * trick — a circle would scale into an ellipse — so it is a separate element
+   * positioned in percentages from the data.
+   * ------------------------------------------------------------------ */
+
+  .liebe-spark {
+    block-size: 100%;
+    color: var(--liebe-faint);
+    display: block;
+    inline-size: 100%;
+    position: relative;
+    transition: color 280ms ease-out;
+  }
+
+  .liebe-spark[data-active] {
+    color: var(--part-color);
+  }
+
+  .liebe-spark-canvas {
+    block-size: 100%;
+    display: block;
+    inline-size: 100%;
+  }
+
+  .liebe-spark-area {
+    fill: color-mix(in srgb, currentcolor 14%, transparent);
+    stroke: none;
+  }
+
+  .liebe-spark-line {
+    fill: none;
+    stroke: currentcolor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* Shown until a series arrives (history data is change 0015), so a card
+     reserves the space its graph will occupy instead of reflowing later. */
+  .liebe-spark-baseline {
+    stroke: currentcolor;
+    stroke-dasharray: 3 4;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .liebe-spark-dot {
+    background: currentcolor;
+    block-size: 6px;
+    border-radius: var(--liebe-circle-radius);
+    inline-size: 6px;
+    position: absolute;
+    transform: translate(-50%, -50%);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Reduced motion
+   *
+   * The colour transitions are the whole of this sheet's animation, and none
+   * of them carries meaning on its own — the end state does. So they go away
+   * entirely rather than being shortened.
+   * ------------------------------------------------------------------ */
+
+  @media (prefers-reduced-motion: reduce) {
+    .liebe-icon,
+    .liebe-pill,
+    .liebe-pill-label,
+    .liebe-chip,
+    .liebe-chip-label,
+    .liebe-state,
+    .liebe-value,
+    .liebe-spark {
+      transition: none;
+    }
+  }
+}
