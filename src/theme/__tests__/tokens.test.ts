@@ -25,15 +25,20 @@ const defaultThemeCss = read('../themes/default.css')
 const panelSource = read('../../panel.ts')
 const previewSource = read('../../../.storybook/preview.tsx')
 
-/** The sheet with its comments removed, so prose cannot satisfy an assertion. */
-function stripComments(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, '')
+/**
+ * Source with its block comments removed. Every text-level assertion below runs
+ * on this rather than the raw file, so documentation prose can neither satisfy
+ * an assertion nor break one: these sheets explain themselves with reference
+ * hexes and counter-examples, and a comment is not a declaration.
+ */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '')
 }
 
 /** Declared `--liebe-*` values in a sheet, keyed by token name. */
 function declarations(css: string): Map<string, string> {
   const declared = new Map<string, string>()
-  for (const [, name, value] of stripComments(css).matchAll(/(--liebe-[\w-]+)\s*:\s*([^;]+);/g)) {
+  for (const [, name, value] of css.matchAll(/(--liebe-[\w-]+)\s*:\s*([^;]+);/g)) {
     declared.set(name, value.trim())
   }
   return declared
@@ -41,11 +46,15 @@ function declarations(css: string): Map<string, string> {
 
 /** CSS `import '…'` specifiers, in source order. */
 function cssImports(source: string): string[] {
-  return [...source.matchAll(/^import '([^']+\.css)'$/gm)].map(([, specifier]) => specifier)
+  // Line comments go too, so a commented-out import cannot pass for a real one.
+  const code = stripComments(source).replace(/^[ \t]*\/\/.*$/gm, '')
+  return [...code.matchAll(/^import '([^']+\.css)'$/gm)].map(([, specifier]) => specifier)
 }
 
-const base = declarations(baseCss)
-const theme = declarations(defaultThemeCss)
+const baseRules = stripComments(baseCss)
+const themeRules = stripComments(defaultThemeCss)
+const base = declarations(baseRules)
+const theme = declarations(themeRules)
 
 describe('token stylesheet', () => {
   it('declares every token the contract catalogues', () => {
@@ -55,8 +64,8 @@ describe('token stylesheet', () => {
   it('pins no literal colour, so every value flows from a Radix scale', () => {
     // A hex literal in the base layer would not flip with the appearance and
     // would survive a Radix upgrade unchanged — the spec requires aliasing.
-    expect(baseCss).not.toMatch(/#[0-9a-f]{3,8}\b/i)
-    expect(baseCss).not.toMatch(/\brgba?\(/i)
+    expect(baseRules).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+    expect(baseRules).not.toMatch(/\brgba?\(/i)
   })
 
   it('derives every domain companion from its base token', () => {
@@ -76,7 +85,7 @@ describe('token stylesheet', () => {
   })
 
   it('overrides only the tokens whose value differs in dark', () => {
-    const [, darkBlock] = baseCss.split(/\.radix-themes:where\(\.dark, \.dark-theme\),/)
+    const [, darkBlock] = baseRules.split(/\.radix-themes:where\(\.dark, \.dark-theme\),/)
     expect([...declarations(darkBlock).keys()]).toEqual([
       '--liebe-bg',
       '--liebe-card-bg',
@@ -104,17 +113,17 @@ describe('default theme stylesheet', () => {
 
 describe('cascade layers', () => {
   it.each([
-    ['base', baseCss, 'liebe-base'],
-    ['default theme', defaultThemeCss, 'liebe-theme'],
-  ])('wraps the %s sheet in its layer, with the layer order declared', (_name, css, layer) => {
+    ['base', baseRules, 'liebe-base'],
+    ['default theme', themeRules, 'liebe-theme'],
+  ])('wraps the %s sheet in its layer, with the layer order declared', (_name, rules, layer) => {
     // The order statement is repeated per sheet so whichever the bundler emits
     // first still establishes base → theme → user.
     const statement = '@layer liebe-base, liebe-theme, liebe-user;'
-    expect(css).toContain(statement)
+    expect(rules).toContain(statement)
 
     // Nothing may sit outside the layer block: an unlayered author declaration
     // outranks every cascade layer and would defeat theme and user overrides.
-    const body = stripComments(css).replace(statement, '').trim()
+    const body = rules.replace(statement, '').trim()
     expect(body.startsWith(`@layer ${layer} {`)).toBe(true)
     expect(body.endsWith('}')).toBe(true)
     expect(body.indexOf('@layer')).toBe(body.lastIndexOf('@layer'))
