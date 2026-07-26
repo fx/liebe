@@ -103,6 +103,23 @@ describe('CoverCard', () => {
       expect(screen.getByText('Test Cover')).toBeInTheDocument()
     })
 
+    it('falls back to the entity id when an unavailable cover has no friendly name', () => {
+      const entity = createMockCoverEntity({
+        state: 'unavailable',
+        attributes: { friendly_name: undefined },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" />)
+
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('cover.test_cover')).toBeInTheDocument()
+    })
+
     it('renders disconnected state', () => {
       ;(useEntity as any).mockReturnValue({
         entity: null,

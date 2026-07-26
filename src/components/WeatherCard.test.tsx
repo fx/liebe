@@ -136,6 +136,56 @@ describe('WeatherCard', () => {
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
     })
 
+    it('should fall back to the entity id when an unavailable card has no friendly name', () => {
+      mockUseEntity.mockReturnValue({
+        entity: {
+          ...mockEntity,
+          state: 'unavailable',
+          attributes: { ...mockEntity.attributes, friendly_name: undefined },
+        },
+        isConnected: true,
+        isStale: false,
+        isLoading: false,
+      })
+
+      render(<WeatherCard entityId="weather.home" />)
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('weather.home')).toBeInTheDocument()
+    })
+
+    it('should name an unavailable detailed card by its friendly name', () => {
+      mockUseEntity.mockReturnValue({
+        entity: {
+          ...mockEntity,
+          state: 'unavailable',
+        },
+        isConnected: true,
+        isStale: false,
+        isLoading: false,
+      })
+
+      render(<WeatherCard entityId="weather.home" config={{ preset: 'detailed' }} />)
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('Home Weather')).toBeInTheDocument()
+    })
+
+    it('should fall back to the entity id on an unavailable detailed card with no name', () => {
+      mockUseEntity.mockReturnValue({
+        entity: {
+          ...mockEntity,
+          state: 'unavailable',
+          attributes: { ...mockEntity.attributes, friendly_name: undefined },
+        },
+        isConnected: true,
+        isStale: false,
+        isLoading: false,
+      })
+
+      render(<WeatherCard entityId="weather.home" config={{ preset: 'detailed' }} />)
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('weather.home')).toBeInTheDocument()
+    })
+
     it('should show loading state', () => {
       mockUseEntity.mockReturnValue({
         entity: null,

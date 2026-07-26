@@ -133,4 +133,78 @@ describe('FanCard speed controls', () => {
 
     expect(screen.getByRole('button', { name: 'High speed (100%)' })).toBeDisabled()
   })
+
+  describe('status line', () => {
+    const withEntity = (overrides: Partial<HassEntity>) => {
+      vi.mocked(useEntity).mockReturnValue({
+        entity: { ...entity, ...overrides } as HassEntity,
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+    }
+
+    it('reads ERROR when the last command failed', () => {
+      vi.mocked(useServiceCall).mockReturnValue({
+        loading: false,
+        error: 'Service call failed',
+        callService: mockCallService,
+        turnOn: mockTurnOn,
+        turnOff: mockTurnOff,
+        toggle: vi.fn(),
+        setValue: vi.fn(),
+        clearError: vi.fn(),
+      })
+
+      render(<FanCard entityId="fan.living_room" />)
+
+      expect(screen.getByText('ERROR')).toBeInTheDocument()
+    })
+
+    it('reads OFF when the fan is off', () => {
+      withEntity({ state: 'off' })
+
+      render(<FanCard entityId="fan.living_room" />)
+
+      expect(screen.getByText('OFF')).toBeInTheDocument()
+    })
+
+    it('reads ON when the fan runs without a reported percentage', () => {
+      withEntity({
+        state: 'on',
+        attributes: { ...entity.attributes, percentage: 0 },
+      })
+
+      render(<FanCard entityId="fan.living_room" />)
+
+      expect(screen.getByText('ON')).toBeInTheDocument()
+    })
+  })
+
+  describe('unavailable state', () => {
+    const renderUnavailable = (attributes: HassEntity['attributes']) => {
+      vi.mocked(useEntity).mockReturnValue({
+        entity: { ...entity, state: 'unavailable', attributes } as HassEntity,
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      return render(<FanCard entityId="fan.living_room" />)
+    }
+
+    it('names the fan by its friendly name', () => {
+      renderUnavailable({ friendly_name: 'Living Room Fan' })
+
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('Living Room Fan')).toBeInTheDocument()
+    })
+
+    it('falls back to the entity id when there is no friendly name', () => {
+      renderUnavailable({})
+
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('fan.living_room')).toBeInTheDocument()
+    })
+  })
 })

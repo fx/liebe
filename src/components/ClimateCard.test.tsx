@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
 import { ClimateCard } from './ClimateCard'
@@ -279,6 +279,37 @@ describe('ClimateCard', () => {
         },
       })
     })
+
+    it('renders a glyph for every mode the thermostat reports, including dry and fan_only', () => {
+      const entity = createMockClimateEntity({
+        state: 'dry',
+        attributes: {
+          hvac_mode: 'dry',
+          hvac_modes: ['off', 'heat', 'cool', 'auto', 'heat_cool', 'dry', 'fan_only'],
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      expect(modeButtons).toHaveLength(7)
+
+      // The two modes the default fixture never reports still get their own
+      // glyph rather than the two-letter label fallback.
+      for (const label of ['Off', 'Heat', 'Cool', 'Auto', 'Heat/Cool', 'Dry', 'Fan']) {
+        expect(screen.getByText(label)).toBeInTheDocument()
+      }
+      for (const pill of modeButtons) {
+        expect(pill.querySelector('svg')).toBeTruthy()
+      }
+    })
   })
 
   describe('Fan Mode Controls', () => {
@@ -332,6 +363,110 @@ describe('ClimateCard', () => {
       // Border color is not explicitly set for normal states
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       expect(card).toBeTruthy()
+    })
+
+    it('resolves a drying thermostat to the water triplet', () => {
+      const entity = createMockClimateEntity({
+        state: 'dry',
+        attributes: {
+          friendly_name: 'Test Thermostat',
+          hvac_mode: 'dry',
+          hvac_action: 'drying',
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+
+      expect(screen.getByText('drying')).toBeInTheDocument()
+      expect(screen.getByText('Test Thermostat').closest('.climate-card')).toHaveAttribute(
+        'data-color',
+        'water'
+      )
+    })
+
+    it('resolves a thermostat that is only running its fan to the ok triplet', () => {
+      const entity = createMockClimateEntity({
+        state: 'fan_only',
+        attributes: {
+          friendly_name: 'Test Thermostat',
+          hvac_mode: 'fan_only',
+          hvac_action: 'fan',
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+
+      expect(screen.getByText('fan')).toBeInTheDocument()
+      expect(screen.getByText('Test Thermostat').closest('.climate-card')).toHaveAttribute(
+        'data-color',
+        'ok'
+      )
+    })
+  })
+
+  describe('Heat/cool drag handles', () => {
+    const renderHeatCool = () => {
+      const entity = createMockClimateEntity({
+        state: 'heat_cool',
+        attributes: {
+          hvac_mode: 'heat_cool',
+          target_temp_low: 20,
+          target_temp_high: 24,
+          current_temperature: 22,
+          supported_features: 3, // TARGET_TEMP + TARGET_TEMP_RANGE
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      return renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+    }
+
+    const dotFor = (container: HTMLElement, triplet: 'heat' | 'cool') =>
+      container.querySelector<SVGCircleElement>(
+        `circle[stroke="var(--liebe-c-${triplet})"][stroke-width="3"]`
+      )!
+
+    it('lights the heat handle while it is being dragged', () => {
+      const { container } = renderHeatCool()
+
+      const heatDot = dotFor(container, 'heat')
+      expect(heatDot.style.filter).toBe('')
+
+      fireEvent.mouseDown(heatDot)
+
+      expect(dotFor(container, 'heat').style.filter).toBe(
+        'drop-shadow(0 0 8px var(--liebe-c-heat))'
+      )
+      // Only the grabbed handle lights up.
+      expect(dotFor(container, 'cool').style.filter).toBe('')
+    })
+
+    it('lights the cool handle while it is being dragged', () => {
+      const { container } = renderHeatCool()
+
+      const coolDot = dotFor(container, 'cool')
+      expect(coolDot.style.filter).toBe('')
+
+      fireEvent.mouseDown(coolDot)
+
+      expect(dotFor(container, 'cool').style.filter).toBe(
+        'drop-shadow(0 0 8px var(--liebe-c-cool))'
+      )
+      expect(dotFor(container, 'heat').style.filter).toBe('')
     })
   })
 
