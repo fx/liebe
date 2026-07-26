@@ -35,6 +35,11 @@ export type MockStreamBehavior =
 
 const BEHAVIORS: readonly MockStreamBehavior[] = ['stream', 'connecting', 'error']
 
+/** How the frame fills the surface; mirrors the real element's `fitMode`. */
+type MockFitMode = 'cover' | 'contain' | 'fill'
+
+const FIT_MODES: readonly MockFitMode[] = ['cover', 'contain', 'fill']
+
 /** Delay before breaking the image, so the card's watch is listening by then. */
 const BREAK_DELAY_MS = 50
 
@@ -45,6 +50,7 @@ interface MockStateObj {
 class MockHaCameraStream extends HTMLElement {
   #behavior: MockStreamBehavior = 'stream'
   #src = MOCK_CAMERA_FRAME
+  #fitMode: MockFitMode = 'cover'
   /** Last rendered inputs, so repeated property writes do not restart the frame. */
   #rendered: string | null = null
   /**
@@ -66,13 +72,25 @@ class MockHaCameraStream extends HTMLElement {
    */
   #configured = false
 
-  // The card assigns `stateObj` (plus `hass`, `muted`, `fitMode`, `controls`,
-  // which the mock ignores) as properties in a layout effect.
+  // The card assigns `stateObj` and `fitMode` — both honoured below — plus
+  // `hass`, `muted` and `controls`, which a still frame has no use for, in a
+  // layout effect.
   set stateObj(value: MockStateObj | undefined) {
     const { entity_picture: picture, mock_stream: behavior } = value?.attributes ?? {}
     this.#behavior = BEHAVIORS.find((known) => known === behavior) ?? 'stream'
     this.#src = picture ?? MOCK_CAMERA_FRAME
     this.#configured = true
+    this.#render()
+  }
+
+  // Assigned after `stateObj` in the same effect, so this is the write that
+  // gives a non-default fit its render — hence `fitMode` belongs in the
+  // `#rendered` key, or the second write would be memoised away and every
+  // story would letterbox nothing. Restarting the frame to restyle it is
+  // heavier than the real element, but harmless for a static image, and the
+  // superseded one is disarmed by `#isCurrent` like any other re-render.
+  set fitMode(value: MockFitMode | undefined) {
+    this.#fitMode = FIT_MODES.find((known) => known === value) ?? 'cover'
     this.#render()
   }
 
@@ -84,7 +102,7 @@ class MockHaCameraStream extends HTMLElement {
 
   #render() {
     if (!this.isConnected || !this.#configured) return
-    const inputs = `${this.#behavior}|${this.#src}`
+    const inputs = `${this.#behavior}|${this.#src}|${this.#fitMode}`
     if (inputs === this.#rendered) return
     this.#rendered = inputs
 
@@ -93,7 +111,7 @@ class MockHaCameraStream extends HTMLElement {
     if (this.#behavior === 'connecting') return
 
     const img = document.createElement('img')
-    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block'
+    img.style.cssText = `width:100%;height:100%;object-fit:${this.#fitMode};display:block`
     img.alt = ''
     root.appendChild(img)
 
