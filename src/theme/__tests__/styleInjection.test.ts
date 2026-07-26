@@ -179,3 +179,33 @@ describe('applyUserCss', () => {
     expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
   })
 })
+
+describe('the mirror boundary', () => {
+  const THEME_CSS = '@layer liebe-theme { .liebe-root { color: red } }'
+  // What a hostile — or merely careless — imported configuration can carry: a
+  // selector that matches nothing in Liebe and everything around it. The
+  // sanitizer judges what a declaration may *fetch*, not what it may *match*,
+  // so this survives sanitization intact and is exactly what must never reach
+  // the Home Assistant document.
+  const HOSTILE_USER_CSS = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\nbody { display: none }\n}\n`
+
+  it('mirrors the theme layer out of the shadow root, and never the user layer', () => {
+    const root = shadowRoot()
+    const child = document.createElement('div')
+    root.appendChild(child)
+
+    applyThemeCssToRootOf(child, THEME_CSS)
+    applyUserCssToRootOf(child, HOSTILE_USER_CSS)
+
+    // Theme CSS is first-party and scoped to the Radix theme root, so the copy
+    // in the owning document only ever reaches Liebe's own portalled overlays.
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
+    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
+
+    // User CSS stays in the shadow root, where it cannot reach past Liebe.
+    // Mirroring it would hide the Home Assistant frontend around the panel.
+    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(HOSTILE_USER_CSS)
+    expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
+    expect(document.head.textContent).not.toContain('display: none')
+  })
+})
