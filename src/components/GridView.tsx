@@ -9,6 +9,7 @@ import { EntityErrorBoundary } from './ui'
 import { GridItem } from '../store/types'
 import { dashboardActions, useDashboardStore } from '../store'
 import { CardConfig } from './CardConfig'
+import { CardItemProvider } from './cardItemContext'
 import { getCardForEntity, getCardVariant } from './cardRegistry'
 import './GridLayoutSection.css'
 
@@ -25,6 +26,7 @@ function EntityCard({
   onDelete,
   isSelected,
   onSelect,
+  onConfigure,
   item,
 }: {
   entityId: string
@@ -32,6 +34,7 @@ function EntityCard({
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  onConfigure?: () => void
   item?: GridItem
 }) {
   // Common props for all cards
@@ -41,6 +44,7 @@ function EntityCard({
     onDelete,
     isSelected,
     onSelect,
+    onConfigure,
     config: item?.config as Record<string, unknown>,
     item,
   }
@@ -57,13 +61,23 @@ function EntityCard({
     CardComponent = getCardForEntity(entityId)
   }
 
-  // If we have a card component, render it
-  if (CardComponent) {
-    return createElement(CardComponent, cardProps)
-  }
-
-  // Default to ButtonCard for unmapped entities
-  return <ButtonCard {...cardProps} />
+  /*
+   * The card shell reads the placed item's entity and stored options off this
+   * provider rather than through every card in between — see
+   * `cardItemContext.tsx`. It is what makes a configured `tapAction` /
+   * `holdAction` / `doubleTapAction` reach the gesture controller no matter
+   * which card the registry dispatched to.
+   */
+  return (
+    <CardItemProvider entityId={entityId} config={item?.config} onConfigure={onConfigure}>
+      {CardComponent ? (
+        createElement(CardComponent, cardProps)
+      ) : (
+        // Default to ButtonCard for unmapped entities
+        <ButtonCard {...cardProps} />
+      )}
+    </CardItemProvider>
+  )
 }
 
 export function GridView({ screenId, items, resolution }: GridViewProps) {
@@ -247,6 +261,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                   onDelete={() => handleDeleteItem(item.id)}
                   isSelected={isSelected}
                   onSelect={(selected) => handleSelectItem(item.id, selected)}
+                  onConfigure={() => handleConfigureItem(item)}
                   item={item}
                 />
               </EntityErrorBoundary>

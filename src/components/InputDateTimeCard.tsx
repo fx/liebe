@@ -186,7 +186,10 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
-      onClick={!isEditing ? handleClick : undefined}
+      // Unconditional, with `handleClick` declining while the field is open: an
+      // absent handler tells the shell the card has no toggle of its own, which
+      // would route `toggle` to `homeassistant.toggle` on an `input_datetime`.
+      onClick={handleClick}
       title={error || undefined}
     >
       <Flex direction="column" align="center" gap="2">

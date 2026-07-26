@@ -12,6 +12,8 @@ import { useDashboardStore, dashboardActions } from '~/store'
 // Theme's stacking). Reset it per test so the counter never leaks across tests.
 import { cameraFullscreenStore } from '~/store/cameraFullscreenStore'
 import { HomeAssistantProvider } from '../../../contexts/HomeAssistantContext'
+import { CardItemProvider } from '../../cardItemContext'
+import { hassService } from '~/services/hassService'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { HaCameraStreamProps, HaCameraStreamHandle } from '../HaCameraStream'
 import type { CameraStreamReadiness } from '../useCameraStreamReady'
@@ -570,6 +572,30 @@ describe('CameraCard', () => {
       expect(streamContainer.style.position).toBe('relative')
       expect(getCardStyle(container)).not.toContain('contain: none')
       expect(host.getAttribute('data-fit')).toBe('cover')
+    })
+
+    it('consumes its own tap rather than also firing the card’s action', () => {
+      // The stream surface is the camera's control: its tap flips the in-place
+      // overlay. Without consuming the event, a configured `tapAction` would
+      // fire behind the same tap — the card doing two things at once.
+      const dispatch = vi.spyOn(hassService, 'callServiceOnce').mockResolvedValue({ success: true })
+
+      render(
+        <Theme>
+          <CardItemProvider
+            entityId="camera.front_door"
+            config={{ tapAction: { action: 'call-service', service: 'script.record' } }}
+          >
+            <CameraCard entityId="camera.front_door" />
+          </CardItemProvider>
+        </Theme>
+      )
+
+      fireEvent.click(getStreamHost())
+
+      expect(screen.getByText('Click or press ESC to exit')).toBeInTheDocument()
+      expect(dispatch).not.toHaveBeenCalled()
+      dispatch.mockRestore()
     })
 
     // The surface is a role=button, so a tap focuses it and Chrome paints its

@@ -37,6 +37,46 @@ export class HassService {
     return `${options.domain}.${options.service}.${options.entityId || 'global'}`
   }
 
+  /**
+   * The entity is the implicit target, and explicit `data` wins over it — a
+   * call that names its own `entity_id` is targeting something else on purpose.
+   */
+  private buildServiceData(options: ServiceCallOptions): Record<string, unknown> | undefined {
+    return options.entityId ? { entity_id: options.entityId, ...options.data } : options.data
+  }
+
+  /**
+   * Dispatch a service call exactly once: no retries, no dedupe-abort, no
+   * queueing.
+   *
+   * This is the path every user-configured action and every consequential
+   * control uses (docs/specs/entity-cards/options/common.md — "Dispatch
+   * guarantees"). `callService` retries three times on failure, which is fine
+   * for idempotent state ("make this light on") and actively harmful for
+   * everything else: a `button.press` or `script.turn_on` that times out
+   * ambiguously would be executed again, pressing the button twice. Since a
+   * `call-service` action can name any service at all, the action path can
+   * never assume idempotence.
+   *
+   * Failures are returned rather than thrown, so a caller cannot accidentally
+   * turn one into a second attempt.
+   */
+  async callServiceOnce(options: ServiceCallOptions): Promise<ServiceCallResult> {
+    if (!this.hass) {
+      return { success: false, error: 'Home Assistant not connected' }
+    }
+
+    try {
+      await this.hass.callService(options.domain, options.service, this.buildServiceData(options))
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      }
+    }
+  }
+
   private async callServiceWithRetry(
     options: ServiceCallOptions,
     retryCount = 0
@@ -51,11 +91,7 @@ export class HassService {
     }
 
     try {
-      const serviceData = options.entityId
-        ? { entity_id: options.entityId, ...options.data }
-        : options.data
-
-      await this.hass.callService(options.domain, options.service, serviceData)
+      await this.hass.callService(options.domain, options.service, this.buildServiceData(options))
 
       return { success: true }
     } catch (error) {

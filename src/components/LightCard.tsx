@@ -188,7 +188,14 @@ function LightCardComponent({
         isUnavailable={isUnavailable}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
-        onClick={isDragging ? undefined : handleToggle}
+        /*
+         * Passed unconditionally, and `handleToggle` declines while a drag is
+         * in flight. Withholding it instead would tell the shell this card has
+         * no toggle semantics at all, and `toggle` would fall through to
+         * `homeassistant.toggle` on the entity — toggling the very light the
+         * finger was dimming, which is the case the guard exists to prevent.
+         */
+        onClick={handleToggle}
         onConfigure={() => setConfigOpen(true)}
         hasConfiguration={true}
         title={error || undefined}
