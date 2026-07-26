@@ -33,6 +33,7 @@ export interface ActionEditorProps {
 }
 
 interface FlatScreen {
+  id: string
   slug: string
   name: string
   depth: number
@@ -41,7 +42,7 @@ interface FlatScreen {
 /** The screen tree as a flat, indented list — `navigate` targets one of these. */
 function flattenScreens(screens: ScreenConfig[], depth = 0): FlatScreen[] {
   return screens.flatMap((screen) => [
-    { slug: screen.slug, name: screen.name, depth },
+    { id: screen.id, slug: screen.slug, name: screen.name, depth },
     ...(screen.children ? flattenScreens(screen.children, depth + 1) : []),
   ])
 }
@@ -196,9 +197,23 @@ export function ActionEditor({
     emit(nextKind)
   }
 
+  /*
+   * A stored target is either identifier — that is what the schema documents and
+   * what `useCardActions` navigates by, so the editor resolves it the same way.
+   * Matching on slug alone would label a working id-targeted action as broken.
+   */
+  const targetScreen = flatScreens.find((screen) => screen.id === target || screen.slug === target)
+
   // A stored target that no longer matches a screen (it was renamed or deleted)
   // is still offered, so opening the form does not quietly discard it.
-  const hasUnknownTarget = Boolean(target) && !flatScreens.some((screen) => screen.slug === target)
+  const hasUnknownTarget = Boolean(target) && !targetScreen
+
+  /*
+   * The options are keyed by slug, so an id-targeted action selects its screen
+   * through the resolved slug. The stored id is left alone: displaying it
+   * correctly is not a reason to rewrite a config the user did not touch.
+   */
+  const selectedTarget = targetScreen ? targetScreen.slug : target
 
   return (
     <Flex direction="column" gap="1">
@@ -231,7 +246,7 @@ export function ActionEditor({
               Add a screen first — a navigate action needs somewhere to go.
             </Text>
           ) : (
-            <Select.Root size="3" value={target} onValueChange={commitNavigate}>
+            <Select.Root size="3" value={selectedTarget} onValueChange={commitNavigate}>
               <Select.Trigger aria-label={`${label} screen`} />
               <Select.Content position="popper">
                 {hasUnknownTarget && (

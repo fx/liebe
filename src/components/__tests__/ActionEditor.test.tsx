@@ -85,6 +85,35 @@ describe('ActionEditor', () => {
     expect(onChange).toHaveBeenCalledWith({ action: 'navigate', target: 'bedroom' })
   })
 
+  it.each([
+    ['id', 'screen-1'],
+    ['slug', 'kitchen'],
+  ])('selects the screen a target names by %s', (_identifier, target) => {
+    dashboardActions.addScreen({ id: 'screen-1', name: 'Kitchen', slug: 'kitchen', type: 'grid' })
+    renderEditor({ value: { action: 'navigate', target } })
+
+    // Both identifiers resolve at runtime (`useCardActions`), so an action
+    // stored either way is working configuration — the editor must show the
+    // screen it actually navigates to, not report it missing.
+    const trigger = screen.getByRole('combobox', { name: 'Tap screen' })
+    expect(trigger).toHaveTextContent('Kitchen')
+    expect(trigger).not.toHaveTextContent(/screen not found/)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('does not offer a not-found entry for an id-targeted action', async () => {
+    dashboardActions.addScreen({ id: 'screen-1', name: 'Kitchen', slug: 'kitchen', type: 'grid' })
+    const user = userEvent.setup()
+    renderEditor({ value: { action: 'navigate', target: 'screen-1' } })
+
+    await user.click(screen.getByRole('combobox', { name: 'Tap screen' }))
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+
+    const listbox = screen.getByRole('listbox')
+    expect(within(listbox).getByText('Kitchen')).toBeInTheDocument()
+    expect(within(listbox).queryByText(/screen not found/)).not.toBeInTheDocument()
+  })
+
   it('keeps offering a stored target that no longer matches a screen', () => {
     dashboardActions.addScreen({ id: 'screen-1', name: 'Kitchen', slug: 'kitchen', type: 'grid' })
     renderEditor({ value: { action: 'navigate', target: 'renamed-away' } })
@@ -92,6 +121,19 @@ describe('ActionEditor', () => {
     // Shown rather than silently dropped: opening the form must not discard a
     // target the user can still fix.
     expect(screen.getByRole('combobox', { name: 'Tap screen' })).toHaveTextContent('renamed-away')
+  })
+
+  it('still reports, and preserves, a target that matches neither id nor slug', () => {
+    dashboardActions.addScreen({ id: 'screen-1', name: 'Kitchen', slug: 'kitchen', type: 'grid' })
+    renderEditor({ value: { action: 'navigate', target: 'screen-9' } })
+
+    // Resolving by either identifier must not swallow the genuinely broken
+    // case: an id-shaped target for a screen that is gone is still unknown, and
+    // it is still kept so the user can fix it rather than lose it.
+    const trigger = screen.getByRole('combobox', { name: 'Tap screen' })
+    expect(trigger).toHaveTextContent('screen-9')
+    expect(trigger).toHaveTextContent(/screen not found/)
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('says so, and emits nothing, when there is no screen to navigate to', async () => {
