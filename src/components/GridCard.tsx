@@ -59,10 +59,19 @@ export interface GridCardProps {
  *
  * The fence is drawn around *themable* properties only. Data-driven values are
  * still the caller's to set, and several cards depend on that: the weather
- * variants' `backgroundImage` (the condition artwork), the camera's `contain`
- * and its aspect-ratio-computed `padding`, a light's actual bulb RGB. Custom
- * properties pass too — writing `--liebe-card-bg` is using the theming channel
- * rather than going around it, which is how the `backdrop` prop works.
+ * variants' `backgroundImage` (the condition artwork), the camera's `contain`,
+ * a light's actual bulb RGB. Custom properties pass too — writing
+ * `--liebe-card-bg` is using the theming channel rather than going around it,
+ * which is how the `backdrop` prop works.
+ *
+ * `padding` and `outline` are fenced along with the rest, and neither costs a
+ * card anything. `--liebe-card-padding` owns the tile's inset, and the one card
+ * that needs a different one — the camera, whose matting is a per-card setting —
+ * asks for it through the `customPadding` prop, a channel the shell controls
+ * rather than an inline value that would outrank the sheet. `outline` is the
+ * whole vocabulary of the state rings (`data-selected` / `data-error` /
+ * `data-unavailable`), so a caller-supplied one would not just recolour a
+ * surface, it would overwrite a state signal.
  */
 const THEMABLE_PROPERTIES: ReadonlySet<string> = new Set([
   'backdropfilter',
@@ -76,9 +85,28 @@ const THEMABLE_PROPERTIES: ReadonlySet<string> = new Set([
   'color',
   'fontfamily',
   'letterspacing',
+  'outline',
+  'outlinecolor',
+  'outlineoffset',
+  'outlinestyle',
+  'outlinewidth',
+  'padding',
+  'paddingblock',
+  'paddingblockend',
+  'paddingblockstart',
+  'paddingbottom',
+  'paddinginline',
+  'paddinginlineend',
+  'paddinginlinestart',
+  'paddingleft',
+  'paddingright',
+  'paddingtop',
 ])
 
-/** `backgroundColor` and `background-color` are the same declaration. */
+/**
+ * `backgroundColor` and `background-color` are the same declaration; so are
+ * `paddingInlineStart` and `padding-inline-start`.
+ */
 const normalizeProperty = (property: string) => property.replace(/[^a-z]/gi, '').toLowerCase()
 
 /**
@@ -121,10 +149,11 @@ const GridCardContext = React.createContext<GridCardContextValue>({
  * `data-*` attributes the layered sheet styles. Nothing visual is set inline,
  * because an inline declaration outranks every cascade layer and would be
  * unreachable by a theme (docs/specs/theming — "Application mechanism"). What
- * remains inline is not design: the pointer affordance, and caller-supplied
- * data like the camera's matting padding or a weather variant's condition
- * artwork. The caller's `style` prop is filtered on the way through so it
- * cannot reintroduce a themable declaration — see `THEMABLE_PROPERTIES`.
+ * remains inline is not design: the pointer affordance, the camera's matting
+ * padding (through the `customPadding` prop the shell controls), and
+ * caller-supplied data like a weather variant's condition artwork. The caller's
+ * `style` prop is filtered on the way through so it cannot reintroduce a
+ * themable declaration — see `THEMABLE_PROPERTIES`.
  */
 export const GridCard = React.memo(
   React.forwardRef<HTMLDivElement, GridCardProps>(
@@ -199,8 +228,10 @@ export const GridCard = React.memo(
        * Everything left inline is data or affordance, never design:
        *  - `cursor` says what a press will do, and changes with the mode rather
        *    than with the theme.
-       *  - `padding` only when the caller supplied one (the camera's matting is
-       *    computed from the stream's aspect ratio).
+       *  - `padding` only when a card asked for one through `customPadding`
+       *    (the camera's matting, resolved from its matting setting and size).
+       *    That prop is the shell's own controlled channel; the same property
+       *    arriving through the caller's `style` is fenced off.
        *  - `--liebe-card-blur` is a token override, i.e. the theming channel
        *    itself rather than a way around it — a card that paints its own
        *    background image turns the blur off through it.

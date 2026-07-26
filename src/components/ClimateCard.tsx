@@ -346,7 +346,7 @@ function ClimateCardComponent({
    * (`hvac_mode`), which is why a thermostat in `heat_cool` reads as `cool`
    * while it is actively cooling.
    */
-  const getStatusColor: DomainColorName = useMemo(() => {
+  const statusColor: DomainColorName = useMemo(() => {
     if (hvacAction === 'heating') return 'heat'
     if (hvacAction === 'cooling') return 'cool'
     if (hvacAction === 'drying') return 'water'
@@ -576,7 +576,7 @@ function ClimateCardComponent({
   return (
     <GridCard
       domain="climate"
-      color={getStatusColor}
+      color={statusColor}
       size={size}
       isLoading={isLoading}
       isError={!!error}
@@ -718,7 +718,7 @@ function ClimateCardComponent({
                         : arcStartAngle
                   )}
                   fill="none"
-                  stroke={`var(--liebe-c-${getStatusColor})`}
+                  stroke={`var(--liebe-c-${statusColor})`}
                   strokeWidth={strokeWidth}
                   strokeLinecap="round"
                 />
@@ -753,7 +753,7 @@ function ClimateCardComponent({
                   }
                   r={strokeWidth / 2 + 2}
                   fill="white"
-                  stroke={`var(--liebe-c-${getStatusColor})`}
+                  stroke={`var(--liebe-c-${statusColor})`}
                   strokeWidth="2"
                 />
               </>
@@ -782,7 +782,7 @@ function ClimateCardComponent({
                */
               <CardState
                 domain="climate"
-                color={getStatusColor}
+                color={statusColor}
                 active
                 className="climate-card-action"
               >

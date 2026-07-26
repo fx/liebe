@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { CSSProperties } from 'react'
 import { render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { useDashboardStore } from '~/store'
@@ -160,6 +161,8 @@ describe('GridCard shell', () => {
           boxShadow: '0 0 8px hotpink',
           color: 'hotpink',
           fontFamily: 'Comic Sans MS',
+          padding: '40px',
+          outline: '6px dashed hotpink',
         }}
       >
         content
@@ -174,7 +177,66 @@ describe('GridCard shell', () => {
     expect(style.color).toBe('')
     expect(style.borderRadius).toBe('')
     expect(style.fontFamily).toBe('')
+    expect(style.padding).toBe('')
+    expect(style.outline).toBe('')
     expect(card().getAttribute('style')).not.toContain('hotpink')
+  })
+
+  it('drops the longhand and hyphenated spellings of a fenced property too', () => {
+    // The fence normalises a property name to its letters, so `paddingTop`,
+    // `padding-inline-start` and `paddingBlockEnd` are all the same declaration
+    // to it. Padding is `--liebe-card-padding`'s and outline is the state
+    // rings' (`data-selected` / `data-error` / `data-unavailable`), so an
+    // inline longhand would outrank the sheet just as the shorthand would —
+    // and in the outline's case overwrite a state signal rather than a surface.
+    render(
+      <GridCard
+        domain="light"
+        style={
+          {
+            paddingTop: '40px',
+            'padding-bottom': '40px',
+            paddingInlineStart: '40px',
+            'padding-block-end': '40px',
+            outlineColor: 'hotpink',
+            'outline-width': '6px',
+            outlineOffset: '12px',
+            // Control: a hyphenated property the fence does not own. It has to
+            // arrive, or the assertions above would pass for the wrong reason
+            // (a hyphenated key React never applied at all).
+            'background-size': 'cover',
+          } as CSSProperties
+        }
+      >
+        content
+      </GridCard>
+    )
+
+    const { style } = card()
+    expect(style.backgroundSize).toBe('cover')
+    expect(style.paddingTop).toBe('')
+    expect(style.paddingBottom).toBe('')
+    expect(style.paddingInlineStart).toBe('')
+    expect(style.paddingBlockEnd).toBe('')
+    expect(style.outlineColor).toBe('')
+    expect(style.outlineWidth).toBe('')
+    expect(style.outlineOffset).toBe('')
+    expect(card().getAttribute('style')).not.toContain('40px')
+    expect(card().getAttribute('style')).not.toContain('hotpink')
+  })
+
+  it('keeps the shell-controlled padding channel open while the style prop is fenced', () => {
+    // `customPadding` is how the camera's matting reaches the tile. It is a
+    // prop the shell resolves, not an inline value a caller smuggled past the
+    // fence, so fencing `padding` in `style` costs it nothing — even when the
+    // same caller also tries the fenced route.
+    render(
+      <GridCard domain="camera" customPadding="12px" style={{ padding: '40px' }}>
+        content
+      </GridCard>
+    )
+
+    expect(card().style.padding).toBe('12px')
   })
 
   it('still carries the caller data the cards actually depend on', () => {
