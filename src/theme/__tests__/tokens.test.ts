@@ -85,7 +85,16 @@ describe('token stylesheet', () => {
   })
 
   it('overrides only the tokens whose value differs in dark', () => {
-    const [, darkBlock] = baseRules.split(/\.radix-themes:where\(\.dark, \.dark-theme\),/)
+    // Assert the delimiter before splitting on it: reformatting or renaming the
+    // dark selector would otherwise leave `darkBlock` undefined and surface as a
+    // TypeError inside `declarations`, hiding which selector went missing.
+    const darkSelector = /\.radix-themes:where\(\.dark, \.dark-theme\),/
+    expect(
+      baseRules,
+      `base sheet does not open its dark block with ${darkSelector.source}`
+    ).toMatch(darkSelector)
+
+    const [, darkBlock] = baseRules.split(darkSelector)
     expect([...declarations(darkBlock).keys()]).toEqual([
       '--liebe-bg',
       '--liebe-card-bg',
