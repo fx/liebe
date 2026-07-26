@@ -263,6 +263,58 @@ describe('ActionEditor', () => {
     })
   })
 
+  it('keeps a half-typed service across an unrelated re-render', () => {
+    const { rerender } = renderEditor({
+      value: { action: 'call-service', service: 'light.turn_on' },
+    })
+
+    // Deliberately incomplete, so nothing was emitted and the stored action is
+    // still the one the form was handed.
+    fireEvent.change(screen.getByLabelText('Tap service'), { target: { value: 'light' } })
+    expect(onChange).not.toHaveBeenCalled()
+
+    // A re-render for some other reason — here a description arriving — hands
+    // back an equal-but-new `value` object. Treating that as an external edit
+    // would wipe the field the user is halfway through.
+    rerender(
+      <Theme>
+        <ActionEditor
+          label="Tap"
+          description="What a tap on the card does."
+          value={{ action: 'call-service', service: 'light.turn_on' }}
+          defaultValue="default"
+          onChange={onChange}
+        />
+      </Theme>
+    )
+
+    expect(screen.getByLabelText('Tap service')).toHaveValue('light')
+  })
+
+  it('replaces in-progress input when a genuinely new stored action arrives', () => {
+    const { rerender } = renderEditor({
+      value: { action: 'call-service', service: 'light.turn_on' },
+    })
+
+    fireEvent.change(screen.getByLabelText('Tap service'), { target: { value: 'light' } })
+    expect(screen.getByLabelText('Tap service')).toHaveValue('light')
+
+    // The other half of the rule: unsent local text must not outlive the action
+    // it was being typed into. The form is now pointed somewhere else.
+    rerender(
+      <Theme>
+        <ActionEditor
+          label="Tap"
+          value={{ action: 'call-service', service: 'script.turn_on' }}
+          defaultValue="default"
+          onChange={onChange}
+        />
+      </Theme>
+    )
+
+    expect(screen.getByLabelText('Tap service')).toHaveValue('script.turn_on')
+  })
+
   it('renders its description when given one', () => {
     renderEditor({ description: 'What a tap on the card does.' })
     expect(screen.getByText('What a tap on the card does.')).toBeInTheDocument()

@@ -111,22 +111,35 @@ export function ActionEditor({
   const [service, setService] = React.useState(() => fieldsOf(action).service)
   const [dataText, setDataText] = React.useState(() => fieldsOf(action).dataText)
   const [dataError, setDataError] = React.useState<string | null>(null)
-  const [synced, setSynced] = React.useState(() => JSON.stringify(action))
 
+  /*
+   * `synced` is a ref rather than state because it is not rendered: it is the
+   * record of what the form last agreed with the store about, and keeping it out
+   * of the render output means an emission does not cost a second render pass.
+   * The comparison happens in an effect, so nothing is set during render.
+   */
   const storedJson = JSON.stringify(action)
-  if (synced !== storedJson) {
+  const syncedRef = React.useRef(storedJson)
+
+  React.useEffect(() => {
+    // Only a value this control did not write resyncs the form. An unrelated
+    // re-render leaves `storedJson` equal to what was last agreed, so a
+    // half-typed service survives it; a genuinely new `value` does not match and
+    // replaces the fields wholesale.
+    if (syncedRef.current === storedJson) return
+    syncedRef.current = storedJson
+
     const fields = fieldsOf(action)
-    setSynced(storedJson)
     setKind(storedKind)
     setTarget(fields.target)
     setService(fields.service)
     setDataText(fields.dataText)
     setDataError(null)
-  }
+  }, [action, storedJson, storedKind])
 
   /** Records what this control emitted, so the echo does not resync the form. */
   const emit = (next: CardAction) => {
-    setSynced(JSON.stringify(next))
+    syncedRef.current = JSON.stringify(next)
     onChange(next)
   }
 
@@ -193,7 +206,11 @@ export function ActionEditor({
         {label}
       </Text>
 
-      <Select.Root value={kind} onValueChange={(next) => handleKindChange(next as ActionKind)}>
+      <Select.Root
+        size="3"
+        value={kind}
+        onValueChange={(next) => handleKindChange(next as ActionKind)}
+      >
         <Select.Trigger aria-label={label} />
         <Select.Content position="popper">
           {ACTION_CHOICES.map((choice) => (
@@ -214,7 +231,7 @@ export function ActionEditor({
               Add a screen first — a navigate action needs somewhere to go.
             </Text>
           ) : (
-            <Select.Root value={target} onValueChange={commitNavigate}>
+            <Select.Root size="3" value={target} onValueChange={commitNavigate}>
               <Select.Trigger aria-label={`${label} screen`} />
               <Select.Content position="popper">
                 {hasUnknownTarget && (
@@ -237,6 +254,7 @@ export function ActionEditor({
             Service
           </Text>
           <TextField.Root
+            size="3"
             value={service}
             placeholder="light.turn_on"
             aria-label={`${label} service`}
@@ -255,6 +273,7 @@ export function ActionEditor({
             Service data (YAML, optional)
           </Text>
           <TextArea
+            size="3"
             value={dataText}
             rows={3}
             placeholder={'brightness: 180'}

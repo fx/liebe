@@ -153,6 +153,41 @@ describe('useCardActions', () => {
     error.mockRestore()
   })
 
+  it('names the action’s real target in the failure log, not the card’s entity', async () => {
+    // `data.entity_id` wins at dispatch, so it is the entity that actually
+    // failed. A report naming the card's own entity points whoever is diagnosing
+    // it at a device that was never asked to do anything.
+    const hass = createMockHomeAssistant({
+      callService: vi.fn().mockRejectedValue(new Error('not authorised')),
+    })
+    hassService.setHass(hass)
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+
+    const { result } = renderHook(() =>
+      useCardActions({
+        entityId: 'button.doorbell',
+        config: {
+          tapAction: {
+            action: 'call-service',
+            service: 'light.turn_on',
+            data: { entity_id: 'light.hall' },
+          },
+        },
+      })
+    )
+
+    act(() => result.current.tap())
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('light.turn_on failed: not authorised'),
+      'light.hall'
+    )
+    error.mockRestore()
+  })
+
   it('resolves `default` to the detail dialog while the entity is unavailable', () => {
     // Whatever the card declares: a card must not actuate a device whose state
     // is indeterminate, and "why has this gone quiet?" is what the gesture is

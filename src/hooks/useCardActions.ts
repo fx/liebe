@@ -186,9 +186,14 @@ export function useCardActions({
           // The card's own error surface belongs to whatever issued the command
           // — a control knows it is loading, the shell does not. What the shell
           // owes a failed *action* is that it not vanish silently.
+          //
+          // The resolved target, for the same reason the pending window keys off
+          // it: a `call-service` action may aim at another entity entirely, and a
+          // failure report naming the card's own entity points the person
+          // diagnosing it at the wrong device.
           logger.error(
             `Card action ${options.domain}.${options.service} failed: ${result.error}`,
-            options.entityId
+            target
           )
         }
       })
