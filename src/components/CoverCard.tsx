@@ -1,5 +1,4 @@
-import { Flex, Text, Box, IconButton, Button } from '@radix-ui/themes'
-import * as Slider from '@radix-ui/react-slider'
+import { Flex, Text, Button } from '@radix-ui/themes'
 import {
   CaretUpIcon,
   CaretDownIcon,
@@ -11,7 +10,9 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { Pill, PillGroup, Slider } from './anatomy'
 import { useDashboardStore } from '~/store'
+import type { DomainColorName } from '~/theme/tokens'
 
 interface CoverCardProps {
   entityId: string
@@ -96,13 +97,22 @@ function CoverCardComponent({
 
   const isMoving = coverState === 'opening' || coverState === 'closing'
 
-  // Visual state color based on position and state
-  const stateColor = useMemo(() => {
-    if (isMoving) return 'blue'
-    if (coverState === 'open' || currentPosition > 50) return 'green'
-    if (coverState === 'closed' || currentPosition === 0) return 'gray'
-    return 'orange'
-  }, [coverState, currentPosition, isMoving])
+  /**
+   * Which `--liebe-c-*` triplet the cover's rendered state resolves to.
+   *
+   * Covers are the `cool` row of the domain-colour table, so every state that
+   * carries meaning — moving, or open to any degree — resolves there; a closed
+   * cover carries no state and so no hue. Nothing here reaches for `ok`, which
+   * the table reserves for locked/home/secure/fan: a cover coloured out of
+   * another domain's triplet would not follow a theme remapping `--liebe-c-cool`.
+   */
+  const stateColor: DomainColorName = useMemo(() => {
+    // `coverState` only ever resolves to unknown/opening/closing/open/closed,
+    // and anything with a nonzero position is already 'open', so these two
+    // branches cover the lot.
+    if (isMoving || coverState === 'open') return 'cool'
+    return 'default'
+  }, [coverState, isMoving])
 
   // Service call handlers
   const handleOpen = useCallback(async () => {
@@ -135,36 +145,40 @@ function CoverCardComponent({
     })
   }, [callService, entityId, error, isLoading, clearError])
 
-  const handlePositionChange = useCallback((value: number[]) => {
-    setLocalPosition(value[0])
+  const handlePositionChange = useCallback((value: number) => {
+    // The anatomy slider reports every value the drag passes through, which is
+    // also what tells the card a drag is under way.
+    setIsDraggingPosition(true)
+    setLocalPosition(value)
   }, [])
 
   const handlePositionCommit = useCallback(
-    async (value: number[]) => {
+    async (value: number) => {
       setIsDraggingPosition(false)
       await callService({
         domain: 'cover',
         service: 'set_cover_position',
         entityId,
-        data: { position: value[0] },
+        data: { position: value },
       })
       setLocalPosition(null)
     },
     [callService, entityId]
   )
 
-  const handleTiltChange = useCallback((value: number[]) => {
-    setLocalTiltPosition(value[0])
+  const handleTiltChange = useCallback((value: number) => {
+    setIsDraggingTilt(true)
+    setLocalTiltPosition(value)
   }, [])
 
   const handleTiltCommit = useCallback(
-    async (value: number[]) => {
+    async (value: number) => {
       setIsDraggingTilt(false)
       await callService({
         domain: 'cover',
         service: 'set_cover_tilt_position',
         entityId,
-        data: { tilt_position: value[0] },
+        data: { tilt_position: value },
       })
       setLocalTiltPosition(null)
     },
@@ -208,31 +222,20 @@ function CoverCardComponent({
     )
   }
 
-  const buttonSize = {
-    small: '1',
-    medium: '2',
-    large: '3',
-  }[size] as '1' | '2' | '3'
-
   // Handle unavailable state
   const isUnavailable = entity.state === 'unavailable'
   if (isUnavailable) {
     return (
       <GridCard
+        domain="cover"
         size={size}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
         <Flex direction="column" align="center" justify="center" gap="2">
-          <GridCard.Title>
-            <Text color="gray">{entity.attributes.friendly_name || entity.entity_id}</Text>
-          </GridCard.Title>
-          <GridCard.Status>
-            <Text size="1" color="gray" weight="medium">
-              UNAVAILABLE
-            </Text>
-          </GridCard.Status>
+          <GridCard.Title>{entity.attributes.friendly_name || entity.entity_id}</GridCard.Title>
+          <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
     )
@@ -242,6 +245,8 @@ function CoverCardComponent({
 
   return (
     <GridCard
+      domain="cover"
+      color={stateColor}
       size={size}
       isLoading={isLoading}
       isError={!!error}
@@ -252,9 +257,6 @@ function CoverCardComponent({
       onDelete={onDelete}
       title={error || undefined}
       className="cover-card"
-      style={{
-        borderWidth: isSelected || error ? '2px' : '1px',
-      }}
     >
       <Flex
         direction="column"
@@ -264,142 +266,122 @@ function CoverCardComponent({
         style={{ minHeight: size === 'large' ? '200px' : size === 'medium' ? '180px' : '160px' }}
       >
         {/* Name */}
-        <GridCard.Title>
-          <Text weight="medium">{friendlyName}</Text>
-        </GridCard.Title>
+        <GridCard.Title>{friendlyName}</GridCard.Title>
 
         {/* Control buttons */}
         {!isEditMode && (
           <GridCard.Controls>
-            <Flex gap="2" align="center">
+            {/*
+             * Open / stop / close are anatomy pills rather than Radix
+             * `IconButton`s: the buttons were coloured by a Radix `color` prop,
+             * which keeps its hue when a theme remaps the cover's triplet — the
+             * exact breakage the token contract exists to prevent. `hideLabel`
+             * keeps the icon-only look while the label stays as the accessible
+             * name.
+             */}
+            <PillGroup label="Cover controls">
               {supportsOpen && (
-                <IconButton
-                  size={buttonSize}
-                  variant="soft"
+                <Pill
+                  domain="cover"
                   color={stateColor}
+                  active={coverState === 'open' || currentPosition === 100}
+                  label="Open cover"
+                  hideLabel
+                  icon={<CaretUpIcon />}
                   onClick={handleOpen}
                   disabled={isLoading || coverState === 'open' || currentPosition === 100}
-                  aria-label="Open cover"
-                >
-                  <CaretUpIcon />
-                </IconButton>
+                />
               )}
               {supportsStop && (
-                <IconButton
-                  size={buttonSize}
-                  variant="soft"
-                  color={isMoving ? 'red' : stateColor}
+                <Pill
+                  domain="cover"
+                  color={isMoving ? 'alert' : stateColor}
+                  active={isMoving}
+                  label="Stop cover"
+                  hideLabel
+                  icon={<PauseIcon />}
                   onClick={handleStop}
                   disabled={isLoading || !isMoving}
-                  aria-label="Stop cover"
-                >
-                  <PauseIcon />
-                </IconButton>
+                />
               )}
               {supportsClose && (
-                <IconButton
-                  size={buttonSize}
-                  variant="soft"
+                <Pill
+                  domain="cover"
                   color={stateColor}
+                  active={coverState === 'closed' || currentPosition === 0}
+                  label="Close cover"
+                  hideLabel
+                  icon={<CaretDownIcon />}
                   onClick={handleClose}
                   disabled={isLoading || coverState === 'closed' || currentPosition === 0}
-                  aria-label="Close cover"
-                >
-                  <CaretDownIcon />
-                </IconButton>
+                />
               )}
-            </Flex>
+            </PillGroup>
           </GridCard.Controls>
         )}
 
         {/* Position slider */}
         {!isEditMode && supportsSetPosition && (
-          <Box style={{ width: '100%' }}>
-            <Flex align="center" gap="2">
-              <Text size="1" color="gray" style={{ minWidth: '35px' }}>
-                {displayPosition}%
-              </Text>
-              <Slider.Root
-                className="SliderRoot"
-                value={[displayPosition]}
-                onValueChange={handlePositionChange}
-                onValueCommit={handlePositionCommit}
-                onPointerDown={() => setIsDraggingPosition(true)}
-                onPointerUp={() => setIsDraggingPosition(false)}
-                max={100}
-                step={1}
-                aria-label="Position"
-                style={{ flex: 1 }}
-              >
-                <Slider.Track className="SliderTrack">
-                  <Slider.Range className="SliderRange" />
-                </Slider.Track>
-                <Slider.Thumb className="SliderThumb" />
-              </Slider.Root>
-            </Flex>
-          </Box>
+          <GridCard.Controls>
+            <Slider
+              domain="cover"
+              color={stateColor}
+              active={displayPosition > 0}
+              label="Position"
+              value={displayPosition}
+              readout={`${displayPosition}%`}
+              onValueChange={handlePositionChange}
+              onValueCommit={handlePositionCommit}
+            />
+          </GridCard.Controls>
         )}
 
         {/* Tilt controls */}
         {!isEditMode && supportsTilt && (
-          <Box style={{ width: '100%' }}>
-            <Flex direction="column" gap="2">
-              <Text size="1" color="gray">
-                Tilt
-              </Text>
-              {/* Tilt buttons */}
-              <Flex gap="2" justify="center">
-                {supportsOpenTilt && (
-                  <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
-                    <ChevronRightIcon />
-                  </Button>
-                )}
-                {supportsCloseTilt && (
-                  <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
-                    <ChevronLeftIcon />
-                  </Button>
-                )}
-              </Flex>
-              {/* Tilt position slider */}
-              {!isEditMode && supportsSetTiltPosition && (
-                <Flex align="center" gap="2">
-                  <Text size="1" color="gray" style={{ minWidth: '35px' }}>
-                    {displayTiltPosition}%
-                  </Text>
-                  <Slider.Root
-                    className="SliderRoot"
-                    value={[displayTiltPosition]}
-                    onValueChange={handleTiltChange}
-                    onValueCommit={handleTiltCommit}
-                    onPointerDown={() => setIsDraggingTilt(true)}
-                    onPointerUp={() => setIsDraggingTilt(false)}
-                    max={100}
-                    step={1}
-                    aria-label="Tilt position"
-                    style={{ flex: 1 }}
-                  >
-                    <Slider.Track className="SliderTrack">
-                      <Slider.Range className="SliderRange" />
-                    </Slider.Track>
-                    <Slider.Thumb className="SliderThumb" />
-                  </Slider.Root>
-                </Flex>
+          <Flex direction="column" gap="2" width="100%">
+            <Text size="1" color="gray">
+              Tilt
+            </Text>
+            {/* Tilt buttons */}
+            <Flex gap="2" justify="center">
+              {supportsOpenTilt && (
+                <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
+                  <ChevronRightIcon />
+                </Button>
+              )}
+              {supportsCloseTilt && (
+                <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
+                  <ChevronLeftIcon />
+                </Button>
               )}
             </Flex>
-          </Box>
+            {/* Tilt position slider */}
+            {supportsSetTiltPosition && (
+              <GridCard.Controls>
+                <Slider
+                  domain="cover"
+                  color={stateColor}
+                  active={displayTiltPosition > 0}
+                  label="Tilt position"
+                  value={displayTiltPosition}
+                  readout={`${displayTiltPosition}%`}
+                  onValueChange={handleTiltChange}
+                  onValueCommit={handleTiltCommit}
+                />
+              </GridCard.Controls>
+            )}
+          </Flex>
         )}
 
         {/* Status */}
         <GridCard.Status>
-          <Text size="1" color={error ? 'red' : stateColor} weight="medium">
-            {error
-              ? 'ERROR'
-              : isMoving
-                ? coverState.toUpperCase()
-                : currentPosition > 0 && currentPosition < 100
-                  ? `${currentPosition}% OPEN`
-                  : coverState.toUpperCase()}
-          </Text>
+          {error
+            ? 'ERROR'
+            : isMoving
+              ? coverState.toUpperCase()
+              : currentPosition > 0 && currentPosition < 100
+                ? `${currentPosition}% OPEN`
+                : coverState.toUpperCase()}
         </GridCard.Status>
       </Flex>
     </GridCard>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { LightCard } from '../LightCard'
 import * as hooks from '~/hooks'
 import { useDashboardStore } from '~/store'
@@ -142,17 +142,80 @@ describe('LightCard Brightness Slider', () => {
   it('renders slider with correct CSS classes', () => {
     const { container } = render(<LightCard entityId="light.test_light" />)
 
-    // Check for Radix UI Slider structure
-    const sliderRoot = container.querySelector('.SliderRoot')
+    // The brightness control is the anatomy slider now (issue #192), so the
+    // parts carry the stable `liebe-slider*` classes instead of the card's own
+    // `SliderRoot`/`SliderTrack`/`SliderRange`/`SliderThumb`.
+    const sliderRoot = container.querySelector('.liebe-slider')
     expect(sliderRoot).toBeInTheDocument()
 
-    const sliderTrack = container.querySelector('.SliderTrack')
+    const sliderTrack = container.querySelector('.liebe-slider-track')
     expect(sliderTrack).toBeInTheDocument()
 
-    const sliderRange = container.querySelector('.SliderRange')
+    const sliderRange = container.querySelector('.liebe-slider-fill')
     expect(sliderRange).toBeInTheDocument()
 
-    const sliderThumb = container.querySelector('.SliderThumb')
+    const sliderThumb = container.querySelector('.liebe-slider-thumb')
     expect(sliderThumb).toBeInTheDocument()
+  })
+
+  /*
+   * Added with the anatomy-slider migration (change 0010 PR 4): the card's own
+   * drag bookkeeping moved onto the primitive's `onValueChange` /
+   * `onValueCommit` pair, so both paths need exercising. A keyboard adjustment
+   * is the deterministic way to drive a Radix slider in jsdom — a pointer drag
+   * needs layout the environment does not have — and Radix fires change and
+   * commit once each per key press.
+   */
+  describe('adjusting the value', () => {
+    it('paints the new value immediately and commits it once', async () => {
+      vi.mocked(hooks.useEntity).mockReturnValue({
+        entity: {
+          ...mockEntity,
+          attributes: { ...mockEntity.attributes, brightness: 128 },
+        },
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      render(<LightCard entityId="light.test_light" />)
+
+      const thumb = screen.getByLabelText('Brightness')
+      expect(thumb).toHaveAttribute('aria-valuenow', '50')
+
+      fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+
+      // Painted from local state, before Home Assistant echoes anything back.
+      expect(thumb).toHaveAttribute('aria-valuenow', '51')
+      await waitFor(() =>
+        expect(mockServiceCallHandlers.turnOn).toHaveBeenCalledWith('light.test_light', {
+          brightness: 130,
+        })
+      )
+    })
+
+    it('turns the light off rather than setting it to zero brightness', async () => {
+      vi.mocked(hooks.useEntity).mockReturnValue({
+        entity: {
+          ...mockEntity,
+          attributes: { ...mockEntity.attributes, brightness: 3 },
+        },
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      render(<LightCard entityId="light.test_light" />)
+
+      const thumb = screen.getByLabelText('Brightness')
+      expect(thumb).toHaveAttribute('aria-valuenow', '1')
+
+      fireEvent.keyDown(thumb, { key: 'Home' })
+
+      await waitFor(() =>
+        expect(mockServiceCallHandlers.turnOff).toHaveBeenCalledWith('light.test_light')
+      )
+      expect(mockServiceCallHandlers.turnOn).not.toHaveBeenCalled()
+    })
   })
 })

@@ -365,7 +365,7 @@ function Preview({ item, config }: PreviewProps) {
         >
           <Box style={{ width: '280px', pointerEvents: 'none' }}>
             {item.type === 'separator' ? (
-              <GridCard size="medium" transparent={previewItem.hideBackground}>
+              <GridCard domain="separator" size="medium" transparent={previewItem.hideBackground}>
                 <SeparatorCard
                   title={previewItem.title}
                   orientation={previewItem.separatorOrientation || 'horizontal'}
@@ -373,7 +373,7 @@ function Preview({ item, config }: PreviewProps) {
                 />
               </GridCard>
             ) : item.type === 'text' ? (
-              <GridCard size="medium" transparent={previewItem.hideBackground}>
+              <GridCard domain="text" size="medium" transparent={previewItem.hideBackground}>
                 <TextCard
                   entityId={item.id}
                   size="medium"

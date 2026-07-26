@@ -1,7 +1,8 @@
-import { Flex, Text } from '@radix-ui/themes'
+import { Flex } from '@radix-ui/themes'
 import { useEntity } from '../../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
-import { GridCard } from '../GridCard'
+import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardValue } from '../anatomy'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
 
@@ -91,6 +92,7 @@ function WeatherCardMinimalContent(props: CardProps) {
   if (isUnavailable) {
     return (
       <GridCard
+        domain="weather"
         size={size}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
@@ -100,12 +102,10 @@ function WeatherCardMinimalContent(props: CardProps) {
         backdrop={false}
       >
         <Flex direction="column" align="center" justify="center" gap="2" height="100%">
-          <Text size="2" color="gray">
+          <GridCard.Title>
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-          </Text>
-          <Text size="1" color="gray" weight="medium">
-            UNAVAILABLE
-          </Text>
+          </GridCard.Title>
+          <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
     )
@@ -113,6 +113,7 @@ function WeatherCardMinimalContent(props: CardProps) {
 
   return (
     <GridCard
+      domain="weather"
       size={size}
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
@@ -122,18 +123,17 @@ function WeatherCardMinimalContent(props: CardProps) {
       transparent={true}
     >
       <Flex direction="column" align="center" justify="center" gap="2" height="100%">
-        <Text size="2" color="gray">
+        <GridCard.Title>
           {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-        </Text>
+        </GridCard.Title>
         {tempDisplay && (
-          <Text size={size === 'large' ? '8' : size === 'medium' ? '7' : '6'} weight="bold">
-            {Math.round(tempDisplay.value)}
-            {tempDisplay.unit}
-          </Text>
+          <CardValue
+            domain="weather"
+            value={Math.round(tempDisplay.value)}
+            unit={tempDisplay.unit}
+          />
         )}
-        <Text size="2" color="gray" style={{ textTransform: 'capitalize' }}>
-          {entity.state}
-        </Text>
+        <GridCard.Status>{entity.state}</GridCard.Status>
       </Flex>
     </GridCard>
   )

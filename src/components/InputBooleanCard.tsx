@@ -63,6 +63,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
   if (entity.state === 'unavailable') {
     return (
       <GridCard
+        domain="input_boolean"
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
@@ -71,7 +72,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
       >
         <Flex direction="column" align="center" gap="2">
           <GridCard.Icon>
-            <Archive size={20} style={{ color: 'var(--gray-9)' }} />
+            <Archive size={20} />
           </GridCard.Icon>
           <GridCard.Title>
             {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
@@ -84,12 +85,15 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
 
   const isOn = entity.state === 'on'
   const Icon = isOn ? ToggleRight : ToggleLeft
-  const iconColor = isOn ? 'var(--amber-9)' : 'var(--gray-9)'
 
   const isStale = entity.attributes._stale === true
 
   return (
     <GridCard
+      // Input helpers have no domain row of their own; `default` is the
+      // generic active colour the design system points them at.
+      domain="input_boolean"
+      color="default"
       size={size}
       isLoading={loading}
       isError={!!error}
@@ -103,7 +107,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
     >
       <Flex direction="column" align="center" gap="2">
         <GridCard.Icon>
-          <Icon size={24} style={{ color: iconColor }} />
+          <Icon size={24} />
         </GridCard.Icon>
         <GridCard.Title>
           {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}

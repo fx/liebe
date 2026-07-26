@@ -1,0 +1,255 @@
+/*
+ * The card shell — `liebe-card`, the tile every entity card renders inside.
+ *
+ * docs/specs/design-system/index.md ("Card anatomy") names the tile and the
+ * tokens it reads; docs/specs/theming/index.md ("Stable selector contract")
+ * makes `liebe-card` public API alongside the anatomy classes the parts carry.
+ * Renaming it is a breaking change. Everything else here — `liebe-card-actions`,
+ * `liebe-card-controls`, the legacy `grid-card*` aliases, the keyframes — is
+ * internal and may change freely.
+ *
+ * WHY THIS SHEET EXISTS
+ * ---------------------
+ * Until change 0010 PR 4 the shell was a Radix `Card variant="classic"` whose
+ * state treatments were inline `style` props, plus a second stylesheet that
+ * `GridCard.tsx` appended to `document.head` at import time. Both were
+ * unreachable by a theme:
+ *
+ *  - An inline declaration outranks every cascade layer, so the inline
+ *    `backgroundColor`/`borderColor` made exactly the properties a theme most
+ *    wants — the card surface and its state borders — permanently unoverridable
+ *    (docs/specs/theming, "Application mechanism").
+ *  - A sheet in `document.head` does not cross into a shadow root at all, so the
+ *    press-feedback and error-pulse rules never applied inside the panel; they
+ *    only ever showed up in the workshop and in jsdom.
+ *
+ * Both now live here, in `liebe-base`, bundled into `liebe.css` and linked into
+ * the shadow root like every other component sheet. No rule uses `!important` —
+ * importance is reversed across layers, so an important declaration in the base
+ * layer would beat the theme and user layers that are meant to win.
+ *
+ * COLOUR
+ * ------
+ * The shell names no Radix scale. Its neutral surface comes from the surface
+ * tokens; the two states that carry hue — selection and error — resolve through
+ * `--liebe-c-*` triplets, which is what the design system permits for UI accents
+ * ("selection states" is named in the domain-colour rule). The tile itself never
+ * tints for an active entity: hue lives in the icon circle, and the card stays
+ * flat, one elevation step above the ground.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /* ------------------------------------------------------------------ *
+   * The tile
+   * ------------------------------------------------------------------ */
+
+  .liebe-card {
+    backdrop-filter: var(--liebe-card-blur);
+    background: var(--liebe-card-bg);
+    border: var(--liebe-card-border);
+    border-radius: var(--liebe-card-radius);
+    box-shadow: var(--liebe-card-shadow);
+    color: var(--liebe-fg);
+    /*
+     * Typography is applied here as well as on the theme root, so card text
+     * follows a theme that swaps the typeface even where a Radix component
+     * inside the card declares a family of its own.
+     */
+    font-family: var(--liebe-font-family);
+    letter-spacing: var(--liebe-letter-spacing);
+    /* Spec: the tile clips its content. Safe for the camera's in-place
+       fullscreen — `overflow` does not clip a fixed descendant; only a
+       containing block does, which is why nothing here sets `contain` or a
+       resting `transform`. See docs/changes/0008. */
+    overflow: hidden;
+    padding: var(--liebe-card-padding);
+    position: relative;
+    /* Spec motion rule: state-driven colour changes take ~280ms ease-out. */
+    transition:
+      background-color 280ms ease-out,
+      box-shadow 280ms ease-out,
+      opacity 280ms ease-out,
+      outline-color 280ms ease-out;
+  }
+
+  /*
+   * The legacy `size` prop, as three min-height stops. Change 0011 replaces it
+   * with the effective-span tiers, which is why the stops are plain lengths
+   * rather than new tokens: a token minted here would be contract to keep.
+   */
+  .liebe-card[data-size='small'] {
+    min-block-size: 60px;
+  }
+
+  .liebe-card[data-size='medium'] {
+    min-block-size: 80px;
+  }
+
+  .liebe-card[data-size='large'] {
+    min-block-size: 100px;
+  }
+
+  /*
+   * A transparent card drops the surface entirely — used by `TextCard` and the
+   * weather variants that paint their own background. Padding goes with it: the
+   * card is not there to be padded.
+   */
+  .liebe-card[data-transparent] {
+    backdrop-filter: none;
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * State treatments
+   *
+   * All four are `outline` rather than `border`: the token contract pins the
+   * card's border to `--liebe-card-border` (none by default), and an outline
+   * takes no layout space, so a card does not resize as it is selected. Ordered
+   * least- to most-urgent, so error wins the outline over selection at equal
+   * specificity — the precedence the shell had when these were inline styles.
+   * ------------------------------------------------------------------ */
+
+  /*
+   * Deliberately no `opacity` here. The old shell asked for one with a
+   * `opacity-50` class — a Tailwind name in a project that has no Tailwind, so
+   * it never dimmed anything. Making it real would halve the contrast of the
+   * name and state lines underneath it (measured at 3.02:1 in dark, 3.17:1 in
+   * light, against the 4.5:1 a11y floor), which is a worse card than an
+   * undimmed one. The dotted outline carries the state on its own; a dimming
+   * treatment that survives the contrast floor is a design question for the
+   * per-card wave, not something to smuggle in with a restyle.
+   */
+  .liebe-card[data-unavailable] {
+    outline: 1px dotted var(--liebe-faint);
+    outline-offset: -1px;
+  }
+
+  /*
+   * Selection is edit-mode chrome, and one of the UI accents the design system
+   * lets carry hue — through the `default` triplet, never a Radix scale, so a
+   * theme remapping it recolours the selection with everything else.
+   */
+  .liebe-card[data-selected] {
+    background: var(--liebe-c-default-tint);
+    outline: 2px solid var(--liebe-c-default);
+    outline-offset: -2px;
+  }
+
+  /* One pulse on arrival in the error state, then still. */
+  .liebe-card[data-error] {
+    animation: liebe-card-error-pulse 500ms ease-in-out;
+    outline: 2px solid var(--liebe-c-alert);
+    outline-offset: -2px;
+  }
+
+  /*
+   * A failed service call reads as an alert on the state line too, not only on
+   * the outline. Done here rather than by each card resolving its `color` to
+   * `alert`, because a card's colour describes the *entity's* state — a light
+   * that is on is amber whether or not the last command failed — while the
+   * failure belongs to the card. `liebe-state` is a contract class, so this is
+   * a rule the shell is allowed to write.
+   */
+  .liebe-card[data-error] .liebe-state {
+    color: var(--liebe-c-alert-text);
+  }
+
+  .liebe-card[data-loading] {
+    animation: liebe-card-loading-pulse 1500ms ease-in-out infinite;
+  }
+
+  @keyframes liebe-card-error-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /*
+   * The loading ring is drawn with the same `default` triplet the selection
+   * uses, so a pending command reads as chrome rather than as a domain state.
+   * `--liebe-c-default-tint` is the triplet's 20% surface role; the ring fades
+   * out by growing past it.
+   */
+  @keyframes liebe-card-loading-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 var(--liebe-c-default-tint);
+    }
+
+    50% {
+      box-shadow: 0 0 0 6px var(--liebe-c-default-tint);
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Edit-mode affordances
+   * ------------------------------------------------------------------ */
+
+  .liebe-card-actions {
+    display: flex;
+    gap: 8px;
+    inset-block-start: 8px;
+    inset-inline-end: 8px;
+    position: absolute;
+  }
+
+  /* The row a card puts its primary embedded control in. */
+  .liebe-card-controls {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    inline-size: 100%;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Touch
+   * ------------------------------------------------------------------ */
+
+  @media (pointer: coarse) {
+    .liebe-card {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /*
+     * Press feedback, at the ≤100ms the spec allows. The camera card is exempt:
+     * its tap opens an in-place fixed fullscreen overlay, and this transform
+     * would establish a containing block whose transition tail re-traps the
+     * just-promoted overlay mid-open. See
+     * docs/changes/0008-camera-fullscreen-no-dom-move.md.
+     */
+    .liebe-card:not(.camera-card):active {
+      transform: scale(0.98);
+      transition: transform 100ms ease-out;
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Reduced motion
+   *
+   * None of the shell's animation carries meaning the end state does not, so
+   * all of it goes rather than being shortened.
+   * ------------------------------------------------------------------ */
+
+  @media (prefers-reduced-motion: reduce) {
+    .liebe-card,
+    .liebe-card[data-error],
+    .liebe-card[data-loading] {
+      animation: none;
+      transition: none;
+    }
+
+    .liebe-card:not(.camera-card):active {
+      transform: none;
+    }
+  }
+}

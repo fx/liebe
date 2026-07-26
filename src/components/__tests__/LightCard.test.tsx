@@ -111,14 +111,13 @@ describe('LightCard', () => {
 
     render(<LightCard entityId="light.living_room" />)
 
-    // Status should show percentage (there are two 50% texts - one in slider, one in status)
+    // Status should show percentage (there are two 50% texts - one in the
+    // slider's readout, one in the status line)
     const allPercentageTexts = screen.getAllByText('50%')
-    expect(allPercentageTexts).toHaveLength(2) // One in slider label, one in status
+    expect(allPercentageTexts).toHaveLength(2)
 
-    // The status element is the one with weight-medium class
-    const statusElement = allPercentageTexts.find((el) =>
-      el.classList.contains('rt-r-weight-medium')
-    )
+    // The status line is the anatomy's `liebe-state`, not a Radix `Text`.
+    const statusElement = allPercentageTexts.find((el) => el.classList.contains('liebe-state'))
     expect(statusElement).toBeInTheDocument()
   })
 
@@ -270,32 +269,30 @@ describe('LightCard', () => {
 
     const card = container.querySelector('.grid-card')
 
-    // Check that the card shows selection styling (blue border in edit mode)
+    // The selection tint and outline moved out of the inline style and into
+    // `.liebe-card[data-selected]`, so a theme can restyle them; the attribute
+    // is the stable contract that rule keys off.
     expect(card).toBeInTheDocument()
-    expect(card).toHaveClass('grid-card')
-    // jsdom 27's getComputedStyle resolves var() and returns "" for the
-    // border-color shorthand, so assert the inline value directly.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--blue-7)')
-    expect(card).toHaveStyle('border-width: 2px')
-    // Background color is applied but CSS variables don't resolve in tests
+    expect(card).toHaveClass('liebe-card')
+    expect(card).toHaveAttribute('data-selected', 'true')
   })
 
   it('respects different sizes', () => {
+    // The size is announced as `data-size` and the three min-height stops live
+    // in the layered shell sheet — inline `min-height`/`padding` were px and a
+    // Radix space token set from JS, neither of which a theme could reach. The
+    // stops themselves are asserted at source level in cardShellStyles.test.ts.
     const { rerender, container } = render(<LightCard entityId="light.living_room" size="small" />)
 
-    // Check if the card has the correct minimum height based on size
     let card = container.querySelector('.grid-card')
-    expect(card).toHaveStyle('min-height: 60px') // small size
-    expect(card).toHaveStyle('padding: var(--space-2)') // small padding
+    expect(card).toHaveAttribute('data-size', 'small')
 
     rerender(<LightCard entityId="light.living_room" size="medium" />)
     card = container.querySelector('.grid-card')
-    expect(card).toHaveStyle('min-height: 80px') // medium size
-    expect(card).toHaveStyle('padding: var(--space-3)') // medium padding
+    expect(card).toHaveAttribute('data-size', 'medium')
 
     rerender(<LightCard entityId="light.living_room" size="large" />)
     card = container.querySelector('.grid-card')
-    expect(card).toHaveStyle('min-height: 100px') // large size
-    expect(card).toHaveStyle('padding: var(--space-4)') // large padding
+    expect(card).toHaveAttribute('data-size', 'large')
   })
 })

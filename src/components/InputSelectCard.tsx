@@ -63,6 +63,7 @@ export const InputSelectCard = memo(function InputSelectCard({
   if (entity.state === 'unavailable') {
     return (
       <GridCard
+        domain="input_select"
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
@@ -71,7 +72,7 @@ export const InputSelectCard = memo(function InputSelectCard({
       >
         <Flex direction="column" align="center" gap="2">
           <GridCard.Icon>
-            <Archive size={20} style={{ color: 'var(--gray-9)' }} />
+            <Archive size={20} />
           </GridCard.Icon>
           <GridCard.Title>
             {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
@@ -89,6 +90,10 @@ export const InputSelectCard = memo(function InputSelectCard({
 
   return (
     <GridCard
+      // Input helpers have no domain row of their own; `default` is the
+      // generic active colour the design system points them at.
+      domain="input_select"
+      color="default"
       size={size}
       isLoading={loading}
       isError={!!error}

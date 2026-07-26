@@ -8,8 +8,8 @@
  *   liebe-icon · liebe-name · liebe-state · liebe-slider · liebe-pill
  *   liebe-chip · liebe-value · liebe-spark
  *
- * (`liebe-card` belongs to the card shell — the last remaining task of change
- * 0010.) Renaming any of them is a breaking change. Everything else here —
+ * (`liebe-card` belongs to the card shell, styled by
+ * `src/components/GridCard.css`.) Renaming any of them is a breaking change. Everything else here —
  * `liebe-meta`, the `-label`, `-dot`, `-canvas`, `-unit`, `-track`, `-fill`,
  * `-thumb` and `-readout` sub-elements, and the `--part-*` custom properties
  * below — is internal and may change freely.
@@ -172,11 +172,10 @@
   .liebe-name,
   .liebe-state {
     /*
-     * The typography tokens are applied here rather than left to the root, so
-     * a theme that sets a typeface or uppercase casing reaches card text as
-     * soon as the anatomy is used. The card shell will hoist them once it is
-     * on the anatomy too (change 0010, PR 4) — inheritance makes that a
-     * no-op for these rules.
+     * The typography tokens are applied here as well as on the theme root and
+     * the card shell, so a theme that sets a typeface or uppercase casing
+     * reaches card text however the part is used. The repetition is a no-op
+     * where the tokens already inherit.
      */
     font-family: var(--liebe-font-family);
     letter-spacing: var(--liebe-letter-spacing);

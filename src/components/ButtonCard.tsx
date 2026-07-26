@@ -1,4 +1,4 @@
-import { Flex, Text } from '@radix-ui/themes'
+import { Flex } from '@radix-ui/themes'
 import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
@@ -71,10 +71,13 @@ function ButtonCardComponent({
     await toggle(entity.entity_id)
   }
 
-  const iconScale = size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8
-
   return (
     <GridCard
+      // A light reads as a light even through the generic button card; every
+      // other domain this card serves (switch, outlet, input helper) is what
+      // the `default` triplet is for.
+      domain={entity.entity_id.split('.')[0]}
+      color={entity.entity_id.startsWith('light.') ? 'light' : 'default'}
       size={size}
       isLoading={isLoading}
       isError={!!error}
@@ -86,55 +89,13 @@ function ButtonCardComponent({
       onDelete={onDelete}
       onClick={handleClick}
       title={error || undefined}
-      style={{
-        backgroundColor: isOn && !isSelected && !error ? 'var(--amber-3)' : undefined,
-        borderColor: isOn && !isSelected && !error ? 'var(--amber-6)' : undefined,
-        borderWidth: isSelected || error || isOn ? '2px' : '1px',
-      }}
     >
       <Flex direction="column" align="center" justify="center" gap="2">
-        <GridCard.Icon>
-          <span
-            style={{
-              color: isOn ? 'var(--amber-9)' : 'var(--gray-9)',
-              transform: `scale(${iconScale})`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {getEntityIcon(entity)}
-          </span>
-        </GridCard.Icon>
+        <GridCard.Icon>{getEntityIcon(entity)}</GridCard.Icon>
 
-        <GridCard.Title>
-          <Text
-            weight={isOn ? 'medium' : 'regular'}
-            style={{
-              color: isOn ? 'var(--amber-11)' : undefined,
-              opacity: isLoading ? 0.7 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {friendlyName}
-          </Text>
-        </GridCard.Title>
+        <GridCard.Title>{friendlyName}</GridCard.Title>
 
-        <GridCard.Status>
-          <Text
-            size="1"
-            color={error ? 'red' : isOn ? 'amber' : 'gray'}
-            weight="medium"
-            style={{
-              opacity: isLoading ? 0.5 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {error ? 'ERROR' : entity.state.toUpperCase()}
-          </Text>
-        </GridCard.Status>
+        <GridCard.Status>{error ? 'ERROR' : entity.state.toUpperCase()}</GridCard.Status>
       </Flex>
     </GridCard>
   )

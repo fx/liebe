@@ -127,10 +127,14 @@ describe('ButtonCard', () => {
 
     render(<ButtonCard entityId="light.living_room" />)
 
-    const card = screen.getByText('Living Room Light').closest('[class*="Card"]')
+    const card = screen.getByText('Living Room Light').closest('.liebe-card')
     await user.click(card!)
 
     expect(mockToggle).toHaveBeenCalledWith('light.living_room')
+    // Exactly once: the tile is the primary action and its handler
+    // accepts any descendant target, so an anatomy part that forgot to
+    // stop propagation would dispatch the service twice.
+    expect(mockToggle).toHaveBeenCalledTimes(1)
   })
 
   it('should handle switch entities', async () => {
@@ -151,10 +155,14 @@ describe('ButtonCard', () => {
 
     render(<ButtonCard entityId="switch.garage_door" />)
 
-    const card = screen.getByText('Garage Door').closest('[class*="Card"]')
+    const card = screen.getByText('Garage Door').closest('.liebe-card')
     await user.click(card!)
 
     expect(mockToggle).toHaveBeenCalledWith('switch.garage_door')
+    // Exactly once: the tile is the primary action and its handler
+    // accepts any descendant target, so an anatomy part that forgot to
+    // stop propagation would dispatch the service twice.
+    expect(mockToggle).toHaveBeenCalledTimes(1)
   })
 
   it('should handle input_boolean entities', async () => {
@@ -175,10 +183,14 @@ describe('ButtonCard', () => {
 
     render(<ButtonCard entityId="input_boolean.vacation_mode" />)
 
-    const card = screen.getByText('Vacation Mode').closest('[class*="Card"]')
+    const card = screen.getByText('Vacation Mode').closest('.liebe-card')
     await user.click(card!)
 
     expect(mockToggle).toHaveBeenCalledWith('input_boolean.vacation_mode')
+    // Exactly once: the tile is the primary action and its handler
+    // accepts any descendant target, so an anatomy part that forgot to
+    // stop propagation would dispatch the service twice.
+    expect(mockToggle).toHaveBeenCalledTimes(1)
   })
 
   it('should show loading state during service call', async () => {
@@ -203,19 +215,17 @@ describe('ButtonCard', () => {
 
     render(<ButtonCard entityId="light.living_room" />)
 
-    const card = screen.getByText('Living Room Light').closest('[class*="Card"]')
+    const card = screen.getByText('Living Room Light').closest('.liebe-card')
 
     // Should show loading spinner overlay
     const spinner = document.querySelector('.rt-Spinner')
     expect(spinner).toBeInTheDocument()
 
-    // Should show loading styles
+    // Should show loading styles. The cursor is still inline — it is an
+    // affordance, not a themable visual — while the pulse and the dimming now
+    // come from `.liebe-card[data-loading]` in the layered shell sheet.
     expect(card).toHaveStyle({ cursor: 'wait' })
-    expect(card).toHaveStyle({ transform: 'scale(0.98)' })
-
-    // Text should be dimmed
-    expect(screen.getByText('Living Room Light')).toHaveStyle({ opacity: '0.7' })
-    expect(screen.getByText('OFF')).toHaveStyle({ opacity: '0.5' })
+    expect(card).toHaveAttribute('data-loading', 'true')
   })
 
   it('should handle service call errors', async () => {
@@ -240,14 +250,15 @@ describe('ButtonCard', () => {
 
     render(<ButtonCard entityId="light.living_room" />)
 
-    const card = screen.getByText('Living Room Light').closest('[class*="Card"]')
+    const card = screen.getByText('Living Room Light').closest('.liebe-card')
 
     // Should show error state
     expect(screen.getByText('ERROR')).toBeInTheDocument()
     expect(card).toHaveAttribute('title', 'Service call failed')
-    // jsdom 27's getComputedStyle resolves var() and returns "" for the
-    // border-color shorthand, so assert the inline value directly.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+    // The error outline moved out of the inline style and into
+    // `.liebe-card[data-error]`, so that an alert-coloured card stays
+    // themable; the attribute is the stable contract the rule keys off.
+    expect(card).toHaveAttribute('data-error', 'true')
   })
 
   it('should not call service when loading', async () => {
@@ -273,7 +284,7 @@ describe('ButtonCard', () => {
 
     render(<ButtonCard entityId="light.living_room" />)
 
-    const card = screen.getByText('Living Room Light').closest('[class*="Card"]')
+    const card = screen.getByText('Living Room Light').closest('.liebe-card')
     await user.click(card!)
 
     expect(mockToggle).not.toHaveBeenCalled()
@@ -326,10 +337,12 @@ describe('ButtonCard', () => {
 
     render(<ButtonCard entityId="light.living_room" />)
 
-    const card = screen.getByText('Living Room Light').closest('[class*="Card"]')
-    expect(card).toHaveStyle({
-      borderWidth: '2px',
-    })
+    const card = screen.getByText('Living Room Light').closest('.liebe-card')
+    // The active treatment is the icon circle's tint, not a thicker card
+    // border; the tile only announces the state for the anatomy and for
+    // themes to key off.
+    expect(card).toHaveAttribute('data-active', 'true')
+    expect(document.querySelector('.liebe-icon')).toHaveAttribute('data-active', 'true')
   })
 
   it('should render skeleton when entity is undefined but connected', () => {

@@ -89,16 +89,27 @@ describe('InputBooleanCard', () => {
     })
 
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
-    const card = container.querySelector('.rt-Card')
+    const card = container.querySelector('.liebe-card')
 
-    expect(card).toHaveStyle({ backgroundColor: 'var(--accent-3)' })
+    // The `on` state no longer tints the tile: the design system keeps the
+    // card flat and puts the hue in the icon circle, so what the shell carries
+    // is the state attribute the anatomy and any theme key off.
+    expect(card).toHaveAttribute('data-active', 'true')
+    expect(document.querySelector('.liebe-icon')).toHaveAttribute('data-active', 'true')
     expect(screen.getByRole('switch')).toBeChecked()
+
+    // The shell metadata the anatomy and the stable selector contract both key
+    // off. Input helpers have no domain row of their own, so they resolve
+    // through the `default` triplet — a wrong mapping here would repaint every
+    // hue-carrying part of the card and nothing else would catch it.
+    expect(card).toHaveAttribute('data-domain', 'input_boolean')
+    expect(card).toHaveAttribute('data-color', 'default')
   })
 
   it('toggles on click in view mode', async () => {
     render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
-    const card = screen.getByText('Test Toggle').closest('.rt-Card')!
+    const card = screen.getByText('Test Toggle').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -134,7 +145,7 @@ describe('InputBooleanCard', () => {
     expect(screen.queryByRole('switch')).not.toBeInTheDocument()
     expect(screen.getByText('OFF')).toBeInTheDocument()
 
-    const card = screen.getByText('Test Toggle').closest('.rt-Card')!
+    const card = screen.getByText('Test Toggle').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -152,13 +163,10 @@ describe('InputBooleanCard', () => {
       <InputBooleanCard entityId="input_boolean.test_toggle" isSelected={true} />
     )
 
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveStyle({
-      backgroundColor: 'var(--blue-3)',
-      borderWidth: '2px',
-    })
-    // See note above: assert the border-color shorthand via the inline style.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--blue-7)')
+    // Selection tint and outline are `.liebe-card[data-selected]` in the
+    // layered shell sheet now, so they stay themable.
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-selected', 'true')
   })
 
   it('shows delete button in edit mode', () => {
@@ -189,8 +197,8 @@ describe('InputBooleanCard', () => {
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
     // Check for loading class and disabled switch
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-loading')
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-loading', 'true')
     expect(screen.getByRole('switch')).toBeDisabled()
   })
 
@@ -208,12 +216,12 @@ describe('InputBooleanCard', () => {
 
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-error')
-    expect(card).toHaveStyle({ borderWidth: '2px' })
-    // jsdom 27's getComputedStyle resolves var() (to a fallback color here) and
-    // returns "" for the border-color shorthand, so assert the inline value directly.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+    const card = container.querySelector('.liebe-card')
+    // The error outline and its one-shot pulse are `.liebe-card[data-error]`
+    // in the layered shell sheet now, rather than an inline border plus a
+    // `grid-card-error` class — inline declarations outrank every cascade
+    // layer, so a theme could never have restyled them.
+    expect(card).toHaveAttribute('data-error', 'true')
     expect(card).toHaveAttribute('title', 'Failed to toggle')
   })
 
@@ -233,7 +241,7 @@ describe('InputBooleanCard', () => {
 
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
-    const card = container.querySelector('.rt-Card')
+    const card = container.querySelector('.liebe-card')
     // Stale state no longer shows visual indication
     expect(card).not.toHaveStyle({
       borderStyle: 'dashed',
@@ -278,9 +286,16 @@ describe('InputBooleanCard', () => {
       isStale: false,
     })
 
-    render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
+    const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
     expect(screen.getByText('Unavailable')).toBeInTheDocument()
     expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+
+    // The unavailable branch is a second, separate `GridCard` — it keeps the
+    // domain, so a theme's `input_boolean` rules still reach a card that has
+    // dropped offline.
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-unavailable', 'true')
+    expect(card).toHaveAttribute('data-domain', 'input_boolean')
   })
 
   describe('size variants', () => {
@@ -289,8 +304,8 @@ describe('InputBooleanCard', () => {
         <InputBooleanCard entityId="input_boolean.test_toggle" size="small" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '60px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'small')
 
       const switchElement = screen.getByRole('switch')
       expect(switchElement).toHaveClass('rt-r-size-1')
@@ -301,8 +316,8 @@ describe('InputBooleanCard', () => {
         <InputBooleanCard entityId="input_boolean.test_toggle" size="medium" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '80px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'medium')
 
       const switchElement = screen.getByRole('switch')
       expect(switchElement).toHaveClass('rt-r-size-2')
@@ -313,8 +328,8 @@ describe('InputBooleanCard', () => {
         <InputBooleanCard entityId="input_boolean.test_toggle" size="large" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '100px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'large')
 
       const switchElement = screen.getByRole('switch')
       expect(switchElement).toHaveClass('rt-r-size-3')

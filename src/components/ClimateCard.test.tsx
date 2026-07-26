@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
-import { ClimateCard } from './ClimateCard'
+import { ClimateCard, HvacModeIcon } from './ClimateCard'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore } from '~/store'
 
@@ -254,10 +254,12 @@ describe('ClimateCard', () => {
 
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      // Find all mode buttons - there should be 3 (off, heat, cool)
-      const buttons = screen.getAllByRole('button')
-      // Filter to just the mode buttons (they have width: 56px)
-      const modeButtons = buttons.filter((btn) => btn.style.width === '56px')
+      // Find all mode buttons - there should be 3 (off, heat, cool). They are
+      // anatomy pills now, so they are found by the contract class rather than
+      // by an inline `width: 56px` — the sizing moved into the layered sheet.
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
       expect(modeButtons).toHaveLength(3)
 
       // The mode buttons have labels now
@@ -276,6 +278,37 @@ describe('ClimateCard', () => {
           hvac_mode: 'heat',
         },
       })
+    })
+
+    it('renders a glyph for every mode the thermostat reports, including dry and fan_only', () => {
+      const entity = createMockClimateEntity({
+        state: 'dry',
+        attributes: {
+          hvac_mode: 'dry',
+          hvac_modes: ['off', 'heat', 'cool', 'auto', 'heat_cool', 'dry', 'fan_only'],
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      expect(modeButtons).toHaveLength(7)
+
+      // The two modes the default fixture never reports still get their own
+      // glyph rather than the two-letter label fallback.
+      for (const label of ['Off', 'Heat', 'Cool', 'Auto', 'Heat/Cool', 'Dry', 'Fan']) {
+        expect(screen.getByText(label)).toBeInTheDocument()
+      }
+      for (const pill of modeButtons) {
+        expect(pill.querySelector('svg')).toBeTruthy()
+      }
     })
   })
 
@@ -330,6 +363,110 @@ describe('ClimateCard', () => {
       // Border color is not explicitly set for normal states
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       expect(card).toBeTruthy()
+    })
+
+    it('resolves a drying thermostat to the water triplet', () => {
+      const entity = createMockClimateEntity({
+        state: 'dry',
+        attributes: {
+          friendly_name: 'Test Thermostat',
+          hvac_mode: 'dry',
+          hvac_action: 'drying',
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+
+      expect(screen.getByText('drying')).toBeInTheDocument()
+      expect(screen.getByText('Test Thermostat').closest('.climate-card')).toHaveAttribute(
+        'data-color',
+        'water'
+      )
+    })
+
+    it('resolves a thermostat that is only running its fan to the ok triplet', () => {
+      const entity = createMockClimateEntity({
+        state: 'fan_only',
+        attributes: {
+          friendly_name: 'Test Thermostat',
+          hvac_mode: 'fan_only',
+          hvac_action: 'fan',
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+
+      expect(screen.getByText('fan')).toBeInTheDocument()
+      expect(screen.getByText('Test Thermostat').closest('.climate-card')).toHaveAttribute(
+        'data-color',
+        'ok'
+      )
+    })
+  })
+
+  describe('Heat/cool drag handles', () => {
+    const renderHeatCool = () => {
+      const entity = createMockClimateEntity({
+        state: 'heat_cool',
+        attributes: {
+          hvac_mode: 'heat_cool',
+          target_temp_low: 20,
+          target_temp_high: 24,
+          current_temperature: 22,
+          supported_features: 3, // TARGET_TEMP + TARGET_TEMP_RANGE
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      return renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+    }
+
+    const dotFor = (container: HTMLElement, triplet: 'heat' | 'cool') =>
+      container.querySelector<SVGCircleElement>(
+        `circle[stroke="var(--liebe-c-${triplet})"][stroke-width="3"]`
+      )!
+
+    it('lights the heat handle while it is being dragged', () => {
+      const { container } = renderHeatCool()
+
+      const heatDot = dotFor(container, 'heat')
+      expect(heatDot.style.filter).toBe('')
+
+      fireEvent.mouseDown(heatDot)
+
+      expect(dotFor(container, 'heat').style.filter).toBe(
+        'drop-shadow(0 0 8px var(--liebe-c-heat))'
+      )
+      // Only the grabbed handle lights up.
+      expect(dotFor(container, 'cool').style.filter).toBe('')
+    })
+
+    it('lights the cool handle while it is being dragged', () => {
+      const { container } = renderHeatCool()
+
+      const coolDot = dotFor(container, 'cool')
+      expect(coolDot.style.filter).toBe('')
+
+      fireEvent.mouseDown(coolDot)
+
+      expect(dotFor(container, 'cool').style.filter).toBe(
+        'drop-shadow(0 0 8px var(--liebe-c-cool))'
+      )
+      expect(dotFor(container, 'heat').style.filter).toBe('')
     })
   })
 
@@ -428,7 +565,7 @@ describe('ClimateCard', () => {
 
       // Check for loading class
       const card = container.querySelector('.climate-card')
-      expect(card).toHaveClass('grid-card-loading')
+      expect(card).toHaveAttribute('data-loading', 'true')
     })
 
     it('shows error state with red border', () => {
@@ -448,11 +585,10 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
-      expect(card).toHaveClass('grid-card-error')
-      expect(card).toHaveStyle({ borderWidth: '2px' })
-      // jsdom 27's getComputedStyle resolves var() and returns "" for the
-      // border-color shorthand, so assert the inline value directly.
-      expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+      // The error outline and its one-shot pulse are `.liebe-card[data-error]`
+      // in the layered shell sheet now, rather than an inline border plus a
+      // `grid-card-error` class.
+      expect(card).toHaveAttribute('data-error', 'true')
       expect(card).toHaveAttribute('title', 'Service call failed')
     })
 
@@ -498,5 +634,37 @@ describe('ClimateCard', () => {
       expect(screen.getByText('73')).toBeInTheDocument()
       expect(screen.getByText('70.0°F')).toBeInTheDocument()
     })
+  })
+})
+
+/**
+ * Exercised directly rather than through the card: the pill row's
+ * `if (!modeConfig) return null` guard drops every mode outside `HVAC_MODES`,
+ * and all seven of that map's keys have a glyph, so nothing the card can render
+ * reaches the fallback arm. It is still the arm an eighth mode would land on.
+ */
+describe('HvacModeIcon', () => {
+  it('draws a distinct glyph for each mode the map knows', () => {
+    for (const mode of ['off', 'heat', 'cool', 'auto', 'heat_cool', 'dry', 'fan_only']) {
+      const { container, unmount } = render(
+        <Theme>
+          <HvacModeIcon mode={mode} label={mode} />
+        </Theme>
+      )
+
+      expect(container.querySelector('svg')).toBeTruthy()
+      unmount()
+    }
+  })
+
+  it('falls back to the first two letters of the label for a mode with no glyph', () => {
+    const { container } = render(
+      <Theme>
+        <HvacModeIcon mode="eco" label="Eco" />
+      </Theme>
+    )
+
+    expect(screen.getByText('Ec')).toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeNull()
   })
 })

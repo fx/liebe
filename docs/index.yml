@@ -116,7 +116,7 @@ changes:
     path: changes/0010-design-tokens-and-anatomy.md
     description: The --liebe-* token contract (dark+light, Radix-aliased), anatomy components with stable classes, tint-pattern state styling, slider primitive, and the flat card shell restyle
     spec: design-system
-    status: draft
+    status: complete
     depends_on: ['0009']
   - id: '0011'
     name: layout-tiers

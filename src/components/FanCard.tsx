@@ -1,9 +1,10 @@
-import { Flex, Text, Box, IconButton, Select } from '@radix-ui/themes'
+import { Flex, Box, Select } from '@radix-ui/themes'
 import { Fan, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
 import React, { memo, useCallback } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { Pill, PillGroup } from './anatomy'
 import { useDashboardStore } from '~/store'
 
 interface FanCardProps {
@@ -103,13 +104,13 @@ function FanCardComponent({
     )
   }
 
-  const iconScale = size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8
-
   // Handle unavailable state
   const isUnavailable = entity.state === 'unavailable'
   if (isUnavailable) {
     return (
       <GridCard
+        domain="fan"
+        color="ok"
         size={size}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
@@ -117,27 +118,10 @@ function FanCardComponent({
       >
         <Flex direction="column" align="center" justify="center" gap="2">
           <GridCard.Icon>
-            <span
-              style={{
-                color: 'var(--gray-9)',
-                opacity: 0.5,
-                transform: `scale(${iconScale})`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Fan size={24} />
-            </span>
+            <Fan size={24} />
           </GridCard.Icon>
-          <GridCard.Title>
-            <Text color="gray">{entity.attributes.friendly_name || entity.entity_id}</Text>
-          </GridCard.Title>
-          <GridCard.Status>
-            <Text size="1" color="gray" weight="medium">
-              UNAVAILABLE
-            </Text>
-          </GridCard.Status>
+          <GridCard.Title>{entity.attributes.friendly_name || entity.entity_id}</GridCard.Title>
+          <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
     )
@@ -194,6 +178,10 @@ function FanCardComponent({
 
   return (
     <GridCard
+      // Fans take the `ok` triplet in the design system's default mapping
+      // ("Locked, home, secure, fan").
+      domain="fan"
+      color="ok"
       size={size}
       isLoading={isLoading}
       isError={!!error}
@@ -204,11 +192,6 @@ function FanCardComponent({
       onDelete={onDelete}
       onClick={handleToggle}
       title={error || undefined}
-      style={{
-        backgroundColor: isOn && !isSelected && !error ? 'var(--cyan-3)' : undefined,
-        borderColor: isOn && !isSelected && !error ? 'var(--cyan-6)' : undefined,
-        borderWidth: isSelected || error || isOn ? '2px' : '1px',
-      }}
     >
       <Flex
         direction="column"
@@ -218,34 +201,12 @@ function FanCardComponent({
         style={{ minHeight: size === 'large' ? '140px' : size === 'medium' ? '120px' : '100px' }}
       >
         <GridCard.Icon>
-          <span
-            className={getAnimationClass()}
-            style={{
-              color: isStale ? 'var(--orange-9)' : isOn ? 'var(--cyan-9)' : 'var(--gray-9)',
-              opacity: isLoading ? 0.3 : isStale ? 0.6 : 1,
-              transform: `scale(${iconScale})`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'opacity 0.2s ease',
-            }}
-          >
+          <span className={getAnimationClass()}>
             <Fan size={24} />
           </span>
         </GridCard.Icon>
 
-        <GridCard.Title>
-          <Text
-            weight={isOn ? 'medium' : 'regular'}
-            style={{
-              color: isOn ? 'var(--cyan-11)' : undefined,
-              opacity: isLoading ? 0.7 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {friendlyName}
-          </Text>
-        </GridCard.Title>
+        <GridCard.Title>{friendlyName}</GridCard.Title>
 
         {/* Speed controls when on and supports speed */}
         {!isEditMode && isOn && (supportsSpeed || supportsPresetMode) && (
@@ -269,70 +230,28 @@ function FanCardComponent({
               </Select.Root>
             ) : (
               supportsSpeed && (
-                <Flex
-                  gap="1"
-                  align="center"
-                  justify="center"
-                  style={{ position: 'relative' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <IconButton
-                    size="2"
-                    variant={selectedButton === '25' ? 'solid' : 'soft'}
-                    color="cyan"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleSpeedChange('25')
-                    }}
-                    disabled={isLoading}
-                    aria-label="Low speed (25%)"
-                    style={{ opacity: isLoading ? 0.7 : 1 }}
-                  >
-                    <Wind size="12" />
-                  </IconButton>
-                  <IconButton
-                    size="2"
-                    variant={selectedButton === '50' ? 'solid' : 'soft'}
-                    color="cyan"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleSpeedChange('50')
-                    }}
-                    disabled={isLoading}
-                    aria-label="Medium-low speed (50%)"
-                    style={{ opacity: isLoading ? 0.7 : 1 }}
-                  >
-                    <Wind size="14" />
-                  </IconButton>
-                  <IconButton
-                    size="2"
-                    variant={selectedButton === '75' ? 'solid' : 'soft'}
-                    color="cyan"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleSpeedChange('75')
-                    }}
-                    disabled={isLoading}
-                    aria-label="Medium-high speed (75%)"
-                    style={{ opacity: isLoading ? 0.7 : 1 }}
-                  >
-                    <Wind size="16" />
-                  </IconButton>
-                  <IconButton
-                    size="2"
-                    variant={selectedButton === '100' ? 'solid' : 'soft'}
-                    color="cyan"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleSpeedChange('100')
-                    }}
-                    disabled={isLoading}
-                    aria-label="High speed (100%)"
-                    style={{ opacity: isLoading ? 0.7 : 1 }}
-                  >
-                    <Wind size="18" />
-                  </IconButton>
-                </Flex>
+                <PillGroup label="Fan speed">
+                  {(
+                    [
+                      { value: '25', label: 'Low speed (25%)', glyph: 12 },
+                      { value: '50', label: 'Medium-low speed (50%)', glyph: 14 },
+                      { value: '75', label: 'Medium-high speed (75%)', glyph: 16 },
+                      { value: '100', label: 'High speed (100%)', glyph: 18 },
+                    ] as const
+                  ).map(({ value, label, glyph }) => (
+                    <Pill
+                      key={value}
+                      domain="fan"
+                      color="ok"
+                      active={selectedButton === value}
+                      label={label}
+                      hideLabel
+                      icon={<Wind size={glyph} />}
+                      disabled={isLoading}
+                      onClick={() => handleSpeedChange(value)}
+                    />
+                  ))}
+                </PillGroup>
               )
             )}
           </Box>
@@ -340,21 +259,11 @@ function FanCardComponent({
 
         {/* Status text */}
         <GridCard.Status>
-          <Text
-            size="1"
-            color={error ? 'red' : isOn ? 'cyan' : 'gray'}
-            weight="medium"
-            style={{
-              opacity: isLoading ? 0.5 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {error
-              ? 'ERROR'
-              : isOn
-                ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
-                : 'OFF'}
-          </Text>
+          {error
+            ? 'ERROR'
+            : isOn
+              ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
+              : 'OFF'}
         </GridCard.Status>
       </Flex>
     </GridCard>

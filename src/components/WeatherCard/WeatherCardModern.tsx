@@ -2,7 +2,7 @@ import { Flex, Text, Box } from '@radix-ui/themes'
 import { Cloud, CloudRain, CloudSnow, Sun, CloudDrizzle, Zap } from 'lucide-react'
 import { useEntity } from '../../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
-import { GridCard } from '../GridCard'
+import { GridCardWithComponents as GridCard } from '../GridCard'
 import type { CardProps } from '../cardRegistry'
 import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
 import { getWeatherBackground, getWeatherTextStyles, getWeatherTextColor } from './index'
@@ -115,6 +115,7 @@ function WeatherCardModernContent(props: CardProps) {
   if (isUnavailable) {
     return (
       <GridCard
+        domain="weather"
         size={size}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
@@ -127,12 +128,10 @@ function WeatherCardModernContent(props: CardProps) {
           <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
             {getWeatherIcon(entity.state, iconSize)}
           </Box>
-          <Text size="2" color="gray">
+          <GridCard.Title>
             {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-          </Text>
-          <Text size="1" color="gray" weight="medium">
-            UNAVAILABLE
-          </Text>
+          </GridCard.Title>
+          <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
     )
@@ -140,6 +139,7 @@ function WeatherCardModernContent(props: CardProps) {
 
   return (
     <GridCard
+      domain="weather"
       size={size}
       isStale={isStale}
       isSelected={isSelected}
@@ -165,7 +165,6 @@ function WeatherCardModernContent(props: CardProps) {
         style={{
           height: '100%',
           position: 'relative',
-          zIndex: 1,
         }}
       >
         <Box

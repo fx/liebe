@@ -1,5 +1,6 @@
-import { Flex, Text } from '@radix-ui/themes'
+import { Flex } from '@radix-ui/themes'
 import { useEntity } from '~/hooks'
+import type { DomainColorName } from '~/theme/tokens'
 import { createElement, memo, useState, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
@@ -41,6 +42,36 @@ const getDefaultIcons = (deviceClass?: string): { onIcon: string; offIcon: strin
   }
 
   return deviceClassMap[deviceClass] || { onIcon: 'CircleCheck', offIcon: 'Circle' }
+}
+
+/**
+ * Which `--liebe-c-*` triplet an active binary sensor resolves to.
+ *
+ * The design system resolves binary sensors by `device_class` rather than by
+ * domain (docs/specs/design-system — "Domain color discipline"), so a smoke
+ * detector that has tripped reads as an alert and a leak sensor reads as water,
+ * while the classes that carry no urgency fall through to the generic active
+ * colour. Off is never coloured at all, so this is only ever asked about `on`.
+ */
+const getActiveColor = (deviceClass?: string): DomainColorName => {
+  switch (deviceClass) {
+    // Home Assistant's danger classes, in full — a tripped CO detector reading
+    // the same as a doorbell is the exact failure this mapping exists to
+    // prevent.
+    case 'carbon_monoxide':
+    case 'gas':
+    case 'heat':
+    case 'problem':
+    case 'safety':
+    case 'smoke':
+    case 'tamper':
+      return 'alert'
+    case 'moisture':
+    case 'water':
+      return 'water'
+    default:
+      return 'default'
+  }
 }
 
 function BinarySensorCardComponent({
@@ -108,6 +139,8 @@ function BinarySensorCardComponent({
   return (
     <>
       <GridCard
+        domain="binary_sensor"
+        color={getActiveColor(deviceClass)}
         size={size}
         isLoading={false}
         isError={false}
@@ -120,52 +153,13 @@ function BinarySensorCardComponent({
         onConfigure={isEditMode && item ? () => setConfigOpen(true) : undefined}
         hasConfiguration={!!item}
         title={undefined}
-        style={{
-          backgroundColor: isOn && !isSelected ? 'var(--amber-3)' : undefined,
-          borderColor: isOn && !isSelected ? 'var(--amber-6)' : undefined,
-          borderWidth: isSelected || isOn ? '2px' : '1px',
-        }}
       >
         <Flex direction="column" align="center" justify="center" gap="2">
-          <GridCard.Icon>
-            <span
-              style={{
-                color: isStale ? 'var(--orange-9)' : isOn ? 'var(--amber-9)' : 'var(--gray-9)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: isStale ? 0.6 : isOn ? 1 : 0.5,
-                transition: 'opacity 0.2s ease',
-              }}
-            >
-              {createElement(IconComponent, { size: iconSize })}
-            </span>
-          </GridCard.Icon>
+          <GridCard.Icon>{createElement(IconComponent, { size: iconSize })}</GridCard.Icon>
 
-          <GridCard.Title>
-            <Text
-              weight={isOn ? 'medium' : 'regular'}
-              style={{
-                color: isOn ? 'var(--amber-11)' : undefined,
-                transition: 'opacity 0.2s ease',
-              }}
-            >
-              {friendlyName}
-            </Text>
-          </GridCard.Title>
+          <GridCard.Title>{friendlyName}</GridCard.Title>
 
-          <GridCard.Status>
-            <Text
-              size="1"
-              color={isOn ? 'amber' : 'gray'}
-              weight="medium"
-              style={{
-                transition: 'opacity 0.2s ease',
-              }}
-            >
-              {entity.state.toUpperCase()}
-            </Text>
-          </GridCard.Status>
+          <GridCard.Status>{entity.state.toUpperCase()}</GridCard.Status>
         </Flex>
       </GridCard>
 

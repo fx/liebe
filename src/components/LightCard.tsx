@@ -1,10 +1,10 @@
-import { Flex, Text } from '@radix-ui/themes'
-import * as Slider from '@radix-ui/react-slider'
+import { Flex } from '@radix-ui/themes'
 import { SunIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { Slider } from './anatomy'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
@@ -59,14 +59,18 @@ function LightCardComponent({
   // Get config from item
   const config = item?.config || {}
 
-  const handleBrightnessChange = useCallback((value: number[]) => {
-    setLocalBrightness(value[0])
+  const handleBrightnessChange = useCallback((value: number) => {
+    // The anatomy slider reports every value the control passes through, which
+    // is also the signal that a drag is under way: the card must not toggle the
+    // light the finger is dimming.
+    setIsDragging(true)
+    setLocalBrightness(value)
   }, [])
 
   const handleBrightnessCommit = useCallback(
-    async (value: number[]) => {
+    async (value: number) => {
       setIsDragging(false)
-      const brightness = Math.round((value[0] / 100) * 255)
+      const brightness = Math.round((value / 100) * 255)
 
       // If setting to 0, turn off the light
       if (brightness === 0) {
@@ -173,6 +177,8 @@ function LightCardComponent({
   return (
     <>
       <GridCard
+        domain="light"
+        color="light"
         size={size}
         isLoading={isLoading}
         isError={!!error}
@@ -187,79 +193,35 @@ function LightCardComponent({
         hasConfiguration={true}
         title={error || undefined}
         className="light-card"
-        style={{
-          backgroundColor: isOn && !isSelected && !error ? 'var(--amber-3)' : undefined,
-          borderColor: isOn && !isSelected && !error ? 'var(--amber-6)' : undefined,
-          borderWidth: isSelected || error || isOn ? '2px' : '1px',
-        }}
       >
         <Flex direction="column" align="center" justify="center" gap="3">
           <GridCard.Icon>
-            <SunIcon
-              style={{
-                color: isOn ? 'var(--amber-9)' : 'var(--gray-9)',
-                opacity: isLoading ? 0.3 : 1,
-                transition: 'opacity 0.2s ease',
-                width: 20,
-                height: 20,
-              }}
-            />
+            <SunIcon width={20} height={20} />
           </GridCard.Icon>
 
-          <GridCard.Title>
-            <Text
-              weight={isOn ? 'medium' : 'regular'}
-              style={{
-                color: isOn ? 'var(--amber-11)' : undefined,
-                opacity: isLoading ? 0.7 : 1,
-                transition: 'opacity 0.2s ease',
-              }}
-            >
-              {friendlyName}
-            </Text>
-          </GridCard.Title>
+          <GridCard.Title>{friendlyName}</GridCard.Title>
 
           {!isEditMode && isOn && supportsBrightness && enableBrightness && (
             <GridCard.Controls>
-              <Text size="1" color="gray" style={{ minWidth: '35px' }}>
-                {displayBrightness}%
-              </Text>
-              <Slider.Root
-                className="SliderRoot"
-                value={[displayBrightness]}
+              <Slider
+                domain="light"
+                color="light"
+                active={isOn}
+                label="Brightness"
+                value={displayBrightness}
+                readout={`${displayBrightness}%`}
                 onValueChange={handleBrightnessChange}
                 onValueCommit={handleBrightnessCommit}
-                onPointerDown={() => setIsDragging(true)}
-                onPointerUp={() => setIsDragging(false)}
-                max={100}
-                step={1}
-                aria-label="Brightness"
-                style={{ flex: '1' }}
-              >
-                <Slider.Track className="SliderTrack">
-                  <Slider.Range className="SliderRange" />
-                </Slider.Track>
-                <Slider.Thumb className="SliderThumb" />
-              </Slider.Root>
+              />
             </GridCard.Controls>
           )}
 
           <GridCard.Status>
-            <Text
-              size="1"
-              color={error ? 'red' : isOn ? 'amber' : 'gray'}
-              weight="medium"
-              style={{
-                opacity: isLoading ? 0.5 : 1,
-                transition: 'opacity 0.2s ease',
-              }}
-            >
-              {error
-                ? 'ERROR'
-                : isOn && displayBrightness < 100 && supportsBrightness
-                  ? `${displayBrightness}%`
-                  : entity.state.toUpperCase()}
-            </Text>
+            {error
+              ? 'ERROR'
+              : isOn && displayBrightness < 100 && supportsBrightness
+                ? `${displayBrightness}%`
+                : entity.state.toUpperCase()}
           </GridCard.Status>
         </Flex>
       </GridCard>

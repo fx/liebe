@@ -103,6 +103,23 @@ describe('CoverCard', () => {
       expect(screen.getByText('Test Cover')).toBeInTheDocument()
     })
 
+    it('falls back to the entity id when an unavailable cover has no friendly name', () => {
+      const entity = createMockCoverEntity({
+        state: 'unavailable',
+        attributes: { friendly_name: undefined },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" />)
+
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('cover.test_cover')).toBeInTheDocument()
+    })
+
     it('renders disconnected state', () => {
       ;(useEntity as any).mockReturnValue({
         entity: null,
@@ -469,7 +486,7 @@ describe('CoverCard', () => {
 
       // Check for loading class
       const card = container.querySelector('.cover-card')
-      expect(card).toHaveClass('grid-card-loading')
+      expect(card).toHaveAttribute('data-loading', 'true')
     })
 
     it('does not show stale state visually (stale display removed)', () => {
@@ -501,15 +518,15 @@ describe('CoverCard', () => {
 
       const { container, rerender } = render(<CoverCard entityId="cover.test_cover" size="small" />)
       let card = container.querySelector('.cover-card')
-      expect(card).toHaveStyle({ minHeight: '60px' })
+      expect(card).toHaveAttribute('data-size', 'small')
 
       rerender(<CoverCard entityId="cover.test_cover" size="medium" />)
       card = container.querySelector('.cover-card')
-      expect(card).toHaveStyle({ minHeight: '80px' })
+      expect(card).toHaveAttribute('data-size', 'medium')
 
       rerender(<CoverCard entityId="cover.test_cover" size="large" />)
       card = container.querySelector('.cover-card')
-      expect(card).toHaveStyle({ minHeight: '100px' })
+      expect(card).toHaveAttribute('data-size', 'large')
     })
   })
 })

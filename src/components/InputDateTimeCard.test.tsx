@@ -141,7 +141,7 @@ describe('InputDateTimeCard', () => {
     expect(container.querySelector('form')).not.toBeInTheDocument()
 
     // Click the card to enter edit mode
-    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    const card = screen.getByText('Test DateTime').closest('.liebe-card')!
     fireEvent.click(card)
 
     // Wait for the form and input to appear
@@ -174,7 +174,7 @@ describe('InputDateTimeCard', () => {
 
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
-    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    const card = screen.getByText('Test DateTime').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -201,7 +201,7 @@ describe('InputDateTimeCard', () => {
 
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
-    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    const card = screen.getByText('Test DateTime').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -214,7 +214,7 @@ describe('InputDateTimeCard', () => {
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
     // Enter edit mode by clicking the card
-    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    const card = screen.getByText('Test DateTime').closest('.liebe-card')!
     fireEvent.click(card)
 
     // Wait for edit mode to activate
@@ -245,7 +245,7 @@ describe('InputDateTimeCard', () => {
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
     // Enter edit mode by clicking the card
-    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    const card = screen.getByText('Test DateTime').closest('.liebe-card')!
     fireEvent.click(card)
 
     // Wait for edit mode to activate
@@ -356,7 +356,7 @@ describe('InputDateTimeCard', () => {
     // Input field should not be visible in edit mode
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
 
-    const card = screen.getByText('Test DateTime').closest('.rt-Card')!
+    const card = screen.getByText('Test DateTime').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -380,8 +380,8 @@ describe('InputDateTimeCard', () => {
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
     // Check for loading class
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-loading')
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-loading', 'true')
   })
 
   it('shows error state', () => {
@@ -398,13 +398,47 @@ describe('InputDateTimeCard', () => {
 
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
 
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-error')
-    expect(card).toHaveStyle({ borderWidth: '2px' })
-    // jsdom 27's getComputedStyle resolves var() and returns "" for the
-    // border-color shorthand, so assert the inline value directly.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+    const card = container.querySelector('.liebe-card')
+    // The error outline and its one-shot pulse are `.liebe-card[data-error]`
+    // in the layered shell sheet now, rather than an inline border plus a
+    // `grid-card-error` class — inline declarations outrank every cascade
+    // layer, so a theme could never have restyled them.
+    expect(card).toHaveAttribute('data-error', 'true')
     expect(card).toHaveAttribute('title', 'Failed to set value')
+  })
+
+  describe('shell metadata', () => {
+    // `domain` and `color` are what the anatomy parts and the stable selector
+    // contract key off (docs/specs/theming — "Stable selector contract"). They
+    // are otherwise unasserted, so a wrong mapping would repaint every
+    // hue-carrying part of the card and pass the whole suite.
+    it('stamps the domain and the colour triplet on the tile', () => {
+      const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-domain', 'input_datetime')
+      // Input helpers have no domain row of their own; `default` is the generic
+      // active colour the design system points them at.
+      expect(card).toHaveAttribute('data-color', 'default')
+    })
+
+    it('keeps the domain on the unavailable card', () => {
+      // The unavailable branch is a second, separate `GridCard`. It must carry
+      // the same domain, so a theme's rules still reach a card that has dropped
+      // offline.
+      vi.mocked(useEntity).mockReturnValue({
+        entity: { ...defaultEntity, state: 'unavailable' },
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-unavailable', 'true')
+      expect(card).toHaveAttribute('data-domain', 'input_datetime')
+    })
   })
 
   describe('size variants', () => {
@@ -413,8 +447,8 @@ describe('InputDateTimeCard', () => {
         <InputDateTimeCard entityId="input_datetime.test_datetime" size="small" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '60px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'small')
     })
 
     it('renders medium size', () => {
@@ -422,8 +456,8 @@ describe('InputDateTimeCard', () => {
         <InputDateTimeCard entityId="input_datetime.test_datetime" size="medium" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '80px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'medium')
     })
 
     it('renders large size', () => {
@@ -431,8 +465,8 @@ describe('InputDateTimeCard', () => {
         <InputDateTimeCard entityId="input_datetime.test_datetime" size="large" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '100px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'large')
     })
   })
 })

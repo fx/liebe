@@ -65,23 +65,27 @@ describe('LightCard Slider Usability', () => {
   it('renders slider with proper structure', () => {
     const { container } = render(<LightCard entityId="light.test_light" />)
 
-    // The slider should be visible
+    // The accessible name is on the element carrying `role="slider"` now — the
+    // thumb — rather than on the wrapper. That relocation is the fix for issue
+    // #192, and it is why this looks the thumb up rather than a root.
     const slider = screen.getByLabelText('Brightness')
     expect(slider).toBeInTheDocument()
     expect(slider).toBeVisible()
+    expect(slider).toHaveAttribute('role', 'slider')
 
     // Check that all parts of the slider are present
-    const sliderRoot = container.querySelector('.SliderRoot')
-    const sliderTrack = container.querySelector('.SliderTrack')
-    const sliderRange = container.querySelector('.SliderRange')
-    const sliderThumb = container.querySelector('.SliderThumb')
+    const sliderRoot = container.querySelector('.liebe-slider')
+    const sliderTrack = container.querySelector('.liebe-slider-track')
+    const sliderRange = container.querySelector('.liebe-slider-fill')
+    const sliderThumb = container.querySelector('.liebe-slider-thumb')
 
     expect(sliderRoot).toBeInTheDocument()
     expect(sliderTrack).toBeInTheDocument()
     expect(sliderRange).toBeInTheDocument()
     expect(sliderThumb).toBeInTheDocument()
 
-    // The percentage text should show 50% - there are two, one in controls and one in status
+    // The percentage text should show 50% - one in the slider's readout, one
+    // in the status line
     const percentageTexts = screen.getAllByText('50%')
     expect(percentageTexts).toHaveLength(2)
   })
@@ -89,11 +93,10 @@ describe('LightCard Slider Usability', () => {
   it('slider is interactive and calls service on change', async () => {
     render(<LightCard entityId="light.test_light" />)
 
-    const slider = screen.getByLabelText('Brightness')
-
-    // The Radix UI slider uses data attributes for testing
-    const sliderThumb = slider.querySelector('[role="slider"]')
-    expect(sliderThumb).toBeInTheDocument()
+    // The named element IS the slider, so there is no inner `[role="slider"]`
+    // to look for — see #192.
+    const sliderThumb = screen.getByLabelText('Brightness')
+    expect(sliderThumb).toHaveAttribute('role', 'slider')
 
     // Check initial value
     expect(sliderThumb).toHaveAttribute('aria-valuenow', '50')
@@ -110,16 +113,13 @@ describe('LightCard Slider Usability', () => {
     // Find the controls section by class
     const controls = container.querySelector('.grid-card-controls')
     expect(controls).toBeInTheDocument()
+    // The row's own `width: 100%` and the slider's fill-the-row sizing are
+    // declarations in the layered sheets now, not inline styles.
+    expect(controls).toHaveClass('liebe-card-controls')
 
-    // The controls should have width: 100%
-    expect(controls).toHaveStyle({ width: '100%' })
-
-    // The slider root should be a direct child of controls
-    const sliderRoot = controls?.querySelector('.SliderRoot')
+    // The slider should be a direct child of controls
+    const sliderRoot = controls?.querySelector('.liebe-slider')
     expect(sliderRoot).toBeInTheDocument()
-
-    // The slider should have flex: 1 to expand
-    expect(sliderRoot).toHaveStyle({ flex: '1' })
   })
 
   it('does not show slider in edit mode', () => {
