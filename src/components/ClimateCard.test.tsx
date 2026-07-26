@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
-import { ClimateCard } from './ClimateCard'
+import { ClimateCard, HvacModeIcon } from './ClimateCard'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore } from '~/store'
 
@@ -634,5 +634,37 @@ describe('ClimateCard', () => {
       expect(screen.getByText('73')).toBeInTheDocument()
       expect(screen.getByText('70.0°F')).toBeInTheDocument()
     })
+  })
+})
+
+/**
+ * Exercised directly rather than through the card: the pill row's
+ * `if (!modeConfig) return null` guard drops every mode outside `HVAC_MODES`,
+ * and all seven of that map's keys have a glyph, so nothing the card can render
+ * reaches the fallback arm. It is still the arm an eighth mode would land on.
+ */
+describe('HvacModeIcon', () => {
+  it('draws a distinct glyph for each mode the map knows', () => {
+    for (const mode of ['off', 'heat', 'cool', 'auto', 'heat_cool', 'dry', 'fan_only']) {
+      const { container, unmount } = render(
+        <Theme>
+          <HvacModeIcon mode={mode} label={mode} />
+        </Theme>
+      )
+
+      expect(container.querySelector('svg')).toBeTruthy()
+      unmount()
+    }
+  })
+
+  it('falls back to the first two letters of the label for a mode with no glyph', () => {
+    const { container } = render(
+      <Theme>
+        <HvacModeIcon mode="eco" label="Eco" />
+      </Theme>
+    )
+
+    expect(screen.getByText('Ec')).toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeNull()
   })
 })
