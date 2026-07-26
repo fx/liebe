@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { Badge, Box, Code, Flex, Heading, Table, Text, Theme } from '@radix-ui/themes'
 import {
@@ -14,23 +14,38 @@ import {
  * ------------------------------------------------------------------ */
 
 /**
- * Resolves token values off a real element, so the table shows what the
- * cascade actually produced rather than what the stylesheet says. Re-reads when
- * `appearance` changes, which is what makes the side-by-side panes below show
- * two different sets of values from one component.
+ * Resolves token values off a real element, so the table shows what the cascade
+ * actually produced rather than what the stylesheet says.
+ *
+ * Deliberately dependency-free. Radix keeps the appearance in state and applies
+ * the matching theme class in a passive effect, one render *after* the toolbar
+ * global changes — so an effect keyed on the appearance would read the outgoing
+ * cascade and never re-read, leaving the tables a switch behind. Running after
+ * every render catches that second render; bailing out when nothing changed is
+ * what stops it looping.
  */
-function useResolvedTokens(names: string[], appearance: string) {
+function useResolvedTokens(names: string[]) {
   const ref = useRef<HTMLDivElement>(null)
   const [values, setValues] = useState<Record<string, string>>({})
 
-  const key = names.join('|')
-  useLayoutEffect(() => {
-    if (!ref.current) return
-    const styles = getComputedStyle(ref.current)
-    setValues(
-      Object.fromEntries(key.split('|').map((name) => [name, styles.getPropertyValue(name).trim()]))
+  // The rule's suggested `[names]` is exactly what must not happen here: it
+  // would re-key the effect on a value that never changes when the appearance
+  // does, which is the staleness this hook exists to avoid. The bail-out below
+  // is what makes the missing dependency list safe.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const styles = getComputedStyle(element)
+    const next = Object.fromEntries(
+      names.map((name) => [name, styles.getPropertyValue(name).trim()])
     )
-  }, [key, appearance])
+    setValues((current) =>
+      names.length === Object.keys(current).length && names.every((n) => current[n] === next[n])
+        ? current
+        : next
+    )
+  })
 
   return { ref, values }
 }
@@ -146,9 +161,9 @@ function TokenSample({ group, name, value }: { group: TokenGroup; name: string; 
   return <Swatch value={value} />
 }
 
-function TokenTable({ group, appearance }: { group: TokenGroup; appearance: string }) {
+function TokenTable({ group }: { group: TokenGroup }) {
   const names = group.tokens.map((token) => token.name)
-  const { ref, values } = useResolvedTokens(names, appearance)
+  const { ref, values } = useResolvedTokens(names)
 
   return (
     <Box ref={ref}>
@@ -193,9 +208,9 @@ function TokenTable({ group, appearance }: { group: TokenGroup; appearance: stri
 }
 
 /** The active/inactive treatment every anatomy part reuses, one row per domain. */
-function DomainColorTable({ appearance }: { appearance: string }) {
+function DomainColorTable() {
   const names = domainColors.flatMap(({ name }) => Object.values(domainColorTokens(name)))
-  const { ref, values } = useResolvedTokens(names, appearance)
+  const { ref, values } = useResolvedTokens(names)
 
   return (
     <Box ref={ref}>
@@ -292,7 +307,7 @@ function IconCircle({ glyph, surface }: { glyph: string; surface: string }) {
 /** Side-by-side reference hex and resolved alias, per surface token. */
 function AliasFidelityTable({ appearance }: { appearance: 'dark' | 'light' }) {
   const names = surfaceReferences.map((surface) => surface.name)
-  const { ref, values } = useResolvedTokens(names, appearance)
+  const { ref, values } = useResolvedTokens(names)
 
   return (
     <Box ref={ref}>
@@ -380,25 +395,22 @@ type Story = StoryObj
 
 /** Every non-colour token, resolved in the appearance chosen in the toolbar. */
 export const Reference: Story = {
-  render: (_args, { globals }) => {
-    const appearance = String(globals.appearance ?? 'dark')
-    return (
-      <TokenSurface>
-        <Flex direction="column" gap="5">
-          {tokenGroups.map((group) => (
-            <TokenTable key={group.id} group={group} appearance={appearance} />
-          ))}
-        </Flex>
-      </TokenSurface>
-    )
-  },
+  render: () => (
+    <TokenSurface>
+      <Flex direction="column" gap="5">
+        {tokenGroups.map((group) => (
+          <TokenTable key={group.id} group={group} />
+        ))}
+      </Flex>
+    </TokenSurface>
+  ),
 }
 
 /** The domain colour triplets and the active/inactive treatment they drive. */
 export const DomainColors: Story = {
-  render: (_args, { globals }) => (
+  render: () => (
     <TokenSurface>
-      <DomainColorTable appearance={String(globals.appearance ?? 'dark')} />
+      <DomainColorTable />
     </TokenSurface>
   ),
 }
@@ -415,9 +427,9 @@ export const BothAppearances: Story = {
           <AppearancePane appearance={appearance} title={appearance === 'dark' ? 'Dark' : 'Light'}>
             <Flex direction="column" gap="5">
               {tokenGroups.map((group) => (
-                <TokenTable key={group.id} group={group} appearance={appearance} />
+                <TokenTable key={group.id} group={group} />
               ))}
-              <DomainColorTable appearance={appearance} />
+              <DomainColorTable />
             </Flex>
           </AppearancePane>
         </Box>
