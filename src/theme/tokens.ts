@@ -111,7 +111,7 @@ export interface DomainColor {
  * The domain colour triplets, in spec order. These are the only hue carriers in
  * dashboard chrome; neutral chrome stays gray-scale.
  */
-export const domainColors: readonly DomainColor[] = [
+export const domainColors = [
   { name: 'light', meaning: 'Lights on', scale: 'amber', reference: '#ffc107' },
   { name: 'heat', meaning: 'Climate heating', scale: 'orange', reference: '#ff6f22' },
   { name: 'cool', meaning: 'Climate cooling, covers', scale: 'sky', reference: '#29b6f6' },
@@ -127,7 +127,15 @@ export const domainColors: readonly DomainColor[] = [
     reference: '#2196f3',
   },
   { name: 'brand', meaning: 'Liebe brand mark only', scale: 'crimson', reference: '#e9526f' },
-] as const
+] as const satisfies readonly DomainColor[]
+
+/**
+ * The names a triplet can be keyed by. Derived from the list above rather than
+ * written out again, so a domain colour cannot be added to the palette without
+ * becoming selectable by every anatomy part — and cannot be named anything the
+ * stylesheet has no `[data-color]` rule for.
+ */
+export type DomainColorName = (typeof domainColors)[number]['name']
 
 /** The three token names a domain colour resolves to. */
 export function domainColorTokens(name: string) {

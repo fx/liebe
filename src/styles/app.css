@@ -1,8 +1,26 @@
-/* Basic CSS reset and defaults */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/*
+ * Basic CSS reset and defaults.
+ *
+ * The reset is layered; the rest of this sheet is not (yet — wrapping all
+ * baseline CSS into `liebe-base` is change 0012, per docs/specs/theming
+ * "Application mechanism"). Layered is what the reset has to be for any other
+ * layered stylesheet to set padding or margin at all: an unlayered author rule
+ * outranks every cascade layer regardless of selector specificity, so an
+ * unlayered `* { padding: 0 }` silently zeroed the padding of every layered
+ * rule — the card anatomy's chips and pills among them.
+ *
+ * Moving it into the layer costs nothing else: at zero specificity this rule
+ * already lost to every other author rule in the panel, and it still outranks
+ * the user-agent defaults it exists to normalise, since origin beats layering.
+ */
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html {
@@ -153,16 +171,27 @@ body {
   font-size: clamp(1.25rem, 3vw, 1.5rem);
 }
 
-/* Touch-friendly tap targets */
-@media (pointer: coarse) {
-  button,
-  [role='button'],
-  a,
-  input,
-  select,
-  textarea {
-    min-height: var(--touch-target-min);
-    min-width: var(--touch-target-min);
+/*
+ * Touch-friendly tap targets.
+ *
+ * Layered for the same reason as the reset above: unlayered, this floor
+ * outranks every layered rule and so restyles rather than merely enlarges a
+ * component that states its own size from a token — it would stretch the
+ * anatomy's 34px chip past `--liebe-chip-height`, i.e. beat a token. Layered,
+ * it still applies everywhere nothing more specific declares a minimum, which
+ * is every control it was written for.
+ */
+@layer liebe-base {
+  @media (pointer: coarse) {
+    button,
+    [role='button'],
+    a,
+    input,
+    select,
+    textarea {
+      min-height: var(--touch-target-min);
+      min-width: var(--touch-target-min);
+    }
   }
 }
 
