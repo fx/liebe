@@ -1,4 +1,4 @@
-import { Flex, Text, Box, Button } from '@radix-ui/themes'
+import { Flex, Text, Button } from '@radix-ui/themes'
 import {
   CaretUpIcon,
   CaretDownIcon,
@@ -322,7 +322,7 @@ function CoverCardComponent({
 
         {/* Position slider */}
         {!isEditMode && supportsSetPosition && (
-          <Box style={{ width: '100%' }}>
+          <GridCard.Controls>
             <Slider
               domain="cover"
               color={stateColor}
@@ -333,31 +333,31 @@ function CoverCardComponent({
               onValueChange={handlePositionChange}
               onValueCommit={handlePositionCommit}
             />
-          </Box>
+          </GridCard.Controls>
         )}
 
         {/* Tilt controls */}
         {!isEditMode && supportsTilt && (
-          <Box style={{ width: '100%' }}>
-            <Flex direction="column" gap="2">
-              <Text size="1" color="gray">
-                Tilt
-              </Text>
-              {/* Tilt buttons */}
-              <Flex gap="2" justify="center">
-                {supportsOpenTilt && (
-                  <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
-                    <ChevronRightIcon />
-                  </Button>
-                )}
-                {supportsCloseTilt && (
-                  <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
-                    <ChevronLeftIcon />
-                  </Button>
-                )}
-              </Flex>
-              {/* Tilt position slider */}
-              {!isEditMode && supportsSetTiltPosition && (
+          <Flex direction="column" gap="2" width="100%">
+            <Text size="1" color="gray">
+              Tilt
+            </Text>
+            {/* Tilt buttons */}
+            <Flex gap="2" justify="center">
+              {supportsOpenTilt && (
+                <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
+                  <ChevronRightIcon />
+                </Button>
+              )}
+              {supportsCloseTilt && (
+                <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
+                  <ChevronLeftIcon />
+                </Button>
+              )}
+            </Flex>
+            {/* Tilt position slider */}
+            {supportsSetTiltPosition && (
+              <GridCard.Controls>
                 <Slider
                   domain="cover"
                   color={stateColor}
@@ -368,9 +368,9 @@ function CoverCardComponent({
                   onValueChange={handleTiltChange}
                   onValueCommit={handleTiltCommit}
                 />
-              )}
-            </Flex>
-          </Box>
+              </GridCard.Controls>
+            )}
+          </Flex>
         )}
 
         {/* Status */}

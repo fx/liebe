@@ -372,9 +372,11 @@ describe('CameraCard', () => {
       expect(screen.getByText('STREAMING')).toBeInTheDocument()
       expect(screen.queryByText('UNAVAILABLE')).toBeNull()
       const card = container.querySelector('.camera-card') as HTMLElement
-      // The unavailable chrome is `.liebe-card[data-unavailable]` now. The old
-      // `opacity-50` class was a Tailwind name in a project with no Tailwind,
-      // so it dimmed nothing — the dimming is real for the first time here.
+      // The unavailable chrome is `.liebe-card[data-unavailable]` now, which
+      // the shell sheet draws as a dotted outline. The old `opacity-50` class
+      // was a Tailwind name in a project with no Tailwind, so it resolved to no
+      // rule at all — this state is visible for the first time here, as an
+      // outline rather than as the dimming the class name suggested.
       expect(card).toHaveAttribute('data-unavailable', 'true')
     })
 

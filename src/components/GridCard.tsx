@@ -47,6 +47,54 @@ export interface GridCardProps {
   customPadding?: string
 }
 
+/*
+ * The properties `GridCard.css` resolves from the token contract. A
+ * caller-supplied inline value for any of them would outrank every cascade
+ * layer — including `liebe-theme` and `liebe-user` — and make exactly the
+ * surface a theme most wants to restyle permanently unreachable
+ * (docs/specs/theming — "Application mechanism"). Closing the shell's own
+ * inline declarations while leaving the `style` prop wide open would have left
+ * the same hole one component further out, so the prop is filtered instead of
+ * trusted; change 0012's precedence contract depends on it staying shut.
+ *
+ * The fence is drawn around *themable* properties only. Data-driven values are
+ * still the caller's to set, and several cards depend on that: the weather
+ * variants' `backgroundImage` (the condition artwork), the camera's `contain`
+ * and its aspect-ratio-computed `padding`, a light's actual bulb RGB. Custom
+ * properties pass too — writing `--liebe-card-bg` is using the theming channel
+ * rather than going around it, which is how the `backdrop` prop works.
+ */
+const THEMABLE_PROPERTIES: ReadonlySet<string> = new Set([
+  'backdropfilter',
+  'background',
+  'backgroundcolor',
+  'border',
+  'bordercolor',
+  'borderradius',
+  'borderwidth',
+  'boxshadow',
+  'color',
+  'fontfamily',
+  'letterspacing',
+])
+
+/** `backgroundColor` and `background-color` are the same declaration. */
+const normalizeProperty = (property: string) => property.replace(/[^a-z]/gi, '').toLowerCase()
+
+/**
+ * The caller's `style`, minus anything the token contract owns. Returns a new
+ * object every call, so nothing here mutates a caller's literal.
+ */
+function withoutThemableProperties(style?: React.CSSProperties): React.CSSProperties {
+  if (!style) return {}
+
+  return Object.fromEntries(
+    Object.entries(style).filter(
+      ([property]) => !THEMABLE_PROPERTIES.has(normalizeProperty(property))
+    )
+  ) as React.CSSProperties
+}
+
 interface GridCardContextValue {
   size: 'small' | 'medium' | 'large'
   isLoading?: boolean
@@ -73,8 +121,10 @@ const GridCardContext = React.createContext<GridCardContextValue>({
  * `data-*` attributes the layered sheet styles. Nothing visual is set inline,
  * because an inline declaration outranks every cascade layer and would be
  * unreachable by a theme (docs/specs/theming — "Application mechanism"). What
- * remains inline is not design: the pointer affordance, the caller's own
- * `style`, and caller-supplied data like the camera's matting padding.
+ * remains inline is not design: the pointer affordance, and caller-supplied
+ * data like the camera's matting padding or a weather variant's condition
+ * artwork. The caller's `style` prop is filtered on the way through so it
+ * cannot reintroduce a themable declaration — see `THEMABLE_PROPERTIES`.
  */
 export const GridCard = React.memo(
   React.forwardRef<HTMLDivElement, GridCardProps>(
@@ -154,6 +204,8 @@ export const GridCard = React.memo(
        *  - `--liebe-card-blur` is a token override, i.e. the theming channel
        *    itself rather than a way around it — a card that paints its own
        *    background image turns the blur off through it.
+       *  - the caller's `style`, filtered: it still carries a card's own data,
+       *    but no longer the themable surface. See `THEMABLE_PROPERTIES`.
        */
       const cardStyle = {
         cursor: isLoading ? 'wait' : isEditMode ? 'move' : onClick ? 'pointer' : 'default',
@@ -161,7 +213,7 @@ export const GridCard = React.memo(
         ...(backdrop !== undefined && backdrop !== true
           ? { '--liebe-card-blur': backdrop === false ? 'none' : backdrop }
           : {}),
-        ...style,
+        ...withoutThemableProperties(style),
       } as React.CSSProperties
 
       return (

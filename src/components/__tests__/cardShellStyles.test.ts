@@ -104,6 +104,21 @@ describe('card shell stylesheet', () => {
     )
   })
 
+  it('marks an unavailable card, and does it without dimming the text', () => {
+    // The state is drawn, and drawn neutrally: it is not one of the two the
+    // design system lets carry hue. It is asserted here because the treatment
+    // was invisible before — `opacity-50` was a Tailwind class name in a
+    // project with no Tailwind, so it resolved to no rule and an unavailable
+    // card was indistinguishable from an available one.
+    const unavailable = ruleBody('.liebe-card[data-unavailable]')
+    expect(unavailable).toContain('outline: 1px dotted var(--liebe-faint);')
+
+    // No `opacity`: halving the surface contrast would drop the name and state
+    // lines under the 4.5:1 floor, which is a worse card than an undimmed one.
+    // docs/specs/design-system records this as the sanctioned treatment.
+    expect(unavailable).not.toMatch(/\bopacity:/)
+  })
+
   it('marks state with an outline rather than a border', () => {
     // The token contract pins the card's border to `--liebe-card-border`, and
     // an outline takes no layout space — so a card does not resize as it is

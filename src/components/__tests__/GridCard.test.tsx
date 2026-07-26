@@ -142,6 +142,66 @@ describe('GridCard shell', () => {
     expect(style.color).toBe('')
   })
 
+  it('drops a themable property a caller tries to set through the style prop', () => {
+    // The shell setting nothing themable inline is only half the guarantee:
+    // an inline declaration outranks every cascade layer wherever it came
+    // from, so a caller passing one would put the card's surface out of a
+    // theme's reach just as effectively (docs/specs/theming — "Application
+    // mechanism").
+    render(
+      <GridCard
+        domain="light"
+        style={{
+          background: 'hotpink',
+          backgroundColor: 'hotpink',
+          borderColor: 'hotpink',
+          borderWidth: '4px',
+          borderRadius: '0',
+          boxShadow: '0 0 8px hotpink',
+          color: 'hotpink',
+          fontFamily: 'Comic Sans MS',
+        }}
+      >
+        content
+      </GridCard>
+    )
+
+    const { style } = card()
+    expect(style.backgroundColor).toBe('')
+    expect(style.borderColor).toBe('')
+    expect(style.borderWidth).toBe('')
+    expect(style.boxShadow).toBe('')
+    expect(style.color).toBe('')
+    expect(style.borderRadius).toBe('')
+    expect(style.fontFamily).toBe('')
+    expect(card().getAttribute('style')).not.toContain('hotpink')
+  })
+
+  it('still carries the caller data the cards actually depend on', () => {
+    // The filter is a fence around design, not around data — these are the
+    // live cases: the weather variants' condition artwork and the camera's
+    // fullscreen containment escape.
+    render(
+      <GridCard
+        domain="weather"
+        style={{
+          backgroundImage: 'url(/rain.png)',
+          backgroundSize: 'cover',
+          position: 'relative',
+          contain: 'none',
+        }}
+      >
+        content
+      </GridCard>
+    )
+
+    const { style } = card()
+    expect(style.backgroundImage).toBe('url("/rain.png")')
+    expect(style.backgroundSize).toBe('cover')
+    expect(style.position).toBe('relative')
+    expect(style.contain).toBe('none')
+  })
+
   it('turns the backdrop prop into a token override, not a Radix variable', () => {
     const { rerender } = render(
       <GridCard domain="weather" backdrop={false}>

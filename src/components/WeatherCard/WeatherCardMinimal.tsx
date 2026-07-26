@@ -129,7 +129,8 @@ function WeatherCardMinimalContent(props: CardProps) {
         {tempDisplay && (
           <CardValue
             domain="weather"
-            value={`${Math.round(tempDisplay.value)}${tempDisplay.unit}`}
+            value={Math.round(tempDisplay.value)}
+            unit={tempDisplay.unit}
           />
         )}
         <GridCard.Status>{entity.state}</GridCard.Status>

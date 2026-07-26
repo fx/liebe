@@ -59,10 +59,22 @@ describe('WeatherCard', () => {
     })
 
     it('should render minimal preset', () => {
-      render(<WeatherCard entityId="weather.home" config={{ preset: 'minimal' }} />)
+      const { container } = render(
+        <WeatherCard entityId="weather.home" config={{ preset: 'minimal' }} />
+      )
       expect(screen.getByText('Home Weather')).toBeInTheDocument()
-      expect(screen.getByText('22°C')).toBeInTheDocument()
       expect(screen.getByText('sunny')).toBeInTheDocument()
+
+      // This variant renders its temperature through the `CardValue` anatomy
+      // part, whose DOM contract keeps the number and the unit in separate
+      // spans — the unit is styled from its own token and must not sit in the
+      // number slot. So the reading is asserted per slot rather than as one
+      // concatenated string.
+      const value = container.querySelector('.liebe-value') as HTMLElement
+      expect(value).toBeInTheDocument()
+      expect(value.querySelector('.liebe-value-number')).toHaveTextContent('22')
+      expect(value.querySelector('.liebe-value-unit')).toHaveTextContent('°C')
+      expect(value).toHaveTextContent('22°C')
     })
 
     it('should render detailed preset with available data points', () => {

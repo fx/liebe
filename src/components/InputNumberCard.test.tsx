@@ -340,6 +340,40 @@ describe('InputNumberCard', () => {
     expect(screen.getByText('50.5 %')).toBeInTheDocument()
   })
 
+  describe('shell metadata', () => {
+    // `domain` and `color` are what the anatomy parts and the stable selector
+    // contract key off (docs/specs/theming — "Stable selector contract"). They
+    // are otherwise unasserted, so a wrong mapping would repaint every
+    // hue-carrying part of the card and pass the whole suite.
+    it('stamps the domain and the colour triplet on the tile', () => {
+      const { container } = render(<InputNumberCard entityId="input_number.test_number" />)
+
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-domain', 'input_number')
+      // Input helpers have no domain row of their own; `default` is the generic
+      // active colour the design system points them at.
+      expect(card).toHaveAttribute('data-color', 'default')
+    })
+
+    it('keeps the domain on the unavailable card', () => {
+      // The unavailable branch is a second, separate `GridCard`. It must carry
+      // the same domain, so a theme's rules still reach a card that has dropped
+      // offline.
+      vi.mocked(useEntity).mockReturnValue({
+        entity: { ...defaultEntity, state: 'unavailable' },
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      const { container } = render(<InputNumberCard entityId="input_number.test_number" />)
+
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-unavailable', 'true')
+      expect(card).toHaveAttribute('data-domain', 'input_number')
+    })
+  })
+
   describe('size variants', () => {
     it('renders small size', () => {
       const { container } = render(

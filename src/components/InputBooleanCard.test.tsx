@@ -97,6 +97,13 @@ describe('InputBooleanCard', () => {
     expect(card).toHaveAttribute('data-active', 'true')
     expect(document.querySelector('.liebe-icon')).toHaveAttribute('data-active', 'true')
     expect(screen.getByRole('switch')).toBeChecked()
+
+    // The shell metadata the anatomy and the stable selector contract both key
+    // off. Input helpers have no domain row of their own, so they resolve
+    // through the `default` triplet — a wrong mapping here would repaint every
+    // hue-carrying part of the card and nothing else would catch it.
+    expect(card).toHaveAttribute('data-domain', 'input_boolean')
+    expect(card).toHaveAttribute('data-color', 'default')
   })
 
   it('toggles on click in view mode', async () => {
@@ -279,9 +286,16 @@ describe('InputBooleanCard', () => {
       isStale: false,
     })
 
-    render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
+    const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
     expect(screen.getByText('Unavailable')).toBeInTheDocument()
     expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+
+    // The unavailable branch is a second, separate `GridCard` — it keeps the
+    // domain, so a theme's `input_boolean` rules still reach a card that has
+    // dropped offline.
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-unavailable', 'true')
+    expect(card).toHaveAttribute('data-domain', 'input_boolean')
   })
 
   describe('size variants', () => {
