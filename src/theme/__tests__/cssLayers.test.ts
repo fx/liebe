@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BASE_LAYER,
   LAYER_ORDER_STATEMENT,
+  isFullyLayered,
   isThemableProperty,
   prepareBaselineCss,
   stripThemableImportance,
@@ -109,12 +110,46 @@ describe('stripThemableImportance', () => {
   })
 })
 
+describe('isFullyLayered', () => {
+  it('accepts a sheet whose every rule is inside a layer', () => {
+    expect(
+      isFullyLayered(`${LAYER_ORDER_STATEMENT}\n@layer liebe-base {\n.a { color: red }\n}\n`)
+    ).toBe(true)
+  })
+
+  it('accepts a leading @charset ahead of the layer', () => {
+    expect(isFullyLayered('@charset "utf-8";@layer liebe-base { .a { color: red } }')).toBe(true)
+  })
+
+  it.each([
+    // The order statement alone declares an order and layers nothing.
+    ['an order statement with unlayered rules', `${LAYER_ORDER_STATEMENT}\n.a { color: red }`],
+    ['a partially layered sheet', '@layer liebe-base { .a { color: red } }\n.b { color: blue }'],
+    ['a comment that merely mentions @layer', '/* @layer liebe-base */\n.a { color: red }'],
+    ['a top-level at-rule that is not a layer', '@media print { .a { color: red } }'],
+    ['a statement that is neither @layer nor @charset', "@import url('x.css');"],
+    ['an unbalanced closing brace', '@layer liebe-base { .a { color: red } } }'],
+    ['an unclosed rule', '@layer liebe-base { .a { color: red }'],
+    ['a declaration floating at the top level', 'color: red'],
+  ])('rejects %s', (_case, css) => {
+    expect(isFullyLayered(css)).toBe(false)
+  })
+})
+
 describe('wrapInLayer', () => {
   it('wraps an unlayered sheet and declares the layer order', () => {
     const wrapped = wrapInLayer('.a { color: red }', BASE_LAYER)
 
     expect(wrapped).toContain(LAYER_ORDER_STATEMENT)
     expect(wrapped).toContain(`@layer ${BASE_LAYER} {\n.a { color: red }\n}`)
+  })
+
+  it('wraps a sheet that declares the layer order but layers nothing', () => {
+    // Mentioning `@layer` is not being layered: these rules would still
+    // outrank every layer.
+    const wrapped = wrapInLayer(`${LAYER_ORDER_STATEMENT}\n.a { color: red }`, BASE_LAYER)
+
+    expect(wrapped).toContain(`@layer ${BASE_LAYER} {`)
   })
 
   it('leaves a sheet that declares its own layers untouched', () => {

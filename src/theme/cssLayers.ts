@@ -123,8 +123,56 @@ export function stripThemableImportance(css: string): string {
 // including ahead of the layer wrapper.
 const LEADING_CHARSET = /^\s*@charset\s+[^;]+;/i
 
+const COMMENT = /\/\*[\s\S]*?\*\//g
+
+/** Top-level statements that are allowed to sit outside a layer block. */
+function isAllowedStatement(text: string): boolean {
+  const statement = text.trim().toLowerCase()
+  return statement === '' || statement.startsWith('@layer') || statement.startsWith('@charset')
+}
+
 /**
- * Wraps a sheet in `layer`, unless it already declares layers of its own.
+ * Whether every rule in a sheet is already inside a cascade layer.
+ *
+ * Deliberately structural rather than "does the text contain `@layer`": a sheet
+ * that carries only the order statement, or one layered block followed by
+ * ordinary rules, mentions `@layer` and is still mostly unlayered — and
+ * unlayered author rules outrank every layer, which is the failure this whole
+ * module exists to prevent. Being wrong in the safe direction costs only a
+ * redundant wrapper (a nested layer still sorts inside its parent), so anything
+ * this cannot read as fully enclosed is treated as not enclosed.
+ */
+export function isFullyLayered(css: string): boolean {
+  let depth = 0
+  let pending = ''
+
+  for (const character of css.replace(COMMENT, '')) {
+    if (character === '{') {
+      if (depth === 0 && !pending.trim().toLowerCase().startsWith('@layer')) return false
+      depth += 1
+      pending = ''
+    } else if (character === '}') {
+      depth -= 1
+      if (depth < 0) return false
+      pending = ''
+    } else if (depth === 0) {
+      if (character !== ';') {
+        pending += character
+      } else if (isAllowedStatement(pending)) {
+        pending = ''
+      } else {
+        return false
+      }
+    }
+  }
+
+  // Anything left over is a rule the sheet never closed, or a declaration
+  // floating at the top level.
+  return depth === 0 && isAllowedStatement(pending)
+}
+
+/**
+ * Wraps a sheet in `layer`, unless every rule in it is already layered.
  *
  * Liebe's own sheets are authored inside their layer and are returned
  * unchanged; vendored sheets and any future unlayered CSS get wrapped. The
@@ -132,7 +180,7 @@ const LEADING_CHARSET = /^\s*@charset\s+[^;]+;/i
  * one sheet still gets the order right.
  */
 export function wrapInLayer(css: string, layer: string): string {
-  if (/@layer\b/i.test(css)) return css
+  if (isFullyLayered(css)) return css
 
   const [charset] = css.match(LEADING_CHARSET) ?? []
   const body = charset ? css.slice(charset.length) : css
