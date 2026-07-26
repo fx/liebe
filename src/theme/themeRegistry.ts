@@ -14,6 +14,7 @@
  */
 
 import defaultThemeCss from './themes/default.css?raw'
+import liquidGlassThemeCss from './themes/liquidGlass.css?raw'
 
 /** Appearances a theme is able to render in. */
 export type ThemeAppearanceSupport = 'both' | 'dark-only' | 'light-only'
@@ -35,6 +36,17 @@ export interface ThemeDefinition {
    * would apply every registered theme at once.
    */
   css: string
+  /**
+   * A caveat the picker shows beneath the theme's name.
+   *
+   * Data, like the rest of the record — the picker renders whatever is here and
+   * knows nothing about which theme it belongs to. It exists because the
+   * theming spec requires the `backdrop-filter` cost of Liquid Glass to be
+   * surfaced at the point of choice ("Constraints"), and a note per theme is
+   * the additive way to say that: a second theme with a caveat needs no picker
+   * change. Absent when a theme has nothing to warn about.
+   */
+  note?: string
 }
 
 export const DEFAULT_THEME_ID = 'default'
@@ -49,6 +61,13 @@ const builtInThemes: readonly ThemeDefinition[] = Object.freeze([
     label: 'Default',
     appearances: 'both',
     css: defaultThemeCss,
+  }),
+  Object.freeze<ThemeDefinition>({
+    id: 'liquid-glass',
+    label: 'Liquid Glass',
+    appearances: 'both',
+    css: liquidGlassThemeCss,
+    note: 'Frosted blur is GPU-heavy on low-end tablets',
   }),
 ])
 

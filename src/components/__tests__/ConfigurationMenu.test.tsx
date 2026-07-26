@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
 import { ConfigurationMenu } from '../ConfigurationMenu'
 import * as persistence from '../../store/persistence'
+import { dashboardActions } from '../../store/dashboardStore'
+import { listThemes } from '~/theme/themeRegistry'
 
 // Mock the store
 vi.mock('../../store/dashboardStore', () => ({
@@ -235,6 +237,44 @@ describe('ConfigurationMenu', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Storage is nearly full/)).toBeInTheDocument()
+    })
+  })
+
+  describe('theme picker', () => {
+    it('lists every registered theme', async () => {
+      const user = userEvent.setup()
+      renderWithTheme(<ConfigurationMenu />)
+
+      await user.click(screen.getByRole('button', { name: /configuration/i }))
+
+      for (const { label } of listThemes()) {
+        expect(screen.getByRole('menuitemradio', { name: new RegExp(label) })).toBeInTheDocument()
+      }
+    })
+
+    it('surfaces a theme’s caveat inside its own item', async () => {
+      const user = userEvent.setup()
+      renderWithTheme(<ConfigurationMenu />)
+
+      await user.click(screen.getByRole('button', { name: /configuration/i }))
+
+      // In the item, not beside the group — so the warning is part of the
+      // option's accessible name and reaches a screen-reader user *before*
+      // they choose it (docs/specs/theming — the backdrop-filter constraint).
+      const { label, note } = listThemes().find((theme) => theme.note)!
+      expect(
+        screen.getByRole('menuitemradio', { name: new RegExp(`${label}.*${note}`) })
+      ).toBeInTheDocument()
+    })
+
+    it('stores the theme the user picks', async () => {
+      const user = userEvent.setup()
+      renderWithTheme(<ConfigurationMenu />)
+
+      await user.click(screen.getByRole('button', { name: /configuration/i }))
+      await user.click(screen.getByRole('menuitemradio', { name: /Liquid Glass/ }))
+
+      expect(dashboardActions.setTheme).toHaveBeenCalledWith({ id: 'liquid-glass' })
     })
   })
 

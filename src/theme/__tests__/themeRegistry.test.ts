@@ -26,13 +26,27 @@ describe('themeRegistry', () => {
   it('registers exactly the built-in themes that exist today', () => {
     expect(listThemes()).toEqual([
       { id: 'default', label: 'Default', appearances: 'both', css: expect.any(String) },
+      {
+        id: 'liquid-glass',
+        label: 'Liquid Glass',
+        appearances: 'both',
+        css: expect.any(String),
+        // The picker's `backdrop-filter` warning for low-end tablets, which the
+        // theming spec requires to be surfaced at the point of choice.
+        note: expect.stringMatching(/blur/i),
+      },
     ])
   })
 
+  it('leaves Default without a note, so the picker shows one only where there is one', () => {
+    expect(getTheme(DEFAULT_THEME_ID)!.note).toBeUndefined()
+  })
+
   it('hands out a copy of the list so callers cannot add to the registry', () => {
+    const before = listThemes().length
     const themes = listThemes()
     themes.push(darkOnly)
-    expect(listThemes()).toHaveLength(1)
+    expect(listThemes()).toHaveLength(before)
   })
 
   it('freezes each definition so a caller cannot repoint a theme', () => {
@@ -62,6 +76,16 @@ describe('themeRegistry', () => {
     expect(css).toContain('@layer liebe-base, liebe-theme, liebe-user;')
     expect(css).toContain('@layer liebe-theme {')
     expect(css).toContain('--liebe-c-light: var(--amber-9);')
+  })
+
+  it('carries Liquid Glass as a both-appearance theme with a real payload', () => {
+    const theme = getTheme('liquid-glass')!
+
+    expect(theme.appearances).toBe('both')
+    expect(theme.css).toContain('@layer liebe-theme {')
+    // The token that makes it Liquid Glass; the sheet's token-only constraint
+    // and its full token set are asserted in `liquidGlass.test.ts`.
+    expect(theme.css).toContain('--liebe-card-blur: blur(22px) saturate(1.6);')
   })
 
   describe('getThemeOrDefault', () => {

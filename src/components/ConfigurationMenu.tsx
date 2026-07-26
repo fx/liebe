@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { DropdownMenu, Button, Callout, AlertModal, Text } from '~/components/ui'
+import { DropdownMenu, Button, Callout, AlertModal, Flex, Text } from '~/components/ui'
 import {
   GearIcon,
   UploadIcon,
@@ -225,10 +225,24 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
             value={activeTheme.id}
             onValueChange={(id) => dashboardActions.setTheme({ id })}
           >
-            {listThemes().map(({ id, label }) => (
+            {listThemes().map(({ id, label, note }) => (
               <DropdownMenu.RadioItem key={id} value={id}>
                 <ColorWheelIcon />
-                {label}
+                {/*
+                 * The note sits inside the item, not beside the group: it is a
+                 * caveat about choosing THIS theme, so it belongs where the
+                 * choice is made — and being part of the item's content, it is
+                 * also part of its accessible name, which is what puts the
+                 * warning in front of a screen-reader user before they pick.
+                 */}
+                <Flex direction="column" align="start">
+                  <Text size="2">{label}</Text>
+                  {note ? (
+                    <Text size="1" color="gray">
+                      {note}
+                    </Text>
+                  ) : null}
+                </Flex>
               </DropdownMenu.RadioItem>
             ))}
           </DropdownMenu.RadioGroup>
