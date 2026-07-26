@@ -32,6 +32,7 @@ const CONTRACT_CLASSES = [
   'liebe-icon',
   'liebe-name',
   'liebe-state',
+  'liebe-slider',
   'liebe-pill',
   'liebe-chip',
   'liebe-value',
@@ -118,6 +119,95 @@ describe('domain colour', () => {
   })
 })
 
+describe('embedded slider', () => {
+  it('gives the track, the fill and the leading edge the three tint roles', () => {
+    // The slider is the tint pattern laid along an axis: neutral ground, 20%
+    // tint, saturated mark. Reading anything but the triplet for the last two
+    // would leave the control on its old hue when a theme remaps the domain.
+    expect(ruleBody('.liebe-slider-track')).toContain('background: var(--liebe-track);')
+    expect(ruleBody('.liebe-slider[data-active] .liebe-slider-fill')).toContain(
+      'background: var(--part-tint);'
+    )
+    expect(ruleBody('.liebe-slider[data-active] .liebe-slider-thumb')).toContain(
+      'background: var(--part-color);'
+    )
+  })
+
+  it('stays neutral while inactive, on the same 5% the pattern gives every part', () => {
+    expect(ruleBody('.liebe-slider-fill')).toContain('background: var(--gray-a3);')
+    expect(ruleBody('.liebe-slider-thumb')).toContain('background: var(--liebe-faint);')
+  })
+
+  it('rounds the leading edge from the control-radius token, not a literal', () => {
+    // A literal here would leave the thumb rounded under a square-control
+    // theme that reshaped the track around it.
+    expect(ruleBody('.liebe-slider-thumb')).toContain('border-radius: var(--liebe-control-radius);')
+  })
+
+  it('sizes both orientations from the control-height token', () => {
+    // Horizontal and vertical are one component and one stylesheet, keyed off
+    // the attribute Radix stamps — the spec asks the anatomy for both axes.
+    expect(ruleBody(".liebe-slider[data-orientation='horizontal']")).toContain(
+      'block-size: var(--liebe-control-height);'
+    )
+    expect(ruleBody(".liebe-slider[data-orientation='vertical']")).toContain(
+      'inline-size: var(--liebe-control-height);'
+    )
+  })
+
+  it('transitions the fill colour and nothing else', () => {
+    // Radix sets the fill's size inline from the live value; transitioning it
+    // would make the fill trail the finger dragging it.
+    expect(ruleBody('.liebe-slider-fill')).toContain('transition: background-color 280ms ease-out;')
+    expect(ruleBody('.liebe-slider-thumb')).toContain(
+      'transition: background-color 280ms ease-out;'
+    )
+  })
+
+  it('gives the fill and the leading edge only their cross-axis size', () => {
+    // The long axis belongs to Radix, which positions both from the live value;
+    // declaring it here would fight the drag.
+    expect(ruleBody(".liebe-slider[data-orientation='horizontal'] .liebe-slider-fill")).toBe(
+      '\n    block-size: 100%;\n  '
+    )
+    expect(ruleBody(".liebe-slider[data-orientation='vertical'] .liebe-slider-fill")).toBe(
+      '\n    inline-size: 100%;\n  '
+    )
+    expect(ruleBody(".liebe-slider[data-orientation='horizontal'] .liebe-slider-thumb")).toContain(
+      'block-size: var(--liebe-control-height);'
+    )
+    expect(ruleBody(".liebe-slider[data-orientation='vertical'] .liebe-slider-thumb")).toContain(
+      'inline-size: var(--liebe-control-height);'
+    )
+  })
+
+  it('reads the value out in the neutral foreground, off the pointer', () => {
+    // Text on a tinted surface takes the neutral foreground, like chip and pill
+    // labels; and every pixel of the track has to stay draggable.
+    const readout = ruleBody('.liebe-slider-readout')
+    expect(readout).toContain('color: var(--liebe-fg);')
+    expect(readout).toContain('font-family: var(--liebe-font-numeric);')
+    expect(readout).toContain('font-variant-numeric: tabular-nums;')
+    expect(readout).toContain('pointer-events: none;')
+  })
+
+  it('shows a held-back slider as disabled without recolouring it', () => {
+    const disabled = ruleBody('.liebe-slider[data-disabled]')
+    expect(disabled).toContain('cursor: not-allowed;')
+    expect(disabled).toContain('opacity: 0.5;')
+  })
+
+  it('keeps the focus ring the anatomy gives every interactive part', () => {
+    // Neutral rather than the domain hue, for the contrast reason the pill and
+    // chip rule documents — so the thumb joins that rule instead of adding one.
+    expect(
+      ruleBody(
+        '.liebe-pill:focus-visible,\n  button.liebe-chip:focus-visible,\n  .liebe-slider-thumb:focus-visible'
+      )
+    ).toContain('outline: 2px solid var(--liebe-fg);')
+  })
+})
+
 describe('touch targets', () => {
   /**
    * The spec's rule for discrete controls is "≥44px in at least one dimension".
@@ -158,6 +248,10 @@ describe('motion', () => {
   it('drops the transitions under reduced motion', () => {
     const reducedMotion = ruleBody('@media (prefers-reduced-motion: reduce)')
     expect(reducedMotion).toContain('.liebe-icon,')
+    // Every part that declares a transition has to appear here, or reduced
+    // motion becomes a promise the sheet only half keeps.
+    expect(reducedMotion).toContain('.liebe-slider-fill,')
+    expect(reducedMotion).toContain('.liebe-slider-thumb,')
     expect(reducedMotion).toContain('transition: none;')
   })
 })

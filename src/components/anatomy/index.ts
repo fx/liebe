@@ -4,8 +4,8 @@
  *
  * Spec: docs/specs/design-system/index.md ("Card anatomy"); the class names are
  * public API per docs/specs/theming/index.md ("Stable selector contract").
- * The card shell (`liebe-card`) and the slider (`liebe-slider`) are the
- * remaining parts, landing with the rest of change 0010.
+ * The card shell (`liebe-card`) is the remaining part, landing with the rest of
+ * change 0010.
  */
 export { anatomyPart, type AnatomyPartAttributes, type AnatomyPartProps } from './anatomyPart'
 export { IconCircle, type IconCircleProps } from './IconCircle'
@@ -17,6 +17,7 @@ export {
   type CardNameProps,
   type CardStateProps,
 } from './CardMeta'
+export { Slider, type SliderProps } from './Slider'
 export { Pill, PillGroup, type PillGroupProps, type PillProps } from './Pill'
 export { Chip, type ChipProps } from './Chip'
 export { CardValue, type CardValueProps } from './CardValue'
