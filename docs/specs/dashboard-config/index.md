@@ -112,8 +112,8 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 
 - `theme` MUST be an object: `id` (registered theme id, default `"default"`), `appearance` (`auto | dark | light`, default `auto`), and `customCss` (string, default empty). All three are portable and MUST round-trip through JSON and YAML.
 - `setTheme(Partial<ThemeConfig>)` MUST merge the given fields into the current `theme` and set `isDirty` true. One action for all three, because each is a portable change of the same field: the picker sets `id`, the appearance control `appearance`, the editor `customCss`.
-- The configuration menu MUST be where all three are chosen — theme, appearance, and custom CSS — since configuration happens in-panel and never by editing files. What those controls look like and how the chosen values are then resolved and applied (registry enumeration, forced appearances, fallback for an unregistered `id`, layer injection, the injection-time sanitizer) is owned by [theming](../theming/index.md#configuration--selection).
-- The custom-CSS editor MUST write its draft back to `theme.customCss` only on save, so a cancelled edit changes nothing and typing does not dirty the configuration on every keystroke.
+- The controls that write these three fields — theme picker, appearance control, custom-CSS editor — are specified by [theming — Configuration & selection](../theming/index.md#configuration--selection), which owns what they offer and how the chosen values are then resolved and applied. This spec owns only what reaches the store and how it persists.
+- A custom-CSS edit MUST reach `theme.customCss` only when the editor saves, so a cancelled edit changes nothing and typing does not dirty the configuration on every keystroke.
 
 #### Scenario: Selecting Dark
 

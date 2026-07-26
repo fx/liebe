@@ -32,9 +32,9 @@
  *     base and theme CSS consume `--liebe-*` tokens in fetch-capable positions,
  *     so `--liebe-card-bg: var(--ha-image)` fetches with no user-authored
  *     consumer at all. A property is clean only if its own value is clean and
- *     every property it references is clean; the closure is computed to a
- *     fixpoint, which leaves reference cycles unclean because they never reach
- *     one.
+ *     every property it references is clean; cleanliness propagates outward
+ *     from the values that are clean on their own, which leaves reference
+ *     cycles unclean because nothing in one is ever reached.
  *  3. **Values that come from outside the panel are opaque.** Whatever Home
  *     Assistant's document supplies is beyond this module's sight, so it is
  *     unclean wherever it appears: custom properties Liebe does not define, the
@@ -49,9 +49,18 @@
  * leave an *unlayered* rule outranking every layer. Input that cannot be parsed
  * at all is rejected wholesale; the caller keeps the last good CSS applied
  * rather than injecting anything raw.
+ *
+ * Cost is bounded for the same reason. Sanitisation happens synchronously
+ * inside the panel's render, on input an imported dashboard supplies, so *how
+ * long it takes* and *how deep it recurses* are part of the threat model: a
+ * sanitizer that overflows the stack has not rejected the sheet, it has taken
+ * the panel down with it. Every descent is therefore
+ * depth-capped (`MAX_NESTING_DEPTH`) and fails closed at the cap, and the
+ * `var()` closure is dependency-driven rather than swept to a fixpoint, so a
+ * large sheet costs time proportional to what it says rather than to its square.
  */
 
-import postcss, { type AtRule, type ChildNode, type Node, type Root } from 'postcss'
+import postcss, { type AtRule, type ChildNode, type Container, type Node, type Root } from 'postcss'
 import { LAYER_ORDER_STATEMENT, USER_LAYER } from './cssLayers'
 
 /**
@@ -75,6 +84,28 @@ const ENGINE_TOKEN_PREFIX = '--liebe-'
  * value and can launder nothing.
  */
 const OPAQUE_KEYWORDS: ReadonlySet<string> = new Set(['inherit', 'unset', 'revert', 'revert-layer'])
+
+/**
+ * How deep this module will follow nesting — of functions inside a value, and
+ * of blocks inside the sheet — before it stops reading and fails closed.
+ *
+ * One number for both, because both bound the same thing: the recursion this
+ * module and postcss's own stringifier do per level. Neither had a bound, and
+ * both are reachable from an imported dashboard, which applies immediately:
+ * `a(a(a(…)))` twenty thousand deep overflowed the stack inside `scanValue`,
+ * and twenty thousand nested `@media` blocks parsed fine (postcss's parser is
+ * iterative) and then overflowed on the first `walk`. Either throw escapes
+ * `sanitizeCustomCss` into the `useMemo` that calls it, so the panel fails to
+ * render at all — a sanitizer crashing the app on hostile input is the one
+ * failure mode it exists to prevent.
+ *
+ * 32 is far past anything CSS is written with: the deepest real values nest
+ * four or five (`linear-gradient(color-mix(in srgb, var(--a, rgb(…)), …), …)`),
+ * and the deepest real block nesting — `@layer` around `@media` around
+ * `@supports` around a rule around its own nested rules — about eight. It is
+ * also shallow enough that the recursion is trivially safe on any stack.
+ */
+const MAX_NESTING_DEPTH = 32
 
 export interface CustomCssResult {
   /**
@@ -148,10 +179,19 @@ export interface ValueReferences {
    * a CSS-wide keyword, or syntax it could not read to the end.
    */
   opaque: boolean
+  /**
+   * The value nests functions deeper than `MAX_NESTING_DEPTH`, so the scan
+   * stopped before the bottom.
+   *
+   * Distinct from `opaque` only so the editor can name what actually happened;
+   * both are unclean, and for the same underlying reason — part of this value
+   * was never read.
+   */
+  tooDeep: boolean
 }
 
 function emptyReferences(): ValueReferences {
-  return { resources: [], variables: [], opaque: false }
+  return { resources: [], variables: [], opaque: false, tooDeep: false }
 }
 
 /** Identifier characters, including the non-ASCII range CSS allows unescaped. */
@@ -289,6 +329,7 @@ function mergeReferences(into: ValueReferences, from: ValueReferences): void {
   into.resources.push(...from.resources)
   into.variables.push(...from.variables)
   into.opaque ||= from.opaque
+  into.tooDeep ||= from.tooDeep
 }
 
 function stripQuotes(text: string): string {
@@ -307,10 +348,26 @@ function stripQuotes(text: string): string {
  * classified — an unknown function's arguments are scanned by exactly the same
  * rules, so a fetch expressed through a construct this module has never heard
  * of is still judged by the strings and URLs it must ultimately contain.
+ *
+ * Descent stops at `MAX_NESTING_DEPTH` and marks the value `tooDeep` rather
+ * than recursing on: the unread remainder could contain anything, so the value
+ * is unclean and the editor is told why.
  */
 export function scanValue(value: string): ValueReferences {
+  return scanValueAtDepth(value, 0)
+}
+
+function scanValueAtDepth(value: string, depth: number): ValueReferences {
   const references = emptyReferences()
   let index = 0
+
+  // Read one level down, or — at the cap — refuse to and say so. Flagged only
+  // where the descent would actually have happened, so a value that merely
+  // *sits* at the cap without nesting further is still judged normally.
+  const descend = (nested: string) => {
+    if (depth < MAX_NESTING_DEPTH) mergeReferences(references, scanValueAtDepth(nested, depth + 1))
+    else references.tooDeep = true
+  }
 
   while (index < value.length) {
     const character = value[index]
@@ -338,7 +395,8 @@ export function scanValue(value: string): ValueReferences {
 
       if (name === 'url') {
         // `url()` is the one place a reference may be unquoted, so its argument
-        // is taken whole rather than tokenised.
+        // is taken whole rather than tokenised. It is a leaf — nothing inside it
+        // is a nested value — so it costs no depth.
         references.resources.push(unescapeCss(stripQuotes(args.raw.trim())))
       } else if (name === 'var') {
         const comma = topLevelComma(args.raw)
@@ -346,9 +404,9 @@ export function scanValue(value: string): ValueReferences {
         // Custom property names are case-sensitive; only function names are not.
         references.variables.push(unescapeCss(referenced))
         // The fallback is a value in its own right and is judged as one.
-        if (comma !== -1) mergeReferences(references, scanValue(args.raw.slice(comma + 1)))
+        if (comma !== -1) descend(args.raw.slice(comma + 1))
       } else {
-        mergeReferences(references, scanValue(args.raw))
+        descend(args.raw)
       }
 
       index = args.next
@@ -403,6 +461,10 @@ function judgeValue(
   isCleanVariable: VariablePredicate,
   baseUrl: string
 ): string | null {
+  if (references.tooDeep) {
+    return `it nests functions more than ${MAX_NESTING_DEPTH} levels deep, so it was not read to the end`
+  }
+
   if (references.opaque) {
     return 'it takes its value from outside the dashboard'
   }
@@ -446,6 +508,34 @@ interface Removal {
 
 function describeAtRule(atRule: AtRule): string {
   return `@${atRule.name} ${atRule.params}`.trim()
+}
+
+/**
+ * Whether the sheet nests blocks deeper than this module will walk.
+ *
+ * postcss's parser is iterative and will happily build a tree twenty thousand
+ * blocks deep, but everything downstream of it recurses once per level —
+ * `walk`, and the stringifier that writes the sheet back out — so such a sheet
+ * parses cleanly and then overflows the stack on the first pass over it. The
+ * check itself therefore walks the tree with an explicit stack: a recursive
+ * depth check would be the very crash it is here to prevent.
+ */
+function exceedsNestingLimit(root: Root): boolean {
+  const pending: Array<{ node: Container; depth: number }> = [{ node: root, depth: 0 }]
+
+  for (let current = pending.pop(); current !== undefined; current = pending.pop()) {
+    const { node, depth } = current
+    if (depth > MAX_NESTING_DEPTH) return true
+    // `nodes` is undefined on a statement at-rule (`@layer a, b;`), which has no
+    // block to descend into.
+    for (const child of node.nodes ?? []) {
+      if (child.type === 'rule' || child.type === 'atrule') {
+        pending.push({ node: child, depth: depth + 1 })
+      }
+    }
+  }
+
+  return false
 }
 
 /**
@@ -499,9 +589,19 @@ function collectDefinitions(root: Root) {
  * Closes cleanliness over `var()` chains.
  *
  * A name becomes clean when one of its definitions is clean under the names
- * already known to be clean; the loop runs to a fixpoint. Monotone, so it
- * terminates — and a reference cycle never enters, which is exactly why cycles
- * are unclean.
+ * already known to be clean. Monotone, so it terminates — and a reference cycle
+ * never enters, which is exactly why cycles are unclean.
+ *
+ * Dependency-driven rather than swept to a fixpoint. A value that is not yet
+ * clean is parked against the one name it is waiting on and re-judged only when
+ * that name becomes clean, so each value is judged about once per `var()` it
+ * makes. The equivalent sweep-until-nothing-changes loop re-judges every
+ * definition on every pass, and a chain written back-to-front — `--v0:
+ * var(--v1)` before `--v1`, which any generator emitting in source order
+ * produces — advances by one name per pass, making the cost quadratic in the
+ * number of definitions: 24k of them (a 560 KB sheet, well within what an
+ * imported dashboard may carry) took 27 seconds of blocked main thread, in a
+ * `useMemo` during render. Same answer, linear in the sheet.
  */
 function resolveCleanNames(
   definitions: Map<string, PropertyDefinition>,
@@ -510,15 +610,41 @@ function resolveCleanNames(
   const cleanNames = new Set<string>()
   const isCleanVariable: VariablePredicate = (name) => isEngineToken(name) || cleanNames.has(name)
 
-  for (let changed = true; changed; ) {
-    changed = false
-    for (const [name, { values }] of definitions) {
-      if (cleanNames.has(name)) continue
-      if (values.some((references) => judgeValue(references, isCleanVariable, baseUrl) === null)) {
-        cleanNames.add(name)
-        changed = true
-      }
+  /** Values parked against a name, by the name they are waiting on. */
+  const waiting = new Map<string, Array<{ name: string; references: ValueReferences }>>()
+  /** Names newly proven clean, whose dependents have yet to be re-judged. */
+  const settled: string[] = []
+
+  const consider = (name: string, references: ValueReferences) => {
+    if (cleanNames.has(name)) return
+
+    if (judgeValue(references, isCleanVariable, baseUrl) === null) {
+      cleanNames.add(name)
+      settled.push(name)
+      return
     }
+
+    // Park it against the first name it reads that is not clean yet. A value
+    // held back by anything else — an off-origin reference, an opaque keyword —
+    // has no unclean variable to wait on and is simply dropped from the search:
+    // nothing that happens later can make it clean.
+    const blocker = references.variables.find((referenced) => !isCleanVariable(referenced))
+    if (blocker === undefined) return
+
+    const parked = waiting.get(blocker)
+    if (parked) parked.push({ name, references })
+    else waiting.set(blocker, [{ name, references }])
+  }
+
+  for (const [name, { values }] of definitions) {
+    for (const references of values) consider(name, references)
+  }
+
+  for (let name = settled.pop(); name !== undefined; name = settled.pop()) {
+    const parked = waiting.get(name)
+    if (parked === undefined) continue
+    waiting.delete(name)
+    for (const { name: dependent, references } of parked) consider(dependent, references)
   }
 
   return cleanNames
@@ -597,6 +723,19 @@ export function sanitizeCustomCss(
     // on — the most useful thing the editor can show about input it refused.
     const { message } = error as Error
     return { css: '', notices: [`Custom CSS was not applied: ${message}.`], rejected: true }
+  }
+
+  // Rejected wholesale rather than pruned, and before anything walks the tree:
+  // the sheet is not something this module can read, which is the same answer
+  // input it cannot parse gets.
+  if (exceedsNestingLimit(root)) {
+    return {
+      css: '',
+      notices: [
+        `Custom CSS was not applied: it nests rules more than ${MAX_NESTING_DEPTH} levels deep.`,
+      ],
+      rejected: true,
+    }
   }
 
   const removals: Removal[] = []

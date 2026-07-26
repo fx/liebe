@@ -77,7 +77,12 @@ describe('scanValue', () => {
   })
 
   it('ignores a trailing backslash rather than looping on it', () => {
-    expect(scanValue('red\\')).toEqual({ resources: [], variables: [], opaque: false })
+    expect(scanValue('red\\')).toEqual({
+      resources: [],
+      variables: [],
+      opaque: false,
+      tooDeep: false,
+    })
   })
 })
 
@@ -442,6 +447,121 @@ describe('sanitizeCustomCss — structure', () => {
       .c { color: inherit; }`)
 
     expect(result.notices).toHaveLength(2)
+  })
+})
+
+describe('sanitizeCustomCss — input that would not terminate', () => {
+  /**
+   * How long the sanitizer takes and how deep it recurses are part of what it
+   * has to get right, not performance trivia. It runs synchronously inside the
+   * panel's render, on CSS an imported dashboard supplies and applies
+   * immediately, so input that overflows the stack or blocks the thread does
+   * not get *rejected* — the throw escapes into the `useMemo` that called it
+   * and the panel renders nothing at all, which is a worse outcome than the
+   * remote fetch the sanitizer exists to stop.
+   *
+   * Every case here failed before the cap: the first two overflowed the stack,
+   * the third and fourth parsed cleanly (postcss's parser is iterative) and
+   * then overflowed on the first walk over the result, and the last blocked for
+   * 27 seconds.
+   */
+  const PATHOLOGICAL = 20000
+
+  /** A value nesting `open` `depth` times around `red`. */
+  const nestValue = (open: string, depth: number) =>
+    `.a { color: ${open.repeat(depth)}red${')'.repeat(depth)}; }`
+
+  /** A sheet nesting `depth` blocks, the innermost rule included. */
+  const nestBlocks = (depth: number) =>
+    `${'@media screen {'.repeat(depth - 1)}.a { color: red; }${'}'.repeat(depth - 1)}`
+
+  it('names a value nested past the cap instead of overflowing the stack', () => {
+    const result = sanitize(nestValue('a(', PATHOLOGICAL))
+
+    expect(result.css).toBe('')
+    expect(result.notices).toEqual([
+      'Removed `color`: it nests functions more than 32 levels deep, so it was not read to the end.',
+    ])
+  })
+
+  it('caps var() fallbacks, which descend by the same route', () => {
+    const result = sanitize(nestValue('var(--x, ', PATHOLOGICAL))
+
+    expect(result.css).toBe('')
+    expect(result.notices.join(' ')).toContain('nests functions more than 32 levels deep')
+  })
+
+  it('reads a value nested as deeply as any real one, and stops one past that', () => {
+    // The deepest values CSS is actually written with — a gradient over a
+    // `color-mix` over a `var()` fallback — reach four or five.
+    expect(applied(nestValue('a(', 32))).toContain('red')
+    expect(sanitize(nestValue('a(', 33)).notices).toHaveLength(1)
+  })
+
+  it('leaves an ordinarily nested value alone', () => {
+    const css = applied(`.a {
+      background: linear-gradient(color-mix(in srgb, var(--liebe-c-light, rgb(1 2 3)), white), red);
+    }`)
+
+    expect(css).toContain('color-mix(in srgb, var(--liebe-c-light, rgb(1 2 3)), white)')
+  })
+
+  it('rejects a sheet nested past the cap rather than walking into it', () => {
+    const result = sanitize(nestBlocks(PATHOLOGICAL))
+
+    expect(result.rejected).toBe(true)
+    expect(result.css).toBe('')
+    expect(result.notices).toEqual([
+      'Custom CSS was not applied: it nests rules more than 32 levels deep.',
+    ])
+  })
+
+  it('applies a sheet nested as deeply as any real one, and stops one past that', () => {
+    expect(sanitize(nestBlocks(32)).rejected).toBe(false)
+    expect(sanitize(nestBlocks(33)).rejected).toBe(true)
+  })
+
+  it('terminates on a self-referential var()', () => {
+    const result = sanitize('.liebe-root { --loop: var(--loop); background-image: var(--loop); }')
+
+    expect(result.css).toBe('')
+    expect(result.notices.join(' ')).toContain('--loop')
+  })
+
+  it('terminates on mutually referential var()s', () => {
+    const result = sanitize(`.liebe-root {
+      --ping: var(--pong);
+      --pong: var(--ping);
+      background-image: var(--ping);
+    }`)
+
+    expect(result.css).toBe('')
+    expect(result.notices.join(' ')).toContain('--ping')
+  })
+
+  it('releases every definition waiting on the same name', () => {
+    const css = applied(`.liebe-root {
+      --one: var(--ground);
+      --two: var(--ground);
+      --ground: red;
+    }`)
+
+    expect(css).toContain('--one: var(--ground)')
+    expect(css).toContain('--two: var(--ground)')
+  })
+
+  it('closes a long var() chain written back to front', () => {
+    // Definitions in source order, each waiting on the next — what any
+    // generator emitting a token set produces, and the worst case for a closure
+    // computed by repeated sweeps: one pass per link, quadratic overall. This
+    // sheet took 27 seconds that way; the test's own timeout is the assertion.
+    const links = 24000
+    const chain = Array.from({ length: links }, (_, i) => `--v${i}: var(--v${i + 1});`).join(' ')
+
+    const result = sanitize(`.liebe-root { ${chain} --v${links}: red; }`)
+
+    expect(result.notices).toEqual([])
+    expect(result.css).toContain('--v0: var(--v1)')
   })
 })
 

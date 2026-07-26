@@ -46,9 +46,21 @@ async function openMenu() {
   return user
 }
 
+/**
+ * Custom CSS the store is seeded with before every test.
+ *
+ * `setTheme` merges a partial, so a theme choice that accidentally replaced the
+ * whole `theme` object would silently drop whatever the user had written —
+ * which an empty-string fixture cannot tell apart from a correct merge.
+ */
+const SEEDED_CSS = '.liebe-card { --liebe-card-radius: 0; }'
+
 describe('theme picker', () => {
   beforeEach(() => {
-    dashboardStore.setState((state) => ({ ...state, theme: DEFAULT_THEME_CONFIG }))
+    dashboardStore.setState((state) => ({
+      ...state,
+      theme: { ...DEFAULT_THEME_CONFIG, customCss: SEEDED_CSS },
+    }))
   })
 
   it('offers every registered theme', async () => {
@@ -66,8 +78,12 @@ describe('theme picker', () => {
     await user.click(await screen.findByText('Nocturne'))
 
     expect(dashboardStore.state.theme.id).toBe('nocturne')
-    // The appearance and the custom CSS are untouched by a theme choice.
+    // The appearance and the custom CSS are untouched by a theme choice. Both
+    // are seeded with something a reset would visibly lose: user CSS is work
+    // the user did by hand, and dropping it on a theme switch is the kind of
+    // data loss a picker has no business causing.
     expect(dashboardStore.state.theme.appearance).toBe(DEFAULT_THEME_CONFIG.appearance)
+    expect(dashboardStore.state.theme.customCss).toBe(SEEDED_CSS)
   })
 
   describe('a stored theme this build does not have', () => {
