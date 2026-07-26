@@ -341,11 +341,16 @@
     white-space: nowrap;
   }
 
-  /* Interactive parts keep a visible focus ring, in the colour they already
-     carry — the UA ring would be invisible against a tinted surface. */
+  /*
+   * Interactive parts keep a visible focus ring. Deliberately neutral rather
+   * than the part's own hue: a focus indicator needs 3:1 against what surrounds
+   * it, and several step-9 domain colours (amber, sky) do not clear that on the
+   * light card ground. The foreground token does, in both appearances — and
+   * focus is chrome, which the design system keeps gray-scale anyway.
+   */
   .liebe-pill:focus-visible,
   button.liebe-chip:focus-visible {
-    outline: 2px solid var(--part-color);
+    outline: 2px solid var(--liebe-fg);
     outline-offset: 2px;
   }
 

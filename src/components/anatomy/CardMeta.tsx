@@ -17,7 +17,13 @@ export function CardMeta({ children, className }: CardMetaProps) {
   return <div className={className ? `liebe-meta ${className}` : 'liebe-meta'}>{children}</div>
 }
 
-export interface CardNameProps extends AnatomyPartProps {
+/**
+ * `active` and `hue` are deliberately absent: the name never renders state.
+ * Cards forward one bundle of rendered-state props to their parts, so the
+ * component drops them at runtime too — a type that only discourages the prop
+ * would still let a JSX spread stamp `data-active` on the name.
+ */
+export interface CardNameProps extends Omit<AnatomyPartProps, 'active' | 'hue'> {
   children: ReactNode
 }
 
@@ -30,7 +36,9 @@ export interface CardNameProps extends AnatomyPartProps {
  * doing.
  */
 export function CardName({ children, ...part }: CardNameProps) {
-  return <div {...anatomyPart('liebe-name', part)}>{children}</div>
+  return (
+    <div {...anatomyPart('liebe-name', { ...part, active: false, hue: undefined })}>{children}</div>
+  )
 }
 
 export interface CardStateProps extends AnatomyPartProps {

@@ -119,8 +119,29 @@ describe('meta block', () => {
 
     expect(container.querySelector('.liebe-meta')).toHaveClass('stack')
     expect(container.querySelector('.liebe-name')).toHaveClass('wide')
+    expect(container.querySelector('.liebe-name')).not.toHaveAttribute('style')
     expect(container.querySelector('.liebe-state')).not.toHaveAttribute('data-active')
     expect(container.querySelector('.liebe-state-detail')).not.toBeInTheDocument()
+  })
+
+  it('drops rendered state a card forwards to the name', () => {
+    // Cards pass one bundle of state props to every part they render. The name
+    // must come out of that with no state on it, or `.liebe-name[data-active]`
+    // starts matching something that never renders state.
+    const rendered = { color: 'light', domain: 'light', active: true, hue: 'rgb(1, 2, 3)' } as const
+    const { container } = render(
+      <CardMeta>
+        <CardName {...rendered}>Porch</CardName>
+        <CardState {...rendered}>On</CardState>
+      </CardMeta>
+    )
+
+    const name = container.querySelector('.liebe-name')
+    expect(name).toHaveAttribute('data-domain', 'light')
+    expect(name).not.toHaveAttribute('data-active')
+    expect(name).not.toHaveAttribute('style')
+    // The state line, given the same props, does render them.
+    expect(container.querySelector('.liebe-state')).toHaveAttribute('data-active', 'true')
   })
 })
 
