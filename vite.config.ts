@@ -6,6 +6,7 @@ import tsConfigPaths from 'vite-tsconfig-paths'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import { build } from 'vite'
+import { baselineCssPlugin } from './vite/baselineCssPlugin'
 
 // Path fragments that only ever belong to tests, test helpers, or Storybook.
 // None of them reach the panel bundle, so editing one must not trigger a panel
@@ -65,6 +66,7 @@ function panelPlugin() {
           },
         },
         plugins: [
+          baselineCssPlugin(),
           react({
             jsxRuntime: 'automatic',
           }),
@@ -163,6 +165,7 @@ export default defineConfig({
     include: ['react', 'react-dom', '@tanstack/react-router', '@radix-ui/themes'],
   },
   plugins: [
+    baselineCssPlugin(),
     react({
       jsxRuntime: 'automatic',
     }),

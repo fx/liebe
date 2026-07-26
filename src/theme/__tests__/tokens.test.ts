@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { globSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
@@ -147,10 +147,46 @@ describe('style set', () => {
     expect(cssImports(previewSource)).toEqual(cssImports(panelSource))
   })
 
-  it('injects both token layers', () => {
-    expect(cssImports(panelSource)).toEqual(
-      expect.arrayContaining(['~/styles/tokens.css', '~/theme/themes/default.css'])
-    )
+  it('imports the base token layer', () => {
+    expect(cssImports(panelSource)).toEqual(expect.arrayContaining(['~/styles/tokens.css']))
+  })
+
+  it('imports no theme sheet, because the theme layer is injected', () => {
+    // A statically imported theme would apply whichever themes are registered,
+    // all at once and permanently. The active theme comes from the registry
+    // and is injected into the root instead (src/theme/styleInjection.ts), so
+    // it can be swapped live.
+    for (const source of [panelSource, previewSource]) {
+      expect(cssImports(source).filter((specifier) => specifier.startsWith('~/theme/'))).toEqual([])
+    }
+  })
+})
+
+describe('baseline stylesheets', () => {
+  // Every sheet the panel injects, not just the token sheets: an unlayered
+  // author rule outranks every cascade layer, so one sheet left outside
+  // `liebe-base` is one component a theme and user CSS cannot restyle
+  // (docs/specs/theming — "Application mechanism"). The vendored sheets cannot
+  // be authored, and are wrapped at build time by vite/baselineCssPlugin.ts.
+  const sheets = globSync('src/**/*.css', { cwd: process.cwd() }).sort()
+
+  it('finds the sheets to check', () => {
+    // Guards the assertion below against a glob that silently matches nothing.
+    expect(sheets.length).toBeGreaterThan(5)
+  })
+
+  it.each(sheets)('%s puts all of its CSS inside a cascade layer', (sheet) => {
+    const rules = stripComments(read(`../../../${sheet}`)).trim()
+    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+
+    expect(rules).toContain(statement)
+
+    const body = rules.replace(statement, '').trim()
+    expect(body.startsWith('@layer ')).toBe(true)
+    expect(body.endsWith('}')).toBe(true)
+    // One block: a second top-level `@layer` would be a chance for CSS to sit
+    // between them, outside every layer.
+    expect(body.indexOf('@layer')).toBe(body.lastIndexOf('@layer'))
   })
 })
 

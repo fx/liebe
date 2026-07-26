@@ -1,40 +1,51 @@
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ */
 
-.spin {
-  animation: spin 1s linear infinite;
-}
+@layer liebe-base, liebe-theme, liebe-user;
 
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.75;
+@layer liebe-base {
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
-  100% {
-    transform: scale(2);
-    opacity: 0;
+
+  .spin {
+    animation: spin 1s linear infinite;
   }
-}
 
-.pulse-container {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.75;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
 
-.pulse-ring {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background-color: currentColor;
-  animation: pulse-ring 1s cubic-bezier(0.215, 0.61, 0.355, 1);
-  pointer-events: none;
+  .pulse-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: currentColor;
+    animation: pulse-ring 1s cubic-bezier(0.215, 0.61, 0.355, 1);
+    pointer-events: none;
+  }
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { LiebeThemeProvider } from '../LiebeThemeProvider'
 import {
@@ -6,6 +6,10 @@ import {
   enterCameraFullscreen,
   exitCameraFullscreen,
 } from '~/store/cameraFullscreenStore'
+import { THEME_STYLE_SLOT } from '~/theme/styleInjection'
+import { DEFAULT_THEME_ID, getTheme } from '~/theme/themeRegistry'
+
+const THEME_STYLE_SELECTOR = `style[data-liebe="${THEME_STYLE_SLOT}"]`
 
 function getRootTheme(container: HTMLElement): HTMLElement {
   return container.querySelector('[data-is-root-theme="true"]') as HTMLElement
@@ -14,6 +18,10 @@ function getRootTheme(container: HTMLElement): HTMLElement {
 describe('LiebeThemeProvider', () => {
   beforeEach(() => {
     cameraFullscreenStore.setState(() => 0)
+  })
+
+  afterEach(() => {
+    document.head.querySelectorAll(THEME_STYLE_SELECTOR).forEach((style) => style.remove())
   })
 
   it('renders children inside the root Radix Theme', () => {
@@ -49,6 +57,62 @@ describe('LiebeThemeProvider', () => {
     )
 
     expect(getRootTheme(container).classList.contains('light')).toBe(true)
+  })
+
+  it('stamps the theming contract on the element the tokens are declared on', () => {
+    const { container } = render(
+      <LiebeThemeProvider appearance="dark" themeId={DEFAULT_THEME_ID}>
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    // The stamps and the `--liebe-*` declarations have to meet on one element:
+    // a derived companion only re-derives where its base is overridden on the
+    // same element, so a theme rule keyed off a stamp anywhere else would leave
+    // tint and text behind on the old hue.
+    const theme = getRootTheme(container)
+    expect(theme.classList.contains('radix-themes')).toBe(true)
+    expect(theme.classList.contains('liebe-root')).toBe(true)
+    expect(theme.getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
+    expect(theme.getAttribute('data-appearance')).toBe('dark')
+  })
+
+  it('claims no appearance when none is given', () => {
+    const { container } = render(
+      <LiebeThemeProvider>
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const theme = getRootTheme(container)
+    expect(theme.hasAttribute('data-appearance')).toBe(false)
+    expect(theme.getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
+  })
+
+  it('injects the active theme as the theme layer of its root', () => {
+    render(
+      <LiebeThemeProvider>
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const style = document.head.querySelector(THEME_STYLE_SELECTOR)
+    expect(style?.textContent).toBe(getTheme(DEFAULT_THEME_ID)!.css)
+  })
+
+  it('renders an unregistered theme id as the default theme', () => {
+    // An imported configuration naming a theme this build does not have must
+    // still be styled, not fall back to bare base tokens — and must not stamp
+    // a theme nothing is rendering.
+    const { container } = render(
+      <LiebeThemeProvider themeId="from-a-newer-liebe">
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const style = document.head.querySelector(THEME_STYLE_SELECTOR)
+    expect(style?.textContent).toBe(getTheme(DEFAULT_THEME_ID)!.css)
+    expect(getRootTheme(container).getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
   })
 
   it('lifts the root Theme stacking while a camera overlay is open', () => {

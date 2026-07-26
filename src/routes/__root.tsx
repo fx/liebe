@@ -1,15 +1,15 @@
 /// <reference types="vite/client" />
 import { createRootRoute, Outlet, Scripts } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import { Theme } from '@radix-ui/themes'
 import '@radix-ui/themes/styles.css'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
-import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
+import { LiebeThemeProvider } from '~/components/LiebeThemeProvider'
 import { NotFound } from '~/components/NotFound'
 import { useHomeAssistantRouting, useIsHomeAssistant } from '~/hooks'
-import { useDashboardPersistence, useDashboardStore } from '~/store'
+import { useDashboardPersistence } from '~/store'
+import { useThemeSelection } from '~/theme/useThemeSelection'
 import '~/styles/app.css'
 
 export const Route = createRootRoute({
@@ -18,7 +18,21 @@ export const Route = createRootRoute({
   component: RootComponent,
 })
 
-function RootComponent() {
+/**
+ * The routed tree's own theme root.
+ *
+ * Standalone (the dev SPA) this is the only one; inside the panel it nests
+ * under `PanelApp`'s. Either way it is a `LiebeThemeProvider` reading the same
+ * `useThemeSelection`, which is what keeps the two in step: a plain Radix
+ * `Theme` here would re-declare every `--liebe-*` token on an element carrying
+ * none of the theming stamps, and a token override the user wrote against
+ * `.liebe-root` would then lose to the base sheet on this element (a
+ * declaration beats an inherited value, whatever the layer). It used to resolve
+ * the appearance a second time as well, from its own media-query state, which
+ * rendered light for one frame on a dark OS and ignored a theme's forced
+ * appearance.
+ */
+export function RootComponent() {
   // Enable persistence globally
   useDashboardPersistence()
 
@@ -28,44 +42,14 @@ function RootComponent() {
   // Check if we're running in Home Assistant
   const isInHomeAssistant = useIsHomeAssistant()
 
-  // Get theme from dashboard store
-  const theme = useDashboardStore((state) => state.theme)
-  const [systemPrefersDark, setSystemPrefersDark] = React.useState(false)
-
-  // Listen for system theme changes
-  React.useEffect(() => {
-    if (theme !== 'auto' || typeof window === 'undefined') return
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    setSystemPrefersDark(mediaQuery.matches)
-
-    const handler = (e: MediaQueryListEvent) => {
-      setSystemPrefersDark(e.matches)
-    }
-
-    mediaQuery.addEventListener('change', handler)
-    return () => mediaQuery.removeEventListener('change', handler)
-  }, [theme])
-
-  // Determine the appearance based on theme setting
-  const getAppearance = () => {
-    if (theme === 'light' || theme === 'dark') {
-      return theme
-    }
-    // For 'auto', use system preference
-    if (theme === 'auto') {
-      return systemPrefersDark ? 'dark' : 'light'
-    }
-    // Default to light
-    return 'light'
-  }
+  const { themeId, appearance } = useThemeSelection()
 
   return (
     <>
-      <Theme appearance={getAppearance()}>
+      <LiebeThemeProvider themeId={themeId} appearance={appearance}>
         <Outlet />
         {!isInHomeAssistant && <TanStackRouterDevtools position="bottom-right" />}
-      </Theme>
+      </LiebeThemeProvider>
       <Scripts />
     </>
   )

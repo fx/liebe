@@ -21,17 +21,21 @@ declare global {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Provider = HomeAssistantProvider as any
 
-// Import styles. Bundled into `liebe.css`, which connectedCallback links into
-// the shadow root — that is how the token contract reaches the panel. The
-// Storybook preview imports the same set at the preview-document level, so the
-// workshop and the panel render against identical styles; a test asserts the
-// two lists stay in sync (src/theme/__tests__/tokens.test.ts).
+// Import the baseline styles — the `liebe-base` layer. Bundled into
+// `liebe.css`, which connectedCallback links into the shadow root; the vendored
+// sheets among them are wrapped into the layer at build time
+// (vite/baselineCssPlugin.ts). That is how the token contract reaches the
+// panel. The Storybook preview imports the same set at the preview-document
+// level, so the workshop and the panel render against identical styles; a test
+// asserts the two lists stay in sync (src/theme/__tests__/tokens.test.ts).
+//
+// The theme layer is deliberately NOT among them: the active theme is injected
+// by LiebeThemeProvider from the registry, so it can be swapped live.
 import '@radix-ui/themes/styles.css'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import '~/styles/app.css'
 import '~/styles/tokens.css'
-import '~/theme/themes/default.css'
 
 class LiebePanel extends HTMLElement {
   _hass: HomeAssistant | null = null

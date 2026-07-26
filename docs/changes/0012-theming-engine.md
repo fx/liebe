@@ -43,7 +43,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ## Tasks
 
-- [ ] **PR 1 — Injection + registry + appearance**: style layers; adopt and extend the minimal theme-registry module from 0009 as the runtime registry (the storybook toolbar already enumerates it); appearance resolution + Radix wiring; root stamping; unit tests
+- [x] **PR 1 — Injection + registry + appearance**: style layers; adopt and extend the minimal theme-registry module from 0009 as the runtime registry (the storybook toolbar already enumerates it); appearance resolution + Radix wiring; root stamping; unit tests
 - [ ] **PR 2 — Config + UI**: schema fields + validation + export/import + dirty-tracking; legacy scalar-`theme` migration with unit tests; **dashboard-config spec synchronized in this same PR** (store shape, `setTheme`, initialization, export/import, migration — the schema change and its owning spec must never merge apart); picker, appearance control, custom-CSS editor; **the injection-time sanitizer ships in this same PR** (imports, off-origin references incl. escaped/protocol-relative/custom-property and inherited-variable indirection, with editor notices and the full bypass-test suite — imported YAML applies immediately, so warnings without the sanitizer would violate the offline/security boundary); component tests; user-override story
 - [ ] **PR 3 — E2E + theming spec sync**: live-switch and round-trip e2e; update theming spec changelog and document the chosen user-CSS root selector (the dashboard-config spec was already synchronized in PR 2, atomically with the schema change)
 

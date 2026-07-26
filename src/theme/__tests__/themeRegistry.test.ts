@@ -2,18 +2,31 @@ import { describe, it, expect } from 'vitest'
 import {
   DEFAULT_THEME_ID,
   getTheme,
+  getThemeOrDefault,
   listThemes,
   resolveAppearance,
   supportsAppearanceChoice,
   type ThemeDefinition,
 } from '../themeRegistry'
 
-const darkOnly: ThemeDefinition = { id: 'lcars', label: 'LCARS', appearances: 'dark-only' }
-const lightOnly: ThemeDefinition = { id: 'paper', label: 'Paper', appearances: 'light-only' }
+const darkOnly: ThemeDefinition = {
+  id: 'lcars',
+  label: 'LCARS',
+  appearances: 'dark-only',
+  css: '',
+}
+const lightOnly: ThemeDefinition = {
+  id: 'paper',
+  label: 'Paper',
+  appearances: 'light-only',
+  css: '',
+}
 
 describe('themeRegistry', () => {
   it('registers exactly the built-in themes that exist today', () => {
-    expect(listThemes()).toEqual([{ id: 'default', label: 'Default', appearances: 'both' }])
+    expect(listThemes()).toEqual([
+      { id: 'default', label: 'Default', appearances: 'both', css: expect.any(String) },
+    ])
   })
 
   it('hands out a copy of the list so callers cannot add to the registry', () => {
@@ -36,6 +49,29 @@ describe('themeRegistry', () => {
       id: 'default',
       label: 'Default',
       appearances: 'both',
+      css: expect.any(String),
+    })
+  })
+
+  it('carries each theme’s stylesheet, authored inside the theme layer', () => {
+    // The payload IS the theme (docs/specs/theming — "Theme model"): the engine
+    // injects this text, so a theme that shipped no CSS, or CSS outside its
+    // layer, would either do nothing or outrank the user layer.
+    const { css } = getTheme(DEFAULT_THEME_ID)!
+
+    expect(css).toContain('@layer liebe-base, liebe-theme, liebe-user;')
+    expect(css).toContain('@layer liebe-theme {')
+    expect(css).toContain('--liebe-c-light: var(--amber-9);')
+  })
+
+  describe('getThemeOrDefault', () => {
+    it('returns the registered theme', () => {
+      expect(getThemeOrDefault(DEFAULT_THEME_ID)).toBe(getTheme(DEFAULT_THEME_ID))
+    })
+
+    it('falls back to Default for an id this build does not have', () => {
+      // A configuration imported from a newer Liebe still has to render.
+      expect(getThemeOrDefault('lcars')).toBe(getTheme(DEFAULT_THEME_ID))
     })
   })
 
