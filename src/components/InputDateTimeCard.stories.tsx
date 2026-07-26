@@ -39,7 +39,15 @@ export const DateAndTime: Story = {
   parameters: { liebe: { entities: [createInputDateTimeEntity()] } },
 }
 
-/** `has_time: false` narrows the field to a date picker. */
+/**
+ * `has_time: false` narrows the field to a date picker.
+ *
+ * Known defect this story exposes: HA publishes a date-only state as
+ * `YYYY-MM-DD`, which `new Date(...)` parses as UTC midnight, so the rendered
+ * date is a day early for viewers west of UTC. Fixing it is out of scope for
+ * this change (workshop setup) — the story is here so the fix has somewhere to
+ * be demonstrated.
+ */
 export const DateOnly: Story = {
   parameters: {
     liebe: {
