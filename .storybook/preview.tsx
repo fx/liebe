@@ -14,8 +14,8 @@ registerMockCameraStream()
 // those assets against the origin root — fine at `localhost:6006`, broken on
 // Pages where the workshop is published under `/liebe/storybook/`. Point it at
 // the preview document's own directory instead, which is correct in both.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-;(window as any).__LIEBE_ASSET_BASE_URL__ = new URL('./', document.baseURI).href
+// The global itself is declared in `src/panel.ts`, the module that publishes it.
+window.__LIEBE_ASSET_BASE_URL__ = new URL('./', document.baseURI).href
 
 // The same style set the panel injects (src/panel.ts) — imported here directly
 // because the panel entry also registers the custom element and starts the

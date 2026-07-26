@@ -110,10 +110,8 @@ export function getWeatherTextColor(
 // Get the base URL for assets based on the panel's location
 function getAssetBaseUrl(): string {
   // Check if we have the base URL from panel initialization
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (typeof window !== 'undefined' && (window as any).__LIEBE_ASSET_BASE_URL__) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (window as any).__LIEBE_ASSET_BASE_URL__
+  if (typeof window !== 'undefined' && window.__LIEBE_ASSET_BASE_URL__) {
+    return window.__LIEBE_ASSET_BASE_URL__
   }
 
   // Fallback to root path for development

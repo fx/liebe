@@ -7,6 +7,16 @@ import { getPanelConfig } from './config/panel'
 import type { HomeAssistant } from './contexts/HomeAssistantContext'
 import { entityStore } from './store/entityStore'
 
+// This module publishes the asset base URL on `window` (see connectedCallback),
+// so the global lives here — cards that resolve bundled assets against it
+// (WeatherCard) and the Storybook preview that stands in for the panel read the
+// same declaration.
+declare global {
+  interface Window {
+    __LIEBE_ASSET_BASE_URL__?: string
+  }
+}
+
 // Type fix for React.createElement
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Provider = HomeAssistantProvider as any
@@ -143,8 +153,7 @@ class LiebePanel extends HTMLElement {
         const baseUrl = new URL(script.src).href.replace(/panel\.js$/, '')
 
         // Store base URL globally for asset loading
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(window as any).__LIEBE_ASSET_BASE_URL__ = baseUrl
+        window.__LIEBE_ASSET_BASE_URL__ = baseUrl
 
         const cssUrl = `${baseUrl}liebe.css`
         const link = document.createElement('link')
