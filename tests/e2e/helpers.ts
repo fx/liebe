@@ -464,3 +464,12 @@ export async function setFlag(token: string, on: boolean): Promise<void> {
     entity_id: E2E_FLAG,
   })
 }
+
+// Force the password helper's state via REST. `initial:` in configuration.yaml
+// only seeds the value on a fresh HA restore, and this suite shares ONE Home
+// Assistant instance across specs that DO mutate each other's state (#208) — so
+// a spec asserting the ABSENCE of the secret must first put the secret there,
+// or it passes without proving anything.
+export async function setSecret(token: string, value: string): Promise<void> {
+  await callService(token, 'input_text', 'set_value', { entity_id: E2E_SECRET, value })
+}

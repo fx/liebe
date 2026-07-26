@@ -81,22 +81,108 @@ describe('detail-dialog redaction', () => {
     expect(attributes).toContainEqual({ key: 'max', value: '255', redacted: false })
   })
 
+  // Every secret below contains a character `JSON.stringify` rewrites, which is
+  // what makes them regressions rather than variations: comparing the FORMATTED
+  // row against the raw secret cannot find them, so each one rendered escaped
+  // but fully recoverable — `meta={"stored":"pa\"ss"}` hands over `pa"ss`.
+  it.each([
+    ['a double quote', 'pa"ss'],
+    ['a backslash', 'pa\\ss'],
+    ['a newline', 'pa\nss'],
+    ['a tab', 'pa\tss'],
+    ['a lone surrogate, which JSON escapes as \\uXXXX', 'pa\uD800ss'],
+  ])('masks a secret containing %s, at any depth', (_what, escapable) => {
+    const attributes = redactedAttributes(
+      passwordHelper({
+        state: escapable,
+        attributes: {
+          friendly_name: 'Wifi Password',
+          mode: 'password',
+          last_value: escapable,
+          meta: { stored: escapable },
+          history: [{ was: escapable }],
+        },
+      })
+    )
+
+    for (const key of ['last_value', 'meta', 'history']) {
+      expect(attributes).toContainEqual({ key, value: REDACTED_PLACEHOLDER, redacted: true })
+    }
+    const rendered = attributes.map(({ value }) => value).join(' ')
+    expect(rendered).not.toContain(escapable)
+    // Nor the escaped spelling, which is the form that actually reached the
+    // screen and is one `JSON.parse` from the secret itself.
+    expect(rendered).not.toContain(JSON.stringify(escapable).slice(1, -1))
+  })
+
+  it('masks a row that echoes the secret as a nested key name', () => {
+    // A key is rendered as part of the JSON just as a value is. The secret here
+    // contains a quote, so only the raw walk can see it.
+    const quoted = 'pa"ss'
+    const attributes = redactedAttributes(
+      passwordHelper({
+        state: quoted,
+        attributes: { friendly_name: 'W', mode: 'password', index: { [quoted]: 1 } },
+      })
+    )
+
+    expect(attributes).toContainEqual({ key: 'index', value: REDACTED_PLACEHOLDER, redacted: true })
+  })
+
+  it('masks a row whose escaping spells out a secret the raw value never held', () => {
+    // The mirror image, and the reason the formatted comparison stays on as a
+    // backstop: `a"b` does not contain the secret `\"`, but rendering it as
+    // JSON produces `a\"b`, which does.
+    const attributes = redactedAttributes(
+      passwordHelper({
+        state: '\\"',
+        attributes: { friendly_name: 'W', mode: 'password', meta: { quoted: 'a"b' } },
+      })
+    )
+
+    expect(attributes).toContainEqual({ key: 'meta', value: REDACTED_PLACEHOLDER, redacted: true })
+  })
+
   it.each([
     'password',
     'passwd',
     'passphrase',
     'api_key',
-    'apiKey',
     'access_token',
     'client_secret',
     'private_key',
     'credentials',
+    // …and the same concepts in the spellings an integration is equally likely
+    // to pick. A separator written into the pattern as a literal (`private_key`)
+    // matches snake_case and nothing else, so `privateKey` rendered in full.
+    'apiKey',
+    'apikey',
+    'privateKey',
+    'private-key',
+    'accessToken',
+    'clientSecret',
+    'passPhrase',
+    'authKey',
+    'accessKey',
+    'sessionKey',
+    'encryptionKey',
+    'signingKey',
   ])('masks the credential-named attribute %o on any entity', (key) => {
     const attributes = redactedAttributes(
       createSensorEntity({ attributes: { friendly_name: 'T', [key]: 'abc123' } })
     )
 
     expect(attributes).toContainEqual({ key, value: REDACTED_PLACEHOLDER, redacted: true })
+  })
+
+  it.each(['keys', 'keyboard'])('leaves the ordinary key-shaped attribute %o alone', (key) => {
+    // `key` is only ever matched behind a credential-ish qualifier. As a bare
+    // alternative it would blank out these, which name nothing secret.
+    const attributes = redactedAttributes(
+      createSensorEntity({ attributes: { friendly_name: 'T', [key]: 'qwerty' } })
+    )
+
+    expect(attributes).toContainEqual({ key, value: 'qwerty', redacted: false })
   })
 
   it('masks a credential that reappears under an innocent key', () => {

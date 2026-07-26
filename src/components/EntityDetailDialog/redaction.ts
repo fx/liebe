@@ -34,8 +34,21 @@ const NON_VALUE_STATES = new Set(['unavailable', 'unknown', ''])
  * every camera, and integrations invent their own spellings constantly, so the
  * question asked here is "does this key name a credential?" rather than "is
  * this one of the keys we knew about when this shipped".
+ *
+ * Every compound alternative tolerates an optional separator, so the same
+ * concept spelled `private_key`, `private-key`, `privatekey`, or `privateKey`
+ * matches alike — the pattern is case-insensitive and unanchored, so an
+ * optional separator is all camelCase needs. Spelling a separator into the
+ * literal (as `private_key` once did) matches snake_case and nothing else,
+ * which is a silent hole: `privateKey` is a perfectly ordinary key name and its
+ * value rendered in full.
+ *
+ * `key` on its own is deliberately NOT an alternative — it would blank out
+ * `keys`, `keyboard`, and every `key_*` HA publishes — so it is reached only
+ * through the credential-ish qualifiers below.
  */
-const SECRET_KEY_PATTERN = /pass(word|wd|phrase)?|secret|token|api[-_]?key|credential|private_key/i
+const SECRET_KEY_PATTERN =
+  /pass(?:[-_.\s]?(?:word|wd|phrase))?|secret|token|credential|(?:api|auth|access|client|private|session|encryption|signing)[-_.\s]?key/i
 
 /**
  * Attributes the dialog never lists: the friendly name is already the dialog's
@@ -126,6 +139,38 @@ function collectSecretStrings(value: unknown, beneathCredential: boolean, into: 
 }
 
 /**
+ * Whether any known secret appears anywhere inside a value — compared against
+ * the RAW value, before any formatting.
+ *
+ * This has to be structural rather than a substring search of the formatted
+ * row, because formatting is not identity-preserving: `formatAttributeValue`
+ * runs `JSON.stringify` for objects and lists, and a secret containing a
+ * character JSON escapes (`"`, `\`, a newline, a tab, anything it emits as
+ * `\uXXXX`) does not survive into the output as the raw substring. Searching
+ * the formatted text therefore *misses exactly the secrets that are hardest to
+ * type* and renders them escaped but fully recoverable — `{"stored":"pa\"ss"}`
+ * discloses `pa"ss`. Walking the raw value asks the only question that stays
+ * true whatever the formatter does later: is the secret in there?
+ *
+ * Object keys are compared too: a key is rendered as part of the JSON, so a
+ * secret echoed as a nested key name is disclosed just as a nested value is.
+ * Numbers and booleans are compared as their rendered text, which is exact for
+ * both — that is how a numeric-looking secret is still recognised in a row that
+ * carries it as a number.
+ */
+function revealsSecret(value: unknown, secrets: readonly string[]): boolean {
+  const found = (text: string) => secrets.some((secret) => text.includes(secret))
+
+  if (typeof value === 'string') return found(value)
+  if (typeof value === 'number' || typeof value === 'boolean') return found(String(value))
+  if (Array.isArray(value)) return value.some((item) => revealsSecret(item, secrets))
+  if (value !== null && typeof value === 'object') {
+    return Object.entries(value).some(([key, child]) => found(key) || revealsSecret(child, secrets))
+  }
+  return false
+}
+
+/**
  * The attribute list the dialog renders, already redacted.
  *
  * Two passes, and the second is the one that matters. A single pass could only
@@ -145,6 +190,13 @@ function collectSecretStrings(value: unknown, beneathCredential: boolean, into: 
  * credential that is a number would otherwise contribute a secret like `1` and
  * blank out every numeric row on the entity — the structural rule covers that
  * case instead.
+ *
+ * The containment pass runs over the raw value (`revealsSecret`), and then once
+ * more over the formatted text. The raw walk is the guarantee; the formatted
+ * check is a backstop for the one thing a raw walk cannot see — escaping that
+ * *synthesizes* a secret that was never in the data, as a secret of `\"` is
+ * produced by rendering the innocent string `a"b`. Both are asymmetrically
+ * cheap next to a disclosure.
  */
 export function redactedAttributes(entity: HassEntity): DetailAttribute[] {
   const shown = Object.entries(entity.attributes)
@@ -165,11 +217,16 @@ export function redactedAttributes(entity: HassEntity): DetailAttribute[] {
     collectSecretStrings(raw, SECRET_KEY_PATTERN.test(key), secrets)
   }
 
+  // Materialised once, not per row: the set is fixed by the time the second
+  // pass starts.
+  const secretList = [...secrets]
+
   return shown.map(({ key, raw, value, secretKey }) => {
     const redacted =
       secretKey ||
       containsCredentialKey(raw) ||
-      [...secrets].some((secret) => value.includes(secret))
+      revealsSecret(raw, secretList) ||
+      secretList.some((secret) => value.includes(secret))
 
     return { key, value: redacted ? REDACTED_PLACEHOLDER : value, redacted }
   })

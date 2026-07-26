@@ -6,8 +6,10 @@ import {
   getRestState,
   holdCardTitle,
   openPanel,
+  readHassState,
   seedDetailDialogConfig,
   setFlag,
+  setSecret,
 } from './helpers'
 
 /**
@@ -42,7 +44,18 @@ test('holding a card opens the detail dialog instead of firing its tap action', 
 })
 
 test('the detail dialog never reveals a password helper’s value', async ({ page }) => {
-  await openPanel(page, seedDetailDialogConfig())
+  const { accessToken } = await openPanel(page, seedDetailDialogConfig())
+
+  // Put the secret there FIRST. The assertion below is an absence, and an
+  // absence proves nothing about a value nobody set: `initial:` only applies on
+  // a fresh restore, and this suite shares one HA instance whose helpers other
+  // specs mutate (#208). Both the REST state and the panel's in-memory copy are
+  // confirmed, so the dialog is known to be rendering the fixture value.
+  await setSecret(accessToken, E2E_SECRET_VALUE)
+  expect(await getRestState(accessToken, E2E_SECRET)).toBe(E2E_SECRET_VALUE)
+  await expect
+    .poll(() => readHassState(page, E2E_SECRET), { timeout: 15_000 })
+    .toBe(E2E_SECRET_VALUE)
 
   // The card masks it; the dialog a hold opens must mask it too, or the mask is
   // one gesture from being pointless (docs/specs/entity-cards/options/
