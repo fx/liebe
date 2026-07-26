@@ -143,8 +143,9 @@ test('theme configuration survives YAML export into a fresh dashboard', async ({
     await (await chooser).setFiles(exportPath)
     await fresh.getByRole('button', { name: 'Import Configuration' }).click()
 
-    // The imported dashboard renders what was exported.
-    await expect.poll(async () => (await themeStamp(fresh)).appearance).toBe('dark')
+    // The imported dashboard renders what was exported — including the same
+    // Default fallback for the theme it cannot render.
+    await expect.poll(() => themeStamp(fresh)).toEqual({ themeId: 'default', appearance: 'dark' })
     await expect.poll(() => themeToken(fresh, '--liebe-bg')).toBe('#010203')
     expect(await themeBackgroundColor(fresh)).toBe('rgb(1, 2, 3)')
 

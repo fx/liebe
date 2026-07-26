@@ -6,6 +6,8 @@ Implement the [theming](../specs/theming/index.md) machinery: layered style inje
 
 **Spec:** [theming](../specs/theming/index.md) · **Status:** complete · **Depends on:** 0010
 
+**Known exception:** portalled overlays receive the base and theme layers but not the user layer, so the portal requirement below is only partly met and the scoped `.liebe-portal-root` host stays outstanding. Deliberate, and the reasoning is under [Design Decisions](#design-decisions); the theming spec carries the same note against its portal rule so the gap is visible to whoever needs it, rather than buried in a closed change.
+
 ## Motivation
 
 Easy CSS customization is a headline goal; the engine (cascade, persistence, selection UI) is independent of any particular theme and should be reviewable on its own with the default theme as its only payload.
