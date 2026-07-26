@@ -56,7 +56,10 @@ export interface SparklineProps extends AnatomyPartProps {
   /**
    * The series, oldest first. Fewer than two samples renders the placeholder
    * baseline — which is the state every sparkline is in until history data
-   * arrives (change 0015).
+   * arrives (change 0015). So does a series carrying a non-finite sample:
+   * history from Home Assistant can contain states that do not parse as
+   * numbers, and one `NaN` would otherwise turn the whole path into `NaN`
+   * coordinates and draw nothing at all.
    */
   values?: number[]
   /**
@@ -74,7 +77,7 @@ export interface SparklineProps extends AnatomyPartProps {
  */
 export function Sparkline({ values = [], label, ...part }: SparklineProps) {
   const attributes = anatomyPart('liebe-spark', part)
-  const shape = values.length > 1 ? sparkShape(values) : null
+  const shape = values.length > 1 && values.every(Number.isFinite) ? sparkShape(values) : null
 
   return (
     <div

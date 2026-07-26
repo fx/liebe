@@ -266,6 +266,9 @@ describe('Sparkline', () => {
   it.each([
     ['no series at all', undefined],
     ['a single sample', [3]],
+    // History can carry states that do not parse as numbers; one of them would
+    // otherwise turn every coordinate into NaN and draw nothing at all.
+    ['a non-finite sample', [1, Number.NaN, 3]],
   ])('shows the placeholder baseline with %s', (_case, values) => {
     const { container } = render(<Sparkline values={values} />)
 

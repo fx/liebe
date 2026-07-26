@@ -20,7 +20,7 @@ function ModePills({
 }: {
   initial?: string
   hideLabel?: boolean
-  /** Holds every pill back, as a card does while a command is in flight. */
+  /** Holds every pill back, as a card does for an unavailable entity. */
   disabled?: boolean
 }) {
   const [selected, setSelected] = useState(initial)
@@ -80,8 +80,9 @@ export const IconOnly: Story = {
 }
 
 /**
- * Disabled: natively, so nothing dispatches and nothing takes focus — what a
- * card needs while an entity is unavailable or a command is in flight.
+ * Disabled: natively, so nothing dispatches and nothing takes focus. Shown
+ * here for a wholly unavailable entity — which mode a card holds back at any
+ * other moment is the card's decision, not the pill's.
  */
 export const Disabled: Story = {
   args: { disabled: true },

@@ -119,6 +119,8 @@ describe('motion', () => {
   })
 
   it('drops the transitions under reduced motion', () => {
-    expect(ruleBody('@media (prefers-reduced-motion: reduce)')).toContain('.liebe-icon,')
+    const reducedMotion = ruleBody('@media (prefers-reduced-motion: reduce)')
+    expect(reducedMotion).toContain('.liebe-icon,')
+    expect(reducedMotion).toContain('transition: none;')
   })
 })

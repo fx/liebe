@@ -52,7 +52,8 @@ export function CardState({ children, detail, ...part }: CardStateProps) {
   return (
     <div {...anatomyPart('liebe-state', part)}>
       {children}
-      {detail ? (
+      {/* `!= null` rather than truthiness: a numeric detail of 0 is a value. */}
+      {detail != null ? (
         <>
           {/* A real space, not a margin: it separates the two for a screen
               reader as well as visually. */}{' '}
