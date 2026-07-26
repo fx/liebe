@@ -10,6 +10,7 @@ import {
   IconCircle,
   Pill,
   PillGroup,
+  Slider,
   Sparkline,
   anatomyPart,
 } from '..'
@@ -91,6 +92,10 @@ describe('selector contract', () => {
       <CardState key="state" domain="light">
         Off
       </CardState>,
+    ],
+    [
+      'liebe-slider',
+      <Slider key="slider" label="Brightness" value={50} domain="light" onValueChange={() => {}} />,
     ],
     ['liebe-pill', <Pill key="pill" label="Heat" domain="climate" onClick={() => {}} />],
     ['liebe-chip', <Chip key="chip" label="Away" domain="person" />],
@@ -253,15 +258,182 @@ describe('embedded controls', () => {
   // descendant target, so a control that let its click bubble would fire the
   // tile as well — choosing a mode would toggle the device it configures.
   it.each([
-    ['pill', <Pill key="pill" label="Cool" domain="climate" onClick={() => {}} />],
-    ['chip', <Chip key="chip" label="Away" domain="person" onClick={() => {}} />],
-  ])('keeps a %s click from reaching the tile around it', async (_part, control) => {
+    ['pill', <Pill key="pill" label="Cool" domain="climate" onClick={() => {}} />, 'button'],
+    ['chip', <Chip key="chip" label="Away" domain="person" onClick={() => {}} />, 'button'],
+    [
+      'slider',
+      <Slider key="slider" label="Brightness" value={50} domain="light" onValueChange={() => {}} />,
+      'slider',
+    ],
+  ])('keeps a %s click from reaching the tile around it', async (_part, control, role) => {
     const onTileClick = vi.fn()
     // Stands in for the card shell, whose own handler accepts any descendant.
     render(<div onClick={onTileClick}>{control}</div>)
 
-    await userEvent.click(screen.getByRole('button'))
+    await userEvent.click(screen.getByRole(role))
     expect(onTileClick).not.toHaveBeenCalled()
+  })
+})
+
+describe('Slider', () => {
+  it('names the thumb, which is the element carrying the slider role', async () => {
+    // Issue #192: Radix puts `role="slider"` on the thumb, so a name on the
+    // root leaves the control anonymous to assistive technology — axe's
+    // `aria-input-field-name`, serious, 11 nodes across the cards. `getByRole`
+    // with a name is the assertion: it resolves the accessible name of the
+    // element that has the role, which is exactly what the audit measures.
+    const { container } = render(
+      <Slider label="Brightness" value={50} domain="light" onValueChange={() => {}} />
+    )
+
+    const thumb = await screen.findByRole('slider', { name: 'Brightness' })
+    expect(thumb).toHaveClass('liebe-slider-thumb')
+    // ...and the root is deliberately left unnamed, so no second, competing
+    // name can drift out of step with the one that counts.
+    expect(container.querySelector('.liebe-slider')).not.toHaveAttribute('aria-label')
+  })
+
+  it('will not compile without an accessible name', () => {
+    // The guard is the type, not a default: a stand-in name would pass the
+    // audit while telling a screen reader user nothing. This fails
+    // `npm run typecheck` the moment `label` becomes optional.
+    expect(() =>
+      render(
+        // @ts-expect-error — `label` is required.
+        <Slider value={50} domain="light" onValueChange={() => {}} />
+      )
+    ).not.toThrow()
+  })
+
+  it('reports each step of a keyboard adjustment and commits it', async () => {
+    const onValueChange = vi.fn()
+    const onValueCommit = vi.fn()
+    render(
+      <Slider
+        label="Brightness"
+        value={50}
+        step={5}
+        color="light"
+        domain="light"
+        active
+        onValueChange={onValueChange}
+        onValueCommit={onValueCommit}
+      />
+    )
+
+    const thumb = screen.getByRole('slider', { name: 'Brightness' })
+    thumb.focus()
+    await userEvent.keyboard('{ArrowRight}')
+
+    // Both halves matter to a card: the live value repaints it, the commit is
+    // the one service call a whole drag should produce.
+    expect(onValueChange).toHaveBeenCalledWith(55)
+    expect(onValueCommit).toHaveBeenCalledWith(55)
+  })
+
+  it('adjusts without a commit handler', async () => {
+    // `onValueCommit` is optional — a card that dispatches on every change (or
+    // not at all) still has a working slider.
+    const onValueChange = vi.fn()
+    render(<Slider label="Volume" value={30} domain="media_player" onValueChange={onValueChange} />)
+
+    screen.getByRole('slider', { name: 'Volume' }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+
+    expect(onValueChange).toHaveBeenCalledWith(31)
+  })
+
+  it('respects the range it is given', () => {
+    render(
+      <Slider
+        label="Target temperature"
+        value={21}
+        min={7}
+        max={35}
+        step={0.5}
+        color="heat"
+        domain="climate"
+        active
+        onValueChange={() => {}}
+      />
+    )
+
+    const thumb = screen.getByRole('slider', { name: 'Target temperature' })
+    expect(thumb).toHaveAttribute('aria-valuemin', '7')
+    expect(thumb).toHaveAttribute('aria-valuemax', '35')
+    expect(thumb).toHaveAttribute('aria-valuenow', '21')
+  })
+
+  it('shows the readout in the track and announces it as the value', () => {
+    const { container } = render(
+      <Slider
+        label="Brightness"
+        value={80}
+        readout="80%"
+        color="light"
+        domain="light"
+        active
+        onValueChange={() => {}}
+      />
+    )
+
+    const readout = container.querySelector('.liebe-slider-readout')
+    expect(readout).toHaveTextContent('80%')
+    // The thumb already announces the same text, so the visible copy stays out
+    // of the accessibility tree rather than being read twice.
+    expect(readout).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByRole('slider', { name: 'Brightness' })).toHaveAttribute(
+      'aria-valuetext',
+      '80%'
+    )
+  })
+
+  it('renders no readout when the card gives none', () => {
+    const { container } = render(
+      <Slider label="Position" value={40} domain="cover" onValueChange={() => {}} />
+    )
+
+    expect(container.querySelector('.liebe-slider-readout')).not.toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Position' })).not.toHaveAttribute('aria-valuetext')
+  })
+
+  it.each([
+    ['horizontal' as const, undefined],
+    ['vertical' as const, 'vertical' as const],
+  ])('lays out %s, stamping the axis on every part', (expected, orientation) => {
+    const { container } = render(
+      <Slider
+        label="Brightness"
+        value={50}
+        orientation={orientation}
+        domain="light"
+        onValueChange={() => {}}
+      />
+    )
+
+    // One stylesheet covers both orientations by reading the attribute Radix
+    // stamps, so the axis has to reach the parts, not just the root.
+    for (const selector of [
+      '.liebe-slider',
+      '.liebe-slider-track',
+      '.liebe-slider-fill',
+      '.liebe-slider-thumb',
+    ]) {
+      expect(container.querySelector(selector)).toHaveAttribute('data-orientation', expected)
+    }
+  })
+
+  it('does not adjust while disabled', async () => {
+    const onValueChange = vi.fn()
+    const { container } = render(
+      <Slider label="Brightness" value={50} disabled domain="light" onValueChange={onValueChange} />
+    )
+
+    expect(container.querySelector('.liebe-slider')).toHaveAttribute('data-disabled')
+    const thumb = screen.getByRole('slider', { name: 'Brightness' })
+    thumb.focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(onValueChange).not.toHaveBeenCalled()
   })
 })
 

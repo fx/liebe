@@ -5,14 +5,14 @@
  * class; docs/specs/theming/index.md ("Stable selector contract") makes those
  * names public API. The classes that carry the contract are:
  *
- *   liebe-icon · liebe-name · liebe-state · liebe-pill · liebe-chip
- *   liebe-value · liebe-spark
+ *   liebe-icon · liebe-name · liebe-state · liebe-slider · liebe-pill
+ *   liebe-chip · liebe-value · liebe-spark
  *
- * (`liebe-card` belongs to the card shell and `liebe-slider` to the slider
- * primitive — the two remaining tasks of change 0010.) Renaming any of them is
- * a breaking change. Everything else here — `liebe-meta`, the `-label`,
- * `-dot`, `-canvas` and `-unit` sub-elements, and the `--part-*` custom
- * properties below — is internal and may change freely.
+ * (`liebe-card` belongs to the card shell — the last remaining task of change
+ * 0010.) Renaming any of them is a breaking change. Everything else here —
+ * `liebe-meta`, the `-label`, `-dot`, `-canvas`, `-unit`, `-track`, `-fill`,
+ * `-thumb` and `-readout` sub-elements, and the `--part-*` custom properties
+ * below — is internal and may change freely.
  *
  * LAYERING
  * --------
@@ -294,6 +294,145 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Embedded slider
+   *
+   * Built on the unstyled Radix primitive, which stamps `data-orientation` on
+   * every one of its parts — so one set of rules covers both orientations and
+   * the component passes no axis of its own down.
+   *
+   * The parts play different roles from the tint pattern above: the *track* is
+   * the neutral ground (`--liebe-track`), the *fill* is the 20% tint, and the
+   * thumb is the saturated leading edge. That is the same three roles the
+   * pattern gives a glyph on a tinted circle, laid out along an axis instead of
+   * stacked — which is why the fill reads `--part-tint` and the thumb
+   * `--part-color` rather than either inventing a value.
+   *
+   * Only colour transitions: the fill's *size* is set inline by Radix from the
+   * live value, and transitioning that would make the fill trail the finger
+   * dragging it.
+   * ------------------------------------------------------------------ */
+
+  .liebe-slider {
+    display: flex;
+    position: relative;
+    /* Radix needs the gesture to itself; without this the browser scrolls the
+       dashboard instead of dragging the value. */
+    touch-action: none;
+    user-select: none;
+  }
+
+  .liebe-slider[data-orientation='horizontal'] {
+    align-items: center;
+    block-size: var(--liebe-control-height);
+    /* Fills the room the card gives it on the long axis, which is also what
+       keeps the ≥44px touch target the spec asks of discrete controls. */
+    inline-size: 100%;
+  }
+
+  .liebe-slider[data-orientation='vertical'] {
+    align-items: center;
+    /* Turned on its side the token becomes the control's thickness, and the
+       card's height decides its length. */
+    block-size: 100%;
+    flex-direction: column;
+    inline-size: var(--liebe-control-height);
+  }
+
+  .liebe-slider[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .liebe-slider-track {
+    background: var(--liebe-track);
+    block-size: 100%;
+    border-radius: var(--liebe-control-radius);
+    inline-size: 100%;
+    /* The fill is a plain rectangle, so the track's radius is what rounds its
+       ends. */
+    overflow: hidden;
+    position: relative;
+  }
+
+  /*
+   * Radix positions the fill with inline `left`/`width` (or `bottom`/`height`),
+   * so only the cross-axis size is ours to give. Inactive it takes the same 5%
+   * neutral the tint pattern gives every other inactive part — the spec names
+   * slider fills in that rule — which lands *over* the track's own neutral and
+   * so stacks to roughly twice the alpha: the value stays legible without the
+   * fill carrying hue it has no state to justify.
+   */
+  .liebe-slider-fill {
+    background: var(--gray-a3);
+    position: absolute;
+    transition: background-color 280ms ease-out;
+  }
+
+  .liebe-slider[data-orientation='horizontal'] .liebe-slider-fill {
+    block-size: 100%;
+  }
+
+  .liebe-slider[data-orientation='vertical'] .liebe-slider-fill {
+    inline-size: 100%;
+  }
+
+  .liebe-slider[data-active] .liebe-slider-fill {
+    background: var(--part-tint);
+  }
+
+  .liebe-slider-thumb {
+    background: var(--liebe-faint);
+    /* The track's own radius rather than a literal, so a square-control theme
+       gets a square leading edge too. On a 3px-wide box the browser scales the
+       radius down to fit, which is exactly the rounding needed to keep the edge
+       from poking past the track's corner at either extreme. */
+    border-radius: var(--liebe-control-radius);
+    display: block;
+    transition: background-color 280ms ease-out;
+  }
+
+  .liebe-slider[data-orientation='horizontal'] .liebe-slider-thumb {
+    block-size: var(--liebe-control-height);
+    inline-size: 3px;
+  }
+
+  .liebe-slider[data-orientation='vertical'] .liebe-slider-thumb {
+    block-size: 3px;
+    inline-size: var(--liebe-control-height);
+  }
+
+  .liebe-slider[data-active] .liebe-slider-thumb {
+    background: var(--part-color);
+  }
+
+  /*
+   * The readout is text on the tinted fill, so it takes the neutral foreground
+   * for the same reason chip and pill labels do — the hue is carried by the
+   * fill and the leading edge. It never takes the pointer: every pixel of the
+   * track has to stay draggable.
+   */
+  .liebe-slider-readout {
+    color: var(--liebe-fg);
+    font-family: var(--liebe-font-numeric);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    letter-spacing: var(--liebe-letter-spacing);
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .liebe-slider[data-orientation='horizontal'] .liebe-slider-readout {
+    inset-inline-start: 12px;
+  }
+
+  .liebe-slider[data-orientation='vertical'] .liebe-slider-readout {
+    inset-block-end: 10px;
+    inset-inline: 0;
+    text-align: center;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Chip
    * ------------------------------------------------------------------ */
 
@@ -349,7 +488,8 @@
    * focus is chrome, which the design system keeps gray-scale anyway.
    */
   .liebe-pill:focus-visible,
-  button.liebe-chip:focus-visible {
+  button.liebe-chip:focus-visible,
+  .liebe-slider-thumb:focus-visible {
     outline: 2px solid var(--liebe-fg);
     outline-offset: 2px;
   }
@@ -460,6 +600,8 @@
     .liebe-pill-label,
     .liebe-chip,
     .liebe-chip-label,
+    .liebe-slider-fill,
+    .liebe-slider-thumb,
     .liebe-state,
     .liebe-value,
     .liebe-spark {
