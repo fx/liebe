@@ -38,12 +38,19 @@ const CONTRACT_CLASSES = [
   'liebe-spark',
 ]
 
+/** Bodies of every rule whose selector list ends with the given selector. */
+function ruleBodies(selector: string): string[] {
+  const escaped = selector.replace(/[[\]().*+?^$|\\]/g, '\\$&')
+  return [...source.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))].map(
+    ([, body]) => body
+  )
+}
+
 /** Body of the first rule with the given selector. */
 function ruleBody(selector: string): string {
-  const escaped = selector.replace(/[[\]().*+?^$|\\]/g, '\\$&')
-  const match = source.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))
-  expect(match, `no rule for ${selector}`).not.toBeNull()
-  return match![1]
+  const [body] = ruleBodies(selector)
+  expect(body, `no rule for ${selector}`).toBeDefined()
+  return body
 }
 
 describe('anatomy stylesheet', () => {
@@ -108,6 +115,36 @@ describe('domain colour', () => {
     const inactive = ruleBody('.liebe-icon,\n  .liebe-pill,\n  .liebe-chip')
     expect(inactive).toContain('background: var(--gray-a3);')
     expect(inactive).toContain('color: var(--liebe-faint);')
+  })
+})
+
+describe('touch targets', () => {
+  /**
+   * The spec's rule for discrete controls is "≥44px in at least one dimension".
+   * Both interactive parts meet it on the inline axis, deliberately: meeting it
+   * on the block axis would push them past the height their token states, and a
+   * tappable chip would then stand taller than the read-only chip beside it.
+   *
+   * Measured in Chromium under a coarse pointer: `button.liebe-chip` emptied of
+   * content lays out at 44×34, and the same button with `min-inline-size`
+   * dropped collapses to 24px — so this declaration is what holds the target
+   * open, and nothing else will if it goes.
+   */
+  it('gives each interactive part a ≥44px hit area on the inline axis', () => {
+    expect(ruleBody('button.liebe-chip')).toContain('min-inline-size: 44px;')
+    expect(ruleBody('.liebe-pill')).toContain('min-inline-size: 44px;')
+  })
+
+  it('leaves the chip painted at the height its token states', () => {
+    // The target must not be bought by growing the chip: the block axis stays
+    // on the token, and the floor lands on `button.liebe-chip` alone so a
+    // read-only chip is never widened to match a tappable one.
+    const chip = ruleBodies('.liebe-chip').find((body) => body.includes('block-size'))
+
+    expect(chip).toBeDefined()
+    expect(chip).toContain('block-size: var(--liebe-chip-height);')
+    expect(chip).toContain('min-block-size: var(--liebe-chip-height);')
+    expect(chip).not.toContain('min-inline-size')
   })
 })
 
