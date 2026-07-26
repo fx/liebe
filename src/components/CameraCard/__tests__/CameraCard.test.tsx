@@ -378,6 +378,13 @@ describe('CameraCard', () => {
       // rule at all — this state is visible for the first time here, as an
       // outline rather than as the dimming the class name suggested.
       expect(card).toHaveAttribute('data-unavailable', 'true')
+      // ...and the element matches the selector that rule is written against.
+      // Asserting a name the card carries proves nothing on its own — that is
+      // exactly how `opacity-50` passed as a dimming test while styling
+      // nothing. The declarations themselves are asserted at source level in
+      // `cardShellStyles.test.ts`, since jsdom applies no stylesheet; these two
+      // halves together are what make the treatment verified.
+      expect(card.matches('.liebe-card[data-unavailable]')).toBe(true)
     })
 
     it('shows UNAVAILABLE over a frozen frame despite a lagging isStreaming flag', () => {
@@ -1198,6 +1205,12 @@ describe('CameraCard', () => {
       const { container } = renderCard()
       const card = container.querySelector('.camera-card') as HTMLElement
       expect(card).toHaveAttribute('data-unavailable', 'true')
+      // Matching the sheet's selector is the half of the chain that makes the
+      // mark real; `cardShellStyles.test.ts` asserts what that selector draws
+      // (a dotted `--liebe-faint` outline, and no `opacity`). This replaced an
+      // `opacity-50` class-name assertion that verified a string styling
+      // nothing — see the note in the streaming-blip test above.
+      expect(card.matches('.liebe-card[data-unavailable]')).toBe(true)
     })
   })
 
