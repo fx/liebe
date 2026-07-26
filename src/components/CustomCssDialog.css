@@ -1,0 +1,21 @@
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ *
+ * The editor's typeface lives here rather than in an inline `style` for the
+ * same contract: an inline visual declaration outranks every layer, which would
+ * make the one surface where a user writes CSS the one surface their CSS could
+ * not touch.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  .liebe-css-editor {
+    /* Radix's own code face: the token contract has no monospace token, and
+       inventing one here would be a design-system change, not a dialog. */
+    font-family: var(--code-font-family);
+  }
+}

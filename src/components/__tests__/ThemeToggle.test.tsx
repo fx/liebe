@@ -7,8 +7,11 @@ import { Theme } from '@radix-ui/themes'
 
 describe('Theme Toggle', () => {
   beforeEach(() => {
-    // Reset theme to default
-    dashboardStore.setState((state) => ({ ...state, theme: 'auto' }))
+    // Reset the appearance to default
+    dashboardStore.setState((state) => ({
+      ...state,
+      theme: { ...state.theme, appearance: 'auto' },
+    }))
   })
 
   it('should display current theme in menu', async () => {
@@ -53,7 +56,7 @@ describe('Theme Toggle', () => {
     await user.click(lightOption)
 
     // Verify theme was updated in store
-    expect(dashboardStore.state.theme).toBe('light')
+    expect(dashboardStore.state.theme.appearance).toBe('light')
   })
 
   it('should change theme when selecting dark mode', async () => {
@@ -79,14 +82,14 @@ describe('Theme Toggle', () => {
     await user.click(darkOption)
 
     // Verify theme was updated in store
-    expect(dashboardStore.state.theme).toBe('dark')
+    expect(dashboardStore.state.theme.appearance).toBe('dark')
   })
 
   it('should change theme when selecting system mode', async () => {
     const user = userEvent.setup()
 
     // Set to light first
-    dashboardActions.setTheme('light')
+    dashboardActions.setTheme({ appearance: 'light' })
 
     render(
       <Theme>
@@ -108,6 +111,6 @@ describe('Theme Toggle', () => {
     await user.click(systemOption)
 
     // Verify theme was updated in store
-    expect(dashboardStore.state.theme).toBe('auto')
+    expect(dashboardStore.state.theme.appearance).toBe('auto')
   })
 })

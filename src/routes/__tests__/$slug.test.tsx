@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { dashboardStore, dashboardActions } from '~/store/dashboardStore'
 import { createTestScreen } from '~/test-utils/screen-helpers'
+import { DEFAULT_THEME_CONFIG } from '~/store/themeConfig'
 import type { ScreenConfig } from '~/store/types'
 
 // Helper function to find screen by slug (same as in the route)
@@ -31,7 +32,7 @@ describe('Slug Route Logic', () => {
         theme: 'auto',
       },
       gridResolution: { columns: 12, rows: 8 },
-      theme: 'auto',
+      theme: DEFAULT_THEME_CONFIG,
       isDirty: false,
       sidebarOpen: false,
       tabsExpanded: false,

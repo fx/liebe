@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { dashboardStore } from '~/store/dashboardStore'
+import { DEFAULT_THEME_CONFIG } from '~/store/themeConfig'
 import { THEME_STYLE_SLOT } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID } from '~/theme/themeRegistry'
 
@@ -25,7 +26,12 @@ const { RootComponent } = await import('../__root')
 
 describe('RootComponent', () => {
   afterEach(() => {
-    dashboardStore.setState((state) => ({ ...state, theme: 'auto' }))
+    dashboardStore.setState((state) => ({
+      ...state,
+      // The whole theme object: `id` and `customCss` are singleton-store
+      // state too, and a leaked one would follow into the next test.
+      theme: { ...DEFAULT_THEME_CONFIG },
+    }))
     // The theme layer outlives the tree that injected it (it belongs to the
     // root), so it is this suite's to clear.
     document.head
@@ -34,7 +40,10 @@ describe('RootComponent', () => {
   })
 
   it('renders the routed tree inside a stamped Liebe theme root', () => {
-    dashboardStore.setState((state) => ({ ...state, theme: 'dark' }))
+    dashboardStore.setState((state) => ({
+      ...state,
+      theme: { ...DEFAULT_THEME_CONFIG, appearance: 'dark' },
+    }))
 
     const { container, getByTestId } = render(<RootComponent />)
 

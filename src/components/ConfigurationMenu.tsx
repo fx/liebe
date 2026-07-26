@@ -6,6 +6,8 @@ import {
   ResetIcon,
   FileIcon,
   ExclamationTriangleIcon,
+  CodeIcon,
+  ColorWheelIcon,
   CopyIcon,
   DownloadIcon,
   SunIcon,
@@ -23,9 +25,16 @@ import {
   restoreConfigurationFromBackup,
   parseConfigurationFromFile,
 } from '../store/persistence'
+import { CustomCssDialog } from './CustomCssDialog'
 import { ImportPreviewDialog } from './ImportPreviewDialog'
-import type { DashboardConfig } from '../store/types'
+import type { DashboardConfig, ThemeAppearancePreference } from '../store/types'
 import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
+import {
+  getThemeOrDefault,
+  listThemes,
+  resolveAppearance,
+  supportsAppearanceChoice,
+} from '~/theme/themeRegistry'
 
 interface ConfigurationMenuProps {
   showText?: boolean
@@ -33,6 +42,29 @@ interface ConfigurationMenuProps {
 
 export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
   const theme = useDashboardStore((state) => state.theme)
+  // What the menu shows is the theme that RENDERS, not the id that is stored.
+  // An id this build does not have — a configuration imported from a newer
+  // Liebe, a theme dropped between versions — renders as Default via
+  // `getThemeOrDefault`, so resolving here too keeps the menu agreeing with the
+  // panel; feeding the raw id to the radio group below would match no item and
+  // show nothing selected beside a visibly themed dashboard.
+  //
+  // The stored id is deliberately left alone until the user picks something.
+  // An unrecognised theme is a configuration written against another build, and
+  // silently rewriting it to `default` would destroy exactly the round-trip
+  // export/import exists for: the same file opened on the build that has that
+  // theme is valid again.
+  const activeTheme = getThemeOrDefault(theme.id)
+  // Themes that provide only one appearance force it, so the control is shown
+  // disabled AND showing the forced value — a disabled "System" beside a panel
+  // rendering dark would be the control lying about what it did. The stored
+  // preference is untouched, so switching back to a both-appearance theme
+  // restores the user's choice.
+  const appearanceChoosable = supportsAppearanceChoice(activeTheme)
+  const shownAppearance = appearanceChoosable
+    ? theme.appearance
+    : resolveAppearance(activeTheme, 'dark')
+  const [customCssOpen, setCustomCssOpen] = useState(false)
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
@@ -190,22 +222,46 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
 
           <DropdownMenu.Label>Theme</DropdownMenu.Label>
           <DropdownMenu.RadioGroup
-            value={theme}
-            onValueChange={(value) => dashboardActions.setTheme(value as 'light' | 'dark' | 'auto')}
+            value={activeTheme.id}
+            onValueChange={(id) => dashboardActions.setTheme({ id })}
           >
-            <DropdownMenu.RadioItem value="light">
+            {listThemes().map(({ id, label }) => (
+              <DropdownMenu.RadioItem key={id} value={id}>
+                <ColorWheelIcon />
+                {label}
+              </DropdownMenu.RadioItem>
+            ))}
+          </DropdownMenu.RadioGroup>
+
+          <DropdownMenu.Separator />
+
+          <DropdownMenu.Label>Appearance</DropdownMenu.Label>
+          <DropdownMenu.RadioGroup
+            value={shownAppearance}
+            onValueChange={(appearance) =>
+              dashboardActions.setTheme({ appearance: appearance as ThemeAppearancePreference })
+            }
+          >
+            <DropdownMenu.RadioItem value="light" disabled={!appearanceChoosable}>
               <SunIcon />
               Light
             </DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem value="dark">
+            <DropdownMenu.RadioItem value="dark" disabled={!appearanceChoosable}>
               <MoonIcon />
               Dark
             </DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem value="auto">
+            <DropdownMenu.RadioItem value="auto" disabled={!appearanceChoosable}>
               <DesktopIcon />
               System
             </DropdownMenu.RadioItem>
           </DropdownMenu.RadioGroup>
+
+          <DropdownMenu.Separator />
+
+          <DropdownMenu.Item onClick={() => setCustomCssOpen(true)}>
+            <CodeIcon />
+            Custom CSS…
+          </DropdownMenu.Item>
 
           <DropdownMenu.Separator />
 
@@ -283,6 +339,9 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
         onConfirm={handleReset}
         variant="danger"
       />
+
+      {/* Custom CSS editor */}
+      <CustomCssDialog open={customCssOpen} onOpenChange={setCustomCssOpen} />
 
       {/* Import preview dialog */}
       <ImportPreviewDialog

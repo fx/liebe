@@ -3,11 +3,15 @@ import { LAYER_ORDER_STATEMENT, THEME_LAYER } from '../cssLayers'
 import {
   applyThemeCss,
   applyThemeCssToRootOf,
+  applyUserCss,
+  applyUserCssToRootOf,
   isStyleRoot,
   THEME_STYLE_SLOT,
+  USER_STYLE_SLOT,
 } from '../styleInjection'
 
 const SLOT_SELECTOR = `style[data-liebe="${THEME_STYLE_SLOT}"]`
+const USER_SLOT_SELECTOR = `style[data-liebe="${USER_STYLE_SLOT}"]`
 
 function shadowRoot(): ShadowRoot {
   const host = document.createElement('div')
@@ -16,7 +20,9 @@ function shadowRoot(): ShadowRoot {
 }
 
 afterEach(() => {
-  document.head.querySelectorAll(SLOT_SELECTOR).forEach((style) => style.remove())
+  document.head
+    .querySelectorAll(`${SLOT_SELECTOR}, ${USER_SLOT_SELECTOR}`)
+    .forEach((style) => style.remove())
   document.body.replaceChildren()
 })
 
@@ -114,5 +120,92 @@ describe('applyThemeCss', () => {
     const css = root.querySelector(SLOT_SELECTOR)?.textContent ?? ''
     expect(css).toContain(LAYER_ORDER_STATEMENT)
     expect(css).toContain(`@layer ${THEME_LAYER} {`)
+  })
+})
+
+describe('applyUserCss', () => {
+  const SANITIZED = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\n.a { color: red }\n}\n`
+
+  it('injects the user layer into its own slot, beside the theme layer', () => {
+    const root = shadowRoot()
+
+    applyThemeCss(root, '@layer liebe-theme { .a { color: blue } }')
+    applyUserCss(root, SANITIZED)
+
+    // Separate elements: a theme switch rewrites one without touching the
+    // other, and the user layer outranks whatever the theme just became.
+    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(SANITIZED)
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: blue')
+  })
+
+  it('applies exactly what the sanitizer produced', () => {
+    const root = shadowRoot()
+
+    applyUserCss(root, SANITIZED)
+
+    // Nothing here re-wraps or repairs: the sanitizer already serialised its
+    // AST inside the layer, and this module is not the one that decides what
+    // may be injected as user CSS.
+    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(SANITIZED)
+  })
+
+  it('clears the layer when there is nothing to apply', () => {
+    const root = shadowRoot()
+
+    applyUserCss(root, SANITIZED)
+    applyUserCss(root, '')
+
+    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe('')
+  })
+
+  it('never leaves the shadow root, unlike the theme layer', () => {
+    const root = shadowRoot()
+    const child = document.createElement('div')
+    root.appendChild(child)
+
+    const style = applyUserCssToRootOf(child, SANITIZED)
+
+    expect(style?.parentNode).toBe(root)
+    // The theme mirror is safe because theme CSS is first-party and scoped to
+    // the Radix theme root. Custom CSS is neither: the sanitizer judges what a
+    // declaration may fetch, not what it may match, so a mirrored
+    // `body { display: none }` from an imported config would restyle Home
+    // Assistant itself.
+    expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
+  })
+
+  it('does nothing for a node that is in no root yet', () => {
+    expect(applyUserCssToRootOf(document.createElement('div'), SANITIZED)).toBeNull()
+    expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
+  })
+})
+
+describe('the mirror boundary', () => {
+  const THEME_CSS = '@layer liebe-theme { .liebe-root { color: red } }'
+  // What a hostile — or merely careless — imported configuration can carry: a
+  // selector that matches nothing in Liebe and everything around it. The
+  // sanitizer judges what a declaration may *fetch*, not what it may *match*,
+  // so this survives sanitization intact and is exactly what must never reach
+  // the Home Assistant document.
+  const HOSTILE_USER_CSS = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\nbody { display: none }\n}\n`
+
+  it('mirrors the theme layer out of the shadow root, and never the user layer', () => {
+    const root = shadowRoot()
+    const child = document.createElement('div')
+    root.appendChild(child)
+
+    applyThemeCssToRootOf(child, THEME_CSS)
+    applyUserCssToRootOf(child, HOSTILE_USER_CSS)
+
+    // Theme CSS is first-party and scoped to the Radix theme root, so the copy
+    // in the owning document only ever reaches Liebe's own portalled overlays.
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
+    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
+
+    // User CSS stays in the shadow root, where it cannot reach past Liebe.
+    // Mirroring it would hide the Home Assistant frontend around the panel.
+    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(HOSTILE_USER_CSS)
+    expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
+    expect(document.head.textContent).not.toContain('display: none')
   })
 })

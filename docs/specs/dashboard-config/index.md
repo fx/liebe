@@ -6,6 +6,8 @@ The dashboard configuration subsystem owns the in-memory representation of a Lie
 
 The set of shareable fields is a single **canonical portable contract**: `version`, `screens`, `theme`, `sidebarOpen`, `tabsExpanded`, and `sidebarWidgets`. `DashboardConfig`, the JSON export, the YAML export, and import MUST all serialize exactly this set, and `isDirty` MUST be set by exactly the mutations that change one of these fields — no more, no fewer. Device-local state (`mode`, persisted separately under `liebe-mode`, and the top-level `gridResolution`) is deliberately outside the contract: it never travels with the portable document and never marks it dirty.
 
+`theme` is the [theming](../theming/) engine's whole configuration — `{ id, appearance, customCss }` — and this spec owns its persistence: the store shape, `setTheme`, initialization, export/import, and the migration from the scalar `theme` older dashboards stored. What that configuration then _renders_ (layer injection, appearance resolution against the environment, the custom-CSS sanitizer that runs at injection time) belongs to the theming spec.
+
 This spec covers configuration _state and persistence_ only. Grid rendering and layout mechanics are specified in [../grid-layout/](../grid-layout/), the card components placed into grids in [../entity-cards/](../entity-cards/), and the sidebar/navigation UI structure in [../navigation/](../navigation/).
 
 ## Background
@@ -18,14 +20,14 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 
 ### Store Initialization & Shape
 
-- The store MUST initialize in `view` mode with an empty `screens` array, `currentScreenId` of `null`, `gridResolution` of 12×8, `theme` of `auto`, `isDirty` false, `sidebarOpen` false, `tabsExpanded` false, and three default `sidebarWidgets` (`clock`, `weather`, `quick-controls`).
+- The store MUST initialize in `view` mode with an empty `screens` array, `currentScreenId` of `null`, `gridResolution` of 12×8, `theme` of `{ id: 'default', appearance: 'auto', customCss: '' }`, `isDirty` false, `sidebarOpen` false, `tabsExpanded` false, and three default `sidebarWidgets` (`clock`, `weather`, `quick-controls`).
 - All state reads by React components SHOULD go through `useDashboardStore(selector)`; all mutations MUST go through `dashboardActions`.
 
 #### Scenario: Fresh store
 
 - **GIVEN** no configuration has been loaded
 - **WHEN** `dashboardStore.state` is read
-- **THEN** `mode` is `view`, `screens` is `[]`, `currentScreenId` is `null`, `theme` is `auto`, and `isDirty` is `false`
+- **THEN** `mode` is `view`, `screens` is `[]`, `currentScreenId` is `null`, `theme` is the default theme configuration, and `isDirty` is `false`
 
 ### Dirty Tracking & Auto-Save
 
@@ -106,23 +108,24 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 - **WHEN** the user toggles view/edit mode
 - **THEN** `liebe-mode` is updated but `isDirty` stays `false` and `liebe-config` is not rewritten
 
-### Theme Selection & Application
+### Theme Configuration
 
-- `setTheme('light' | 'dark' | 'auto')` MUST update `theme` and set `isDirty` true.
-- The `ConfigurationMenu` MUST expose a radio group bound to the current `theme` that calls `setTheme` for Light/Dark/System.
-- The root component MUST map the stored theme to a Radix `Theme` `appearance`: `light`/`dark` pass through, and `auto` MUST resolve to the system `prefers-color-scheme`, updating live when the OS preference changes.
+- `theme` MUST be an object: `id` (registered theme id, default `"default"`), `appearance` (`auto | dark | light`, default `auto`), and `customCss` (string, default empty). All three are portable and MUST round-trip through JSON and YAML.
+- `setTheme(Partial<ThemeConfig>)` MUST merge the given fields into the current `theme` and set `isDirty` true. One action for all three, because each is a portable change of the same field: the picker sets `id`, the appearance control `appearance`, the editor `customCss`.
+- The controls that write these three fields — theme picker, appearance control, custom-CSS editor — are specified by [theming — Configuration & selection](../theming/index.md#configuration--selection), which owns what they offer and how the chosen values are then resolved and applied. This spec owns only what reaches the store and how it persists.
+- A custom-CSS edit MUST reach `theme.customCss` only when the editor saves, so a cancelled edit changes nothing and typing does not dirty the configuration on every keystroke.
 
 #### Scenario: Selecting Dark
 
-- **GIVEN** the configuration menu is open with theme `auto`
+- **GIVEN** the configuration menu is open with appearance `auto`
 - **WHEN** the user selects "Dark"
-- **THEN** `dashboardStore.state.theme` is `dark`
+- **THEN** `dashboardStore.state.theme.appearance` is `dark` and `id` / `customCss` are unchanged
 
-#### Scenario: Auto follows system
+#### Scenario: Cancelled CSS edit changes nothing
 
-- **GIVEN** `theme` is `auto`
-- **WHEN** the system `prefers-color-scheme` is dark
-- **THEN** the Radix `Theme` renders with `appearance="dark"`
+- **GIVEN** the custom-CSS editor is open and text has been typed
+- **WHEN** the dialog is closed without saving
+- **THEN** `theme.customCss` is unchanged and `isDirty` is not set
 
 ### Sidebar & Tabs State
 
@@ -158,13 +161,13 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 ### File Export
 
 - `exportConfigurationToFile()` MUST download the current configuration as pretty-printed JSON named `liebe-<YYYY-MM-DD>.json`.
-- `exportConfigurationAsYAML()` MUST serialize the full canonical portable set — `version`, `theme` (defaulting to `auto`), `sidebarOpen`, `tabsExpanded`, `sidebarWidgets`, and `screens` — with leading comment keys — into a single YAML document, matching the JSON export field-for-field; `exportConfigurationToYAMLFile()` downloads it as `liebe-<YYYY-MM-DD>.yaml`, and `copyYAMLToClipboard()` writes it to the clipboard.
+- `exportConfigurationAsYAML()` MUST serialize the full canonical portable set — `version`, `theme` (always the `{ id, appearance, customCss }` object, never the legacy scalar: an export is a new document), `sidebarOpen`, `tabsExpanded`, `sidebarWidgets`, and `screens` — with leading comment keys — into a single YAML document, matching the JSON export field-for-field; `exportConfigurationToYAMLFile()` downloads it as `liebe-<YYYY-MM-DD>.yaml`, and `copyYAMLToClipboard()` writes it to the clipboard.
 
 #### Scenario: YAML contains the whole dashboard
 
 - **GIVEN** a configuration with an entity item and a separator item
 - **WHEN** `exportConfigurationAsYAML()` is called
-- **THEN** the output contains `version:`, `theme:`, `screens:`, `type: entity`, and `type: separator`
+- **THEN** the output contains `version:`, `theme:` with its `id` / `appearance` / `customCss` keys, `screens:`, `type: entity`, and `type: separator`
 
 ### File Import & Version Handling
 
@@ -200,12 +203,26 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 ### Legacy Migration
 
 - Migration MUST flatten any `grid.sections[].items` into a single `grid.items` array, MUST ensure a `grid.items` array exists, and MUST backfill a unique `slug` (derived from `name`) for screens lacking one, recursing into `children`.
+- Migration MUST upgrade a scalar `theme` (`light | dark | auto`, the shape dashboards stored before the theming engine) to `{ id: 'default', appearance: <scalar>, customCss: '' }`, and MUST fill a missing or partial `theme` object field by field from the defaults. It MUST run on every route into the store — localStorage, file import, preview parse, and backup restore — which is why `loadConfiguration` applies it as well as `migrateConfig`: restoring a backup does not pass through the latter.
+- Only the three declared legacy values migrate. A scalar outside that set is a broken document rather than an old one, and the two sources are treated differently on purpose: an **imported** value (e.g. `theme: solarized`) MUST be rejected by `dashboardConfigSchema` with an error naming `theme`, because a shared config has an author who needs to know; a corrupt **localStorage** value MAY recover to the defaults, because it has none.
 
 #### Scenario: Sections flattened on load
 
 - **GIVEN** a stored screen whose `grid` has two `sections`, each with one item
 - **WHEN** `loadDashboardConfig()` runs
 - **THEN** `screens[0].grid.items` has length 2 and no `sections` key remains
+
+#### Scenario: Legacy scalar theme upgraded on load
+
+- **GIVEN** a stored configuration whose `theme` is the string `dark`
+- **WHEN** it is loaded
+- **THEN** `state.theme` is `{ id: 'default', appearance: 'dark', customCss: '' }`, and the next export writes that object
+
+#### Scenario: Imported theme typo is rejected
+
+- **GIVEN** an imported file whose `theme` is `solarized`
+- **WHEN** it is validated
+- **THEN** the import fails with an error naming `theme`, and the current dashboard is left untouched
 
 ### Storage Usage Reporting
 
@@ -242,7 +259,7 @@ dashboardStore  ── TanStack Store<DashboardState>  (single source of truth)
         │ loadConfiguration / actions       ▼
 persistence.ts ──► localStorage  (liebe-config, liebe-mode, liebe-config-backup)
         └────────► File I/O (JSON / YAML), backup, migration, version check
-routes/__root.tsx ──► maps state.theme → Radix <Theme appearance>
+routes/__root.tsx ──► useThemeSelection(state.theme) → LiebeThemeProvider
 ```
 
 The store never touches `localStorage` directly; `dashboardStore.ts` reaches persistence only via a deferred dynamic `import('./persistence')` inside `setMode` to break the module cycle (`persistence.ts` imports the store at top level).
@@ -252,10 +269,18 @@ The store never touches `localStorage` directly; `dashboardStore.ts` reaches per
 The exported/shared document — the single-YAML unit — is `DashboardConfig` (`src/store/types.ts:40`):
 
 ```typescript
+export interface ThemeConfig {
+  id: string // registered theme id, default 'default'
+  appearance: 'auto' | 'dark' | 'light'
+  customCss: string
+}
+
 export interface DashboardConfig {
   version: string
   screens: ScreenConfig[]
-  theme?: 'light' | 'dark' | 'auto'
+  // The scalar is the pre-0012 shape, accepted on the way in and migrated;
+  // never written out.
+  theme?: ThemeConfig | 'light' | 'dark' | 'auto'
   sidebarOpen?: boolean
   tabsExpanded?: boolean
   sidebarWidgets?: WidgetConfig[]
@@ -315,7 +340,7 @@ export interface DashboardState {
   currentScreenId: string | null
   configuration: DashboardConfig
   gridResolution: GridResolution
-  theme: 'light' | 'dark' | 'auto'
+  theme: ThemeConfig
   isDirty: boolean
   sidebarOpen: boolean
   tabsExpanded: boolean
@@ -329,24 +354,26 @@ Note the divergence: `gridResolution`, `mode`, `currentScreenId`, and `configura
 
 `dashboardActions` (`src/store/dashboardStore.ts:43`) — the only sanctioned mutators:
 
-| Action                                                      | Effect                                       | Dirty           |
-| ----------------------------------------------------------- | -------------------------------------------- | --------------- |
-| `setMode(mode)`                                             | set mode; async-persist to `liebe-mode`      | —               |
-| `setCurrentScreen(id)`                                      | set `currentScreenId`                        | —               |
-| `addScreen(screen, parentId?)`                              | append top-level or into parent's children   | ✓               |
-| `removeScreen(id)`                                          | recursive delete; null current if matched    | ✓               |
-| `updateScreen(id, {name?, slug?})`                          | recursive patch                              | ✓               |
-| `clearScreen(id)`                                           | empty `grid.items`                           | ✓               |
-| `addGridItem/updateGridItem/removeGridItem`                 | grid item CRUD                               | ✓               |
-| `reorderGrid(id)`                                           | compact-pack items                           | ✓               |
-| `setTheme(theme)`                                           | set theme                                    | ✓               |
-| `setGridResolution(res)`                                    | set top-level resolution (device-local)      | —               |
-| `toggleSidebar/toggleTabsExpanded`                          | set-or-invert                                | ✓               |
-| `updateSidebarWidgets/addSidebarWidget/removeSidebarWidget` | widget list CRUD                             | ✓               |
-| `loadConfiguration(config)`                                 | replace tree/theme/sidebar; mode→view; clean | resets to false |
-| `exportConfiguration()`                                     | derive `DashboardConfig` from state          | —               |
-| `resetState()`                                              | back to `initialState`                       | resets to false |
-| `markClean()`                                               | `isDirty = false`                            | —               |
+| Action                                                      | Effect                                                           | Dirty           |
+| ----------------------------------------------------------- | ---------------------------------------------------------------- | --------------- |
+| `setMode(mode)`                                             | set mode; async-persist to `liebe-mode`                          | —               |
+| `setCurrentScreen(id)`                                      | set `currentScreenId`                                            | —               |
+| `addScreen(screen, parentId?)`                              | append top-level or into parent's children                       | ✓               |
+| `removeScreen(id)`                                          | recursive delete; null current if matched                        | ✓               |
+| `updateScreen(id, {name?, slug?})`                          | recursive patch                                                  | ✓               |
+| `clearScreen(id)`                                           | empty `grid.items`                                               | ✓               |
+| `addGridItem/updateGridItem/removeGridItem`                 | grid item CRUD                                                   | ✓               |
+| `reorderGrid(id)`                                           | compact-pack items                                               | ✓               |
+| `setTheme(partial)`                                         | merge into `theme` (id / appearance / css)                       | ✓               |
+| `setGridResolution(res)`                                    | set top-level resolution (device-local)                          | —               |
+| `toggleSidebar/toggleTabsExpanded`                          | set-or-invert                                                    | ✓               |
+| `updateSidebarWidgets/addSidebarWidget/removeSidebarWidget` | widget list CRUD                                                 | ✓               |
+| `loadConfiguration(config)`                                 | replace tree/theme/sidebar (migrating `theme`); mode→view; clean | resets to false |
+| `exportConfiguration()`                                     | derive `DashboardConfig` from state                              | —               |
+| `resetState()`                                              | back to `initialState`                                           | resets to false |
+| `markClean()`                                               | `isDirty = false`                                                | —               |
+
+`themeConfig.ts` (`src/store/themeConfig.ts`): `DEFAULT_THEME_CONFIG`, `THEME_APPEARANCES`, `migrateThemeConfig(value)`.
 
 `persistence.ts` free functions: `saveDashboardConfig`, `loadDashboardConfig`, `clearDashboardConfig`, `saveDashboardMode`, `loadDashboardMode`, `initializeDashboard`, `useDashboardPersistence`, `useAutoSave`, `exportConfigurationToFile`, `exportConfigurationToYAMLFile`, `exportConfigurationAsYAML`, `copyYAMLToClipboard`, `importConfigurationFromFile`, `parseConfigurationFromFile`, `backupCurrentConfiguration`, `restoreConfigurationFromBackup`, `checkVersionCompatibility`, `getStorageInfo`.
 
@@ -354,8 +381,9 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 
 ### UI Components
 
-- **`ConfigurationMenu`** (`src/components/ConfigurationMenu.tsx`) — dropdown for export (JSON / YAML / copy-YAML), import (opens the hidden file input, parses to a preview), storage readout, theme radio group, and a red Reset action guarded by an `AlertModal` (reset reloads the page). Import errors that mention "backup" render an inline Restore Backup button.
-- **`ImportPreviewDialog`** (`src/components/ImportPreviewDialog.tsx`) — read-only summary (version, theme, recursive screen/item counts, indented screen tree) shown before an import is confirmed; returns `null` when `config` is `null`.
+- **`ConfigurationMenu`** (`src/components/ConfigurationMenu.tsx`) — dropdown for export (JSON / YAML / copy-YAML), import (opens the hidden file input, parses to a preview), storage readout, the theming controls ([theming](../theming/)), and a red Reset action guarded by an `AlertModal` (reset reloads the page). Import errors that mention "backup" render an inline Restore Backup button.
+- **`CustomCssDialog`** (`src/components/CustomCssDialog.tsx`) — the custom-CSS editor: a textarea seeded from `theme.customCss` on open and saved explicitly. Mounted only while open, which is what re-seeds the draft.
+- **`ImportPreviewDialog`** (`src/components/ImportPreviewDialog.tsx`) — read-only summary (version, theme summarised as "<label> · <appearance>[ · custom CSS]" after migration, recursive screen/item counts, indented screen tree) shown before an import is confirmed; returns `null` when `config` is `null`.
 - **`ScreenConfigDialog`** (`src/components/ScreenConfigDialog.tsx`) — add/edit-a-view modal with name + slug fields (slug auto-derived and de-duplicated via `generateSlug`/`ensureUniqueSlug`/`getAllSlugs`), optional parent selection, and the Reorder / Clear / Delete management block in edit mode.
 - **`ModeToggle`** (`src/components/ModeToggle.tsx`) — view/edit button plus the `Ctrl/⌘ + E` global shortcut.
 - **`routes/__root.tsx`** — bridges `state.theme` to the Radix `Theme` `appearance`, resolving `auto` against `prefers-color-scheme` with a live media-query listener.
@@ -364,7 +392,7 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 
 - **Dirty/auto-save loop**: `useDashboardPersistence` subscribes once; on any dirty transition it exports and saves, then `markClean()` — meaning a store subscription drives the save, and `loadConfiguration` deliberately lands clean so loading never re-triggers a save.
 - **Recursive tree edits**: add/remove/update/clear/grid actions all walk `screens` with a local `updateInTree`/`removeFromTree`/`addToParent` helper that maps immutably and recurses into `children`.
-- **Migration**: `migrateScreenConfig` runs on both `loadDashboardConfig` and the two file-parse paths, flattening `grid.sections` → `grid.items`, guaranteeing an `items` array, and backfilling slugs.
+- **Migration**: `migrateConfig` runs on `loadDashboardConfig` and the two file-parse paths — `migrateScreenConfig` (flatten `grid.sections` → `grid.items`, guarantee an `items` array, backfill slugs) followed by `migrateThemeConfig`. `loadConfiguration` applies `migrateThemeConfig` again, because it is the single funnel into the store and `restoreConfigurationFromBackup` reaches it without passing through `migrateConfig`.
 - **Version gate**: only the _major_ component of the semver is compared against `1.0.0`; minor/patch differences are ignored.
 
 ## Constraints
@@ -382,17 +410,20 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 ## References
 
 - `src/store/dashboardStore.ts` — store, initial state, `dashboardActions`
-- `src/store/types.ts` — `DashboardConfig`, `ScreenConfig`, `GridItem`, `DashboardState`, `WidgetConfig`
+- `src/store/types.ts` — `DashboardConfig`, `ThemeConfig`, `ScreenConfig`, `GridItem`, `DashboardState`, `WidgetConfig`
+- `src/store/themeConfig.ts` — theme defaults and the legacy scalar migration + `__tests__/themeConfig.test.ts`
 - `src/store/persistence.ts` — localStorage/file persistence, migration, backup, version check
 - `src/store/__tests__/persistence.test.ts`, `modePersistence.test.ts`, `sidebar-persistence.test.ts`
 - `src/components/ConfigurationMenu.tsx` + `__tests__/ConfigurationMenu.test.tsx`, `__tests__/ThemeToggle.test.tsx`
 - `src/components/ImportPreviewDialog.tsx`, `ScreenConfigDialog.tsx` + `__tests__/ScreenConfigDialog.test.tsx`, `ModeToggle.tsx` + `__tests__/ModeToggle.test.tsx`
-- `src/routes/__root.tsx` — theme → Radix appearance mapping
-- Related specs: [../grid-layout/](../grid-layout/), [../entity-cards/](../entity-cards/), [../navigation/](../navigation/)
+- `src/routes/__root.tsx`, `src/components/PanelApp.tsx` — theme configuration → `LiebeThemeProvider`
+- `src/components/CustomCssDialog.tsx` + `__tests__/CustomCssDialog.test.tsx`, `__tests__/ThemePicker.test.tsx`, `__tests__/ImportPreviewDialog.test.tsx`
+- Related specs: [../theming/](../theming/), [../grid-layout/](../grid-layout/), [../entity-cards/](../entity-cards/), [../navigation/](../navigation/)
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                          | Document                                               |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                      | —                                                      |
-| 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying | [0004](../../changes/0004-portable-config-contract.md) |
+| Date       | Change                                                                                                                                                                                                    | Document                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                | —                                                      |
+| 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying                                           | [0004](../../changes/0004-portable-config-contract.md) |
+| 2026-07-26 | `theme` becomes `{ id, appearance, customCss }`: new store shape, `setTheme(partial)`, legacy scalar migration on every load route, object-shaped export, picker / appearance control / custom-CSS editor | [0012](../../changes/0012-theming-engine.md)           |

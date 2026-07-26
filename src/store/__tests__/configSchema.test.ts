@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 import { validateDashboardConfig, dashboardConfigSchema } from '../configSchema'
 import { importConfigurationFromFile } from '../persistence'
 import { dashboardStore, dashboardActions } from '../dashboardStore'
+import { DEFAULT_THEME_CONFIG } from '../themeConfig'
 import type { DashboardConfig } from '../types'
 
 const validConfig: DashboardConfig = {
@@ -321,7 +322,7 @@ describe('importConfigurationFromFile validation', () => {
       currentScreenId: null,
       configuration: { version: '1.0.0', screens: [], theme: 'auto' },
       gridResolution: { columns: 12, rows: 8 },
-      theme: 'auto',
+      theme: DEFAULT_THEME_CONFIG,
       isDirty: false,
       sidebarOpen: false,
       tabsExpanded: false,

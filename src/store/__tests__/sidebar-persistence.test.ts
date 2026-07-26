@@ -101,6 +101,7 @@ describe('Sidebar State Persistence', () => {
     // Sidebar state should be preserved
     const state = dashboardStore.state
     expect(state.sidebarOpen).toBe(true)
-    expect(state.theme).toBe('dark') // Theme should be updated
+    // The legacy scalar `theme: 'dark'` migrates to the object shape on load.
+    expect(state.theme).toEqual({ id: 'default', appearance: 'dark', customCss: '' })
   })
 })

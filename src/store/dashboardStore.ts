@@ -8,8 +8,10 @@ import type {
   GridItem,
   GridResolution,
   DashboardConfig,
+  ThemeConfig,
   WidgetConfig,
 } from './types'
+import { DEFAULT_THEME_CONFIG, migrateThemeConfig } from './themeConfig'
 import { findOptimalPosition } from '../utils/gridPositioning'
 
 const DEFAULT_GRID_RESOLUTION: GridResolution = {
@@ -24,10 +26,10 @@ const initialState: DashboardState = {
   configuration: {
     version: '1.0.0',
     screens: [],
-    theme: 'auto',
+    theme: DEFAULT_THEME_CONFIG,
   },
   gridResolution: DEFAULT_GRID_RESOLUTION,
-  theme: 'auto',
+  theme: DEFAULT_THEME_CONFIG,
   isDirty: false,
   sidebarOpen: false,
   tabsExpanded: false,
@@ -266,10 +268,13 @@ export const dashboardActions = {
     })
   },
 
-  setTheme: (theme: 'light' | 'dark' | 'auto') => {
+  // One action for all three theming fields, merged into the current config:
+  // the picker sets `id`, the appearance control `appearance`, the editor
+  // `customCss`, and each is a portable change like any other.
+  setTheme: (theme: Partial<ThemeConfig>) => {
     dashboardStore.setState((state) => ({
       ...state,
-      theme,
+      theme: { ...state.theme, ...theme },
       isDirty: true,
     }))
   },
@@ -292,7 +297,10 @@ export const dashboardActions = {
       currentScreenId: config.screens.length > 0 ? config.screens[0].id : null,
       configuration: config,
       gridResolution: DEFAULT_GRID_RESOLUTION,
-      theme: config.theme || 'auto',
+      // Every route into the store — localStorage, file import, backup restore
+      // — lands here, so this is where a legacy scalar `theme` becomes the
+      // object shape and where a missing one becomes the defaults.
+      theme: migrateThemeConfig(config.theme),
       sidebarOpen: config.sidebarOpen ?? state.sidebarOpen,
       tabsExpanded: config.tabsExpanded ?? state.tabsExpanded,
       sidebarWidgets: config.sidebarWidgets ?? state.sidebarWidgets,

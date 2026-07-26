@@ -9,6 +9,7 @@ import {
 import { dashboardStore } from '~/store/dashboardStore'
 import { THEME_STYLE_SLOT } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID } from '~/theme/themeRegistry'
+import { DEFAULT_THEME_CONFIG } from '~/store/themeConfig'
 
 // Render the router as an inert marker: this test only exercises PanelApp's
 // root-Theme stacking lift, not the routed app.
@@ -23,7 +24,12 @@ function getRootTheme(container: HTMLElement): HTMLElement {
 
 describe('PanelApp theming', () => {
   afterEach(() => {
-    dashboardStore.setState((state) => ({ ...state, theme: 'auto' }))
+    dashboardStore.setState((state) => ({
+      ...state,
+      // The whole theme object: `id` and `customCss` are singleton-store
+      // state too, and a leaked one would follow into the next test.
+      theme: { ...DEFAULT_THEME_CONFIG },
+    }))
     // The theme layer belongs to the root, not to the React tree, so unmounting
     // deliberately leaves it behind — this suite has to clear it itself.
     document.head
@@ -32,7 +38,10 @@ describe('PanelApp theming', () => {
   })
 
   it('renders the configured theme and the appearance it resolves to', () => {
-    dashboardStore.setState((state) => ({ ...state, theme: 'dark' }))
+    dashboardStore.setState((state) => ({
+      ...state,
+      theme: { ...DEFAULT_THEME_CONFIG, appearance: 'dark' },
+    }))
 
     const { container } = render(<PanelApp />)
 
