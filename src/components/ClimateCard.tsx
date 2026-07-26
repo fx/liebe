@@ -562,6 +562,9 @@ function ClimateCardComponent({
         isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
+        // The same declaration the available branch makes: an unavailable
+        // entity is exactly when its details are worth opening.
+        defaultAction="more-info"
       >
         <Flex direction="column" align="center" justify="center" gap="2">
           <GridCard.Title>{entity.attributes.friendly_name || entity.entity_id}</GridCard.Title>

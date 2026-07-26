@@ -151,11 +151,19 @@ export function useCardActions({
       entityId?: string
       data?: Record<string, unknown>
     }) => {
-      const target = options.entityId
+      // The effective target, not the card's: explicit `data.entity_id` wins at
+      // dispatch (`buildServiceData`), so watching the card's entity would watch
+      // the wrong thing move — a lively sensor would keep reopening the window
+      // on a `button.press` aimed elsewhere.
+      const explicit = options.data?.entity_id
+      const target = typeof explicit === 'string' ? explicit : options.entityId
       const lastUpdatedOf = (id: string) => entityStore.state.entities[id]?.last_updated
 
       if (target) {
-        const command = `${options.domain}.${options.service}:${target}`
+        // The payload is part of the command's identity: `set_cover_position` to
+        // 100 and to 0 are the same service and opposite intents, and the second
+        // is the reversal that must not be swallowed.
+        const command = `${options.domain}.${options.service}:${target}:${JSON.stringify(options.data ?? null)}`
         const pending = pendingRef.current
         if (
           pending &&

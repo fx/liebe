@@ -229,18 +229,53 @@ describe('useCardActions', () => {
       })
     })
 
-    it('does not hold back a call that targets nothing of its own', () => {
-      // With no entity to watch there is no transition to wait for, so the
-      // window would never open on evidence — only on the timeout.
+    it('watches the target the call actually names, not the card’s entity', () => {
+      // Explicit `data.entity_id` wins at dispatch, so it is what the window has
+      // to watch: guarding the card's own entity would let a lively sensor
+      // reopen a `button.press` aimed somewhere else.
       const { result } = renderHook(() =>
         useCardActions({
+          entityId: 'sensor.hallway',
           config: {
             tapAction: {
               action: 'call-service',
-              service: 'script.turn_on',
-              data: { entity_id: 'script.bedtime' },
+              service: 'button.press',
+              data: { entity_id: 'button.doorbell' },
             },
           },
+        })
+      )
+
+      act(() => result.current.tap())
+      act(() => result.current.tap())
+      expect(hass.callService).toHaveBeenCalledTimes(1)
+
+      // The sensor moving is not the button having been pressed.
+      entityStore.setState((state) => ({
+        ...state,
+        entities: {
+          ...state.entities,
+          'sensor.hallway': {
+            entity_id: 'sensor.hallway',
+            state: '21.6',
+            attributes: {},
+            last_changed: '2024-01-01T00:00:09Z',
+            last_updated: '2024-01-01T00:00:09Z',
+            context: { id: 'ctx', parent_id: null, user_id: null },
+          },
+        },
+      }))
+      act(() => result.current.tap())
+      expect(hass.callService).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not hold back a call that names no target at all', () => {
+      // With nothing to watch there is no transition to wait for, and holding
+      // the path shut on a timeout alone would block a service the card cannot
+      // observe — a scene or a notification.
+      const { result } = renderHook(() =>
+        useCardActions({
+          config: { tapAction: { action: 'call-service', service: 'notify.persistent' } },
         })
       )
 
