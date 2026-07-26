@@ -30,6 +30,12 @@ const preview: Preview = {
         order: ['Shell', 'Cards'],
       },
     },
+    a11y: {
+      // Audit every story, but report rather than fail: the first pass of this
+      // workshop records the violations it finds as issues, and fixing them is
+      // deliberately out of scope here (change 0009, PR 2).
+      test: 'todo',
+    },
   },
   globalTypes: {
     theme: {

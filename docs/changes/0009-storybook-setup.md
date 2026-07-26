@@ -51,9 +51,9 @@ The [storybook spec](../specs/storybook/index.md) owns the workshop's observable
   - [x] Store-seeding + service-call-interception decorators; appearance toolbar; grid-cell decorator
   - [x] Stories: `GridCard` shell (all states) + `LightCard`, `ClimateCard`, `SensorCard`, `BinarySensorCard` (state matrix per spec)
   - [x] Coverage exclusions for stories/fixtures/.storybook; lint/prettier config extended to new files
-- [ ] **PR 2 — Full card coverage**
-  - [ ] Stories for `CoverCard`, `FanCard`, `ButtonCard`, `WeatherCard` (all 4 variants), `CameraCard` (mock stream states), all 5 input helper cards, `TextCard`, `Separator`
-  - [ ] a11y addon enabled globally; audit and record violations as issues (fixes out of scope)
+- [x] **PR 2 — Full card coverage**
+  - [x] Stories for `CoverCard`, `FanCard`, `ButtonCard`, `WeatherCard` (all 4 variants), `CameraCard` (mock stream states), all 5 input helper cards, `TextCard`, `Separator`
+  - [x] a11y addon enabled globally; audit and record violations as issues (fixes out of scope)
 - [ ] **PR 3 — CI + publishing**
   - [ ] `storybook` CI job (build gate) on PRs
   - [ ] Deploy workflow publishes `/storybook/` to GitHub Pages alongside the panel; verify published URL
