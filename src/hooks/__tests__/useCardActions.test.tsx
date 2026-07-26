@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useCardActions, findScreenByIdOrSlug } from '../useCardActions'
+import type { UseCardActionsOptions } from '../useCardActions'
 import { dashboardActions, dashboardStore } from '~/store'
 import {
   ACKNOWLEDGEMENT_TIMEOUT_MS,
@@ -199,6 +200,35 @@ describe('useCardActions', () => {
       expect(hass.callService).toHaveBeenCalledTimes(2)
     })
 
+    it('does not hold back a different command on the same entity', () => {
+      // The command most likely to arrive while the first is still in flight is
+      // the inverse — stopping a cover that is moving too far. Blocking that
+      // would be the exact opposite of safe.
+      const { result } = renderHook(() =>
+        useCardActions({
+          config: {
+            tapAction: { action: 'call-service', service: 'cover.open_cover' },
+            holdAction: { action: 'call-service', service: 'cover.stop_cover' },
+          },
+          entityId: 'button.doorbell',
+        })
+      )
+
+      act(() => result.current.tap())
+      act(() => result.current.press())
+      act(() => {
+        vi.advanceTimersByTime(HOLD_DURATION_MS)
+      })
+
+      expect(hass.callService).toHaveBeenCalledTimes(2)
+      expect(hass.callService).toHaveBeenNthCalledWith(1, 'cover', 'open_cover', {
+        entity_id: 'button.doorbell',
+      })
+      expect(hass.callService).toHaveBeenNthCalledWith(2, 'cover', 'stop_cover', {
+        entity_id: 'button.doorbell',
+      })
+    })
+
     it('does not hold back a call that targets nothing of its own', () => {
       // With no entity to watch there is no transition to wait for, so the
       // window would never open on evidence — only on the timeout.
@@ -219,6 +249,30 @@ describe('useCardActions', () => {
 
       expect(hass.callService).toHaveBeenCalledTimes(2)
     })
+  })
+
+  it('cancels a gesture already in flight when suppression starts', () => {
+    // A tap waiting out the double-tap window when the user switches to edit
+    // mode would otherwise still dispatch a quarter of a second into a mode
+    // where nothing may.
+    const onToggle = vi.fn()
+    const options: UseCardActionsOptions = {
+      config: { doubleTapAction: 'more-info' },
+      entityId: 'light.desk',
+      onToggle,
+      onMoreInfo: vi.fn(),
+    }
+    const { result, rerender } = renderHook((props) => useCardActions(props), {
+      initialProps: options,
+    })
+
+    act(() => result.current.tap())
+    rerender({ ...options, disabled: true })
+    act(() => {
+      vi.advanceTimersByTime(DOUBLE_TAP_WINDOW_MS * 2)
+    })
+
+    expect(onToggle).not.toHaveBeenCalled()
   })
 
   it('navigates to a nested screen by slug', () => {

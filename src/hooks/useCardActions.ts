@@ -124,7 +124,7 @@ export function useCardActions({
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdFiredRef = useRef(false)
-  const pendingRef = useRef<{ entityId: string; until: number; lastUpdated?: string } | null>(null)
+  const pendingRef = useRef<{ command: string; until: number; lastUpdated?: string } | null>(null)
 
   /**
    * Dispatch a consequential command, at most once until it is known to have
@@ -138,6 +138,11 @@ export function useCardActions({
    * twice. The window reopens on whichever comes first: the entity's
    * `last_updated` moving (it landed) or `ACKNOWLEDGEMENT_TIMEOUT_MS` elapsing
    * (it may never move, and the card must not be stuck).
+   *
+   * Keyed by service *and* entity, not by entity alone: a different command on
+   * the same device is a different intent, and the one most likely to arrive
+   * while the first is still in flight is the inverse — stopping a cover that is
+   * moving too far. Blocking that would be the exact opposite of safe.
    */
   const dispatchService = useCallback(
     (options: {
@@ -150,17 +155,18 @@ export function useCardActions({
       const lastUpdatedOf = (id: string) => entityStore.state.entities[id]?.last_updated
 
       if (target) {
+        const command = `${options.domain}.${options.service}:${target}`
         const pending = pendingRef.current
         if (
           pending &&
-          pending.entityId === target &&
+          pending.command === command &&
           Date.now() < pending.until &&
           lastUpdatedOf(target) === pending.lastUpdated
         ) {
           return
         }
         pendingRef.current = {
-          entityId: target,
+          command,
           until: Date.now() + ACKNOWLEDGEMENT_TIMEOUT_MS,
           lastUpdated: lastUpdatedOf(target),
         }
@@ -297,6 +303,20 @@ export function useCardActions({
 
     dispatch(actions.tap)
   }, [actions, clearTapTimer, disabled, dispatch, isActionable])
+
+  /*
+   * Suppression has to reach the gestures already in flight, not only the ones
+   * that start afterwards: a tap waiting out the double-tap window when the user
+   * switches to edit mode would otherwise still dispatch a quarter of a second
+   * into a mode where nothing may.
+   */
+  useEffect(() => {
+    if (!disabled) return
+
+    release()
+    clearTapTimer()
+    holdFiredRef.current = false
+  }, [clearTapTimer, disabled, release])
 
   useEffect(() => {
     return () => {

@@ -236,13 +236,15 @@ function withoutThemableProperties(style?: React.CSSProperties): React.CSSProper
 const EMBEDDED_CONTROL_SELECTOR =
   'a[href], button, input, textarea, select, label, [contenteditable="true"], [role="button"], [role="checkbox"], [role="combobox"], [role="listbox"], [role="menuitem"], [role="option"], [role="radio"], [role="slider"], [role="spinbutton"], [role="switch"], [role="tab"], [role="textbox"]'
 
-function isEmbeddedControl(e: React.PointerEvent): boolean {
-  // A pointer event's target is always an element — hit testing never resolves
-  // to a text node — so this is a cast rather than a check.
+function isEmbeddedControl(e: React.SyntheticEvent): boolean {
+  // A pointer or mouse event's target is always an element — hit testing never
+  // resolves to a text node — so this is a cast rather than a check.
   const control = (e.target as Element).closest(EMBEDDED_CONTROL_SELECTOR)
   // Scoped to the card: `closest` walks past it otherwise, and an interactive
-  // ancestor of the whole grid would suppress every card's hold.
-  return Boolean(control && control !== e.currentTarget && e.currentTarget.contains(control))
+  // ancestor of the whole grid would suppress every card's gestures.
+  return Boolean(
+    control && control !== e.currentTarget && (e.currentTarget as Element).contains(control)
+  )
 }
 
 interface GridCardContextValue {
@@ -393,13 +395,18 @@ export const GridCard = React.memo(
         e.target === e.currentTarget || (e.currentTarget as Node).contains(e.target as Node)
 
       const handlePointerDown = (e: React.PointerEvent) => {
+        // Only a primary activation starts a gesture: a right-button press or a
+        // second finger is not a tap the user is waiting to complete, and it may
+        // never produce the click that would consume a fired hold.
+        if (e.button !== 0 || !e.isPrimary) return
+
         if (isRealDescendant(e) && !isEmbeddedControl(e)) gestures.press()
       }
 
       const handleClick = (e: React.MouseEvent) => {
         if (isEditMode && onSelect) {
           onSelect()
-        } else if (!isEditMode && isRealDescendant(e)) {
+        } else if (!isEditMode && isRealDescendant(e) && !isEmbeddedControl(e)) {
           gestures.tap()
         }
       }

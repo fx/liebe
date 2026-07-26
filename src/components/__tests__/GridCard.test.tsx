@@ -444,9 +444,14 @@ describe('GridCard shell', () => {
 
     render(
       <GridCard domain="input_select" onClick={onClick}>
-        <button type="button" data-testid="child">
-          content
-        </button>
+        {/*
+         * Plain content rather than a control: a click on an embedded control
+         * belongs to that control and no longer reaches the tile either (see
+         * "leaves the tile alone when the click lands on an embedded control"
+         * in GridCard.actions.test.tsx). The portalled node stays a button,
+         * because what is pinned here is where it lives in the DOM.
+         */}
+        <span data-testid="child">content</span>
         <PortalledDescendant />
       </GridCard>
     )

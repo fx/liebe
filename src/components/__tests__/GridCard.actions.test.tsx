@@ -32,9 +32,16 @@ describe('GridCard actions', () => {
     return document.querySelector('.liebe-card') as HTMLElement
   }
 
-  /** A full press-and-release over the tile, holding for `duration`. */
+  /**
+   * A full press-and-release over the tile, holding for `duration`.
+   *
+   * `isPrimary`/`button` are spelled out because jsdom's synthetic pointer
+   * events default `isPrimary` to false, while a real primary press — mouse or
+   * first finger — always reports true, and the shell only starts a gesture for
+   * a primary activation.
+   */
   function pressAndRelease(target: HTMLElement, duration: number) {
-    fireEvent.pointerDown(target)
+    fireEvent.pointerDown(target, { isPrimary: true, button: 0 })
     act(() => {
       vi.advanceTimersByTime(duration)
     })
@@ -108,7 +115,7 @@ describe('GridCard actions', () => {
       </GridCard>
     )
 
-    fireEvent.pointerDown(card())
+    fireEvent.pointerDown(card(), { isPrimary: true, button: 0 })
     act(() => {
       vi.advanceTimersByTime(HOLD_DURATION_MS)
     })
@@ -128,14 +135,14 @@ describe('GridCard actions', () => {
       </GridCard>
     )
 
-    fireEvent.pointerDown(card())
+    fireEvent.pointerDown(card(), { isPrimary: true, button: 0 })
     fireEvent.pointerLeave(card())
     act(() => {
       vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
     })
     expect(onMoreInfo).not.toHaveBeenCalled()
 
-    fireEvent.pointerDown(card())
+    fireEvent.pointerDown(card(), { isPrimary: true, button: 0 })
     fireEvent.pointerCancel(card())
     act(() => {
       vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
@@ -256,9 +263,7 @@ describe('GridCard actions', () => {
         onClick={onToggle}
         onMoreInfo={onMoreInfo}
       >
-        <button type="button" data-testid="child">
-          content
-        </button>
+        <span data-testid="child">content</span>
         <PortalledDescendant />
       </GridCard>
     )
@@ -328,6 +333,54 @@ describe('GridCard actions', () => {
     // ...and the rest of the tile still holds.
     pressAndRelease(card(), HOLD_DURATION_MS * 2)
     expect(onMoreInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the tile alone when the click lands on an embedded control', () => {
+    // The pre-existing convention was for each control to stop its own click,
+    // and several do not — the input_boolean switch among them, which is why
+    // operating it used to fire the card's action as well. With a configurable
+    // tap that stops being a harmless duplicate toggle and becomes a second,
+    // unrelated command.
+    const onToggle = vi.fn()
+    const onControl = vi.fn()
+    renderCard(
+      <GridCard domain="input_boolean" entityId="input_boolean.guest" onClick={onToggle}>
+        <GridCard.Controls>
+          <button type="button" onClick={onControl}>
+            Flip
+          </button>
+        </GridCard.Controls>
+      </GridCard>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Flip' }))
+
+    expect(onControl).toHaveBeenCalledTimes(1)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('starts no gesture on a secondary pointer', () => {
+    // A right-button press is not an activation, and it may never produce the
+    // click that would consume a hold it had fired.
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard domain="light" entityId="light.desk" onMoreInfo={onMoreInfo}>
+        content
+      </GridCard>
+    )
+
+    fireEvent.pointerDown(card(), { isPrimary: true, button: 2 })
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
+    })
+    expect(onMoreInfo).not.toHaveBeenCalled()
+
+    // ...nor on a second finger, whose `isPrimary` is false.
+    fireEvent.pointerDown(card(), { isPrimary: false, button: 0 })
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
+    })
+    expect(onMoreInfo).not.toHaveBeenCalled()
   })
 
   it('will not toggle an entity whose state is indeterminate', () => {
@@ -448,7 +501,7 @@ describe('GridCard actions', () => {
       </GridCard>
     )
 
-    fireEvent.pointerDown(card())
+    fireEvent.pointerDown(card(), { isPrimary: true, button: 0 })
     fireEvent.pointerUp(card())
     fireEvent.click(card())
     await act(async () => {
@@ -597,7 +650,7 @@ describe('GridCard actions', () => {
       </GridCard>
     )
 
-    fireEvent.pointerDown(card())
+    fireEvent.pointerDown(card(), { isPrimary: true, button: 0 })
     unmount()
     act(() => {
       vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
