@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import {
   openPanel,
   openConfigurationMenu,
+  overlayTokens,
   seedThemeConfig,
   storedTheme,
   themeBackgroundColor,
@@ -11,9 +12,12 @@ import {
   userLayerCss,
 } from './helpers'
 
-// The two e2e obligations of the theming engine
-// (docs/changes/0012-theming-engine.md — Testing Requirements): appearance
-// switches live, and a theme configuration survives export → import.
+// The e2e obligations of the theming engine
+// (docs/changes/0012-theming-engine.md): appearance switches live, a theme
+// configuration survives export → import, and a portalled overlay renders on
+// the active theme — the one claim about the cascade that cannot be judged
+// anywhere but in a real browser, since it turns on what a portalled element
+// outside the shadow root actually computes.
 
 test('appearance switches live, without a reload', async ({ page }) => {
   await openPanel(page, seedThemeConfig({ id: 'default', appearance: 'light', customCss: '' }))
@@ -46,6 +50,46 @@ test('appearance switches live, without a reload', async ({ page }) => {
     () => (window as unknown as { __e2eNoReload?: boolean }).__e2eNoReload === true
   )
   expect(noReload, 'appearance applied without a page reload').toBe(true)
+})
+
+test('a portalled overlay renders on the active theme, and without user CSS', async ({ page }) => {
+  // Overlays portal to `document.body`, outside the shadow root that holds the
+  // layers. docs/specs/theming ("Application mechanism") requires them to render
+  // with active tokens anyway, and records the user layer as deliberately
+  // withheld from the mirror — this pins both halves on a real open overlay.
+  await openPanel(
+    page,
+    seedThemeConfig({
+      id: 'default',
+      appearance: 'dark',
+      customCss: '.liebe-root { --liebe-c-ok: #010203; }',
+    })
+  )
+  expect(await themeToken(page, '--liebe-c-ok')).toBe('#010203')
+
+  await openConfigurationMenu(page)
+  const { outsideShadowRoot, values } = await overlayTokens(page, [
+    '--liebe-c-light',
+    '--liebe-c-light-text',
+    '--liebe-c-ok',
+  ])
+
+  // Otherwise this test proves nothing: the menu has to have left the shadow
+  // root for its tokens to be a question at all.
+  expect(outsideShadowRoot, 'the open menu portals out of the shadow root').toBe(true)
+
+  // The base layer leaves `-text` derived from its base hue; the Default theme
+  // pins it to a readable step. The two differing out here is therefore the
+  // mirrored THEME layer applying, not just the baseline sheet.
+  expect(values['--liebe-c-light']).not.toBe('')
+  expect(values['--liebe-c-light-text'], 'the theme layer reaches the portalled overlay').not.toBe(
+    values['--liebe-c-light']
+  )
+
+  // The user layer stops at the shadow root, on purpose: mirroring the author's
+  // own selectors into the Home Assistant document would restyle the frontend
+  // around the panel.
+  expect(values['--liebe-c-ok'], 'user CSS stays contained in the panel').not.toBe('#010203')
 })
 
 test('theme configuration survives YAML export into a fresh dashboard', async ({
@@ -86,7 +130,9 @@ test('theme configuration survives YAML export into a fresh dashboard', async ({
     await openPanel(fresh)
 
     // Baseline: unthemed defaults, so nothing below can pass by inheritance.
-    expect(await themeStamp(fresh)).toEqual({ themeId: 'default', appearance: 'light' })
+    // Polled, not read once — an unseeded `openPanel` waits for the websocket
+    // connection, which can win the race against React's first commit.
+    await expect.poll(() => themeStamp(fresh)).toEqual({ themeId: 'default', appearance: 'light' })
     expect(await themeToken(fresh, '--liebe-bg')).not.toBe('#010203')
 
     // Import the exported document through the real file input and confirm the

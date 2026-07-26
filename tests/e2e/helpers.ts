@@ -498,6 +498,24 @@ export async function openConfigurationMenu(page: Page): Promise<void> {
   await expect(page.getByRole('menu')).toBeVisible()
 }
 
+// The open menu read as a portalled overlay: whether it really did escape the
+// shadow root, and what the requested tokens compute to out there. This is the
+// only place the layer mirroring can be judged by its effect rather than by the
+// presence of a `<style>` element.
+export async function overlayTokens(
+  page: Page,
+  tokens: string[]
+): Promise<{ outsideShadowRoot: boolean; values: Record<string, string> }> {
+  return page.evaluate((names) => {
+    const menu = document.querySelector('[role="menu"]')
+    if (!menu) return { outsideShadowRoot: false, values: {} }
+    const style = getComputedStyle(menu)
+    const values: Record<string, string> = {}
+    for (const name of names) values[name] = style.getPropertyValue(name).trim()
+    return { outsideShadowRoot: menu.getRootNode() === document, values }
+  }, tokens)
+}
+
 // --- REST helpers (bypass the UI to set up / verify state deterministically) ---
 
 export async function callService(
