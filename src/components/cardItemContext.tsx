@@ -5,6 +5,12 @@ export interface CardItemContextValue {
   entityId?: string
   /** The placed item's stored options, where the three action keys live. */
   config?: Record<string, unknown>
+  /**
+   * Opens the grid's card-configuration modal for this item. It is what puts a
+   * settings button on every entity card in edit mode, rather than only on the
+   * few that grew a modal of their own.
+   */
+  onConfigure?: () => void
 }
 
 const CardItemContext = createContext<CardItemContextValue>({})
@@ -27,9 +33,10 @@ const CardItemContext = createContext<CardItemContextValue>({})
 export function CardItemProvider({
   entityId,
   config,
+  onConfigure,
   children,
 }: CardItemContextValue & { children: ReactNode }) {
-  const value = useMemo(() => ({ entityId, config }), [entityId, config])
+  const value = useMemo(() => ({ entityId, config, onConfigure }), [entityId, config, onConfigure])
 
   return <CardItemContext.Provider value={value}>{children}</CardItemContext.Provider>
 }

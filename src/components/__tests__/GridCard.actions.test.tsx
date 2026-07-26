@@ -294,6 +294,77 @@ describe('GridCard actions', () => {
     expect(onMoreInfo).not.toHaveBeenCalled()
   })
 
+  it.each([
+    [
+      'a button',
+      <button key="c" type="button" data-testid="control">
+        Step
+      </button>,
+    ],
+    ['a text field', <input key="c" data-testid="control" defaultValue="21" />],
+    [
+      'an ARIA switch',
+      <div key="c" role="switch" aria-checked="false" data-testid="control">
+        On
+      </div>,
+    ],
+  ])('does not arm the hold when the press lands on %s', (_what, control) => {
+    // Controls already consume their own clicks, which was enough when a click
+    // was all the tile listened for. Press-and-hold starts half a second
+    // earlier, so a stepper held down would open the detail dialog over the
+    // value it was adjusting — and the controls that would each have to stop
+    // pointer-down are drawn from three libraries, so the shell asks what the
+    // press landed on instead.
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard domain="input_number" entityId="input_number.target" onMoreInfo={onMoreInfo}>
+        {control}
+      </GridCard>
+    )
+
+    pressAndRelease(screen.getByTestId('control'), HOLD_DURATION_MS * 2)
+    expect(onMoreInfo).not.toHaveBeenCalled()
+
+    // ...and the rest of the tile still holds.
+    pressAndRelease(card(), HOLD_DURATION_MS * 2)
+    expect(onMoreInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('will not toggle an entity whose state is indeterminate', () => {
+    // An unavailable cover must never be commanded by a tap that cannot know
+    // which way it will move (REVIEW.md — safety-critical controls).
+    const onToggle = vi.fn()
+    renderCard(
+      <GridCard
+        domain="cover"
+        entityId="cover.garage"
+        isUnavailable
+        onClick={onToggle}
+        actions={actions({ tapAction: 'toggle' })}
+      >
+        content
+      </GridCard>
+    )
+
+    expect(card().style.cursor).toBe('default')
+    fireEvent.click(card())
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('still opens the details of an unavailable entity', () => {
+    // Which is exactly what a user reaches for when a device goes quiet.
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard domain="cover" entityId="cover.garage" isUnavailable onMoreInfo={onMoreInfo}>
+        content
+      </GridCard>
+    )
+
+    pressAndRelease(card(), HOLD_DURATION_MS * 2)
+    expect(onMoreInfo).toHaveBeenCalledTimes(1)
+  })
+
   it('falls back to homeassistant.toggle when the card family has no toggle of its own', () => {
     renderCard(
       <GridCard domain="switch" entityId="switch.pump" actions={actions({ tapAction: 'toggle' })}>

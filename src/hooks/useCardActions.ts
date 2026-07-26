@@ -3,7 +3,9 @@ import { useRouter } from '@tanstack/react-router'
 import { hassService } from '../services/hassService'
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
 import { dashboardActions, dashboardStore } from '../store/dashboardStore'
+import { entityStore } from '../store/entityStore'
 import {
+  ACKNOWLEDGEMENT_TIMEOUT_MS,
   DOUBLE_TAP_WINDOW_MS,
   HOLD_DURATION_MS,
   readCardAction,
@@ -39,6 +41,14 @@ export interface UseCardActionsOptions {
    * is not treated as actionable without a handler.
    */
   onMoreInfo?: () => void
+  /**
+   * The entity's state is `unavailable` or `unknown`, which makes `toggle`
+   * inert: a card must never actuate a device whose direction it cannot know —
+   * an indeterminate RF cover is the case the rule exists for. Everything else
+   * stays available, because opening the details of an unavailable entity is
+   * precisely what a user reaches for when one goes quiet.
+   */
+  unavailable?: boolean
   /**
    * Suppresses every action. Edit mode passes `true`: a press there selects and
    * drags a card, it does not operate the device.
@@ -100,6 +110,7 @@ export function useCardActions({
   entityId,
   onToggle,
   onMoreInfo,
+  unavailable = false,
   disabled = false,
 }: UseCardActionsOptions): CardGestures {
   const hass = useHomeAssistantOptional()
@@ -113,6 +124,52 @@ export function useCardActions({
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdFiredRef = useRef(false)
+  const pendingRef = useRef<{ entityId: string; until: number; lastUpdated?: string } | null>(null)
+
+  /**
+   * Dispatch a consequential command, at most once until it is known to have
+   * landed.
+   *
+   * The gesture controller already fires once per gesture; this is the guard for
+   * the gesture *after* it. Home Assistant acknowledges before a slow
+   * integration updates state, so a card that reopened on promise resolution
+   * would let a second press through while the first was still in flight —
+   * which for `button.press`, a script, or a motor is the command running
+   * twice. The window reopens on whichever comes first: the entity's
+   * `last_updated` moving (it landed) or `ACKNOWLEDGEMENT_TIMEOUT_MS` elapsing
+   * (it may never move, and the card must not be stuck).
+   */
+  const dispatchService = useCallback(
+    (options: {
+      domain: string
+      service: string
+      entityId?: string
+      data?: Record<string, unknown>
+    }) => {
+      const target = options.entityId
+      const lastUpdatedOf = (id: string) => entityStore.state.entities[id]?.last_updated
+
+      if (target) {
+        const pending = pendingRef.current
+        if (
+          pending &&
+          pending.entityId === target &&
+          Date.now() < pending.until &&
+          lastUpdatedOf(target) === pending.lastUpdated
+        ) {
+          return
+        }
+        pendingRef.current = {
+          entityId: target,
+          until: Date.now() + ACKNOWLEDGEMENT_TIMEOUT_MS,
+          lastUpdated: lastUpdatedOf(target),
+        }
+      }
+
+      void hassService.callServiceOnce(options)
+    },
+    []
+  )
 
   const actions = useMemo(
     () => ({
@@ -132,11 +189,11 @@ export function useCardActions({
   const isActionable = useCallback(
     (action: ResolvedCardAction): boolean => {
       if (action === 'none') return false
-      if (action === 'toggle') return Boolean(onToggle || entityId)
+      if (action === 'toggle') return !unavailable && Boolean(onToggle || entityId)
       if (action === 'more-info') return Boolean(onMoreInfo)
       return true
     },
-    [entityId, onMoreInfo, onToggle]
+    [entityId, onMoreInfo, onToggle, unavailable]
   )
 
   const dispatch = useCallback(
@@ -146,6 +203,7 @@ export function useCardActions({
       if (action === 'none') return
 
       if (action === 'toggle') {
+        if (unavailable) return
         if (onToggle) {
           onToggle()
           return
@@ -154,7 +212,7 @@ export function useCardActions({
           // The generic alias, deliberately: a card with no toggle semantics of
           // its own has no gate to bypass, and `homeassistant.toggle` is what
           // the contract names as the fallback.
-          void hassService.callServiceOnce({ domain: 'homeassistant', service: 'toggle', entityId })
+          dispatchService({ domain: 'homeassistant', service: 'toggle', entityId })
         }
         return
       }
@@ -176,9 +234,9 @@ export function useCardActions({
       }
 
       const [domain, service] = action.service.split('.')
-      void hassService.callServiceOnce({ domain, service, entityId, data: action.data })
+      dispatchService({ domain, service, entityId, data: action.data })
     },
-    [entityId, hass, onMoreInfo, onToggle, router]
+    [dispatchService, entityId, hass, onMoreInfo, onToggle, router, unavailable]
   )
 
   const clearTapTimer = useCallback(() => {

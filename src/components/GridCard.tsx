@@ -217,6 +217,34 @@ function withoutThemableProperties(style?: React.CSSProperties): React.CSSProper
   ) as React.CSSProperties
 }
 
+/**
+ * What counts as an embedded control for the purposes of press-and-hold.
+ *
+ * Cards are full of them — mode pills, steppers, switches, text fields, select
+ * triggers, sliders — and a press that lands on one belongs to that control, not
+ * to the tile. Controls already consume their own *clicks*, which was enough
+ * when a click was all the tile listened for; press-and-hold starts half a
+ * second earlier, so holding a stepper would fire the card's hold action before
+ * the button it was pressed on ever ran.
+ *
+ * Written as one rule about the target rather than as a `stopPropagation` added
+ * to every control: the controls are a moving set drawn from three libraries
+ * (Radix Themes, Radix primitives, plain elements), and the enumeration that
+ * would have to be kept complete is exactly the kind that ships a hole. This
+ * asks the DOM what the press landed on instead.
+ */
+const EMBEDDED_CONTROL_SELECTOR =
+  'a[href], button, input, textarea, select, label, [contenteditable="true"], [role="button"], [role="checkbox"], [role="combobox"], [role="listbox"], [role="menuitem"], [role="option"], [role="radio"], [role="slider"], [role="spinbutton"], [role="switch"], [role="tab"], [role="textbox"]'
+
+function isEmbeddedControl(e: React.PointerEvent): boolean {
+  // A pointer event's target is always an element — hit testing never resolves
+  // to a text node — so this is a cast rather than a check.
+  const control = (e.target as Element).closest(EMBEDDED_CONTROL_SELECTOR)
+  // Scoped to the card: `closest` walks past it otherwise, and an interactive
+  // ancestor of the whole grid would suppress every card's hold.
+  return Boolean(control && control !== e.currentTarget && e.currentTarget.contains(control))
+}
+
 interface GridCardContextValue {
   size: 'small' | 'medium' | 'large'
   isLoading?: boolean
@@ -310,6 +338,17 @@ export const GridCard = React.memo(
       const isTransparent = transparent && !isEditMode
 
       /*
+       * The settings button. A card that runs its own configuration modal passes
+       * these itself; every other entity card gets the grid's, so the universal
+       * option surface is reachable from every card rather than from the four
+       * that happened to grow a modal of their own
+       * (docs/specs/entity-cards/options/common.md — options are edited from the
+       * card's own configuration UI).
+       */
+      const configure = onConfigure ?? item.onConfigure
+      const canConfigure = (hasConfiguration || Boolean(item.onConfigure)) && Boolean(configure)
+
+      /*
        * The gesture controller. `disabled` in edit mode is the whole of
        * edit-mode action suppression: no gesture resolves, no timer is armed,
        * and the click below goes to selection instead
@@ -321,6 +360,7 @@ export const GridCard = React.memo(
         entityId: entityId ?? item.entityId,
         onToggle: onClick,
         onMoreInfo,
+        unavailable: isUnavailable,
         disabled: isEditMode,
       })
 
@@ -342,6 +382,8 @@ export const GridCard = React.memo(
        * same way — including the detail dialog `more-info` opens, which is why
        * the press handler is guarded too and not just the click: a press held
        * inside a portalled dialog must not arm the card's hold timer behind it.
+       * (A press on a portalled *control* is stopped by `isEmbeddedControl`
+       * anyway; this catches the rest of a portalled surface.)
        *
        * So do not "simplify" this away. It is pinned by "ignores a click from a
        * portalled descendant, but not one from a real child" in
@@ -351,7 +393,7 @@ export const GridCard = React.memo(
         e.target === e.currentTarget || (e.currentTarget as Node).contains(e.target as Node)
 
       const handlePointerDown = (e: React.PointerEvent) => {
-        if (isRealDescendant(e)) gestures.press()
+        if (isRealDescendant(e) && !isEmbeddedControl(e)) gestures.press()
       }
 
       const handleClick = (e: React.MouseEvent) => {
@@ -434,17 +476,17 @@ export const GridCard = React.memo(
              * order rather than by a z-index keeps the project's
              * no-arbitrary-z-index rule intact.
              */}
-            {isEditMode && (hasConfiguration || onDelete) && !isFullscreen && (
+            {isEditMode && (canConfigure || onDelete) && !isFullscreen && (
               <div className="liebe-card-actions">
                 {/* Configuration Button */}
-                {hasConfiguration && onConfigure && (
+                {canConfigure && (
                   <IconButton
                     size="1"
                     variant="ghost"
                     color="gray"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onConfigure()
+                      configure?.()
                     }}
                     aria-label="Configure card"
                   >

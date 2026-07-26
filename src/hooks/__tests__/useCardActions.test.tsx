@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useCardActions, findScreenByIdOrSlug } from '../useCardActions'
 import { dashboardActions, dashboardStore } from '~/store'
-import { DOUBLE_TAP_WINDOW_MS, HOLD_DURATION_MS } from '~/store/cardActions'
+import {
+  ACKNOWLEDGEMENT_TIMEOUT_MS,
+  DOUBLE_TAP_WINDOW_MS,
+  HOLD_DURATION_MS,
+} from '~/store/cardActions'
+import { entityStore } from '~/store/entityStore'
+import { hassService } from '~/services/hassService'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { ScreenConfig } from '~/store/types'
 
 /**
@@ -112,6 +119,106 @@ describe('useCardActions', () => {
     })
     // The tap that follows is unaffected by the press that did nothing.
     act(() => result.current.release())
+  })
+
+  /**
+   * The at-most-once guarantee, one gesture out. Home Assistant acknowledges a
+   * service call before slow integrations update state, so a card that reopened
+   * its dispatch on promise resolution would run a `button.press` twice for a
+   * user who pressed twice while nothing appeared to happen.
+   */
+  describe('acknowledgement window', () => {
+    const pressAction = {
+      tapAction: { action: 'call-service' as const, service: 'button.press' },
+    }
+
+    function seedEntity(lastUpdated: string) {
+      entityStore.setState((state) => ({
+        ...state,
+        entities: {
+          'button.doorbell': {
+            entity_id: 'button.doorbell',
+            state: 'unknown',
+            attributes: {},
+            last_changed: lastUpdated,
+            last_updated: lastUpdated,
+            context: { id: 'ctx', parent_id: null, user_id: null },
+          },
+        },
+      }))
+    }
+
+    let hass: ReturnType<typeof createMockHomeAssistant>
+
+    beforeEach(() => {
+      hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
+      hassService.setHass(hass)
+      seedEntity('2024-01-01T00:00:00Z')
+    })
+
+    afterEach(() => {
+      entityStore.setState((state) => ({ ...state, entities: {} }))
+    })
+
+    it('drops a repeat command while the first has not visibly landed', () => {
+      const { result } = renderHook(() =>
+        useCardActions({ config: pressAction, entityId: 'button.doorbell' })
+      )
+
+      act(() => result.current.tap())
+      act(() => result.current.tap())
+
+      expect(hass.callService).toHaveBeenCalledTimes(1)
+    })
+
+    it('reopens as soon as the entity transitions', () => {
+      const { result } = renderHook(() =>
+        useCardActions({ config: pressAction, entityId: 'button.doorbell' })
+      )
+
+      act(() => result.current.tap())
+      seedEntity('2024-01-01T00:00:05Z')
+      act(() => result.current.tap())
+
+      expect(hass.callService).toHaveBeenCalledTimes(2)
+    })
+
+    it('reopens once the acknowledgement timeout elapses, transition or not', () => {
+      // Some commands never move the entity at all; the card must not be stuck
+      // waiting for a transition that is not coming.
+      const { result } = renderHook(() =>
+        useCardActions({ config: pressAction, entityId: 'button.doorbell' })
+      )
+
+      act(() => result.current.tap())
+      act(() => {
+        vi.advanceTimersByTime(ACKNOWLEDGEMENT_TIMEOUT_MS + 1)
+      })
+      act(() => result.current.tap())
+
+      expect(hass.callService).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not hold back a call that targets nothing of its own', () => {
+      // With no entity to watch there is no transition to wait for, so the
+      // window would never open on evidence — only on the timeout.
+      const { result } = renderHook(() =>
+        useCardActions({
+          config: {
+            tapAction: {
+              action: 'call-service',
+              service: 'script.turn_on',
+              data: { entity_id: 'script.bedtime' },
+            },
+          },
+        })
+      )
+
+      act(() => result.current.tap())
+      act(() => result.current.tap())
+
+      expect(hass.callService).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('navigates to a nested screen by slug', () => {

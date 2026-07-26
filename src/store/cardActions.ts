@@ -99,6 +99,18 @@ export const HOLD_DURATION_MS = 500
 export const DOUBLE_TAP_WINDOW_MS = 250
 
 /**
+ * How long a consequential command holds the dispatch path closed against a
+ * repeat of itself when the entity does not visibly move.
+ *
+ * Home Assistant acknowledges a service call before slow integrations update
+ * state, so the promise resolving proves nothing — a second press landing in
+ * that window would press the button twice. The window closes early the moment
+ * the entity does transition, which is the signal that actually means "done"
+ * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
+ */
+export const ACKNOWLEDGEMENT_TIMEOUT_MS = 2000
+
+/**
  * Read one action key out of a card's stored config.
  *
  * Falls back to the key's default when the stored value does not validate. That

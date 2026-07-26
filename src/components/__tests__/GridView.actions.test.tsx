@@ -78,6 +78,34 @@ describe('GridView — card actions', () => {
     })
   })
 
+  it('puts a settings button on an entity card that runs no modal of its own', async () => {
+    // The universal options are only worth having if they are reachable: before
+    // this, only the four cards that grew a configuration modal of their own
+    // showed the button, so most domains had no way in. A sensor is one of the
+    // ones that has none, which is the whole point of asserting on it.
+    entityStore.setState((state) => ({
+      ...state,
+      entities: {
+        'sensor.hallway': {
+          entity_id: 'sensor.hallway',
+          state: '21.5',
+          attributes: { friendly_name: 'Hallway' },
+          last_changed: '2024-01-01T00:00:00Z',
+          last_updated: '2024-01-01T00:00:00Z',
+          context: { id: 'ctx', parent_id: null, user_id: null },
+        },
+      },
+    }))
+    dashboardActions.setMode('edit')
+    renderGrid([{ ...item, id: 'item-3', entityId: 'sensor.hallway', config: {} }])
+
+    const configure = screen.getByRole('button', { name: 'Configure card' })
+    fireEvent.click(configure)
+
+    expect(await screen.findByText('Card Configuration')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Tap' })).toBeInTheDocument()
+  })
+
   it('does the same for a domain with no card of its own', () => {
     // The fallback path renders `ButtonCard`, which the registry never returned
     // — it has to sit inside the same provider or unmapped domains would be the

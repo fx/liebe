@@ -26,6 +26,7 @@ function EntityCard({
   onDelete,
   isSelected,
   onSelect,
+  onConfigure,
   item,
 }: {
   entityId: string
@@ -33,6 +34,7 @@ function EntityCard({
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  onConfigure?: () => void
   item?: GridItem
 }) {
   // Common props for all cards
@@ -42,6 +44,7 @@ function EntityCard({
     onDelete,
     isSelected,
     onSelect,
+    onConfigure,
     config: item?.config as Record<string, unknown>,
     item,
   }
@@ -66,7 +69,7 @@ function EntityCard({
    * which card the registry dispatched to.
    */
   return (
-    <CardItemProvider entityId={entityId} config={item?.config}>
+    <CardItemProvider entityId={entityId} config={item?.config} onConfigure={onConfigure}>
       {CardComponent ? (
         createElement(CardComponent, cardProps)
       ) : (
@@ -258,6 +261,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                   onDelete={() => handleDeleteItem(item.id)}
                   isSelected={isSelected}
                   onSelect={(selected) => handleSelectItem(item.id, selected)}
+                  onConfigure={() => handleConfigureItem(item)}
                   item={item}
                 />
               </EntityErrorBoundary>

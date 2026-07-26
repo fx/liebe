@@ -37,10 +37,6 @@ export function Chip({ label, icon, onClick, ...part }: ChipProps) {
       <button
         type="button"
         {...attributes}
-        // Same reason as the click below, one gesture earlier: the card arms its
-        // hold timer on pointer-down over any descendant, so a chip held down
-        // would open the detail dialog behind whatever it was for.
-        onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           // The card around it treats its whole tile as the primary action and
           // accepts any descendant target, so a chip that let its click bubble

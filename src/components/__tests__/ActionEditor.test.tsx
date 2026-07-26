@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Theme } from '@radix-ui/themes'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -201,6 +202,65 @@ describe('ActionEditor', () => {
     )
 
     expect(screen.getByRole('combobox', { name: 'Tap' })).toHaveTextContent('Nothing')
+  })
+
+  it('adopts the parameter fields when the stored action changes underneath', () => {
+    // The config modal stays mounted while it is pointed at another card. If
+    // only the kind resynced, the previous card's service would still be in the
+    // field, and editing the data would write it onto the new one.
+    const { rerender } = renderEditor({
+      value: { action: 'call-service', service: 'light.turn_on', data: { brightness: 1 } },
+    })
+    expect(screen.getByLabelText('Tap service')).toHaveValue('light.turn_on')
+
+    rerender(
+      <Theme>
+        <ActionEditor
+          label="Tap"
+          value={{ action: 'call-service', service: 'script.turn_on' }}
+          defaultValue="default"
+          onChange={onChange}
+        />
+      </Theme>
+    )
+
+    expect(screen.getByLabelText('Tap service')).toHaveValue('script.turn_on')
+    expect(screen.getByLabelText('Tap service data')).toHaveValue('')
+  })
+
+  it('does not resync the field the user is still typing in', () => {
+    // The control's own emission comes straight back as a new `value`. Treating
+    // that as an external change would rewrite the field mid-keystroke.
+    function Host() {
+      const [value, setValue] = React.useState<unknown>({
+        action: 'call-service',
+        service: 'light.turn_on',
+      })
+      return (
+        <Theme>
+          <ActionEditor
+            label="Tap"
+            value={value}
+            defaultValue="default"
+            onChange={(next) => {
+              setValue(next)
+              onChange(next)
+            }}
+          />
+        </Theme>
+      )
+    }
+
+    render(<Host />)
+    const field = screen.getByLabelText('Tap service data')
+
+    fireEvent.change(field, { target: { value: 'brightness: 180' } })
+    expect(field).toHaveValue('brightness: 180')
+    expect(onChange).toHaveBeenLastCalledWith({
+      action: 'call-service',
+      service: 'light.turn_on',
+      data: { brightness: 180 },
+    })
   })
 
   it('renders its description when given one', () => {

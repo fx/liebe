@@ -51,6 +51,18 @@ function normalize(value: unknown, fallback: CardAction): CardAction {
   return parsed.success ? parsed.data : fallback
 }
 
+/** The parameter fields an action carries, as the form holds them. */
+function fieldsOf(action: CardAction) {
+  if (typeof action === 'string') return { target: '', service: '', dataText: '' }
+  if (action.action === 'navigate') return { target: action.target, service: '', dataText: '' }
+
+  return {
+    target: '',
+    service: action.service,
+    dataText: action.data ? yaml.dump(action.data).trimEnd() : '',
+  }
+}
+
 /**
  * The action editor — the config control behind `tapAction`, `holdAction` and
  * `doubleTapAction`.
@@ -82,38 +94,46 @@ export function ActionEditor({
   const storedKind: ActionKind = typeof action === 'string' ? action : action.action
 
   /*
-   * The picked kind is local state rather than a value derived from `value`,
-   * because the two parameterized actions are not committed until they are
-   * complete: choosing "Call service" has nothing valid to emit yet, and a
-   * derived kind would snap straight back to the previous action, taking the
-   * service field with it before it could be filled in. The stored kind still
-   * wins whenever it changes underneath — the form being pointed at a different
-   * card, or the value being reset.
+   * The picked kind and the parameter fields are local state rather than values
+   * derived from `value`, because the two parameterized actions are not
+   * committed until they are complete: choosing "Call service" has nothing valid
+   * to emit yet, and a derived kind would snap straight back to the previous
+   * action, taking the service field with it before it could be filled in.
+   *
+   * The stored action still wins whenever it changes to something this control
+   * did not write — the form being pointed at a different card, or the config
+   * being reset. `synced` is what tells those apart: every commit records what
+   * it emitted, so the control's own writes do not come back round and reset the
+   * field the user is still typing in.
    */
   const [kind, setKind] = React.useState<ActionKind>(storedKind)
-  const [lastStoredKind, setLastStoredKind] = React.useState<ActionKind>(storedKind)
-  if (lastStoredKind !== storedKind) {
-    setLastStoredKind(storedKind)
+  const [target, setTarget] = React.useState(() => fieldsOf(action).target)
+  const [service, setService] = React.useState(() => fieldsOf(action).service)
+  const [dataText, setDataText] = React.useState(() => fieldsOf(action).dataText)
+  const [dataError, setDataError] = React.useState<string | null>(null)
+  const [synced, setSynced] = React.useState(() => JSON.stringify(action))
+
+  const storedJson = JSON.stringify(action)
+  if (synced !== storedJson) {
+    const fields = fieldsOf(action)
+    setSynced(storedJson)
     setKind(storedKind)
+    setTarget(fields.target)
+    setService(fields.service)
+    setDataText(fields.dataText)
+    setDataError(null)
   }
 
-  const [target, setTarget] = React.useState(() =>
-    typeof action === 'object' && action.action === 'navigate' ? action.target : ''
-  )
-  const [service, setService] = React.useState(() =>
-    typeof action === 'object' && action.action === 'call-service' ? action.service : ''
-  )
-  const [dataText, setDataText] = React.useState(() =>
-    typeof action === 'object' && action.action === 'call-service' && action.data
-      ? yaml.dump(action.data).trimEnd()
-      : ''
-  )
-  const [dataError, setDataError] = React.useState<string | null>(null)
+  /** Records what this control emitted, so the echo does not resync the form. */
+  const emit = (next: CardAction) => {
+    setSynced(JSON.stringify(next))
+    onChange(next)
+  }
 
   const commitNavigate = (nextTarget: string) => {
     setTarget(nextTarget)
     const candidate = navigateActionSchema.safeParse({ action: 'navigate', target: nextTarget })
-    if (candidate.success) onChange(candidate.data)
+    if (candidate.success) emit(candidate.data)
   }
 
   const commitService = (nextService: string, nextDataText: string) => {
@@ -142,7 +162,7 @@ export function ActionEditor({
       service: nextService,
       ...(data ? { data } : {}),
     })
-    if (candidate.success) onChange(candidate.data)
+    if (candidate.success) emit(candidate.data)
   }
 
   const handleKindChange = (nextKind: ActionKind) => {
@@ -160,7 +180,7 @@ export function ActionEditor({
       return
     }
 
-    onChange(nextKind)
+    emit(nextKind)
   }
 
   // A stored target that no longer matches a screen (it was renamed or deleted)

@@ -210,11 +210,20 @@ function CameraCardComponent({
     setInnerVideo(getInnerVideo())
   }, [onStreamEvent, getInnerVideo])
 
-  const handleVideoClick = useCallback(() => {
-    if (!streamError && !isEditMode) {
-      setIsFullscreen(!isFullscreen)
-    }
-  }, [streamError, isEditMode, isFullscreen])
+  const handleVideoClick = useCallback(
+    (e?: React.SyntheticEvent) => {
+      if (!streamError && !isEditMode) {
+        // The stream surface is this card's own control, and a control consumes
+        // its own events: without this, a configured `tapAction` on a camera
+        // would fire behind the fullscreen flip the same tap performed
+        // (docs/specs/entity-cards/options/common.md). The keyboard path passes
+        // no event and has already stopped at the surface itself.
+        e?.stopPropagation()
+        setIsFullscreen(!isFullscreen)
+      }
+    },
+    [streamError, isEditMode, isFullscreen]
+  )
 
   // Keyboard parity for the clickable stream surface: Enter and Space toggle
   // fullscreen exactly like a tap (Space's default scroll is suppressed). Only
