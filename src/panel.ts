@@ -150,7 +150,11 @@ class LiebePanel extends HTMLElement {
       // Load CSS and set base URL for assets
       const script = document.currentScript || document.querySelector('script[src*="panel.js"]')
       if (script && 'src' in script) {
-        const baseUrl = new URL(script.src).href.replace(/panel\.js$/, '')
+        // Resolve the containing directory rather than stripping the filename:
+        // `module_url` may carry a cache-busting query or hash
+        // (`panel.js?v=123`), which a filename regex would leave in the base and
+        // mangle into every derived asset URL.
+        const baseUrl = new URL('./', script.src).href
 
         // Store base URL globally for asset loading
         window.__LIEBE_ASSET_BASE_URL__ = baseUrl

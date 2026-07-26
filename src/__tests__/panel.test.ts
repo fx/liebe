@@ -75,4 +75,32 @@ describe('LiebePanel custom element', () => {
       }
     }
   )
+
+  // Same module-loading budget as above.
+  it('ignores a cache-busting query string on the panel.js URL', { timeout: 30_000 }, async () => {
+    await import('../panel')
+
+    // `module_url: https://host/local/liebe/panel.js?v=123` is a normal thing
+    // to configure in Home Assistant to defeat browser caching. The base URL
+    // must still resolve to the directory, not carry the query into every
+    // asset URL derived from it.
+    const script = document.createElement('script')
+    script.src = 'http://localhost/local/liebe/panel.js?v=123'
+    document.head.appendChild(script)
+
+    const { elementName } = getPanelConfig()
+    const panel = document.createElement(elementName)
+    document.body.appendChild(panel)
+    try {
+      expect(window.__LIEBE_ASSET_BASE_URL__).toBe('http://localhost/local/liebe/')
+      expect(
+        panel.shadowRoot?.querySelector('link[href="http://localhost/local/liebe/liebe.css"]')
+      ).not.toBeNull()
+    } finally {
+      panel.remove()
+      script.remove()
+      document.head.querySelectorAll('link[href*="/local/liebe/"]').forEach((l) => l.remove())
+      delete window.__LIEBE_ASSET_BASE_URL__
+    }
+  })
 })
