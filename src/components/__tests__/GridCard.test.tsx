@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { CSSProperties } from 'react'
-import { render, screen } from '@testing-library/react'
+import { createPortal } from 'react-dom'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { useDashboardStore } from '~/store'
 import type { DashboardState } from '~/store/types'
@@ -415,6 +416,51 @@ describe('GridCard shell', () => {
       </GridCard>
     )
     expect(card().style.cursor).toBe('move')
+  })
+
+  it('ignores a click from a portalled descendant, but not one from a real child', () => {
+    // The shell's click guard (`e.target === e.currentTarget ||
+    // e.currentTarget.contains(e.target)`) reads like a tautology and is not
+    // one: React synthetic events bubble through the React tree, so a click
+    // inside a portalled descendant reaches the card's handler carrying a
+    // target that lives outside the card in the DOM. Both halves are asserted
+    // here, because only the pair distinguishes the guard from `onClick()`.
+    //
+    // Driven through a bare `createPortal` child rather than through
+    // `InputSelectCard`'s real Radix select on purpose. That card also wraps
+    // its select in a `Box` with `onClick={(e) => e.stopPropagation()}`, which
+    // would swallow the event one level below this handler — so a test built on
+    // it would keep passing with the guard deleted, and prove nothing. The
+    // portal mechanism being pinned is React's, not Radix's, and it is the same
+    // mechanism `Select.Content` reaches the body through.
+    const onClick = vi.fn()
+    const PortalledDescendant = () =>
+      createPortal(
+        <button type="button" data-testid="portalled">
+          option
+        </button>,
+        document.body
+      )
+
+    render(
+      <GridCard domain="input_select" onClick={onClick}>
+        <button type="button" data-testid="child">
+          content
+        </button>
+        <PortalledDescendant />
+      </GridCard>
+    )
+
+    // The portalled node really is outside the card in the DOM — otherwise
+    // `contains()` would be true and the assertion below would pass for the
+    // wrong reason.
+    expect(card().contains(screen.getByTestId('portalled'))).toBe(false)
+
+    fireEvent.click(screen.getByTestId('child'))
+    expect(onClick).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByTestId('portalled'))
+    expect(onClick).toHaveBeenCalledTimes(1)
   })
 
   it('renders the compound slots as the matching anatomy parts', () => {

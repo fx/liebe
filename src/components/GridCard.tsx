@@ -273,7 +273,25 @@ export const GridCard = React.memo(
         if (isEditMode && onSelect) {
           onSelect()
         } else if (!isEditMode && onClick) {
-          // Prevent card animation when clicking child elements
+          /*
+           * Not the tautology it reads as. React synthetic events bubble
+           * through the REACT tree, not the DOM tree, so a click inside a
+           * portalled descendant reaches this handler even though the element
+           * it came from lives outside the card in the DOM. `contains()` is
+           * exactly what tells the two apart: true for a real descendant — the
+           * card's own content, which must still trigger the card's action —
+           * and false for a portalled one, which must not.
+           *
+           * The live case is `InputSelectCard`: its Radix `Select.Content` is
+           * written inside the card in JSX but portalled to `document.body`, so
+           * without this check picking an option from the open dropdown would
+           * ALSO fire the card's primary action. Radix dialogs, popovers and
+           * tooltips portal the same way.
+           *
+           * So do not "simplify" this to a bare `onClick()`. It is pinned by
+           * "ignores a click from a portalled descendant, but not one from a
+           * real child" in `__tests__/GridCard.test.tsx`.
+           */
           if (e.target === e.currentTarget || e.currentTarget.contains(e.target as Node)) {
             onClick()
           }
