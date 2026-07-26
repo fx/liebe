@@ -40,7 +40,8 @@ export interface SliderProps extends AnatomyPartProps {
   /**
    * Text shown inside the track ("80%", "21.5°"). It is also the thumb's
    * `aria-valuetext`, so what a screen reader announces matches what the card
-   * shows — a bare `aria-valuenow` of `80` says nothing about of what.
+   * shows — a bare `aria-valuenow` of `80` says nothing about what that `80`
+   * refers to.
    */
   readout?: string
   /**
