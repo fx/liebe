@@ -157,7 +157,7 @@ describe('GridCard actions', () => {
         domain="light"
         entityId="light.desk"
         onClick={onToggle}
-        actions={actions({
+        config={actions({
           doubleTapAction: { action: 'call-service', service: 'script.movie_mode' },
         })}
       >
@@ -185,7 +185,7 @@ describe('GridCard actions', () => {
         domain="light"
         entityId="light.desk"
         onClick={onToggle}
-        actions={actions({ doubleTapAction: 'more-info' })}
+        config={actions({ doubleTapAction: 'more-info' })}
         onMoreInfo={vi.fn()}
       >
         content
@@ -393,7 +393,7 @@ describe('GridCard actions', () => {
         entityId="cover.garage"
         isUnavailable
         onClick={onToggle}
-        actions={actions({ tapAction: 'toggle' })}
+        config={actions({ tapAction: 'toggle' })}
       >
         content
       </GridCard>
@@ -420,7 +420,7 @@ describe('GridCard actions', () => {
 
   it('falls back to homeassistant.toggle when the card family has no toggle of its own', () => {
     renderCard(
-      <GridCard domain="switch" entityId="switch.pump" actions={actions({ tapAction: 'toggle' })}>
+      <GridCard domain="switch" entityId="switch.pump" config={actions({ tapAction: 'toggle' })}>
         content
       </GridCard>
     )
@@ -437,7 +437,7 @@ describe('GridCard actions', () => {
       <GridCard
         domain="light"
         entityId="light.desk"
-        actions={actions({
+        config={actions({
           tapAction: {
             action: 'call-service',
             service: 'light.turn_on',
@@ -471,7 +471,7 @@ describe('GridCard actions', () => {
       <GridCard
         domain="button"
         entityId="button.doorbell"
-        actions={actions({ tapAction: { action: 'call-service', service: 'button.press' } })}
+        config={actions({ tapAction: { action: 'call-service', service: 'button.press' } })}
       >
         content
       </GridCard>
@@ -495,7 +495,7 @@ describe('GridCard actions', () => {
       <GridCard
         domain="script"
         entityId="script.bedtime"
-        actions={actions({ tapAction: { action: 'call-service', service: 'script.turn_on' } })}
+        config={actions({ tapAction: { action: 'call-service', service: 'script.turn_on' } })}
       >
         content
       </GridCard>
@@ -519,7 +519,7 @@ describe('GridCard actions', () => {
       <GridCard
         domain="light"
         entityId="light.desk"
-        actions={actions({ tapAction: { action: 'navigate', target: 'kitchen' } })}
+        config={actions({ tapAction: { action: 'navigate', target: 'kitchen' } })}
       >
         content
       </GridCard>
@@ -533,7 +533,7 @@ describe('GridCard actions', () => {
         <GridCard
           domain="light"
           entityId="light.desk"
-          actions={actions({ tapAction: { action: 'navigate', target: 'screen-3' } })}
+          config={actions({ tapAction: { action: 'navigate', target: 'screen-3' } })}
         >
           content
         </GridCard>
@@ -552,7 +552,7 @@ describe('GridCard actions', () => {
       <GridCard
         domain="light"
         entityId="light.desk"
-        actions={actions({ tapAction: { action: 'navigate', target: 'deleted-screen' } })}
+        config={actions({ tapAction: { action: 'navigate', target: 'deleted-screen' } })}
       >
         content
       </GridCard>
@@ -569,7 +569,7 @@ describe('GridCard actions', () => {
         entityId="camera.porch"
         defaultAction="none"
         onMoreInfo={vi.fn()}
-        actions={actions({ holdAction: 'none' })}
+        config={actions({ holdAction: 'none' })}
       >
         content
       </GridCard>
@@ -607,7 +607,7 @@ describe('GridCard actions', () => {
         domain="light"
         entityId="light.desk"
         onClick={onToggle}
-        actions={{ tapAction: 'toggel' }}
+        config={{ tapAction: 'toggel' }}
       >
         content
       </GridCard>

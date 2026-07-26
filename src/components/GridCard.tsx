@@ -7,6 +7,8 @@ import { useCardActions } from '~/hooks/useCardActions'
 import { useCardItem } from './cardItemContext'
 import { EntityDetailDialog } from './EntityDetailDialog'
 import { CardMeta, CardName, CardState, IconCircle } from './anatomy'
+import { readCardDisplay, resolveCardColor, type CardDisplayOptions } from '~/store/cardDisplay'
+import { getIcon } from '~/utils/iconList'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
 import './GridCard.css'
@@ -26,8 +28,24 @@ export interface GridCardProps {
    * Which `--liebe-c-*` triplet this card's rendered state resolves to. It is a
    * state input, not a fixed per-domain setting — a thermostat passes `heat`,
    * `cool` or `ok` depending on what it is doing.
+   *
+   * This is what the stored `color: auto` resolves to. A stored colour other
+   * than `auto` pins the triplet and this prop stops being consulted, which is
+   * the whole of the option: the user asked for one colour, so the card's state
+   * no longer moves it.
    */
   color?: DomainColorName
+  /**
+   * The entity is in a danger state — a jammed lock, a triggered alarm — as
+   * opposed to merely active. A card family declares it from its own domain
+   * knowledge; the shell's part is that such a card cannot be *configured* into
+   * looking calm: the display options that carry the warning stop applying
+   * while it holds (REVIEW.md — "Danger states"; `applyDangerFloor` in
+   * `~/store/cardDisplay`). No card declares one yet — the security and lock
+   * families arrive with 0024 — but the guard ships with the mechanism it
+   * guards rather than after it.
+   */
+  danger?: boolean
   size?: 'small' | 'medium' | 'large'
   isLoading?: boolean
   isError?: boolean
@@ -56,10 +74,11 @@ export interface GridCardProps {
    */
   entityId?: string
   /**
-   * The card's stored options (`item.config`), read for `tapAction`,
-   * `holdAction` and `doubleTapAction`. Defaults to the grid's, as above.
+   * The card's stored options (`item.config`) — the three action keys, and the
+   * five display keys (`name`, `icon`, `hideName`, `hideState`, `color`) the
+   * shell applies to the compound slots. Defaults to the grid's, as above.
    */
-  actions?: Record<string, unknown>
+  config?: Record<string, unknown>
   /**
    * What the stored literal `default` resolves to for this card. Read-only
    * families declare `more-info`; everything else leaves it at `toggle`
@@ -261,6 +280,8 @@ interface GridCardContextValue {
   domain: string
   color: DomainColorName
   isOn: boolean
+  /** The stored display options, already resolved — see `readCardDisplay`. */
+  display: CardDisplayOptions
 }
 
 // Context for compound components
@@ -270,6 +291,9 @@ const GridCardContext = React.createContext<GridCardContextValue>({
   domain: 'unknown',
   color: 'default',
   isOn: false,
+  // An anatomy part rendered outside a shell — the config preview, a story —
+  // gets the same "leave the card alone" defaults an unconfigured item has.
+  display: readCardDisplay(undefined),
 })
 
 /**
@@ -294,6 +318,7 @@ export const GridCard = React.memo(
         children,
         domain,
         color = 'default',
+        danger = false,
         size = 'medium',
         isLoading = false,
         isError = false,
@@ -305,7 +330,7 @@ export const GridCard = React.memo(
         onDelete,
         onClick,
         entityId,
-        actions,
+        config,
         defaultAction,
         onMoreInfo,
         onConfigure,
@@ -326,6 +351,41 @@ export const GridCard = React.memo(
       // What the grid published about the item this card is rendering. Explicit
       // props still win, so a card (or a story) can override either.
       const item = useCardItem()
+
+      /*
+       * The placed item's stored options, and the display half of them resolved.
+       *
+       * Resolved here rather than in each card because that is what makes the
+       * five display options universal: a card keeps rendering its own name,
+       * icon and state into the compound slots, and the shell decides what those
+       * slots actually show (docs/specs/entity-cards/options/common.md —
+       * "Universal options"). A card cannot forget to honour an option it never
+       * sees — and, in a danger state, cannot be configured out of warning.
+       */
+      const storedConfig = config ?? item.config
+      const display = React.useMemo(
+        () => readCardDisplay(storedConfig, { danger }),
+        [storedConfig, danger]
+      )
+
+      /*
+       * `auto` keeps the card's state-derived colour; anything else pins a
+       * triplet. Either way the value travels as a `data-color` attribute that
+       * `anatomy.css` maps onto `--liebe-c-*` — never as a Radix colour prop —
+       * so a theme that remaps the triplet recolours a pinned card too.
+       */
+      const resolvedColor = resolveCardColor(display.color, color)
+
+      /*
+       * Hiding both lines is a layout, not an accident: the spec requires the
+       * icon-only tile to stay valid, with the icon centred
+       * (docs/specs/entity-cards/options/common.md — `hideName`/`hideState`
+       * "MUST compose with the layout tiers"). The attribute is what
+       * `GridCard.css` centres on; it is stamped whenever both lines are hidden
+       * rather than only in `glance`, because a tile with nothing but an icon
+       * wants the same treatment at every size.
+       */
+      const isIconOnly = display.hideName && display.hideState
 
       // Handle ESC key press to exit fullscreen
       React.useEffect(() => {
@@ -400,7 +460,7 @@ export const GridCard = React.memo(
        * (docs/specs/entity-cards/options/common.md — "Action type").
        */
       const gestures = useCardActions({
-        config: actions ?? item.config,
+        config: storedConfig,
         defaultAction,
         entityId: detailEntityId,
         onToggle: onClick,
@@ -455,8 +515,8 @@ export const GridCard = React.memo(
       }
 
       const contextValue = React.useMemo(
-        () => ({ size, isLoading, domain, color, isOn }),
-        [size, isLoading, domain, color, isOn]
+        () => ({ size, isLoading, domain, color: resolvedColor, isOn, display }),
+        [size, isLoading, domain, resolvedColor, isOn, display]
       )
 
       /*
@@ -504,8 +564,9 @@ export const GridCard = React.memo(
             title={title}
             className={`liebe-card grid-card${className ? ` ${className}` : ''}`}
             data-domain={domain}
-            data-color={color}
+            data-color={resolvedColor}
             data-size={size}
+            data-icon-only={isIconOnly ? 'true' : undefined}
             data-active={isOn ? 'true' : undefined}
             data-selected={isSelected && isEditMode ? 'true' : undefined}
             data-error={isError ? 'true' : undefined}
@@ -656,7 +717,15 @@ interface GridCardIconProps {
 }
 
 export const GridCardIcon = React.memo(({ children, className }: GridCardIconProps) => {
-  const { isLoading, domain, color, isOn } = React.useContext(GridCardContext)
+  const { isLoading, domain, color, isOn, display } = React.useContext(GridCardContext)
+
+  /*
+   * The `icon` override. An unset override, and one naming an icon this build
+   * does not have, both leave the card's own glyph in place: a configuration
+   * written by a build with a larger icon set is resolved for display, not
+   * repaired (docs/specs/dashboard-config — "Forward Compatibility").
+   */
+  const overrideIcon = display.icon ? getIcon(display.icon) : undefined
 
   return (
     <IconCircle
@@ -665,7 +734,20 @@ export const GridCardIcon = React.memo(({ children, className }: GridCardIconPro
       active={isOn}
       className={`grid-card-icon${className ? ` ${className}` : ''}`}
     >
-      {isLoading ? <Spinner size="2" /> : children}
+      {/*
+       * `createElement` rather than JSX, as the binary sensor's configurable
+       * icons already do: the component comes out of the curated list, and JSX
+       * on a local capitalized binding reads to the linter as a component
+       * declared during render. Size matches the glyphs the cards pass; the
+       * circle itself is `--liebe-icon-circle`.
+       */}
+      {isLoading ? (
+        <Spinner size="2" />
+      ) : overrideIcon ? (
+        React.createElement(overrideIcon, { size: 20 })
+      ) : (
+        children
+      )}
     </IconCircle>
   )
 })
@@ -679,7 +761,11 @@ interface GridCardTitleProps {
 }
 
 export const GridCardTitle = React.memo(({ children, className }: GridCardTitleProps) => {
-  const { domain, color } = React.useContext(GridCardContext)
+  const { domain, color, display } = React.useContext(GridCardContext)
+
+  // `hideName` removes the line rather than emptying it: an empty `liebe-name`
+  // would still take its share of the stack's gap.
+  if (display.hideName) return null
 
   return (
     <CardName
@@ -687,7 +773,9 @@ export const GridCardTitle = React.memo(({ children, className }: GridCardTitleP
       color={color}
       className={`grid-card-title${className ? ` ${className}` : ''}`}
     >
-      {children}
+      {/* A non-empty `name` replaces whatever the card passed — for every card,
+          because the card's friendly name arrives here as children. */}
+      {display.name || children}
     </CardName>
   )
 })
@@ -719,7 +807,9 @@ interface GridCardStatusProps {
 }
 
 export const GridCardStatus = React.memo(({ children, detail, className }: GridCardStatusProps) => {
-  const { domain, color, isOn } = React.useContext(GridCardContext)
+  const { domain, color, isOn, display } = React.useContext(GridCardContext)
+
+  if (display.hideState) return null
 
   return (
     <CardState

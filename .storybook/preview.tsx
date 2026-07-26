@@ -1,6 +1,6 @@
 import type { Preview } from '@storybook/react-vite'
 import { DEFAULT_THEME_ID, listThemes } from '~/theme/themeRegistry'
-import { withProviders, withServiceCalls, withStoreSeed } from './decorators'
+import { withCardItem, withProviders, withServiceCalls, withStoreSeed } from './decorators'
 import { registerMockCameraStream } from './mockCameraStream'
 
 // Custom elements are process-wide, so the stand-in for HA's
@@ -33,7 +33,7 @@ import '~/styles/tokens.css'
 const preview: Preview = {
   // Outermost first: providers wrap the mock connection, which wraps the
   // seeded stores, which wrap the (opt-in) grid cell.
-  decorators: [withProviders, withServiceCalls, withStoreSeed],
+  decorators: [withProviders, withServiceCalls, withStoreSeed, withCardItem],
   parameters: {
     // The provider decorator paints the themed ground and supplies the
     // padding; Storybook's default `padded` layout would frame every story

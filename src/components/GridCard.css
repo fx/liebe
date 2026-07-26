@@ -104,6 +104,34 @@
     padding: 0;
   }
 
+  /*
+   * The icon-only tile: `hideName` and `hideState` both set, so nothing is left
+   * but the icon circle and whatever control the card carries. The spec requires
+   * this to stay a valid layout with a centred icon rather than an icon parked
+   * at the top-left of an otherwise empty card
+   * (docs/specs/entity-cards/options/common.md — the two hide options "MUST
+   * compose with the layout tiers"; docs/specs/design-system —
+   * "Size-adaptive layouts", where `glance` is the tier it matters most in).
+   *
+   * Centring is done on the tile so it holds for every card at once: the cards
+   * lay their own content out in a column or a row, and this centres that whole
+   * block without any card knowing the option exists. The edit affordances are
+   * absolutely positioned and stay in their corner.
+   */
+  .liebe-card[data-icon-only] {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+  }
+
+  /*
+   * A card that wraps its two lines in the meta stack leaves an empty one
+   * behind, and an empty flex child still takes the row's gap.
+   */
+  .liebe-card[data-icon-only] .liebe-meta:empty {
+    display: none;
+  }
+
   /* ------------------------------------------------------------------ *
    * State treatments
    *

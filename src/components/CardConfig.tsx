@@ -14,10 +14,11 @@ import {
 } from '@radix-ui/themes'
 import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
-import { actionConfigOptions } from './configurations/universalOptions'
+import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
 import type { CardAction } from '~/store/cardActions'
 import { ActionEditor } from './ActionEditor'
+import { CardItemProvider } from './cardItemContext'
 import { IconSelect } from './IconSelect'
 import { WeatherCard } from './WeatherCard'
 import { TextCard } from './TextCard'
@@ -315,13 +316,22 @@ function UniversalOptions({ item, config, onChange }: Required<ContentProps>) {
   if (item.type !== 'entity') return null
 
   return (
-    <Component
-      title="Actions"
-      description="What each gesture on this card does."
-      configDefinition={actionConfigOptions}
-      config={config}
-      onChange={onChange}
-    />
+    <>
+      <Component
+        title="Display"
+        description="Name, icon and colour overrides. Every option here leaves the card as it was when unset."
+        configDefinition={displayConfigOptions}
+        config={config}
+        onChange={onChange}
+      />
+      <Component
+        title="Actions"
+        description="What each gesture on this card does."
+        configDefinition={actionConfigOptions}
+        config={config}
+        onChange={onChange}
+      />
+    </>
   )
 }
 
@@ -553,7 +563,17 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
               >
                 <ScrollArea>
                   <Box p="4">
-                    <Preview item={item} config={localConfig} />
+                    {/*
+                     * The preview renders inside the context the grid publishes
+                     * for a placed item, so the universal options — which the
+                     * shell reads from there rather than from a card prop — show
+                     * up here as they will on the dashboard. Without it the
+                     * display section would be editing a card the preview never
+                     * changed.
+                     */}
+                    <CardItemProvider entityId={item.entityId} config={localConfig}>
+                      <Preview item={item} config={localConfig} />
+                    </CardItemProvider>
                   </Box>
                 </ScrollArea>
               </Box>

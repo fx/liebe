@@ -93,6 +93,61 @@ export const UnknownEntity: Story = {
   parameters: { liebe: { entities: [] } },
 }
 
+/*
+ * The universal display options on a real card, published the way the grid
+ * publishes a placed item's stored options
+ * (docs/specs/entity-cards/options/common.md — "Universal options"). The card
+ * itself knows nothing about them: it keeps rendering its friendly name, its
+ * sun glyph and its state into the shell's slots, and the shell applies what is
+ * configured. Each option is shown at both/all values across these stories and
+ * the shell's own gallery in `Shell/GridCard`.
+ */
+
+/** `name` — the card renders "Reading lamp" instead of the entity's own name. */
+export const NamedOverride: Story = {
+  parameters: {
+    liebe: { entities: [createLightEntity()], itemConfig: { name: 'Reading lamp' } },
+  },
+}
+
+/** `icon` — the configured glyph replaces the card's sun. */
+export const IconOverride: Story = {
+  parameters: {
+    liebe: { entities: [createLightEntity()], itemConfig: { icon: 'Bulb' } },
+  },
+}
+
+/** `hideState` — the name and the brightness slider stay, the state line goes. */
+export const StateHidden: Story = {
+  parameters: {
+    liebe: { entities: [createLightEntity()], itemConfig: { hideState: true } },
+  },
+}
+
+/**
+ * `hideName` and `hideState` together: the icon-only tile the spec requires to
+ * stay a valid layout. The brightness slider is a control, not a line, so it
+ * stays.
+ */
+export const IconOnly: Story = {
+  parameters: {
+    liebe: {
+      entities: [createLightEntity()],
+      itemConfig: { hideName: true, hideState: true },
+    },
+  },
+}
+
+/**
+ * `color` — pinned to `cool`, so the card stays sky-blue instead of taking the
+ * light domain's amber.
+ */
+export const ColorPinned: Story = {
+  parameters: {
+    liebe: { entities: [createLightEntity()], itemConfig: { color: 'cool' } },
+  },
+}
+
 /** Edit mode hides the controls and exposes configure/delete affordances. */
 export const EditMode: Story = {
   args: { onDelete: () => {} },

@@ -5,6 +5,7 @@ import { GridCardWithComponents as GridCard, type GridCardProps } from './GridCa
 import { Slider } from './anatomy'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../.storybook/decorators'
 import { domainColors } from '~/theme/tokens'
+import { CARD_COLOR_OPTIONS } from '~/store/cardDisplay'
 
 function SampleContents({
   label = 'Living Room',
@@ -170,6 +171,152 @@ export const Gallery: Story = {
           </GridCard>
         </div>
       ))}
+    </Flex>
+  ),
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Universal display options
+ *
+ * The five options the shell applies to the compound slots
+ * (docs/specs/entity-cards/options/common.md — "Universal options"). Every one
+ * of them is demonstrated at both/all values, because a card whose options only
+ * ever appear set is a card nobody can tell apart from one that ignores them.
+ *
+ * They are passed through `config` here, which is the same object the grid
+ * publishes for a placed item — the stories therefore exercise the real path
+ * rather than a story-only prop.
+ * ---------------------------------------------------------------------------
+ */
+
+/** A configuration that would make any card look calm and anonymous. */
+const CALMING_CONFIG = {
+  name: 'Back door',
+  icon: 'Bulb',
+  hideName: true,
+  hideState: true,
+  color: 'ok',
+}
+
+/** `name` — the entity's own name, and the override beside it. */
+export const NameOverride: Story = {
+  args: { gridWidth: 6, gridHeight: 2 },
+  render: (args) => (
+    <Flex gap="4" align="start">
+      <div style={{ width: 160 }}>
+        <GridCard {...args}>
+          <SampleContents />
+        </GridCard>
+      </div>
+      <div style={{ width: 160 }}>
+        <GridCard {...args} config={{ name: 'Reading lamp' }}>
+          <SampleContents />
+        </GridCard>
+      </div>
+    </Flex>
+  ),
+}
+
+/** `icon` — the card's own glyph, and a configured one in its place. */
+export const IconOverride: Story = {
+  args: { gridWidth: 6, gridHeight: 2 },
+  render: (args) => (
+    <Flex gap="4" align="start">
+      <div style={{ width: 160 }}>
+        <GridCard {...args}>
+          <SampleContents label="Card icon" />
+        </GridCard>
+      </div>
+      <div style={{ width: 160 }}>
+        <GridCard {...args} config={{ icon: 'Bulb' }}>
+          <SampleContents label="Configured" />
+        </GridCard>
+      </div>
+    </Flex>
+  ),
+}
+
+/**
+ * `hideName` and `hideState`, at every combination — including both together,
+ * which the spec requires to stay a valid layout: an icon-only tile with the
+ * icon centred.
+ */
+export const HiddenLines: Story = {
+  args: { gridWidth: 12, gridHeight: 2, isOn: true },
+  render: (args) => (
+    <Flex gap="4" align="start" wrap="wrap">
+      {(
+        [
+          { key: 'both', label: 'Both lines', config: {} },
+          { key: 'no-name', label: 'hideName', config: { hideName: true } },
+          { key: 'no-state', label: 'hideState', config: { hideState: true } },
+          {
+            key: 'icon-only',
+            label: 'Icon only',
+            config: { hideName: true, hideState: true },
+          },
+        ] as const
+      ).map(({ key, label, config }) => (
+        <div key={key} style={{ width: 150 }}>
+          <GridCard {...args} config={config}>
+            <SampleContents label={label} state="ON" />
+          </GridCard>
+        </div>
+      ))}
+    </Flex>
+  ),
+}
+
+/**
+ * `color` — `auto` follows the card's own state colour; every other value pins
+ * one `--liebe-c-*` triplet. Switch the toolbar's theme to watch a pinned card
+ * follow the remapped triplet rather than keeping a hard-coded hue.
+ *
+ * In the light appearance the a11y panel reports `color-contrast` on the state
+ * line of the `light`, `heat` and `vacuum` cards. That is the tracked token
+ * defect (issue #197 — domain text tokens miss AA on the light card surface),
+ * surfaced rather than introduced here: the same failure is already reported by
+ * `On` and `Gallery`. Showing every value of the option is what the story is
+ * for, so the palette is rendered whole rather than pruned to the passing hues.
+ */
+export const ColorOverride: Story = {
+  args: { gridWidth: 12, gridHeight: 4, isOn: true },
+  render: (args) => (
+    <Flex gap="3" align="start" wrap="wrap">
+      {CARD_COLOR_OPTIONS.map((color) => (
+        <div key={color} style={{ width: 130 }}>
+          <GridCard {...args} config={{ color }}>
+            <SampleContents label={color} state="ON" />
+          </GridCard>
+        </div>
+      ))}
+    </Flex>
+  ),
+}
+
+/**
+ * A danger state overrules the display options. Both tiles carry the same
+ * configuration — pinned to `ok`, both lines hidden, a different glyph — and the
+ * one whose entity is jammed ignores all of it, because a card that can be
+ * configured into looking calm while the door is not is worse than no card.
+ * Only the user's chosen name survives; it identifies the entity rather than
+ * describing what it is doing.
+ */
+export const DangerIgnoresOverrides: Story = {
+  args: { gridWidth: 6, gridHeight: 2, domain: 'lock', isOn: true },
+  render: (args) => (
+    <Flex gap="4" align="start">
+      <div style={{ width: 160 }}>
+        <GridCard {...args} color="ok" config={CALMING_CONFIG}>
+          <SampleContents label="Back door" state="LOCKED" />
+        </GridCard>
+      </div>
+      <div style={{ width: 160 }}>
+        <GridCard {...args} color="alert" danger config={CALMING_CONFIG}>
+          <SampleContents label="Back door" state="JAMMED" />
+        </GridCard>
+      </div>
     </Flex>
   ),
 }

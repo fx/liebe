@@ -3,6 +3,7 @@ import type { Decorator } from '@storybook/react-vite'
 import { useGlobals } from 'storybook/preview-api'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { LiebeThemeProvider } from '~/components/LiebeThemeProvider'
+import { CardItemProvider } from '~/components/cardItemContext'
 import { dashboardStore } from '~/store/dashboardStore'
 import { entityStore } from '~/store/entityStore'
 import {
@@ -177,6 +178,27 @@ export const withProviders: Decorator = (Story) => {
         <Story />
       </div>
     </LiebeThemeProvider>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Placed-item context
+ * ------------------------------------------------------------------ */
+
+/**
+ * Publishes a story's `itemConfig` the way the grid publishes a placed item's
+ * stored options, so the universal options reach the card shell through their
+ * real path. Stories that set nothing render inside an empty provider, which is
+ * the same as no provider at all.
+ */
+export const withCardItem: Decorator = (Story, context) => {
+  const { entityId } = context.args as { entityId?: string }
+  const { itemConfig } = readLiebeParameters(context.parameters)
+
+  return (
+    <CardItemProvider entityId={entityId} config={itemConfig}>
+      <Story />
+    </CardItemProvider>
   )
 }
 

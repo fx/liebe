@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
+import { cardDisplayConfigSchema } from './cardDisplay'
 import type { DashboardConfig } from './types'
 
 /**
@@ -37,12 +38,15 @@ const gridItemSchema = z
     textColor: z.string().optional(),
     hideBackground: z.boolean().optional(),
     // Per-card options. Still tolerant of keys this version does not know
-    // (`.passthrough()`), but the universal action keys are validated here
-    // rather than waved through: an unknown action identifier or a `navigate`
-    // missing its `target` must be rejected at the gate, because falling back
-    // to `default` would turn a typo into a card that works and does the wrong
-    // thing (docs/specs/entity-cards/options/common.md — "Action type").
-    config: cardActionsConfigSchema.passthrough().optional(),
+    // (`.passthrough()`), but the universal keys are validated here rather than
+    // waved through: an unknown action identifier or a `navigate` missing its
+    // `target` must be rejected at the gate, because falling back to `default`
+    // would turn a typo into a card that works and does the wrong thing
+    // (docs/specs/entity-cards/options/common.md — "Action type"). The display
+    // keys join them for the same reason — `color` is a closed enum, so
+    // `color: amber` is a document its author needs told about rather than a
+    // card that quietly renders neutral.
+    config: cardActionsConfigSchema.merge(cardDisplayConfigSchema).passthrough().optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative
     // integers and spans are positive integers. Reject negative/fractional values.
     x: z.number().int().nonnegative(),

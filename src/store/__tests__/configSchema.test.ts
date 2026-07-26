@@ -312,6 +312,35 @@ describe('validateDashboardConfig — card actions', () => {
     )
     expect(result.success).toBe(false)
   })
+
+  it('accepts the display options beside the action ones', () => {
+    const result = validateDashboardConfig(
+      withItemConfig({
+        name: 'Reading lamp',
+        icon: 'Bulb',
+        hideName: true,
+        hideState: true,
+        color: 'light',
+        tapAction: 'toggle',
+      })
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects a colour outside the canonical enum and names the path', () => {
+    // Enum-typed options are validated against a canonical list rather than
+    // waved through, so a typo is a document its author is told about.
+    const result = validateDashboardConfig(withItemConfig({ color: 'amber' }))
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error).toContain('screens.0.grid.items.0.config.color')
+    }
+  })
+
+  it('rejects a wrong-typed hide flag', () => {
+    const result = validateDashboardConfig(withItemConfig({ hideName: 'yes' }))
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('importConfigurationFromFile validation', () => {
