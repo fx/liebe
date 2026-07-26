@@ -686,7 +686,8 @@ When creating new entity card components:
 
 2. **Register in `src/components/cardRegistry.ts`**
    - Add the domain → component entry to `domainToCard`; `GridView` dispatches through `getCardForEntity`, so a domain missing from the registry silently falls through to the fallback card
-   - Register any presentation variants via `registerCardVariant` (or the component's static `variants` map) rather than a switch inside the card — `getCardVariant` is a read-only lookup and cannot register anything
+   - Declare any presentation variants as a static `variants` map on the component (`Object.assign(MyCard, { variants: { ... } })`) rather than a switch inside the card — `getCardVariant` is a read-only lookup and cannot register anything
+   - **Do not import `cardRegistry` from a card module.** `registerCardVariant` still exists for consumers outside the card graph, but calling it from a card closes the cycle `cardRegistry` → every card → `CardConfig` → that card → `cardRegistry`, which crashes with a temporal-dead-zone error in any bundle whose entry reaches a card before the registry (this is what broke the Storybook build; the panel bundle survived it only by accident of entry order). Type-only imports (`import type { CardProps }`) are erased and are fine.
 
 3. **Update the EntityBrowser** (`src/components/EntitiesBrowserTab.tsx`)
    - Add the domain to `SUPPORTED_DOMAINS` there — it is a local constant in that file, not part of `cardRegistry.ts` — so the browser offers the domain

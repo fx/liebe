@@ -1,6 +1,7 @@
 **/build
 **/public
 coverage/
+storybook-static/
 pnpm-lock.yaml
 routeTree.gen.ts
 .tailscale/
