@@ -129,6 +129,48 @@ describe('entityStore', () => {
       expect(entityStore.state.subscribedEntities.has('switch.kitchen')).toBe(true)
     })
 
+    it('keeps an entity subscribed while a second view still shows it', () => {
+      // Two views of one entity is the ordinary case now: the detail dialog a
+      // hold opens renders the same entity as the card behind it, and its
+      // unmount must not take the card's subscription with it.
+      entityStoreActions.subscribeToEntity('light.living_room')
+      entityStoreActions.subscribeToEntity('light.living_room')
+
+      entityStoreActions.unsubscribeFromEntity('light.living_room')
+      expect(entityStore.state.subscribedEntities.has('light.living_room')).toBe(true)
+
+      entityStoreActions.unsubscribeFromEntity('light.living_room')
+      expect(entityStore.state.subscribedEntities.has('light.living_room')).toBe(false)
+    })
+
+    it('tolerates unsubscribing something that was never subscribed', () => {
+      entityStoreActions.unsubscribeFromEntity('light.never_mounted')
+      expect(entityStore.state.subscribedEntities.has('light.never_mounted')).toBe(false)
+
+      // ...and the next subscribe still counts from zero rather than from -1.
+      entityStoreActions.subscribeToEntity('light.never_mounted')
+      entityStoreActions.unsubscribeFromEntity('light.never_mounted')
+      expect(entityStore.state.subscribedEntities.has('light.never_mounted')).toBe(false)
+    })
+
+    it.each([
+      ['clearSubscriptions', () => entityStoreActions.clearSubscriptions()],
+      ['reset', () => entityStoreActions.reset()],
+      ['removeEntity', () => entityStoreActions.removeEntity('light.living_room')],
+    ])('drops held subscription counts on %s', (_what, clear) => {
+      // A leftover count would leave the entity subscribed forever: the next
+      // view's unsubscribe would only decrement it back to one.
+      entityStoreActions.subscribeToEntity('light.living_room')
+      entityStoreActions.subscribeToEntity('light.living_room')
+
+      clear()
+      expect(entityStore.state.subscribedEntities.has('light.living_room')).toBe(false)
+
+      entityStoreActions.subscribeToEntity('light.living_room')
+      entityStoreActions.unsubscribeFromEntity('light.living_room')
+      expect(entityStore.state.subscribedEntities.has('light.living_room')).toBe(false)
+    })
+
     it('should clear all subscriptions', () => {
       entityStoreActions.subscribeToEntity('light.living_room')
       entityStoreActions.subscribeToEntity('light.bedroom')

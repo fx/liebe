@@ -100,6 +100,16 @@ input_text:
   e2e_label:
     name: E2E Label
     initial: hello-e2e
+  # A `mode: password` helper keeps its value IN THE STATE, which is what makes
+  # the detail dialog's redaction testable end to end: the card masks the value,
+  # and the dialog that a hold opens must mask it too (docs/specs/entity-cards/
+  # options/input-helpers.md — the per-value masking guarantee). The value below
+  # is a self-describing sentinel, not a credential — `mode: password` only
+  # hides it in the UI, so anything committed here is readable in HA's state.
+  e2e_secret:
+    name: E2E Secret
+    initial: redaction-fixture-value
+    mode: password
 
 input_datetime:
   e2e_moment:

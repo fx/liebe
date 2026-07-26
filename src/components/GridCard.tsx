@@ -5,6 +5,7 @@ import { X, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
 import { useCardActions } from '~/hooks/useCardActions'
 import { useCardItem } from './cardItemContext'
+import { EntityDetailDialog } from './EntityDetailDialog'
 import { CardMeta, CardName, CardState, IconCircle } from './anatomy'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
@@ -65,7 +66,14 @@ export interface GridCardProps {
    * (docs/specs/entity-cards/options/common.md — "Universal options").
    */
   defaultAction?: ResolvedCardAction
-  /** Opens the entity detail dialog. Wired by 0014 PR 2. */
+  /**
+   * What `more-info` opens, for the rare card that owns a detail surface of its
+   * own. Left unset — as every card leaves it — the shell opens the entity
+   * detail dialog itself, which is what makes the `more-info` hold default work
+   * on every card with an entity rather than on the ones that remembered to
+   * wire it. A card with no entity (a text tile, a separator) has no details,
+   * and `more-info` stays inert there.
+   */
   onMoreInfo?: () => void
   onConfigure?: () => void
   hasConfiguration?: boolean
@@ -351,6 +359,41 @@ export const GridCard = React.memo(
       const canConfigure = (hasConfiguration || Boolean(item.onConfigure)) && Boolean(configure)
 
       /*
+       * The detail dialog `more-info` opens. Owned by the shell, so every card
+       * with an entity reaches it through the default `holdAction` without
+       * wiring anything —
+       * and mounted only while it is open, so a screen of cards carries no
+       * dialogs behind it. A card that passes its own `onMoreInfo` keeps it.
+       */
+      const detailEntityId = entityId ?? item.entityId
+      // The entity the dialog is open for, rather than a boolean: it is the
+      // same state, and holding the id means the render below needs no second
+      // check that a card with no entity somehow opened one.
+      const [detailFor, setDetailFor] = React.useState<string | null>(null)
+      const openDetail = React.useMemo(
+        // A card with no entity — a text tile, a separator — has no details to
+        // open, and handing the controller no handler is what tells it that
+        // `more-info` is not actionable there.
+        () => (detailEntityId ? () => setDetailFor(detailEntityId) : undefined),
+        [detailEntityId]
+      )
+
+      /*
+       * Two ways an open dialog stops belonging to this card:
+       *  - the dashboard switches to edit mode, where actions are suppressed
+       *    and the card is being dragged rather than operated
+       *    (docs/changes/0014 — the dialog cannot open in edit mode);
+       *  - the card instance is recycled onto a different entity, which must
+       *    not leave the previous entity's details standing.
+       * Both are the same reset, so both keys drop it. Entering *or* leaving
+       * edit mode closes it, which costs nothing: it could not have been open
+       * in edit mode anyway.
+       */
+      React.useEffect(() => {
+        setDetailFor(null)
+      }, [isEditMode, detailEntityId])
+
+      /*
        * The gesture controller. `disabled` in edit mode is the whole of
        * edit-mode action suppression: no gesture resolves, no timer is armed,
        * and the click below goes to selection instead
@@ -359,9 +402,9 @@ export const GridCard = React.memo(
       const gestures = useCardActions({
         config: actions ?? item.config,
         defaultAction,
-        entityId: entityId ?? item.entityId,
+        entityId: detailEntityId,
         onToggle: onClick,
-        onMoreInfo,
+        onMoreInfo: onMoreInfo ?? openDetail,
         unavailable: isUnavailable,
         disabled: isEditMode,
       })
@@ -563,6 +606,21 @@ export const GridCard = React.memo(
               </div>,
               document.body
             )}
+
+          {/*
+           * The detail dialog. Portalled by the dialog primitive, which is
+           * exactly the case the shell's `isRealDescendant` guard exists for:
+           * it renders inside this card's React tree, so a press within it
+           * would otherwise arm the hold timer of the card behind it.
+           */}
+          {/*
+           * `!isEditMode` as well as the state, because the effect above clears
+           * it only after the edit-mode render has committed — a frame with the
+           * dialog still standing over a card that is now draggable.
+           */}
+          {!isEditMode && detailFor && (
+            <EntityDetailDialog entityId={detailFor} open onOpenChange={() => setDetailFor(null)} />
+          )}
         </GridCardContext.Provider>
       )
     }

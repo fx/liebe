@@ -15,6 +15,20 @@ export const entityStore = new Store<EntityState>(initialState)
 // Connection state debouncing
 let connectionDebounceTimer: NodeJS.Timeout | null = null
 
+/**
+ * How many mounted views are showing each subscribed entity.
+ *
+ * `subscribedEntities` stays a Set, because what its consumers ask is "is
+ * anything showing this entity?" (panel.ts's update fast path,
+ * staleEntityMonitor, the connection popover's count). But a Set cannot answer
+ * "did the LAST view of this entity go away?", and two views of one entity is
+ * now the ordinary case rather than a curiosity: the detail dialog a hold opens
+ * renders the same entity as the card behind it, so its unmount would otherwise
+ * drop the still-mounted card's subscription — silently taking that card out of
+ * the update path it depends on.
+ */
+const subscriptionCounts = new Map<string, number>()
+
 export const entityStoreActions: EntityStoreActions = {
   setConnected: (connected: boolean) => {
     const currentState = entityStore.state
@@ -91,6 +105,10 @@ export const entityStoreActions: EntityStoreActions = {
   },
 
   removeEntity: (entityId: string) => {
+    // The entity is gone, so are its views' subscriptions — leaving a count
+    // behind would make the next subscribe start from a stale number.
+    subscriptionCounts.delete(entityId)
+
     entityStore.setState((state) => {
       const { [entityId]: removed, ...remainingEntities } = state.entities
       // Explicitly mark as unused
@@ -107,6 +125,8 @@ export const entityStoreActions: EntityStoreActions = {
   },
 
   subscribeToEntity: (entityId: string) => {
+    subscriptionCounts.set(entityId, (subscriptionCounts.get(entityId) ?? 0) + 1)
+
     entityStore.setState((state) => {
       const newSubscribedEntities = new Set(state.subscribedEntities)
       newSubscribedEntities.add(entityId)
@@ -118,6 +138,14 @@ export const entityStoreActions: EntityStoreActions = {
   },
 
   unsubscribeFromEntity: (entityId: string) => {
+    const remaining = (subscriptionCounts.get(entityId) ?? 0) - 1
+    if (remaining > 0) {
+      // Another view still has it open; the set must not change.
+      subscriptionCounts.set(entityId, remaining)
+      return
+    }
+    subscriptionCounts.delete(entityId)
+
     entityStore.setState((state) => {
       const newSubscribedEntities = new Set(state.subscribedEntities)
       newSubscribedEntities.delete(entityId)
@@ -129,6 +157,7 @@ export const entityStoreActions: EntityStoreActions = {
   },
 
   clearSubscriptions: () => {
+    subscriptionCounts.clear()
     entityStore.setState((state) => ({
       ...state,
       subscribedEntities: new Set(),
@@ -141,6 +170,7 @@ export const entityStoreActions: EntityStoreActions = {
       clearTimeout(connectionDebounceTimer)
       connectionDebounceTimer = null
     }
+    subscriptionCounts.clear()
     entityStore.setState(() => initialState)
   },
 

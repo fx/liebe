@@ -6,6 +6,10 @@ import { safeStringify } from './safeStringify'
 // the light; the input_boolean is a deterministic helper from configuration.yaml.
 export const DEMO_LIGHT = 'light.bed_light'
 export const E2E_FLAG = 'input_boolean.e2e_flag'
+// A `mode: password` helper from configuration.yaml: its state IS the secret,
+// so it is what proves the detail dialog masks what the card masks.
+export const E2E_SECRET = 'input_text.e2e_secret'
+export const E2E_SECRET_VALUE = 'redaction-fixture-value'
 // Synthetic ffmpeg camera fed by the go2rtc testsrc2 stream (docs/changes/0007).
 export const E2E_CAMERA = 'camera.e2e_pattern'
 
@@ -72,6 +76,22 @@ export function seedConfig(): SeedConfig {
     items: [
       { id: 'item-light', type: 'entity', entityId: DEMO_LIGHT, x: 0, y: 0, width: 2, height: 2 },
       { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 2, y: 0, width: 2, height: 2 },
+    ],
+  })
+}
+
+// DEDICATED detail-dialog seed — its own screen, so the hold gestures below
+// cannot perturb the deterministic seed the existing serial specs assert
+// against. Carries the flag (a card whose tap toggles, to prove a hold does
+// not) and the password helper (to prove the dialog redacts).
+export function seedDetailDialogConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-detail-screen',
+    name: 'E2E Detail',
+    slug: 'e2e-detail',
+    items: [
+      { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 0, y: 0, width: 2, height: 2 },
+      { id: 'item-secret', type: 'entity', entityId: E2E_SECRET, x: 2, y: 0, width: 3, height: 2 },
     ],
   })
 }
@@ -386,6 +406,25 @@ export async function clickCardTitle(page: Page, title: string): Promise<void> {
   const card = page.locator('.grid-item').filter({ hasText: title })
   await expect(card, `card titled "${title}" should be present`).toHaveCount(1)
   await card.getByText(title, { exact: true }).click()
+}
+
+// Press and hold the card for the given friendly name with a real, trusted
+// mouse gesture. Held well past the shell's ≈500ms threshold, because the
+// gesture is what this exercises: touch/pointer semantics inside HA's shadow
+// DOM are exactly what a jsdom test cannot stand in for.
+export async function holdCardTitle(page: Page, title: string): Promise<void> {
+  const card = page.locator('.grid-item').filter({ hasText: title })
+  await expect(card, `card titled "${title}" should be present`).toHaveCount(1)
+
+  // `hover()` rather than a raw `mouse.move()` to the element's box: hover runs
+  // Playwright's actionability checks and leaves the pointer genuinely over the
+  // element. A bare move followed immediately by `mouse.down()` hit-tests
+  // against a position the renderer has not settled on yet, and the press lands
+  // on the document element instead of the card.
+  await card.getByText(title, { exact: true }).hover()
+  await page.mouse.down()
+  await page.waitForTimeout(900)
+  await page.mouse.up()
 }
 
 // --- REST helpers (bypass the UI to set up / verify state deterministically) ---
