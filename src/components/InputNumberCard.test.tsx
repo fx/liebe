@@ -247,7 +247,7 @@ describe('InputNumberCard', () => {
     expect(screen.queryByRole('button', { name: /plus/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /minus/i })).not.toBeInTheDocument()
 
-    const card = screen.getByText('Test Number').closest('.rt-Card')!
+    const card = screen.getByText('Test Number').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -271,8 +271,8 @@ describe('InputNumberCard', () => {
     const { container } = render(<InputNumberCard entityId="input_number.test_number" />)
 
     // Check for loading class
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-loading')
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-loading', 'true')
 
     // Buttons should be disabled during loading
     const buttons = screen.getAllByRole('button')
@@ -294,12 +294,12 @@ describe('InputNumberCard', () => {
 
     const { container } = render(<InputNumberCard entityId="input_number.test_number" />)
 
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-error')
-    expect(card).toHaveStyle({ borderWidth: '2px' })
-    // jsdom 27's getComputedStyle resolves var() and returns "" for the
-    // border-color shorthand, so assert the inline value directly.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+    const card = container.querySelector('.liebe-card')
+    // The error outline and its one-shot pulse are `.liebe-card[data-error]`
+    // in the layered shell sheet now, rather than an inline border plus a
+    // `grid-card-error` class — inline declarations outrank every cascade
+    // layer, so a theme could never have restyled them.
+    expect(card).toHaveAttribute('data-error', 'true')
     expect(card).toHaveAttribute('title', 'Failed to set value')
   })
 
@@ -346,8 +346,8 @@ describe('InputNumberCard', () => {
         <InputNumberCard entityId="input_number.test_number" size="small" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '60px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'small')
     })
 
     it('renders medium size', () => {
@@ -355,8 +355,8 @@ describe('InputNumberCard', () => {
         <InputNumberCard entityId="input_number.test_number" size="medium" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '80px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'medium')
     })
 
     it('renders large size', () => {
@@ -364,8 +364,8 @@ describe('InputNumberCard', () => {
         <InputNumberCard entityId="input_number.test_number" size="large" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '100px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'large')
     })
   })
 })

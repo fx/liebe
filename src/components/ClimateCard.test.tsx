@@ -254,10 +254,12 @@ describe('ClimateCard', () => {
 
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
-      // Find all mode buttons - there should be 3 (off, heat, cool)
-      const buttons = screen.getAllByRole('button')
-      // Filter to just the mode buttons (they have width: 56px)
-      const modeButtons = buttons.filter((btn) => btn.style.width === '56px')
+      // Find all mode buttons - there should be 3 (off, heat, cool). They are
+      // anatomy pills now, so they are found by the contract class rather than
+      // by an inline `width: 56px` — the sizing moved into the layered sheet.
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
       expect(modeButtons).toHaveLength(3)
 
       // The mode buttons have labels now
@@ -428,7 +430,7 @@ describe('ClimateCard', () => {
 
       // Check for loading class
       const card = container.querySelector('.climate-card')
-      expect(card).toHaveClass('grid-card-loading')
+      expect(card).toHaveAttribute('data-loading', 'true')
     })
 
     it('shows error state with red border', () => {
@@ -448,11 +450,10 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
-      expect(card).toHaveClass('grid-card-error')
-      expect(card).toHaveStyle({ borderWidth: '2px' })
-      // jsdom 27's getComputedStyle resolves var() and returns "" for the
-      // border-color shorthand, so assert the inline value directly.
-      expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+      // The error outline and its one-shot pulse are `.liebe-card[data-error]`
+      // in the layered shell sheet now, rather than an inline border plus a
+      // `grid-card-error` class.
+      expect(card).toHaveAttribute('data-error', 'true')
       expect(card).toHaveAttribute('title', 'Service call failed')
     })
 

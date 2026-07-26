@@ -119,6 +119,7 @@ function WeatherCardDefaultContent(props: CardProps) {
   if (isUnavailable) {
     return (
       <GridCard
+        domain="weather"
         size={size}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
@@ -142,14 +143,8 @@ function WeatherCardDefaultContent(props: CardProps) {
               {getWeatherIcon(entity.state, 24)}
             </span>
           </GridCard.Icon>
-          <GridCard.Title>
-            <Text color="gray">{entity.attributes?.friendly_name || entityId}</Text>
-          </GridCard.Title>
-          <GridCard.Status>
-            <Text size="1" color="gray" weight="medium">
-              UNAVAILABLE
-            </Text>
-          </GridCard.Status>
+          <GridCard.Title>{entity.attributes?.friendly_name || entityId}</GridCard.Title>
+          <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
     )
@@ -162,6 +157,7 @@ function WeatherCardDefaultContent(props: CardProps) {
 
   return (
     <GridCard
+      domain="weather"
       size={size}
       isStale={isStale}
       isSelected={isSelected}
@@ -184,7 +180,6 @@ function WeatherCardDefaultContent(props: CardProps) {
         gap="2"
         style={{
           position: 'relative',
-          zIndex: 1,
         }}
       >
         <GridCard.Icon>

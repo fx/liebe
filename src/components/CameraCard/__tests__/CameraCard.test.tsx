@@ -372,7 +372,10 @@ describe('CameraCard', () => {
       expect(screen.getByText('STREAMING')).toBeInTheDocument()
       expect(screen.queryByText('UNAVAILABLE')).toBeNull()
       const card = container.querySelector('.camera-card') as HTMLElement
-      expect(card.className).toContain('opacity-50')
+      // The unavailable chrome is `.liebe-card[data-unavailable]` now. The old
+      // `opacity-50` class was a Tailwind name in a project with no Tailwind,
+      // so it dimmed nothing — the dimming is real for the first time here.
+      expect(card).toHaveAttribute('data-unavailable', 'true')
     })
 
     it('shows UNAVAILABLE over a frozen frame despite a lagging isStreaming flag', () => {
@@ -497,7 +500,7 @@ describe('CameraCard', () => {
       expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
       const card = container.querySelector('.camera-card') as HTMLElement
       expect(card.getAttribute('title')).toBe('Stream stalled')
-      expect(getCardStyle(container)).toContain('border-width: 2px')
+      expect(card).toHaveAttribute('data-error', 'true')
 
       fireEvent.click(screen.getByText('Retry'))
       expect(mockRetry).toHaveBeenCalledTimes(1)
@@ -1155,36 +1158,44 @@ describe('CameraCard', () => {
       expect(getCardStyle(container)).toContain(expected)
     })
 
-    it('applies the blue tint while recording', () => {
+    /*
+     * The card's own chrome is attribute-driven from change 0010 PR 4: the
+     * inline `var(--blue-3)` tint and 1px/2px borders were unoverridable by any
+     * theme, so they became `.liebe-card[data-active|data-selected|data-error]`
+     * rules in the layered shell sheet. What the card still owns — and what
+     * these tests still read off the inline style — is the matting padding,
+     * which is computed from the stream's aspect ratio and so is data.
+     */
+    it('marks the card active while recording', () => {
       statusMock.isStreaming = true
       mockEntityReturn({ entity: makeEntity({ state: 'recording' }) })
       const { container } = renderCard()
-      const style = getCardStyle(container)
-      expect(style).toContain('var(--blue-3)')
-      expect(style).toContain('var(--blue-6)')
-      expect(style).toContain('border-width: 2px')
+      const card = container.querySelector('.camera-card') as HTMLElement
+      expect(card).toHaveAttribute('data-active', 'true')
       expect(screen.getByText('RECORDING')).toBeInTheDocument()
     })
 
-    it('suppresses the blue tint while selected but keeps the thick border', () => {
+    it('marks the card selected in edit mode without touching its own chrome', () => {
+      mockStoreMode('edit')
       mockEntityReturn({ entity: makeEntity({ state: 'streaming' }) })
       const { container } = renderCard({ isSelected: true })
-      const style = getCardStyle(container)
-      expect(style).not.toContain('var(--blue-3)')
-      expect(style).toContain('border-width: 2px')
+      const card = container.querySelector('.camera-card') as HTMLElement
+      expect(card).toHaveAttribute('data-selected', 'true')
+      expect(getCardStyle(container)).not.toContain('background')
     })
 
-    it('renders a thin border for an idle unselected camera', () => {
+    it('leaves an idle unselected camera unmarked', () => {
       const { container } = renderCard()
-      expect(getCardStyle(container)).toContain('border-width: 1px')
+      const card = container.querySelector('.camera-card') as HTMLElement
+      expect(card).not.toHaveAttribute('data-selected')
+      expect(card).not.toHaveAttribute('data-error')
     })
 
     it('marks unavailable entities on the card', () => {
       mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
       const { container } = renderCard()
       const card = container.querySelector('.camera-card') as HTMLElement
-      expect(card.className).toContain('opacity-50')
-      expect(getCardStyle(container)).toContain('dotted')
+      expect(card).toHaveAttribute('data-unavailable', 'true')
     })
   })
 

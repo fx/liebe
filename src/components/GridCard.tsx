@@ -1,12 +1,29 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
-import { Card, IconButton, Spinner } from '@radix-ui/themes'
+import { IconButton, Spinner } from '@radix-ui/themes'
 import { X, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
+import { CardMeta, CardName, CardState, IconCircle } from './anatomy'
+import type { DomainColorName } from '~/theme/tokens'
+import './GridCard.css'
 
 // Types
 export interface GridCardProps {
   children: React.ReactNode
+  /**
+   * The entity's domain, stamped as `data-domain` on the tile and handed to
+   * every anatomy part the shell renders. Required for the same reason the
+   * anatomy requires it: the stable selector contract is only worth something
+   * if every card is reachable by it, and a defaulted domain would trade a
+   * missing attribute for a wrong one.
+   */
+  domain: string
+  /**
+   * Which `--liebe-c-*` triplet this card's rendered state resolves to. It is a
+   * state input, not a fixed per-domain setting — a thermostat passes `heat`,
+   * `cool` or `ok` depending on what it is doing.
+   */
+  color?: DomainColorName
   size?: 'small' | 'medium' | 'large'
   isLoading?: boolean
   isError?: boolean
@@ -33,20 +50,39 @@ export interface GridCardProps {
 interface GridCardContextValue {
   size: 'small' | 'medium' | 'large'
   isLoading?: boolean
+  domain: string
+  color: DomainColorName
+  isOn: boolean
 }
 
 // Context for compound components
 const GridCardContext = React.createContext<GridCardContextValue>({
   size: 'medium',
   isLoading: false,
+  domain: 'unknown',
+  color: 'default',
+  isOn: false,
 })
 
-// Main GridCard component
+/**
+ * The card shell — the `liebe-card` tile every entity card renders inside.
+ *
+ * Its whole visual surface comes from the token contract via `GridCard.css`:
+ * flat in dark, a small shadow in light, `--liebe-card-radius` corners, and
+ * state treatments (selected / error / unavailable / loading) stamped as
+ * `data-*` attributes the layered sheet styles. Nothing visual is set inline,
+ * because an inline declaration outranks every cascade layer and would be
+ * unreachable by a theme (docs/specs/theming — "Application mechanism"). What
+ * remains inline is not design: the pointer affordance, the caller's own
+ * `style`, and caller-supplied data like the camera's matting padding.
+ */
 export const GridCard = React.memo(
   React.forwardRef<HTMLDivElement, GridCardProps>(
     (
       {
         children,
+        domain,
+        color = 'default',
         size = 'medium',
         isLoading = false,
         isError = false,
@@ -87,49 +123,11 @@ export const GridCard = React.memo(
         }
       }, [isFullscreen, onFullscreenChange])
 
-      // Size-based dimensions
-      const minHeight = {
-        small: '60px',
-        medium: '80px',
-        large: '100px',
-      }[size]
-
-      const padding = {
-        small: '2',
-        medium: '3',
-        large: '4',
-      }[size] as '2' | '3' | '4'
-
-      // Determine border style based on state
-      let borderStyle: React.CSSProperties = {}
-      if (isError) {
-        borderStyle = {
-          borderColor: 'var(--red-6)',
-          borderWidth: '2px',
-        }
-      } else if (isSelected && isEditMode) {
-        borderStyle = {
-          borderColor: 'var(--blue-7)',
-          borderWidth: '2px',
-        }
-      } else if (isUnavailable) {
-        borderStyle = {
-          borderColor: 'var(--gray-6)',
-          borderWidth: '1px',
-          borderStyle: 'dotted',
-        }
-      }
       // The `isStale` prop is still accepted (callers pass it) but intentionally
       // not rendered — stale entities are tracked without a visual indicator.
       // See docs/specs/entity-state/index.md for the stale-display decision.
 
-      // Background for selected/on states
-      const backgroundColor =
-        isSelected && isEditMode
-          ? 'var(--blue-3)'
-          : isOn && !isEditMode
-            ? 'var(--accent-3)'
-            : undefined
+      const isTransparent = transparent && !isEditMode
 
       const handleClick = (e: React.MouseEvent) => {
         if (isEditMode && onSelect) {
@@ -142,58 +140,62 @@ export const GridCard = React.memo(
         }
       }
 
-      const contextValue = React.useMemo(() => ({ size, isLoading }), [size, isLoading])
+      const contextValue = React.useMemo(
+        () => ({ size, isLoading, domain, color, isOn }),
+        [size, isLoading, domain, color, isOn]
+      )
 
-      // For transparent cards in view mode, use a div instead of Card
+      /*
+       * Everything left inline is data or affordance, never design:
+       *  - `cursor` says what a press will do, and changes with the mode rather
+       *    than with the theme.
+       *  - `padding` only when the caller supplied one (the camera's matting is
+       *    computed from the stream's aspect ratio).
+       *  - `--liebe-card-blur` is a token override, i.e. the theming channel
+       *    itself rather than a way around it — a card that paints its own
+       *    background image turns the blur off through it.
+       */
       const cardStyle = {
-        minHeight,
-        padding: transparent && !isEditMode ? 0 : customPadding || `var(--space-${padding})`,
         cursor: isLoading ? 'wait' : isEditMode ? 'move' : onClick ? 'pointer' : 'default',
-        backgroundColor: transparent && !isEditMode ? 'transparent' : backgroundColor,
-        transform: isLoading ? 'scale(0.98)' : undefined,
+        ...(customPadding && !isTransparent ? { padding: customPadding } : {}),
+        ...(backdrop !== undefined && backdrop !== true
+          ? { '--liebe-card-blur': backdrop === false ? 'none' : backdrop }
+          : {}),
         ...style,
-        ...borderStyle,
-        // Remove all card styling for transparent view mode
-        ...(transparent && !isEditMode
-          ? {
-              border: 'none',
-              boxShadow: 'none',
-              background: 'transparent',
-            }
-          : {}),
-        // Override backdrop filter using CSS variables
-        ...(backdrop !== undefined
-          ? {
-              '--backdrop-filter-panel':
-                backdrop === false ? 'none' : backdrop === true ? undefined : backdrop,
-            }
-          : {}),
       } as React.CSSProperties
-
-      const CardElement = transparent && !isEditMode ? 'div' : Card
 
       return (
         <GridCardContext.Provider value={contextValue}>
-          <CardElement
+          <div
             ref={ref}
-            variant={transparent && !isEditMode ? undefined : 'classic'}
             onClick={handleClick}
             title={title}
-            className={`grid-card relative transition-all duration-200 ${isLoading ? 'grid-card-loading' : ''} ${isError ? 'grid-card-error animate-pulse-once' : ''} ${isUnavailable ? 'opacity-50' : ''} ${className || ''}`}
+            className={`liebe-card grid-card${className ? ` ${className}` : ''}`}
+            data-domain={domain}
+            data-color={color}
+            data-size={size}
+            data-active={isOn ? 'true' : undefined}
+            data-selected={isSelected && isEditMode ? 'true' : undefined}
+            data-error={isError ? 'true' : undefined}
+            data-unavailable={isUnavailable ? 'true' : undefined}
+            data-loading={isLoading ? 'true' : undefined}
+            data-transparent={isTransparent ? 'true' : undefined}
             style={cardStyle}
           >
-            {/* Action Buttons Container - hide in fullscreen */}
+            {/* Content */}
+            {children}
+
+            {/*
+             * Edit affordances, hidden in fullscreen. Rendered AFTER the
+             * content on purpose: both are positioned elements at
+             * `z-index: auto`, so the later one in the DOM paints on top —
+             * which is how the buttons stay clickable over card content that
+             * positions itself (the weather variants do). Doing it by DOM
+             * order rather than by a z-index keeps the project's
+             * no-arbitrary-z-index rule intact.
+             */}
             {isEditMode && (hasConfiguration || onDelete) && !isFullscreen && (
-              <div
-                style={{
-                  position: 'fixed',
-                  top: '16px',
-                  right: '16px',
-                  zIndex: 10,
-                  display: 'flex',
-                  gap: '8px',
-                }}
-              >
+              <div className="liebe-card-actions">
                 {/* Configuration Button */}
                 {hasConfiguration && onConfigure && (
                   <IconButton
@@ -227,10 +229,7 @@ export const GridCard = React.memo(
                 )}
               </div>
             )}
-
-            {/* Content */}
-            {children}
-          </CardElement>
+          </div>
 
           {/* Portal-based fullscreen overlay that escapes shadow DOM */}
           {isFullscreen &&
@@ -284,6 +283,13 @@ export const GridCard = React.memo(
 GridCard.displayName = 'GridCard'
 
 // Compound Components
+//
+// Each one is now a thin wrapper over the anatomy part it corresponds to, which
+// is how every card migrated onto the anatomy at once: a card keeps calling
+// `GridCard.Icon` / `.Title` / `.Status` and gets `liebe-icon` / `liebe-name` /
+// `liebe-state` with the contract attributes stamped from the shell's context.
+// The `grid-card-*` classes ride along as internal aliases so existing selectors
+// keep resolving; the `liebe-*` class is the contract one.
 
 // Icon component with loading spinner support
 interface GridCardIconProps {
@@ -292,36 +298,17 @@ interface GridCardIconProps {
 }
 
 export const GridCardIcon = React.memo(({ children, className }: GridCardIconProps) => {
-  const { size, isLoading } = React.useContext(GridCardContext)
-
-  const iconSize = {
-    small: 20,
-    medium: 28,
-    large: 36,
-  }[size]
+  const { isLoading, domain, color, isOn } = React.useContext(GridCardContext)
 
   return (
-    <div
-      className={`grid-card-icon relative flex items-center justify-center ${className || ''}`}
-      style={{
-        width: iconSize,
-        height: iconSize,
-        minWidth: iconSize,
-        minHeight: iconSize,
-      }}
+    <IconCircle
+      domain={domain}
+      color={color}
+      active={isOn}
+      className={`grid-card-icon${className ? ` ${className}` : ''}`}
     >
-      {isLoading ? (
-        <Spinner
-          size="3"
-          style={{
-            width: iconSize * 0.8,
-            height: iconSize * 0.8,
-          }}
-        />
-      ) : (
-        children
-      )}
-    </div>
+      {isLoading ? <Spinner size="2" /> : children}
+    </IconCircle>
   )
 })
 
@@ -334,23 +321,16 @@ interface GridCardTitleProps {
 }
 
 export const GridCardTitle = React.memo(({ children, className }: GridCardTitleProps) => {
-  const { size } = React.useContext(GridCardContext)
-
-  const fontSize = {
-    small: '1',
-    medium: '2',
-    large: '3',
-  }[size] as '1' | '2' | '3'
+  const { domain, color } = React.useContext(GridCardContext)
 
   return (
-    <div
-      className={`grid-card-title truncate font-medium ${className || ''}`}
-      style={{
-        fontSize: `var(--font-size-${fontSize})`,
-      }}
+    <CardName
+      domain={domain}
+      color={color}
+      className={`grid-card-title${className ? ` ${className}` : ''}`}
     >
       {children}
-    </div>
+    </CardName>
   )
 })
 
@@ -364,10 +344,7 @@ interface GridCardControlsProps {
 
 export const GridCardControls = React.memo(({ children, className }: GridCardControlsProps) => {
   return (
-    <div
-      className={`grid-card-controls flex items-center gap-2 ${className || ''}`}
-      style={{ width: '100%' }}
-    >
+    <div className={`liebe-card-controls grid-card-controls${className ? ` ${className}` : ''}`}>
       {children}
     </div>
   )
@@ -378,27 +355,24 @@ GridCardControls.displayName = 'GridCardControls'
 // Status component
 interface GridCardStatusProps {
   children: React.ReactNode
+  /** Supporting value after the state ("· 80%"); stays muted while active. */
+  detail?: React.ReactNode
   className?: string
 }
 
-export const GridCardStatus = React.memo(({ children, className }: GridCardStatusProps) => {
-  const { size } = React.useContext(GridCardContext)
-
-  const fontSize = {
-    small: '1',
-    medium: '1',
-    large: '2',
-  }[size] as '1' | '2'
+export const GridCardStatus = React.memo(({ children, detail, className }: GridCardStatusProps) => {
+  const { domain, color, isOn } = React.useContext(GridCardContext)
 
   return (
-    <div
-      className={`grid-card-status text-gray-500 ${className || ''}`}
-      style={{
-        fontSize: `var(--font-size-${fontSize})`,
-      }}
+    <CardState
+      domain={domain}
+      color={color}
+      active={isOn}
+      detail={detail}
+      className={`grid-card-status${className ? ` ${className}` : ''}`}
     >
       {children}
-    </div>
+    </CardState>
   )
 })
 
@@ -407,58 +381,8 @@ GridCardStatus.displayName = 'GridCardStatus'
 // Create a typed compound component
 export const GridCardWithComponents = Object.assign(GridCard, {
   Icon: GridCardIcon,
+  Meta: CardMeta,
   Title: GridCardTitle,
   Controls: GridCardControls,
   Status: GridCardStatus,
 })
-
-// CSS for animations
-const styles = `
-  @keyframes pulse-once {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-
-  .grid-card-error {
-    animation: pulse-once 0.5s ease-in-out;
-  }
-
-  .grid-card-loading {
-    animation: pulse-border 1.5s ease-in-out infinite;
-  }
-
-  @keyframes pulse-border {
-    0% {
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
-    }
-    50% {
-      box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.15);
-    }
-    100% {
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-    }
-  }
-
-  /* Touch-friendly styles */
-  @media (pointer: coarse) {
-    .grid-card {
-      -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-    }
-
-    /* The camera card is exempt: its tap opens an in-place fixed fullscreen
-       overlay, and this transform would establish a containing block whose
-       ~0.1s transition tail re-traps the just-promoted overlay mid-open. See
-       docs/changes/0008-camera-fullscreen-no-dom-move.md. */
-    .grid-card:not(.camera-card):active {
-      transform: scale(0.98);
-      transition: transform 0.1s ease;
-    }
-  }
-`
-
-// Inject styles
-if (typeof document !== 'undefined') {
-  const styleEl = document.createElement('style')
-  styleEl.textContent = styles
-  document.head.appendChild(styleEl)
-}

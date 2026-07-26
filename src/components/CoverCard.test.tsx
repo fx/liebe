@@ -469,7 +469,7 @@ describe('CoverCard', () => {
 
       // Check for loading class
       const card = container.querySelector('.cover-card')
-      expect(card).toHaveClass('grid-card-loading')
+      expect(card).toHaveAttribute('data-loading', 'true')
     })
 
     it('does not show stale state visually (stale display removed)', () => {
@@ -501,15 +501,15 @@ describe('CoverCard', () => {
 
       const { container, rerender } = render(<CoverCard entityId="cover.test_cover" size="small" />)
       let card = container.querySelector('.cover-card')
-      expect(card).toHaveStyle({ minHeight: '60px' })
+      expect(card).toHaveAttribute('data-size', 'small')
 
       rerender(<CoverCard entityId="cover.test_cover" size="medium" />)
       card = container.querySelector('.cover-card')
-      expect(card).toHaveStyle({ minHeight: '80px' })
+      expect(card).toHaveAttribute('data-size', 'medium')
 
       rerender(<CoverCard entityId="cover.test_cover" size="large" />)
       card = container.querySelector('.cover-card')
-      expect(card).toHaveStyle({ minHeight: '100px' })
+      expect(card).toHaveAttribute('data-size', 'large')
     })
   })
 })

@@ -3,8 +3,11 @@ import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardState, Pill, PillGroup } from './anatomy'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { useDashboardStore } from '~/store'
+import type { DomainColorName } from '~/theme/tokens'
+import './ClimateCard.css'
 
 interface ClimateCardProps {
   entityId: string
@@ -23,16 +26,113 @@ const SUPPORT_TARGET_TEMPERATURE_RANGE = 2
 // const SUPPORT_SWING_MODE = 32
 // const SUPPORT_AUX_HEAT = 64
 
-// HVAC modes
+// HVAC modes, each paired with the `--liebe-c-*` triplet its rendered state
+// resolves to. The design system resolves a thermostat by what it is doing
+// rather than by its domain, so the mapping lives on the mode rather than on
+// the card: heating is `heat`, cooling is `cool`, and the modes that merely
+// mean "running normally" take `ok`. Drying moves moisture, so it takes
+// `water`.
 const HVAC_MODES = {
-  off: { label: 'Off', color: 'gray' },
-  heat: { label: 'Heat', color: 'orange' },
-  cool: { label: 'Cool', color: 'blue' },
-  heat_cool: { label: 'Heat/Cool', color: 'green' },
-  auto: { label: 'Auto', color: 'indigo' },
-  dry: { label: 'Dry', color: 'yellow' },
-  fan_only: { label: 'Fan', color: 'cyan' },
-} as const
+  off: { label: 'Off', color: 'default' },
+  heat: { label: 'Heat', color: 'heat' },
+  cool: { label: 'Cool', color: 'cool' },
+  heat_cool: { label: 'Heat/Cool', color: 'ok' },
+  auto: { label: 'Auto', color: 'ok' },
+  dry: { label: 'Dry', color: 'water' },
+  fan_only: { label: 'Fan', color: 'ok' },
+} as const satisfies Record<string, { label: string; color: DomainColorName }>
+
+/**
+ * The glyph for one HVAC mode.
+ *
+ * Lifted out of the mode buttons when they became anatomy pills: a `Pill` takes
+ * its mark as an `icon` prop, and a ninety-line conditional inline in the card's
+ * JSX was already the hardest part of this file to read. The glyphs are
+ * unchanged apart from their size — `currentColor` throughout, so the pill's
+ * tint pattern colours them like every other anatomy glyph.
+ */
+function HvacModeIcon({ mode, label }: { mode: string; label: string }) {
+  return mode === 'off' ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 8l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ) : mode === 'heat' ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path
+        d="M12 3C9 3 7 6 7 9c0 2.5 1 4.5 2.5 6S12 18 12 18s1-.5 2.5-1.5S17 11.5 17 9c0-3-2-6-5-6z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+    </svg>
+  ) : mode === 'cool' ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path
+        d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  ) : mode === 'auto' ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <text
+        x="12"
+        y="12"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize="8"
+        fill="currentColor"
+        fontWeight="bold"
+      >
+        A
+      </text>
+    </svg>
+  ) : mode === 'heat_cool' ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path
+        d="M12 3C9 3 7 6 7 9c0 2.5 1 4.5 2.5 6S12 18 12 18"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      <path
+        d="M12 2v20M12 12h10M14 7l7 7M21 7l-7 7"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  ) : mode === 'dry' ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path
+        d="M12 3l-5 9h10L12 3zM7 14c0 2.8 2.2 5 5 5s5-2.2 5-5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ) : mode === 'fan_only' ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="12" r="3" fill="currentColor" />
+      <path
+        d="M12 2c0 3-2 4-2 4s4-1 4 2-2 4-2 4 4-1 4 2-2 4-2 4 4-1 4 2M12 22c0-3-2-4-2-4s4 1 4-2-2-4-2-4 4 1 4-2-2-4-2-4 4 1 4-2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+    </svg>
+  ) : (
+    <Text size="2" weight="bold">
+      {label.substring(0, 2)}
+    </Text>
+  )
+}
 
 interface ClimateAttributes {
   current_temperature?: number
@@ -232,13 +332,20 @@ function ClimateCardComponent({
   //   [entityId, callService, isLoading, error, clearError]
   // )
 
-  const getStatusColor = useMemo(() => {
-    if (hvacAction === 'heating') return 'orange'
-    if (hvacAction === 'cooling') return 'blue'
-    if (hvacAction === 'drying') return 'yellow'
-    if (hvacAction === 'fan') return 'cyan'
-    if (hvacMode !== 'off') return HVAC_MODES[hvacMode as keyof typeof HVAC_MODES]?.color ?? 'gray'
-    return 'gray'
+  /**
+   * Which domain-colour triplet the thermostat's *rendered* state resolves to.
+   * What it is currently doing (`hvac_action`) outranks what it is set to
+   * (`hvac_mode`), which is why a thermostat in `heat_cool` reads as `cool`
+   * while it is actively cooling.
+   */
+  const getStatusColor: DomainColorName = useMemo(() => {
+    if (hvacAction === 'heating') return 'heat'
+    if (hvacAction === 'cooling') return 'cool'
+    if (hvacAction === 'drying') return 'water'
+    if (hvacAction === 'fan') return 'ok'
+    if (hvacMode !== 'off')
+      return HVAC_MODES[hvacMode as keyof typeof HVAC_MODES]?.color ?? 'default'
+    return 'default'
   }, [hvacMode, hvacAction])
 
   // Calculate temperature percentages for arc display
@@ -436,17 +543,12 @@ function ClimateCardComponent({
     )
   }
 
-  const cardSize = {
-    small: { p: '2', iconSize: '16', fontSize: '1' },
-    medium: { p: '3', iconSize: '20', fontSize: '2' },
-    large: { p: '4', iconSize: '24', fontSize: '3' },
-  }[size]
-
   // Handle unavailable state
   const isUnavailable = entity.state === 'unavailable'
   if (isUnavailable) {
     return (
       <GridCard
+        domain="climate"
         size={size}
         isUnavailable={true}
         isSelected={isSelected}
@@ -465,11 +567,14 @@ function ClimateCardComponent({
 
   return (
     <GridCard
+      domain="climate"
+      color={getStatusColor}
       size={size}
       isLoading={isLoading}
       isError={!!error}
       isStale={isStale}
       isSelected={isSelected}
+      isOn={hvacMode !== 'off'}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       title={error || undefined}
@@ -482,20 +587,7 @@ function ClimateCardComponent({
         style={{ minHeight: size === 'large' ? '320px' : size === 'medium' ? '280px' : '220px' }}
       >
         {/* Name */}
-        <Text
-          size={cardSize.fontSize as '1' | '2' | '3'}
-          weight="medium"
-          align="center"
-          style={{
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            marginBottom: '8px',
-          }}
-        >
-          {friendlyName}
-        </Text>
+        <GridCard.Title className="climate-card-name">{friendlyName}</GridCard.Title>
 
         {/* Circular temperature display */}
         <Box style={{ position: 'relative', width: `${svgSize}px`, height: `${svgSize}px` }}>
@@ -522,7 +614,7 @@ function ClimateCardComponent({
                 <path
                   d={createArcPath(centerX, centerY, arcRadius, arcStartAngle, heatAngle)}
                   fill="none"
-                  stroke="var(--orange-9)"
+                  stroke="var(--liebe-c-heat)"
                   strokeWidth={strokeWidth}
                   strokeLinecap="round"
                 />
@@ -531,7 +623,7 @@ function ClimateCardComponent({
                 <path
                   d={createArcPath(centerX, centerY, arcRadius, coolAngle, arcEndAngle)}
                   fill="none"
-                  stroke="var(--blue-9)"
+                  stroke="var(--liebe-c-cool)"
                   strokeWidth={strokeWidth}
                   strokeLinecap="round"
                 />
@@ -542,12 +634,14 @@ function ClimateCardComponent({
                   cy={centerY + arcRadius * Math.sin((heatAngle * Math.PI) / 180)}
                   r={strokeWidth / 2 + 4}
                   fill="white"
-                  stroke="var(--orange-9)"
+                  stroke="var(--liebe-c-heat)"
                   strokeWidth="3"
                   style={{
                     cursor: 'grab',
                     filter:
-                      isDragging === 'heat' ? 'drop-shadow(0 0 8px var(--orange-9))' : undefined,
+                      isDragging === 'heat'
+                        ? 'drop-shadow(0 0 8px var(--liebe-c-heat))'
+                        : undefined,
                   }}
                   onMouseDown={(e) => handleDragStart('heat', e)}
                   onTouchStart={(e) => handleDragStart('heat', e)}
@@ -559,12 +653,14 @@ function ClimateCardComponent({
                   cy={centerY + arcRadius * Math.sin((coolAngle * Math.PI) / 180)}
                   r={strokeWidth / 2 + 4}
                   fill="white"
-                  stroke="var(--blue-9)"
+                  stroke="var(--liebe-c-cool)"
                   strokeWidth="3"
                   style={{
                     cursor: 'grab',
                     filter:
-                      isDragging === 'cool' ? 'drop-shadow(0 0 8px var(--blue-9))' : undefined,
+                      isDragging === 'cool'
+                        ? 'drop-shadow(0 0 8px var(--liebe-c-cool))'
+                        : undefined,
                   }}
                   onMouseDown={(e) => handleDragStart('cool', e)}
                   onTouchStart={(e) => handleDragStart('cool', e)}
@@ -577,7 +673,7 @@ function ClimateCardComponent({
                     y={centerY + (arcRadius - 20) * Math.sin((heatAngle * Math.PI) / 180)}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill="var(--orange-9)"
+                    fill="var(--liebe-c-heat)"
                     fontSize="12"
                     fontWeight="600"
                   >
@@ -590,7 +686,7 @@ function ClimateCardComponent({
                     y={centerY + (arcRadius - 20) * Math.sin((coolAngle * Math.PI) / 180)}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill="var(--blue-9)"
+                    fill="var(--liebe-c-cool)"
                     fontSize="12"
                     fontWeight="600"
                   >
@@ -614,7 +710,7 @@ function ClimateCardComponent({
                         : arcStartAngle
                   )}
                   fill="none"
-                  stroke={`var(--${getStatusColor}-9)`}
+                  stroke={`var(--liebe-c-${getStatusColor})`}
                   strokeWidth={strokeWidth}
                   strokeLinecap="round"
                 />
@@ -649,7 +745,7 @@ function ClimateCardComponent({
                   }
                   r={strokeWidth / 2 + 2}
                   fill="white"
-                  stroke={`var(--${getStatusColor}-9)`}
+                  stroke={`var(--liebe-c-${getStatusColor})`}
                   strokeWidth="2"
                 />
               </>
@@ -671,23 +767,19 @@ function ClimateCardComponent({
           >
             {/* Status text */}
             {hvacAction && (
-              <Text
-                size="1"
-                color={
-                  getStatusColor as
-                    | 'gray'
-                    | 'orange'
-                    | 'blue'
-                    | 'green'
-                    | 'indigo'
-                    | 'yellow'
-                    | 'cyan'
-                }
-                weight="medium"
-                style={{ textTransform: 'capitalize', marginBottom: '4px' }}
+              /*
+               * The state line takes its hue from the triplet the rendered
+               * state resolved to, through `data-color` — a Radix `color` prop
+               * here would keep its hue when a theme remapped `--liebe-c-heat`.
+               */
+              <CardState
+                domain="climate"
+                color={getStatusColor}
+                active
+                className="climate-card-action"
               >
                 {hvacAction.replace(/_/g, ' ')}
-              </Text>
+              </CardState>
             )}
 
             {/* Current temperature */}
@@ -711,7 +803,7 @@ function ClimateCardComponent({
             {/* Target temperature */}
             {supportsTargetTemp && hvacMode !== 'off' && (
               <Flex align="center" gap="1" style={{ marginTop: '4px' }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--blue-9)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--liebe-c-cool)">
                   <path
                     d="M8 3v10M4 9l4-4 4 4"
                     stroke="currentColor"
@@ -721,7 +813,7 @@ function ClimateCardComponent({
                     fill="none"
                   />
                 </svg>
-                <Text size="2" color="blue">
+                <Text size="2" className="climate-card-target">
                   {supportsTargetTempRange &&
                   hvacMode === 'heat_cool' &&
                   (dragTempLow ?? targetTempLow) &&
@@ -782,164 +874,25 @@ function ClimateCardComponent({
 
         {/* HVAC Mode buttons */}
         {!isEditMode && climateAttributes?.hvac_modes && (
-          <Flex gap="2" wrap="wrap" justify="center" style={{ marginTop: 'auto' }}>
+          <PillGroup label="HVAC mode" className="climate-card-modes">
             {climateAttributes.hvac_modes.map((mode) => {
               const modeConfig = HVAC_MODES[mode as keyof typeof HVAC_MODES]
               if (!modeConfig) return null
 
               return (
-                <Flex key={mode} direction="column" align="center" gap="1">
-                  <IconButton
-                    size="3"
-                    variant={hvacMode === mode ? 'solid' : 'outline'}
-                    color={
-                      hvacMode === mode
-                        ? (modeConfig.color as
-                            | 'orange'
-                            | 'blue'
-                            | 'green'
-                            | 'indigo'
-                            | 'yellow'
-                            | 'cyan'
-                            | 'gray')
-                        : 'gray'
-                    }
-                    onClick={() => handleHvacModeChange(mode)}
-                    disabled={isLoading}
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      borderWidth: hvacMode === mode ? '2px' : '1px',
-                    }}
-                    radius="full"
-                  >
-                    {mode === 'off' ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M8 8l8 8"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    ) : mode === 'heat' ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                          d="M12 3C9 3 7 6 7 9c0 2.5 1 4.5 2.5 6S12 18 12 18s1-.5 2.5-1.5S17 11.5 17 9c0-3-2-6-5-6z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          fill="none"
-                        />
-                      </svg>
-                    ) : mode === 'cool' ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                          d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    ) : mode === 'auto' ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="8"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                        />
-                        <path
-                          d="M12 8v8M8 12h8"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                        <text
-                          x="12"
-                          y="12"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize="8"
-                          fill="currentColor"
-                          fontWeight="bold"
-                        >
-                          A
-                        </text>
-                      </svg>
-                    ) : mode === 'heat_cool' ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                          d="M12 3C9 3 7 6 7 9c0 2.5 1 4.5 2.5 6S12 18 12 18"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          fill="none"
-                        />
-                        <path
-                          d="M12 2v20M12 12h10M14 7l7 7M21 7l-7 7"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    ) : mode === 'dry' ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                          d="M12 3l-5 9h10L12 3zM7 14c0 2.8 2.2 5 5 5s5-2.2 5-5"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    ) : mode === 'fan_only' ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="12" cy="12" r="3" fill="currentColor" />
-                        <path
-                          d="M12 2c0 3-2 4-2 4s4-1 4 2-2 4-2 4 4-1 4 2-2 4-2 4 4-1 4 2M12 22c0-3-2-4-2-4s4 1 4-2-2-4-2-4 4 1 4-2-2-4-2-4 4 1 4-2"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          fill="none"
-                        />
-                      </svg>
-                    ) : (
-                      <Text size="2" weight="bold">
-                        {modeConfig.label.substring(0, 2)}
-                      </Text>
-                    )}
-                  </IconButton>
-                  <Text
-                    size="1"
-                    color={
-                      hvacMode === mode
-                        ? (modeConfig.color as
-                            | 'orange'
-                            | 'blue'
-                            | 'green'
-                            | 'indigo'
-                            | 'yellow'
-                            | 'cyan'
-                            | 'gray')
-                        : 'gray'
-                    }
-                    weight={hvacMode === mode ? 'bold' : 'regular'}
-                  >
-                    {modeConfig.label}
-                  </Text>
-                </Flex>
+                <Pill
+                  key={mode}
+                  domain="climate"
+                  color={modeConfig.color}
+                  active={hvacMode === mode}
+                  label={modeConfig.label}
+                  icon={<HvacModeIcon mode={mode} label={modeConfig.label} />}
+                  disabled={isLoading}
+                  onClick={() => handleHvacModeChange(mode)}
+                />
               )
             })}
-          </Flex>
+          </PillGroup>
         )}
       </Flex>
     </GridCard>

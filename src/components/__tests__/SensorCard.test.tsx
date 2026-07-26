@@ -337,7 +337,7 @@ describe('SensorCard', () => {
         </Theme>
       )
 
-      const card = container.querySelector('.rt-Card')!
+      const card = container.querySelector('.liebe-card')!
       await user.click(card)
 
       expect(onSelect).toHaveBeenCalledWith(true)
@@ -396,7 +396,7 @@ describe('SensorCard', () => {
         </Theme>
       )
 
-      const card = container.querySelector('.rt-Card')
+      const card = container.querySelector('.liebe-card')
       // Stale state no longer shows visual indication or tooltip
       expect(card).not.toHaveAttribute('title', 'Sensor data may be outdated')
       expect(card).not.toHaveStyle({ borderStyle: 'dashed' })

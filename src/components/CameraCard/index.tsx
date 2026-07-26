@@ -367,6 +367,10 @@ function CameraCardComponent({
   return (
     <>
       <GridCard
+        // A camera feed is content, not chrome, so the card carries no hue of
+        // its own beyond the generic active colour a live stream resolves to.
+        domain="camera"
+        color="default"
         size={size}
         isLoading={false}
         isError={!!streamError}
@@ -382,19 +386,10 @@ function CameraCardComponent({
         className="camera-card"
         customPadding={mattingPadding}
         style={{
-          backgroundColor:
-            (isRecording || isStreamingState) && !isSelected && !streamError
-              ? 'var(--blue-3)'
-              : undefined,
-          borderColor:
-            (isRecording || isStreamingState) && !isSelected && !streamError
-              ? 'var(--blue-6)'
-              : undefined,
-          borderWidth: isSelected || streamError || isRecording || isStreamingState ? '2px' : '1px',
-          // Drop the Radix card's `contain: paint` (a containing block AND a
-          // paint clip) for exactly the fullscreen duration so the in-place
-          // fixed stream container can escape the card and cover the viewport.
-          // Restored the instant the overlay closes.
+          // The shell is a plain token-styled element now, so nothing
+          // establishes a containing block for the in-place fixed stream —
+          // `contain: none` stays as belt and braces for a theme that adds
+          // containment back. See docs/changes/0008.
           ...(isFullscreen ? { contain: 'none' } : {}),
         }}
       >

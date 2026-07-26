@@ -89,7 +89,7 @@ describe('InputTextCard', () => {
   it('enters edit mode on click in view mode', async () => {
     render(<InputTextCard entityId="input_text.test_text" />)
 
-    const card = screen.getByText('Test Text').closest('.rt-Card')!
+    const card = screen.getByText('Test Text').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -102,7 +102,7 @@ describe('InputTextCard', () => {
     render(<InputTextCard entityId="input_text.test_text" />)
 
     // Enter edit mode
-    const card = screen.getByText('Test Text').closest('.rt-Card')!
+    const card = screen.getByText('Test Text').closest('.liebe-card')!
     fireEvent.click(card)
 
     const input = screen.getByRole('textbox')
@@ -121,7 +121,7 @@ describe('InputTextCard', () => {
     render(<InputTextCard entityId="input_text.test_text" />)
 
     // Enter edit mode
-    const card = screen.getByText('Test Text').closest('.rt-Card')!
+    const card = screen.getByText('Test Text').closest('.liebe-card')!
     fireEvent.click(card)
 
     const input = screen.getByRole('textbox')
@@ -142,7 +142,7 @@ describe('InputTextCard', () => {
     render(<InputTextCard entityId="input_text.test_text" />)
 
     // Enter edit mode
-    const card = screen.getByText('Test Text').closest('.rt-Card')!
+    const card = screen.getByText('Test Text').closest('.liebe-card')!
     fireEvent.click(card)
 
     const input = screen.getByRole('textbox')
@@ -161,7 +161,7 @@ describe('InputTextCard', () => {
     render(<InputTextCard entityId="input_text.test_text" />)
 
     // Enter edit mode
-    const card = screen.getByText('Test Text').closest('.rt-Card')!
+    const card = screen.getByText('Test Text').closest('.liebe-card')!
     fireEvent.click(card)
 
     const input = screen.getByRole('textbox')
@@ -185,7 +185,7 @@ describe('InputTextCard', () => {
     render(<InputTextCard entityId="input_text.test_text" />)
 
     // Enter edit mode
-    const card = screen.getByText('Test Text').closest('.rt-Card')!
+    const card = screen.getByText('Test Text').closest('.liebe-card')!
     fireEvent.click(card)
 
     const input = screen.getByRole('textbox')
@@ -271,7 +271,7 @@ describe('InputTextCard', () => {
     // Input field should not be visible in edit mode
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
 
-    const card = screen.getByText('Test Text').closest('.rt-Card')!
+    const card = screen.getByText('Test Text').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -295,8 +295,8 @@ describe('InputTextCard', () => {
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
 
     // Check for loading class
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-loading')
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-loading', 'true')
   })
 
   it('shows error state', () => {
@@ -313,12 +313,12 @@ describe('InputTextCard', () => {
 
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
 
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-error')
-    expect(card).toHaveStyle({ borderWidth: '2px' })
-    // jsdom 27's getComputedStyle resolves var() and returns "" for the
-    // border-color shorthand, so assert the inline value directly.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+    const card = container.querySelector('.liebe-card')
+    // The error outline and its one-shot pulse are `.liebe-card[data-error]`
+    // in the layered shell sheet now, rather than an inline border plus a
+    // `grid-card-error` class — inline declarations outrank every cascade
+    // layer, so a theme could never have restyled them.
+    expect(card).toHaveAttribute('data-error', 'true')
     expect(card).toHaveAttribute('title', 'Failed to set value')
   })
 
@@ -326,22 +326,22 @@ describe('InputTextCard', () => {
     it('renders small size', () => {
       const { container } = render(<InputTextCard entityId="input_text.test_text" size="small" />)
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '60px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'small')
     })
 
     it('renders medium size', () => {
       const { container } = render(<InputTextCard entityId="input_text.test_text" size="medium" />)
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '80px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'medium')
     })
 
     it('renders large size', () => {
       const { container } = render(<InputTextCard entityId="input_text.test_text" size="large" />)
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '100px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'large')
     })
   })
 })

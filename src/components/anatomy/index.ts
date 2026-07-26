@@ -4,8 +4,8 @@
  *
  * Spec: docs/specs/design-system/index.md ("Card anatomy"); the class names are
  * public API per docs/specs/theming/index.md ("Stable selector contract").
- * The card shell (`liebe-card`) is the remaining part, landing with the rest of
- * change 0010.
+ * The card shell (`liebe-card`) is the tenth part and lives with the shell, in
+ * `src/components/GridCard.tsx` — every card gets the anatomy by using it.
  */
 export { anatomyPart, type AnatomyPartAttributes, type AnatomyPartProps } from './anatomyPart'
 export { IconCircle, type IconCircleProps } from './IconCircle'

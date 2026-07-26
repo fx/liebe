@@ -1,4 +1,4 @@
-import { Flex, Text } from '@radix-ui/themes'
+import { Flex } from '@radix-ui/themes'
 import {
   ValueIcon,
   CircleIcon,
@@ -13,6 +13,7 @@ import { memo } from 'react'
 import type { HassEntity } from '~/store/entityTypes'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardValue } from './anatomy'
 
 interface SensorCardProps {
   entityId: string
@@ -143,12 +144,6 @@ function SensorCardComponent({
     )
   }
 
-  const valueFontSize = {
-    small: '2',
-    medium: '3',
-    large: '4',
-  }[size] as '2' | '3' | '4'
-
   const attributes = entity.attributes as SensorAttributes
   const friendlyName = attributes.friendly_name || entity.entity_id
   const formattedValue = formatSensorValue(entity)
@@ -156,6 +151,11 @@ function SensorCardComponent({
 
   return (
     <GridCard
+      // Sensors have no domain row of their own, so they take the generic
+      // active colour — and only while they are actually reporting.
+      domain="sensor"
+      color="default"
+      isOn={!isUnavailable}
       size={size}
       isStale={isStale}
       isSelected={isSelected}
@@ -163,9 +163,6 @@ function SensorCardComponent({
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       title={undefined}
-      style={{
-        borderWidth: isSelected ? '2px' : '1px',
-      }}
     >
       <Flex
         direction="column"
@@ -175,54 +172,17 @@ function SensorCardComponent({
         style={{ minHeight: size === 'large' ? '120px' : size === 'medium' ? '100px' : '80px' }}
       >
         {/* Icon */}
-        <GridCard.Icon>
-          <span
-            style={{
-              color: isStale
-                ? 'var(--orange-9)'
-                : isUnavailable
-                  ? 'var(--gray-9)'
-                  : 'var(--accent-9)',
-              opacity: isStale ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {getSensorIcon(entity, size)}
-          </span>
-        </GridCard.Icon>
+        <GridCard.Icon>{getSensorIcon(entity, size)}</GridCard.Icon>
 
-        {/* Value */}
-        <Text
-          size={valueFontSize}
-          weight="medium"
-          align="center"
-          style={{
-            color: isUnavailable ? 'var(--gray-9)' : 'var(--gray-12)',
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {formattedValue}
-        </Text>
+        {/* Value — the anatomy's big readout, so the figure is `tabular-nums`
+            and does not jitter as its digits change. The unit stays part of the
+            formatted string rather than moving to `unit`: `formatSensorValue`
+            owns the spacing, and splitting it would change what the card reads
+            out. */}
+        <CardValue domain="sensor" color="default" value={formattedValue} />
 
         {/* Name */}
-        <GridCard.Title>
-          <Text
-            color="gray"
-            style={{
-              maxWidth: '100%',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {friendlyName}
-          </Text>
-        </GridCard.Title>
+        <GridCard.Title>{friendlyName}</GridCard.Title>
       </Flex>
     </GridCard>
   )

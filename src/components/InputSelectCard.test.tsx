@@ -146,7 +146,7 @@ describe('InputSelectCard', () => {
     expect(screen.queryByRole('combobox')).toBeInTheDocument()
     expect(screen.getByText('3 options')).toBeInTheDocument()
 
-    const card = screen.getByText('Test Select').closest('.rt-Card')!
+    const card = screen.getByText('Test Select').closest('.liebe-card')!
     fireEvent.click(card)
 
     await waitFor(() => {
@@ -160,7 +160,7 @@ describe('InputSelectCard', () => {
       <InputSelectCard entityId="input_select.test_select" isSelected={true} />
     )
 
-    const card = container.querySelector('.rt-Card')
+    const card = container.querySelector('.liebe-card')
     // Check if card exists and is selected
     expect(card).toBeTruthy()
     // The actual styling in edit mode is handled by GridCard internally
@@ -194,8 +194,8 @@ describe('InputSelectCard', () => {
     const { container } = render(<InputSelectCard entityId="input_select.test_select" />)
 
     // Check for loading class
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-loading')
+    const card = container.querySelector('.liebe-card')
+    expect(card).toHaveAttribute('data-loading', 'true')
 
     // Select should be disabled during loading
     expect(screen.getByRole('combobox')).toBeDisabled()
@@ -215,12 +215,12 @@ describe('InputSelectCard', () => {
 
     const { container } = render(<InputSelectCard entityId="input_select.test_select" />)
 
-    const card = container.querySelector('.rt-Card')
-    expect(card).toHaveClass('grid-card-error')
-    expect(card).toHaveStyle({ borderWidth: '2px' })
-    // jsdom 27's getComputedStyle resolves var() and returns "" for the
-    // border-color shorthand, so assert the inline value directly.
-    expect((card as HTMLElement).style.borderColor).toBe('var(--red-6)')
+    const card = container.querySelector('.liebe-card')
+    // The error outline and its one-shot pulse are `.liebe-card[data-error]`
+    // in the layered shell sheet now, rather than an inline border plus a
+    // `grid-card-error` class — inline declarations outrank every cascade
+    // layer, so a theme could never have restyled them.
+    expect(card).toHaveAttribute('data-error', 'true')
     expect(card).toHaveAttribute('title', 'Failed to set value')
   })
 
@@ -240,7 +240,7 @@ describe('InputSelectCard', () => {
 
     const { container } = render(<InputSelectCard entityId="input_select.test_select" />)
 
-    const card = container.querySelector('.rt-Card')
+    const card = container.querySelector('.liebe-card')
     // Stale state no longer shows visual indication
     expect(card).not.toHaveStyle({
       borderStyle: 'dashed',
@@ -311,8 +311,8 @@ describe('InputSelectCard', () => {
         <InputSelectCard entityId="input_select.test_select" size="small" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '60px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'small')
     })
 
     it('renders medium size', () => {
@@ -320,8 +320,8 @@ describe('InputSelectCard', () => {
         <InputSelectCard entityId="input_select.test_select" size="medium" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '80px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'medium')
     })
 
     it('renders large size', () => {
@@ -329,8 +329,8 @@ describe('InputSelectCard', () => {
         <InputSelectCard entityId="input_select.test_select" size="large" />
       )
 
-      const card = container.querySelector('.rt-Card')
-      expect(card).toHaveStyle({ minHeight: '100px' })
+      const card = container.querySelector('.liebe-card')
+      expect(card).toHaveAttribute('data-size', 'large')
     })
   })
 })

@@ -4,7 +4,7 @@
 
 Implement the [design-system](../specs/design-system/index.md) foundation: the `--liebe-*` token contract (Radix-aliased, dark + light), the shared card anatomy components with stable class names (`liebe-card`, `liebe-icon`, `liebe-name`, `liebe-state`, `liebe-slider`, `liebe-pill`, `liebe-chip`, `liebe-value`, `liebe-spark`), the domain color discipline with the 20%-tint active pattern, and the restyled card shell replacing `GridCard`'s stock Radix look. Developed story-first in the workshop from [0009](./0009-storybook-setup.md).
 
-**Spec:** [design-system](../specs/design-system/index.md) · **Status:** draft · **Depends on:** 0009
+**Spec:** [design-system](../specs/design-system/index.md) · **Status:** complete · **Depends on:** 0009
 
 ## Motivation
 
@@ -48,7 +48,7 @@ The [design-system spec](../specs/design-system/index.md) owns the token tables,
 - [x] **PR 1 — Tokens**: token stylesheet (dark/light, Radix aliases), injected in the shadow root; token reference story; resolve alias-fidelity question in the spec
 - [x] **PR 2 — Anatomy components**: icon circle, meta block, pills, chips, value, spark placeholder; stable classes/attributes; stories + a11y
 - [x] **PR 3 — Slider primitive**: Radix-primitive slider (h/v), stories with play-function drag tests. How the spec's accessible-name rule is met here: Radix puts `role="slider"` on `Slider.Thumb`, so the name is passed to the thumb and `label` is a required prop rather than a defaulted one — the primitive cannot be constructed unnamed. `CoverCard` and `LightCard` still label their own `Slider.Root`s, so [#192](https://github.com/fx/liebe/issues/192) stays open until PR 4 migrates them onto this component.
-- [ ] **PR 4 — Shell restyle**: `GridCard` on tokens/anatomy, flat dark/shadow light, motion rules; migrate all existing cards' shell usage; all card tests green; gallery story updated
+- [x] **PR 4 — Shell restyle**: `GridCard` on tokens/anatomy, flat dark/shadow light, motion rules; migrate all existing cards' shell usage; all card tests green; gallery story updated
 
 ## Out of Scope
 
