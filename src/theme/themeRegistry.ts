@@ -71,7 +71,9 @@ export function getTheme(id: string): ThemeDefinition | undefined {
  * and styled, where an empty theme layer would leave it on bare base tokens.
  */
 export function getThemeOrDefault(id: string): ThemeDefinition {
-  return getTheme(id) ?? builtInThemes[0]
+  // The registry always carries Default — `listThemes` is asserted to — so the
+  // fallback is named rather than positional.
+  return getTheme(id) ?? getTheme(DEFAULT_THEME_ID)!
 }
 
 /**

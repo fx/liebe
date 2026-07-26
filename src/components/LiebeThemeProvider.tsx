@@ -61,7 +61,11 @@ export function LiebeThemeProvider({
   const cameraFullscreenActive = useCameraFullscreenActive()
 
   const themeRoot = useRef<HTMLDivElement>(null)
-  const themeCss = getThemeOrDefault(themeId).css
+  // Stamped from the theme that is actually rendered, not from what was asked
+  // for: an unregistered id falls back to Default, and a stamp naming the
+  // missing theme would leave that theme's scoped rules addressing a palette
+  // nothing here renders.
+  const { id: activeThemeId, css: themeCss } = getThemeOrDefault(themeId)
 
   // A layout effect, so the theme layer is in the root before the browser
   // paints the tree it styles. The `<style>` is keyed to the root rather than
@@ -76,7 +80,7 @@ export function LiebeThemeProvider({
     <Theme
       ref={themeRoot}
       className="liebe-root"
-      data-liebe-theme={themeId}
+      data-liebe-theme={activeThemeId}
       data-appearance={appearance}
       appearance={appearance}
       style={

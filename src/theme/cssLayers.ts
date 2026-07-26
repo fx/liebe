@@ -14,6 +14,14 @@
  * the sheets the panel ships, including the ones from `node_modules` that
  * cannot be authored inside a layer) and the browser (`styleInjection.ts` wraps
  * the theme payload it injects into the shadow root).
+ *
+ * They are deliberately lexical rather than a real CSS parse. Their input is
+ * first-party or vendored CSS, where the worst a `{` inside a string can cost
+ * is a redundant layer wrapper, and a parser in the panel bundle would be paid
+ * for on every load. Untrusted input — the user's custom CSS — is a different
+ * problem with a different answer: the theming spec requires it to be parsed
+ * into an AST and re-serialised, which change 0012's PR 2 ships alongside the
+ * sanitizer.
  */
 
 /** Baseline: tokens, component sheets, vendored stylesheets. */
@@ -180,12 +188,14 @@ export function isFullyLayered(css: string): boolean {
  * one sheet still gets the order right.
  */
 export function wrapInLayer(css: string, layer: string): string {
-  if (isFullyLayered(css)) return css
+  const layered = isFullyLayered(css)
+  if (layered && css.includes(LAYER_ORDER_STATEMENT)) return css
 
   const [charset] = css.match(LEADING_CHARSET) ?? []
   const body = charset ? css.slice(charset.length) : css
+  const rules = layered ? body : `@layer ${layer} {\n${body}\n}\n`
 
-  return `${charset ?? ''}${LAYER_ORDER_STATEMENT}\n@layer ${layer} {\n${body}\n}\n`
+  return `${charset ?? ''}${LAYER_ORDER_STATEMENT}\n${rules}`
 }
 
 /**

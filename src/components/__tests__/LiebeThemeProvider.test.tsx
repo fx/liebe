@@ -61,7 +61,7 @@ describe('LiebeThemeProvider', () => {
 
   it('stamps the theming contract on the element the tokens are declared on', () => {
     const { container } = render(
-      <LiebeThemeProvider appearance="dark" themeId="lcars">
+      <LiebeThemeProvider appearance="dark" themeId={DEFAULT_THEME_ID}>
         <span />
       </LiebeThemeProvider>
     )
@@ -73,7 +73,7 @@ describe('LiebeThemeProvider', () => {
     const theme = getRootTheme(container)
     expect(theme.classList.contains('radix-themes')).toBe(true)
     expect(theme.classList.contains('liebe-root')).toBe(true)
-    expect(theme.getAttribute('data-liebe-theme')).toBe('lcars')
+    expect(theme.getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
     expect(theme.getAttribute('data-appearance')).toBe('dark')
   })
 
@@ -100,10 +100,11 @@ describe('LiebeThemeProvider', () => {
     expect(style?.textContent).toBe(getTheme(DEFAULT_THEME_ID)!.css)
   })
 
-  it('renders an unregistered theme id with the default theme’s CSS', () => {
+  it('renders an unregistered theme id as the default theme', () => {
     // An imported configuration naming a theme this build does not have must
-    // still be styled, not fall back to bare base tokens.
-    render(
+    // still be styled, not fall back to bare base tokens — and must not stamp
+    // a theme nothing is rendering.
+    const { container } = render(
       <LiebeThemeProvider themeId="from-a-newer-liebe">
         <span />
       </LiebeThemeProvider>
@@ -111,6 +112,7 @@ describe('LiebeThemeProvider', () => {
 
     const style = document.head.querySelector(THEME_STYLE_SELECTOR)
     expect(style?.textContent).toBe(getTheme(DEFAULT_THEME_ID)!.css)
+    expect(getRootTheme(container).getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
   })
 
   it('lifts the root Theme stacking while a camera overlay is open', () => {

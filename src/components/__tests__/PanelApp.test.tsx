@@ -7,6 +7,7 @@ import {
   exitCameraFullscreen,
 } from '~/store/cameraFullscreenStore'
 import { dashboardStore } from '~/store/dashboardStore'
+import { THEME_STYLE_SLOT } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID } from '~/theme/themeRegistry'
 
 // Render the router as an inert marker: this test only exercises PanelApp's
@@ -23,6 +24,11 @@ function getRootTheme(container: HTMLElement): HTMLElement {
 describe('PanelApp theming', () => {
   afterEach(() => {
     dashboardStore.setState((state) => ({ ...state, theme: 'auto' }))
+    // The theme layer belongs to the root, not to the React tree, so unmounting
+    // deliberately leaves it behind — this suite has to clear it itself.
+    document.head
+      .querySelectorAll(`style[data-liebe="${THEME_STYLE_SLOT}"]`)
+      .forEach((style) => style.remove())
   })
 
   it('renders the configured theme and the appearance it resolves to', () => {

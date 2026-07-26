@@ -152,6 +152,16 @@ describe('wrapInLayer', () => {
     expect(wrapped).toContain(`@layer ${BASE_LAYER} {`)
   })
 
+  it('gives a layered sheet the order statement it is missing', () => {
+    // Layered but silent about the order: injected into a root where nothing
+    // else declares it, the layer would sort by first use instead.
+    const wrapped = wrapInLayer('@layer liebe-theme { .a { color: red } }', BASE_LAYER)
+
+    expect(wrapped.startsWith(LAYER_ORDER_STATEMENT)).toBe(true)
+    expect(wrapped).toContain('@layer liebe-theme { .a { color: red } }')
+    expect(wrapped).not.toContain(`@layer ${BASE_LAYER} {`)
+  })
+
   it('leaves a sheet that declares its own layers untouched', () => {
     // Liebe's own sheets are authored inside their layer; re-wrapping would
     // nest them (`liebe-base.liebe-theme`) and break the order.

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { dashboardStore } from '~/store/dashboardStore'
+import { THEME_STYLE_SLOT } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID } from '~/theme/themeRegistry'
 
 // The route module is a router shell: `createRootRoute` and `Scripts` need a
@@ -25,6 +26,11 @@ const { RootComponent } = await import('../__root')
 describe('RootComponent', () => {
   afterEach(() => {
     dashboardStore.setState((state) => ({ ...state, theme: 'auto' }))
+    // The theme layer outlives the tree that injected it (it belongs to the
+    // root), so it is this suite's to clear.
+    document.head
+      .querySelectorAll(`style[data-liebe="${THEME_STYLE_SLOT}"]`)
+      .forEach((style) => style.remove())
   })
 
   it('renders the routed tree inside a stamped Liebe theme root', () => {
