@@ -30,7 +30,7 @@ import { ImportPreviewDialog } from './ImportPreviewDialog'
 import type { DashboardConfig, ThemeAppearancePreference } from '../store/types'
 import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
 import {
-  getTheme,
+  getThemeOrDefault,
   listThemes,
   resolveAppearance,
   supportsAppearanceChoice,
@@ -42,12 +42,24 @@ interface ConfigurationMenuProps {
 
 export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
   const theme = useDashboardStore((state) => state.theme)
+  // What the menu shows is the theme that RENDERS, not the id that is stored.
+  // An id this build does not have — a configuration imported from a newer
+  // Liebe, a theme dropped between versions — renders as Default via
+  // `getThemeOrDefault`, so resolving here too keeps the menu agreeing with the
+  // panel; feeding the raw id to the radio group below would match no item and
+  // show nothing selected beside a visibly themed dashboard.
+  //
+  // The stored id is deliberately left alone until the user picks something.
+  // An unrecognised theme is a configuration written against another build, and
+  // silently rewriting it to `default` would destroy exactly the round-trip
+  // export/import exists for: the same file opened on the build that has that
+  // theme is valid again.
+  const activeTheme = getThemeOrDefault(theme.id)
   // Themes that provide only one appearance force it, so the control is shown
   // disabled AND showing the forced value — a disabled "System" beside a panel
   // rendering dark would be the control lying about what it did. The stored
   // preference is untouched, so switching back to a both-appearance theme
   // restores the user's choice.
-  const activeTheme = getTheme(theme.id)
   const appearanceChoosable = supportsAppearanceChoice(activeTheme)
   const shownAppearance = appearanceChoosable
     ? theme.appearance
@@ -210,7 +222,7 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
 
           <DropdownMenu.Label>Theme</DropdownMenu.Label>
           <DropdownMenu.RadioGroup
-            value={theme.id}
+            value={activeTheme.id}
             onValueChange={(id) => dashboardActions.setTheme({ id })}
           >
             {listThemes().map(({ id, label }) => (

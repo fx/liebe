@@ -26,7 +26,8 @@ vi.mock('~/theme/themeRegistry', async (importOriginal) => {
   return {
     ...actual,
     listThemes: () => [...actual.listThemes(), NOCTURNE],
-    getTheme: (id: string) => (id === NOCTURNE.id ? NOCTURNE : actual.getTheme(id)),
+    getThemeOrDefault: (id: string) =>
+      id === NOCTURNE.id ? NOCTURNE : actual.getThemeOrDefault(id),
   }
 })
 
@@ -67,6 +68,51 @@ describe('theme picker', () => {
     expect(dashboardStore.state.theme.id).toBe('nocturne')
     // The appearance and the custom CSS are untouched by a theme choice.
     expect(dashboardStore.state.theme.appearance).toBe(DEFAULT_THEME_CONFIG.appearance)
+  })
+
+  describe('a stored theme this build does not have', () => {
+    // The id a newer Liebe wrote, or one dropped between versions.
+    const UNKNOWN_ID = 'lcars'
+
+    beforeEach(() => {
+      dashboardStore.setState((state) => ({ ...state, theme: { ...state.theme, id: UNKNOWN_ID } }))
+    })
+
+    it('shows Default as the selected theme', async () => {
+      await openMenu()
+
+      // The panel renders Default for this id; a picker showing nothing
+      // selected beside a visibly themed dashboard is the menu disagreeing
+      // with what the user can see.
+      expect(await screen.findByRole('menuitemradio', { name: 'Default' })).toHaveAttribute(
+        'aria-checked',
+        'true'
+      )
+      expect(screen.getByRole('menuitemradio', { name: 'Nocturne' })).toHaveAttribute(
+        'aria-checked',
+        'false'
+      )
+    })
+
+    it('leaves the stored id alone', async () => {
+      await openMenu()
+      // Wait for the menu content, so the assertion is about a menu that has
+      // actually rendered the picker rather than one that never opened.
+      await screen.findByRole('menuitemradio', { name: 'Default' })
+
+      // Displaying the fallback must not write it: the same configuration
+      // opened on the build that has `lcars` has to get `lcars` back, which is
+      // the whole point of exporting it.
+      expect(dashboardStore.state.theme.id).toBe(UNKNOWN_ID)
+    })
+
+    it('still writes the chosen theme when the user picks one', async () => {
+      const user = await openMenu()
+
+      await user.click(await screen.findByText('Nocturne'))
+
+      expect(dashboardStore.state.theme.id).toBe('nocturne')
+    })
   })
 
   it('opens the custom-CSS editor from the menu', async () => {
