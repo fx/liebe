@@ -37,16 +37,47 @@
       'Helvetica Neue',
       Arial,
       sans-serif;
-    background-color: #fafafa;
-    color: #333;
   }
 
-  @media (prefers-color-scheme: dark) {
-    html,
-    body {
-      background-color: #0a0a0a;
-      color: #e5e5e5;
-    }
+  /*
+   * The dashboard ground.
+   *
+   * Painted here, on the Liebe theme root, and deliberately NOT on `html` /
+   * `body`. `--liebe-bg` and `--liebe-fg` are declared on `.radix-themes`
+   * (src/styles/tokens.css) because every surface token aliases a Radix token
+   * that exists only there, and a `var()` inside a custom property substitutes
+   * at the element that declares it. `html` and `body` are ANCESTORS of that
+   * element, so no `var()` on them can reach the tokens — custom properties
+   * inherit down, never up.
+   *
+   * The colour literals that used to sit on `html`/`body` were the cost of
+   * that: a second source of truth for the ground, outside the token contract
+   * and so unreachable by both themes and user CSS, and gated on
+   * `prefers-color-scheme` rather than on the appearance the panel actually
+   * resolves. Any disagreement between the two — an explicit `dark` setting on
+   * a light OS, a `dark-only` theme, a future Home Assistant darkness signal —
+   * put a near-white page behind a dark dashboard.
+   *
+   * Whatever the root does not cover (overscroll, and the moment before React
+   * mounts) is the UA canvas, which follows `color-scheme`. That stays correct
+   * without a literal: Radix propagates the root theme's appearance up to
+   * `:root`'s `color-scheme` with its own `:has()` rule, so the canvas follows
+   * the resolved appearance too.
+   *
+   * `background`, not `background-color`: a theme MAY set `--liebe-bg` to
+   * wallpaper rather than a flat colour (docs/specs/theming — Liquid Glass is a
+   * layered radial-gradient mesh), which `background-color` could not accept.
+   *
+   * Both classes are named to clear Radix's own `.radix-themes:where([data-
+   * has-background='true'])`, which is what painted the ground before and would
+   * otherwise put `--color-background` — plain white in light, where the card
+   * token is also white — over the ground the contract defines. The nested
+   * theme root the router mounts carries `liebe-root` too, so it grounds
+   * itself in the same token instead of covering its parent.
+   */
+  .radix-themes.liebe-root {
+    background: var(--liebe-bg);
+    color: var(--liebe-fg);
   }
 
   /* Responsive CSS Variables */

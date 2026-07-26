@@ -101,7 +101,20 @@ export function isThemableProperty(property: string): boolean {
 // A declaration ending in `!important`, captured as (opening delimiter,
 // property, value). `[^;{}]` keeps the value inside its own declaration, so a
 // following rule can never be swallowed into the match.
-const IMPORTANT_DECLARATION = /([;{]\s*|^\s*)(--[\w-]+|[-\w]+)(\s*:\s*[^;{}]*?)!\s*important/gi
+//
+// The trailing lookahead is what makes `!important` a PRIORITY rather than
+// three syllables of text. Without it the pattern matched the token anywhere in
+// a value, quotes included, and rewrote `--label: "not !important"` to
+// `--label: "not "` — silently mangling CSS that never asked for importance.
+// That is not hypothetical for long: the custom-CSS editor feeds user input
+// straight through here. A real priority is the last thing in its declaration,
+// so it must be followed by the declaration's end — `;`, the rule's `}`, or the
+// end of the sheet — and a token inside a value never is. When the lookahead
+// fails the lazy value keeps growing and the regex looks for a LATER
+// `!important` in the same declaration, so a genuine priority still strips even
+// when the value quotes the word first.
+const IMPORTANT_DECLARATION =
+  /([;{]\s*|^\s*)(--[\w-]+|[-\w]+)(\s*:\s*[^;{}]*?)!\s*important(?=\s*(?:[;}]|$))/gi
 
 /**
  * Removes `!important` from declarations of themable properties, leaving every

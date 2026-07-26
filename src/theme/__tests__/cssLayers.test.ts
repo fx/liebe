@@ -108,6 +108,35 @@ describe('stripThemableImportance', () => {
 
     expect(stripThemableImportance(css)).toBe(css)
   })
+
+  /*
+   * `!important` is a priority only at the end of its own declaration.
+   * Anywhere else — inside a quoted string, inside a `url()` — it is ordinary
+   * text, and rewriting it corrupts CSS that never asked for importance. Each
+   * of these is on a THEMABLE property, so the stripper does reach the
+   * declaration and the assertion is about what it does once there. It stops
+   * being hypothetical the moment the custom-CSS editor feeds user input
+   * through here.
+   */
+  it.each([
+    ['a double-quoted custom-property value', '.a { --label: "not !important"; }'],
+    ['a single-quoted custom-property value', ".a { --label: 'not !important'; }"],
+    ['a quoted url()', '.a { background-image: url("not-!important.png"); }'],
+    ['an unquoted url()', '.a { background: url(not-!important.png) no-repeat; }'],
+    ['a quoted font family', '.a { font-family: "Not !important", sans-serif; }'],
+  ])('leaves !important inside %s alone', (_case, css) => {
+    expect(stripThemableImportance(css)).toBe(css)
+  })
+
+  it('still strips a real priority from a value that quotes the word first', () => {
+    const css = '.a { background-image: url("not-!important.png") !important; }'
+
+    expect(stripThemableImportance(css)).toBe('.a { background-image: url("not-!important.png"); }')
+  })
+
+  it('strips a priority the sheet ends on, with no terminator after it', () => {
+    expect(stripThemableImportance('.a { color: red !important')).toBe('.a { color: red')
+  })
 })
 
 describe('isFullyLayered', () => {
