@@ -20,10 +20,15 @@ window.__LIEBE_ASSET_BASE_URL__ = new URL('./', document.baseURI).href
 // The same style set the panel injects (src/panel.ts) — imported here directly
 // because the panel entry also registers the custom element and starts the
 // Home Assistant connection, neither of which may run in the preview.
+// The token layers are part of that set and are imported in the same order the
+// panel injects them (base → theme → user, per the theming spec); the
+// stylesheets carry the `@layer` statement that makes the order binding.
 import '@radix-ui/themes/styles.css'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import '~/styles/app.css'
+import '~/styles/tokens.css'
+import '~/theme/themes/default.css'
 
 const preview: Preview = {
   // Outermost first: providers wrap the mock connection, which wraps the
@@ -42,7 +47,7 @@ const preview: Preview = {
     },
     options: {
       storySort: {
-        order: ['Shell', 'Cards'],
+        order: ['Design System', 'Shell', 'Cards'],
       },
     },
     a11y: {

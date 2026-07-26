@@ -4,7 +4,7 @@
 
 The design system defines Liebe's default visual language: a token contract every component reads, a shared card anatomy, a domain color discipline, and size-adaptive card layouts. It is the foundation the [theming system](../theming/) overrides and the [component workshop](../storybook/) exercises.
 
-**Status: specified, not yet implemented.** The current implementation uses stock Radix Themes styling (see [entity-cards](../entity-cards/)); this spec describes the target visual system. It was validated in a throwaway static mockup which this spec supersedes and replaces as the sole reference.
+**Status: partially implemented — token contract only.** The [token contract](#token-contract) ships as of [0010](../../changes/0010-design-tokens-and-anatomy.md) PR 1: the `--liebe-*` properties are declared for both appearances and exercised in the workshop. Nothing consumes them yet. The [card anatomy](#card-anatomy) and its stable classes, the slider primitive, and the card shell restyle are the remaining tasks of [0010](../../changes/0010-design-tokens-and-anatomy.md); the [size-adaptive layout tiers](#size-adaptive-layouts) are [0011](../../changes/0011-layout-tiers.md). Until those land, cards keep their stock Radix Themes styling (see [entity-cards](../entity-cards/)) and the rest of this document describes the target visual system. It was validated in a throwaway static mockup which this spec supersedes and replaces as the sole reference.
 
 The design targets what the smart-home community demonstrably prefers: flat, shadowless cards one elevation step above the background in dark mode, large radii, a tinted icon-circle state pattern, strict domain-color discipline, and two-line typography. All hue on the dashboard carries state meaning; chrome stays neutral.
 
@@ -16,9 +16,9 @@ Research across card-ecosystem popularity data, community forums, and the most-s
 
 ### Token contract
 
-- The system MUST define all visual attributes as CSS custom properties (the "token contract") on the panel root, under a `--liebe-*` namespace.
+- The system MUST define all visual attributes as CSS custom properties (the "token contract") on the panel's themed root — the element carrying Radix's theme scope, see [Design](#design) — under a `--liebe-*` namespace.
 - Components MUST read visual attributes only through tokens (directly or via a class that reads tokens). Components MUST NOT hardcode colors, radii, blur, borders, or shadows that a theme could reasonably want to change.
-- Where a Radix Themes token is a close match, the Liebe token MUST alias it (e.g. `--liebe-card-bg: var(--color-panel-solid)`) rather than duplicate a literal value, so Radix appearance switching flows through automatically.
+- Where a Radix Themes token is a close match, the Liebe token MUST alias it (e.g. `--liebe-fg: var(--gray-12)`) rather than duplicate a literal value, so Radix appearance switching flows through automatically.
 - The token contract is the public theming API: token names, meanings, and value types MUST be documented in this spec and MUST NOT be renamed without a migration note in the [theming spec](../theming/).
 
 Geometry tokens and defaults:
@@ -50,7 +50,7 @@ Surface tokens (dark defaults / light values):
 | `--liebe-hairline`    | 7% alpha fg  | 8% alpha fg                  |
 | `--liebe-track`       | 8% alpha fg  | 7% alpha fg                  |
 
-These literal values are the design intent; the implementation SHOULD substitute the nearest Radix gray-scale tokens (`--color-background`, `--color-panel-solid`, `--gray-a*`) where the difference is imperceptible.
+These literal values are the design intent; the implementation SHOULD substitute the nearest Radix gray-scale tokens (`--gray-*`, `--gray-a*`) where the difference is imperceptible. **Resolved in [0010](../../changes/0010-design-tokens-and-anatomy.md) PR 1:** every surface token that carries a _color_ aliases a Radix token — no colour literal is pinned — but the alias is a **gray-scale step chosen per appearance**, not the semantic `--color-*` pair. (The structural values stay as the table specifies: `--liebe-card-border` and `--liebe-card-blur` are `none` in both appearances, as is `--liebe-card-shadow` in dark, since there is no Radix token for "no shadow".) In dark those coincide (`--color-background` → `--gray-1`, `--color-panel-solid` → `--gray-2`, both within ~2/255 of the reference); in light both semantic tokens resolve to plain white, which would erase the ground-to-card separation the design depends on, so light aliases `--gray-3` for the ground and `--gray-1` for the card. With the default gray (slate, paired with the default indigo accent) the steps match the reference hexes near-exactly in both appearances — `--gray-3` is `#f0f0f3` against a `#efeef2` reference, `--gray-1` is `#fcfcfd` exactly. The remaining surface tokens alias directly: `--liebe-fg: var(--gray-12)`, muted/faint/hairline/track the `--gray-a*` alpha steps, and the light card shadow `var(--black-a2)`.
 
 Typography tokens:
 
@@ -161,6 +161,7 @@ Token layering (base → theme → user), application mechanism, and shadow-DOM 
 - Chrome and edit-mode UI (dialogs, selects, config forms) remain stock Radix Themes components.
 - Card anatomy parts are custom components styled by tokens; behavior-heavy controls (slider) build on unstyled Radix primitives (`@radix-ui/react-slider`) rather than bending `@radix-ui/themes` styled components.
 - The card surface uses a plain token-styled element (not `Card variant="classic"`, whose inset borders fight the flat look).
+- Tokens are declared on the **Radix theme root** (`.radix-themes`), not on the shadow host or the React container above it: Radix declares `--color-*`, `--gray-*` and `--default-font-family` there, and a `var()` inside a custom property substitutes at the element that declares it, so aliasing from any higher element resolves to nothing. It is also the element Radix marks `.dark`/`.light`, which is what makes the appearance-conditional tokens flip with Radix's own signal. **Consequence for the theme and user layers:** their token overrides MUST land on this same element — a derived companion (`-tint`) only re-derives where its base is overridden on the same element, so an override on a descendant would leave tint and text behind on the old hue.
 - Per-domain coloring MUST be applied by consuming the `--liebe-c-*` triplets, never by passing Radix per-instance `color` props or referencing Radix scale variables at the point of use. Those bypass the token contract: a component coloured by a Radix prop keeps its original hue when LCARS or user CSS remaps the triplet, silently breaking the remapping promise the token contract makes. The Radix scales remain the _source_ of the default theme's token values — the indirection through `--liebe-c-*` is what makes them themeable. The single Theme `accentColor` is not used for domain state.
 
 ## Constraints
@@ -173,7 +174,7 @@ Token layering (base → theme → user), application mechanism, and shadow-DOM 
 
 ## Open Questions
 
-- **Radix alias fidelity.** Whether `--color-background`/`--color-panel-solid` are close enough to the reference hexes in both appearances, or the default theme should pin literals and only alias grays for text/alpha steps.
+- ~~**Radix alias fidelity.**~~ Answered by change [0010](../../changes/0010-design-tokens-and-anatomy.md) PR 1, compared side by side in the workshop's `Design System/Tokens` → _Alias fidelity_ story: no literals are pinned. In light Radix resolves both `--color-background` and `--color-panel-solid` to plain white, which would flatten ground and card into one surface, so the surface tokens alias appearance-specific gray-scale **steps** instead of the semantic pair — see the note under the surface token table.
 - ~~**Sparkline data source.**~~ Answered by change [0015](../../changes/0015-history-and-forecast-data.md) (pending implementation): `useEntityHistory` provides windowed, downsampled series with sample/delta modes; sparklines are a follow-up consuming that hook (0018/0020), not part of the design-system changes. The anatomy ships in 0010; graphs light up when 0015 lands.
 - **Legacy `size` prop migration.** Existing configs persist card dimensions already; the mapping from stored `size` values (if any survive) to tiers needs an audit in the dashboard-config spec before implementation.
 
@@ -184,6 +185,7 @@ Token layering (base → theme → user), application mechanism, and shadow-DOM 
 
 ## Changelog
 
-| Date       | Change                                                           | Document |
-| ---------- | ---------------------------------------------------------------- | -------- |
-| 2026-07-25 | Initial spec created (target design system, not yet implemented) | —        |
+| Date       | Change                                                                                                                                                                                                 | Document                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| 2026-07-25 | Initial spec created (target design system, not yet implemented)                                                                                                                                       | —                                                       |
+| 2026-07-26 | Token contract implemented (dark + light, Radix-aliased); "Radix alias fidelity" answered — no literals pinned, surface tokens alias appearance-specific gray steps; token declaration root documented | [0010](../../changes/0010-design-tokens-and-anatomy.md) |
