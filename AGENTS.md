@@ -819,15 +819,17 @@ The deployment uses:
 
 - `/dist/` - The entire build output directory including panel.js and any assets
 - `/index.html` - Landing page with installation instructions
+- `/dist/storybook/` - The static Storybook workshop, served at https://fx.github.io/liebe/storybook/
 
 ### Deployment Workflow
 
 The `.github/workflows/deploy.yml` file handles:
 
 1. Building the production panel
-2. Creating GitHub Pages artifacts
-3. Deploying to GitHub Pages
-4. Setting proper permissions
+2. Building the Storybook workshop into `dist/storybook/`
+3. Creating GitHub Pages artifacts
+4. Deploying to GitHub Pages
+5. Setting proper permissions
 
 ### Usage
 
