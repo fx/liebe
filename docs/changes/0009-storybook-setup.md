@@ -6,7 +6,7 @@ Stand up the component workshop specified in [storybook](../specs/storybook/inde
 
 **Spec:** [storybook](../specs/storybook/index.md) · also enables [design-system](../specs/design-system/index.md), [theming](../specs/theming/index.md), [entity-cards options](../specs/entity-cards/options/common.md)
 
-**Status:** draft · **Depends on:** —
+**Status:** complete · **Depends on:** —
 
 ## Motivation
 
@@ -54,10 +54,10 @@ The [storybook spec](../specs/storybook/index.md) owns the workshop's observable
 - [x] **PR 2 — Full card coverage**
   - [x] Stories for `CoverCard`, `FanCard`, `ButtonCard`, `WeatherCard` (all 4 variants), `CameraCard` (mock stream states), all 5 input helper cards, `TextCard`, `Separator`
   - [x] a11y addon enabled globally; audit and record violations as issues (fixes out of scope)
-- [ ] **PR 3 — CI + publishing**
-  - [ ] `storybook` CI job (build gate) on PRs
-  - [ ] Deploy workflow publishes `/storybook/` to GitHub Pages alongside the panel; verify published URL
-  - [ ] Document workshop usage in `docs/specs/storybook/index.md` References (update Changelog)
+- [x] **PR 3 — CI + publishing**
+  - [x] `storybook` CI job (build gate) on PRs
+  - [x] Deploy workflow publishes `/storybook/` to GitHub Pages alongside the panel; verify published URL
+  - [x] Document workshop usage in `docs/specs/storybook/index.md` References (update Changelog)
 
 ## Out of Scope
 

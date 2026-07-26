@@ -84,6 +84,18 @@ jobs:
           </html>
           EOF
 
+      # The component workshop ships in the SAME Pages artifact as the panel —
+      # a second workflow would mean a second Pages deployment, and the two
+      # would overwrite each other. Storybook's static build uses relative
+      # asset paths, so it works unchanged from a subdirectory.
+      - name: Build component workshop (Storybook)
+        run: npm run build-storybook
+
+      - name: Stage the workshop under /storybook/
+        run: |
+          rm -rf ./dist/storybook
+          mv ./storybook-static ./dist/storybook
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

@@ -793,7 +793,10 @@ The project is automatically deployed to GitHub Pages when changes are pushed to
 
 1. Builds the Home Assistant panel in production mode
 2. Creates a GitHub Pages site with the panel.js file
-3. Deploys to https://fx.github.io/liebe/
+3. Builds the Storybook workshop and stages it under `dist/storybook/`
+4. Deploys to https://fx.github.io/liebe/ (workshop at https://fx.github.io/liebe/storybook/)
+
+The panel and the workshop share **one** Pages artifact and **one** deployment — a second Pages workflow would overwrite this one, so anything else that needs publishing goes into a subdirectory of `dist/` in this same job.
 
 ### Manual Deployment
 

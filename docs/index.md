@@ -13,7 +13,7 @@
 | [Grid Layout](specs/grid-layout/)           | Grid layout system — react-grid-layout screens, item types, placement, drag/resize in edit mode, and layout persistence                                                                     | active |
 | [Navigation](specs/navigation/)             | Base-path-aware routing, Home Assistant URL sync, screen slugs, and taskbar/sidebar screen-tree navigation                                                                                  | active |
 | [Panel Lifecycle](specs/panel-lifecycle/)   | LiebePanel custom element — shadow-DOM React mount, hass propagation, and lifecycle-resilience mechanisms                                                                                   | active |
-| [Storybook](specs/storybook/)               | Component workshop — Storybook with entity fixtures, theme/appearance/grid-cell decorators, per-state stories, a11y, CI gate, Pages publishing (not yet implemented)                        | active |
+| [Storybook](specs/storybook/)               | Component workshop — Storybook with entity fixtures, theme/appearance/grid-cell decorators, per-state stories, a11y, CI gate, Pages publishing                                              | active |
 | [Theming](specs/theming/)                   | CSS-token theming — theme model/cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection and custom CSS, built-in Default/Liquid Glass/LCARS (not yet implemented) | active |
 
 ## Changes
@@ -28,7 +28,7 @@
 | 0006 | [Codecov & 100% Patch Coverage](changes/0006-codecov-patch-coverage.md)              | [Architecture](specs/architecture/)         | complete | —                |
 | 0007 | [HA Camera Stream Element](changes/0007-ha-camera-stream.md)                         | [Camera Streaming](specs/camera-streaming/) | complete | —                |
 | 0008 | [Camera Fullscreen Without DOM Moves](changes/0008-camera-fullscreen-no-dom-move.md) | [Camera Streaming](specs/camera-streaming/) | complete | —                |
-| 0009 | [Storybook Setup](changes/0009-storybook-setup.md)                                   | [Storybook](specs/storybook/)               | draft    | —                |
+| 0009 | [Storybook Setup](changes/0009-storybook-setup.md)                                   | [Storybook](specs/storybook/)               | complete | —                |
 | 0010 | [Design Tokens & Card Anatomy](changes/0010-design-tokens-and-anatomy.md)            | [Design System](specs/design-system/)       | draft    | 0009             |
 | 0011 | [Size-Adaptive Layout Tiers](changes/0011-layout-tiers.md)                           | [Design System](specs/design-system/)       | draft    | 0010, 0014       |
 | 0012 | [Theming Engine](changes/0012-theming-engine.md)                                     | [Theming](specs/theming/)                   | draft    | 0010             |

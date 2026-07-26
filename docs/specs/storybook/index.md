@@ -4,7 +4,7 @@
 
 Storybook is Liebe's component workshop: every card, anatomy part, and theme renders as isolated stories with mocked entity data, so components can be developed and reviewed without a Home Assistant instance. It complements — not replaces — the dockerized HA e2e suite ([architecture](../architecture/), change 0005). Storybook MUST land **before** the design-system, theming, and card-option implementations so that all of that work is developed and reviewed as stories first.
 
-**Status: specified, not yet implemented.**
+**Status: implemented** (change [0009](../../changes/0009-storybook-setup.md)).
 
 ## Background
 
@@ -100,11 +100,22 @@ Sequencing (the point of this spec): Storybook + fixtures + stories for the **ex
 
 ## References
 
+### Using the workshop
+
+- **Published build:** <https://fx.github.io/liebe/storybook/> — refreshed by the Pages deploy on every merge to `main`, alongside the panel bundle at the site root.
+- **Locally:** `npm run storybook` serves it on port 6006 bound to `0.0.0.0`; report the workspace's Tailscale hostname (not `localhost`) when sharing the URL. `npm run build-storybook` produces the same static build CI gates and the deploy publishes.
+- **Toolbar:** the **Theme** control lists the themes in the built-in registry and **Appearance** switches `dark`/`light`. Card stories render inside the grid-cell decorator, whose `width`/`height` story controls resize the cell so every layout tier is reachable without editing the story.
+- **Entity data:** stories seed the entity store from the factories in `src/test/fixtures/`; service calls are intercepted and logged to the Actions panel, so nothing reaches a real Home Assistant.
+- **A11y:** the a11y addon audits every story as it opens — check its panel when adding or changing a story.
+
+### Related documents
+
 - Related specs: [design-system](../design-system/), [theming](../theming/), [entity-cards](../entity-cards/) (+ [options](../entity-cards/options/common.md)), [architecture](../architecture/)
 - Change document: [0009-storybook-setup](../../changes/0009-storybook-setup.md)
 
 ## Changelog
 
-| Date       | Change               | Document                                                      |
-| ---------- | -------------------- | ------------------------------------------------------------- |
-| 2026-07-25 | Initial spec created | [0009-storybook-setup](../../changes/0009-storybook-setup.md) |
+| Date       | Change                                                                                                  | Document                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 2026-07-25 | Initial spec created                                                                                    | [0009-storybook-setup](../../changes/0009-storybook-setup.md) |
+| 2026-07-26 | Workshop implemented: CI `build-storybook` gate, Pages publishing under `/storybook/`, usage documented | [0009-storybook-setup](../../changes/0009-storybook-setup.md) |
