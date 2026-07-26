@@ -6,7 +6,7 @@ export interface SliderProps extends AnatomyPartProps {
   /**
    * The control's accessible name, and the fix for issue #192.
    *
-   * It is spent on the *thumb*, not on the root: Radix puts `role="slider"` on
+   * It is placed on the *thumb*, not on the root: Radix puts `role="slider"` on
    * `Slider.Thumb`, so a name on `Slider.Root` leaves the element that actually
    * carries the role anonymous — which is exactly what axe's
    * `aria-input-field-name` reported across the cards. Required rather than
