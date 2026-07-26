@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { hassService } from '../services/hassService'
+import { logger } from '../utils/logger'
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
 import { dashboardActions, dashboardStore } from '../store/dashboardStore'
 import { entityStore } from '../store/entityStore'
@@ -180,18 +181,38 @@ export function useCardActions({
         }
       }
 
-      void hassService.callServiceOnce(options)
+      void hassService.callServiceOnce(options).then((result) => {
+        if (!result.success) {
+          // The card's own error surface belongs to whatever issued the command
+          // — a control knows it is loading, the shell does not. What the shell
+          // owes a failed *action* is that it not vanish silently.
+          logger.error(
+            `Card action ${options.domain}.${options.service} failed: ${result.error}`,
+            options.entityId
+          )
+        }
+      })
     },
     []
   )
 
+  /*
+   * An unavailable entity resolves `default` to the detail dialog whatever the
+   * card declares, which is both halves of the same rule: a card must not
+   * actuate a device whose state is indeterminate, and "why has this gone
+   * quiet?" is precisely what the gesture is for at that moment. Kept here
+   * rather than declared again in each card's unavailable branch — every card
+   * has one, and one that forgot would fall through to a toggle.
+   */
+  const effectiveDefault: ResolvedCardAction = unavailable ? 'more-info' : defaultAction
+
   const actions = useMemo(
     () => ({
-      tap: resolveCardAction(readCardAction(config, 'tapAction'), defaultAction),
-      hold: resolveCardAction(readCardAction(config, 'holdAction'), defaultAction),
-      doubleTap: resolveCardAction(readCardAction(config, 'doubleTapAction'), defaultAction),
+      tap: resolveCardAction(readCardAction(config, 'tapAction'), effectiveDefault),
+      hold: resolveCardAction(readCardAction(config, 'holdAction'), effectiveDefault),
+      doubleTap: resolveCardAction(readCardAction(config, 'doubleTapAction'), effectiveDefault),
     }),
-    [config, defaultAction]
+    [config, effectiveDefault]
   )
 
   /**

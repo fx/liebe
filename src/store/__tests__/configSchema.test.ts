@@ -295,6 +295,16 @@ describe('validateDashboardConfig — card actions', () => {
     expect(result.success).toBe(false)
   })
 
+  it('rejects an unknown key inside a nested action object', () => {
+    // The item config passes unknown keys through, but the action objects
+    // inside it do not — a mistyped `targets:` must not ride along looking
+    // configured.
+    const result = validateDashboardConfig(
+      withItemConfig({ tapAction: { action: 'navigate', target: 'kitchen', targets: 'kitchen' } })
+    )
+    expect(result.success).toBe(false)
+  })
+
   it('rejects a call-service action whose service is not domain.service', () => {
     const result = validateDashboardConfig(
       withItemConfig({ holdAction: { action: 'call-service', service: 'turn_on' } })

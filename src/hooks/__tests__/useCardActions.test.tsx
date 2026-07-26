@@ -10,6 +10,7 @@ import {
 } from '~/store/cardActions'
 import { entityStore } from '~/store/entityStore'
 import { hassService } from '~/services/hassService'
+import { logger } from '~/utils/logger'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { ScreenConfig } from '~/store/types'
 
@@ -111,15 +112,61 @@ describe('useCardActions', () => {
 
   it('does not arm a hold timer for an action with nothing behind it', () => {
     // `more-info` before the detail dialog exists: nothing to open, so a press
-    // must not sit on a timer either.
-    const { result } = renderHook(() => useCardActions({ entityId: 'light.desk' }))
+    // must not sit on a timer either — and, crucially, must not consume the tap
+    // that follows the way a fired hold does.
+    const onToggle = vi.fn()
+    const { result } = renderHook(() => useCardActions({ entityId: 'light.desk', onToggle }))
 
     act(() => result.current.press())
     act(() => {
       vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
     })
-    // The tap that follows is unaffected by the press that did nothing.
     act(() => result.current.release())
+    act(() => result.current.tap())
+
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs a failed action rather than swallowing it', async () => {
+    const hass = createMockHomeAssistant({
+      callService: vi.fn().mockRejectedValue(new Error('not authorised')),
+    })
+    hassService.setHass(hass)
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+
+    const { result } = renderHook(() =>
+      useCardActions({
+        entityId: 'button.doorbell',
+        config: { tapAction: { action: 'call-service', service: 'button.press' } },
+      })
+    )
+
+    act(() => result.current.tap())
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('button.press failed: not authorised'),
+      'button.doorbell'
+    )
+    error.mockRestore()
+  })
+
+  it('resolves `default` to the detail dialog while the entity is unavailable', () => {
+    // Whatever the card declares: a card must not actuate a device whose state
+    // is indeterminate, and "why has this gone quiet?" is what the gesture is
+    // for at that moment.
+    const onToggle = vi.fn()
+    const onMoreInfo = vi.fn()
+    const { result } = renderHook(() =>
+      useCardActions({ entityId: 'light.desk', onToggle, onMoreInfo, unavailable: true })
+    )
+
+    act(() => result.current.tap())
+
+    expect(onMoreInfo).toHaveBeenCalledTimes(1)
+    expect(onToggle).not.toHaveBeenCalled()
   })
 
   /**

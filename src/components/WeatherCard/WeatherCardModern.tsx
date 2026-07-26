@@ -120,9 +120,6 @@ function WeatherCardModernContent(props: CardProps) {
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
-        // The same declaration the available branch makes: an unavailable
-        // entity is exactly when its details are worth opening.
-        defaultAction="more-info"
         onConfigure={onConfigure}
         hasConfiguration={!!onConfigure}
         backdrop={false}
