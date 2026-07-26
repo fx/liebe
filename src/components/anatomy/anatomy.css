@@ -201,10 +201,19 @@
     transition: color 280ms ease-out;
   }
 
-  /* An active state line takes the domain's text step; supporting values that
-     sit beside it stay muted, which is the default above. */
+  /* An active state line takes the domain's text step. */
   .liebe-state[data-active] {
     color: var(--part-text);
+  }
+
+  /*
+   * The supporting value stays muted even on an active line — the state is
+   * what carries the hue, the brightness qualifying it is not. Setting the
+   * colour on the child wins over the parent's regardless of specificity,
+   * because inheritance only reaches a property nothing else declares.
+   */
+  .liebe-state-detail {
+    color: var(--liebe-muted);
   }
 
   /* ------------------------------------------------------------------ *
@@ -233,10 +242,25 @@
     font-weight: 500;
     gap: 6px;
     letter-spacing: var(--liebe-letter-spacing);
-    /* Touch-first: 38px tall, so the ≥44px target is met on the other axis. */
+    /*
+     * The height is pinned against `src/styles/app.css`, which raises every
+     * button to a 44px minimum on coarse pointers. That rule would silently
+     * restyle the anatomy rather than only enlarging its target — and would
+     * override `--liebe-chip-height` for the chip, i.e. beat a token. The
+     * ≥44px touch target is met on the inline axis instead, which is what the
+     * spec asks for ("≥44px in at least one dimension"). Until change 0012
+     * wraps `app.css` into `liebe-base`, that sheet is unlayered and still
+     * wins; from then on this class selector outranks its bare `button`.
+     */
+    min-block-size: 38px;
     min-inline-size: 44px;
     padding-inline: 10px;
     text-transform: var(--liebe-text-transform);
+  }
+
+  .liebe-pill:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 
   .liebe-pill-label {
@@ -282,14 +306,19 @@
     font-weight: 500;
     gap: 6px;
     letter-spacing: var(--liebe-letter-spacing);
+    /* Same pin as the pill: the token decides the height, not the global
+       coarse-pointer minimum — otherwise a tappable chip would stand 10px
+       taller than the read-only one beside it. */
+    min-block-size: var(--liebe-chip-height);
     padding-inline: 12px;
     text-transform: var(--liebe-text-transform);
   }
 
-  /* A button chip is still a chip; only the pointer differs. */
+  /* A button chip is still a chip; only the pointer and the target differ. */
   button.liebe-chip {
     appearance: none;
     cursor: pointer;
+    min-inline-size: 44px;
   }
 
   .liebe-chip-icon {

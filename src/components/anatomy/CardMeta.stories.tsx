@@ -8,6 +8,8 @@ import { AppearanceSplit, PartStage, domainColorOptions } from '../../../.storyb
 interface MetaStoryArgs {
   name: string
   state: string
+  /** The supporting value after the state — muted even on an active line. */
+  detail?: string
   color: (typeof domainColorOptions)[number]
   domain: string
   active: boolean
@@ -31,12 +33,13 @@ const meta: Meta<MetaStoryArgs> = {
   args: {
     name: 'Living Room Lamp',
     state: 'Off',
+    detail: undefined,
     color: 'light',
     domain: 'light',
     active: false,
     withIcon: true,
   },
-  render: ({ name, state, color, domain, active, withIcon }) => (
+  render: ({ name, state, detail, color, domain, active, withIcon }) => (
     <PartStage>
       <Flex align="center" gap="3" style={{ maxWidth: 220 }}>
         {withIcon ? (
@@ -45,8 +48,8 @@ const meta: Meta<MetaStoryArgs> = {
           </IconCircle>
         ) : null}
         <CardMeta>
-          <CardName>{name}</CardName>
-          <CardState color={color} domain={domain} active={active}>
+          <CardName domain={domain}>{name}</CardName>
+          <CardState color={color} domain={domain} active={active} detail={detail}>
             {state}
           </CardState>
         </CardMeta>
@@ -63,14 +66,23 @@ export const Inactive: Story = {}
 
 /** Active: the state line takes the domain's text step, the name does not. */
 export const Active: Story = {
-  args: { state: 'On · 80%', active: true },
+  args: { state: 'On', detail: '· 80%', active: true },
+}
+
+/**
+ * The supporting value stays muted while the state beside it carries the hue —
+ * a brightness reading qualifies the state, it is not a second state.
+ */
+export const SupportingValue: Story = {
+  args: { state: 'Heating', detail: '· 21.5 °C', color: 'heat', domain: 'climate', active: true },
 }
 
 /** A name longer than its tile ellipsizes instead of widening the card. */
 export const LongName: Story = {
   args: {
     name: 'Living Room Ceiling Light — Left Fixture',
-    state: 'On · 80% · warm white',
+    state: 'On',
+    detail: '· 80% · warm white · scene Evening',
     active: true,
   },
 }
@@ -87,13 +99,13 @@ export const BothAppearances: Story = {
       <PartStage>
         <Flex direction="column" gap="3" style={{ maxWidth: 220 }}>
           <CardMeta>
-            <CardName>{name}</CardName>
-            <CardState color={color} domain={domain} active>
-              On · 80%
+            <CardName domain={domain}>{name}</CardName>
+            <CardState color={color} domain={domain} active detail="· 80%">
+              On
             </CardState>
           </CardMeta>
           <CardMeta>
-            <CardName>{name}</CardName>
+            <CardName domain={domain}>{name}</CardName>
             <CardState color={color} domain={domain}>
               {state}
             </CardState>

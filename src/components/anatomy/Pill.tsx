@@ -38,6 +38,13 @@ export interface PillProps extends AnatomyPartProps {
   /** Renders icon-only, keeping `label` as the accessible name. */
   hideLabel?: boolean
   icon?: ReactNode
+  /**
+   * Renders and behaves as a native disabled button: no dispatch, out of the
+   * tab order. This is how a card holds back a control that must not fire —
+   * an unavailable entity, a command already in flight, the mode that is
+   * already current.
+   */
+  disabled?: boolean
   onClick?: () => void
 }
 
@@ -49,14 +56,29 @@ export interface PillProps extends AnatomyPartProps {
  * pressed state is exactly the `active` the visual treatment reads, and the
  * grouping is already carried by `PillGroup`.
  */
-export function Pill({ label, hideLabel = false, icon, onClick, ...part }: PillProps) {
+export function Pill({
+  label,
+  hideLabel = false,
+  icon,
+  disabled = false,
+  onClick,
+  ...part
+}: PillProps) {
   return (
     <button
       type="button"
       {...anatomyPart('liebe-pill', part)}
       aria-pressed={part.active ?? false}
       aria-label={hideLabel ? label : undefined}
-      onClick={onClick}
+      disabled={disabled}
+      onClick={(event) => {
+        // A pill sits inside a card whose whole tile is the primary action, and
+        // that handler accepts any descendant target. Without this, choosing a
+        // mode would also fire the tile — toggling the very device the pill was
+        // configuring.
+        event.stopPropagation()
+        onClick?.()
+      }}
     >
       {icon}
       {hideLabel ? null : <span className="liebe-pill-label">{label}</span>}

@@ -16,9 +16,12 @@ const MODES: { value: string; label: string; color: DomainColorName; icon: React
 function ModePills({
   initial = 'heat',
   hideLabel = false,
+  disabled = false,
 }: {
   initial?: string
   hideLabel?: boolean
+  /** Holds every pill back, as a card does while a command is in flight. */
+  disabled?: boolean
 }) {
   const [selected, setSelected] = useState(initial)
 
@@ -33,6 +36,7 @@ function ModePills({
           color={color}
           domain="climate"
           active={selected === value}
+          disabled={disabled}
           onClick={() => setSelected(value)}
         />
       ))}
@@ -73,6 +77,14 @@ export const NoneSelected: Story = {
 /** Icon-only pills keep their label as the accessible name. */
 export const IconOnly: Story = {
   args: { hideLabel: true },
+}
+
+/**
+ * Disabled: natively, so nothing dispatches and nothing takes focus — what a
+ * card needs while an entity is unavailable or a command is in flight.
+ */
+export const Disabled: Story = {
+  args: { disabled: true },
 }
 
 /** Selecting a pill moves the active treatment to it. */

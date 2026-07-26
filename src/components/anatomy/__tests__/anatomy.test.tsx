@@ -86,18 +86,27 @@ describe('meta block', () => {
   it('stacks an ellipsized name over a state line', () => {
     const { container } = render(
       <CardMeta>
-        <CardName>Living Room Lamp</CardName>
-        <CardState color="light" domain="light" active>
-          On · 80%
+        <CardName domain="light">Living Room Lamp</CardName>
+        <CardState color="light" domain="light" active detail="· 80%">
+          On
         </CardState>
       </CardMeta>
     )
 
     expect(container.querySelector('.liebe-meta')).toBeInTheDocument()
-    expect(container.querySelector('.liebe-name')).toHaveTextContent('Living Room Lamp')
+    const name = container.querySelector('.liebe-name')
+    expect(name).toHaveTextContent('Living Room Lamp')
+    // The name is reachable by theme selectors like every other part...
+    expect(name).toHaveAttribute('data-domain', 'light')
+    // ...but never renders state, whatever the line below it does.
+    expect(name).not.toHaveAttribute('data-active')
+
     const state = container.querySelector('.liebe-state')
     expect(state).toHaveTextContent('On · 80%')
     expect(state).toHaveAttribute('data-active', 'true')
+    // The supporting value is its own element, so it can stay muted while the
+    // state itself takes the domain's text step.
+    expect(container.querySelector('.liebe-state-detail')).toHaveTextContent('· 80%')
   })
 
   it('accepts extra classes on the stack and the name', () => {
@@ -111,6 +120,7 @@ describe('meta block', () => {
     expect(container.querySelector('.liebe-meta')).toHaveClass('stack')
     expect(container.querySelector('.liebe-name')).toHaveClass('wide')
     expect(container.querySelector('.liebe-state')).not.toHaveAttribute('data-active')
+    expect(container.querySelector('.liebe-state-detail')).not.toBeInTheDocument()
   })
 })
 
@@ -146,6 +156,33 @@ describe('Pill', () => {
     expect(screen.getByRole('button', { name: 'Boost' })).toBeInTheDocument()
     expect(screen.queryByText('Boost')).not.toBeInTheDocument()
     expect(screen.getByTestId('boost-icon')).toBeInTheDocument()
+  })
+
+  it('does not dispatch while disabled', async () => {
+    const onClick = vi.fn()
+    render(<Pill label="Unlock" disabled onClick={onClick} />)
+
+    const pill = screen.getByRole('button', { name: 'Unlock' })
+    expect(pill).toBeDisabled()
+    await userEvent.click(pill)
+    expect(onClick).not.toHaveBeenCalled()
+  })
+})
+
+describe('embedded controls', () => {
+  // The card's whole tile is its primary action and its handler accepts any
+  // descendant target, so a control that let its click bubble would fire the
+  // tile as well — choosing a mode would toggle the device it configures.
+  it.each([
+    ['pill', <Pill key="pill" label="Cool" onClick={() => {}} />],
+    ['chip', <Chip key="chip" label="Away" onClick={() => {}} />],
+  ])('keeps a %s click from reaching the tile around it', async (_part, control) => {
+    const onTileClick = vi.fn()
+    // Stands in for the card shell, whose own handler accepts any descendant.
+    render(<div onClick={onTileClick}>{control}</div>)
+
+    await userEvent.click(screen.getByRole('button'))
+    expect(onTileClick).not.toHaveBeenCalled()
   })
 })
 

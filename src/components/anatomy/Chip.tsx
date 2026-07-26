@@ -34,7 +34,17 @@ export function Chip({ label, icon, onClick, ...part }: ChipProps) {
 
   if (onClick) {
     return (
-      <button type="button" {...attributes} onClick={onClick}>
+      <button
+        type="button"
+        {...attributes}
+        onClick={(event) => {
+          // The card around it treats its whole tile as the primary action and
+          // accepts any descendant target, so a chip that let its click bubble
+          // would fire the tile too.
+          event.stopPropagation()
+          onClick()
+        }}
+      >
         {content}
       </button>
     )

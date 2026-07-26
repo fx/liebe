@@ -123,7 +123,7 @@ Every entity card composes from a fixed set of anatomy parts, each with a stable
 - **Big value** (`liebe-value`): the large numeric readout with unit in muted 14px.
 - **Sparkline** (`liebe-spark`): inline history graph — 2px domain-color line, 14%-alpha area fill, emphasized endpoint dot; no axes or gridlines at card sizes.
 
-Each part MUST carry, alongside its class, the attributes a theme keys off ([theming — stable selectors](../theming/index.md#stable-selector-contract)): `data-domain` with the entity's domain, `data-active` **only while active** (so a theme selects on `[data-active]`, and an inactive part carries no such attribute), and `data-color` naming the resolved triplet — the attribute the base stylesheet maps onto `--liebe-c-<name>`, `-tint` and `-text`. Colour therefore reaches a part as a triplet name, never as a Radix `color` prop or scale variable.
+Every part MUST also stamp the attributes of the [stable selector contract](../theming/index.md#stable-selector-contract), which owns their names and semantics. Colour reaches a part as a `data-color` triplet name that the base stylesheet maps onto the three `--liebe-c-*` tokens — never as a Radix `color` prop or scale variable at the point of use.
 
 - Text inside a tinted part (chip and pill labels) MUST NOT take the tint pattern's glyph colour. The pattern is calibrated for a glyph — a large graphical object at 3:1 — while a ~12.5px label needs 4.5:1, which neither the base hue nor its text step reaches on the 20% tint in light appearance. The hue is carried by the surface and the glyph; labels take the neutral foreground (muted when inactive).
 - Cards MUST be flat in dark appearance (no border, no shadow) and MAY carry the small shadow token in light appearance.
