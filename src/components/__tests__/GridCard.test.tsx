@@ -225,6 +225,98 @@ describe('GridCard shell', () => {
     expect(card().getAttribute('style')).not.toContain('hotpink')
   })
 
+  it('drops every spelling of the themed border, not just the shorthand', () => {
+    // `--liebe-card-border` is one declaration, but CSS gives a caller forty-odd
+    // ways to outrank it: a per-side longhand, a logical one, a single facet of
+    // either, a corner radius, or a `border-image` that suppresses the painted
+    // border altogether. Fencing only the shorthand would have left `borderTop`
+    // as a working way round the theme layers.
+    render(
+      <GridCard
+        domain="light"
+        style={
+          {
+            borderTop: '5px solid hotpink',
+            'border-right': '5px solid hotpink',
+            borderBottomColor: 'hotpink',
+            'border-left-width': '5px',
+            'border-inline-start': '5px solid hotpink',
+            borderInlineEndStyle: 'dashed',
+            'border-block': '5px solid hotpink',
+            borderBlockStartWidth: '5px',
+            borderStyle: 'dashed',
+            borderTopLeftRadius: '5px',
+            'border-end-end-radius': '5px',
+            borderImageSource: 'url(/hotpink.png)',
+            // Controls: three properties the fence does not own — one of them
+            // `border`-prefixed, to show the filter matches whole property
+            // names rather than a prefix, and one from the `font` family the
+            // shorthand fence sits in. They have to arrive, or the drop
+            // assertions would pass for the wrong reason.
+            'background-size': 'cover',
+            'border-collapse': 'collapse',
+            'font-size': '20px',
+          } as CSSProperties
+        }
+      >
+        content
+      </GridCard>
+    )
+
+    const { style } = card()
+    expect(style.backgroundSize).toBe('cover')
+    expect(style.borderCollapse).toBe('collapse')
+    expect(style.fontSize).toBe('20px')
+    expect(style.borderTop).toBe('')
+    expect(style.borderRight).toBe('')
+    expect(style.borderBottomColor).toBe('')
+    expect(style.borderLeftWidth).toBe('')
+    expect(style.borderInlineStart).toBe('')
+    expect(style.borderInlineEndStyle).toBe('')
+    expect(style.borderBlock).toBe('')
+    expect(style.borderBlockStartWidth).toBe('')
+    expect(style.borderStyle).toBe('')
+    expect(style.borderTopLeftRadius).toBe('')
+    expect(style.borderEndEndRadius).toBe('')
+    expect(style.borderImageSource).toBe('')
+    expect(card().getAttribute('style')).not.toContain('hotpink')
+    expect(card().getAttribute('style')).not.toContain('5px')
+    expect(card().getAttribute('style')).not.toContain('dashed')
+  })
+
+  it('drops the shorthands that would reopen the fence from outside their own family', () => {
+    // `font` resets `font-family`, and `all` resets every property there is, so
+    // either one left open would put the themed surface back within a caller's
+    // reach in a single declaration — the same structural hole as `borderTop`,
+    // one level up.
+    render(
+      <GridCard
+        domain="light"
+        style={
+          {
+            font: 'italic 20px "Comic Sans MS"',
+            all: 'unset',
+            // `-webkit-backdrop-filter` belongs to this group and is fenced
+            // with them, but jsdom's cssstyle does not implement the property,
+            // so an assertion here would pass whether or not the fence held.
+            // It is checked in a real engine instead — see the change doc.
+            // Control, as above.
+            'background-size': 'cover',
+          } as CSSProperties
+        }
+      >
+        content
+      </GridCard>
+    )
+
+    const { style } = card()
+    expect(style.backgroundSize).toBe('cover')
+    expect(style.font).toBe('')
+    expect(style.fontFamily).toBe('')
+    expect(card().getAttribute('style')).not.toContain('Comic Sans')
+    expect(card().getAttribute('style')).not.toContain('unset')
+  })
+
   it('keeps the shell-controlled padding channel open while the style prop is fenced', () => {
     // `customPadding` is how the camera's matting reaches the tile. It is a
     // prop the shell resolves, not an inline value a caller smuggled past the

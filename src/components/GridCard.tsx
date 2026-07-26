@@ -47,6 +47,34 @@ export interface GridCardProps {
   customPadding?: string
 }
 
+/**
+ * `backgroundColor` and `background-color` are the same declaration; so are
+ * `paddingInlineStart` and `padding-inline-start`.
+ */
+const normalizeProperty = (property: string) => property.replace(/[^a-z]/gi, '').toLowerCase()
+
+/*
+ * `border`'s per-side and logical family, expanded rather than spelled out: it
+ * is 44 declarations, and a hand-written list is one typo away from leaving
+ * open the very hole the fence exists to close. Every edge below accepts the
+ * shorthand plus its `-color` / `-style` / `-width` form, and each of them
+ * alone is enough to repaint the tile's edge over `--liebe-card-border`.
+ */
+const BORDER_EDGES = [
+  'border',
+  'border-top',
+  'border-right',
+  'border-bottom',
+  'border-left',
+  'border-block',
+  'border-block-start',
+  'border-block-end',
+  'border-inline',
+  'border-inline-start',
+  'border-inline-end',
+]
+const BORDER_FACETS = ['', '-color', '-style', '-width']
+
 /*
  * The properties `GridCard.css` resolves from the token contract. A
  * caller-supplied inline value for any of them would outrank every cascade
@@ -57,12 +85,21 @@ export interface GridCardProps {
  * the same hole one component further out, so the prop is filtered instead of
  * trusted; change 0012's precedence contract depends on it staying shut.
  *
- * The fence is drawn around *themable* properties only. Data-driven values are
- * still the caller's to set, and several cards depend on that: the weather
- * variants' `backgroundImage` (the condition artwork), the camera's `contain`,
- * a light's actual bulb RGB. Custom properties pass too — writing
- * `--liebe-card-bg` is using the theming channel rather than going around it,
- * which is how the `backdrop` prop works.
+ * The line the fence draws is *any inline declaration that can override one the
+ * sheet resolves from a token* — which is why it lists whole families, not the
+ * single spelling a card happened to reach for. A shorthand overrides its
+ * longhands (`border` covers `border-top-color`), and a longhand overrides its
+ * share of a shorthand (`border-top` alone is enough to outrank the themed
+ * `border`), so both directions have to be inside the fence or neither is.
+ *
+ * Data-driven values are still the caller's to set, and several cards depend on
+ * that: the weather variants' `backgroundImage` (the condition artwork), the
+ * camera's `contain`, a light's actual bulb RGB. That is why the background
+ * family is deliberately only half-fenced — `background` and `background-color`
+ * are the themed surface, while `background-image` / `-size` / `-position` /
+ * `-repeat` are the paint layers a card carries its data in. Custom properties
+ * pass too — writing `--liebe-card-bg` is using the theming channel rather than
+ * going around it, which is how the `backdrop` prop works.
  *
  * `padding` and `outline` are fenced along with the rest, and neither costs a
  * card anything. `--liebe-card-padding` owns the tile's inset, and the one card
@@ -72,42 +109,66 @@ export interface GridCardProps {
  * whole vocabulary of the state rings (`data-selected` / `data-error` /
  * `data-unavailable`), so a caller-supplied one would not just recolour a
  * surface, it would overwrite a state signal.
+ *
+ * `border-image` is fenced, unlike its background counterpart: a non-`none`
+ * `border-image-source` suppresses the painted `border-color` and
+ * `border-style` the token contract resolves, so it is a way to repaint the
+ * fenced border rather than a way to carry a card's data — and no card carries
+ * data through it. `font` and `all` are in for the same structural reason as
+ * `border-top`: `font` resets `font-family`, and `all` resets every property
+ * there is, so either one left open would reopen the whole fence in one
+ * declaration.
  */
-const THEMABLE_PROPERTIES: ReadonlySet<string> = new Set([
-  'backdropfilter',
-  'background',
-  'backgroundcolor',
-  'border',
-  'bordercolor',
-  'borderradius',
-  'borderwidth',
-  'boxshadow',
-  'color',
-  'fontfamily',
-  'letterspacing',
-  'outline',
-  'outlinecolor',
-  'outlineoffset',
-  'outlinestyle',
-  'outlinewidth',
-  'padding',
-  'paddingblock',
-  'paddingblockend',
-  'paddingblockstart',
-  'paddingbottom',
-  'paddinginline',
-  'paddinginlineend',
-  'paddinginlinestart',
-  'paddingleft',
-  'paddingright',
-  'paddingtop',
-])
-
-/**
- * `backgroundColor` and `background-color` are the same declaration; so are
- * `paddingInlineStart` and `padding-inline-start`.
- */
-const normalizeProperty = (property: string) => property.replace(/[^a-z]/gi, '').toLowerCase()
+const THEMABLE_PROPERTIES: ReadonlySet<string> = new Set(
+  [
+    // Resets everything, this fence included.
+    'all',
+    'backdrop-filter',
+    // The one vendor alias still honoured by a shipping engine (Safari before
+    // 18), and therefore still a second spelling of the themed blur. The dead
+    // `-webkit-`/`-moz-` aliases of the others are not listed.
+    '-webkit-backdrop-filter',
+    'background',
+    'background-color',
+    ...BORDER_EDGES.flatMap((edge) => BORDER_FACETS.map((facet) => `${edge}${facet}`)),
+    'border-image',
+    'border-image-outset',
+    'border-image-repeat',
+    'border-image-slice',
+    'border-image-source',
+    'border-image-width',
+    'border-radius',
+    'border-top-left-radius',
+    'border-top-right-radius',
+    'border-bottom-left-radius',
+    'border-bottom-right-radius',
+    'border-start-start-radius',
+    'border-start-end-radius',
+    'border-end-start-radius',
+    'border-end-end-radius',
+    'box-shadow',
+    'color',
+    'font',
+    'font-family',
+    'letter-spacing',
+    'outline',
+    'outline-color',
+    'outline-offset',
+    'outline-style',
+    'outline-width',
+    'padding',
+    'padding-block',
+    'padding-block-end',
+    'padding-block-start',
+    'padding-bottom',
+    'padding-inline',
+    'padding-inline-end',
+    'padding-inline-start',
+    'padding-left',
+    'padding-right',
+    'padding-top',
+  ].map(normalizeProperty)
+)
 
 /**
  * The caller's `style`, minus anything the token contract owns. Returns a new
