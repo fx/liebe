@@ -44,7 +44,7 @@ specs:
     status: active
   - name: theming
     path: specs/theming/
-    description: CSS-token theming — theme model and cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection/custom CSS, and built-in Default, Liquid Glass, and LCARS themes (not yet implemented)
+    description: CSS-token theming — theme model and cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection/custom CSS, and built-in Default, Liquid Glass, and LCARS themes (engine and Default implemented; Liquid Glass and LCARS pending 0013)
     status: active
 
 changes:
@@ -130,7 +130,7 @@ changes:
     path: changes/0012-theming-engine.md
     description: Layered style injection (base→theme→user), theme registry, appearance resolution, YAML-persisted theme config, and the in-panel picker + custom CSS editor
     spec: theming
-    status: draft
+    status: complete
     depends_on: ['0010']
   - id: '0013'
     name: built-in-themes

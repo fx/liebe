@@ -27,9 +27,17 @@ export interface SeedGridItem {
   height: number
 }
 
+// The theming engine's configuration (docs/changes/0012-theming-engine.md). A
+// seed may still carry the pre-0012 scalar `theme`, which the loader migrates.
+export interface SeedThemeConfig {
+  id: string
+  appearance: 'auto' | 'dark' | 'light'
+  customCss: string
+}
+
 export interface SeedConfig {
   version: string
-  theme: string
+  theme: string | SeedThemeConfig
   screens: Array<{
     id: string
     name: string
@@ -42,17 +50,19 @@ export interface SeedConfig {
   }>
 }
 
-// Single-screen config builder shared by every seed below.
+// Single-screen config builder shared by every seed below. `theme` defaults to
+// the legacy scalar so existing seeds keep exercising the migration path.
 export function buildSeedConfig(screen: {
   id: string
   name: string
   slug: string
   items: SeedGridItem[]
+  theme?: string | SeedThemeConfig
 }): SeedConfig {
-  const { id, name, slug, items } = screen
+  const { id, name, slug, items, theme = 'auto' } = screen
   return {
     version: '1.0.0',
-    theme: 'auto',
+    theme,
     screens: [
       {
         id,
@@ -106,6 +116,30 @@ export function seedCameraConfig(): SeedConfig {
     slug: 'e2e-camera',
     items: [
       { id: 'item-camera', type: 'entity', entityId: E2E_CAMERA, x: 0, y: 0, width: 4, height: 2 },
+    ],
+  })
+}
+
+// DEDICATED theming seed — its own screen, for the same reason the camera seed
+// has one: the theming spec switches appearance and imports a whole foreign
+// configuration, neither of which may perturb the deterministic seed the other
+// serial specs assert against.
+export function seedThemeConfig(theme: SeedThemeConfig): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-theme-screen',
+    name: 'E2E Theme',
+    slug: 'e2e-theme',
+    theme,
+    items: [
+      {
+        id: 'item-theme-flag',
+        type: 'entity',
+        entityId: E2E_FLAG,
+        x: 0,
+        y: 0,
+        width: 2,
+        height: 2,
+      },
     ],
   })
 }
@@ -425,6 +459,100 @@ export async function holdCardTitle(page: Page, title: string): Promise<void> {
   await page.mouse.down()
   await page.waitForTimeout(900)
   await page.mouse.up()
+}
+
+// --- Theming readers (docs/specs/theming) ---
+
+// The panel root the theming contract stamps and declares its tokens on.
+// Everything below reads through it, so a stamp landing on some other element
+// would fail these specs rather than pass them by accident.
+function themeRootSelector(): string {
+  return '.liebe-root'
+}
+
+// What the panel says it is rendering: the theme that actually applied (an
+// unregistered id falls back to Default) and the resolved appearance.
+export async function themeStamp(page: Page): Promise<{
+  themeId: string | null
+  appearance: string | null
+}> {
+  return page.evaluate((selector) => {
+    const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+    const root = panel?.shadowRoot?.querySelector(selector)
+    return {
+      themeId: root?.getAttribute('data-liebe-theme') ?? null,
+      appearance: root?.getAttribute('data-appearance') ?? null,
+    }
+  }, themeRootSelector())
+}
+
+// A `--liebe-*` token as it actually computes on the panel root. This is the
+// assertion that separates "the stamp changed" from "the cascade re-resolved":
+// the token values differ per appearance and per layer, so reading the computed
+// value proves which layer won.
+export async function themeToken(page: Page, token: string): Promise<string> {
+  return page.evaluate(
+    ({ selector, name }) => {
+      const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+      const root = panel?.shadowRoot?.querySelector(selector)
+      return root ? getComputedStyle(root).getPropertyValue(name).trim() : ''
+    },
+    { selector: themeRootSelector(), name: token }
+  )
+}
+
+// The panel ground as the browser actually paints it — always a resolved
+// `rgb(...)`, unlike a custom property, so it says what the whole token chain
+// (`--liebe-bg` → Radix gray step → appearance) came out as.
+export async function themeBackgroundColor(page: Page): Promise<string> {
+  return page.evaluate((selector) => {
+    const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+    const root = panel?.shadowRoot?.querySelector(selector)
+    return root ? getComputedStyle(root).backgroundColor : ''
+  }, themeRootSelector())
+}
+
+// The injected user layer's CSS text, exactly as the sanitizer serialized it.
+export async function userLayerCss(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+    return panel?.shadowRoot?.querySelector('style[data-liebe="user"]')?.textContent ?? ''
+  })
+}
+
+// The `theme` field as persisted, read back from localStorage — what a further
+// export would carry.
+export async function storedTheme(page: Page): Promise<unknown> {
+  return page.evaluate(() => {
+    const raw = localStorage.getItem('liebe-config')
+    if (!raw) return null
+    return (JSON.parse(raw) as { theme?: unknown }).theme ?? null
+  })
+}
+
+// Open the taskbar's configuration menu. Its content portals to document.body,
+// outside the panel's shadow root — Playwright's engines pierce both.
+export async function openConfigurationMenu(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Configuration menu' }).click()
+  await expect(page.getByRole('menu')).toBeVisible()
+}
+
+// The open menu read as a portalled overlay: whether it really did escape the
+// shadow root, and what the requested tokens compute to out there. This is the
+// only place the layer mirroring can be judged by its effect rather than by the
+// presence of a `<style>` element.
+export async function overlayTokens(
+  page: Page,
+  tokens: string[]
+): Promise<{ outsideShadowRoot: boolean; values: Record<string, string> }> {
+  return page.evaluate((names) => {
+    const menu = document.querySelector('[role="menu"]')
+    if (!menu) return { outsideShadowRoot: false, values: {} }
+    const style = getComputedStyle(menu)
+    const values: Record<string, string> = {}
+    for (const name of names) values[name] = style.getPropertyValue(name).trim()
+    return { outsideShadowRoot: menu.getRootNode() === document, values }
+  }, tokens)
 }
 
 // --- REST helpers (bypass the UI to set up / verify state deterministically) ---
