@@ -41,6 +41,30 @@ const preview: Preview = {
       // workshop records the violations it finds as issues, and fixing them is
       // deliberately out of scope here (change 0009, PR 2).
       test: 'todo',
+      config: {
+        rules: [
+          {
+            // `region` reports a story-isolation artifact, not a card defect: a
+            // story renders a bare card with no surrounding landmark, while the
+            // real panel DOES provide one. Measured against the built workshop,
+            // a stock `axe.run(document.body)` flags it on 127 of 165 stories
+            // (301 nodes) — enough to bury the findings that ARE real defects,
+            // `button-name` (critical, 35 stories) and `aria-input-field-name`
+            // (serious, 6 stories), which stay reported and are tracked in
+            // issues #191 and #192.
+            //
+            // addon-a11y disables `region` in its own default rule set for this
+            // exact reason, so today this entry is a no-op for the addon's
+            // runner; it is pinned here so the suppression is explicit and
+            // survives a change to those addon defaults.
+            //
+            // Revisit if full-shell stories are ever added — a story that DOES
+            // render the panel's landmarks could fail this rule meaningfully.
+            id: 'region',
+            enabled: false,
+          },
+        ],
+      },
     },
   },
   globalTypes: {
