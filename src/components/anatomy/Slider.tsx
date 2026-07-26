@@ -44,14 +44,20 @@ export interface SliderProps extends AnatomyPartProps {
    */
   readout?: string
   /**
-   * Fires continuously during the drag, so the card can paint the new value
-   * immediately. Required: a slider that cannot report its value has nothing to
-   * be — the same rule that makes `Pill`'s `onClick` required.
+   * Fires on every value the control passes through — continuously during a
+   * pointer drag, and once per key press of a keyboard adjustment — so the card
+   * can paint the new value immediately. Required: a slider that cannot report
+   * its value has nothing to be — the same rule that makes `Pill`'s `onClick`
+   * required.
    */
   onValueChange: (value: number) => void
   /**
-   * Fires once when the drag ends. Cards use it to dispatch the service call,
-   * so a drag across the track sends one command rather than eighty.
+   * Fires when an adjustment settles, by pointer *or* by keyboard: once on
+   * release at the end of a drag, and once per key press (arrows, Page keys,
+   * Home/End), in both cases only if the value actually moved. Cards use it to
+   * dispatch the service call, so a drag across the track sends one command
+   * rather than eighty — while a keyboard user, who commits with every step,
+   * still gets one command per step rather than none.
    */
   onValueCommit?: (value: number) => void
 }
