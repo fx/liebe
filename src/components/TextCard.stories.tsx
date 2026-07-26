@@ -81,7 +81,7 @@ export const FromConfig: Story = {
  * An unsupported option value (from hand-edited or older YAML) falls back to
  * the default rather than being applied verbatim.
  */
-export const InvalidOptionsFallBack: Story = {
+export const InvalidOptionsFallback: Story = {
   args: {
     config: {
       content: 'Unknown alignment, size, and colour all fall back to the defaults.',

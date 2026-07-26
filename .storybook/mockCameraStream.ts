@@ -47,6 +47,24 @@ class MockHaCameraStream extends HTMLElement {
   #src = MOCK_CAMERA_FRAME
   /** Last rendered inputs, so repeated property writes do not restart the frame. */
   #rendered: string | null = null
+  /**
+   * Whether the card has handed over the fixture yet.
+   *
+   * `HaCameraStream` appends the element (firing `connectedCallback`) in one
+   * layout effect and assigns `stateObj` in the next, so rendering on connect
+   * would run with the DEFAULT behaviour — always `stream`. For a `connecting`
+   * or `error` fixture, that first render starts a frame the very next render
+   * detaches with `replaceChildren()`, and the detached <img> still fires
+   * `load` afterwards: a stream announcement for a configuration that has no
+   * stream.
+   *
+   * Waiting for the fixture is the fix rather than filtering the late event,
+   * because it removes the cause — a superseded image is never created, so
+   * there is nothing left to fire. `#isCurrent` then covers the general case
+   * (a fixture genuinely changing mid-story), which no amount of ordering can
+   * rule out.
+   */
+  #configured = false
 
   // The card assigns `stateObj` (plus `hass`, `muted`, `fitMode`, `controls`,
   // which the mock ignores) as properties in a layout effect.
@@ -54,15 +72,18 @@ class MockHaCameraStream extends HTMLElement {
     const { entity_picture: picture, mock_stream: behavior } = value?.attributes ?? {}
     this.#behavior = BEHAVIORS.find((known) => known === behavior) ?? 'stream'
     this.#src = picture ?? MOCK_CAMERA_FRAME
+    this.#configured = true
     this.#render()
   }
 
+  // Only relevant for an element that was configured while detached; the
+  // ordinary path renders from the `stateObj` write above.
   connectedCallback() {
     this.#render()
   }
 
   #render() {
-    if (!this.isConnected) return
+    if (!this.isConnected || !this.#configured) return
     const inputs = `${this.#behavior}|${this.#src}`
     if (inputs === this.#rendered) return
     this.#rendered = inputs
@@ -77,18 +98,37 @@ class MockHaCameraStream extends HTMLElement {
     root.appendChild(img)
 
     if (this.#behavior === 'error') {
-      // Announce the watch first and break the image a tick later: the card
-      // attaches its `error` listener in response to this event, and an
-      // <img> that already failed never re-fires it.
-      this.#announce()
+      // Both steps are deferred, in this order and for different reasons.
+      //
+      // The announcement waits a task because `stateObj` is assigned from a
+      // layout effect that runs BEFORE the one attaching the card's container
+      // `load` listener — dispatching from inside the setter would fire into
+      // nothing. (The `stream` path needs no such delay: an image's own `load`
+      // is asynchronous already.)
+      //
+      // Breaking the image then waits again, because the card attaches its
+      // `error` listener in response to the announcement, and an <img> that
+      // already failed never re-fires `error`.
       setTimeout(() => {
-        img.src = BROKEN_FRAME
-      }, BREAK_DELAY_MS)
+        if (!this.#isCurrent(img)) return
+        this.#announce()
+        setTimeout(() => {
+          if (!this.#isCurrent(img)) return
+          img.src = BROKEN_FRAME
+        }, BREAK_DELAY_MS)
+      })
       return
     }
 
-    img.addEventListener('load', () => this.#announce())
+    img.addEventListener('load', () => {
+      if (this.#isCurrent(img)) this.#announce()
+    })
     img.src = this.#src
+  }
+
+  /** False once a later render has replaced this image: its events are stale. */
+  #isCurrent(img: HTMLImageElement) {
+    return img.parentNode === this.shadowRoot
   }
 
   // `load` from an <img> does not bubble, so the host re-dispatches it the way

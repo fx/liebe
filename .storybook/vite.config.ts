@@ -24,7 +24,12 @@ export default defineConfig({
       name: 'liebe:mock-camera-stream-readiness',
       enforce: 'pre',
       resolveId(source: string, importer: string | undefined) {
-        if (source === './useCameraStreamReady' && importer?.includes('/CameraCard/')) {
+        // Importer ids arrive with the host's separators, so a Windows checkout
+        // yields `...\CameraCard\index.tsx`; normalise before matching so the
+        // scoping stays exactly as tight (only CameraCard importers) on every
+        // platform.
+        const importerPath = importer?.replace(/\\/g, '/')
+        if (source === './useCameraStreamReady' && importerPath?.includes('/CameraCard/')) {
           return resolve(__dirname, 'mockCameraStreamReady.ts')
         }
         return null

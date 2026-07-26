@@ -9,10 +9,19 @@ const entityId = 'weather.home'
 type WeatherCardStoryProps = ComponentProps<typeof WeatherCard> & GridCellArgs
 
 /**
- * The weather card renders one of four registered presentation variants, chosen
- * by `config.variant` (`preset` is still read for older exports). The variants
- * are declared as a static `variants` map on the component, so `getCardVariant`
- * resolves them without the card ever importing the registry.
+ * The weather card has four presentations, and two separate things select one.
+ *
+ * These stories render `WeatherCard` itself, which does its own selection: it
+ * reads `config.variant || config.preset || 'default'` and switches to the
+ * matching variant component (`src/components/WeatherCard/index.tsx`). That is
+ * the path a legacy `preset`-only config takes, and the path every story below
+ * exercises.
+ *
+ * The static `variants` map attached to the component is for the registry:
+ * `GridView` resolves `config.variant` through `getCardVariant(domain, variant)`
+ * and renders the variant component directly, skipping `WeatherCard`. The map
+ * is declared on the component rather than pushed into `cardRegistry` so the
+ * card never imports the registry (that import cycle crashes the bundle).
  */
 const meta: Meta<WeatherCardStoryProps> = {
   title: 'Cards/WeatherCard',

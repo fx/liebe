@@ -197,7 +197,7 @@ export const Disconnected: Story = {
  * yet" from "does not exist", so the card holds its skeleton indefinitely
  * rather than reporting the entity as missing.
  */
-export const UnknownEntity: Story = {
+export const MissingEntity: Story = {
   args: { gridHeight: 2 },
   parameters: { liebe: { entities: [] } },
 }
