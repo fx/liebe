@@ -1,41 +1,40 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { CameraCard } from './index'
-import { asUnavailable, createCameraEntity } from '~/test/fixtures'
+import { asUnavailable, createCameraEntity, type EntityOverrides } from '~/test/fixtures'
 import type { GridItem } from '~/store/types'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
+import { MOCK_CAMERA_FRAME } from '../../../.storybook/mockCameraStream'
 
 const entityId = 'camera.driveway'
 
 /**
- * A stand-in camera frame.
+ * Camera fixture wired to the workshop's stream mocks.
  *
- * The workshop is not an HA frontend, so `ensureHaElement` can never define
- * `<ha-camera-stream>` — every camera story therefore renders the card's
- * still-image fallback, which is exactly the path a standalone dev server
- * takes. An inline data URI keeps that path network-free: the real
- * `/api/camera_proxy/...` URL would 404 and collapse straight to the
- * "no image" placeholder (see the `NoSnapshot` story for that state).
+ * Two story-only attributes drive them (see `.storybook/mockCameraStream.ts`
+ * and `.storybook/mockCameraStreamReady.ts`): `mock_readiness` decides whether
+ * the card renders the stream element or its still-image fallback, and
+ * `mock_stream` decides how that element behaves. Everything else — the status
+ * machine, the pill, the controls — is the card's real code.
  */
-const MOCK_FRAME =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">
-       <defs>
-         <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-           <stop offset="0%" stop-color="#2b3a4a"/>
-           <stop offset="100%" stop-color="#0e1418"/>
-         </linearGradient>
-       </defs>
-       <rect width="320" height="180" fill="url(#g)"/>
-       <rect x="0" y="128" width="320" height="52" fill="#1b2530"/>
-       <circle cx="248" cy="52" r="22" fill="#f2d492" opacity="0.85"/>
-       <path d="M0 128 L96 92 L168 128 Z" fill="#141c24"/>
-     </svg>`
-  )
-
-function withSnapshot(state: string) {
-  return createCameraEntity({ state, attributes: { entity_picture: MOCK_FRAME } })
+function camera(
+  state: string,
+  {
+    stream = 'stream',
+    readiness = 'ready',
+    ...overrides
+  }: EntityOverrides & { stream?: 'stream' | 'connecting' | 'error'; readiness?: string } = {}
+) {
+  return createCameraEntity({
+    state,
+    ...overrides,
+    attributes: {
+      entity_picture: MOCK_CAMERA_FRAME,
+      mock_stream: stream,
+      mock_readiness: readiness,
+      ...overrides.attributes,
+    },
+  })
 }
 
 /** A grid item so the card's configuration surface (fit, matting) is reachable. */
@@ -69,41 +68,81 @@ const meta: Meta<CameraCardStoryProps> = {
     gridHeight: 3,
   },
   parameters: {
-    liebe: { entities: [withSnapshot('idle')] },
+    liebe: { entities: [camera('idle')] },
   },
 }
 
 export default meta
 type Story = StoryObj<CameraCardStoryProps>
 
+/* ------------------------------------------------------------------ *
+ * Stream states
+ * ------------------------------------------------------------------ */
+
 /**
- * Resting state: the camera is idle, so the pill reads `IDLE` over the latest
- * snapshot. A camera has no on/off pair — idle and streaming are its
- * equivalent representative states.
+ * The active state: frames are flowing, so the pill reads `STREAMING` and the
+ * mute and fullscreen controls appear over the frame. A camera has no on/off
+ * pair — a live stream and a resting camera showing only its last snapshot
+ * (`StillImageFallback` below) are its representative states.
+ *
+ * Note that a live stream outranks the entity's own `idle` state in the pill:
+ * `deriveCameraStatus` reports what the surface is actually doing.
  */
-export const Idle: Story = {
-  parameters: { liebe: { entities: [withSnapshot('idle')] } },
-}
-
-/** The active state: a streaming camera tints the shell blue. */
 export const Streaming: Story = {
-  parameters: { liebe: { entities: [withSnapshot('streaming')] } },
-}
-
-/** `recording` gets its own pill, ranked above streaming. */
-export const Recording: Story = {
-  parameters: { liebe: { entities: [withSnapshot('recording')] } },
+  parameters: { liebe: { entities: [camera('idle')] } },
 }
 
 /**
- * No snapshot to fall back on: without `entity_picture` (or when the request
- * fails) the fallback shows its labelled placeholder icon instead of a broken
+ * `recording` gets its own pill, ranked above streaming — as does an entity
+ * reporting `streaming` while frames are flowing, which resolves to the same
+ * pill.
+ */
+export const Recording: Story = {
+  parameters: { liebe: { entities: [camera('recording')] } },
+}
+
+/**
+ * The stream element is mounted but has produced no frame yet: spinner over
+ * the surface and a `CONNECTING` pill. Left alone it eventually expires into
+ * the failure below — the card allows 20s of visible time before giving up.
+ */
+export const Connecting: Story = {
+  parameters: { liebe: { entities: [camera('streaming', { stream: 'connecting' })] } },
+}
+
+/**
+ * The stream fails to load, so the card replaces the surface with the error
+ * text and a Retry button (which remounts the element — and fails again here).
+ */
+export const StreamError: Story = {
+  parameters: { liebe: { entities: [camera('streaming', { stream: 'error' })] } },
+}
+
+/* ------------------------------------------------------------------ *
+ * Fallback and entity states
+ * ------------------------------------------------------------------ */
+
+/**
+ * The resting state: when `<ha-camera-stream>` cannot be bootstrapped — a
+ * standalone dev server, or an HA frontend that never defines the element —
+ * the card falls back to the periodically refreshed snapshot, and the pill
+ * reports the camera's own `IDLE` state.
+ */
+export const StillImageFallback: Story = {
+  parameters: { liebe: { entities: [camera('idle', { readiness: 'unavailable' })] } },
+}
+
+/**
+ * The same fallback without a snapshot to show: no `entity_picture` (or a
+ * failed request) renders the labelled placeholder icon rather than a broken
  * image.
  */
-export const NoSnapshot: Story = {
+export const StillImageWithoutSnapshot: Story = {
   parameters: {
     liebe: {
-      entities: [createCameraEntity({ state: 'idle', attributes: { entity_picture: undefined } })],
+      entities: [
+        camera('idle', { readiness: 'unavailable', attributes: { entity_picture: undefined } }),
+      ],
     },
   },
 }
@@ -115,27 +154,28 @@ export const NoSnapshot: Story = {
 export const WithoutStreamSupport: Story = {
   args: { gridHeight: 2 },
   parameters: {
-    liebe: {
-      entities: [createCameraEntity({ state: 'idle', attributes: { supported_features: 0 } })],
-    },
+    liebe: { entities: [camera('idle', { attributes: { supported_features: 0 } })] },
   },
 }
 
 /** `fit: 'contain'` letterboxes the frame instead of cropping it. */
 export const ContainFit: Story = {
   args: { item: cameraItem({ fit: 'contain' }) },
-  parameters: { liebe: { entities: [withSnapshot('streaming')] } },
+  parameters: { liebe: { entities: [camera('streaming')] } },
 }
 
 /** `matting: 'none'` drops the card padding so the frame is edge to edge. */
 export const NoMatting: Story = {
   args: { item: cameraItem({ matting: 'none' }) },
-  parameters: { liebe: { entities: [withSnapshot('streaming')] } },
+  parameters: { liebe: { entities: [camera('streaming')] } },
 }
 
-/** An unavailable camera keeps the last frame but reports `UNAVAILABLE`. */
+/**
+ * An unavailable entity reports `UNAVAILABLE` immediately rather than tearing
+ * the stream down — a short HA reconnect blip usually plays straight through.
+ */
 export const Unavailable: Story = {
-  parameters: { liebe: { entities: [asUnavailable(withSnapshot('idle'))] } },
+  parameters: { liebe: { entities: [asUnavailable(camera('idle'))] } },
 }
 
 export const Loading: Story = {
@@ -144,12 +184,12 @@ export const Loading: Story = {
 }
 
 /**
- * The card reaches no service-call error (it calls no services), so its error
- * story is the disconnected state it reaches through `useEntity`.
+ * The card calls no services, so its error story other than the stream failure
+ * above is the disconnected state it reaches through `useEntity`.
  */
 export const Disconnected: Story = {
   args: { gridHeight: 2 },
-  parameters: { liebe: { entities: [withSnapshot('idle')], connected: false } },
+  parameters: { liebe: { entities: [camera('idle')], connected: false } },
 }
 
 /**
@@ -168,5 +208,5 @@ export const UnknownEntity: Story = {
  */
 export const EditMode: Story = {
   args: { onDelete: () => {}, item: cameraItem() },
-  parameters: { liebe: { entities: [withSnapshot('idle')], mode: 'edit' } },
+  parameters: { liebe: { entities: [camera('idle')], mode: 'edit' } },
 }

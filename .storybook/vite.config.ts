@@ -13,6 +13,24 @@ import { resolve } from 'path'
  * owns is the project's `~/*` path alias.
  */
 export default defineConfig({
+  plugins: [
+    {
+      // `CameraCard` resolves its stream element through the Home Assistant
+      // frontend's card-helper ladder, which can only ever succeed inside HA.
+      // Swapping that one hook for a fixture-driven stub is what makes the
+      // card's stream states reachable in the workshop — see
+      // .storybook/mockCameraStreamReady.ts. Scoped to the importer so nothing
+      // else can pick the stub up, and it applies to the workshop build only.
+      name: 'liebe:mock-camera-stream-readiness',
+      enforce: 'pre',
+      resolveId(source: string, importer: string | undefined) {
+        if (source === './useCameraStreamReady' && importer?.includes('/CameraCard/')) {
+          return resolve(__dirname, 'mockCameraStreamReady.ts')
+        }
+        return null
+      },
+    },
+  ],
   resolve: {
     alias: {
       '~': resolve(__dirname, '../src'),

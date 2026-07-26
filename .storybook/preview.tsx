@@ -1,6 +1,12 @@
 import type { Preview } from '@storybook/react-vite'
 import { DEFAULT_THEME_ID, listThemes } from '~/theme/themeRegistry'
 import { withProviders, withServiceCalls, withStoreSeed } from './decorators'
+import { registerMockCameraStream } from './mockCameraStream'
+
+// Custom elements are process-wide, so the stand-in for HA's
+// <ha-camera-stream> is registered once for the whole preview rather than per
+// story. Only camera stories that ask for the stream branch ever render it.
+registerMockCameraStream()
 
 // The same style set the panel injects (src/panel.ts) — imported here directly
 // because the panel entry also registers the custom element and starts the

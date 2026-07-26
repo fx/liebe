@@ -5,6 +5,9 @@ const config: StorybookConfig = {
   // Enabled globally so every story is audited by axe as soon as it is opened
   // (spec: "the a11y addon MUST run on all stories").
   addons: ['@storybook/addon-a11y'],
+  // Mock assets the stories serve to themselves (camera frames), so no story
+  // depends on network access.
+  staticDirs: ['./public'],
   framework: {
     name: '@storybook/react-vite',
     options: {
