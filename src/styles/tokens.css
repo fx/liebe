@@ -1,0 +1,165 @@
+/*
+ * Liebe token contract — the base layer.
+ *
+ * These `--liebe-*` custom properties are the public theming API described by
+ * docs/specs/design-system/index.md ("Token contract"). Components read visual
+ * attributes only through them; themes and user CSS restyle the dashboard by
+ * overriding them. Renaming a token is a breaking change (see
+ * docs/specs/theming/index.md, "Stable selector contract").
+ *
+ * WHERE THE TOKENS ARE DECLARED
+ * -----------------------------
+ * On the Radix theme root (`.radix-themes`), not on `:host`/`:root`:
+ *
+ *  - Almost every value here aliases a Radix token, and a `var()` inside a
+ *    custom property is substituted at the element that declares it. Radix
+ *    declares `--color-*`, `--gray-*` and `--default-font-family` on
+ *    `.radix-themes`, so declaring `--liebe-*` any higher (the shadow host, the
+ *    `[data-liebe-root]` container) would substitute nothing and every aliased
+ *    token would come out invalid.
+ *  - It is also the element Radix marks with `.dark`/`.light`, so the
+ *    appearance-conditional block below keys off the same signal Radix itself
+ *    uses — including for nested `<Theme appearance>` subtrees.
+ *  - The panel injects this sheet into its shadow root and the Storybook
+ *    preview imports it into the preview document (`src/panel.ts` /
+ *    `.storybook/preview.tsx`); `.radix-themes` is the one anchor that exists
+ *    in both, so the workshop renders what the panel renders.
+ *
+ * Consequence for later layers: a theme or user override MUST declare tokens on
+ * this same root. The domain-colour companions below are derived from their
+ * base token, and a derivation only re-derives where the base is overridden on
+ * the *same* element — an override on a descendant would leave the companions
+ * behind on the old hue.
+ */
+
+/*
+ * Layer order per docs/specs/theming/index.md ("Application mechanism"): a
+ * later layer wins regardless of selector specificity, which is what lets a
+ * user override beat a theme rule scoped to an appearance. Repeated in
+ * src/theme/themes/default.css so the order is established correctly whichever
+ * sheet the bundler emits first.
+ */
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /*
+   * `:where()` keeps this rule at zero specificity, so the dark block below —
+   * and anything a component adds — wins without needing `!important`, which
+   * the layer contract forbids in the base layer.
+   */
+  :where(.radix-themes) {
+    /* --- Geometry ---------------------------------------------------- */
+    --liebe-card-radius: 20px;
+    --liebe-chip-radius: 9999px;
+    --liebe-control-radius: 12px;
+    --liebe-circle-radius: 50%;
+    --liebe-card-padding: 14px;
+    --liebe-grid-gap: 12px;
+    --liebe-icon-circle: 40px;
+    --liebe-control-height: 42px;
+    --liebe-chip-height: 34px;
+
+    /*
+     * --- Surfaces (light appearance) ---------------------------------
+     *
+     * Radix's classless default is light, so the light set is the base and the
+     * dark block overrides it.
+     *
+     * The steps are chosen per appearance rather than aliasing the semantic
+     * `--color-background` / `--color-panel-solid` pair, which is white for
+     * both in light and would leave cards invisible against the ground. See
+     * the design-system changelog ("Radix alias fidelity").
+     */
+    --liebe-bg: var(--gray-3);
+    --liebe-card-bg: var(--gray-1);
+    --liebe-card-border: none;
+    --liebe-card-blur: none;
+    --liebe-card-shadow: 0 2px 4px var(--black-a2);
+    --liebe-fg: var(--gray-12);
+    --liebe-muted: var(--gray-a11);
+    --liebe-faint: var(--gray-a9);
+    --liebe-hairline: var(--gray-a3);
+    --liebe-track: var(--gray-a3);
+
+    /*
+     * --- Typography ---------------------------------------------------
+     *
+     * Declared on the root and inherited, so a theme that swaps the family or
+     * sets uppercase restyles every text surface at once instead of needing a
+     * rule per component.
+     */
+    --liebe-font-family: var(--default-font-family);
+    --liebe-text-transform: none;
+    --liebe-letter-spacing: normal;
+    --liebe-font-numeric: var(--liebe-font-family);
+
+    /*
+     * --- Domain colours ------------------------------------------------
+     *
+     * Each domain is a triplet: the base hue, a ~20% tint for surfaces, and a
+     * text step. The companions here are DERIVATIONS of the base and must stay
+     * that way — a fixed alias (`var(--amber-a4)`) would survive a theme that
+     * remaps only the base and would silently leave tint and text on the old
+     * hue.
+     *
+     * The bases default to their Radix step 9 so a theme that remaps only some
+     * domains (LCARS leaves water/default/brand alone) still resolves the rest.
+     * The Default theme restates them in the theme layer, so switching away
+     * from another theme and back restores a complete set.
+     */
+    --liebe-c-light: var(--amber-9);
+    --liebe-c-light-tint: color-mix(in srgb, var(--liebe-c-light) 20%, transparent);
+    --liebe-c-light-text: var(--liebe-c-light);
+
+    --liebe-c-heat: var(--orange-9);
+    --liebe-c-heat-tint: color-mix(in srgb, var(--liebe-c-heat) 20%, transparent);
+    --liebe-c-heat-text: var(--liebe-c-heat);
+
+    --liebe-c-cool: var(--sky-9);
+    --liebe-c-cool-tint: color-mix(in srgb, var(--liebe-c-cool) 20%, transparent);
+    --liebe-c-cool-text: var(--liebe-c-cool);
+
+    --liebe-c-ok: var(--green-9);
+    --liebe-c-ok-tint: color-mix(in srgb, var(--liebe-c-ok) 20%, transparent);
+    --liebe-c-ok-text: var(--liebe-c-ok);
+
+    --liebe-c-alert: var(--red-9);
+    --liebe-c-alert-tint: color-mix(in srgb, var(--liebe-c-alert) 20%, transparent);
+    --liebe-c-alert-text: var(--liebe-c-alert);
+
+    --liebe-c-media: var(--indigo-9);
+    --liebe-c-media-tint: color-mix(in srgb, var(--liebe-c-media) 20%, transparent);
+    --liebe-c-media-text: var(--liebe-c-media);
+
+    --liebe-c-vacuum: var(--teal-9);
+    --liebe-c-vacuum-tint: color-mix(in srgb, var(--liebe-c-vacuum) 20%, transparent);
+    --liebe-c-vacuum-text: var(--liebe-c-vacuum);
+
+    --liebe-c-water: var(--cyan-9);
+    --liebe-c-water-tint: color-mix(in srgb, var(--liebe-c-water) 20%, transparent);
+    --liebe-c-water-text: var(--liebe-c-water);
+
+    --liebe-c-default: var(--blue-9);
+    --liebe-c-default-tint: color-mix(in srgb, var(--liebe-c-default) 20%, transparent);
+    --liebe-c-default-text: var(--liebe-c-default);
+
+    --liebe-c-brand: var(--crimson-9);
+    --liebe-c-brand-tint: color-mix(in srgb, var(--liebe-c-brand) 20%, transparent);
+    --liebe-c-brand-text: var(--liebe-c-brand);
+  }
+
+  /*
+   * Dark appearance. The selector list mirrors Radix's own
+   * (tokens/base.css): the first branch is a theme root that declares itself
+   * dark, the second a nested theme inheriting darkness from an ancestor
+   * without overriding it. Only the tokens whose value actually differs are
+   * repeated — everything aliased to a Radix scale flips on its own.
+   */
+  .radix-themes:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
+    --liebe-bg: var(--gray-1);
+    --liebe-card-bg: var(--gray-2);
+    /* Flat in dark: elevation comes from the surface step, not a shadow. */
+    --liebe-card-shadow: none;
+  }
+}

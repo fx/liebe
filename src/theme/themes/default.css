@@ -1,0 +1,61 @@
+/*
+ * Default theme — the theme layer of the token cascade.
+ *
+ * Everything geometric, typographic and neutral comes from the base layer
+ * (src/styles/tokens.css); the Default theme's whole job is the domain-colour
+ * palette:
+ *
+ *  - the base hue of each triplet, pinned to its Radix step 9 (the scale's
+ *    solid, saturated step — glyphs, slider fills, dots);
+ *  - the `-text` companion, pinned to step 11, because a raw step-9 hue does
+ *    not carry text contrast on either ground.
+ *
+ * The tints are deliberately NOT pinned: they stay derived from the base in the
+ * base layer, so user CSS remapping a base recolours glyph and tint together.
+ * The `-text` pins are an override like any other — under this theme, user CSS
+ * remapping a base SHOULD set `-text` too (docs/specs/theming/index.md,
+ * "Stable selector contract").
+ *
+ * The bases are restated here even though the base layer already defaults them
+ * to step 9: change 0012 swaps this layer per theme, so the Default theme has
+ * to carry a complete palette to restore after switching away from LCARS.
+ *
+ * Declared on `.radix-themes` — the same root the base layer uses, which is
+ * what keeps the derived tints re-deriving. See src/styles/tokens.css.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-theme {
+  :where(.radix-themes) {
+    --liebe-c-light: var(--amber-9);
+    --liebe-c-light-text: var(--amber-11);
+
+    --liebe-c-heat: var(--orange-9);
+    --liebe-c-heat-text: var(--orange-11);
+
+    --liebe-c-cool: var(--sky-9);
+    --liebe-c-cool-text: var(--sky-11);
+
+    --liebe-c-ok: var(--green-9);
+    --liebe-c-ok-text: var(--green-11);
+
+    --liebe-c-alert: var(--red-9);
+    --liebe-c-alert-text: var(--red-11);
+
+    --liebe-c-media: var(--indigo-9);
+    --liebe-c-media-text: var(--indigo-11);
+
+    --liebe-c-vacuum: var(--teal-9);
+    --liebe-c-vacuum-text: var(--teal-11);
+
+    --liebe-c-water: var(--cyan-9);
+    --liebe-c-water-text: var(--cyan-11);
+
+    --liebe-c-default: var(--blue-9);
+    --liebe-c-default-text: var(--blue-11);
+
+    --liebe-c-brand: var(--crimson-9);
+    --liebe-c-brand-text: var(--crimson-11);
+  }
+}
