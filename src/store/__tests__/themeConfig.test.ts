@@ -63,6 +63,39 @@ describe('migrateThemeConfig', () => {
   it('never returns the shared default object, so callers cannot mutate it', () => {
     expect(migrateThemeConfig(undefined)).not.toBe(DEFAULT_THEME_CONFIG)
   })
+
+  it('keeps a field it does not know about, so a newer export survives an older build', () => {
+    // The tolerance `configSchema` declares with `.passthrough()`: a document
+    // written by a newer Liebe must not lose `theme.density` just because this
+    // build has never heard of it and re-exports the config afterwards.
+    expect(migrateThemeConfig({ id: 'lcars', density: 'compact' })).toEqual({
+      id: 'lcars',
+      appearance: 'auto',
+      customCss: '',
+      density: 'compact',
+    })
+  })
+
+  it('keeps a nested unknown value whole', () => {
+    const overrides = { accent: { light: '#fff', dark: '#000' } }
+
+    expect(migrateThemeConfig({ appearance: 'dark', overrides })).toEqual({
+      id: 'default',
+      appearance: 'dark',
+      customCss: '',
+      overrides,
+    })
+  })
+
+  it('recovers to the defaults from an array instead of spreading its indices', () => {
+    // `typeof [] === 'object'`, so an array reaches the object branch; spreading
+    // it would mint a theme config keyed `0`, `1`, ... No document shape has
+    // ever carried an array here, so it is corrupt, not new.
+    const migrated = migrateThemeConfig(['dark'])
+
+    expect(migrated).toEqual(DEFAULT_THEME_CONFIG)
+    expect(Object.keys(migrated)).toEqual(['id', 'appearance', 'customCss'])
+  })
 })
 
 describe('imported theme validation', () => {
@@ -118,6 +151,27 @@ describe('loadConfiguration migrates whatever route the config arrived by', () =
     dashboardActions.loadConfiguration({ version: '1.0.0', screens: [] })
 
     expect(dashboardStore.state.theme).toEqual(DEFAULT_THEME_CONFIG)
+  })
+
+  it('round-trips a theme field it does not understand back out on export', () => {
+    // export (newer Liebe) → import (this build) → export: the field this build
+    // has never heard of has to come back out, or an older build quietly
+    // truncates a document it was only meant to read.
+    const exported = {
+      version: '1.0.0',
+      screens: [],
+      theme: { id: 'lcars', appearance: 'dark', customCss: '', density: 'compact' },
+    }
+
+    // The import gate accepts it, `.passthrough()` leaving the extra intact...
+    expect(validateDashboardConfig(exported).success).toBe(true)
+
+    // ...the store funnel every import route lands in keeps it...
+    dashboardActions.loadConfiguration(exported as DashboardConfig)
+    expect(dashboardStore.state.theme).toEqual(exported.theme)
+
+    // ...so the next export writes the document back out whole.
+    expect(dashboardActions.exportConfiguration().theme).toEqual(exported.theme)
   })
 })
 

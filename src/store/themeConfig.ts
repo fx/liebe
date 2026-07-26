@@ -39,17 +39,28 @@ function isAppearance(value: unknown): value is ThemeAppearancePreference {
  *
  * Field by field rather than wholesale, so a half-written object (an `id` from
  * a newer Liebe with no `customCss`, say) contributes what it has instead of
- * being discarded entirely.
+ * being discarded entirely — and only the known fields are touched, so a field
+ * this build has never heard of survives to the next export. That is the same
+ * forward compatibility `configSchema` declares with `.passthrough()`: an older
+ * build reading a newer document must not quietly truncate it.
  */
 export function migrateThemeConfig(value: unknown): ThemeConfig {
   // The legacy scalar: appearance only, on the Default theme, no custom CSS.
   if (isAppearance(value)) return { ...DEFAULT_THEME_CONFIG, appearance: value }
 
-  if (typeof value !== 'object' || value === null) return { ...DEFAULT_THEME_CONFIG }
+  // `typeof [] === 'object'`, so an array would reach the spread below and mint
+  // a theme config keyed `0`, `1`, … No shape of this field has ever been an
+  // array — an imported one fails `themeConfigSchema` upstream — so it is a
+  // corrupt value like any other scalar, and recovers to the defaults.
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return { ...DEFAULT_THEME_CONFIG }
+  }
 
   const { id, appearance, customCss } = value as Partial<ThemeConfig>
 
   return {
+    // Unknown keys first, the known ones normalised on top of them.
+    ...value,
     id: typeof id === 'string' && id !== '' ? id : DEFAULT_THEME_CONFIG.id,
     appearance: isAppearance(appearance) ? appearance : DEFAULT_THEME_CONFIG.appearance,
     customCss: typeof customCss === 'string' ? customCss : DEFAULT_THEME_CONFIG.customCss,
