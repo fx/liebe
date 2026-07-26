@@ -163,6 +163,9 @@ function WeatherCardDefaultContent(props: CardProps) {
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
+      // Read-only card: `tapAction: default` resolves to `more-info`, per the
+      // common contract's read-only rule.
+      defaultAction="more-info"
       onConfigure={onConfigure}
       hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}

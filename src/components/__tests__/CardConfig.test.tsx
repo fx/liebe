@@ -12,7 +12,12 @@ vi.mock('~/store', () => ({
     setState: vi.fn(),
   },
   dashboardActions: {},
-  useDashboardStore: vi.fn(() => ({ mode: 'edit' })),
+  // Honours the selector form: the universal action editor selects `screens`
+  // out of the store to offer `navigate` targets.
+  useDashboardStore: vi.fn((selector?: (state: { mode: string; screens: [] }) => unknown) => {
+    const state = { mode: 'edit' as const, screens: [] as [] }
+    return selector ? selector(state) : state
+  }),
 }))
 
 // Mock WeatherCard to avoid entity dependencies
@@ -399,6 +404,84 @@ describe('CardConfig', () => {
         separatorTextColor: 'blue',
         hideBackground: false,
       })
+    })
+  })
+
+  /**
+   * The universal option surface. It is merged into every entity card's form
+   * rather than declared per card, so the assertions that matter are that it is
+   * there for a card with no options of its own, that it is absent from the
+   * things that are not entity cards, and that what it saves is the serialized
+   * action shape (docs/specs/entity-cards/options/common.md).
+   */
+  describe('Universal actions', () => {
+    const sensorItem: GridItem = {
+      id: 'sensor-1',
+      type: 'entity',
+      entityId: 'sensor.hallway_temperature',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+    }
+
+    it('offers the action surface even for a card with no options of its own', () => {
+      render(
+        <Theme>
+          <CardConfig.Modal
+            open={true}
+            onOpenChange={mockOnOpenChange}
+            item={sensorItem}
+            onSave={mockOnSave}
+          />
+        </Theme>
+      )
+
+      expect(
+        screen.getByText('No configuration options available for this card type.')
+      ).toBeVisible()
+      expect(screen.getByText('Actions')).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Tap' })).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Hold' })).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Double tap' })).toBeInTheDocument()
+    })
+
+    it('saves a chosen action into the card config', async () => {
+      const user = userEvent.setup()
+      render(
+        <Theme>
+          <CardConfig.Modal
+            open={true}
+            onOpenChange={mockOnOpenChange}
+            item={sensorItem}
+            onSave={mockOnSave}
+          />
+        </Theme>
+      )
+
+      await user.click(screen.getByRole('combobox', { name: 'Tap' }))
+      const dropdown = await waitFor(() => screen.getByRole('listbox'))
+      await user.click(within(dropdown).getByText('Toggle'))
+
+      await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+      expect(mockOnSave).toHaveBeenCalledWith({ config: { tapAction: 'toggle' } })
+    })
+
+    it('leaves cards that are not entity cards alone', () => {
+      render(
+        <Theme>
+          <CardConfig.Modal
+            open={true}
+            onOpenChange={mockOnOpenChange}
+            item={{ id: 'sep-1', type: 'separator', x: 0, y: 0, width: 4, height: 1 }}
+            onSave={mockOnSave}
+          />
+        </Theme>
+      )
+
+      // A separator has no entity, so there is nothing for an action to act on.
+      expect(screen.queryByText('Actions')).not.toBeInTheDocument()
     })
   })
 })

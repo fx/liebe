@@ -232,6 +232,77 @@ describe('validateDashboardConfig', () => {
   })
 })
 
+/**
+ * The action keys are the first part of `item.config` the import gate validates
+ * rather than waves through. The point is not tidiness: a config whose
+ * `tapAction` is a typo would otherwise load as a working-looking card doing
+ * whatever `default` does (docs/specs/entity-cards/options/common.md).
+ */
+describe('validateDashboardConfig — card actions', () => {
+  const withItemConfig = (config: Record<string, unknown>) => ({
+    version: '1.0.0',
+    screens: [
+      {
+        id: 'screen-1',
+        name: 'Living Room',
+        slug: 'living-room',
+        type: 'grid',
+        grid: {
+          resolution: { columns: 12, rows: 8 },
+          items: [
+            {
+              id: 'item-1',
+              type: 'entity',
+              entityId: 'light.living_room',
+              x: 0,
+              y: 0,
+              width: 2,
+              height: 2,
+              config,
+            },
+          ],
+        },
+      },
+    ],
+  })
+
+  it('accepts every serialized action form', () => {
+    const result = validateDashboardConfig(
+      withItemConfig({
+        tapAction: 'toggle',
+        holdAction: { action: 'navigate', target: 'kitchen' },
+        doubleTapAction: { action: 'call-service', service: 'script.turn_on', data: { x: 1 } },
+      })
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('keeps passing through per-card options it does not know', () => {
+    const result = validateDashboardConfig(withItemConfig({ variant: 'modern', futureOption: 7 }))
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects an unknown action identifier and names the path', () => {
+    const result = validateDashboardConfig(withItemConfig({ tapAction: 'toggel' }))
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error).toContain('screens.0.grid.items.0.config.tapAction')
+    }
+  })
+
+  it('rejects a navigate action with no target', () => {
+    const result = validateDashboardConfig(withItemConfig({ tapAction: { action: 'navigate' } }))
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a call-service action whose service is not domain.service', () => {
+    const result = validateDashboardConfig(
+      withItemConfig({ holdAction: { action: 'call-service', service: 'turn_on' } })
+    )
+    expect(result.success).toBe(false)
+  })
+})
+
 describe('importConfigurationFromFile validation', () => {
   beforeEach(() => {
     dashboardStore.setState(() => ({

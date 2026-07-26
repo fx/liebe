@@ -3,7 +3,10 @@ import { createPortal } from 'react-dom'
 import { IconButton, Spinner } from '@radix-ui/themes'
 import { X, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
+import { useCardActions } from '~/hooks/useCardActions'
+import { useCardItem } from './cardItemContext'
 import { CardMeta, CardName, CardState, IconCircle } from './anatomy'
+import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
 import './GridCard.css'
 
@@ -33,7 +36,37 @@ export interface GridCardProps {
   isUnavailable?: boolean
   onSelect?: () => void
   onDelete?: () => void
+  /**
+   * The card family's toggle semantics — what a tap does when the resolved
+   * action is `toggle`, confirmation gates and all. Named `onClick` for the
+   * cards that have always passed it here; the shell no longer calls it on
+   * every click, it calls it when a gesture resolves to `toggle`.
+   *
+   * Omit it and `toggle` falls back to `homeassistant.toggle` on `entityId`, per
+   * the contract's rule for card families with no toggle of their own — so a
+   * card that has one must pass it unconditionally and guard inside, rather than
+   * withholding it for a transient state.
+   */
   onClick?: () => void
+  /**
+   * The entity the card is for: the implicit target of a `call-service` action
+   * and of the generic `toggle` fallback. Defaults to what the grid published
+   * for the item being rendered (`CardItemProvider`).
+   */
+  entityId?: string
+  /**
+   * The card's stored options (`item.config`), read for `tapAction`,
+   * `holdAction` and `doubleTapAction`. Defaults to the grid's, as above.
+   */
+  actions?: Record<string, unknown>
+  /**
+   * What the stored literal `default` resolves to for this card. Read-only
+   * families declare `more-info`; everything else leaves it at `toggle`
+   * (docs/specs/entity-cards/options/common.md — "Universal options").
+   */
+  defaultAction?: ResolvedCardAction
+  /** Opens the entity detail dialog. Wired by 0014 PR 2. */
+  onMoreInfo?: () => void
   onConfigure?: () => void
   hasConfiguration?: boolean
   title?: string
@@ -233,6 +266,10 @@ export const GridCard = React.memo(
         onSelect,
         onDelete,
         onClick,
+        entityId,
+        actions,
+        defaultAction,
+        onMoreInfo,
         onConfigure,
         hasConfiguration = false,
         title,
@@ -248,6 +285,9 @@ export const GridCard = React.memo(
     ) => {
       const { mode } = useDashboardStore()
       const isEditMode = mode === 'edit'
+      // What the grid published about the item this card is rendering. Explicit
+      // props still win, so a card (or a story) can override either.
+      const item = useCardItem()
 
       // Handle ESC key press to exit fullscreen
       React.useEffect(() => {
@@ -269,32 +309,56 @@ export const GridCard = React.memo(
 
       const isTransparent = transparent && !isEditMode
 
+      /*
+       * The gesture controller. `disabled` in edit mode is the whole of
+       * edit-mode action suppression: no gesture resolves, no timer is armed,
+       * and the click below goes to selection instead
+       * (docs/specs/entity-cards/options/common.md — "Action type").
+       */
+      const gestures = useCardActions({
+        config: actions ?? item.config,
+        defaultAction,
+        entityId: entityId ?? item.entityId,
+        onToggle: onClick,
+        onMoreInfo,
+        disabled: isEditMode,
+      })
+
+      /**
+       * True for the card's own content, false for a portalled descendant.
+       *
+       * Not the tautology it reads as. React synthetic events bubble through the
+       * REACT tree, not the DOM tree, so an event inside a portalled descendant
+       * reaches these handlers even though the element it came from lives
+       * outside the card in the DOM. `contains()` is exactly what tells the two
+       * apart: true for a real descendant — the card's own content, which must
+       * still drive the card's gestures — and false for a portalled one, which
+       * must not.
+       *
+       * The live case is `InputSelectCard`: its Radix `Select.Content` is
+       * written inside the card in JSX but portalled to `document.body`, so
+       * without this check picking an option from the open dropdown would ALSO
+       * fire the card's action. Radix dialogs, popovers and tooltips portal the
+       * same way — including the detail dialog `more-info` opens, which is why
+       * the press handler is guarded too and not just the click: a press held
+       * inside a portalled dialog must not arm the card's hold timer behind it.
+       *
+       * So do not "simplify" this away. It is pinned by "ignores a click from a
+       * portalled descendant, but not one from a real child" in
+       * `__tests__/GridCard.test.tsx`.
+       */
+      const isRealDescendant = (e: React.SyntheticEvent) =>
+        e.target === e.currentTarget || (e.currentTarget as Node).contains(e.target as Node)
+
+      const handlePointerDown = (e: React.PointerEvent) => {
+        if (isRealDescendant(e)) gestures.press()
+      }
+
       const handleClick = (e: React.MouseEvent) => {
         if (isEditMode && onSelect) {
           onSelect()
-        } else if (!isEditMode && onClick) {
-          /*
-           * Not the tautology it reads as. React synthetic events bubble
-           * through the REACT tree, not the DOM tree, so a click inside a
-           * portalled descendant reaches this handler even though the element
-           * it came from lives outside the card in the DOM. `contains()` is
-           * exactly what tells the two apart: true for a real descendant — the
-           * card's own content, which must still trigger the card's action —
-           * and false for a portalled one, which must not.
-           *
-           * The live case is `InputSelectCard`: its Radix `Select.Content` is
-           * written inside the card in JSX but portalled to `document.body`, so
-           * without this check picking an option from the open dropdown would
-           * ALSO fire the card's primary action. Radix dialogs, popovers and
-           * tooltips portal the same way.
-           *
-           * So do not "simplify" this to a bare `onClick()`. It is pinned by
-           * "ignores a click from a portalled descendant, but not one from a
-           * real child" in `__tests__/GridCard.test.tsx`.
-           */
-          if (e.target === e.currentTarget || e.currentTarget.contains(e.target as Node)) {
-            onClick()
-          }
+        } else if (!isEditMode && isRealDescendant(e)) {
+          gestures.tap()
         }
       }
 
@@ -318,7 +382,13 @@ export const GridCard = React.memo(
        *    but no longer the themable surface. See `THEMABLE_PROPERTIES`.
        */
       const cardStyle = {
-        cursor: isLoading ? 'wait' : isEditMode ? 'move' : onClick ? 'pointer' : 'default',
+        cursor: isLoading
+          ? 'wait'
+          : isEditMode
+            ? 'move'
+            : gestures.hasTapAction
+              ? 'pointer'
+              : 'default',
         ...(customPadding && !isTransparent ? { padding: customPadding } : {}),
         ...(backdrop !== undefined && backdrop !== true
           ? { '--liebe-card-blur': backdrop === false ? 'none' : backdrop }
@@ -331,6 +401,14 @@ export const GridCard = React.memo(
           <div
             ref={ref}
             onClick={handleClick}
+            onPointerDown={handlePointerDown}
+            // Release on all three: a pointer that leaves the tile or is taken
+            // over by a scroll gesture never produces the `pointerup` that would
+            // otherwise leave the hold timer running to fire under a finger that
+            // has moved on.
+            onPointerUp={gestures.release}
+            onPointerCancel={gestures.release}
+            onPointerLeave={gestures.release}
             title={title}
             className={`liebe-card grid-card${className ? ` ${className}` : ''}`}
             data-domain={domain}

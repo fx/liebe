@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   CardMeta,
@@ -272,6 +272,25 @@ describe('embedded controls', () => {
 
     await userEvent.click(screen.getByRole(role))
     expect(onTileClick).not.toHaveBeenCalled()
+  })
+
+  // One gesture earlier, and for the same reason: the shell arms its
+  // press-and-hold timer on pointer-down over any descendant, so a control held
+  // down for half a second would fire the card's hold action behind it.
+  it.each([
+    ['pill', <Pill key="pill" label="Cool" domain="climate" onClick={() => {}} />, 'button'],
+    ['chip', <Chip key="chip" label="Away" domain="person" onClick={() => {}} />, 'button'],
+    [
+      'slider',
+      <Slider key="slider" label="Brightness" value={50} domain="light" onValueChange={() => {}} />,
+      'slider',
+    ],
+  ])('keeps a %s press from reaching the tile around it', (_part, control, role) => {
+    const onTilePress = vi.fn()
+    render(<div onPointerDown={onTilePress}>{control}</div>)
+
+    fireEvent.pointerDown(screen.getByRole(role))
+    expect(onTilePress).not.toHaveBeenCalled()
   })
 })
 

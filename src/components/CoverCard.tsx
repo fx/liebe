@@ -255,6 +255,16 @@ function CoverCardComponent({
       isOn={coverState === 'open' || currentPosition > 0}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
+      /*
+       * Deliberately not `toggle`. The cover contract's tap default is
+       * state-aware (stop while moving, `more-info` for tilt-only, inert while
+       * indeterminate) and arrives with 0019; until the card can resolve it,
+       * declaring the detail dialog is the safe half of that rule rather than
+       * putting a motorized opening one ambient tap away
+       * (docs/specs/entity-cards/options/cover.md, REVIEW.md — safety-critical
+       * controls).
+       */
+      defaultAction="more-info"
       title={error || undefined}
       className="cover-card"
     >

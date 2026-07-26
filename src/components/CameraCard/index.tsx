@@ -380,6 +380,15 @@ function CameraCardComponent({
         isUnavailable={isUnavailable}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
+        /*
+         * The camera's `default` is "open the in-place fullscreen overlay"
+         * (docs/specs/entity-cards/options/camera.md), which is not an action
+         * identifier the contract has — the stream surface handles it directly,
+         * and 0021 gives it a proper resolution. `none` until then, so the tile
+         * keeps behaving exactly as it does today rather than falling through to
+         * a generic toggle of the camera entity.
+         */
+        defaultAction="none"
         onConfigure={() => setConfigOpen(true)}
         hasConfiguration={true}
         title={streamError || undefined}

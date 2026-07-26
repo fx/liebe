@@ -207,6 +207,7 @@ describe('useServiceCall', () => {
 
     // Mock AbortController
     // Function expression (not arrow) so it is constructable with `new` under vitest 4.
+    const realAbortController = global.AbortController
     global.AbortController = vi.fn(function () {
       return abortControllerMock
     }) as unknown as typeof AbortController
@@ -218,8 +219,9 @@ describe('useServiceCall', () => {
     const { result } = renderHook(() => useServiceCall(), { wrapper })
 
     // Start first call
+    let first: Promise<unknown> | undefined
     act(() => {
-      result.current.callService({
+      first = result.current.callService({
         domain: 'light',
         service: 'turn_on',
         entityId: 'light.bedroom',
@@ -227,8 +229,9 @@ describe('useServiceCall', () => {
     })
 
     // Start second call immediately
+    let second: Promise<unknown> | undefined
     act(() => {
-      result.current.callService({
+      second = result.current.callService({
         domain: 'light',
         service: 'turn_off',
         entityId: 'light.bedroom',
@@ -236,5 +239,14 @@ describe('useServiceCall', () => {
     })
 
     expect(abortControllerMock.abort).toHaveBeenCalled()
+
+    // Both calls settle 100ms later and set state on the way out. Awaiting them
+    // keeps that inside the test: left running, they land after the jsdom
+    // environment is gone and surface as an unhandled `window is not defined`
+    // rejection attributed to whichever file was slow enough to still be open.
+    await act(async () => {
+      await Promise.all([first, second])
+    })
+    global.AbortController = realAbortController
   })
 })

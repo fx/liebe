@@ -14,7 +14,10 @@ import {
 } from '@radix-ui/themes'
 import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
+import { actionConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
+import type { CardAction } from '~/store/cardActions'
+import { ActionEditor } from './ActionEditor'
 import { IconSelect } from './IconSelect'
 import { WeatherCard } from './WeatherCard'
 import { TextCard } from './TextCard'
@@ -40,7 +43,7 @@ interface ContentProps {
 
 // Configuration option types
 export interface ConfigOption {
-  type: 'boolean' | 'string' | 'number' | 'select' | 'textarea' | 'icon'
+  type: 'boolean' | 'string' | 'number' | 'select' | 'textarea' | 'icon' | 'action'
   default: unknown
   label: string
   description?: string
@@ -223,6 +226,18 @@ function Component({ title, description, configDefinition, config, onChange }: C
           </Flex>
         )
 
+      case 'action':
+        return (
+          <ActionEditor
+            key={key}
+            label={option.label}
+            description={option.description}
+            value={config[key]}
+            defaultValue={option.default as CardAction}
+            onChange={(action) => handleChange(key, action)}
+          />
+        )
+
       default:
         return null
     }
@@ -284,6 +299,29 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
         {cardConfig.placeholder || 'No configuration options available yet.'}
       </Text>
     </Section>
+  )
+}
+
+/**
+ * The universal option surface, rendered alongside whatever options the card
+ * itself defines (docs/specs/entity-cards/options/common.md).
+ *
+ * It sits beside `Content` rather than inside it so that every entity card gets
+ * it — including the domains with no per-card definition at all, which `Content`
+ * answers with "no configuration options available". Separators and text cards
+ * are not entity cards and have no entity for an action to act on.
+ */
+function UniversalOptions({ item, config, onChange }: Required<ContentProps>) {
+  if (item.type !== 'entity') return null
+
+  return (
+    <Component
+      title="Actions"
+      description="What each gesture on this card does."
+      configDefinition={actionConfigOptions}
+      config={config}
+      onChange={onChange}
+    />
   )
 }
 
@@ -496,6 +534,11 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
                 <ScrollArea>
                   <Box p="4">
                     <Content config={localConfig} onChange={handleConfigChange} item={item} />
+                    <UniversalOptions
+                      config={localConfig}
+                      onChange={handleConfigChange}
+                      item={item}
+                    />
                   </Box>
                 </ScrollArea>
               </Box>

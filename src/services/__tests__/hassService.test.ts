@@ -106,6 +106,93 @@ describe('HassService', () => {
     }, 10000) // Increase timeout to 10 seconds
   })
 
+  /**
+   * The dispatch path for user-configured actions and consequential controls.
+   * Its whole reason to exist is the contrast with `callService` above: that one
+   * retries three times, which presses a button four times when a call times out
+   * ambiguously (docs/specs/entity-cards/options/common.md — "Dispatch
+   * guarantees").
+   */
+  describe('callServiceOnce', () => {
+    it('targets the entity and merges the call data', async () => {
+      const result = await hassService.callServiceOnce({
+        domain: 'light',
+        service: 'turn_on',
+        entityId: 'light.bedroom',
+        data: { brightness: 180 },
+      })
+
+      expect(result).toEqual({ success: true })
+      expect(mockHass.callService).toHaveBeenCalledWith('light', 'turn_on', {
+        entity_id: 'light.bedroom',
+        brightness: 180,
+      })
+    })
+
+    it('sends only the data when there is no entity to target', async () => {
+      await hassService.callServiceOnce({
+        domain: 'script',
+        service: 'turn_on',
+        data: { entity_id: 'script.bedtime' },
+      })
+
+      expect(mockHass.callService).toHaveBeenCalledWith('script', 'turn_on', {
+        entity_id: 'script.bedtime',
+      })
+    })
+
+    it('lets explicit data override the implicit entity target', async () => {
+      await hassService.callServiceOnce({
+        domain: 'light',
+        service: 'turn_on',
+        entityId: 'light.bedroom',
+        data: { entity_id: 'light.hallway' },
+      })
+
+      expect(mockHass.callService).toHaveBeenCalledWith('light', 'turn_on', {
+        entity_id: 'light.hallway',
+      })
+    })
+
+    it('fails once and does not retry', async () => {
+      mockHass.callService = vi.fn().mockRejectedValue(new Error('timeout'))
+
+      const result = await hassService.callServiceOnce({
+        domain: 'button',
+        service: 'press',
+        entityId: 'button.doorbell',
+      })
+
+      expect(result).toEqual({ success: false, error: 'timeout' })
+      expect(mockHass.callService).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports a non-Error rejection rather than throwing it on', async () => {
+      mockHass.callService = vi.fn().mockRejectedValue('nope')
+
+      const result = await hassService.callServiceOnce({
+        domain: 'button',
+        service: 'press',
+        entityId: 'button.doorbell',
+      })
+
+      expect(result).toEqual({ success: false, error: 'Unknown error occurred' })
+    })
+
+    it('reports a disconnected Home Assistant instead of dispatching', async () => {
+      hassService.setHass(null)
+
+      const result = await hassService.callServiceOnce({
+        domain: 'button',
+        service: 'press',
+        entityId: 'button.doorbell',
+      })
+
+      expect(result).toEqual({ success: false, error: 'Home Assistant not connected' })
+      expect(mockHass.callService).not.toHaveBeenCalled()
+    })
+  })
+
   describe('turnOn', () => {
     it('should turn on entity', async () => {
       const result = await hassService.turnOn('light.bedroom')

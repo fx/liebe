@@ -150,6 +150,9 @@ function BinarySensorCardComponent({
         isUnavailable={isUnavailable}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
+        // Read-only card: `tapAction: default` resolves to `more-info` rather
+        // than to a control action (docs/specs/entity-cards/options/sensor.md).
+        defaultAction="more-info"
         onConfigure={isEditMode && item ? () => setConfigOpen(true) : undefined}
         hasConfiguration={!!item}
         title={undefined}

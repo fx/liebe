@@ -585,6 +585,9 @@ function ClimateCardComponent({
       isOn={hvacMode !== 'off'}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
+      // A thermostat's tap default is the detail dialog, never a power toggle
+      // (docs/specs/entity-cards/options/climate.md).
+      defaultAction="more-info"
       title={error || undefined}
       className="climate-card"
     >

@@ -81,6 +81,12 @@ export function Pill({
       aria-pressed={part.active ?? false}
       aria-label={hideLabel ? label : undefined}
       disabled={disabled}
+      // The card's gesture controller arms its hold timer on pointer-down over
+      // any descendant, so without this a pill held for half a second would open
+      // the detail dialog on top of the mode it was choosing. Stopping the click
+      // alone is not enough once press-and-hold exists — the gesture starts
+      // before the click that would have been swallowed.
+      onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         // A pill sits inside a card whose whole tile is the primary action, and
         // that handler accepts any descendant target. Without this, choosing a
