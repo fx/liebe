@@ -1,5 +1,6 @@
 import { type ConsoleMessage, type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
+import { HOLD_DURATION_MS } from '../../src/store/cardActions'
 import { safeStringify } from './safeStringify'
 
 // Demo/helper entities the suite asserts against. The demo integration provides
@@ -442,10 +443,16 @@ export async function clickCardTitle(page: Page, title: string): Promise<void> {
   await card.getByText(title, { exact: true }).click()
 }
 
+// How long a press is held. Derived from the product threshold rather than
+// spelled as a literal, so raising HOLD_DURATION_MS cannot silently leave this
+// press too short to trigger a hold. A margin is needed at all because a real
+// browser timer fires late under load, and the release must land unambiguously
+// past the threshold — the exact multiple is not significant.
+const HOLD_PRESS_MS = HOLD_DURATION_MS * 2
+
 // Press and hold the card for the given friendly name with a real, trusted
-// mouse gesture. Held well past the shell's ≈500ms threshold, because the
-// gesture is what this exercises: touch/pointer semantics inside HA's shadow
-// DOM are exactly what a jsdom test cannot stand in for.
+// mouse gesture. The gesture is what this exercises: touch/pointer semantics
+// inside HA's shadow DOM are exactly what a jsdom test cannot stand in for.
 export async function holdCardTitle(page: Page, title: string): Promise<void> {
   const card = page.locator('.grid-item').filter({ hasText: title })
   await expect(card, `card titled "${title}" should be present`).toHaveCount(1)
@@ -457,7 +464,7 @@ export async function holdCardTitle(page: Page, title: string): Promise<void> {
   // on the document element instead of the card.
   await card.getByText(title, { exact: true }).hover()
   await page.mouse.down()
-  await page.waitForTimeout(900)
+  await page.waitForTimeout(HOLD_PRESS_MS)
   await page.mouse.up()
 }
 
