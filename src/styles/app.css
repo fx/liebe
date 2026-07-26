@@ -1,17 +1,17 @@
 /*
  * Basic CSS reset and defaults.
  *
- * The reset is layered; the rest of this sheet is not (yet — wrapping all
- * baseline CSS into `liebe-base` is change 0012, per docs/specs/theming
- * "Application mechanism"). Layered is what the reset has to be for any other
- * layered stylesheet to set padding or margin at all: an unlayered author rule
- * outranks every cascade layer regardless of selector specificity, so an
- * unlayered `* { padding: 0 }` silently zeroed the padding of every layered
- * rule — the card anatomy's chips and pills among them.
+ * The whole sheet is layered into `liebe-base`. An unlayered author rule
+ * outranks every cascade layer regardless of selector specificity, so anything
+ * left outside a layer here would be baseline styling no theme and no user CSS
+ * could reach (docs/specs/theming — "Application mechanism"). The reset and the
+ * touch-target floor were layered first, by change 0010, because an unlayered
+ * `* { padding: 0 }` silently zeroed the padding of every layered rule — the
+ * card anatomy's chips and pills among them; change 0012 finished the sheet.
  *
- * Moving it into the layer costs nothing else: at zero specificity this rule
- * already lost to every other author rule in the panel, and it still outranks
- * the user-agent defaults it exists to normalise, since origin beats layering.
+ * Layering costs the reset nothing else: at zero specificity it already lost to
+ * every other author rule in the panel, and it still outranks the user-agent
+ * defaults it exists to normalise, since origin beats layering.
  */
 @layer liebe-base, liebe-theme, liebe-user;
 
@@ -21,167 +21,161 @@
     margin: 0;
     padding: 0;
   }
-}
 
-html {
-  color-scheme: light dark;
-}
+  html {
+    color-scheme: light dark;
+  }
 
-html,
-body {
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
-  background-color: #fafafa;
-  color: #333;
-}
-
-@media (prefers-color-scheme: dark) {
   html,
   body {
-    background-color: #0a0a0a;
-    color: #e5e5e5;
+    font-family:
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      'Helvetica Neue',
+      Arial,
+      sans-serif;
+    background-color: #fafafa;
+    color: #333;
   }
-}
 
-.using-mouse * {
-  outline: none !important;
-}
-
-/* Responsive CSS Variables */
-:root {
-  /* Spacing Scale */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 20px;
-  --spacing-2xl: 24px;
-  --spacing-3xl: 32px;
-  --spacing-4xl: 48px;
-
-  /* Touch Target Sizes */
-  --touch-target-min: 44px;
-
-  /* Container Padding */
-  --container-padding: var(--spacing-lg);
-
-  /* Grid Margins */
-  --grid-margin: var(--spacing-lg);
-
-  /* Header Height */
-  --header-height: 64px;
-
-  /* Sidebar Width */
-  --sidebar-width: 320px;
-
-  /* Z-index Scale */
-  --z-header: 10;
-  --z-sticky: 15;
-  --z-sidebar: 20;
-  --z-modal-backdrop: 50;
-  --z-modal: 60;
-  --z-tooltip: 100;
-}
-
-/* Mobile-specific variables */
-@media (max-width: 767px) {
-  :root {
-    --container-padding: var(--spacing-sm);
-    --grid-margin: var(--spacing-sm);
-    --header-height: 56px;
-    --sidebar-width: 100vw;
+  @media (prefers-color-scheme: dark) {
+    html,
+    body {
+      background-color: #0a0a0a;
+      color: #e5e5e5;
+    }
   }
-}
 
-/* Tablet-specific variables */
-@media (min-width: 768px) and (max-width: 1023px) {
+  /* Responsive CSS Variables */
   :root {
-    --container-padding: var(--spacing-md);
-    --grid-margin: var(--spacing-md);
-    --sidebar-width: 280px;
-  }
-}
+    /* Spacing Scale */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 20px;
+    --spacing-2xl: 24px;
+    --spacing-3xl: 32px;
+    --spacing-4xl: 48px;
 
-/* Desktop and up */
-@media (min-width: 1024px) {
-  :root {
-    --sidebar-width: 320px;
-  }
-}
+    /* Touch Target Sizes */
+    --touch-target-min: 44px;
 
-/* Wide screens */
-@media (min-width: 1440px) {
-  :root {
-    --container-padding: var(--spacing-xl);
+    /* Container Padding */
+    --container-padding: var(--spacing-lg);
+
+    /* Grid Margins */
     --grid-margin: var(--spacing-lg);
-    --sidebar-width: 360px;
+
+    /* Header Height */
+    --header-height: 64px;
+
+    /* Sidebar Width */
+    --sidebar-width: 320px;
+
+    /* Z-index Scale */
+    --z-header: 10;
+    --z-sticky: 15;
+    --z-sidebar: 20;
+    --z-modal-backdrop: 50;
+    --z-modal: 60;
+    --z-tooltip: 100;
   }
-}
 
-/* Utility Classes */
-.mobile-only {
-  display: none;
-}
+  /* Mobile-specific variables */
+  @media (max-width: 767px) {
+    :root {
+      --container-padding: var(--spacing-sm);
+      --grid-margin: var(--spacing-sm);
+      --header-height: 56px;
+      --sidebar-width: 100vw;
+    }
+  }
 
-.tablet-up {
-  display: initial;
-}
+  /* Tablet-specific variables */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    :root {
+      --container-padding: var(--spacing-md);
+      --grid-margin: var(--spacing-md);
+      --sidebar-width: 280px;
+    }
+  }
 
-.desktop-up {
-  display: initial;
-}
+  /* Desktop and up */
+  @media (min-width: 1024px) {
+    :root {
+      --sidebar-width: 320px;
+    }
+  }
 
-@media (max-width: 767px) {
+  /* Wide screens */
+  @media (min-width: 1440px) {
+    :root {
+      --container-padding: var(--spacing-xl);
+      --grid-margin: var(--spacing-lg);
+      --sidebar-width: 360px;
+    }
+  }
+
+  /* Utility Classes */
   .mobile-only {
-    display: initial;
+    display: none;
   }
 
   .tablet-up {
-    display: none;
+    display: initial;
   }
 
   .desktop-up {
-    display: none;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .mobile-only {
-    display: none;
+    display: initial;
   }
 
-  .desktop-up {
-    display: none;
+  @media (max-width: 767px) {
+    .mobile-only {
+      display: initial;
+    }
+
+    .tablet-up {
+      display: none;
+    }
+
+    .desktop-up {
+      display: none;
+    }
   }
-}
 
-/* Responsive Typography */
-.responsive-text {
-  font-size: clamp(0.875rem, 2vw, 1rem);
-}
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .mobile-only {
+      display: none;
+    }
 
-.responsive-heading {
-  font-size: clamp(1.25rem, 3vw, 1.5rem);
-}
+    .desktop-up {
+      display: none;
+    }
+  }
 
-/*
- * Touch-friendly tap targets.
- *
- * Layered for the same reason as the reset above: unlayered, this floor
- * outranks every layered rule and so restyles rather than merely enlarges a
- * component that states its own size from a token — it would stretch the
- * anatomy's 34px chip past `--liebe-chip-height`, i.e. beat a token. Layered,
- * it still applies everywhere nothing more specific declares a minimum, which
- * is every control it was written for.
- */
-@layer liebe-base {
+  /* Responsive Typography */
+  .responsive-text {
+    font-size: clamp(0.875rem, 2vw, 1rem);
+  }
+
+  .responsive-heading {
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+  }
+
+  /*
+   * Touch-friendly tap targets.
+   *
+   * Layered for the same reason as the reset above: unlayered, this floor
+   * outranks every layered rule and so restyles rather than merely enlarges a
+   * component that states its own size from a token — it would stretch the
+   * anatomy's 34px chip past `--liebe-chip-height`, i.e. beat a token. Layered,
+   * it still applies everywhere nothing more specific declares a minimum, which
+   * is every control it was written for.
+   */
   @media (pointer: coarse) {
     button,
     [role='button'],
@@ -193,70 +187,70 @@ body {
       min-width: var(--touch-target-min);
     }
   }
-}
 
-/* Radix UI Slider Styles */
-.SliderRoot {
-  position: relative;
-  display: flex;
-  align-items: center;
-  user-select: none;
-  touch-action: none;
-  width: 100%;
-  height: 20px;
-}
-
-.SliderTrack {
-  background-color: var(--gray-6);
-  position: relative;
-  flex-grow: 1;
-  border-radius: 9999px;
-  height: 3px;
-}
-
-.SliderRange {
-  position: absolute;
-  background-color: var(--amber-9);
-  border-radius: 9999px;
-  height: 100%;
-}
-
-.SliderThumb {
-  display: block;
-  width: 20px;
-  height: 20px;
-  background-color: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
-  border-radius: 10px;
-  outline: none;
-}
-
-.SliderThumb:hover {
-  background-color: var(--gray-1);
-}
-
-.SliderThumb:focus {
-  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.08);
-}
-
-/* Fan spinning animations */
-@keyframes fan-spin {
-  from {
-    transform: rotate(0deg);
+  /* Radix UI Slider Styles */
+  .SliderRoot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    user-select: none;
+    touch-action: none;
+    width: 100%;
+    height: 20px;
   }
-  to {
-    transform: rotate(360deg);
+
+  .SliderTrack {
+    background-color: var(--gray-6);
+    position: relative;
+    flex-grow: 1;
+    border-radius: 9999px;
+    height: 3px;
   }
-}
 
-.fan-spin-slow {
-  animation: fan-spin 3s linear infinite;
-}
+  .SliderRange {
+    position: absolute;
+    background-color: var(--amber-9);
+    border-radius: 9999px;
+    height: 100%;
+  }
 
-.fan-spin-medium {
-  animation: fan-spin 1.5s linear infinite;
-}
+  .SliderThumb {
+    display: block;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+    border-radius: 10px;
+    outline: none;
+  }
 
-.fan-spin-fast {
-  animation: fan-spin 0.75s linear infinite;
+  .SliderThumb:hover {
+    background-color: var(--gray-1);
+  }
+
+  .SliderThumb:focus {
+    box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Fan spinning animations */
+  @keyframes fan-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .fan-spin-slow {
+    animation: fan-spin 3s linear infinite;
+  }
+
+  .fan-spin-medium {
+    animation: fan-spin 1.5s linear infinite;
+  }
+
+  .fan-spin-fast {
+    animation: fan-spin 0.75s linear infinite;
+  }
 }

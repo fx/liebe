@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
+import { baselineCssPlugin } from '../vite/baselineCssPlugin'
 
 /**
  * Storybook's own Vite config.
@@ -14,6 +15,7 @@ import { resolve } from 'path'
  */
 export default defineConfig({
   plugins: [
+    baselineCssPlugin(),
     {
       // `CameraCard` resolves its stream element through the Home Assistant
       // frontend's card-helper ladder, which can only ever succeed inside HA.

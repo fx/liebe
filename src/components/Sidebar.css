@@ -1,24 +1,35 @@
-/* Sidebar - Simple content area */
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ */
 
-.sidebar {
-  width: var(--sidebar-width);
-  background-color: var(--color-panel-solid);
-  border-right: 1px solid var(--gray-a5);
-  height: 100%;
-  transition:
-    width 120ms ease-out,
-    opacity 100ms ease-out;
-  -webkit-overflow-scrolling: touch;
-}
+@layer liebe-base, liebe-theme, liebe-user;
 
-/* Mobile responsive */
-@media (max-width: 768px) {
+@layer liebe-base {
+  /* Sidebar - Simple content area */
+
   .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 100%;
-    z-index: var(--z-modal);
+    width: var(--sidebar-width);
+    background-color: var(--color-panel-solid);
+    border-right: 1px solid var(--gray-a5);
+    height: 100%;
+    transition:
+      width 120ms ease-out,
+      opacity 100ms ease-out;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+      z-index: var(--z-modal);
+    }
   }
 }

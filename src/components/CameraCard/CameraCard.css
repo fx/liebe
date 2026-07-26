@@ -1,96 +1,107 @@
-@keyframes recording-pulse {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.1);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ */
 
-.recording-dot {
-  width: 0.625em;
-  height: 0.625em;
-  /* Radix theme token, not a fixed hex, so the dot follows the palette. */
-  background-color: var(--red-9);
-  border-radius: 50%;
-  display: inline-block;
-  animation: recording-pulse 1.5s ease-in-out infinite;
-}
+@layer liebe-base, liebe-theme, liebe-user;
 
-@media (prefers-reduced-motion: reduce) {
+@layer liebe-base {
+  @keyframes recording-pulse {
+    0% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.6;
+      transform: scale(1.1);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   .recording-dot {
-    animation: none;
+    width: 0.625em;
+    height: 0.625em;
+    /* Radix theme token, not a fixed hex, so the dot follows the palette. */
+    background-color: var(--red-9);
+    border-radius: 50%;
+    display: inline-block;
+    animation: recording-pulse 1.5s ease-in-out infinite;
   }
-}
 
-/* The stream surface is a role=button (tap toggles the in-place zoom), so a
-   pointer tap focuses it too. Chrome then paints its UA ring — `outline: auto`,
-   which reads as a white border over the dark stream — and its :focus-visible
-   heuristic makes that ring STICKY: once any keyboard interaction has happened
-   (pressing ESC to leave the zoom is the usual one), every later tap keeps the
-   ring until the card unmounts. Hence "sometimes, and it goes away on a
-   re-render". Replace the UA ring with the Radix focus token, and drop it for
-   pointer-only focus.
-   Ordered so the ring is the FALLBACK, not the enhancement: a browser without
-   :focus-visible support drops the `:not(:focus-visible)` rule as invalid and
-   keeps the plain `:focus` ring, rather than being left with no keyboard focus
-   indicator at all. */
-.camera-stream-surface:focus {
-  outline: 2px solid var(--focus-8);
-  /* Inset so the ring is not clipped by the card's overflow: hidden. */
-  outline-offset: -2px;
-}
+  @media (prefers-reduced-motion: reduce) {
+    .recording-dot {
+      animation: none;
+    }
+  }
 
-.camera-stream-surface:focus:not(:focus-visible) {
-  outline: none;
-}
+  /* The stream surface is a role=button (tap toggles the in-place zoom), so a
+     pointer tap focuses it too. Chrome then paints its UA ring — `outline: auto`,
+     which reads as a white border over the dark stream — and its :focus-visible
+     heuristic makes that ring STICKY: once any keyboard interaction has happened
+     (pressing ESC to leave the zoom is the usual one), every later tap keeps the
+     ring until the card unmounts. Hence "sometimes, and it goes away on a
+     re-render". Replace the UA ring with the Radix focus token, and drop it for
+     pointer-only focus.
+     Ordered so the ring is the FALLBACK, not the enhancement: a browser without
+     :focus-visible support drops the `:not(:focus-visible)` rule as invalid and
+     keeps the plain `:focus` ring, rather than being left with no keyboard focus
+     indicator at all. */
+  .camera-stream-surface:focus {
+    outline: 2px solid var(--focus-8);
+    /* Inset so the ring is not clipped by the card's overflow: hidden. */
+    outline-offset: -2px;
+  }
 
-/* In zoom the surface IS the viewport, so a ring hugging the screen edges is
-   pure noise — the always-visible "Click or press ESC to exit" hint is the
-   affordance there. Both selectors, so the ring stays suppressed where
-   :focus-visible is unsupported too. */
-.camera-stream-surface-fullscreen:focus,
-.camera-stream-surface-fullscreen:focus-visible {
-  outline: none;
-}
+  .camera-stream-surface:focus:not(:focus-visible) {
+    outline: none;
+  }
 
-.camera-control-button {
-  position: relative;
-  width: 2.5em;
-  height: 2.5em;
-  border-radius: 0.5em;
-  border: none;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  padding: 0;
-  font-size: inherit;
-}
+  /* In zoom the surface IS the viewport, so a ring hugging the screen edges is
+     pure noise — the always-visible "Click or press ESC to exit" hint is the
+     affordance there. Both selectors, so the ring stays suppressed where
+     :focus-visible is unsupported too. */
+  .camera-stream-surface-fullscreen:focus,
+  .camera-stream-surface-fullscreen:focus-visible {
+    outline: none;
+  }
 
-.camera-control-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
+  .camera-control-button {
+    position: relative;
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 0.5em;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    padding: 0;
+    font-size: inherit;
+  }
 
-/* Touch-target expansion: the visual button scales with card size (2.5em of
-   an 8-11.2px base) and can render well below the 44px minimum touch target.
-   A centered pseudo-element extends the HIT AREA to at least 44px in each
-   dimension without changing the visual size or the overlay layout. */
-.camera-control-button::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: max(100%, 44px);
-  height: max(100%, 44px);
-  transform: translate(-50%, -50%);
+  .camera-control-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Touch-target expansion: the visual button scales with card size (2.5em of
+     an 8-11.2px base) and can render well below the 44px minimum touch target.
+     A centered pseudo-element extends the HIT AREA to at least 44px in each
+     dimension without changing the visual size or the overlay layout. */
+  .camera-control-button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
 }

@@ -8,6 +8,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // CSS is stubbed out by default, `?raw` imports included — which would
+    // hand the theme registry an empty stylesheet and make every assertion
+    // about a theme's payload vacuous. Process the theme sheets only: the
+    // vendored stylesheets stay stubbed, so no test pays to parse 800kB of
+    // Radix CSS in jsdom.
+    css: { include: [/src\/theme\/themes\//] },
     // Playwright e2e specs live in tests/e2e and must not be picked up by the
     // vitest unit runner (they import @playwright/test).
     exclude: [...configDefaults.exclude, 'tests/e2e/**'],

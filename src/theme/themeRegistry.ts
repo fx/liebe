@@ -1,13 +1,19 @@
 /**
- * Minimal built-in theme registry.
+ * The built-in theme registry.
  *
- * A theme is data — an id, a human label, and which appearances it supports
- * (see docs/specs/theming/index.md, "Theme model"). Only `default` exists
- * today; the Storybook theme toolbar enumerates this registry rather than a
- * hardcoded list, so themes registered by later changes appear in the workshop
- * with no workshop changes. Change 0012 adopts this module as the runtime
- * registry and extends each entry with its CSS payload.
+ * A theme is data — an id, a human label, which appearances it supports, and
+ * the CSS that is its entire payload (see docs/specs/theming/index.md, "Theme
+ * model"). Never JavaScript: everything a theme does, it does by overriding
+ * tokens and by scoped rules on the stable selector contract, which is what
+ * makes adding one (change 0013) additive.
+ *
+ * Both surfaces read this module: the panel injects the active theme's `css`
+ * into its shadow root, and the Storybook toolbar enumerates the registry
+ * rather than a hardcoded list, so a theme registered here appears in the
+ * workshop with no workshop changes.
  */
+
+import defaultThemeCss from './themes/default.css?raw'
 
 /** Appearances a theme is able to render in. */
 export type ThemeAppearanceSupport = 'both' | 'dark-only' | 'light-only'
@@ -22,6 +28,13 @@ export interface ThemeDefinition {
   label: string
   /** Which appearances this theme provides token sets for. */
   appearances: ThemeAppearanceSupport
+  /**
+   * The theme's stylesheet, authored inside the `liebe-theme` layer and
+   * injected as-is when the theme is active (`src/theme/styleInjection.ts`).
+   * Imported raw rather than as a side-effecting `import './x.css'`, which
+   * would apply every registered theme at once.
+   */
+  css: string
 }
 
 export const DEFAULT_THEME_ID = 'default'
@@ -31,7 +44,12 @@ export const DEFAULT_THEME_ID = 'default'
 // caller. Freezing keeps the registry the single source of truth without
 // cloning on every lookup.
 const builtInThemes: readonly ThemeDefinition[] = Object.freeze([
-  Object.freeze<ThemeDefinition>({ id: DEFAULT_THEME_ID, label: 'Default', appearances: 'both' }),
+  Object.freeze<ThemeDefinition>({
+    id: DEFAULT_THEME_ID,
+    label: 'Default',
+    appearances: 'both',
+    css: defaultThemeCss,
+  }),
 ])
 
 /** All registered themes, in registration order. */
@@ -42,6 +60,18 @@ export function listThemes(): ThemeDefinition[] {
 /** Look up a single theme, or `undefined` when the id is not registered. */
 export function getTheme(id: string): ThemeDefinition | undefined {
   return builtInThemes.find((theme) => theme.id === id)
+}
+
+/**
+ * The theme to actually render for `id`.
+ *
+ * An unregistered id is a configuration written against a build that has a
+ * theme this one does not (an import from a newer Liebe, a theme removed
+ * between versions). Rendering the Default theme keeps that dashboard usable
+ * and styled, where an empty theme layer would leave it on bare base tokens.
+ */
+export function getThemeOrDefault(id: string): ThemeDefinition {
+  return getTheme(id) ?? builtInThemes[0]
 }
 
 /**

@@ -19,16 +19,16 @@ window.__LIEBE_ASSET_BASE_URL__ = new URL('./', document.baseURI).href
 
 // The same style set the panel injects (src/panel.ts) — imported here directly
 // because the panel entry also registers the custom element and starts the
-// Home Assistant connection, neither of which may run in the preview.
-// The token layers are part of that set and are imported in the same order the
-// panel injects them (base → theme → user, per the theming spec); the
+// Home Assistant connection, neither of which may run in the preview. These are
+// the `liebe-base` layer; the theme layer is injected by LiebeThemeProvider
+// from the registry, here as in the panel, which is what makes the toolbar's
+// theme control the real engine rather than a workshop-only path. The
 // stylesheets carry the `@layer` statement that makes the order binding.
 import '@radix-ui/themes/styles.css'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import '~/styles/app.css'
 import '~/styles/tokens.css'
-import '~/theme/themes/default.css'
 
 const preview: Preview = {
   // Outermost first: providers wrap the mock connection, which wraps the

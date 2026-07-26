@@ -1,24 +1,35 @@
-/* App Taskbar - Windows taskbar-like styling */
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ */
 
-.app-taskbar {
-  background-color: var(--color-panel-solid);
-  border-right: 1px solid var(--gray-a5);
-  padding: var(--space-3);
-  height: 100%;
-  transition: width 150ms ease-out;
-}
+@layer liebe-base, liebe-theme, liebe-user;
 
-/* Collapsed state - just icons */
-.app-taskbar.collapsed {
-  width: auto;
-}
+@layer liebe-base {
+  /* App Taskbar - Windows taskbar-like styling */
 
-/* Expanded state - icons + text */
-.app-taskbar.expanded {
-  width: 200px;
-}
+  .app-taskbar {
+    background-color: var(--color-panel-solid);
+    border-right: 1px solid var(--gray-a5);
+    padding: var(--space-3);
+    height: 100%;
+    transition: width 150ms ease-out;
+  }
 
-/* Ensure separators span full width */
-.app-taskbar .rt-Separator {
-  width: 100%;
+  /* Collapsed state - just icons */
+  .app-taskbar.collapsed {
+    width: auto;
+  }
+
+  /* Expanded state - icons + text */
+  .app-taskbar.expanded {
+    width: 200px;
+  }
+
+  /* Ensure separators span full width */
+  .app-taskbar .rt-Separator {
+    width: 100%;
+  }
 }

@@ -1,3 +1,14 @@
-/* Dashboard-specific styles */
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ */
 
-/* Currently no dashboard-specific styles needed */
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /* Dashboard-specific styles */
+
+  /* Currently no dashboard-specific styles needed */
+}

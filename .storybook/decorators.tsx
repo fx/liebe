@@ -131,9 +131,11 @@ export const withServiceCalls: Decorator = (Story, context) => (
  * ------------------------------------------------------------------ */
 
 /**
- * Wraps every story in the panel's provider shell and stamps the theming
- * engine's contract attributes (`data-liebe-theme`, `data-appearance`) so
- * scoped theme rules have the same hooks they get in the panel.
+ * Wraps every story in the panel's provider shell, driven by the toolbar the
+ * way the panel is driven by its configuration: the provider stamps the
+ * contract attributes (`data-liebe-theme`, `data-appearance`) on the theme root
+ * and injects the selected theme's layer, so scoped theme rules have exactly
+ * the hooks and the cascade they get in the panel.
  *
  * Single-appearance themes force their appearance, and the forced value is
  * written back into the toolbar global so the control shows what is actually
@@ -163,10 +165,8 @@ export const withProviders: Decorator = (Story) => {
   }, [appearance, requested, updateGlobals])
 
   return (
-    <LiebeThemeProvider appearance={appearance}>
+    <LiebeThemeProvider themeId={themeId} appearance={appearance}>
       <div
-        data-liebe-theme={themeId}
-        data-appearance={appearance}
         style={{
           background: 'var(--color-background)',
           color: 'var(--gray-12)',
