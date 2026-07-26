@@ -40,7 +40,7 @@ specs:
     status: active
   - name: storybook
     path: specs/storybook/
-    description: Component workshop — Storybook with entity fixtures, theme/appearance/grid-cell decorators, per-state story coverage, a11y checks, CI build gate, and Pages publishing (not yet implemented)
+    description: Component workshop — Storybook with entity fixtures, theme/appearance/grid-cell decorators, per-state story coverage, a11y checks, CI build gate, and Pages publishing
     status: active
   - name: theming
     path: specs/theming/
@@ -109,7 +109,7 @@ changes:
     path: changes/0009-storybook-setup.md
     description: Storybook workshop with entity fixtures, decorators, stories for all existing cards, a11y addon, CI build gate, and GitHub Pages publishing — lands ahead of design-system/theming work
     spec: storybook
-    status: draft
+    status: complete
     depends_on: []
   - id: '0010'
     name: design-tokens-and-anatomy

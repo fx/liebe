@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { WeatherCard } from './WeatherCard'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { WeatherCard, getWeatherBackground } from './WeatherCard'
 import { useEntity } from '../hooks'
 import '@radix-ui/themes/styles.css'
 
@@ -213,6 +213,27 @@ describe('WeatherCard', () => {
 
       const { container } = render(<WeatherCard entityId="weather.home" />)
       expect(container.textContent).toContain('❄️')
+    })
+  })
+
+  describe('Background asset base URL', () => {
+    // The panel publishes `window.__LIEBE_ASSET_BASE_URL__` (src/panel.ts) so
+    // backgrounds resolve against wherever panel.js was served from; without it
+    // the card falls back to the origin root.
+    afterEach(() => {
+      delete window.__LIEBE_ASSET_BASE_URL__
+    })
+
+    it('should prefix background URLs with the published asset base URL', () => {
+      window.__LIEBE_ASSET_BASE_URL__ = 'https://ha.example/local/liebe/'
+
+      expect(getWeatherBackground('rain')).toBe(
+        'https://ha.example/local/liebe/weather-backgrounds/rain.png'
+      )
+    })
+
+    it('should fall back to the origin root when no base URL is published', () => {
+      expect(getWeatherBackground('rain')).toBe('/weather-backgrounds/rain.png')
     })
   })
 })

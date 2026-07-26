@@ -8,6 +8,15 @@ import { registerMockCameraStream } from './mockCameraStream'
 // story. Only camera stories that ask for the stream branch ever render it.
 registerMockCameraStream()
 
+// In the panel, `src/panel.ts` publishes the directory it was loaded from so
+// cards can build asset URLs against it (WeatherCard's backgrounds). Nothing
+// bootstraps the panel here, so without this the fallback `/` would resolve
+// those assets against the origin root — fine at `localhost:6006`, broken on
+// Pages where the workshop is published under `/liebe/storybook/`. Point it at
+// the preview document's own directory instead, which is correct in both.
+// The global itself is declared in `src/panel.ts`, the module that publishes it.
+window.__LIEBE_ASSET_BASE_URL__ = new URL('./', document.baseURI).href
+
 // The same style set the panel injects (src/panel.ts) — imported here directly
 // because the panel entry also registers the custom element and starts the
 // Home Assistant connection, neither of which may run in the preview.
