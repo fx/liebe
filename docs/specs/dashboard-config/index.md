@@ -200,6 +200,20 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 - **WHEN** `importConfigurationFromFile` runs
 - **THEN** `liebe-config-backup` holds the pre-import configuration
 
+### Forward Compatibility
+
+Migration handles documents older than this build. This section handles documents _newer_ or simply _foreign_ — written by a build with themes, options, or keys this one does not have. Both directions of the same promise: opening a shared configuration must not damage it.
+
+- **A configuration this build cannot fully interpret MUST survive a round-trip through it unchanged.** Within the fields of the portable contract, a value or key this build does not recognise MUST be carried through import → store → export exactly as it arrived; nothing may rewrite or drop it. (Which _top-level_ fields are serialized remains the canonical portable contract above — this rule governs what happens to their contents.) `dashboardConfigSchema`'s `.passthrough()` is the declaration of that promise, and every loader and migration step MUST honour it rather than rebuilding a known-keys-only object.
+- **Unrecognised values are resolved for display only.** Where a stored value names something absent — a `theme.id` no registered theme matches, an action `target` no screen in this document matches — the UI MUST show the effect that will actually be rendered (the fallback), never an empty or unset control, and MUST NOT write that resolution back into the configuration. Only a user's own edit changes a stored value.
+- The two halves are one invariant, and the second is what makes the first hold: a build that repairs what it merely cannot resolve destroys the document for the build that could have resolved it. The user whose dashboard names a theme this build lacks has a configuration that is _valid elsewhere_, not a broken one.
+
+#### Scenario: A foreign theme survives the round-trip
+
+- **GIVEN** an imported configuration whose `theme.id` names a theme this build has no CSS for
+- **WHEN** the dashboard renders and is exported again
+- **THEN** the panel renders the Default theme, the theme picker shows Default as the active selection rather than nothing, and the exported document still carries the original `theme.id`
+
 ### Legacy Migration
 
 - Migration MUST flatten any `grid.sections[].items` into a single `grid.items` array, MUST ensure a `grid.items` array exists, and MUST backfill a unique `slug` (derived from `name`) for screens lacking one, recursing into `children`.
@@ -427,3 +441,4 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 | 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                | —                                                      |
 | 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying                                           | [0004](../../changes/0004-portable-config-contract.md) |
 | 2026-07-26 | `theme` becomes `{ id, appearance, customCss }`: new store shape, `setTheme(partial)`, legacy scalar migration on every load route, object-shaped export, picker / appearance control / custom-CSS editor | [0012](../../changes/0012-theming-engine.md)           |
+| 2026-07-26 | Forward-compatibility invariant added: unrecognised values round-trip unchanged and are resolved for display only                                                                                         | [0012](../../changes/0012-theming-engine.md)           |

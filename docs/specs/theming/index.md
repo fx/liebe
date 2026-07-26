@@ -4,7 +4,7 @@
 
 Theming makes the entire dashboard restyleable with plain CSS. A theme is a set of CSS custom-property overrides against the [design-system token contract](../design-system/), optionally extended with rules scoped to documented stable selectors. Liebe SHALL ship built-in themes — **Default** (dark + light), **Liquid Glass**, and **LCARS** — and SHALL accept user-supplied custom CSS stored in the dashboard configuration. Theme selection, appearance (dark/light/auto), and custom CSS are part of the portable YAML configuration and are chosen in-panel, never by editing files.
 
-**Status: specified, not yet implemented.** Validated in a throwaway static mockup where all three built-in themes plus a geometry modifier ran as pure CSS override blocks over one shared markup; the token and rule values that mockup established are captured in the tables below, which supersede it as the sole reference.
+**Status: the engine is implemented ([0012](../../changes/0012-theming-engine.md)) — layered injection, appearance resolution, root stamping, the custom-CSS sanitizer, and the in-panel picker / appearance control / CSS editor, shipping Default as the only theme. Liquid Glass and LCARS are specified below but not yet built ([0013](../../changes/0013-built-in-themes.md)), and with them the bundled Antonio face and the scoped-rule half of the selector contract.** Validated in a throwaway static mockup where all three built-in themes plus a geometry modifier ran as pure CSS override blocks over one shared markup; the token and rule values that mockup established are captured in the tables below, which supersede it as the sole reference.
 
 ## Background
 
@@ -22,7 +22,7 @@ The token contract exists so that theming is data, not code: the Liquid Glass th
 
 #### Scenario: User CSS beats the built-in theme
 
-- **GIVEN** the LCARS theme active, and user custom CSS containing `:host { --liebe-card-radius: 0; }` (token declarations need a rule — bare declarations are invalid inside the layer wrapper; the exact root selector is documented by the engine change)
+- **GIVEN** the LCARS theme active, and user custom CSS containing `.liebe-root { --liebe-card-radius: 0; }` (token declarations need a rule — bare declarations are invalid inside the layer wrapper; `.liebe-root` is [the documented root selector](#configuration--selection))
 - **WHEN** the dashboard renders
 - **THEN** cards render square (user layer wins the token) while all other LCARS styling stands.
 
@@ -59,7 +59,9 @@ The token contract exists so that theming is data, not code: the Liquid Glass th
 ### Configuration & selection
 
 - The dashboard configuration MUST carry: `theme.id` (default `"default"`), `theme.appearance` (`auto | dark | light`, default `auto`), and `theme.customCss` (string, default empty). All three MUST round-trip through YAML export/import. **Baseline vs. target:** the [dashboard-config](../dashboard-config/) spec documents the _implemented_ scalar `theme: light | dark | auto` (store shape, `setTheme`, export). That remains the truth until change [0012](../../changes/0012-theming-engine.md) lands, whose scope includes the scalar→object loader migration and the dashboard-config spec sync — the two specs deliberately describe baseline and target of the same field during that window.
+- **The root selector is `.liebe-root`**, and it is public contract alongside the [stable selector contract](#stable-selector-contract): it is the element the token defaults are declared on, the element carrying `data-liebe-theme` / `data-appearance`, and therefore the element themes and user CSS MUST declare token overrides on. Renaming it is a breaking change requiring a migration note here. Two selectors that look equivalent are not: `:host` matches the shadow host, an _ancestor_ of the root, so a token declared there is overridden by the root's own default instead of winning, and it does not exist at all in the document-level workshop; `.radix-themes` is the vendor's name for the same element and not ours to promise. Overrides on a descendant are worse than useless for the [derived domain-colour companions](#stable-selector-contract) — a derivation re-derives only where its base is overridden on the same element, so the companions stay on the old hue.
 - The configuration menu MUST offer: theme picker (with live application), appearance control, and a custom-CSS editor (plain textarea is sufficient) with the token contract linked/documented.
+- A theme id no registered theme matches MUST resolve to **Default** — for what renders, for what the root is stamped with, and for what the picker shows as active. It resolves for display only: what happens to the stored id is the round-trip invariant in [dashboard-config — Forward Compatibility](../dashboard-config/index.md#forward-compatibility).
 - Custom CSS MUST be applied as-authored into the user layer, subject to one **invariant**: _no declaration may cause the panel to fetch a resource whose resolved source is anything other than same-origin or `data:`, and no declaration may import external CSS._ The invariant binds the **computed result**, not the authored text — a sanitizer is correct only if no reference can resolve off-origin, however it was expressed. `@import` is rejected outright (it fetches, and cannot legally appear inside the `@layer liebe-user { … }` wrapper anyway). Everything stripped or rejected MUST be named in an editor notice, never dropped silently.
 - Three properties of CSS make a **syntactic** scan insufficient, and any implementation judged by pattern-matching rather than by resolution will be bypassed:
   - **Fetches happen through many constructs** — `url()`, `image-set()`, `src()`, and whatever a future CSS level adds — and accept scheme-less (`//host/…`) and CSS-escaped forms. The sanitizer MUST CSS-unescape each candidate reference and resolve it against the document base before judging it.
@@ -139,6 +141,7 @@ Built-in themes live in-repo as CSS assets keyed by id (`default`, `liquid-glass
 
 ## References
 
+- Engine: `src/theme/` (`cssLayers.ts` layer wrapping and importance rewrite, `styleInjection.ts`, `customCss.ts` sanitizer, `themeRegistry.ts`, `appearance.ts`), `src/components/LiebeThemeProvider.tsx` (root stamping + injection), `src/components/ConfigurationMenu.tsx` / `CustomCssDialog.tsx` (selection UI); live-switch and export/import coverage in `tests/e2e/theming.spec.ts`
 - Token contract & anatomy: [design-system](../design-system/)
 - Persistence: [dashboard-config](../dashboard-config/) · Injection host: [panel-lifecycle](../panel-lifecycle/)
 - Stories per theme: [storybook](../storybook/)
@@ -146,7 +149,8 @@ Built-in themes live in-repo as CSS assets keyed by id (`default`, `liquid-glass
 
 ## Changelog
 
-| Date       | Change                                                                                                                           | Document                                                |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| 2026-07-25 | Initial spec created (theming model, not yet implemented)                                                                        | —                                                       |
-| 2026-07-26 | Selector contract extended with `data-color` and the presence-only rule for `data-active`, as first stamped by the anatomy parts | [0010](../../changes/0010-design-tokens-and-anatomy.md) |
+| Date       | Change                                                                                                                                                    | Document                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 2026-07-25 | Initial spec created (theming model, not yet implemented)                                                                                                 | —                                                       |
+| 2026-07-26 | Selector contract extended with `data-color` and the presence-only rule for `data-active`, as first stamped by the anatomy parts                          | [0010](../../changes/0010-design-tokens-and-anatomy.md) |
+| 2026-07-26 | Engine implemented and status updated; `.liebe-root` documented as the root selector for token overrides; unregistered theme ids resolve for display only | [0012](../../changes/0012-theming-engine.md)            |

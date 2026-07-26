@@ -4,7 +4,7 @@
 
 Implement the [theming](../specs/theming/index.md) machinery: layered style injection in the shadow root (base → theme → user), the built-in theme registry (shipping only `default` in this change), appearance resolution (`auto | dark | light`) wired to the Radix `Theme`, YAML-persisted `theme.{id, appearance, customCss}`, and the in-panel picker + custom CSS editor. Liquid Glass and LCARS land separately in [0013](./0013-built-in-themes.md).
 
-**Spec:** [theming](../specs/theming/index.md) · **Status:** draft · **Depends on:** 0010
+**Spec:** [theming](../specs/theming/index.md) · **Status:** complete · **Depends on:** 0010
 
 ## Motivation
 
@@ -45,7 +45,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 - [x] **PR 1 — Injection + registry + appearance**: style layers; adopt and extend the minimal theme-registry module from 0009 as the runtime registry (the storybook toolbar already enumerates it); appearance resolution + Radix wiring; root stamping; unit tests
 - [x] **PR 2 — Config + UI**: schema fields + validation + export/import + dirty-tracking; legacy scalar-`theme` migration with unit tests; **dashboard-config spec synchronized in this same PR** (store shape, `setTheme`, initialization, export/import, migration — the schema change and its owning spec must never merge apart); picker, appearance control, custom-CSS editor; **the injection-time sanitizer ships in this same PR** (imports, off-origin references incl. escaped/protocol-relative/custom-property and inherited-variable indirection, with editor notices and the full bypass-test suite — imported YAML applies immediately, so warnings without the sanitizer would violate the offline/security boundary); component tests; user-override story
-- [ ] **PR 3 — E2E + theming spec sync**: live-switch and round-trip e2e; update theming spec changelog and document the chosen user-CSS root selector (the dashboard-config spec was already synchronized in PR 2, atomically with the schema change)
+- [x] **PR 3 — E2E + theming spec sync**: live-switch and round-trip e2e; update theming spec changelog and document the chosen user-CSS root selector (the dashboard-config spec was already synchronized in PR 2, atomically with the schema change)
 
 ## Out of Scope
 
