@@ -52,7 +52,11 @@ export const Active: Story = {
   args: { active: true },
 }
 
-/** No history yet: the dashed baseline holds the space the graph will take. */
+/**
+ * No history yet: the dashed baseline holds the space the graph will take. The
+ * card here is active, and the placeholder stays neutral anyway — there is no
+ * series for a domain colour to be describing.
+ */
 export const NoData: Story = {
   args: { values: [], active: true },
 }
@@ -74,7 +78,7 @@ export const WithValueAndMeta: Story = {
       <Flex direction="column" gap="2" style={{ width: 260 }}>
         <CardValue value="22.3" unit="°C" color={args.color} domain={args.domain} active />
         <CardMeta>
-          <CardName>Hallway Temperature</CardName>
+          <CardName domain={args.domain}>Hallway Temperature</CardName>
           <CardState color={args.color} domain={args.domain} active>
             Rising
           </CardState>

@@ -24,13 +24,22 @@ import {
 
 describe('anatomyPart', () => {
   it('defaults to the generic domain colour and stamps no state', () => {
-    expect(anatomyPart('liebe-icon', {})).toEqual({
+    expect(anatomyPart('liebe-icon', { domain: 'light' })).toEqual({
       className: 'liebe-icon',
       'data-color': 'default',
-      'data-domain': undefined,
+      'data-domain': 'light',
       'data-active': undefined,
       style: undefined,
     })
+  })
+
+  it('will not compile without the domain half of the selector contract', () => {
+    // The guard is the type, not a runtime check: an omitted `domain` makes
+    // React drop `data-domain` altogether, which silently unhooks the part from
+    // every domain-scoped theme rule. This assertion fails `npm run typecheck`
+    // the moment the prop goes back to optional.
+    // @ts-expect-error — `domain` is required.
+    expect(anatomyPart('liebe-icon', {})['data-domain']).toBeUndefined()
   })
 
   it('stamps the domain, the colour and the active state', () => {
@@ -44,17 +53,58 @@ describe('anatomyPart', () => {
   })
 
   it('keeps the part class first when the caller adds its own', () => {
-    expect(anatomyPart('liebe-chip', { className: 'extra' }).className).toBe('liebe-chip extra')
+    expect(anatomyPart('liebe-chip', { domain: 'light', className: 'extra' }).className).toBe(
+      'liebe-chip extra'
+    )
   })
 
   it('overrides the triplet inline for a data-driven colour', () => {
     // A bulb's real RGB is the one documented exception to token-only colour;
     // the tint is mixed at the same 20% the token layer derives it at.
-    expect(anatomyPart('liebe-icon', { color: 'light', hue: 'rgb(255, 170, 80)' }).style).toEqual({
+    expect(
+      anatomyPart('liebe-icon', { color: 'light', domain: 'light', hue: 'rgb(255, 170, 80)' }).style
+    ).toEqual({
       '--part-color': 'rgb(255, 170, 80)',
       '--part-tint': 'color-mix(in srgb, rgb(255, 170, 80) 20%, transparent)',
       '--part-text': 'rgb(255, 170, 80)',
     })
+  })
+})
+
+describe('selector contract', () => {
+  // Every contract part must be reachable by `[data-domain]` and `[data-color]`
+  // — that is the whole of the promise `docs/specs/theming` makes, and a part
+  // that renders without them fails silently: the theme rule simply never
+  // matches, with nothing in the DOM to say why. Each part is rendered here
+  // with nothing beyond its required props, so a part that only stamps the
+  // attributes when a caller remembers to pass them is caught.
+  it.each([
+    ['liebe-icon', <IconCircle key="icon" domain="light" />],
+    [
+      'liebe-name',
+      <CardName key="name" domain="light">
+        Porch
+      </CardName>,
+    ],
+    [
+      'liebe-state',
+      <CardState key="state" domain="light">
+        Off
+      </CardState>,
+    ],
+    ['liebe-pill', <Pill key="pill" label="Heat" domain="climate" onClick={() => {}} />],
+    ['liebe-chip', <Chip key="chip" label="Away" domain="person" />],
+    ['liebe-value', <CardValue key="value" value="42" domain="sensor" />],
+    ['liebe-spark', <Sparkline key="spark" domain="sensor" />],
+  ])('reaches %s by both selector attributes', (partClass, element) => {
+    const { container } = render(element)
+
+    const part = container.querySelector(`.${partClass}`)
+    expect(part).toHaveAttribute('data-domain')
+    expect(part?.getAttribute('data-domain')).not.toBe('')
+    // `default` is a real triplet, so the colour half always has a value even
+    // when the caller leaves it to the helper.
+    expect(part).toHaveAttribute('data-color', 'default')
   })
 })
 
@@ -74,7 +124,7 @@ describe('IconCircle', () => {
   })
 
   it('renders inactive with no state attribute and no glyph', () => {
-    const { container } = render(<IconCircle />)
+    const { container } = render(<IconCircle domain="light" />)
 
     const circle = container.querySelector('.liebe-icon')
     expect(circle).not.toHaveAttribute('data-active')
@@ -112,8 +162,10 @@ describe('meta block', () => {
   it('accepts extra classes on the stack and the name', () => {
     const { container } = render(
       <CardMeta className="stack">
-        <CardName className="wide">Porch</CardName>
-        <CardState>Off</CardState>
+        <CardName className="wide" domain="light">
+          Porch
+        </CardName>
+        <CardState domain="light">Off</CardState>
       </CardMeta>
     )
 
@@ -151,7 +203,7 @@ describe('Pill', () => {
     render(
       <PillGroup label="HVAC mode">
         <Pill label="Heat" color="heat" domain="climate" active onClick={onClick} />
-        <Pill label="Cool" color="cool" domain="climate" />
+        <Pill label="Cool" color="cool" domain="climate" onClick={() => {}} />
       </PillGroup>
     )
 
@@ -168,7 +220,13 @@ describe('Pill', () => {
   it('keeps the label as the accessible name when it is hidden', () => {
     const { container } = render(
       <PillGroup label="Fan speed" className="row">
-        <Pill label="Boost" hideLabel icon={<svg data-testid="boost-icon" />} />
+        <Pill
+          label="Boost"
+          hideLabel
+          icon={<svg data-testid="boost-icon" />}
+          domain="fan"
+          onClick={() => {}}
+        />
       </PillGroup>
     )
 
@@ -181,7 +239,7 @@ describe('Pill', () => {
 
   it('does not dispatch while disabled', async () => {
     const onClick = vi.fn()
-    render(<Pill label="Unlock" disabled onClick={onClick} />)
+    render(<Pill label="Unlock" domain="lock" disabled onClick={onClick} />)
 
     const pill = screen.getByRole('button', { name: 'Unlock' })
     expect(pill).toBeDisabled()
@@ -195,8 +253,8 @@ describe('embedded controls', () => {
   // descendant target, so a control that let its click bubble would fire the
   // tile as well — choosing a mode would toggle the device it configures.
   it.each([
-    ['pill', <Pill key="pill" label="Cool" onClick={() => {}} />],
-    ['chip', <Chip key="chip" label="Away" onClick={() => {}} />],
+    ['pill', <Pill key="pill" label="Cool" domain="climate" onClick={() => {}} />],
+    ['chip', <Chip key="chip" label="Away" domain="person" onClick={() => {}} />],
   ])('keeps a %s click from reaching the tile around it', async (_part, control) => {
     const onTileClick = vi.fn()
     // Stands in for the card shell, whose own handler accepts any descendant.
@@ -223,7 +281,7 @@ describe('Chip', () => {
   it('becomes a real button when it does something', async () => {
     const onClick = vi.fn()
     const { container } = render(
-      <Chip label="Away" icon={<svg data-testid="chip-icon" />} onClick={onClick} />
+      <Chip label="Away" domain="person" icon={<svg data-testid="chip-icon" />} onClick={onClick} />
     )
 
     await userEvent.click(screen.getByRole('button', { name: 'Away' }))
@@ -235,7 +293,9 @@ describe('Chip', () => {
 
 describe('CardValue', () => {
   it('renders the number with a unit beside it', () => {
-    const { container } = render(<CardValue value="21.5" unit="°C" color="heat" active />)
+    const { container } = render(
+      <CardValue value="21.5" unit="°C" color="heat" domain="climate" active />
+    )
 
     const value = container.querySelector('.liebe-value')
     expect(value).toHaveAttribute('data-color', 'heat')
@@ -245,7 +305,7 @@ describe('CardValue', () => {
   })
 
   it('renders without a unit', () => {
-    const { container } = render(<CardValue value="42" />)
+    const { container } = render(<CardValue value="42" domain="sensor" />)
 
     expect(container.querySelector('.liebe-value-unit')).not.toBeInTheDocument()
     expect(container.querySelector('.liebe-value')).not.toHaveAttribute('data-active')
@@ -273,9 +333,19 @@ describe('Sparkline', () => {
     expect(container.querySelector<HTMLElement>('.liebe-spark-dot')?.style.left).toBe('100%')
   })
 
+  it('scales a series that dips below its first sample', () => {
+    // The extremes are found in one pass rather than by spreading the series
+    // into `Math.min`, which throws past the engine's argument limit. Both ends
+    // of that pass matter: here the running minimum moves at the second sample
+    // and the maximum at the third.
+    const { container } = render(<Sparkline values={[5, 0, 10]} domain="sensor" />)
+
+    expect(container.querySelector('.liebe-spark-line')).toHaveAttribute('d', 'M0,16 L50,29 L100,3')
+  })
+
   it('draws a flat series down the middle', () => {
     // No range to scale into — the naive mapping would divide by zero.
-    const { container } = render(<Sparkline values={[7, 7, 7]} />)
+    const { container } = render(<Sparkline values={[7, 7, 7]} domain="sensor" />)
 
     expect(container.querySelector('.liebe-spark-line')).toHaveAttribute(
       'd',
@@ -285,16 +355,23 @@ describe('Sparkline', () => {
   })
 
   it.each([
-    ['no series at all', undefined],
-    ['a single sample', [3]],
+    ['no series at all', undefined, false],
+    ['a single sample', [3], false],
     // History can carry states that do not parse as numbers; one of them would
     // otherwise turn every coordinate into NaN and draw nothing at all.
-    ['a non-finite sample', [1, Number.NaN, 3]],
-  ])('shows the placeholder baseline with %s', (_case, values) => {
-    const { container } = render(<Sparkline values={values} />)
+    ['a non-finite sample', [1, Number.NaN, 3], false],
+    // A card is routinely active while its history is still loading. The
+    // placeholder must stay neutral there: a saturated baseline reads as a
+    // graph of something, when it is the absence of one.
+    ['an active card and no series', [], true],
+  ])('shows the neutral placeholder baseline with %s', (_case, values, active) => {
+    const { container } = render(<Sparkline values={values} domain="sensor" active={active} />)
 
     const spark = container.querySelector('.liebe-spark')
     expect(spark).toHaveAttribute('data-empty', 'true')
+    // Nothing for a domain colour to describe, so nothing for a theme's
+    // `[data-active]` rule to catch hold of either.
+    expect(spark).not.toHaveAttribute('data-active')
     // Decorative without a label, so it stays out of the accessibility tree.
     expect(spark).toHaveAttribute('aria-hidden', 'true')
     expect(container.querySelector('.liebe-spark-baseline')).toBeInTheDocument()

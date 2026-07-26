@@ -45,7 +45,17 @@ export interface PillProps extends AnatomyPartProps {
    * already current.
    */
   disabled?: boolean
-  onClick?: () => void
+  /**
+   * Required. `Chip` renders a `<span>` when it has nothing to do, because a
+   * chip has a genuine read-only life — "3 lights on" is a summary whether or
+   * not you can tap it. A pill has none: it is one option in a `PillGroup`
+   * selector, and everything it is made of (`aria-pressed`, `disabled`, the
+   * equal-width row of buttons) presumes choosing it does something. So the
+   * same rule — never render an inert control — is kept here by refusing the
+   * inert case in the type rather than by degrading the element. A pill that
+   * must not fire right now is `disabled`, which says so to everyone.
+   */
+  onClick: () => void
 }
 
 /**
@@ -77,7 +87,7 @@ export function Pill({
         // mode would also fire the tile — toggling the very device the pill was
         // configuring.
         event.stopPropagation()
-        onClick?.()
+        onClick()
       }}
     >
       {icon}

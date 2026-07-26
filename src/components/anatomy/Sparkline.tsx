@@ -26,8 +26,16 @@ function round(value: number): number {
 }
 
 function sparkShape(values: number[]): SparkShape {
-  const min = Math.min(...values)
-  const max = Math.max(...values)
+  // One pass rather than `Math.min(...values)`: spreading a series into an
+  // argument list throws `RangeError` once it outgrows the engine's argument
+  // limit. History is downsampled before it reaches here, so this is insurance
+  // rather than a live bug — but it is also simply the cheaper way to do it.
+  let min = values[0]
+  let max = values[0]
+  for (const value of values) {
+    if (value < min) min = value
+    if (value > max) max = value
+  }
   const span = max - min
 
   const points = values.map((value, index) => ({
@@ -76,8 +84,12 @@ export interface SparklineProps extends AnatomyPartProps {
  * sizes they cost more room than they add meaning.
  */
 export function Sparkline({ values = [], label, ...part }: SparklineProps) {
-  const attributes = anatomyPart('liebe-spark', part)
   const shape = values.length > 1 && values.every(Number.isFinite) ? sparkShape(values) : null
+  // The placeholder is not a state readout. With no drawable series there is
+  // nothing for the domain colour to be describing, so an empty sparkline stays
+  // neutral however the card's `active` reads — otherwise a card whose history
+  // has not arrived shows a saturated "no data" baseline.
+  const attributes = anatomyPart('liebe-spark', { ...part, active: shape ? part.active : false })
 
   return (
     <div

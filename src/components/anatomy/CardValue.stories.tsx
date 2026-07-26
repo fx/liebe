@@ -55,7 +55,7 @@ export const WithMeta: Story = {
       <Flex direction="column" gap="2" style={{ maxWidth: 220 }}>
         <CardValue {...args} />
         <CardMeta>
-          <CardName>Hallway Thermostat</CardName>
+          <CardName domain={args.domain}>Hallway Thermostat</CardName>
           <CardState color={args.color} domain={args.domain} active={args.active}>
             Heating
           </CardState>

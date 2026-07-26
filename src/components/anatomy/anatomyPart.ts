@@ -21,8 +21,14 @@ export interface AnatomyPartProps {
   /**
    * The entity's domain, stamped as `data-domain` — part of the stable
    * selector contract, so themes can style e.g. every light's icon circle.
+   *
+   * Required, and deliberately not defaulted: an omitted prop makes React drop
+   * the attribute entirely, so `.liebe-name[data-domain='light']` would stop
+   * matching with nothing to show for it. A default would only trade a missing
+   * attribute for a wrong one — a part claiming a domain it does not belong to
+   * is harder to notice than one the type refuses to render.
    */
-  domain?: string
+  domain: string
   /** Renders the active (tinted) treatment; inactive is a muted neutral. */
   active?: boolean
   /**
@@ -36,11 +42,15 @@ export interface AnatomyPartProps {
   className?: string
 }
 
-/** The attributes a part element carries. */
+/**
+ * The attributes a part element carries. Both selector attributes are
+ * non-optional: the stable selector contract is only worth anything if every
+ * part is reachable by it, so neither may be absent from a rendered part.
+ */
 export interface AnatomyPartAttributes {
   className: string
   'data-color': DomainColorName
-  'data-domain'?: string
+  'data-domain': string
   /**
    * Present only when active, so themes and tests select on the attribute
    * itself (`[data-active]`) — an inactive part carries no `data-active` at
@@ -69,6 +79,9 @@ function hueStyle(hue: string): CSSProperties {
  */
 export function anatomyPart(
   partClass: string,
+  // `color` may default because `default` is a real triplet in the palette, so
+  // the attribute is still stamped with a value themes can select on; `domain`
+  // has no such stand-in and is therefore required of the caller.
   { color = 'default', domain, active = false, hue, className }: AnatomyPartProps
 ): AnatomyPartAttributes {
   return {
