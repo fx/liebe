@@ -618,10 +618,12 @@ describe('GridCard actions', () => {
   })
 
   it('advertises a press only when the tap has somewhere to go', () => {
-    // `more-info` with no dialog handler is not yet actionable (0014 PR 2), and
-    // a card must not offer a pointer for a press that does nothing.
+    // `more-info` on a card with no entity has no details to open — a text tile
+    // or a separator — and a card must not offer a pointer for a press that
+    // does nothing. Give it an entity and the shell's own detail dialog makes
+    // the same action actionable with no card-side wiring (0014 PR 2).
     const { rerender } = renderCard(
-      <GridCard domain="sensor" entityId="sensor.temperature" defaultAction="more-info">
+      <GridCard domain="sensor" defaultAction="more-info">
         content
       </GridCard>
     )
@@ -629,12 +631,7 @@ describe('GridCard actions', () => {
 
     rerender(
       <HomeAssistantProvider hass={hass}>
-        <GridCard
-          domain="sensor"
-          entityId="sensor.temperature"
-          defaultAction="more-info"
-          onMoreInfo={vi.fn()}
-        >
+        <GridCard domain="sensor" entityId="sensor.temperature" defaultAction="more-info">
           content
         </GridCard>
       </HomeAssistantProvider>

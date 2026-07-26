@@ -1,11 +1,16 @@
 import { type ConsoleMessage, type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
+import { HOLD_DURATION_MS } from '../../src/store/cardActions'
 import { safeStringify } from './safeStringify'
 
 // Demo/helper entities the suite asserts against. The demo integration provides
 // the light; the input_boolean is a deterministic helper from configuration.yaml.
 export const DEMO_LIGHT = 'light.bed_light'
 export const E2E_FLAG = 'input_boolean.e2e_flag'
+// A `mode: password` helper from configuration.yaml: its state IS the secret,
+// so it is what proves the detail dialog masks what the card masks.
+export const E2E_SECRET = 'input_text.e2e_secret'
+export const E2E_SECRET_VALUE = 'redaction-fixture-value'
 // Synthetic ffmpeg camera fed by the go2rtc testsrc2 stream (docs/changes/0007).
 export const E2E_CAMERA = 'camera.e2e_pattern'
 
@@ -82,6 +87,22 @@ export function seedConfig(): SeedConfig {
     items: [
       { id: 'item-light', type: 'entity', entityId: DEMO_LIGHT, x: 0, y: 0, width: 2, height: 2 },
       { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 2, y: 0, width: 2, height: 2 },
+    ],
+  })
+}
+
+// DEDICATED detail-dialog seed — its own screen, so the hold gestures below
+// cannot perturb the deterministic seed the existing serial specs assert
+// against. Carries the flag (a card whose tap toggles, to prove a hold does
+// not) and the password helper (to prove the dialog redacts).
+export function seedDetailDialogConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-detail-screen',
+    name: 'E2E Detail',
+    slug: 'e2e-detail',
+    items: [
+      { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 0, y: 0, width: 2, height: 2 },
+      { id: 'item-secret', type: 'entity', entityId: E2E_SECRET, x: 2, y: 0, width: 3, height: 2 },
     ],
   })
 }
@@ -422,6 +443,31 @@ export async function clickCardTitle(page: Page, title: string): Promise<void> {
   await card.getByText(title, { exact: true }).click()
 }
 
+// How long a press is held. Derived from the product threshold rather than
+// spelled as a literal, so raising HOLD_DURATION_MS cannot silently leave this
+// press too short to trigger a hold. A margin is needed at all because a real
+// browser timer fires late under load, and the release must land unambiguously
+// past the threshold — the exact multiple is not significant.
+const HOLD_PRESS_MS = HOLD_DURATION_MS * 2
+
+// Press and hold the card for the given friendly name with a real, trusted
+// mouse gesture. The gesture is what this exercises: touch/pointer semantics
+// inside HA's shadow DOM are exactly what a jsdom test cannot stand in for.
+export async function holdCardTitle(page: Page, title: string): Promise<void> {
+  const card = page.locator('.grid-item').filter({ hasText: title })
+  await expect(card, `card titled "${title}" should be present`).toHaveCount(1)
+
+  // `hover()` rather than a raw `mouse.move()` to the element's box: hover runs
+  // Playwright's actionability checks and leaves the pointer genuinely over the
+  // element. A bare move followed immediately by `mouse.down()` hit-tests
+  // against a position the renderer has not settled on yet, and the press lands
+  // on the document element instead of the card.
+  await card.getByText(title, { exact: true }).hover()
+  await page.mouse.down()
+  await page.waitForTimeout(HOLD_PRESS_MS)
+  await page.mouse.up()
+}
+
 // --- Theming readers (docs/specs/theming) ---
 
 // The panel root the theming contract stamps and declares its tokens on.
@@ -552,4 +598,13 @@ export async function setFlag(token: string, on: boolean): Promise<void> {
   await callService(token, 'input_boolean', on ? 'turn_on' : 'turn_off', {
     entity_id: E2E_FLAG,
   })
+}
+
+// Force the password helper's state via REST. `initial:` in configuration.yaml
+// only seeds the value on a fresh HA restore, and this suite shares ONE Home
+// Assistant instance across specs that DO mutate each other's state (#208) — so
+// a spec asserting the ABSENCE of the secret must first put the secret there,
+// or it passes without proving anything.
+export async function setSecret(token: string, value: string): Promise<void> {
+  await callService(token, 'input_text', 'set_value', { entity_id: E2E_SECRET, value })
 }
