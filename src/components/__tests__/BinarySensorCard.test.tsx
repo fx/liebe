@@ -91,6 +91,8 @@ describe('BinarySensorCard domain colour', () => {
     expect(card).toHaveAttribute('data-domain', 'binary_sensor')
     expect(card.querySelector('.liebe-icon')).toHaveAttribute('data-active', 'true')
     expect(card.querySelector('.liebe-name')).toHaveTextContent('Test Sensor')
-    expect(card.querySelector('.liebe-state')).toHaveTextContent('ON')
+    // `Detected`, not `ON`: the state line takes the `device_class` naming
+    // from change 0018 PR 2.
+    expect(card.querySelector('.liebe-state')).toHaveTextContent('Detected')
   })
 })

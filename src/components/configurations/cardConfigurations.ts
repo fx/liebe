@@ -3,6 +3,7 @@ import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
+import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -271,21 +272,53 @@ export const cardConfigurations: Record<
       },
     },
   },
+  /*
+   * The binary sensor's options (docs/specs/entity-cards/options/sensor.md).
+   *
+   * Every one is presentation-only and applies to any binary sensor, so none is
+   * entity-gated. The icon defaults are `''` rather than the generic glyph
+   * names the form used to show: empty means "use the device-class pair", and
+   * naming the generic pair here would pin a door sensor to a tick and a circle
+   * the first time somebody opened its form and saved.
+   */
   binary_sensor: {
     title: 'Binary Sensor Card',
-    description: 'Configure how this binary sensor card displays.',
+    description: 'Icons, state text, and which way round the sensor reads.',
     definition: {
       onIcon: {
         type: 'icon',
-        default: 'CircleCheck',
+        default: BINARY_SENSOR_OPTION_DEFAULTS.onIcon,
         label: 'On State Icon',
-        description: 'Icon to display when the sensor is on',
+        description:
+          'Icon while the sensor reads as on. Leave unset to use the icon for its device class.',
       },
       offIcon: {
         type: 'icon',
-        default: 'Circle',
+        default: BINARY_SENSOR_OPTION_DEFAULTS.offIcon,
         label: 'Off State Icon',
-        description: 'Icon to display when the sensor is off',
+        description: 'Icon while the sensor reads as off. Same fallback.',
+      },
+      onLabel: {
+        type: 'string',
+        default: BINARY_SENSOR_OPTION_DEFAULTS.onLabel,
+        label: 'Label when on',
+        placeholder: 'From the device class',
+        description:
+          'Replaces the state text — “Open”, “Wet”, “Detected”. Leave empty to use the wording for this sensor’s device class.',
+      },
+      offLabel: {
+        type: 'string',
+        default: BINARY_SENSOR_OPTION_DEFAULTS.offLabel,
+        label: 'Label when off',
+        placeholder: 'From the device class',
+        description: 'Replaces the state text — “Closed”, “Dry”, “Clear”. Same fallback.',
+      },
+      invert: {
+        type: 'boolean',
+        default: BINARY_SENSOR_OPTION_DEFAULTS.invert,
+        label: 'Sensor reads backwards',
+        description:
+          'Swaps the icon, label and colour for hardware wired the other way round. Presentation only — the raw state is untouched, and a sensor reporting a hazard is never softened.',
       },
     },
   },

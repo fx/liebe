@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
+import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -59,11 +60,16 @@ const gridItemSchema = z
     // mode no build has — documents whose author needs telling, rather than
     // cards that quietly render a fallback
     // (docs/specs/entity-cards/options/sensor.md).
+    // The binary-sensor keys join them because `invert` is a safety-adjacent
+    // presentation flip: `invert: "yes"` on a door sensor is a document whose
+    // author needs telling, rather than a card that silently reads the door
+    // backwards (same doc).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
       .merge(inputHelperOptionsConfigSchema)
       .merge(sensorOptionsConfigSchema)
+      .merge(binarySensorOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

@@ -194,7 +194,8 @@ describe('BinarySensorCard tiers', () => {
     expect(arrangement()).toBe('stack')
     expect(part('.liebe-icon')).not.toBeNull()
     expect(screen.getByText('Front Door')).toBeInTheDocument()
-    expect(part('.liebe-state')).toHaveTextContent('OFF')
+    // The `door` device class names its states (0018 PR 2).
+    expect(part('.liebe-state')).toHaveTextContent('Closed')
   })
 
   it.each(['row', 'tall', 'full'] as const)('lays %s out as a row', (tier) => {
@@ -205,7 +206,7 @@ describe('BinarySensorCard tiers', () => {
     // (docs/specs/entity-cards/options/sensor.md — "Binary sensor").
     expect(arrangement()).toBe('row')
     expect(part('.liebe-icon')).not.toBeNull()
-    expect(part('.liebe-state')).toHaveTextContent('OFF')
+    expect(part('.liebe-state')).toHaveTextContent('Closed')
   })
 
   it('invents no content in full', () => {
