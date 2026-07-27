@@ -1128,20 +1128,36 @@ describe('CameraCard', () => {
       expect(screen.queryByText('FPS')).toBeNull()
     })
 
-    it('renders the compact stats line for small cards', () => {
-      const item: GridItem = {
-        id: 'item-1',
-        type: 'entity',
-        entityId: 'camera.front_door',
-        x: 0,
-        y: 0,
-        width: 4,
-        height: 2,
-        config: { showStats: true },
+    it.each(['glance', 'row', 'tall', 'full'] as const)(
+      'feeds the stats overlay the same size at %s — the camera tier exemption',
+      (tier) => {
+        /*
+         * Was "renders the compact stats line for small cards", back when the
+         * card handed `CameraStats` its own `size` and the overlay had a
+         * compact branch for `small`. Under the 0011 exemption the card feeds
+         * one size at every span, so what is worth pinning at this level is
+         * that it stays that way — the overlay keeps its own `size` prop and
+         * its own tests, so the compact branch is still covered where it
+         * lives (`CameraStats.test.tsx`). Re-keying this on tier is 0021's.
+         */
+        const item: GridItem = {
+          id: 'item-1',
+          type: 'entity',
+          entityId: 'camera.front_door',
+          x: 0,
+          y: 0,
+          width: 4,
+          height: 2,
+          config: { showStats: true },
+        }
+        renderCard({ item, tier })
+
+        // The expanded layout, which is what `size="medium"` renders. The
+        // compact single line would read `— FPS • …` instead.
+        expect(screen.getByText('FPS')).toBeInTheDocument()
+        expect(screen.queryByText(/— FPS •/)).toBeNull()
       }
-      renderCard({ item, size: 'small' })
-      expect(screen.getByText(/— FPS •/)).toBeInTheDocument()
-    })
+    )
 
     it('hides stats in the still-image fallback (element not ready)', () => {
       // The fallback has no video to read playback quality from.
@@ -1184,14 +1200,23 @@ describe('CameraCard', () => {
       expect(getCardStyle(container)).toContain('var(--space-5)')
     })
 
-    it.each([
-      ['small', 'var(--space-2)'],
-      ['medium', 'var(--space-3)'],
-      ['large', 'var(--space-4)'],
-    ] as const)('maps default matting on %s cards to %s', (size, expected) => {
-      const { container } = renderCard({ size })
-      expect(getCardStyle(container)).toContain(expected)
-    })
+    it.each(['glance', 'row', 'tall', 'full'] as const)(
+      'keeps default matting span-independent at %s — the camera tier exemption',
+      (tier) => {
+        /*
+         * The subject here is the exemption, not the number. Change 0011 holds
+         * the camera at its current rendering for every span and gives it only
+         * the `data-tier` stamp; all of its span-dependent behaviour — the
+         * sub-2×2 stream unmount, the still thumbnail, the lazy fullscreen —
+         * belongs to change 0021. Default matting used to be keyed on the
+         * legacy `size` prop, so it is exactly the thing most likely to be
+         * quietly re-keyed on tier by someone implementing 0021 out of order.
+         * If that happens, this fails.
+         */
+        const { container } = renderCard({ tier })
+        expect(getCardStyle(container)).toContain('var(--space-3)')
+      }
+    )
 
     /*
      * The card's own chrome is attribute-driven from change 0010 PR 4: the

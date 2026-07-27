@@ -9,7 +9,6 @@ interface SeparatorProps {
   onSelect?: (selected: boolean) => void
   onDelete?: () => void
   onConfigure?: () => void
-  size?: 'small' | 'medium' | 'large'
   separatorOrientation?: 'horizontal' | 'vertical'
   separatorTextColor?: string
 }
@@ -22,7 +21,6 @@ export function Separator({
   onSelect,
   onDelete: _onDelete,
   onConfigure: _onConfigure,
-  size: _size,
   separatorOrientation,
   separatorTextColor,
 }: SeparatorProps) {

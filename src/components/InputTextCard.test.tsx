@@ -355,27 +355,4 @@ describe('InputTextCard', () => {
       expect(card).toHaveAttribute('data-domain', 'input_text')
     })
   })
-
-  describe('size variants', () => {
-    it('renders small size', () => {
-      const { container } = render(<InputTextCard entityId="input_text.test_text" size="small" />)
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'small')
-    })
-
-    it('renders medium size', () => {
-      const { container } = render(<InputTextCard entityId="input_text.test_text" size="medium" />)
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'medium')
-    })
-
-    it('renders large size', () => {
-      const { container } = render(<InputTextCard entityId="input_text.test_text" size="large" />)
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'large')
-    })
-  })
 })

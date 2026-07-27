@@ -5,10 +5,11 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import type { CardTier } from '~/utils/cardTier'
 
 interface InputSelectCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -22,7 +23,7 @@ interface InputSelectAttributes {
 
 export const InputSelectCard = memo(function InputSelectCard({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -44,7 +45,7 @@ export const InputSelectCard = memo(function InputSelectCard({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -53,6 +54,7 @@ export const InputSelectCard = memo(function InputSelectCard({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -64,7 +66,7 @@ export const InputSelectCard = memo(function InputSelectCard({
     return (
       <GridCard
         domain="input_select"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
@@ -94,7 +96,7 @@ export const InputSelectCard = memo(function InputSelectCard({
       // generic active colour the design system points them at.
       domain="input_select"
       color="default"
-      size={size}
+      tier={tier}
       isLoading={loading}
       isError={!!error}
       isStale={isStale}
@@ -120,9 +122,7 @@ export const InputSelectCard = memo(function InputSelectCard({
             >
               <Select.Trigger variant="soft" style={{ width: '100%' }}>
                 <Flex align="center" justify="between" style={{ width: '100%' }}>
-                  <Text size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}>
-                    {currentValue}
-                  </Text>
+                  <Text size="2">{currentValue}</Text>
                   <ChevronDown size={16} />
                 </Flex>
               </Select.Trigger>

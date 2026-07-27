@@ -5,10 +5,17 @@ import type { HassEntity } from '~/store/entityTypes'
 import { memo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 
 interface ButtonCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
+  /**
+   * The effective grid span behind `tier`. Accepted so any renderer can hand a
+   * card the pair `CardProps` defines, and because the tier alone is lossy —
+   * see `~/utils/cardTier`.
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -31,7 +38,7 @@ const getEntityIcon = (entity: HassEntity) => {
 
 function ButtonCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -41,7 +48,7 @@ function ButtonCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -50,6 +57,7 @@ function ButtonCardComponent({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -78,7 +86,7 @@ function ButtonCardComponent({
       // the `default` triplet is for.
       domain={entity.entity_id.split('.')[0]}
       color={entity.entity_id.startsWith('light.') ? 'light' : 'default'}
-      size={size}
+      tier={tier}
       isLoading={isLoading}
       isError={!!error}
       isStale={isStale}
@@ -106,7 +114,11 @@ const MemoizedButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
+    prevProps.tier === nextProps.tier &&
+    // The span as well as the tier: the tier is lossy — a `row` 3×1 and a
+    // `row` 4×1 are the same tier — and this card accepts the span, so its
+    // comparator may not be the thing that pins it to a stale one.
+    isSameSpan(prevProps.span, nextProps.span) &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

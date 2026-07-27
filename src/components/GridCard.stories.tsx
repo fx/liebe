@@ -67,7 +67,7 @@ const meta: Meta<GridCardStoryProps> = {
   decorators: [withGridCell],
   argTypes: {
     ...gridCellArgTypes,
-    size: { control: { type: 'inline-radio' }, options: ['small', 'medium', 'large'] },
+    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
     color: {
       control: { type: 'select' },
       options: domainColors.map(({ name }) => name),
@@ -76,7 +76,7 @@ const meta: Meta<GridCardStoryProps> = {
   args: {
     gridWidth: 2,
     gridHeight: 2,
-    size: 'medium',
+    tier: 'row',
     domain: 'light',
     color: 'light',
     children: <SampleContents />,
@@ -367,15 +367,20 @@ export const DangerIgnoresOverrides: Story = {
   ),
 }
 
-/** Every size the shell supports, side by side. */
-export const Sizes: Story = {
+/**
+ * Every layout tier the shell stamps, side by side. The tiles are shown at one
+ * width so the tier is the only thing that differs; on a real grid each one
+ * comes from the span its name describes (docs/specs/design-system —
+ * "Size-adaptive layouts").
+ */
+export const Tiers: Story = {
   args: { gridWidth: 6, gridHeight: 2 },
   render: (args) => (
     <Flex gap="4" align="start">
-      {(['small', 'medium', 'large'] as const).map((size) => (
-        <div key={size} style={{ width: 160 }}>
-          <GridCard {...args} size={size}>
-            <SampleContents label={size} />
+      {(['glance', 'row', 'tall', 'full'] as const).map((tier) => (
+        <div key={tier} style={{ width: 160 }}>
+          <GridCard {...args} tier={tier}>
+            <SampleContents label={tier} />
           </GridCard>
         </div>
       ))}

@@ -39,7 +39,7 @@ describe('GridCard shell', () => {
 
   it('stamps the contract class and the selector attributes', () => {
     render(
-      <GridCard domain="light" color="light" size="large">
+      <GridCard domain="light" color="light" tier="full">
         content
       </GridCard>
     )
@@ -49,7 +49,7 @@ describe('GridCard shell', () => {
     expect(card()).toHaveClass('grid-card')
     expect(card()).toHaveAttribute('data-domain', 'light')
     expect(card()).toHaveAttribute('data-color', 'light')
-    expect(card()).toHaveAttribute('data-size', 'large')
+    expect(card()).toHaveAttribute('data-tier', 'full')
   })
 
   it('defaults the colour triplet but never the domain', () => {

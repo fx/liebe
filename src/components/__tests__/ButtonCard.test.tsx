@@ -290,7 +290,10 @@ describe('ButtonCard', () => {
     expect(mockToggle).not.toHaveBeenCalled()
   })
 
-  it('should render different sizes correctly', () => {
+  it('should render the entity name', () => {
+    // Was three rerenders at three `size` values asserting this same line. The
+    // prop was decoration — nothing about the assertion ever depended on it —
+    // so the loop went with the prop and the assertion stayed.
     vi.mocked(useEntity).mockReturnValue({
       entity: mockEntity,
       isConnected: true,
@@ -298,13 +301,8 @@ describe('ButtonCard', () => {
       isStale: false,
     })
 
-    const { rerender } = render(<ButtonCard entityId="light.living_room" size="small" />)
-    expect(screen.getByText('Living Room Light')).toBeInTheDocument()
+    render(<ButtonCard entityId="light.living_room" />)
 
-    rerender(<ButtonCard entityId="light.living_room" size="medium" />)
-    expect(screen.getByText('Living Room Light')).toBeInTheDocument()
-
-    rerender(<ButtonCard entityId="light.living_room" size="large" />)
     expect(screen.getByText('Living Room Light')).toBeInTheDocument()
   })
 

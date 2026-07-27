@@ -29,7 +29,6 @@ const meta: Meta<TextCardStoryProps> = {
   decorators: [withGridCell],
   argTypes: {
     ...gridCellArgTypes,
-    size: { control: { type: 'inline-radio' }, options: ['small', 'medium', 'large'] },
     alignment: { control: { type: 'inline-radio' }, options: ['left', 'center', 'right'] },
     textSize: { control: { type: 'inline-radio' }, options: ['small', 'medium', 'large'] },
     textColor: {
@@ -38,7 +37,6 @@ const meta: Meta<TextCardStoryProps> = {
     },
   },
   args: {
-    size: 'medium',
     gridWidth: 4,
     gridHeight: 3,
     content: SAMPLE_MARKDOWN,

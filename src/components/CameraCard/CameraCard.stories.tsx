@@ -59,11 +59,11 @@ const meta: Meta<CameraCardStoryProps> = {
   decorators: [withGridCell],
   argTypes: {
     ...gridCellArgTypes,
-    size: { control: { type: 'inline-radio' }, options: ['small', 'medium', 'large'] },
+    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
   },
   args: {
     entityId,
-    size: 'medium',
+    tier: 'row',
     gridWidth: 4,
     gridHeight: 3,
   },

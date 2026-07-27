@@ -6,10 +6,11 @@ import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { Pill, PillGroup } from './anatomy'
 import { useDashboardStore } from '~/store'
+import type { CardTier } from '~/utils/cardTier'
 
 interface FanCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -33,7 +34,7 @@ interface FanAttributes {
 
 function FanCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -89,7 +90,7 @@ function FanCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -98,6 +99,7 @@ function FanCardComponent({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -111,7 +113,7 @@ function FanCardComponent({
       <GridCard
         domain="fan"
         color="ok"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
@@ -182,7 +184,7 @@ function FanCardComponent({
       // ("Locked, home, secure, fan").
       domain="fan"
       color="ok"
-      size={size}
+      tier={tier}
       isLoading={isLoading}
       isError={!!error}
       isStale={isStale}
@@ -198,7 +200,9 @@ function FanCardComponent({
         align="center"
         justify="center"
         gap="2"
-        style={{ minHeight: size === 'large' ? '140px' : size === 'medium' ? '120px' : '100px' }}
+        // No inner height floor: the shell owns it now, keyed on the tier
+        // (`GridCard.css`), so a `glance` tile can actually be one cell tall
+        // instead of being propped open from the inside.
       >
         <GridCard.Icon>
           <span className={getAnimationClass()}>
@@ -274,7 +278,7 @@ function FanCardComponent({
 const MemoizedFanCard = memo(FanCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
+    prevProps.tier === nextProps.tier &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

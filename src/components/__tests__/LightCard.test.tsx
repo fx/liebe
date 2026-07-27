@@ -277,22 +277,24 @@ describe('LightCard', () => {
     expect(card).toHaveAttribute('data-selected', 'true')
   })
 
-  it('respects different sizes', () => {
-    // The size is announced as `data-size` and the three min-height stops live
-    // in the layered shell sheet — inline `min-height`/`padding` were px and a
-    // Radix space token set from JS, neither of which a theme could reach. The
-    // stops themselves are asserted at source level in cardShellStyles.test.ts.
-    const { rerender, container } = render(<LightCard entityId="light.living_room" size="small" />)
+  it('announces its layout tier, which the shell sheet sizes the tile from', () => {
+    // Successor to the `data-size` assertion this replaced. The tier is
+    // announced on the tile and the min-height stops live in the layered shell
+    // sheet — inline `min-height`/`padding` were px and a Radix space token set
+    // from JS, neither of which a theme could reach. There are two stops rather
+    // than three now, because only the row count moves a height floor; they are
+    // asserted at source level in cardShellStyles.test.ts.
+    const { rerender, container } = render(<LightCard entityId="light.living_room" tier="glance" />)
 
     let card = container.querySelector('.grid-card')
-    expect(card).toHaveAttribute('data-size', 'small')
+    expect(card).toHaveAttribute('data-tier', 'glance')
 
-    rerender(<LightCard entityId="light.living_room" size="medium" />)
+    rerender(<LightCard entityId="light.living_room" tier="row" />)
     card = container.querySelector('.grid-card')
-    expect(card).toHaveAttribute('data-size', 'medium')
+    expect(card).toHaveAttribute('data-tier', 'row')
 
-    rerender(<LightCard entityId="light.living_room" size="large" />)
+    rerender(<LightCard entityId="light.living_room" tier="full" />)
     card = container.querySelector('.grid-card')
-    expect(card).toHaveAttribute('data-size', 'large')
+    expect(card).toHaveAttribute('data-tier', 'full')
   })
 })

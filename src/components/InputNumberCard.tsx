@@ -5,10 +5,11 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import type { CardTier } from '~/utils/cardTier'
 
 interface InputNumberCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -26,7 +27,7 @@ interface InputNumberAttributes {
 
 export const InputNumberCard = memo(function InputNumberCard({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -131,7 +132,7 @@ export const InputNumberCard = memo(function InputNumberCard({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -140,24 +141,19 @@ export const InputNumberCard = memo(function InputNumberCard({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
     )
   }
 
-  const cardSize = {
-    small: { buttonSize: '1' },
-    medium: { buttonSize: '2' },
-    large: { buttonSize: '3' },
-  }[size]
-
   // Handle unavailable entities
   if (entity.state === 'unavailable') {
     return (
       <GridCard
         domain="input_number"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
@@ -191,7 +187,7 @@ export const InputNumberCard = memo(function InputNumberCard({
       // generic active colour the design system points them at.
       domain="input_number"
       color="default"
-      size={size}
+      tier={tier}
       isLoading={loading}
       isError={!!error}
       isStale={isStale}
@@ -210,7 +206,7 @@ export const InputNumberCard = memo(function InputNumberCard({
         </GridCard.Title>
         <GridCard.Controls>
           <IconButton
-            size={cardSize.buttonSize as '1' | '2' | '3'}
+            size="3"
             variant="soft"
             onClick={handleDecrement}
             disabled={
@@ -225,7 +221,7 @@ export const InputNumberCard = memo(function InputNumberCard({
           {isEditing ? (
             <form onSubmit={handleValueSubmit}>
               <TextField.Root
-                size={cardSize.buttonSize as '1' | '2' | '3'}
+                size="3"
                 value={localValue}
                 onChange={(e) => setLocalValue(e.target.value)}
                 onBlur={handleFieldBlur}
@@ -245,7 +241,7 @@ export const InputNumberCard = memo(function InputNumberCard({
                 textAlign: 'center',
               }}
             >
-              <Text size={size === 'small' ? '1' : size === 'large' ? '3' : '2'} weight="bold">
+              <Text size="2" weight="bold">
                 {displayValue}
                 {unit && ` ${unit}`}
               </Text>
@@ -253,7 +249,7 @@ export const InputNumberCard = memo(function InputNumberCard({
           )}
 
           <IconButton
-            size={cardSize.buttonSize as '1' | '2' | '3'}
+            size="3"
             variant="soft"
             onClick={handleIncrement}
             disabled={

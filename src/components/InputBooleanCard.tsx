@@ -6,10 +6,11 @@ import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { useDashboardStore } from '../store'
+import type { CardTier } from '~/utils/cardTier'
 
 interface InputBooleanCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -17,7 +18,7 @@ interface InputBooleanCardProps {
 
 const MemoizedInputBooleanCard = memo(function InputBooleanCard({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -44,7 +45,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -53,6 +54,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -64,7 +66,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
     return (
       <GridCard
         domain="input_boolean"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
@@ -94,7 +96,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
       // generic active colour the design system points them at.
       domain="input_boolean"
       color="default"
-      size={size}
+      tier={tier}
       isLoading={loading}
       isError={!!error}
       isStale={isStale}
@@ -115,7 +117,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
         {!isEditMode && (
           <GridCard.Controls>
             <Switch
-              size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}
+              size="3"
               checked={isOn}
               onCheckedChange={handleSwitchChange}
               disabled={loading}

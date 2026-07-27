@@ -723,4 +723,64 @@ describe('CardConfig', () => {
       ).toBeInTheDocument()
     })
   })
+
+  /*
+   * The preview has to show the tier the card will actually render at on the
+   * grid, which is a property of the *effective* span rather than of the stored
+   * dimensions — a 2×2 item previewed as `full` while it renders `glance` on a
+   * four-column screen is a preview of a card that does not exist
+   * (docs/changes/0011-layout-tiers.md).
+   */
+  describe('Preview tier', () => {
+    const sensorItem: GridItem = {
+      id: 'bs-1',
+      type: 'entity',
+      entityId: 'binary_sensor.driveway_motion',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+    }
+
+    beforeEach(() => {
+      entityStore.setState((state) => ({
+        ...state,
+        entities: {
+          'binary_sensor.driveway_motion': createBinarySensorEntity({
+            entity_id: 'binary_sensor.driveway_motion',
+            attributes: { friendly_name: 'Driveway Motion', device_class: 'motion' },
+          }),
+        },
+        isConnected: true,
+        isInitialLoading: false,
+      }))
+    })
+
+    function renderModalWithSpan(span?: { width: number; height: number }) {
+      return render(
+        <Theme>
+          <CardConfig.Modal
+            open={true}
+            onOpenChange={mockOnOpenChange}
+            item={sensorItem}
+            span={span}
+            onSave={mockOnSave}
+          />
+        </Theme>
+      )
+    }
+
+    it('previews at the span the caller is laying the item out at', () => {
+      // Stored 2×2, but the caller says the grid is giving it one cell.
+      renderModalWithSpan({ width: 1, height: 1 })
+
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-tier', 'glance')
+    })
+
+    it('falls back to the stored dimensions for a caller with no grid behind it', () => {
+      renderModalWithSpan()
+
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-tier', 'full')
+    })
+  })
 })

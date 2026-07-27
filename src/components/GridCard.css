@@ -75,20 +75,32 @@
   }
 
   /*
-   * The legacy `size` prop, as three min-height stops. Change 0011 replaces it
-   * with the effective-span tiers, which is why the stops are plain lengths
-   * rather than new tokens: a token minted here would be contract to keep.
+   * The floor a tile keeps when nothing else gives it a height.
+   *
+   * Inside the grid this never binds: the cell's row height is the card's
+   * height, which is the whole point of deriving the tier from the span. It is
+   * here for the shells that render outside a grid — the configuration
+   * preview, the sidebar widget, the workshop — where an unsized tile would
+   * otherwise collapse onto its content.
+   *
+   * Two stops rather than four, because height is the only thing a floor can
+   * express and only one of the two span axes moves it: `glance` and `row` are
+   * one grid row tall, `tall` and `full` are two or more.
+   *
+   * Both stops are tokens, like every other piece of the tile's geometry. A
+   * literal here would be a number a theme cannot reach: a theme that enlarges
+   * the icon circle and the padding to suit a wall tablet at arm's length has
+   * to be able to raise the floor those now sit in, and the token contract is
+   * the only channel it has (docs/specs/design-system — "Token contract").
    */
-  .liebe-card[data-size='small'] {
-    min-block-size: 60px;
+  .liebe-card[data-tier='glance'],
+  .liebe-card[data-tier='row'] {
+    min-block-size: var(--liebe-card-min-height-row);
   }
 
-  .liebe-card[data-size='medium'] {
-    min-block-size: 80px;
-  }
-
-  .liebe-card[data-size='large'] {
-    min-block-size: 100px;
+  .liebe-card[data-tier='tall'],
+  .liebe-card[data-tier='full'] {
+    min-block-size: var(--liebe-card-min-height-tall);
   }
 
   /*

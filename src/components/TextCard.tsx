@@ -6,7 +6,6 @@ import './TextCard.css'
 
 interface TextCardProps {
   entityId?: string
-  size?: 'small' | 'medium' | 'large'
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
   onDelete?: () => void
@@ -53,7 +52,6 @@ function resolveOption<T extends string>(
 
 function TextCardComponent({
   entityId: _entityId,
-  size = 'medium',
   isSelected = false,
   onSelect,
   onDelete: _onDelete,
@@ -89,12 +87,6 @@ function TextCardComponent({
   const [editContent, setEditContent] = useState(content)
   const textAreaRef = useRef<HTMLTextAreaElement>(null)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
-
-  const cardSize = {
-    small: { p: '2' },
-    medium: { p: '3' },
-    large: { p: '4' },
-  }[size]
 
   const fontSize = {
     small: '1' as const,
@@ -140,13 +132,7 @@ function TextCardComponent({
 
   if (isEditMode) {
     return (
-      <Flex
-        direction="column"
-        p={cardSize.p}
-        gap="2"
-        style={{ height: '100%' }}
-        onClick={handleClick}
-      >
+      <Flex direction="column" p="3" gap="2" style={{ height: '100%' }} onClick={handleClick}>
         <TextArea
           ref={textAreaRef}
           value={editContent}
@@ -166,11 +152,13 @@ function TextCardComponent({
 
   return (
     <Flex
-      p={cardSize.p}
+      p="3"
       direction="column"
       align={alignment === 'center' ? 'center' : alignment === 'right' ? 'end' : 'start'}
       justify="center"
-      style={{ minHeight: size === 'large' ? '120px' : size === 'medium' ? '100px' : '80px' }}
+      // No inner height floor: the shell owns it now, keyed on the tier
+      // (`GridCard.css`), so a `glance` tile can actually be one cell tall
+      // instead of being propped open from the inside.
     >
       <Box
         className="text-card-content"

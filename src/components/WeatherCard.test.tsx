@@ -78,7 +78,7 @@ describe('WeatherCard', () => {
     })
 
     it('should render detailed preset with available data points', () => {
-      render(<WeatherCard entityId="weather.home" size="large" config={{ preset: 'detailed' }} />)
+      render(<WeatherCard entityId="weather.home" config={{ preset: 'detailed' }} />)
       expect(screen.getByText('Temperature')).toBeInTheDocument()
       expect(screen.getByText('22°C')).toBeInTheDocument()
       expect(screen.getByText('Humidity')).toBeInTheDocument()
@@ -95,20 +95,18 @@ describe('WeatherCard', () => {
     })
   })
 
-  describe('Size variations', () => {
-    it('should show humidity in all sizes', () => {
-      const { rerender } = render(<WeatherCard entityId="weather.home" size="small" />)
-      expect(screen.getByText('65%')).toBeInTheDocument()
+  describe('Data points', () => {
+    it('should show humidity', () => {
+      // Was three rerenders at three `size` values asserting this same value.
+      // The prop never changed the outcome, so it went and the assertion
+      // stayed.
+      render(<WeatherCard entityId="weather.home" />)
 
-      rerender(<WeatherCard entityId="weather.home" size="medium" />)
-      expect(screen.getByText('65%')).toBeInTheDocument()
-
-      rerender(<WeatherCard entityId="weather.home" size="large" />)
       expect(screen.getByText('65%')).toBeInTheDocument()
     })
 
     it('should show pressure in detailed variant', () => {
-      render(<WeatherCard entityId="weather.home" size="large" config={{ variant: 'detailed' }} />)
+      render(<WeatherCard entityId="weather.home" config={{ variant: 'detailed' }} />)
       expect(screen.getByText('1013 hPa')).toBeInTheDocument()
     })
   })

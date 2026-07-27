@@ -440,33 +440,4 @@ describe('InputDateTimeCard', () => {
       expect(card).toHaveAttribute('data-domain', 'input_datetime')
     })
   })
-
-  describe('size variants', () => {
-    it('renders small size', () => {
-      const { container } = render(
-        <InputDateTimeCard entityId="input_datetime.test_datetime" size="small" />
-      )
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'small')
-    })
-
-    it('renders medium size', () => {
-      const { container } = render(
-        <InputDateTimeCard entityId="input_datetime.test_datetime" size="medium" />
-      )
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'medium')
-    })
-
-    it('renders large size', () => {
-      const { container } = render(
-        <InputDateTimeCard entityId="input_datetime.test_datetime" size="large" />
-      )
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'large')
-    })
-  })
 })

@@ -11,6 +11,7 @@ import { dashboardActions, useDashboardStore } from '../store'
 import { CardConfig } from './CardConfig'
 import { CardItemProvider } from './cardItemContext'
 import { getCardForEntity, getCardVariant } from './cardRegistry'
+import { deriveCardTier, type CardSpan, type CardTier } from '~/utils/cardTier'
 import './GridLayoutSection.css'
 
 interface GridViewProps {
@@ -22,7 +23,8 @@ interface GridViewProps {
 // Component to determine which card type to render based on entity
 function EntityCard({
   entityId,
-  size = 'medium',
+  tier,
+  span,
   onDelete,
   isSelected,
   onSelect,
@@ -30,7 +32,8 @@ function EntityCard({
   item,
 }: {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier: CardTier
+  span: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -40,7 +43,8 @@ function EntityCard({
   // Common props for all cards
   const cardProps = {
     entityId,
-    size,
+    tier,
+    span,
     onDelete,
     isSelected,
     onSelect,
@@ -88,7 +92,14 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
   const [configModalOpen, setConfigModalOpen] = useState(false)
-  const [itemToConfig, setItemToConfig] = useState<GridItem | null>(null)
+  /*
+   * The item being configured, with the span it is being laid out at. The span
+   * travels with it because the configuration preview has to show the tier the
+   * card will actually render at, and this is the one place that knows it —
+   * the modal is rendered outside the grid's child callback, where the
+   * effective span is no longer in scope.
+   */
+  const [itemToConfig, setItemToConfig] = useState<{ item: GridItem; span: CardSpan } | null>(null)
 
   const handleDeleteItem = (itemId: string) => {
     setItemToDelete(itemId)
@@ -127,14 +138,22 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
     })
   }
 
-  const handleConfigureItem = (item: GridItem) => {
-    setItemToConfig(item)
+  /*
+   * `span` is required, for every item type. Text and separator render
+   * components that take no tier of their own, but the preview wraps both in
+   * the card shell (`CardConfig`), and the shell stamps `data-tier` from
+   * whatever span reaches it — so an omitted span there is not a no-op, it
+   * silently previews the item at its stored dimensions instead of the ones it
+   * is laid out at.
+   */
+  const handleConfigureItem = (item: GridItem, span: CardSpan) => {
+    setItemToConfig({ item, span })
     setConfigModalOpen(true)
   }
 
   const handleSaveConfig = (updates: Partial<GridItem>) => {
     if (itemToConfig) {
-      dashboardActions.updateGridItem(screenId, itemToConfig.id, updates)
+      dashboardActions.updateGridItem(screenId, itemToConfig.item.id, updates)
     }
   }
 
@@ -174,24 +193,25 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
         isEditMode={isEditMode}
         resolution={resolution}
       >
-        {(item) => {
+        {(item, span) => {
           const isSelected = selectedItems.has(item.id)
+          /*
+           * The one place a tier is derived from a grid layout. Cards take it
+           * as a prop and never work it out for themselves, which is what keeps
+           * them pure and the boundary table testable in isolation
+           * (docs/changes/0011-layout-tiers.md). The span rides along because
+           * the tier is lossy — a `row` at four columns is not a `row` at two.
+           */
+          const tier = deriveCardTier(span)
 
           if (item.type === 'text') {
             return (
               <TextCard
                 config={item.config as Record<string, unknown>}
-                size={
-                  item.width >= 4 && item.height >= 3
-                    ? 'large'
-                    : item.width >= 3 && item.height >= 2
-                      ? 'medium'
-                      : 'small'
-                }
                 onDelete={() => handleDeleteItem(item.id)}
                 isSelected={isSelected}
                 onSelect={(selected) => handleSelectItem(item.id, selected)}
-                onConfigure={() => handleConfigureItem(item)}
+                onConfigure={() => handleConfigureItem(item, span)}
               />
             )
           }
@@ -199,13 +219,6 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
           if (item.type === 'separator') {
             return (
               <Separator
-                size={
-                  item.width >= 4 && item.height >= 3
-                    ? 'large'
-                    : item.width >= 3 && item.height >= 2
-                      ? 'medium'
-                      : 'small'
-                }
                 onDelete={() => handleDeleteItem(item.id)}
                 isSelected={isSelected}
                 onSelect={(selected) => handleSelectItem(item.id, selected)}
@@ -241,7 +254,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                     | 'sky'
                     | undefined
                 }
-                onConfigure={() => handleConfigureItem(item)}
+                onConfigure={() => handleConfigureItem(item, span)}
               />
             )
           }
@@ -251,17 +264,12 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
               <EntityErrorBoundary>
                 <EntityCard
                   entityId={item.entityId!}
-                  size={
-                    item.width >= 4 && item.height >= 3
-                      ? 'large'
-                      : item.width >= 3 && item.height >= 2
-                        ? 'medium'
-                        : 'small'
-                  }
+                  tier={tier}
+                  span={span}
                   onDelete={() => handleDeleteItem(item.id)}
                   isSelected={isSelected}
                   onSelect={(selected) => handleSelectItem(item.id, selected)}
-                  onConfigure={() => handleConfigureItem(item)}
+                  onConfigure={() => handleConfigureItem(item, span)}
                   item={item}
                 />
               </EntityErrorBoundary>
@@ -298,7 +306,8 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
         <CardConfig.Modal
           open={configModalOpen}
           onOpenChange={setConfigModalOpen}
-          item={itemToConfig}
+          item={itemToConfig.item}
+          span={itemToConfig.span}
           onSave={handleSaveConfig}
         />
       )}
