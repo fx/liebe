@@ -141,6 +141,51 @@ describe('CameraControls buttons', () => {
   })
 })
 
+/*
+ * What the block gives up to the presentation layers (change 0021). The rules
+ * deciding these two props live in `overlay.ts`; here they are taken as given.
+ */
+describe('CameraControls yielding to the overlay and badge', () => {
+  it('drops the name line while the overlay carries it', () => {
+    const { queryByText, getByText } = renderControls({ status: 'streaming', showName: false })
+    expect(queryByText('Demo Cam')).toBeNull()
+    expect(getByText('STREAMING')).toBeInTheDocument()
+  })
+
+  it('drops the status line while the badge carries it, dot and all', () => {
+    const { queryByText, getByText, container } = renderControls({
+      status: 'streaming',
+      showStatus: false,
+    })
+    expect(queryByText('STREAMING')).toBeNull()
+    expect(container.querySelector('.recording-dot')).toBeNull()
+    expect(getByText('Demo Cam')).toBeInTheDocument()
+  })
+
+  it('keeps the buttons when both lines have gone elsewhere', () => {
+    const { container, getByTitle } = renderControls({
+      status: 'streaming',
+      showControls: true,
+      showName: false,
+      showStatus: false,
+    })
+    // No empty info column left standing beside the buttons — it would still
+    // take its share of the block's flex gap.
+    expect(container.firstElementChild!.children).toHaveLength(1)
+    expect(getByTitle('Mute')).toBeInTheDocument()
+  })
+
+  it('renders nothing at all when it has neither lines nor buttons', () => {
+    const { container } = renderControls({
+      status: 'streaming',
+      showControls: false,
+      showName: false,
+      showStatus: false,
+    })
+    expect(container).toBeEmptyDOMElement()
+  })
+})
+
 describe('CameraControls sizing', () => {
   const getRoot = (container: HTMLElement) => container.firstElementChild as HTMLElement
 

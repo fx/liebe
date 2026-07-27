@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
+import { cameraOptionsConfigSchema } from './cameraOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -64,12 +65,18 @@ const gridItemSchema = z
     // presentation flip: `invert: "yes"` on a door sensor is a document whose
     // author needs telling, rather than a card that silently reads the door
     // backwards (same doc).
+    // The camera keys join them because the live badge is a truth claim about
+    // the picture: `showLiveBadge: "no"` would fall back to the enabled default
+    // and label a feed live in a document whose author asked for the opposite —
+    // telling them beats quietly disagreeing with them
+    // (docs/specs/entity-cards/options/camera.md).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
       .merge(inputHelperOptionsConfigSchema)
       .merge(sensorOptionsConfigSchema)
       .merge(binarySensorOptionsConfigSchema)
+      .merge(cameraOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

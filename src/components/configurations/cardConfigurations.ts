@@ -4,6 +4,7 @@ import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOption
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
+import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -326,6 +327,20 @@ export const cardConfigurations: Record<
     title: 'Camera Card',
     description: 'Configure how the camera feed is displayed.',
     definition: {
+      showNameOverlay: {
+        type: 'boolean',
+        default: CAMERA_OPTION_DEFAULTS.showNameOverlay,
+        label: 'Name on the feed',
+        description:
+          'Puts the camera’s name and state in a gradient along the bottom of the picture. Hiding both the name and the state removes the gradient too.',
+      },
+      showLiveBadge: {
+        type: 'boolean',
+        default: CAMERA_OPTION_DEFAULTS.showLiveBadge,
+        label: 'Live badge',
+        description:
+          'A LIVE pill while frames are actually flowing. Never shown over the still snapshot a camera falls back to, which is not live.',
+      },
       fit: {
         type: 'select',
         default: 'cover',

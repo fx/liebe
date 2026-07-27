@@ -407,12 +407,15 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
     'ha-camera-stream is mounted inside the panel'
   ).toHaveCount(1, { timeout: 30_000 })
 
-  // 3. The status pill must reach STREAMING (or RECORDING — the pill shows
-  // RECORDING while the entity state is `streaming`/`recording`).
-  await expect(card, 'status pill reaches STREAMING/RECORDING').toContainText(
-    /STREAMING|RECORDING/,
-    { timeout: 60_000 }
-  )
+  // 3. The card must reach its live state. Under the default presentation
+  // options that state is presented as the `LIVE` badge (`REC` while the entity
+  // state is `recording`) rather than as the status pill's own STREAMING label —
+  // change 0021's subsumption. The status machine's resolution is unchanged; the
+  // badge is a skin over the pill slot, and the options are toggled back off at
+  // the end of this spec, where the pill's own labels are asserted directly.
+  await expect(card, 'the card reaches its live state').toContainText(/LIVE|REC/, {
+    timeout: 60_000,
+  })
 
   // 4. Shadow-pierce to the inner <video>: it must have real dimensions and be
   // playing. Which player won is NOT asserted.
@@ -530,16 +533,16 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   continuity.push(await sampleContinuity(page)) // checkpoint 1: opened
 
   // 6. TRANSITION 2 (letterbox close): click the letterbox area (top-left
-  // corner — clear of the video controls at bottom-left and the exit hint at
-  // top-right). ANY tap on the overlay must exit, not just taps on the video.
+  // corner — clear of the video controls, the exit hint at top-right and the
+  // LIVE badge, which is inset 2% and pointer-transparent besides). ANY tap on
+  // the overlay must exit, not just taps on the video.
   await page.mouse.click(8, 8)
   await expect(exitHint, 'fullscreen overlay closes on letterbox click').toBeHidden({
     timeout: 15_000,
   })
-  await expect(card, 'stream stays STREAMING/RECORDING after letterbox close').toContainText(
-    /STREAMING|RECORDING/,
-    { timeout: 30_000 }
-  )
+  await expect(card, 'stream stays live after letterbox close').toContainText(/LIVE|REC/, {
+    timeout: 30_000,
+  })
   await expectVideoPlaying(page, 30_000)
   continuity.push(await sampleContinuity(page)) // checkpoint 2: letterbox-closed
 
@@ -565,10 +568,9 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   // 8. TRANSITION 4 (ESC close): the stream must keep playing in the card.
   await page.keyboard.press('Escape')
   await expect(exitHint, 'fullscreen overlay closes on Escape').toBeHidden({ timeout: 15_000 })
-  await expect(card, 'stream stays STREAMING/RECORDING after ESC close').toContainText(
-    /STREAMING|RECORDING/,
-    { timeout: 30_000 }
-  )
+  await expect(card, 'stream stays live after ESC close').toContainText(/LIVE|REC/, {
+    timeout: 30_000,
+  })
   await expectVideoPlaying(page, 30_000)
   continuity.push(await sampleContinuity(page)) // checkpoint 4: ESC-closed
 
@@ -664,6 +666,119 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
   await expect(exitHint, 'fullscreen overlay closes after the focus-ring check').toBeHidden({
     timeout: 15_000,
   })
+
+  // --- Presentation-option toggles (change 0021) ----------------------------
+  // The overlay and the LIVE badge are absolutely-positioned SIBLINGS of the
+  // stream element inside the same stationary container, never wrappers around
+  // it — which is the only reason presentation could be added to this card at
+  // all. Toggling them must therefore disturb the stream exactly as much as
+  // fullscreen does: not at all.
+  //
+  // Both are on by default, so the card is already showing them.
+  const overlayBand = page.locator('.camera-name-overlay')
+  const badge = page.locator('.camera-live-badge')
+  await expect(overlayBand, 'the name overlay is drawn by default').toHaveCount(1)
+  await expect(badge, 'the LIVE badge is drawn by default').toHaveText(/LIVE|REC/)
+  // Subsumption: the live state is presented ONCE. The pill's own live label is
+  // gone while the badge carries it.
+  await expect(card, 'the pill does not repeat the live state').not.toContainText(
+    /STREAMING|RECORDING/
+  )
+
+  // Arm a SECOND observer over the same roots, so this section's proof is its
+  // own rather than piggybacking on the fullscreen one above.
+  await page.evaluate(() => {
+    const panel = (window as unknown as PanelWindow).__liebePanel
+    const stream = panel?.shadowRoot?.querySelector('ha-camera-stream')
+    if (!stream) throw new Error('cannot arm observer: <ha-camera-stream> not found')
+
+    const records: string[] = []
+    ;(window as unknown as { __optionDomRecords: string[] }).__optionDomRecords = records
+
+    const roots = new Set<Document | ShadowRoot>()
+    let node: Node | null = stream
+    while (node) {
+      const root = node.getRootNode()
+      if (root instanceof Document || root instanceof ShadowRoot) roots.add(root)
+      node = root instanceof ShadowRoot ? root.host : null
+    }
+
+    const involvesStream = (n: Node) => n === stream || (n instanceof Element && n.contains(stream))
+
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type !== 'childList') continue
+        m.removedNodes.forEach((rn) => {
+          if (involvesStream(rn)) records.push(`removed:${rn.nodeName.toLowerCase()}`)
+        })
+        m.addedNodes.forEach((an) => {
+          if (involvesStream(an)) records.push(`added:${an.nodeName.toLowerCase()}`)
+        })
+      }
+    })
+    roots.forEach((r) => observer.observe(r, { childList: true, subtree: true }))
+    ;(window as unknown as { __optionObserver: MutationObserver }).__optionObserver = observer
+  })
+  const continuityBeforeOptions = await sampleContinuity(page)
+
+  // Turn both options off the way a user does: edit mode, the card's own
+  // configuration form, Save.
+  await page.locator('[aria-label="View Mode"]').click()
+  await page.locator('.camera-card [aria-label="Configure card"]').click()
+  await expect(page.getByText('Card Configuration')).toBeVisible({ timeout: 15_000 })
+  for (const label of ['Name on the feed', 'Live badge']) {
+    const toggle = page.getByText(label, { exact: true }).locator('..').getByRole('switch')
+    await expect(toggle, `${label} starts on`).toHaveAttribute('data-state', 'checked')
+    await toggle.click()
+    await expect(toggle, `${label} turns off`).toHaveAttribute('data-state', 'unchecked')
+  }
+  await page.getByRole('button', { name: 'Save Changes' }).click()
+  await page.locator('[aria-label="Edit Mode"]').click()
+
+  // Both layers are gone from the DOM — omitted, not merely hidden — and the
+  // live state has fallen back to the pill it was subsumed from.
+  await expect(overlayBand, 'the name overlay goes with its option').toHaveCount(0)
+  await expect(badge, 'the LIVE badge goes with its option').toHaveCount(0)
+  await expect(card, 'the pill takes the live state back').toContainText(/STREAMING|RECORDING/, {
+    timeout: 30_000,
+  })
+
+  // The load-bearing assertion: the stream node was never detached or
+  // reattached across either toggle.
+  const optionDomRecords = await page.evaluate(() => {
+    const w = window as unknown as {
+      __optionDomRecords: string[]
+      __optionObserver?: MutationObserver
+    }
+    w.__optionObserver?.disconnect()
+    return w.__optionDomRecords
+  })
+  expect(
+    optionDomRecords,
+    'the <ha-camera-stream> node is never detached/reattached by an option toggle'
+  ).toEqual([])
+
+  // ...and no reconnect, proven by playback continuity rather than by the
+  // network counters used above: the configuration form renders a LIVE PREVIEW
+  // of the card, which mounts a second stream element of its own, so a
+  // page-wide HLS/WebRTC counter would be measuring the preview rather than
+  // this card. Continuity is the stricter proof in any case — a renegotiation
+  // rebuilds the player, which replaces the <video> and restarts currentTime.
+  const continuityAfterOptions = await sampleContinuity(page)
+  expect(continuityAfterOptions.found, 'inner <video> still present after the toggles').toBe(true)
+  expect(
+    continuityAfterOptions.sameIdentity,
+    'same <video> instance across the option toggles (no player rebuild)'
+  ).toBe(true)
+  expect(continuityAfterOptions.paused, 'playback not paused by the option toggles').toBe(false)
+  expect(
+    continuityAfterOptions.readyState,
+    'not re-entering a loading readyState after the option toggles'
+  ).toBeGreaterThanOrEqual(2)
+  expect(
+    continuityAfterOptions.currentTime,
+    'currentTime keeps advancing across the option toggles'
+  ).toBeGreaterThan(continuityBeforeOptions.currentTime)
 
   // 9. No fatal console errors or unhandled rejections across the whole flow
   // (benign HA/player startup noise filtered by the collector).
