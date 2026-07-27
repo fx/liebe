@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   configPredatesControlStyle,
+  decimalsFor,
   quantizeHelperValue,
   CONTROL_STYLE_VERSION,
   pinLegacyControlStyle,
@@ -140,6 +141,58 @@ describe('pinLegacyControlStyle', () => {
   })
 })
 
+describe('decimalsFor', () => {
+  it('reads the precision off the step, not off "is it fractional"', () => {
+    // The old rule was `step < 1 ? 1 : 0`, which formatted every one of these
+    // to a single place — so a helper stepping by 0.01 displayed a value it
+    // would immediately round, and the readout disagreed with what could be set.
+    expect(decimalsFor(1)).toBe(0)
+    expect(decimalsFor(5)).toBe(0)
+    expect(decimalsFor(0.5)).toBe(1)
+    expect(decimalsFor(0.01)).toBe(2)
+    expect(decimalsFor(0.001)).toBe(3)
+    expect(decimalsFor(2.25)).toBe(2)
+  })
+
+  it('reads a step written in scientific notation', () => {
+    // `1e-2` and `0.01` are the same number, and `String` renders both as
+    // `0.01` — the literal form is not what decides this, the magnitude is.
+    expect(decimalsFor(1e-2)).toBe(2)
+    expect(decimalsFor(1e-3)).toBe(3)
+    // Below 1e-6, `String` switches to exponent notation and the fraction
+    // digits leave the text entirely; read off that text a 1e-7 step would
+    // format as an integer.
+    expect(decimalsFor(1e-7)).toBe(7)
+    expect(decimalsFor(1.5e-7)).toBe(8)
+    // A step large enough to render exponentially implies no decimals, and the
+    // subtraction must not go negative.
+    expect(decimalsFor(1e21)).toBe(0)
+  })
+
+  it('treats an absent, zero or non-finite step as whole numbers', () => {
+    // All of these reach the card from a hand-edited helper, and all of them
+    // mean the same as the `step || 1` the controls fall back to.
+    expect(decimalsFor(undefined)).toBe(0)
+    expect(decimalsFor(0)).toBe(0)
+    expect(decimalsFor(Number.NaN)).toBe(0)
+    expect(decimalsFor(Number.POSITIVE_INFINITY)).toBe(0)
+  })
+
+  it('stays within what toFixed accepts', () => {
+    // `toFixed` throws a RangeError past 100 digits. `step: 1e-300` is absurd
+    // and is also a number a YAML field can hold, so an unclamped count would
+    // throw in the middle of a render rather than misformat.
+    expect(decimalsFor(1e-300)).toBe(100)
+    expect(() => (1.5).toFixed(decimalsFor(1e-300))).not.toThrow()
+  })
+
+  it('is negative-step safe', () => {
+    // Not a step Home Assistant produces, but the sign says nothing about
+    // precision and a leading `-` must not be counted as a digit.
+    expect(decimalsFor(-0.25)).toBe(2)
+  })
+})
+
 describe('quantizeHelperValue', () => {
   it('snaps to the helper’s step, measured from its minimum', () => {
     expect(quantizeHelperValue(62, { min: 0, max: 100, step: 5 })).toBe(60)
@@ -149,6 +202,16 @@ describe('quantizeHelperValue', () => {
 
   it('keeps a fractional step free of binary-float tails', () => {
     expect(quantizeHelperValue(20.3, { min: 0, max: 30, step: 0.1 })).toBe(20.3)
+    expect(quantizeHelperValue(0.30000000000000004, { min: 0, max: 1, step: 0.1 })).toBe(0.3)
+  })
+
+  it('keeps a step finer than four decimals on its own grid', () => {
+    // The tail-trimming used to round at a fixed four places, which doubled as
+    // a precision ceiling by accident: a value snapped to a 1e-5 grid was
+    // rounded straight back off it.
+    expect(quantizeHelperValue(0.123456, { min: 0, max: 1, step: 0.00001 })).toBe(0.12346)
+    // Every step of 0.0001 or coarser — which is all of them in practice —
+    // trims exactly as it did before.
     expect(quantizeHelperValue(0.30000000000000004, { min: 0, max: 1, step: 0.1 })).toBe(0.3)
   })
 

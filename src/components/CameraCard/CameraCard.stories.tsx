@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect, waitFor } from 'storybook/test'
 import { CameraCard } from './index'
 import { asUnavailable, createCameraEntity, type EntityOverrides } from '~/test/fixtures'
 import type { GridItem } from '~/store/types'
@@ -75,6 +76,14 @@ const meta: Meta<CameraCardStoryProps> = {
 export default meta
 type Story = StoryObj<CameraCardStoryProps>
 
+/** The gradient overlay's two lines, and the badge, as the DOM has them. */
+const overlayName = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-name-overlay .camera-overlay-name')?.textContent ?? null
+const overlayState = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-name-overlay .camera-overlay-state')?.textContent ?? null
+const liveBadge = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-live-badge')?.textContent ?? null
+
 /* ------------------------------------------------------------------ *
  * Stream states
  * ------------------------------------------------------------------ */
@@ -90,6 +99,14 @@ type Story = StoryObj<CameraCardStoryProps>
  */
 export const Streaming: Story = {
   parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    // Defaults: name and state in the gradient, and the live state presented as
+    // the badge rather than as a STREAMING pill (change 0021's subsumption).
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('LIVE'))
+    await expect(overlayName(canvasElement)).toBe('Driveway')
+    await expect(overlayState(canvasElement)).toBe('Idle')
+    await expect(canvasElement.textContent).not.toContain('STREAMING')
+  },
 }
 
 /**
@@ -99,6 +116,11 @@ export const Streaming: Story = {
  */
 export const Recording: Story = {
   parameters: { liebe: { entities: [camera('recording')] } },
+  play: async ({ canvasElement }) => {
+    // The recording variant survives the subsumption as its own badge label.
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('REC'))
+    await expect(overlayState(canvasElement)).toBe('Recording')
+  },
 }
 
 /**
@@ -130,6 +152,26 @@ export const StreamError: Story = {
  */
 export const StillImageFallback: Story = {
   parameters: { liebe: { entities: [camera('idle', { readiness: 'unavailable' })] } },
+  play: async ({ canvasElement }) => {
+    // The name still belongs on the picture; the badge does not.
+    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    await expect(liveBadge(canvasElement)).toBeNull()
+  },
+}
+
+/**
+ * The badge's honesty rule, in the shape that actually bites: the pill resolves
+ * `RECORDING` from the raw entity state alone, so a camera whose element could
+ * not be bootstrapped reports a live state with nothing but a periodically
+ * refreshed snapshot on screen. No badge renders — a snapshot must never be
+ * labelled live — and the pill keeps saying `RECORDING` unsubsumed.
+ */
+export const RecordingStillImage: Story = {
+  parameters: { liebe: { entities: [camera('recording', { readiness: 'unavailable' })] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.textContent).toContain('RECORDING'))
+    await expect(liveBadge(canvasElement)).toBeNull()
+  },
 }
 
 /**
@@ -155,6 +197,81 @@ export const WithoutStreamSupport: Story = {
   args: { gridHeight: 2 },
   parameters: {
     liebe: { entities: [camera('idle', { attributes: { supported_features: 0 } })] },
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Presentation options (change 0021)
+ * ------------------------------------------------------------------ */
+
+/**
+ * `showNameOverlay: false` leaves the feed uninterrupted — and hands the name
+ * back to the status pill, which is the only place left for it.
+ */
+export const WithoutNameOverlay: Story = {
+  args: { item: cameraItem({ showNameOverlay: false }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('LIVE'))
+    await expect(canvasElement.querySelector('.camera-name-overlay')).toBeNull()
+    await expect(canvasElement.textContent).toContain('Driveway')
+  },
+}
+
+/**
+ * `showLiveBadge: false` gives the live state back to the pill it was subsumed
+ * from — the pill's own resolution never changed, only which layer presents it.
+ */
+export const WithoutLiveBadge: Story = {
+  args: { item: cameraItem({ showLiveBadge: false }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.textContent).toContain('STREAMING'))
+    await expect(liveBadge(canvasElement)).toBeNull()
+  },
+}
+
+/**
+ * The universal `hideName` takes the name line out of the gradient — and does
+ * NOT hand it back to the pill, which would be the option doing nothing.
+ */
+export const OverlayWithoutName: Story = {
+  args: { item: cameraItem({ hideName: true }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayState(canvasElement)).toBe('Idle'))
+    await expect(overlayName(canvasElement)).toBeNull()
+    await expect(canvasElement.textContent).not.toContain('Driveway')
+  },
+}
+
+/**
+ * The universal `hideState` takes the state line out. The stream-health pill is
+ * a different thing — camera-streaming's, not the entity's state line — so it
+ * stays; here the live state is on the badge.
+ */
+export const OverlayWithoutState: Story = {
+  args: { item: cameraItem({ hideState: true }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    await expect(overlayState(canvasElement)).toBeNull()
+    await expect(liveBadge(canvasElement)).toBe('LIVE')
+  },
+}
+
+/**
+ * Hiding both lines collapses the band entirely: an empty gradient over a feed
+ * is a smudge, not a layout, so the picture fills the card as if the overlay
+ * were switched off.
+ */
+export const OverlayCollapsed: Story = {
+  args: { item: cameraItem({ hideName: true, hideState: true }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('LIVE'))
+    await expect(canvasElement.querySelector('.camera-name-overlay')).toBeNull()
+    await expect(canvasElement.textContent).not.toContain('Driveway')
   },
 }
 

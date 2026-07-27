@@ -39,6 +39,77 @@
     }
   }
 
+  /* The presentation layers (change 0021). Both are siblings of the stream
+     element inside the stationary container, so they are positioned against it
+     rather than wrapped around it, and both are pointer-transparent: the
+     container itself is the fullscreen toggle, and a tap landing on the gradient
+     must still reach it.
+     The base font-size matches the controls block's own (0.8em of the card's
+     9.6px), and the fullscreen modifier matches its viewport-relative scale, so
+     the three layers stay in proportion in both views. */
+  .camera-name-overlay {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15em;
+    padding: 1.6em 0.9em 0.7em;
+    font-size: 9.6px;
+    color: white;
+    /* A gradient, not a bar: the feed stays visible through it, which is the
+       point of putting the name ON the picture instead of beside it. */
+    background: linear-gradient(to top, rgb(0 0 0 / 75%), rgb(0 0 0 / 0%));
+    pointer-events: none;
+  }
+
+  .camera-name-overlay-fullscreen {
+    font-size: min(3.2vw, 19.2px);
+  }
+
+  .camera-overlay-name {
+    overflow: hidden;
+    font-size: 1.15em;
+    font-weight: 600;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .camera-overlay-state {
+    overflow: hidden;
+    font-size: 0.9em;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.85;
+  }
+
+  .camera-live-badge {
+    position: absolute;
+    top: 0.8em;
+    left: 0.8em;
+    display: inline-flex;
+    gap: 0.4em;
+    align-items: center;
+    padding: 0.3em 0.5em;
+    font-size: 9.6px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: white;
+    background-color: rgb(0 0 0 / 80%);
+    border-radius: 0.6em;
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+  }
+
+  .camera-live-badge-fullscreen {
+    top: 2%;
+    left: 2%;
+    font-size: min(3.2vw, 19.2px);
+  }
+
   /* The stream surface is a role=button (tap toggles the in-place zoom), so a
      pointer tap focuses it too. Chrome then paints its UA ring — `outline: auto`,
      which reads as a white border over the dark stream — and its :focus-visible
