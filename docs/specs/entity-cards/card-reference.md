@@ -95,26 +95,31 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 ### SensorCard (read-only)
 
-**Value formatting** (`formatSensorValue`, `68-118`): `unavailable`/`unknown` → uppercased state; non-numeric → uppercased state; temperature → `toFixed(1)`; humidity/battery → `Math.round`; energy/power → ÷1000 with `k`-prefixed unit at ≥1000 else `toFixed(0)`; default magnitude rules (integer as-is, `<10` → 2dp, `<100` → 1dp, else round). Unit appended when present.
+**Files**: `src/components/SensorCard/` — `index.tsx` (the card), `format.ts` (the value pipeline), `SensorGraph.tsx` (the graph region and the window's extremes), `SensorCard.css` (the graph's box per tier). Options are read by `src/store/sensorOptions.ts`.
 
-**Icon by `device_class`** (`getSensorIcon`, `35-65`): temperature→Value, humidity→Circle, motion/occupancy/moving→ActivityLog, power/energy/current/voltage→LightningBolt, pressure→Mix, timestamp/duration→Clock, default→Home. Icon size 24/20/16; value font 2/3/4; container `minHeight` 120/100/80px. No config modal, no `onConfigure`.
+**Value formatting** (`format.ts`): one function for the value, the trend delta and the min/max footer, applied in the order `valueScale` → `displayPrecision` → unit. The `displayPrecision: auto` matrix and the `valueScale: auto` k-scaling are owned by [options/sensor](./options/sensor.md#options) and pinned through the rendered card by `src/components/__tests__/sensorFormatting.test.tsx` — that file is the authority on what the matrix does, including two cases it deliberately changed (a `k` prefix is not applied when there is no unit to prefix, and a blank state no longer formats as `NaN`).
 
-**Scenarios** (`src/components/__tests__/SensorCard.test.tsx`):
+**History** (`useEntityHistory`): `sample` for the line graph and the `full` footer, `delta` for bars and the trend arrow, requested per surface. A surface the tier does not render is requested with an empty entity id, so `showGraph: false` costs no recorder request. `unsupported`, an error, and a window under two points all render the graph-less layout; only loading holds a reserved box.
 
-- Temperature `21.5` °C → `21.5 °C` with friendly name.
-- Power `1250` W → `1.3 kW`.
-- Humidity `65.3` % → `65 %` (rounded).
-- `unavailable` → `UNAVAILABLE`, friendly name still shown.
-- Missing entity / disconnected → `Disconnected`.
-- Edit-mode click → `onSelect(true)`; delete button → `onDelete`.
-- Stale entity → no `title`/dashed-border stale indicator (removed).
-- Parametrized device-class table: motion `on`→`ON`, energy `1500 Wh`→`1.5 kWh`, pressure `1013.25`→`1013 hPa`, timestamp string passed through.
+**Icon by `device_class`** (`getSensorIcon`): temperature→Value, humidity→Circle, motion/occupancy/moving→ActivityLog, power/energy/current/voltage→LightningBolt, pressure→Mix, timestamp/duration→Clock, default→Home. One glyph size at every tier — the tiers differ by what they contain, not by scale. No config modal, no `onConfigure`; the card's options render in the shared configuration form.
 
-### BinarySensorCard (read-only, configurable icons)
+**Tests**: `src/components/SensorCard/__tests__/` (card, formatting pipeline, graph region) and `src/components/__tests__/sensorFormatting.test.tsx` (the pinned matrix).
 
-`on = entity.state === 'on'` (`74`). Icon resolution (`64-71`): `config.onIcon`/`config.offIcon` → `device_class` default pair (`getDefaultIcons`, `23-44`) → `getTablerIcon || getIcon || (isOn ? CircleCheck : Circle)`. Device-class defaults include occupancy, door/window, motion, moisture, lock, safety, smoke, sound, vibration, light. Status text is `entity.state.toUpperCase()`. `on` uses amber background/border (2px) and amber icon/text.
+### BinarySensorCard (read-only, configurable)
 
-**Config**: `onIcon` (default `CircleCheck`) / `offIcon` (default `Circle`), both `icon`-type (`src/components/configurations/cardConfigurations.ts:59-76`); wires `onConfigure`, `hasConfiguration={!!item}`, and a `CardConfig.Modal` saving to `item.config`. States mirror SensorCard (skeleton / ErrorDisplay / unavailable). The icon `useMemo` runs before early returns to keep hook order stable.
+**Files**: `src/components/BinarySensorCard/` — `index.tsx` and `presentation.ts`. Options are read by `src/store/binarySensorOptions.ts`.
+
+**Presentation** (`resolveBinarySensorPresentation`): one derivation produces the presented state, the label, the glyph name and the colour triplet together, so `invert` cannot desynchronize them. `invert` swaps only a state that has an opposite — `unavailable`, `unknown` and anything else are read out raw. Label and glyph both come from `BINARY_SENSOR_FACES`, one row per `device_class` holding `{ on: { label, icon }, off: { label, icon } }`; a class with no row takes `DEFAULT_BINARY_SENSOR_FACES` (`Eye`/`EyeOff`, which passes no verdict on a state this build cannot interpret). Configured `onIcon`/`offIcon`/`onLabel`/`offLabel` override the row for the state they name.
+
+**Active colour** (`activeColorForDeviceClass`): the alert set → `alert`, `moisture`/`water` → `water`, `light` → `light`, everything else → `default`.
+
+**The hazard rule**: `ALERT_DEVICE_CLASSES` is one set serving both the colour above and the danger floor. A raw-active sensor of one of those classes resolves `danger`, which the card forwards to the shell — the card's half ignores every option of its own (the row's `on` label and glyph render whatever `onLabel`, `onIcon` and `invert` say), and `readCardDisplay`'s existing danger floor takes back the universal `icon`, `hideName`, `hideState` and `color` while keeping `name`.
+
+**`full` tier**: adds a recency line from `last_changed` via `useRelativeSince`, the same helper and phrasing the switch card's `showLastChanged` uses. A missing or unparseable timestamp renders no line.
+
+**Config**: `onIcon` / `offIcon` (`icon`-type, defaulting to `''` so an unset value means "use the device-class glyph"), `onLabel` / `offLabel`, and `invert`, in `src/components/configurations/cardConfigurations.ts`; the card wires `onConfigure`, `hasConfiguration={!!item}` and a `CardConfig.Modal` saving to `item.config`. States mirror SensorCard (skeleton / ErrorDisplay / unavailable).
+
+**Tests**: `src/components/BinarySensorCard/__tests__/` — including the vocabulary audit, which declares what each glyph means independently of the table and fails any row whose glyph contradicts its label.
 
 ## Weather
 

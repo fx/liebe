@@ -4,7 +4,7 @@
 
 Bring `SensorCard` and `BinarySensorCard` up to the [sensor & binary sensor option spec](../specs/entity-cards/options/sensor.md): sensor `displayPrecision`, `unitOverride`, `valueScale`, and the history-backed `showGraph`/`graphHours`/`graphMode`/`showTrend` options (sparkline and full-tier graph via the [0015](./0015-history-and-forecast-data.md) `useEntityHistory` hook and the [0010](./0010-design-tokens-and-anatomy.md) `liebe-spark` anatomy); binary sensor `onLabel`/`offLabel`/`invert` plus `device_class`-aware active coloring. Existing `device_class` value formatting and k-scaling are preserved as MUSTs.
 
-**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/sensor](../specs/entity-cards/options/sensor.md) · **Status:** draft · **Depends on:** 0011, 0014, 0015
+**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/sensor](../specs/entity-cards/options/sensor.md) · **Status:** complete · **Depends on:** 0011, 0014, 0015
 
 ## Motivation
 
@@ -45,7 +45,7 @@ Spec restatements update **in the same PR** as each behavior change they describ
 
 - [x] **PR 1 — Sensor card**: formatting pipeline (`displayPrecision`/`valueScale`/`unitOverride`) preserving the existing matrix; `showGraph`/`graphHours`/`graphMode` via `useEntityHistory` + `liebe-spark` across `row`/`tall`/`full` with min/max footer; `glance` big value + `showTrend`; numeric gating; config-form controls; unit tests + stories (incl. loading/empty/unsupported)
 - [x] **PR 2 — Binary sensor card**: `onLabel`/`offLabel` device-class defaults; `invert`; `color: auto` device-class active-tint mapping (alert/water/light/default); `full`-tier "since" line; config-form controls; unit tests + stories
-- [ ] **PR 3 — Spec sync**: entity-cards spec sensors section updated to implemented status; sensor option doc's history-dependent caveats resolved; changelog entries
+- [x] **PR 3 — Spec sync**: entity-cards spec sensors section updated to implemented status; sensor option doc's history-dependent caveats resolved; changelog entries
 
 ## Out of Scope
 
