@@ -142,7 +142,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background-color: var(--gray-3);
+    background-color: var(--liebe-media-bg);
     border-radius: var(--liebe-card-radius, var(--radius-2));
   }
 

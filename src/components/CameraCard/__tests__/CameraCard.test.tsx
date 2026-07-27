@@ -1474,6 +1474,11 @@ describe('CameraCard', () => {
       expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
       expect(badgeOf(container)).toBeNull()
       expect(screen.getByText('RECORDING')).toBeInTheDocument()
+      // The BAND does render over the fallback, and the asymmetry is the point:
+      // naming the camera is true of a snapshot, calling it live is not.
+      expect(overlayOf(container)!.querySelector('.camera-overlay-name')).toHaveTextContent(
+        'Front Door'
+      )
     })
 
     it('leaves a non-live state entirely to the pill', () => {
@@ -1742,6 +1747,28 @@ describe('CameraCard', () => {
     it('omits the line when the linked entity does not exist', () => {
       const { container } = renderCard({ item: motionItem() })
       expect(motionOf(container)).toBeNull()
+    })
+
+    it('reads no motion from an entity outside the binary_sensor domain', () => {
+      /*
+       * The picker cannot produce this, but a shared YAML can. The card must not
+       * announce "Motion detected" because somebody turned the porch light on —
+       * so the id resolves to "none linked" on the way in, and the render path
+       * never sees it. Proven here at the card rather than only at the reader,
+       * because it is the card that would do the lying.
+       */
+      linkedEntities['switch.porch'] = {
+        entity_id: 'switch.porch',
+        state: 'on',
+        attributes: { friendly_name: 'Porch Light' },
+        last_changed: '2026-01-01T00:00:00Z',
+        last_updated: '2026-01-01T00:00:00Z',
+        context: { id: 'ctx', parent_id: null, user_id: null },
+      }
+      const { container } = renderCard({ item: motionItem({ motionEntity: 'switch.porch' }) })
+
+      expect(motionOf(container)).toBeNull()
+      expect(screen.queryByText('Motion detected')).toBeNull()
     })
 
     it('omits the line when no sensor is linked at all', () => {

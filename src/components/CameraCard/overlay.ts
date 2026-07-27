@@ -11,12 +11,21 @@ import type { CameraStatus } from './CameraControls'
 
 export interface CameraOverlayInput {
   /**
-   * Whether the card is actually showing a picture to draw the band over — a
-   * camera with stream support, no surfaced error, and a stream surface on
-   * screen at all. A card showing its icon tile (no `SUPPORT_STREAM`), its
-   * error-and-Retry branch, or a degraded tier's still thumbnail has no feed, so
-   * the name goes back to the status pill or the tile's own meta instead of
-   * disappearing with the band.
+   * Whether the card is showing its stream SURFACE — the full-bleed picture the
+   * band is drawn along the bottom of.
+   *
+   * "Feed" here is the surface, not a live stream: the still-image fallback
+   * (readiness `unavailable`) renders inside that same surface and DOES get the
+   * band, because a snapshot filling the card still wants to say which camera it
+   * is. That is deliberately not the rule the LIVE badge follows — it refuses
+   * the fallback, since a snapshot must never be labelled live
+   * (`resolveCameraLiveBadge`). The two differ because a name is true of a
+   * snapshot and "LIVE" is not.
+   *
+   * What has no surface: the icon tile of a camera without `SUPPORT_STREAM`, the
+   * error-and-Retry branch, and a degraded tier's thumbnail, which is a card
+   * body rather than a feed. In all three the name goes back to the status pill
+   * or the tile's own meta instead of disappearing with the band.
    */
   hasFeed: boolean
   /** The stored `showNameOverlay`. */

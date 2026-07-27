@@ -68,6 +68,41 @@ describe('readCameraOptions', () => {
     })
   })
 
+  it.each([
+    ['a switch', 'switch.porch'],
+    ['a light', 'light.porch'],
+    ['a bare domain', 'binary_sensor.'],
+    ['no domain at all', 'driveway_motion'],
+    ['a capitalised id', 'binary_sensor.Driveway'],
+  ])('resolves %s to no linked sensor rather than reading it as motion', (_name, motionEntity) => {
+    /*
+     * The picker only narrows what a user can CHOOSE; a shared YAML can say
+     * anything. A camera announcing "Motion detected" because somebody turned
+     * the porch light on is a card lying about the world, with nothing on its
+     * face to explain why — so an entity outside the domain resolves to "none
+     * linked", which is no motion line at all.
+     */
+    expect(readCameraOptions({ showLastMotion: true, motionEntity })).toEqual({
+      ...CAMERA_OPTION_DEFAULTS,
+      showLastMotion: true,
+    })
+  })
+
+  it('leaves the stored document alone while resolving it', () => {
+    // Resolved for display, never rewritten: a document this build cannot fully
+    // interpret survives a round trip unchanged
+    // (docs/specs/dashboard-config — "Forward Compatibility").
+    const stored = { showLastMotion: true, motionEntity: 'switch.porch' }
+    readCameraOptions(stored)
+    expect(stored).toEqual({ showLastMotion: true, motionEntity: 'switch.porch' })
+  })
+
+  it('accepts a real motion sensor', () => {
+    expect(
+      readCameraOptions({ motionEntity: 'binary_sensor.driveway_motion_2' }).motionEntity
+    ).toBe('binary_sensor.driveway_motion_2')
+  })
+
   it('ignores keys belonging to other cards and to the streaming spec', () => {
     // `fit`/`matting`/`showStats` are camera-streaming's, read straight off the
     // config by the card; they are deliberately not part of this contract.
@@ -102,6 +137,11 @@ describe('cameraOptionsConfigSchema', () => {
     ['an overlay flag that is not a boolean', { showNameOverlay: 1 }],
     ['a motion flag that is not a boolean', { showLastMotion: 'yes' }],
     ['a motion entity that is not a string', { motionEntity: 42 }],
+    // The gate is where the author gets told: a document naming a switch as
+    // its motion source is one whose author needs telling, rather than a card
+    // that silently reads a light switch as a person walking past.
+    ['a motion entity outside the domain', { motionEntity: 'switch.porch' }],
+    ['a motion entity with no domain', { motionEntity: 'driveway_motion' }],
   ])('rejects %s at the gate', (_name, config) => {
     // `showLiveBadge: "no"` in particular: silently falling back to the enabled
     // default would label a feed live in a document that asked for the opposite.

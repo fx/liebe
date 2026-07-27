@@ -764,9 +764,18 @@ export async function dragResizeHandle(page: Page, item: Locator, to: { x: numbe
   await expect(handle, 'edit mode should expose a resize handle').toHaveCount(1)
 
   const handleBox = (await handle.boundingBox())!
-  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+  /*
+   * ONE origin for the whole gesture: the handle's centre, which is where the
+   * press lands. The midpoint used to be computed from the handle's top-left
+   * instead, so the first move started from a point the cursor was never at —
+   * skewing it by half the handle, and skewing it differently as the handle's
+   * size or position changed. That is the shape of a harness that fails
+   * intermittently and gets blamed on the code under test.
+   */
+  const from = { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 }
+  await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  await page.mouse.move((handleBox.x + to.x) / 2, (handleBox.y + to.y) / 2, { steps: 5 })
+  await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 5 })
   await page.mouse.move(to.x, to.y, { steps: 10 })
   await page.mouse.up()
 }
