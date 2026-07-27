@@ -3,6 +3,7 @@ import {
   CAMERA_LIVE_BADGE_LABELS,
   cameraStateText,
   resolveCameraLiveBadge,
+  resolveCameraMotionLine,
   resolveCameraName,
   resolveCameraOverlay,
 } from '../overlay'
@@ -138,6 +139,47 @@ describe('resolveCameraLiveBadge', () => {
 
   it('labels each variant', () => {
     expect(CAMERA_LIVE_BADGE_LABELS).toEqual({ live: 'LIVE', recording: 'REC' })
+  })
+})
+
+describe('resolveCameraMotionLine', () => {
+  it('reads a sensor that is on as motion detected', () => {
+    expect(
+      resolveCameraMotionLine({ showLastMotion: true, motionState: 'on', since: 'for 2 min' })
+    ).toBe('Motion detected')
+  })
+
+  it('reads a clear sensor as how long it has been clear', () => {
+    // "Clear for X", never "Motion X ago": `last_changed` measures the CURRENT
+    // state, and after a restart or an unavailable→off recovery it marks that
+    // transition — so "motion 12 minutes ago" would invent an event.
+    expect(
+      resolveCameraMotionLine({ showLastMotion: true, motionState: 'off', since: 'for 12 min' })
+    ).toBe('Clear for 12 min')
+  })
+
+  it('still says it is clear with no duration to show', () => {
+    // A `last_changed` that will not parse is a reason to drop the number, not
+    // to drop the fact — and certainly not to guess one.
+    expect(resolveCameraMotionLine({ showLastMotion: true, motionState: 'off', since: null })).toBe(
+      'Clear'
+    )
+  })
+
+  it.each([
+    ['an unavailable sensor', 'unavailable'],
+    ['a sensor with no reading yet', 'unknown'],
+    ['an entity that is not there', undefined],
+  ])('omits the line for %s', (_name, motionState) => {
+    expect(
+      resolveCameraMotionLine({ showLastMotion: true, motionState, since: 'for 2 min' })
+    ).toBeNull()
+  })
+
+  it.each(['on', 'off'])('omits the line with the option off (%s)', (motionState) => {
+    expect(
+      resolveCameraMotionLine({ showLastMotion: false, motionState, since: 'for 2 min' })
+    ).toBeNull()
   })
 })
 

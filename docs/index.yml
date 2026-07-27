@@ -16,7 +16,7 @@ specs:
     status: active
   - name: design-system
     path: specs/design-system/
-    description: Target visual language — token contract, domain color discipline, card anatomy, size-adaptive layout tiers, typography, and motion (implemented; the camera consumes no tier by design)
+    description: Target visual language — token contract, domain color discipline, card anatomy, size-adaptive layout tiers, typography, and motion
     status: active
   - name: entity-cards
     path: specs/entity-cards/
@@ -193,7 +193,7 @@ changes:
     path: changes/0021-camera-presentation-options.md
     description: Camera card presentation options — name overlay, live badge, motion line via linked motion entity, still-thumbnail small tiers with no stream mount below 2×2 and lazy fullscreen mount/unmount (the change's one scoped stream-lifecycle exception)
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0022'
     name: switch-input-helpers-to-spec

@@ -64,6 +64,30 @@ describe('camera presentation layers', () => {
     expect(ruleBody('.camera-name-overlay')).toContain('linear-gradient')
   })
 
+  it('takes the thumbnail well from the token contract, not a Radix scale', () => {
+    // Reaching `--gray-*` at the point of use would put every degraded camera
+    // tile outside the theming contract: a theme that restyles Liebe's surfaces
+    // would leave the thumbnails behind (docs/specs/theming — "Application
+    // mechanism"; docs/specs/design-system — surface tokens).
+    const body = ruleBody('.camera-thumb')
+    expect(body).toContain('background-color: var(--liebe-media-bg)')
+    expect(body).not.toContain('--gray-')
+  })
+
+  it('sizes the degraded thumbnail by its tile rather than by a fixed box', () => {
+    // A card must adapt its content to the span rather than scale to fit it, so
+    // the thumbnail takes the shape the arrangement gives it: a 16:9 stamp at
+    // the row's height, or whatever the caption leaves in the stacked shapes.
+    expect(ruleBody(".camera-thumb[data-arrangement='row']")).toContain('aspect-ratio: 16 / 9')
+    const stacked = ruleBody(
+      ".camera-thumb[data-arrangement='stack'],\n  .camera-thumb[data-arrangement='tall']"
+    )
+    expect(stacked).toContain('flex: 1 1 auto')
+    // Without this a flex item refuses to shrink below its content, and the
+    // thumbnail would push the caption out of a short tile.
+    expect(stacked).toContain('min-height: 0')
+  })
+
   it('silences the badge pulse under prefers-reduced-motion', () => {
     // The badge reuses `.recording-dot`, so this one guard covers both the pill
     // and the badge — and it is a media query rather than a per-card option

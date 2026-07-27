@@ -84,6 +84,10 @@ export const tokenGroups: readonly TokenGroup[] = [
       { name: '--liebe-faint', purpose: 'Tertiary text (eyebrow labels, disabled glyphs)' },
       { name: '--liebe-hairline', purpose: 'Separator lines' },
       { name: '--liebe-track', purpose: 'Unfilled slider and progress track' },
+      {
+        name: '--liebe-media-bg',
+        purpose: 'Well behind a picture — camera thumbnails and feeds, before the image paints',
+      },
     ],
   },
   {
