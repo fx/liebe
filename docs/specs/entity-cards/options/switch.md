@@ -1,13 +1,13 @@
 # Card Options — Switch
 
-Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here). **Status: specified, not yet implemented.**
+Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here). **Status: implemented** by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md), except the transition-or-timeout dispatch guard noted under Primary action.
 
-This document covers the switch card: the card registered for the `switch` domain and, unchanged, the **generic fallback card** rendered for any entity domain without a registry entry (see [entity-cards — Button and fallback card](../index.md#button-and-fallback-card), `src/components/ButtonCard.tsx`). Because the same card serves arbitrary domains, every option below MUST be safe — no crash, no misleading UI — when the entity is not a `switch.*` entity.
+This document covers the switch card: the card registered for the `switch` domain and, unchanged, the **generic fallback card** rendered for any entity domain without a registry entry (see [entity-cards — Button and fallback card](../index.md#button-and-fallback-card), `src/components/ButtonCard/`). Because the same card serves arbitrary domains, every option below MUST be safe — no crash, no misleading UI — when the entity is not a `switch.*` entity.
 
 ## Primary action
 
 - `tapAction: default` MUST mean **toggle** (`homeassistant.toggle` on the entity), for both the `switch` domain and fallback domains — with `unavailable`/`unknown` resolved first as **inert**: a critical load must never be actuated while its direction is indeterminate. Both states covered in the state-matrix tests.
-- Toggle MUST be suppressed from dispatch until the expected on/off transition is observed or an acknowledgement timeout elapses (Home Assistant acknowledges before slow integrations — a well pump, a heater relay — update state; a promise-scoped guard would allow a second toggle against stale state), and when the entity is `unavailable` or `unknown`. This strengthens the current promise-scoped behavior (`ButtonCard.tsx:63-72`) to match the input-boolean and security contracts.
+- Toggle MUST be suppressed from dispatch until the expected on/off transition is observed or an acknowledgement timeout elapses (Home Assistant acknowledges before slow integrations — a well pump, a heater relay — update state; a promise-scoped guard would allow a second toggle against stale state), and when the entity is `unavailable` or `unknown`. **Not yet the build for this card's own toggle:** the card still dispatches through the retrying service-call hook behind a promise-scoped guard, and only the shell's `homeassistant.toggle` fallback route carries the guard today. The guarded path is not reachable from a card's own control yet — it is private to the shell's gesture controller — so moving this toggle onto it waits on the guarded-dispatch extraction that generalizes it, and lands there rather than with the input helpers' dispatches. `confirm` is unaffected either way: the gate sits in front of every route, retrying or not.
 - The whole tile is the touch target in every tier; the card embeds no discrete controls of its own.
 - For fallback domains where `homeassistant.toggle` is not meaningful, the tap simply results in a failed/no-op service call surfaced through the standard error state; users SHOULD set `tapAction: more-info` for such entities. The card MUST NOT try to guess a better action per unknown domain.
 
@@ -26,6 +26,7 @@ For critical loads (pumps, heaters, servers) an accidental tap must not flip the
 
 - Any action on this card that would toggle the entity — `tapAction` of `default` **or** explicit `toggle`, a `toggle` bound to `holdAction` / `doubleTapAction`, **and a configured `call-service` targeting the same entity's toggle-equivalent services** — MUST first present a confirmation dialog naming the entity and the target state (e.g. "Turn off Well Pump?"). The gate applies after action resolution, so re-routing cannot bypass it; `call-service` targeting unrelated services stays ungated.
 - **Toggle-equivalence is classified by effect against the entity's own domain, not a fixed service list.** A service targeting this entity is toggle-equivalent when its name is `toggle`, `turn_on`, or `turn_off` in **either** the entity's actual domain or the generic `homeassistant` domain. Enumerating `switch.*` only would leave the fallback role — which this card fills for every unmapped domain — bypassable: `siren.turn_on` on a `siren.alarm` card is exactly as consequential as `switch.turn_on`, and a fixed list silently exempts it. The rule is the invariant ("same entity, on/off-equivalent effect"), and any future domain is covered without amending a list.
+- **The target is whatever the dispatch layer resolves, not whatever is easiest to read.** A payload's `entity_id` overrides the card's entity in every shape it can take — a string, a list, or the `all` wildcard — so an action reaching this entity as one member of a list MUST be gated exactly like one naming it outright. A classifier that recognises only the string form is a bypass of the same class as an enumeration that lists only `domain.*` services. Where the shape cannot be resolved, the gate MUST confirm: over-confirming is visible and harmless, while under-confirming is an option that silently does not do what it says.
 - Confirming MUST fire exactly one toggle; cancelling MUST fire nothing and leave no pending state. Dismissal MUST require an explicit choice — a destructive confirm should not evaporate on a stray tap outside it.
 - Non-toggling actions (`more-info`, `navigate`, `none`) MUST NOT be gated.
 - Applies identically for fallback domains. Behavioral only — no tier interaction; the dialog is a portal overlay, never in-card content.
@@ -36,7 +37,7 @@ Default-icon precedence when no universal `icon` override is set:
 
 1. If the entity's domain is `switch`, `deviceClassIcon !== false`, and `attributes.device_class` maps to a known glyph — use it: `outlet` → plug glyph, `switch` → power glyph.
 2. Otherwise the domain default (power glyph for `switch`).
-3. For fallback domains, a generic glyph (the current bolt, `ButtonCard.tsx:17-30`); `device_class` MUST NOT be consulted, since its meaning is domain-specific and the fallback cannot know the mapping.
+3. For fallback domains, a generic glyph (the bolt, `src/components/ButtonCard/icon.ts`); `device_class` MUST NOT be consulted, since its meaning is domain-specific and the fallback cannot know the mapping. Structurally enforced: the lookup lives inside the `domain === 'switch'` branch of one pure helper, so a foreign domain's `device_class` is never in scope.
 
 The universal `icon` option always wins over all of the above. Visible in every tier (the icon circle renders in all four layouts).
 
@@ -95,14 +96,14 @@ The active/inactive icon-circle tint pattern and state-text coloring follow the 
 
 ## Open Questions
 
-- ~~**Switch domain color token.**~~ Resolved: switches (and all fallback domains) use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/index.md#domain-color-discipline), replacing the current amber (`ButtonCard.tsx:90-99`) which collided with lights.
+- ~~**Switch domain color token.**~~ Resolved and shipped: switches (and all fallback domains) use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/index.md#domain-color-discipline), replacing the amber that collided with lights.
 - ~~**Confirm scope for `call-service`.**~~ Resolved in the `confirm` section above: same-entity toggle-equivalent `call-service` routes (`switch.toggle`/`turn_on`/`turn_off`, `homeassistant.toggle`) ARE gated at action resolution; only unrelated services stay ungated — those may get a future per-action `confirm` flag in the [common action type](./common.md#action-type) rather than a card option.
 - ~~**Nested option shape.**~~ Resolved by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md): the config modal MUST render two plain `string` controls (`onLabel`, `offLabel`) that read and write into the nested `stateLabels` key — no `ConfigDefinition` schema extension. A generic object control is deferred until a second nested option exists to justify it.
 - **Fallback tap default.** Whether the fallback card should default `tapAction` to `more-info` for domains known not to support `homeassistant.toggle` (e.g. read-mostly domains) instead of attempting a toggle that errors.
 
 ## References
 
-- Current implementation: `src/components/ButtonCard.tsx` (switch + fallback, no config surface today)
+- Current implementation: `src/components/ButtonCard/` (`index.tsx` + the pure `icon.ts` and `lastChanged.ts` helpers); options in `src/store/switchOptions.ts`, the gate's classification in `src/hooks/useCardActions.ts` and its dialog in `src/components/ConfirmToggleDialog.tsx`
 - Baseline behavior: [entity-cards — Button and fallback card](../index.md#button-and-fallback-card)
 - Shared contract and conventions: [common.md](./common.md)
 - Layout tiers, anatomy, colors: [design-system](../../design-system/)

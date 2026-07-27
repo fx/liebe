@@ -148,14 +148,16 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 
 ### Button and fallback card
 
-- `ButtonCard` MUST serve both as the `switch` domain card and as the fallback for any unmapped domain, toggling via the service-call hook and rendering a domain-appropriate icon (light → sun, switch → bolt, input_boolean → check, default → bolt).
-- `ButtonCard` MUST show `ERROR` / `UNAVAILABLE` states and MUST NOT expose a configuration modal.
+- `ButtonCard` MUST serve both as the `switch` domain card and as the fallback for any unmapped domain, toggling via the service-call hook and rendering a domain-appropriate icon.
+- `ButtonCard` MUST show `ERROR` / `UNAVAILABLE` states and MUST expose the configuration modal.
+- Configuration MUST resolve through the card that renders, not the raw entity domain, so an unmapped domain reaches the fallback card's options rather than being told it has none.
+- Its option surface, the icon precedence, the confirmation gate's scope and the fallback-safety rules every option obeys are specified by [options/switch.md](./options/switch.md).
 
 #### Scenario: Fallback toggles an unmapped entity
 
 - **GIVEN** an unmapped-domain entity in the `on` state
 - **WHEN** the user clicks the card
-- **THEN** `ButtonCard` calls `toggle` for the entity (unless loading/unavailable) (`ButtonCard.tsx:63-72`).
+- **THEN** `ButtonCard` calls `toggle` for the entity (unless loading/unavailable) (`src/components/ButtonCard/index.tsx`).
 
 ### Text and separator widgets
 
@@ -315,17 +317,18 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 - Shell & boundary: `src/components/GridCard.tsx`, `src/components/ErrorBoundary.tsx`
 - Configuration: `src/components/CardConfig.tsx`, `src/components/configurations/cardConfigurations.ts`; non-scalar option controls in `ActionEditor.tsx`, `EntityPicker.tsx`, `NumberArrayEditor.tsx`, `OrderedMultiSelect.tsx`, with their value contracts in `src/store/configControls.ts`
 - Discovery: `src/components/EntityBrowser.tsx`, `src/components/EntitiesBrowserTab.tsx`, `src/components/CardsBrowserTab.tsx`
-- Cards: `LightCard.tsx`, `ClimateCard.tsx`, `CoverCard.tsx`, `FanCard.tsx`, `SensorCard.tsx`, `BinarySensorCard.tsx`, `ButtonCard.tsx`, `TextCard.tsx`, `Separator.tsx`, `WeatherCard/`, `Input{Boolean,Number,Select,Text,DateTime}Card.tsx`
+- Cards: `LightCard.tsx`, `ClimateCard.tsx`, `CoverCard.tsx`, `FanCard.tsx`, `SensorCard.tsx`, `BinarySensorCard.tsx`, `ButtonCard/`, `TextCard.tsx`, `Separator.tsx`, `WeatherCard/`, `Input{Boolean,Number,Select,Text,DateTime}Card.tsx`
 - Companion: [card-reference.md](./card-reference.md)
 - Related specs: [../camera-streaming/](../camera-streaming/), [../grid-layout/](../grid-layout/), [../entity-state/](../entity-state/)
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                                             | Document                                                                                |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                         | —                                                                                       |
-| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented)                                                                                                                 | —                                                                                       |
-| 2026-07-27 | Common option contract implemented: universal options, action system, detail dialog, shared non-scalar config controls                                                                                                             | [0014-universal-card-options](../../changes/0014-universal-card-options.md)             |
-| 2026-07-27 | Weather options: "forecast fetch in the entity-state pipeline" open question closed — `useWeatherForecast` shipped as the source, including the derived twice-daily daily view; forecast presentation remains 0020                 | [0015-history-and-forecast-data](../../changes/0015-history-and-forecast-data.md)       |
-| 2026-07-27 | Layout tiers replace the legacy `size` variants across the card contract: cards take `tier` and `span` as props, never derive them, and each family's per-tier content follows its option doc (the camera is stamped but exempt)   | [0011-layout-tiers](../../changes/0011-layout-tiers.md)                                 |
-| 2026-07-27 | `InputDateTimeCard`'s save reaches Home Assistant for the first time: the `input_datetime` → `set_datetime` mapping and the state↔input format translation land in the service layer; the missing-mapping open question is closed | [0022-switch-input-helpers-to-spec](../../changes/0022-switch-input-helpers-to-spec.md) |
+| Date       | Change                                                                                                                                                                                                                                                   | Document                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                                               | —                                                                                       |
+| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented)                                                                                                                                       | —                                                                                       |
+| 2026-07-27 | Common option contract implemented: universal options, action system, detail dialog, shared non-scalar config controls                                                                                                                                   | [0014-universal-card-options](../../changes/0014-universal-card-options.md)             |
+| 2026-07-27 | Weather options: "forecast fetch in the entity-state pipeline" open question closed — `useWeatherForecast` shipped as the source, including the derived twice-daily daily view; forecast presentation remains 0020                                       | [0015-history-and-forecast-data](../../changes/0015-history-and-forecast-data.md)       |
+| 2026-07-27 | Layout tiers replace the legacy `size` variants across the card contract: cards take `tier` and `span` as props, never derive them, and each family's per-tier content follows its option doc (the camera is stamped but exempt)                         | [0011-layout-tiers](../../changes/0011-layout-tiers.md)                                 |
+| 2026-07-27 | `InputDateTimeCard`'s save reaches Home Assistant for the first time: the `input_datetime` → `set_datetime` mapping and the state↔input format translation land in the service layer; the missing-mapping open question is closed                       | [0022-switch-input-helpers-to-spec](../../changes/0022-switch-input-helpers-to-spec.md) |
+| 2026-07-27 | Switch & fallback option surface implemented: `confirm` (gated in the shell, after action resolution), `deviceClassIcon`, `stateLabels`, `showLastChanged`; configuration now routes through the card that renders, so unmapped domains are configurable | [0022-switch-input-helpers-to-spec](../../changes/0022-switch-input-helpers-to-spec.md) |

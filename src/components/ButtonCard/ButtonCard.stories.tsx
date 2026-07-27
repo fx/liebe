@@ -1,13 +1,13 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ButtonCard } from './ButtonCard'
+import { ButtonCard } from '.'
 import {
   asUnavailable,
   createInputBooleanEntity,
   createLightEntity,
   createSwitchEntity,
 } from '~/test/fixtures'
-import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../.storybook/decorators'
+import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
 
 const entityId = 'switch.coffee_machine'
 
@@ -40,7 +40,7 @@ export const Off: Story = {
   parameters: { liebe: { entities: [createSwitchEntity({ state: 'off' })] } },
 }
 
-/** Active state — amber surface, amber title, and the state pill. */
+/** Active state — the generic (blue) active tint, per the domain colour table. */
 export const On: Story = {
   parameters: { liebe: { entities: [createSwitchEntity({ state: 'on' })] } },
 }
@@ -150,4 +150,128 @@ export const TierTall: Story = {
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
   args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}
+
+/* ------------------------------------------------------------------ *
+ * Options (docs/specs/entity-cards/options/switch.md)
+ *
+ * Driven through `itemConfig`, which the preview publishes exactly as
+ * the grid publishes a placed item's stored options — so these stories
+ * exercise the same path a configured card takes.
+ * ------------------------------------------------------------------ */
+
+/** Two hours ago, so the recency line reads as something other than "just now". */
+const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
+/**
+ * `confirm: true` — for pumps, heaters and anything else an accidental tap must
+ * not flip. Tapping the card opens an alert dialog naming the entity and the
+ * state the tap would leave it in; only "Turn off" dispatches, and a tap outside
+ * the dialog does nothing at all.
+ */
+export const ConfirmBeforeSwitching: Story = {
+  parameters: {
+    liebe: {
+      entities: [createSwitchEntity({ state: 'on' })],
+      itemConfig: { confirm: true },
+    },
+  },
+}
+
+/**
+ * `deviceClassIcon: true` (the default) on a `switch` with `device_class:
+ * outlet` — the plug glyph.
+ */
+export const DeviceClassIconOutlet: Story = {
+  parameters: {
+    liebe: {
+      entities: [createSwitchEntity({ state: 'on' })],
+      itemConfig: { deviceClassIcon: true },
+    },
+  },
+}
+
+/** The same entity with the lookup off: the domain's own power glyph. */
+export const DeviceClassIconOff: Story = {
+  parameters: {
+    liebe: {
+      entities: [createSwitchEntity({ state: 'on' })],
+      itemConfig: { deviceClassIcon: false },
+    },
+  },
+}
+
+/** `stateLabels` — "Brewing" / "Idle" instead of ON / OFF. */
+export const CustomStateLabels: Story = {
+  parameters: {
+    liebe: {
+      entities: [createSwitchEntity({ state: 'on' })],
+      itemConfig: { stateLabels: { onLabel: 'Brewing', offLabel: 'Idle' } },
+    },
+  },
+}
+
+/** `showLastChanged` at `row`: how long the entity has held its state, muted. */
+export const ShowLastChanged: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createSwitchEntity({ state: 'on', last_changed: twoHoursAgo })],
+      itemConfig: { showLastChanged: true },
+    },
+  },
+}
+
+/** The same at `tall`, where the line rides under the state in the meta block. */
+export const ShowLastChangedTall: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  parameters: {
+    liebe: {
+      entities: [createSwitchEntity({ state: 'on', last_changed: twoHoursAgo })],
+      itemConfig: { showLastChanged: true },
+    },
+  },
+}
+
+/**
+ * And at `glance`, where it is omitted: a 1×1 tile has no room for a second
+ * line, so the option degrades rather than the card clipping.
+ */
+export const ShowLastChangedGlance: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createSwitchEntity({ state: 'on', last_changed: twoHoursAgo })],
+      itemConfig: { showLastChanged: true },
+    },
+  },
+}
+
+/**
+ * The fallback role, with every option set at once: an unmapped domain rendered
+ * by this same card. The glyph stays generic even though the entity carries
+ * `device_class: outlet` (its meaning is the switch domain's, not this one's),
+ * the state renders exactly as reported rather than through either label, and
+ * the recency line — which needs nothing but `last_changed` — still works.
+ */
+export const FallbackDomain: Story = {
+  args: { entityId: 'siren.garage', tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [
+        createSwitchEntity({
+          entity_id: 'siren.garage',
+          state: 'triggered',
+          last_changed: twoHoursAgo,
+          attributes: { friendly_name: 'Garage Siren' },
+        }),
+      ],
+      itemConfig: {
+        confirm: true,
+        deviceClassIcon: true,
+        stateLabels: { onLabel: 'Brewing', offLabel: 'Idle' },
+        showLastChanged: true,
+      },
+    },
+  },
 }
