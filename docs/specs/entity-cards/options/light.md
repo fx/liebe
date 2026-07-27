@@ -2,7 +2,7 @@
 
 Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
 
-**Status: specified, not yet implemented.** The current `LightCard` implements toggle, brightness detection, and the brightness slider (gated by the legacy `enableBrightness` key); color temperature and color controls, `useLightColor`, and presets are new. **Tier layouts below are implemented** by change [0011](../../../changes/0011-layout-tiers.md) PR 3, with the controls that do not exist yet simply absent from their slots. See [entity-cards — Lights](../index.md#lights) for the implementation baseline.
+**Status: specified, not yet implemented.** The current `LightCard` implements toggle, brightness detection, and the brightness slider — gated by `showBrightnessSlider`, which [0016](../../../changes/0016-light-card-to-spec.md) PR 1 migrated the legacy `enableBrightness` key onto; color temperature and color controls, `useLightColor`, and presets are new. **Tier layouts below are implemented** by change [0011](../../../changes/0011-layout-tiers.md) PR 3, with the controls that do not exist yet simply absent from their slots. See [entity-cards — Lights](../index.md#lights) for the implementation baseline.
 
 ## Primary action
 
@@ -101,4 +101,5 @@ Content that does not fit MUST be omitted, never clipped or scrolled. When brigh
 - [Common contract](./common.md) — universal options, action types, conventions
 - [Entity cards — Lights](../index.md#lights) — implementation baseline (toggle, brightness detection, 0%-commit-off)
 - [Design system](../../design-system/index.md) — tiers, card anatomy, domain color tokens
-- `src/components/LightCard.tsx` — current implementation (brightness slider, `supported_color_modes` detection, `config.enableBrightness`)
+- `src/components/LightCard.tsx` — current implementation (brightness slider, `supported_color_modes` detection, `config.showBrightnessSlider`)
+- `src/store/lightOptions.ts` — the option read and the `enableBrightness` migration; `src/utils/lightBrightness.ts` — the shared 0–100 ↔ 0–255 conversion

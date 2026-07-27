@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { LightCard } from './LightCard'
 import { asUnavailable, createLightEntity } from '~/test/fixtures'
+import type { GridItem } from '~/store/types'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../.storybook/decorators'
 
 const entityId = 'light.living_room'
@@ -145,6 +146,57 @@ export const IconOnly: Story = {
 export const ColorPinned: Story = {
   parameters: {
     liebe: { entities: [createLightEntity()], itemConfig: { color: 'cool' } },
+  },
+}
+
+/*
+ * The light card's own options (docs/specs/entity-cards/options/light.md).
+ * Unlike the universal keys above — which the shell reads out of the placed
+ * item's context — these are the card's own, so the stories hand it a placed
+ * `item` the way `GridView` does.
+ */
+
+/** A placed light card carrying stored options, as the grid would supply it. */
+const placedLight = (config: Record<string, unknown>): GridItem => ({
+  id: 'story-light',
+  type: 'entity',
+  entityId,
+  x: 0,
+  y: 0,
+  width: 2,
+  height: 2,
+  config,
+})
+
+/**
+ * `showBrightnessSlider: true` — the default. Explicit here so the option's two
+ * values sit side by side in the workshop; it renders exactly like `On`.
+ */
+export const BrightnessSliderShown: Story = {
+  args: { item: placedLight({ showBrightnessSlider: true }) },
+}
+
+/**
+ * `showBrightnessSlider: false` — the slider goes, the tile keeps its toggle.
+ * This is what a dashboard configured before the rename, with the legacy
+ * `enableBrightness: false`, loads as: the loader rewrites the key on the way
+ * in, so the card only ever sees this one.
+ */
+export const BrightnessSliderHidden: Story = {
+  args: { item: placedLight({ showBrightnessSlider: false }) },
+}
+
+/**
+ * The option is inert against an entity that cannot dim — an `onoff`-only light
+ * has no slider to hide, and `true` cannot conjure one (common contract,
+ * convention 3).
+ */
+export const BrightnessSliderUnsupported: Story = {
+  args: { item: placedLight({ showBrightnessSlider: true }) },
+  parameters: {
+    liebe: {
+      entities: [createLightEntity({ attributes: { supported_color_modes: ['onoff'] } })],
+    },
   },
 }
 

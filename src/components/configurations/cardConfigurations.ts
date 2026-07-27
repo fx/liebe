@@ -1,4 +1,5 @@
 import type { ConfigDefinition } from '../CardConfig'
+import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<
@@ -14,10 +15,13 @@ export const cardConfigurations: Record<
     title: 'Light Card',
     description: 'Configure how this light card displays and behaves.',
     definition: {
-      enableBrightness: {
+      // Renamed from the shipped `enableBrightness`; the loader rewrites stored
+      // configs on the way in, so this form only ever sees the current key
+      // (docs/specs/entity-cards/options/light.md).
+      [SHOW_BRIGHTNESS_SLIDER_KEY]: {
         type: 'boolean',
         default: true,
-        label: 'Enable Brightness Slider',
+        label: 'Show Brightness Slider',
         description: 'Show brightness slider when light is on and supports brightness control',
       },
     },

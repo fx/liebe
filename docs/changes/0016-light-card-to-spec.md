@@ -44,7 +44,7 @@ The [light option doc](../specs/entity-cards/options/light.md) owns the option k
 
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
-- [ ] **PR 1 — Brightness option + migration**: `enableBrightness` → `showBrightnessSlider` loader migration; config-form entry; slider placement per tier (row horizontal, tall vertical, full horizontal; never glance); nonzero-never-0 rounding guard; loader/payload/gating unit tests; stories
+- [x] **PR 1 — Brightness option + migration**: `enableBrightness` → `showBrightnessSlider` loader migration; config-form entry; slider placement per tier (row horizontal, tall vertical, full horizontal; never glance); nonzero-never-0 rounding guard; loader/payload/gating unit tests; stories
 - [ ] **PR 2 — Color, color temp, and light-color theming**: capability detection for color/color-temp; warm→cool temperature control (entity-reported range, Kelvin-preferred); swatch-palette color control with recent-color slot; `useLightColor` tinting with RGB fallback + lightness clamp; config-form entries; payload/gating/clamp unit tests; stories
 - [ ] **PR 3 — Brightness presets + spec sync**: `brightnessPresets` pill row (validation, selected state, turn-on-from-off); config-form entry; unit tests + stories; update [entity-cards — Lights](../specs/entity-cards/index.md#lights) and the light option doc's status line to reflect implemented behavior, and record the change in the spec changelog
 
