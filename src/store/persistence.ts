@@ -41,6 +41,25 @@ export const loadDashboardMode = (): 'view' | 'edit' => {
 }
 
 /**
+ * A value the migrations can safely read keys off.
+ *
+ * Everything below walks a document that has *not* been schema-validated:
+ * `localStorage` is written by past builds and edited by hand, and a restored
+ * backup is a verbatim copy of it. Only the import routes run
+ * `dashboardConfigSchema` first, so these functions are the boundary, and a
+ * `null`, a primitive or an array where an object was expected has to be a
+ * value they decline to touch rather than one they throw on — throwing loses
+ * the whole document, which is the least survivable outcome available and the
+ * opposite of what forward compatibility asks for
+ * (docs/specs/dashboard-config/index.md — "Forward Compatibility").
+ *
+ * Arrays are excluded deliberately: `'key' in []` is legal, so an array would
+ * otherwise walk straight into the key checks and be treated as an object.
+ */
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
  * The per-card option renames, applied to one stored grid item.
  *
  * Renaming a shipped option key is a loader job (common contract, convention 1),
@@ -53,12 +72,14 @@ export const loadDashboardMode = (): 'view' | 'edit' => {
  * Returns the item unchanged, by reference, when no migration applies.
  */
 const migrateItemConfig = (item: unknown): unknown => {
-  const { entityId, config } = item as { entityId?: string; config?: Record<string, unknown> }
-  if (config === undefined) return item
+  if (!isPlainObject(item)) return item
 
-  const migrated = entityId?.split('.')[0] === 'light' ? migrateLightCardConfig(config) : config
+  const { entityId, config } = item
+  if (typeof entityId !== 'string' || !isPlainObject(config)) return item
 
-  return migrated === config ? item : { ...(item as object), config: migrated }
+  const migrated = entityId.split('.')[0] === 'light' ? migrateLightCardConfig(config) : config
+
+  return migrated === config ? item : { ...item, config: migrated }
 }
 
 /**
@@ -98,23 +119,33 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
 
   const migrateScreen = (screen: unknown): ScreenToMigrate => {
     const screenObj = screen as ScreenToMigrate
+    // A screen that is not an object has nothing to migrate. Handing it back
+    // untouched costs that one screen its upgrade; reading through it would
+    // cost the user every screen, because the throw propagates out of the whole
+    // document.
+    if (!isPlainObject(screen)) return screenObj
 
-    // If screen has grid with sections, migrate to flat items structure
-    if (screenObj.grid && 'sections' in screenObj.grid && screenObj.grid.sections) {
-      const allItems: unknown[] = []
-      screenObj.grid.sections.forEach((section) => {
-        if (section.items && Array.isArray(section.items)) {
-          allItems.push(...section.items)
-        }
-      })
-      screenObj.grid.items = allItems
-      delete screenObj.grid.sections
-    }
+    const grid = screenObj.grid
+    if (isPlainObject(grid)) {
+      // If screen has grid with sections, migrate to flat items structure
+      if (Array.isArray(grid.sections)) {
+        const allItems: unknown[] = []
+        grid.sections.forEach((section) => {
+          if (isPlainObject(section) && Array.isArray(section.items)) {
+            allItems.push(...section.items)
+          }
+        })
+        grid.items = allItems
+        delete grid.sections
+      }
 
-    // Ensure grid has items array if it exists, and bring every item's stored
-    // options onto their current keys on the way past.
-    if (screenObj.grid) {
-      screenObj.grid.items = (screenObj.grid.items ?? []).map(migrateItemConfig)
+      // Bring every item's stored options onto their current keys on the way
+      // past, and ensure a grid that never had an `items` array gets one. A
+      // non-array `items` is left exactly as found: there is nothing to migrate
+      // in it, and replacing it with `[]` would be the truncation forward
+      // compatibility forbids.
+      if (Array.isArray(grid.items)) grid.items = grid.items.map(migrateItemConfig)
+      else if (grid.items === undefined) grid.items = []
     }
 
     // Add slug if it doesn't exist
@@ -125,7 +156,7 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
     }
 
     // Recursively migrate children
-    if (screenObj.children) {
+    if (Array.isArray(screenObj.children)) {
       screenObj.children = screenObj.children.map(migrateScreen)
     }
 
@@ -133,7 +164,12 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
   }
 
   const configObj = config as { screens?: unknown[] }
-  if (configObj.screens) {
+  // Only an actual array of screens is walked. A document whose `screens` is
+  // something else keeps whatever it has — unlike a document that is not an
+  // object at all, which has no `theme` to write either and so still fails out
+  // of `migrateConfig` to the caller's recovery (an unusable document is not
+  // one this can hand back half-read).
+  if (Array.isArray(configObj.screens)) {
     configObj.screens = configObj.screens.map(migrateScreen)
   }
 

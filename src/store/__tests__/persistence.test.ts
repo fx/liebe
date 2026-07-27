@@ -497,6 +497,112 @@ describe('persistence', () => {
       expect(firstItemConfig(loadDashboardConfig())).toBeUndefined()
     })
 
+    /**
+     * The migration runs on documents nothing has validated: `localStorage` is
+     * written by past builds and edited by hand, and a restored backup is a
+     * verbatim copy of it (only the import routes run `dashboardConfigSchema`
+     * first). So a malformed fragment MUST be passed through, not thrown on —
+     * `loadDashboardConfig` catches, and a throw there costs the user every
+     * screen they have rather than the one broken card
+     * (docs/specs/dashboard-config/index.md — "Forward Compatibility").
+     */
+    describe('malformed stored documents', () => {
+      const loadItems = (items: unknown[]) => {
+        localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(withItems(items)))
+        return loadDashboardConfig()
+      }
+
+      it.each([
+        ['a null item', null],
+        ['a numeric item', 42],
+        ['a string item', 'nope'],
+        ['an item whose config is a string', { id: 'i', entityId: 'light.a', config: 'oops' }],
+        ['an item whose config is null', { id: 'i', entityId: 'light.a', config: null }],
+        ['an item whose config is an array', { id: 'i', entityId: 'light.a', config: ['a'] }],
+        [
+          'an item whose entityId is not a string',
+          { id: 'i', entityId: 7, config: { enableBrightness: false } },
+        ],
+        ['an item with no entityId', { id: 'i', config: { enableBrightness: false } }],
+      ])('loads %s unchanged instead of throwing', (_label, item) => {
+        const loaded = loadItems([item])
+
+        expect(loaded).not.toBeNull()
+        expect(loaded?.screens[0].grid?.items).toEqual([item])
+      })
+
+      it('still migrates the good items either side of a broken one', () => {
+        // The guard declines one item, it does not abandon the pass.
+        const good = {
+          id: 'ok',
+          type: 'entity',
+          entityId: 'light.a',
+          x: 0,
+          y: 0,
+          width: 2,
+          height: 2,
+          config: { enableBrightness: false },
+        }
+
+        const loaded = loadItems([null, good])
+
+        expect(loaded?.screens[0].grid?.items[0]).toBeNull()
+        expect(loaded?.screens[0].grid?.items[1].config).toEqual({ showBrightnessSlider: false })
+      })
+
+      it.each([
+        ['a null screen', null],
+        ['a string screen', 'nope'],
+      ])('loads %s unchanged instead of throwing', (_label, screen) => {
+        localStorageMock.getItem.mockReturnValueOnce(
+          JSON.stringify({ version: '1.0.0', screens: [screen] })
+        )
+
+        expect(loadDashboardConfig()?.screens).toEqual([screen])
+      })
+
+      it.each([
+        ['grid is a string', { grid: 'x' }],
+        ['grid is null', { grid: null }],
+        // An array is an object to `typeof`, so without the array exclusion in
+        // `isPlainObject` this one gets an `items` property grafted onto it.
+        ['grid is an array', { grid: [] }],
+        ['grid.sections is not an array', { grid: { sections: { a: 1 }, items: [] } }],
+        ['grid.items is not an array', { grid: { items: 'x' } }],
+        ['children is not an array', { grid: { items: [] }, children: 'x' }],
+      ])('leaves a screen whose %s alone', (_label, partial) => {
+        const screen = { id: 's', name: 'S', slug: 's', type: 'grid', ...partial }
+        localStorageMock.getItem.mockReturnValueOnce(
+          JSON.stringify({ version: '1.0.0', screens: [screen] })
+        )
+
+        expect(loadDashboardConfig()?.screens[0]).toEqual(screen)
+      })
+
+      it('skips a malformed section without losing the sound ones', () => {
+        const screen = {
+          id: 's',
+          name: 'S',
+          slug: 's',
+          type: 'grid',
+          grid: { sections: [null, { id: 'sec', items: [{ id: 'kept' }] }, { id: 'no-items' }] },
+        }
+        localStorageMock.getItem.mockReturnValueOnce(
+          JSON.stringify({ version: '1.0.0', screens: [screen] })
+        )
+
+        expect(loadDashboardConfig()?.screens[0].grid?.items).toEqual([{ id: 'kept' }])
+      })
+
+      it('keeps a document whose screens is not an array', () => {
+        localStorageMock.getItem.mockReturnValueOnce(
+          JSON.stringify({ version: '1.0.0', screens: 'x' })
+        )
+
+        expect(loadDashboardConfig()?.screens).toBe('x')
+      })
+    })
+
     it('handles screens with an empty or absent grid', () => {
       const config = {
         version: '1.0.0',
