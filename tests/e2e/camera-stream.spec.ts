@@ -3,6 +3,8 @@ import {
   openPanel,
   seedCameraConfig,
   gridItemCount,
+  gridItemFor,
+  dragResizeHandle,
   collectConsoleErrors,
   SERIALIZATION_FAILURE_PLACEHOLDER,
   type BenignMatcher,
@@ -779,6 +781,43 @@ test('seeded camera card plays the synthetic stream and survives fullscreen', as
     continuityAfterOptions.currentTime,
     'currentTime keeps advancing across the option toggles'
   ).toBeGreaterThan(continuityBeforeOptions.currentTime)
+
+  // --- Degraded tiers (change 0021) -----------------------------------------
+  // Below a 2×2 effective span the card mounts NO stream element at all. This is
+  // the half of the rule a unit test cannot reach: the tier is derived from the
+  // span react-grid-layout actually lays the item out at, which only exists once
+  // a real container has been measured and a real resize handle dragged.
+  const cameraCardItem = gridItemFor(page, 'E2E Pattern')
+  await page.locator('[aria-label="View Mode"]').click()
+  const fullBox = (await cameraCardItem.boundingBox())!
+  await dragResizeHandle(page, cameraCardItem, { x: fullBox.x + 4, y: fullBox.y + 4 })
+  await page.locator('[aria-label="Edit Mode"]').click()
+
+  await expect(card, 'the tile degrades below 2×2').toHaveAttribute('data-tier', 'glance')
+  await expect(
+    page.locator('ha-camera-stream'),
+    'no stream element is mounted below 2×2 — absent, not hidden'
+  ).toHaveCount(0)
+  await expect(page.locator('.camera-thumb'), 'the still thumbnail stands in').toHaveCount(1)
+
+  // Fullscreen from a degraded tile mounts the stream LAZILY. A fresh connection
+  // on this path is correct rather than a regression of the ≥2×2 no-reconnect
+  // guarantee, because no connection existed to preserve.
+  await page.locator('.camera-thumb-surface').click()
+  await expect(exitHint, 'fullscreen opens from a degraded tile').toBeVisible({ timeout: 15_000 })
+  await expect(
+    page.locator('ha-camera-stream'),
+    'the stream is mounted lazily on entry'
+  ).toHaveCount(1, { timeout: 30_000 })
+  await expectVideoPlaying(page, 60_000)
+
+  await page.keyboard.press('Escape')
+  await expect(exitHint, 'fullscreen closes again').toBeHidden({ timeout: 15_000 })
+  await expect(
+    page.locator('ha-camera-stream'),
+    'and unmounted again on exit, back to the thumbnail'
+  ).toHaveCount(0)
+  await expect(page.locator('.camera-thumb')).toHaveCount(1)
 
   // 9. No fatal console errors or unhandled rejections across the whole flow
   // (benign HA/player startup noise filtered by the collector).

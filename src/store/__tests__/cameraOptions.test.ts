@@ -22,16 +22,31 @@ describe('readCameraOptions', () => {
     expect(readCameraOptions({})).toEqual(CAMERA_OPTION_DEFAULTS)
   })
 
-  it('shows both the overlay and the badge on an unconfigured card', () => {
+  it('shows the overlay and the badge, and links no sensor, out of the box', () => {
     // The option doc's defaults: a camera tile says which camera it is and
-    // whether it is live without anybody configuring it.
-    expect(CAMERA_OPTION_DEFAULTS).toEqual({ showNameOverlay: true, showLiveBadge: true })
+    // whether it is live without anybody configuring it — and the motion line
+    // stays off, because it reads an entity only the user can name.
+    expect(CAMERA_OPTION_DEFAULTS).toEqual({
+      showNameOverlay: true,
+      showLiveBadge: true,
+      showLastMotion: false,
+      motionEntity: '',
+    })
   })
 
   it('reads a fully configured card', () => {
-    expect(readCameraOptions({ showNameOverlay: false, showLiveBadge: false })).toEqual({
+    expect(
+      readCameraOptions({
+        showNameOverlay: false,
+        showLiveBadge: false,
+        showLastMotion: true,
+        motionEntity: 'binary_sensor.driveway_motion',
+      })
+    ).toEqual({
       showNameOverlay: false,
       showLiveBadge: false,
+      showLastMotion: true,
+      motionEntity: 'binary_sensor.driveway_motion',
     })
   })
 
@@ -40,6 +55,8 @@ describe('readCameraOptions', () => {
     ['an overlay flag written as a number', { showNameOverlay: 0 }],
     ['a badge flag written as a string', { showLiveBadge: 'false' }],
     ['a badge flag that is null', { showLiveBadge: null }],
+    ['a motion flag written as a string', { showLastMotion: 'yes' }],
+    ['a motion entity that is not text', { motionEntity: ['binary_sensor.x'] }],
   ])('falls back to the default for %s', (_name, config) => {
     expect(readCameraOptions(config)).toEqual(CAMERA_OPTION_DEFAULTS)
   })
@@ -67,7 +84,12 @@ describe('readCameraOptions', () => {
 describe('cameraOptionsConfigSchema', () => {
   it('accepts what the form writes', () => {
     expect(
-      cameraOptionsConfigSchema.safeParse({ showNameOverlay: true, showLiveBadge: false }).success
+      cameraOptionsConfigSchema.safeParse({
+        showNameOverlay: true,
+        showLiveBadge: false,
+        showLastMotion: true,
+        motionEntity: 'binary_sensor.driveway_motion',
+      }).success
     ).toBe(true)
   })
 
@@ -78,6 +100,8 @@ describe('cameraOptionsConfigSchema', () => {
   it.each([
     ['a badge flag that is not a boolean', { showLiveBadge: 'no' }],
     ['an overlay flag that is not a boolean', { showNameOverlay: 1 }],
+    ['a motion flag that is not a boolean', { showLastMotion: 'yes' }],
+    ['a motion entity that is not a string', { motionEntity: 42 }],
   ])('rejects %s at the gate', (_name, config) => {
     // `showLiveBadge: "no"` in particular: silently falling back to the enabled
     // default would label a feed live in a document that asked for the opposite.

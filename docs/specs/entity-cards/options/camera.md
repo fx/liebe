@@ -1,8 +1,6 @@
 # Card Options — Camera
 
-Part of the [common contract](./common.md). **Status: implemented for `showNameOverlay` and `showLiveBadge`** — change [0021](../../../changes/0021-camera-presentation-options.md) PR 1 delivered the gradient overlay, its composition with `hideName`/`hideState` including the full-collapse rule, and the badge's subsumption of the status pill's live states. The streaming-owned keys are implemented and specified in [camera-streaming](../../camera-streaming/).
-
-**Not yet implemented:** `showLastMotion` and `motionEntity`, and the [tier layouts](#tier-layouts) below. Until the change's second PR lands, the card mounts the live feed at every span and draws the overlay and badge on it at every span too — so the degradation rule the tier table states, and the suppression of the presentation options that goes with it, are specified here and not yet held.
+Part of the [common contract](./common.md). **Status: implemented** by change [0021](../../../changes/0021-camera-presentation-options.md) — PR 1 delivered `showNameOverlay` and `showLiveBadge`, PR 2 the motion line and the tier layouts. The streaming-owned keys are implemented and specified in [camera-streaming](../../camera-streaming/).
 
 This document covers only the camera card's **presentation** option surface. Everything about how the feed itself works — stream bootstrap, the still-image fallback, the status machine, in-place/native fullscreen mechanics, and the `fit`/`matting`/`showStats` configuration — is owned by the [camera-streaming spec](../../camera-streaming/) and MUST NOT be respecified here.
 
@@ -53,7 +51,8 @@ Tiers follow [design-system — size-adaptive layouts](../../design-system/index
 | wide `full` (4×2) | default             | The card's default grid dimensions (see [camera-streaming — Component Map](../../camera-streaming/index.md#component-map)); same content as `full` with a comfortably wide 16:9-ish feed |
 
 - **2×2 is the minimum useful size** for a live camera: below it the card MUST NOT mount the stream element and MUST degrade to a still thumbnail (the same `entity_picture` snapshot the still-image fallback uses — refresh cadence owned by [camera-streaming — Still-Image Fallback](../../camera-streaming/index.md#still-image-fallback)) plus the name. This is a graceful-degradation rule per the design system: content that does not fit is omitted, never clipped.
-- In degraded tiers `showNameOverlay`, `showLiveBadge`, and `showLastMotion` do not render; `hideName` still hides the name, leaving an image-only tile (which MUST remain a valid layout).
+- In degraded tiers `showNameOverlay`, `showLiveBadge`, and `showLastMotion` do not render; `hideName` still hides the name, leaving an image-only tile (which MUST remain a valid layout). The suppression is the TILE's, not fullscreen's: a degraded tile opened to a viewport-filling feed has all the room those layers need, so they render there — what the rule forbids is furniture on a tile with no room for it.
+- The tile MUST also disable the stream status machine, not merely omit the element: a load budget or watchdog running against a stream that does not exist could only ever surface a status about nothing ([camera-streaming — Fullscreen](../../camera-streaming/index.md#fullscreen)).
 - `tapAction: default` in degraded tiers still opens the in-place fullscreen overlay. The stream lifecycle on that path — lazy mount on entry, unmount on exit, and why it does not violate the ≥2×2 no-reconnect guarantee — is owned by [camera-streaming — Fullscreen](../../camera-streaming/index.md#fullscreen).
 
 ## Scenarios
@@ -85,9 +84,9 @@ Tiers follow [design-system — size-adaptive layouts](../../design-system/index
 ## Open Questions
 
 - ~~**Overlay vs. existing status pill.**~~ Resolved (change 0021): `showLiveBadge` **subsumes the status pill's live states** — when enabled and the status machine reports streaming, the `LIVE` pill is the presentation of that state (recording variant preserved); non-live states (`CONNECTING`, `NO SIGNAL`, errors) keep the existing pill unchanged. Presentation-only skin over the pill slot; the status machine and its priority order stay owned by [camera-streaming](../../camera-streaming/index.md#card-states-and-controls). Never two live-ness indicators.
-- **Motion source auto-discovery.** Should `motionEntity` offer suggestions from the camera's HA device registry (motion sensors on the same device), or stay a free entity picker? Auto-discovery improves zero-config but adds a registry dependency the card does not currently have.
+- **Motion source auto-discovery.** Should `motionEntity` offer suggestions from the camera's HA device registry (motion sensors on the same device), or stay a free entity picker? Auto-discovery improves zero-config but adds a registry dependency the card does not currently have. Change 0021 shipped the free picker, narrowed to the `binary_sensor` domain and no further — a device-class filter would shorten the list but would hide the template sensors that carry no device class at all, and a picker that cannot offer the sensor a user has is worse than a long one.
 - **Degraded-tier snapshot cadence.** The still thumbnail in `glance`/`row` reuses the fallback's snapshot mechanism; whether small tiles should refresh less often (battery/bandwidth on wall tablets) is open.
-- **Legacy `size` prop.** The card still accepts `size: small|medium|large`; tier derivation from grid span supersedes it (see [design-system](../../design-system/index.md#size-adaptive-layouts) open questions).
+- ~~**Legacy `size` prop.**~~ Resolved: the prop is gone. Change [0011](../../../changes/0011-layout-tiers.md) removed it from the card's contract, and change 0021 made the tier it was replaced by actually do something on this card.
 
 ## References
 

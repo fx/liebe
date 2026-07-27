@@ -1,4 +1,4 @@
-import { type ConsoleMessage, type Page, expect } from '@playwright/test'
+import { type ConsoleMessage, type Locator, type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
 import { HOLD_DURATION_MS } from '../../src/store/cardActions'
 import { safeStringify } from './safeStringify'
@@ -733,4 +733,33 @@ export async function setFlag(token: string, on: boolean): Promise<void> {
 // or it passes without proving anything.
 export async function setSecret(token: string, value: string): Promise<void> {
   await callService(token, 'input_text', 'set_value', { entity_id: E2E_SECRET, value })
+}
+
+/**
+ * The grid item holding that entity's card — the thing a resize drags.
+ *
+ * Shared rather than per-spec: the camera spec resizes a card for a different
+ * reason (proving no stream is mounted below 2×2) and must drag it exactly the
+ * way the tier spec does, or the two would be testing two different gestures.
+ */
+export function gridItemFor(page: Page, name: string): Locator {
+  return page.locator('.grid-item').filter({ hasText: name })
+}
+
+/**
+ * Drags a grid item's south-east resize handle to a point, in two moves:
+ * react-grid-layout starts the drag on the first and follows on the second, and
+ * a single jump can be swallowed as the start event.
+ */
+export async function dragResizeHandle(page: Page, item: Locator, to: { x: number; y: number }) {
+  await expect(item, 'the card should be laid out').toHaveCount(1)
+  const handle = item.locator('.react-resizable-handle-se')
+  await expect(handle, 'edit mode should expose a resize handle').toHaveCount(1)
+
+  const handleBox = (await handle.boundingBox())!
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move((handleBox.x + to.x) / 2, (handleBox.y + to.y) / 2, { steps: 5 })
+  await page.mouse.move(to.x, to.y, { steps: 10 })
+  await page.mouse.up()
 }

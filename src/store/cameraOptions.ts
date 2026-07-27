@@ -2,8 +2,8 @@ import { z } from 'zod'
 
 /**
  * The camera card's presentation option contract — the persisted shape of
- * `showNameOverlay` and `showLiveBadge` under `item.config`, and the rules for
- * reading them back.
+ * `showNameOverlay`, `showLiveBadge`, `showLastMotion` and `motionEntity` under
+ * `item.config`, and the rules for reading them back.
  *
  * Spec: docs/specs/entity-cards/options/camera.md — "Options". Lives in the
  * store beside `cardDisplay.ts` for the same two reasons as its siblings:
@@ -23,9 +23,18 @@ export interface CameraOptions {
   showNameOverlay: boolean
   /** A `LIVE` pill over a feed the status machine reports as streaming. */
   showLiveBadge: boolean
+  /** A motion line in the overlay's state area, read from `motionEntity`. */
+  showLastMotion: boolean
+  /** Entity id of the linked motion `binary_sensor`; `''` is "none linked". */
+  motionEntity: string
 }
 
-export const CAMERA_OPTION_KEYS = ['showNameOverlay', 'showLiveBadge'] as const
+export const CAMERA_OPTION_KEYS = [
+  'showNameOverlay',
+  'showLiveBadge',
+  'showLastMotion',
+  'motionEntity',
+] as const
 
 export type CameraOptionKey = (typeof CAMERA_OPTION_KEYS)[number]
 
@@ -40,18 +49,28 @@ export type CameraOptionKey = (typeof CAMERA_OPTION_KEYS)[number]
 export const CAMERA_OPTION_DEFAULTS: Readonly<CameraOptions> = {
   showNameOverlay: true,
   showLiveBadge: true,
+  // Off, and with nothing linked: the motion line reads an entity the user
+  // already has and Liebe cannot guess which one that is
+  // (docs/specs/entity-cards/options/common.md — "Feature-gated controls stay
+  // automatic"). Auto-discovery from the device registry is an open question.
+  showLastMotion: false,
+  motionEntity: '',
 }
 
 /** The camera fragment of `item.config`, merged into the item schema. */
 export const cameraOptionsConfigSchema = z.object({
   showNameOverlay: z.boolean().optional(),
   showLiveBadge: z.boolean().optional(),
+  showLastMotion: z.boolean().optional(),
+  motionEntity: z.string().optional(),
 })
 
 /** Per-key schemas, so one bad value costs only its own key. */
 const cameraKeySchemas: Readonly<Record<CameraOptionKey, z.ZodTypeAny>> = {
   showNameOverlay: z.boolean(),
   showLiveBadge: z.boolean(),
+  showLastMotion: z.boolean(),
+  motionEntity: z.string(),
 }
 
 /**
@@ -77,5 +96,7 @@ export function readCameraOptions(config: Record<string, unknown> | undefined): 
   return {
     showNameOverlay: read('showNameOverlay'),
     showLiveBadge: read('showLiveBadge'),
+    showLastMotion: read('showLastMotion'),
+    motionEntity: read('motionEntity'),
   }
 }

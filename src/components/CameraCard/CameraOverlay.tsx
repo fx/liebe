@@ -21,6 +21,12 @@ export interface CameraNameOverlayProps {
   name: string
   /** The entity's state, already sentence-cased (`cameraStateText`). */
   state: string
+  /**
+   * The linked motion sensor's line, or `null` when there is none to show —
+   * option off, no sensor linked, or a sensor that is missing/unavailable.
+   * Lives in the state area, so `hideState` takes it with the state line.
+   */
+  motion?: string | null
   showName: boolean
   showState: boolean
   isFullscreen?: boolean
@@ -36,6 +42,7 @@ export interface CameraNameOverlayProps {
 export function CameraNameOverlay({
   name,
   state,
+  motion = null,
   showName,
   showState,
   isFullscreen = false,
@@ -43,7 +50,16 @@ export function CameraNameOverlay({
   return (
     <div className={`camera-name-overlay${isFullscreen ? ' camera-name-overlay-fullscreen' : ''}`}>
       {showName && <div className="camera-overlay-name">{name}</div>}
-      {showState && <div className="camera-overlay-state">{state}</div>}
+      {showState && (
+        <>
+          <div className="camera-overlay-state">{state}</div>
+          {/* The motion line ADDS to the state area rather than replacing the
+              state: what the camera is doing and what the sensor beside it saw
+              are two facts, and a card that showed one in the other's place
+              would be answering a question nobody asked. */}
+          {motion && <div className="camera-overlay-motion">{motion}</div>}
+        </>
+      )}
     </div>
   )
 }
