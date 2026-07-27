@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type { GridItem } from '~/store/types'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
+import type { MappedCardDomain } from './cardDomains'
 
 // Import all card components
 import { CameraCard } from './CameraCard'
@@ -54,8 +55,14 @@ export type CardComponent = ComponentType<CardProps> & {
 // Registry type for domain-to-card mapping
 export type CardRegistry = Record<string, CardComponent>
 
-// Global domain-to-card mapping
-export const domainToCard: CardRegistry = {
+/**
+ * Checked against `MappedCardDomain` on the way out, so this map and the domain
+ * list configuration resolves against (`cardDomains.ts`) cannot drift: a card
+ * registered here whose domain is missing there — or listed there and never
+ * registered — is a compile error, which is what keeps the fallback-routing
+ * rule true by construction rather than by review.
+ */
+const registeredCards = {
   camera: CameraCard,
   light: LightCard,
   weather: WeatherCard,
@@ -70,7 +77,10 @@ export const domainToCard: CardRegistry = {
   input_select: InputSelectCard,
   input_text: InputTextCard,
   input_datetime: InputDateTimeCard,
-}
+} satisfies Record<MappedCardDomain, CardComponent>
+
+// Global domain-to-card mapping
+export const domainToCard: CardRegistry = registeredCards
 
 // Get card component for a given domain
 export function getCardForDomain(domain: string): CardComponent | undefined {

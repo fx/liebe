@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom'
 import { IconButton, Spinner } from '@radix-ui/themes'
 import { X, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
-import { useCardActions } from '~/hooks/useCardActions'
+import { useCardActions, type CardConfirmRequest } from '~/hooks/useCardActions'
 import { useCardItem } from './cardItemContext'
 import { EntityDetailDialog } from './EntityDetailDialog'
+import { ConfirmToggleDialog } from './ConfirmToggleDialog'
 import { CardMeta, CardName, CardState, IconCircle } from './anatomy'
 import { readCardDisplay, resolveCardColor, type CardDisplayOptions } from '~/store/cardDisplay'
 import { getIcon } from '~/utils/iconList'
@@ -468,6 +469,25 @@ export const GridCard = React.memo(
       }, [isEditMode, detailEntityId])
 
       /*
+       * The confirmation a gated action is waiting on.
+       *
+       * Held by the shell for the same reason the gate itself is: the shell is
+       * what dispatches, so a card cannot forget to present the dialog for an
+       * option it declared (docs/specs/entity-cards/options/switch.md —
+       * "`confirm`"). Nothing has been sent while this is set; the request
+       * carries the closure that would send it.
+       *
+       * Dropped on the same two keys as the detail dialog, and for the same
+       * reasons — a pending confirmation belongs to one card operating one
+       * entity in view mode.
+       */
+      const [confirmRequest, setConfirmRequest] = React.useState<CardConfirmRequest | null>(null)
+
+      React.useEffect(() => {
+        setConfirmRequest(null)
+      }, [isEditMode, detailEntityId])
+
+      /*
        * The gesture controller. `disabled` in edit mode is the whole of
        * edit-mode action suppression: no gesture resolves, no timer is armed,
        * and the click below goes to selection instead
@@ -481,6 +501,7 @@ export const GridCard = React.memo(
         onMoreInfo: onMoreInfo ?? openDetail,
         unavailable: isUnavailable,
         disabled: isEditMode,
+        requestConfirmation: setConfirmRequest,
       })
 
       /**
@@ -705,6 +726,19 @@ export const GridCard = React.memo(
               onOpenChange={(open) => {
                 if (!open) setDetailFor(null)
               }}
+            />
+          )}
+          {/*
+           * Same `!isEditMode` guard as the detail dialog: a confirmation that
+           * outlived the switch to edit mode would be asking about an action
+           * that can no longer be dispatched.
+           */}
+          {!isEditMode && confirmRequest && (
+            <ConfirmToggleDialog
+              request={confirmRequest}
+              isOn={isOn}
+              name={display.name}
+              onResolve={() => setConfirmRequest(null)}
             />
           )}
         </GridCardContext.Provider>

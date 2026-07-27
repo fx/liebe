@@ -1,13 +1,13 @@
 # Card Options — Switch
 
-Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here). **Status: specified, not yet implemented.**
+Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here). **Status: implemented** by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md), except the transition-or-timeout dispatch guard noted under Primary action.
 
 This document covers the switch card: the card registered for the `switch` domain and, unchanged, the **generic fallback card** rendered for any entity domain without a registry entry (see [entity-cards — Button and fallback card](../index.md#button-and-fallback-card), `src/components/ButtonCard.tsx`). Because the same card serves arbitrary domains, every option below MUST be safe — no crash, no misleading UI — when the entity is not a `switch.*` entity.
 
 ## Primary action
 
 - `tapAction: default` MUST mean **toggle** (`homeassistant.toggle` on the entity), for both the `switch` domain and fallback domains — with `unavailable`/`unknown` resolved first as **inert**: a critical load must never be actuated while its direction is indeterminate. Both states covered in the state-matrix tests.
-- Toggle MUST be suppressed from dispatch until the expected on/off transition is observed or an acknowledgement timeout elapses (Home Assistant acknowledges before slow integrations — a well pump, a heater relay — update state; a promise-scoped guard would allow a second toggle against stale state), and when the entity is `unavailable` or `unknown`. This strengthens the current promise-scoped behavior (`ButtonCard.tsx:63-72`) to match the input-boolean and security contracts.
+- Toggle MUST be suppressed from dispatch until the expected on/off transition is observed or an acknowledgement timeout elapses (Home Assistant acknowledges before slow integrations — a well pump, a heater relay — update state; a promise-scoped guard would allow a second toggle against stale state), and when the entity is `unavailable` or `unknown`. **Not yet the build for this card's own toggle:** the card still dispatches through the retrying service-call hook behind a promise-scoped guard, and only the shell's `homeassistant.toggle` fallback route carries the guard today. Moving the card's toggle onto the non-retrying guarded path is the dispatch work change [0022](../../../changes/0022-switch-input-helpers-to-spec.md) tracks with the input helpers' dispatches; `confirm` is unaffected, since the gate sits in front of every route either way.
 - The whole tile is the touch target in every tier; the card embeds no discrete controls of its own.
 - For fallback domains where `homeassistant.toggle` is not meaningful, the tap simply results in a failed/no-op service call surfaced through the standard error state; users SHOULD set `tapAction: more-info` for such entities. The card MUST NOT try to guess a better action per unknown domain.
 
@@ -36,7 +36,7 @@ Default-icon precedence when no universal `icon` override is set:
 
 1. If the entity's domain is `switch`, `deviceClassIcon !== false`, and `attributes.device_class` maps to a known glyph — use it: `outlet` → plug glyph, `switch` → power glyph.
 2. Otherwise the domain default (power glyph for `switch`).
-3. For fallback domains, a generic glyph (the current bolt, `ButtonCard.tsx:17-30`); `device_class` MUST NOT be consulted, since its meaning is domain-specific and the fallback cannot know the mapping.
+3. For fallback domains, a generic glyph (the bolt, `src/components/ButtonCard/icon.ts`); `device_class` MUST NOT be consulted, since its meaning is domain-specific and the fallback cannot know the mapping. Structurally enforced: the lookup lives inside the `domain === 'switch'` branch of one pure helper, so a foreign domain's `device_class` is never in scope.
 
 The universal `icon` option always wins over all of the above. Visible in every tier (the icon circle renders in all four layouts).
 
@@ -95,14 +95,14 @@ The active/inactive icon-circle tint pattern and state-text coloring follow the 
 
 ## Open Questions
 
-- ~~**Switch domain color token.**~~ Resolved: switches (and all fallback domains) use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/index.md#domain-color-discipline), replacing the current amber (`ButtonCard.tsx:90-99`) which collided with lights.
+- ~~**Switch domain color token.**~~ Resolved and shipped: switches (and all fallback domains) use `--liebe-c-default` (blue) per the [design-system color table](../../design-system/index.md#domain-color-discipline), replacing the amber that collided with lights.
 - ~~**Confirm scope for `call-service`.**~~ Resolved in the `confirm` section above: same-entity toggle-equivalent `call-service` routes (`switch.toggle`/`turn_on`/`turn_off`, `homeassistant.toggle`) ARE gated at action resolution; only unrelated services stay ungated — those may get a future per-action `confirm` flag in the [common action type](./common.md#action-type) rather than a card option.
 - ~~**Nested option shape.**~~ Resolved by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md): the config modal MUST render two plain `string` controls (`onLabel`, `offLabel`) that read and write into the nested `stateLabels` key — no `ConfigDefinition` schema extension. A generic object control is deferred until a second nested option exists to justify it.
 - **Fallback tap default.** Whether the fallback card should default `tapAction` to `more-info` for domains known not to support `homeassistant.toggle` (e.g. read-mostly domains) instead of attempting a toggle that errors.
 
 ## References
 
-- Current implementation: `src/components/ButtonCard.tsx` (switch + fallback, no config surface today)
+- Current implementation: `src/components/ButtonCard/` (`index.tsx` + the pure `icon.ts` and `lastChanged.ts` helpers); options in `src/store/switchOptions.ts`, the gate's classification in `src/hooks/useCardActions.ts` and its dialog in `src/components/ConfirmToggleDialog.tsx`
 - Baseline behavior: [entity-cards — Button and fallback card](../index.md#button-and-fallback-card)
 - Shared contract and conventions: [common.md](./common.md)
 - Layout tiers, anatomy, colors: [design-system](../../design-system/)

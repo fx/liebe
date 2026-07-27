@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { cardDisplayConfigSchema } from './cardDisplay'
+import { switchOptionsConfigSchema } from './switchOptions'
 import type { DashboardConfig } from './types'
 
 /**
@@ -46,7 +47,15 @@ const gridItemSchema = z
     // keys join them for the same reason — `color` is a closed enum, so
     // `color: amber` is a document its author needs told about rather than a
     // card that quietly renders neutral.
-    config: cardActionsConfigSchema.merge(cardDisplayConfigSchema).passthrough().optional(),
+    // The switch/fallback keys join them because the card wearing them is the
+    // one every unmapped domain falls back to: `confirm: "yes"` on a well pump
+    // is precisely the document whose author must be told, rather than a card
+    // that silently actuates unguarded (docs/specs/entity-cards/options/switch.md).
+    config: cardActionsConfigSchema
+      .merge(cardDisplayConfigSchema)
+      .merge(switchOptionsConfigSchema)
+      .passthrough()
+      .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative
     // integers and spans are positive integers. Reject negative/fractional values.
     x: z.number().int().nonnegative(),

@@ -1,3 +1,5 @@
+import { resolveCardType } from '../cardDomains'
+import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import type { ConfigDefinition } from '../CardConfig'
 
 // Define configuration for each card type that needs it
@@ -19,6 +21,57 @@ export const cardConfigurations: Record<
         default: true,
         label: 'Enable Brightness Slider',
         description: 'Show brightness slider when light is on and supports brightness control',
+      },
+    },
+  },
+  /*
+   * The switch card's options — and, because this same card renders every
+   * domain without one of its own, the options every fallback card offers
+   * (docs/specs/entity-cards/options/switch.md). `getCardType` routes unmapped
+   * domains here, so a `siren` card is configured by exactly this form.
+   *
+   * `stateLabels` is two flat string controls addressing the nested key by path
+   * (docs/changes/0022 — "`stateLabels` as two flat form fields"): a generic
+   * object control waits for a second nested option to justify it.
+   */
+  switch: {
+    title: 'Switch Card',
+    description: 'Confirmation, icon, state text and recency for switches and fallback cards.',
+    definition: {
+      confirm: {
+        type: 'boolean',
+        default: SWITCH_OPTION_DEFAULTS.confirm,
+        label: 'Confirm before switching',
+        description:
+          'Asks before any tap, hold or double tap that would switch this entity. For pumps, heaters and anything else an accidental tap must not flip.',
+      },
+      deviceClassIcon: {
+        type: 'boolean',
+        default: SWITCH_OPTION_DEFAULTS.deviceClassIcon,
+        label: 'Icon from device class',
+        description:
+          'Shows an outlet as a plug. Switch entities only — other domains keep the generic icon either way.',
+      },
+      'stateLabels.onLabel': {
+        type: 'string',
+        default: SWITCH_OPTION_DEFAULTS.stateLabels.onLabel,
+        label: 'Label when on',
+        placeholder: 'ON',
+        description: 'Shown instead of “ON”. Leave empty to keep the state as reported.',
+      },
+      'stateLabels.offLabel': {
+        type: 'string',
+        default: SWITCH_OPTION_DEFAULTS.stateLabels.offLabel,
+        label: 'Label when off',
+        placeholder: 'OFF',
+        description: 'Shown instead of “OFF”. Other states are always shown as reported.',
+      },
+      showLastChanged: {
+        type: 'boolean',
+        default: SWITCH_OPTION_DEFAULTS.showLastChanged,
+        label: 'Show time in state',
+        description:
+          'Adds how long the entity has been in its current state to the state line. Omitted on 1×1 cards, which have no room for it.',
       },
     },
   },
@@ -211,8 +264,14 @@ export const cardConfigurations: Record<
   },
 }
 
-// Get the entity domain from a GridItem
+/**
+ * The card type a placed item configures.
+ *
+ * Routed through the card-domain list rather than split off the entity id, so a
+ * domain with no card of its own resolves to the fallback card's options
+ * instead of "no configuration options available" while it renders a card that
+ * has plenty (docs/changes/0022 — "Fallback config routing").
+ */
 export function getCardType(item: { entityId?: string }): string | undefined {
-  if (!item.entityId) return undefined
-  return item.entityId.split('.')[0]
+  return resolveCardType(item.entityId)
 }

@@ -13,6 +13,7 @@ import {
   resolveCardAction,
   type ResolvedCardAction,
 } from '../store/cardActions'
+import { readCardConfirm } from '../store/switchOptions'
 import type { ScreenConfig } from '../store/types'
 
 export interface UseCardActionsOptions {
@@ -55,6 +56,62 @@ export interface UseCardActionsOptions {
    * drags a card, it does not operate the device.
    */
   disabled?: boolean
+  /**
+   * Presents the card's confirmation gate, when the card's options ask for one.
+   *
+   * Supplied by the shell (which owns the dialog); the hook only decides *which*
+   * routes are gated, because it is the only place that sees an action after
+   * resolution. Absent — a card rendered outside the shell, a story — a
+   * `confirm: true` card simply dispatches: a gate nobody can present must not
+   * become a card that cannot be operated at all.
+   */
+  requestConfirmation?: (request: CardConfirmRequest) => void
+}
+
+/** The toggle-equivalent effect a gated route would have on the entity. */
+export type ConfirmableService = 'toggle' | 'turn_on' | 'turn_off'
+
+export interface CardConfirmRequest {
+  entityId: string
+  /** What the gated route does, so the dialog can name the target state. */
+  service: ConfirmableService
+  /** Dispatches the action the gate held. Called at most once, on confirm. */
+  proceed: () => void
+}
+
+const CONFIRMABLE_SERVICES: readonly string[] = ['toggle', 'turn_on', 'turn_off']
+
+/**
+ * Whether an action toggles *this* entity, and so passes through the card's
+ * confirmation gate.
+ *
+ * Classified by effect on the entity rather than by service name
+ * (docs/specs/entity-cards/options/switch.md — "`confirm`"). A list of
+ * `switch.*` services would leave the fallback role bypassable, since this card
+ * renders every unmapped domain: `siren.turn_on` on a `siren.alarm` card is
+ * exactly as consequential as `switch.turn_on`. So the rule is the invariant —
+ * same entity, on/off-equivalent effect — and the generic `homeassistant`
+ * aliases are equivalent to the domain services they invoke.
+ */
+export function confirmableService(
+  action: ResolvedCardAction,
+  entityId: string | undefined
+): ConfirmableService | null {
+  if (!entityId) return null
+  if (action === 'toggle') return 'toggle'
+  if (typeof action !== 'object' || action.action !== 'call-service') return null
+
+  // The effective target: an explicit `data.entity_id` wins at dispatch, so an
+  // action aimed at another entity is not this card's toggle to gate.
+  const explicit = action.data?.entity_id
+  const target = typeof explicit === 'string' ? explicit : entityId
+  if (target !== entityId) return null
+
+  const [serviceDomain, service] = action.service.split('.')
+  if (!CONFIRMABLE_SERVICES.includes(service)) return null
+  if (serviceDomain !== entityId.split('.')[0] && serviceDomain !== 'homeassistant') return null
+
+  return service as ConfirmableService
 }
 
 export interface CardGestures {
@@ -113,6 +170,7 @@ export function useCardActions({
   onMoreInfo,
   unavailable = false,
   disabled = false,
+  requestConfirmation,
 }: UseCardActionsOptions): CardGestures {
   const hass = useHomeAssistantOptional()
   // `warn: false` returns `undefined` outside a `RouterProvider` instead of
@@ -220,6 +278,14 @@ export function useCardActions({
     [config, effectiveDefault]
   )
 
+  /*
+   * Read here rather than passed by the card: the shell gates what the shell
+   * dispatches. A card that named the option but forgot to forward it would be
+   * a card whose critical load is unguarded, which is the one failure mode this
+   * option exists to prevent.
+   */
+  const confirm = useMemo(() => readCardConfirm(config), [config])
+
   /**
    * Whether an action has anything behind it. `toggle` needs either the card's
    * own toggle or an entity to fall back on; `more-info` needs the dialog
@@ -236,7 +302,7 @@ export function useCardActions({
     [entityId, onMoreInfo, onToggle, unavailable]
   )
 
-  const dispatch = useCallback(
+  const performDispatch = useCallback(
     (action: ResolvedCardAction) => {
       if (hass) hassService.setHass(hass)
 
@@ -277,6 +343,36 @@ export function useCardActions({
       dispatchService({ domain, service, entityId, data: action.data })
     },
     [dispatchService, entityId, hass, onMoreInfo, onToggle, router, unavailable]
+  )
+
+  /**
+   * The confirmation gate, applied *after* resolution.
+   *
+   * That placement is the whole point: `default`, an explicit `toggle` on any
+   * gesture, and a `call-service` aimed at this entity's own on/off services all
+   * arrive here as resolved actions, so no re-routing reaches the device by a
+   * path the gate does not see. Non-toggling actions — `more-info`, `navigate`,
+   * `none`, a `call-service` on something else — pass straight through, since
+   * confirming them would train the user to dismiss the dialog that matters.
+   */
+  const dispatch = useCallback(
+    (action: ResolvedCardAction) => {
+      const service = confirmableService(action, entityId)
+
+      if (service && confirm && requestConfirmation && entityId) {
+        requestConfirmation({
+          entityId,
+          service,
+          // Held, not queued: nothing is dispatched, and nothing about the card
+          // changes, until the user says so. Cancelling drops this closure.
+          proceed: () => performDispatch(action),
+        })
+        return
+      }
+
+      performDispatch(action)
+    },
+    [confirm, entityId, performDispatch, requestConfirmation]
   )
 
   const clearTapTimer = useCallback(() => {

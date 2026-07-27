@@ -110,13 +110,46 @@ interface ComponentProps {
   onChange: (updates: Record<string, unknown>) => void
 }
 
+/**
+ * A definition key may address one level into a nested option — `stateLabels.onLabel`.
+ *
+ * Two plain controls writing into one nested key is what the switch card's
+ * labels need, and all any option has needed so far (docs/changes/0022 —
+ * "`stateLabels` as two flat form fields"). It is deliberately not a general
+ * path facility: one dot, resolved here, so `ConfigDefinition` itself gains no
+ * schema for nesting and a future generic object control has nothing to undo.
+ */
+function readOptionValue(config: Record<string, unknown>, key: string): unknown {
+  const [head, tail] = key.split('.')
+  if (!tail) return config[key]
+
+  const parent = config[head]
+  return typeof parent === 'object' && parent !== null
+    ? (parent as Record<string, unknown>)[tail]
+    : undefined
+}
+
+/** The update for a change to `key`, preserving the rest of a nested option. */
+function buildOptionUpdate(
+  config: Record<string, unknown>,
+  key: string,
+  value: unknown
+): Record<string, unknown> {
+  const [head, tail] = key.split('.')
+  if (!tail) return { [key]: value }
+
+  const parent = config[head]
+  const existing = typeof parent === 'object' && parent !== null ? parent : {}
+  return { [head]: { ...existing, [tail]: value } }
+}
+
 function Component({ title, description, configDefinition, config, onChange }: ComponentProps) {
   const handleChange = (key: string, value: unknown) => {
-    onChange({ [key]: value })
+    onChange(buildOptionUpdate(config, key, value))
   }
 
   const renderConfigOption = (key: string, option: ConfigOption) => {
-    const currentValue = config[key] ?? option.default
+    const currentValue = readOptionValue(config, key) ?? option.default
 
     switch (option.type) {
       case 'boolean':

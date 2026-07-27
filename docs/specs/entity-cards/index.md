@@ -148,14 +148,23 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 
 ### Button and fallback card
 
-- `ButtonCard` MUST serve both as the `switch` domain card and as the fallback for any unmapped domain, toggling via the service-call hook and rendering a domain-appropriate icon (light → sun, switch → bolt, input_boolean → check, default → bolt).
-- `ButtonCard` MUST show `ERROR` / `UNAVAILABLE` states and MUST NOT expose a configuration modal.
+- `ButtonCard` MUST serve both as the `switch` domain card and as the fallback for any unmapped domain, toggling via the service-call hook and rendering a domain-appropriate icon (light → sun, switch → power, input_boolean → check, default → bolt). For `switch` entities the default glyph MUST follow `device_class` (`outlet` → plug) unless `deviceClassIcon: false`; for every other domain the lookup MUST NOT happen at all, since `device_class` means something different per domain and the fallback has no mapping for it.
+- `ButtonCard` MUST show `ERROR` / `UNAVAILABLE` states and MUST expose the configuration modal — the [switch option surface](./options/switch.md) (`confirm`, `deviceClassIcon`, `stateLabels`, `showLastChanged`) plus the universal options.
+- Configuration MUST resolve through the card that renders, not the raw entity domain: an unmapped domain resolves to the fallback card's option set, so the options are editable wherever the fallback is what the user sees.
+- `confirm` MUST gate every route that toggles the card's own entity — `default`, an explicit `toggle` on any gesture, and a `call-service` naming `toggle`/`turn_on`/`turn_off` in the entity's own domain or the generic `homeassistant` domain — and MUST gate nothing else. The gate MUST be applied after action resolution, in the shell, so a re-routed action cannot reach the entity around it.
+- Every option MUST be safe on an arbitrary domain: no crash, no `device_class` lookup, and states other than `on`/`off` rendered exactly as reported.
 
 #### Scenario: Fallback toggles an unmapped entity
 
 - **GIVEN** an unmapped-domain entity in the `on` state
 - **WHEN** the user clicks the card
-- **THEN** `ButtonCard` calls `toggle` for the entity (unless loading/unavailable) (`ButtonCard.tsx:63-72`).
+- **THEN** `ButtonCard` calls `toggle` for the entity (unless loading/unavailable) (`src/components/ButtonCard/index.tsx`).
+
+#### Scenario: Confirm gates a re-routed toggle
+
+- **GIVEN** a `switch.well_pump` card with `confirm: true` and `holdAction: toggle`
+- **WHEN** the user press-holds the card and cancels the dialog
+- **THEN** nothing is dispatched; confirming instead dispatches exactly one toggle (`src/components/__tests__/GridCard.confirm.test.tsx`).
 
 ### Text and separator widgets
 
@@ -321,10 +330,11 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                                           | Document                                                                          |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                       | —                                                                                 |
-| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented)                                                                                                               | —                                                                                 |
-| 2026-07-27 | Common option contract implemented: universal options, action system, detail dialog, shared non-scalar config controls                                                                                                           | [0014-universal-card-options](../../changes/0014-universal-card-options.md)       |
-| 2026-07-27 | Weather options: "forecast fetch in the entity-state pipeline" open question closed — `useWeatherForecast` shipped as the source, including the derived twice-daily daily view; forecast presentation remains 0020               | [0015-history-and-forecast-data](../../changes/0015-history-and-forecast-data.md) |
-| 2026-07-27 | Layout tiers replace the legacy `size` variants across the card contract: cards take `tier` and `span` as props, never derive them, and each family's per-tier content follows its option doc (the camera is stamped but exempt) | [0011-layout-tiers](../../changes/0011-layout-tiers.md)                           |
+| Date       | Change                                                                                                                                                                                                                                                   | Document                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                                               | —                                                                                       |
+| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented)                                                                                                                                       | —                                                                                       |
+| 2026-07-27 | Common option contract implemented: universal options, action system, detail dialog, shared non-scalar config controls                                                                                                                                   | [0014-universal-card-options](../../changes/0014-universal-card-options.md)             |
+| 2026-07-27 | Weather options: "forecast fetch in the entity-state pipeline" open question closed — `useWeatherForecast` shipped as the source, including the derived twice-daily daily view; forecast presentation remains 0020                                       | [0015-history-and-forecast-data](../../changes/0015-history-and-forecast-data.md)       |
+| 2026-07-27 | Layout tiers replace the legacy `size` variants across the card contract: cards take `tier` and `span` as props, never derive them, and each family's per-tier content follows its option doc (the camera is stamped but exempt)                         | [0011-layout-tiers](../../changes/0011-layout-tiers.md)                                 |
+| 2026-07-27 | Switch & fallback option surface implemented: `confirm` (gated in the shell, after action resolution), `deviceClassIcon`, `stateLabels`, `showLastChanged`; configuration now routes through the card that renders, so unmapped domains are configurable | [0022-switch-input-helpers-to-spec](../../changes/0022-switch-input-helpers-to-spec.md) |
