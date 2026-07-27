@@ -16,7 +16,10 @@ import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
+import type { HassEntity } from '~/store/entityTypes'
 import type { CardAction } from '~/store/cardActions'
+import { isCounterStateClass, isNumericSensorEntity } from '~/store/sensorOptions'
+import { useEntity } from '~/hooks'
 import { ActionEditor } from './ActionEditor'
 import { EntityPicker } from './EntityPicker'
 import { NumberArrayEditor } from './NumberArrayEditor'
@@ -52,6 +55,21 @@ interface ContentProps {
   onChange?: (updates: Record<string, unknown>) => void
   item?: GridItem
 }
+
+/**
+ * An entity capability a control depends on.
+ *
+ * A control the configured entity cannot use is **not rendered**: options are
+ * feature-gated automatically from the entity, never from config
+ * (docs/specs/entity-cards/options/common.md, convention 3), and a control that
+ * writes a key nothing will read looks like a setting that did nothing.
+ *
+ * - `numeric` — the entity reports readings rather than text, so it has a
+ *   history a graph or a trend can be drawn from.
+ * - `counter` — its `state_class` is cumulative, the only case bar rendering is
+ *   defined for.
+ */
+export type ConfigOptionRequirement = 'numeric' | 'counter'
 
 // Configuration option types
 export interface ConfigOption {
@@ -90,6 +108,7 @@ export interface ConfigOption {
   clearValue?: string
   domains?: string[] // For entity type: narrows what the picker offers
   deviceClasses?: string[] // For entity type: narrows it further
+  requires?: ConfigOptionRequirement // Hides the control when the entity cannot use it
 }
 
 export interface ConfigDefinition {
@@ -384,7 +403,27 @@ function Component({ title, description, configDefinition, config, onChange }: C
   )
 }
 
+/**
+ * Whether the configured entity can use a control, for the definitions that
+ * declare a requirement. Resolved against the live entity — the same predicate
+ * the history service resolves `unsupported` with — so the form offers exactly
+ * the options that can take effect.
+ */
+function meetsRequirement(
+  requires: ConfigOptionRequirement | undefined,
+  entity: HassEntity | undefined
+): boolean {
+  if (requires === undefined) return true
+  if (!isNumericSensorEntity(entity)) return false
+  return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
+}
+
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
+  // Read before the early returns below, because a hook cannot be called after
+  // one. An item with no entity (a separator, a text card) has no capabilities
+  // to gate on and no definition that declares any.
+  const { entity } = useEntity(item?.entityId ?? '')
+
   const cardType =
     item?.type === 'separator'
       ? 'separator'
@@ -408,11 +447,17 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
 
   // If this card has a configuration definition, use Component
   if (cardConfig.definition) {
+    const definition = Object.fromEntries(
+      Object.entries(cardConfig.definition).filter(([, option]) =>
+        meetsRequirement(option.requires, entity)
+      )
+    )
+
     return (
       <Component
         title={cardConfig.title}
         description={cardConfig.description}
-        configDefinition={cardConfig.definition}
+        configDefinition={definition}
         config={config}
         onChange={onChange}
       />

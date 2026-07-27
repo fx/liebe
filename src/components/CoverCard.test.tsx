@@ -23,7 +23,7 @@ vi.mock('~/store', () => ({
  * in `__tests__/controlCardTierLayouts.test.tsx`.
  */
 describe('CoverCard', () => {
-  const mockCallService = vi.fn()
+  const mockDispatchGuarded = vi.fn()
   const mockClearError = vi.fn()
   const mockOnDelete = vi.fn()
   const mockOnSelect = vi.fn()
@@ -45,7 +45,8 @@ describe('CoverCard', () => {
     ;(useServiceCall as any).mockReturnValue({
       loading: false,
       error: null,
-      callService: mockCallService,
+      callService: vi.fn(),
+      dispatchGuarded: mockDispatchGuarded,
       clearError: mockClearError,
     })
     ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
@@ -198,7 +199,7 @@ describe('CoverCard', () => {
       const openButton = screen.getByLabelText('Open cover')
       await userEvent.click(openButton)
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'open_cover',
         entityId: 'cover.test_cover',
@@ -221,7 +222,7 @@ describe('CoverCard', () => {
       const closeButton = screen.getByLabelText('Close cover')
       await userEvent.click(closeButton)
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'close_cover',
         entityId: 'cover.test_cover',
@@ -244,7 +245,7 @@ describe('CoverCard', () => {
       const stopButton = screen.getByLabelText('Stop cover')
       await userEvent.click(stopButton)
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'stop_cover',
         entityId: 'cover.test_cover',
@@ -380,6 +381,39 @@ describe('CoverCard', () => {
       expect(screen.getByText('50%')).toBeInTheDocument()
     })
 
+    it('leaves stop usable while a call is in flight', async () => {
+      // The inverse action must stay available during a transitional state
+      // (REVIEW.md). A moving cover with a dispatch in flight is exactly when
+      // someone reaches for stop, so a blanket `isLoading` guard here would
+      // disable the one control that matters.
+      const entity = createMockCoverEntity({ state: 'opening' })
+      ;(useEntity as any).mockReturnValue({ entity, isConnected: true, isStale: false })
+      ;(useServiceCall as any).mockReturnValue({
+        loading: true,
+        error: null,
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
+        turnOn: vi.fn(),
+        turnOff: vi.fn(),
+        toggle: vi.fn(),
+        setValue: vi.fn(),
+        clearError: vi.fn(),
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      const stop = screen.getByRole('button', { name: /stop/i })
+      expect(stop).not.toBeDisabled()
+
+      await userEvent.click(stop)
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'cover',
+        service: 'stop_cover',
+        entityId: 'cover.test_cover',
+      })
+    })
+
     it('calls set_cover_position service on slider change', async () => {
       const entity = createMockCoverEntity({
         state: 'open',
@@ -404,7 +438,7 @@ describe('CoverCard', () => {
       fireEvent.keyUp(slider, { key: 'ArrowRight' })
 
       await waitFor(() => {
-        expect(mockCallService).toHaveBeenCalled()
+        expect(mockDispatchGuarded).toHaveBeenCalled()
       })
     })
 
@@ -468,9 +502,36 @@ describe('CoverCard', () => {
       expect(tiltButtons.length).toBeGreaterThan(0)
       await userEvent.click(tiltButtons[0])
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'open_cover_tilt',
+        entityId: 'cover.test_cover',
+      })
+    })
+
+    it('calls close_cover_tilt service when tilt close clicked', async () => {
+      // The inverse of the tilt-open control, and the one whose dispatch had no
+      // test at all — a guarded path nothing exercises is a guarded path
+      // nothing pins.
+      const entity = createMockCoverEntity({
+        attributes: { supported_features: 32 }, // CLOSE_TILT
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      const tiltSection = screen.getByText('Tilt').parentElement!
+      const tiltButtons = tiltSection.querySelectorAll('button')
+
+      await userEvent.click(tiltButtons[tiltButtons.length - 1])
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'cover',
+        service: 'close_cover_tilt',
         entityId: 'cover.test_cover',
       })
     })
@@ -499,7 +560,7 @@ describe('CoverCard', () => {
       fireEvent.keyUp(tiltSlider, { key: 'ArrowLeft' })
 
       await waitFor(() => {
-        expect(mockCallService).toHaveBeenCalled()
+        expect(mockDispatchGuarded).toHaveBeenCalled()
       })
     })
   })
@@ -576,7 +637,7 @@ describe('CoverCard', () => {
       await userEvent.click(screen.getByText('Test Cover').closest('.liebe-card')!)
 
       expect(mockOnSelect).toHaveBeenCalledWith(true)
-      expect(mockCallService).not.toHaveBeenCalled()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
     it('calls onDelete when delete button clicked', async () => {
@@ -608,7 +669,8 @@ describe('CoverCard', () => {
       ;(useServiceCall as any).mockReturnValue({
         loading: false,
         error: 'Service call failed',
-        callService: mockCallService,
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
         clearError: mockClearError,
       })
 
@@ -632,7 +694,8 @@ describe('CoverCard', () => {
       ;(useServiceCall as any).mockReturnValue({
         loading: true,
         error: null,
-        callService: mockCallService,
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
         clearError: mockClearError,
       })
 

@@ -3,6 +3,11 @@ import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
+import {
+  MAX_SENSOR_GRAPH_HOURS,
+  MIN_SENSOR_GRAPH_HOURS,
+  SENSOR_OPTION_DEFAULTS,
+} from '~/store/sensorOptions'
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<
@@ -144,6 +149,91 @@ export const cardConfigurations: Record<
           { value: 'dropdown', label: 'Dropdown' },
           { value: 'pills', label: 'Pills' },
         ],
+      },
+    },
+  },
+  /*
+   * The sensor card's options (docs/specs/entity-cards/options/sensor.md).
+   *
+   * The four history options declare `requires: 'numeric'`, so the form drops
+   * them for a sensor whose state is text — numeric-ness is derived from the
+   * entity, never from config, and an option that cannot take effect is worse
+   * than absent because it looks like it did nothing. `graphMode` narrows
+   * further to counters, the only state classes bar rendering is defined for.
+   */
+  sensor: {
+    title: 'Sensor Card',
+    description: 'Value formatting and the history graph.',
+    definition: {
+      displayPrecision: {
+        type: 'select',
+        default: SENSOR_OPTION_DEFAULTS.displayPrecision,
+        label: 'Decimal places',
+        description:
+          'Automatic uses the rules for the sensor’s device class — one decimal for temperature, whole numbers for humidity and battery.',
+        options: [
+          { value: 'auto', label: 'Automatic' },
+          { value: '0', label: 'None (12)' },
+          { value: '1', label: 'One (12.3)' },
+          { value: '2', label: 'Two (12.34)' },
+        ],
+      },
+      valueScale: {
+        type: 'select',
+        default: SENSOR_OPTION_DEFAULTS.valueScale,
+        label: 'Large values',
+        description:
+          'Automatic shows power and energy of 1000 or more in thousands: 1250 W becomes 1.3 kW.',
+        options: [
+          { value: 'auto', label: 'Scale to k' },
+          { value: 'none', label: 'Show in full' },
+        ],
+      },
+      unitOverride: {
+        type: 'string',
+        default: SENSOR_OPTION_DEFAULTS.unitOverride,
+        label: 'Unit',
+        placeholder: 'From the entity',
+        description:
+          'Replaces the unit label only — the value itself is not converted. Leave empty to use the entity’s own unit.',
+      },
+      showGraph: {
+        type: 'boolean',
+        default: SENSOR_OPTION_DEFAULTS.showGraph,
+        label: 'Show history graph',
+        description:
+          'A sparkline on wider and taller cards, a full graph on the largest. Never on 1×1 cards, which have no room for it.',
+        requires: 'numeric',
+      },
+      graphHours: {
+        type: 'number',
+        default: SENSOR_OPTION_DEFAULTS.graphHours,
+        label: 'History window (hours)',
+        description: 'The window the graph, the trend arrow and the min/max footer all cover.',
+        min: MIN_SENSOR_GRAPH_HOURS,
+        max: MAX_SENSOR_GRAPH_HOURS,
+        step: 1,
+        requires: 'numeric',
+      },
+      graphMode: {
+        type: 'select',
+        default: SENSOR_OPTION_DEFAULTS.graphMode,
+        label: 'Graph style',
+        description:
+          'Bars show how much was used in each interval. Counters only — a measurement always draws as a line.',
+        options: [
+          { value: 'line', label: 'Line' },
+          { value: 'bar', label: 'Bars' },
+        ],
+        requires: 'counter',
+      },
+      showTrend: {
+        type: 'boolean',
+        default: SENSOR_OPTION_DEFAULTS.showTrend,
+        label: 'Show trend on 1×1 cards',
+        description:
+          'An arrow and the change over the history window, beside the value on the smallest cards.',
+        requires: 'numeric',
       },
     },
   },

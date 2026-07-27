@@ -25,7 +25,7 @@ vi.mock('~/contexts/HomeAssistantContext', async (importOriginal) => ({
  * gained with its option surface (docs/changes/0022).
  */
 describe('ButtonCard shell', () => {
-  const toggle = vi.fn()
+  const dispatchGuarded = vi.fn()
   const clearError = vi.fn()
 
   const ITEM: GridItem = {
@@ -46,7 +46,8 @@ describe('ButtonCard shell', () => {
       callService: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
-      toggle,
+      toggle: vi.fn(),
+      dispatchGuarded,
       setValue: vi.fn(),
       clearError,
       ...overrides,
@@ -114,7 +115,11 @@ describe('ButtonCard shell', () => {
     await user.click(screen.getByText('Coffee Maker'))
 
     expect(clearError).toHaveBeenCalledTimes(1)
-    expect(toggle).toHaveBeenCalledWith('switch.coffee_maker')
+    expect(dispatchGuarded).toHaveBeenCalledWith({
+      domain: 'switch',
+      service: 'toggle',
+      entityId: 'switch.coffee_maker',
+    })
   })
 
   it('does not toggle while a call is in flight', async () => {
@@ -123,7 +128,7 @@ describe('ButtonCard shell', () => {
     renderCard()
 
     await user.click(screen.getByText('Coffee Maker'))
-    expect(toggle).not.toHaveBeenCalled()
+    expect(dispatchGuarded).not.toHaveBeenCalled()
   })
 
   it('selects rather than toggles in edit mode', async () => {
@@ -135,7 +140,7 @@ describe('ButtonCard shell', () => {
     await user.click(screen.getByText('Coffee Maker'))
 
     expect(onSelect).toHaveBeenCalledWith(true)
-    expect(toggle).not.toHaveBeenCalled()
+    expect(dispatchGuarded).not.toHaveBeenCalled()
   })
 
   describe('configuration modal', () => {

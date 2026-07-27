@@ -147,13 +147,16 @@ describe('SensorCard tiers', () => {
     expect(part('.liebe-state')).toBeNull()
   })
 
-  it.each(['glance', 'row', 'tall', 'full'] as const)('renders no graph at %s', (tier) => {
-    renderCard(<SensorCard entityId="sensor.living_room_temperature" tier={tier} />)
+  it('renders no graph in glance', () => {
+    renderCard(<SensorCard entityId="sensor.living_room_temperature" tier="glance" />)
 
-    // `showGraph` and the sparkline are fed by entity history and arrive with
-    // 0018. A control with no data source renders nothing rather than an empty
-    // frame (docs/specs/entity-cards/options/sensor.md).
+    // "Never renders in `glance`" — one cell has room for a figure and a name
+    // (docs/specs/entity-cards/options/sensor.md — `showGraph`). Where the
+    // graph DOES render, and what it does while its window is loading, empty or
+    // unsupported, is `SensorCard/__tests__/SensorCard.test.tsx`: those need a
+    // recorder answer behind them, which is not what this file is about.
     expect(part('.liebe-spark')).toBeNull()
+    expect(part('[data-testid="sensor-graph"]')).toBeNull()
   })
 
   it('falls back to the icon tile in glance when the state is hidden', () => {

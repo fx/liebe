@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { cardDisplayConfigSchema } from './cardDisplay'
+import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
 import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
 import type { DashboardConfig } from './types'
@@ -52,10 +53,17 @@ const gridItemSchema = z
     // one every unmapped domain falls back to: `confirm: "yes"` on a well pump
     // is precisely the document whose author must be told, rather than a card
     // that silently actuates unguarded (docs/specs/entity-cards/options/switch.md).
+    // The sensor keys join them because three of them are numbers and enums a
+    // typo turns into nonsense rather than into a default: `graphHours: 2400`
+    // asks for a hundred days of recorder history, and `graphMode: bars` is a
+    // mode no build has — documents whose author needs telling, rather than
+    // cards that quietly render a fallback
+    // (docs/specs/entity-cards/options/sensor.md).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
       .merge(inputHelperOptionsConfigSchema)
+      .merge(sensorOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

@@ -5,11 +5,13 @@ import { hassService } from '../../services/hassService'
 import { HomeAssistantProvider } from '../../contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext'
+import { resetDispatchGuard } from '../../services/guardedDispatch'
 
 vi.mock('../../services/hassService', () => ({
   hassService: {
     setHass: vi.fn(),
     callService: vi.fn(),
+    callServiceOnce: vi.fn(),
   },
 }))
 
@@ -17,6 +19,9 @@ describe('useServiceCall', () => {
   let mockHass: HomeAssistant
 
   beforeEach(() => {
+    // The dispatch guard is process-wide, so one case's pending window would
+    // otherwise carry into the next.
+    resetDispatchGuard()
     vi.clearAllMocks()
 
     mockHass = createMockHomeAssistant({
@@ -178,6 +183,110 @@ describe('useServiceCall', () => {
     })
 
     expect(result.current.error).toBe('setValue not supported for domain: sensor')
+  })
+
+  /**
+   * `dispatchGuarded` is what a card's embedded controls dispatch through, so
+   * these assert at the service boundary rather than at the hook's own API: a
+   * card test that mocks this hook cannot tell the retrying path from the
+   * non-retrying one, and that difference is the whole point of the method
+   * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
+   */
+  describe('dispatchGuarded', () => {
+    const command = { domain: 'cover', service: 'open_cover', entityId: 'cover.garage' }
+
+    it('never reaches the retrying path', async () => {
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+      })
+
+      expect(hassService.callServiceOnce).toHaveBeenCalledWith(command)
+      expect(hassService.callService).not.toHaveBeenCalled()
+    })
+
+    it('holds back a repeat of the same command', async () => {
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+        await result.current.dispatchGuarded(command)
+      })
+
+      expect(hassService.callServiceOnce).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports a refused repeat as success rather than as an error', async () => {
+      // The first command is still in flight; there is nothing to show the user.
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      let second: { success: boolean } | undefined
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+        second = await result.current.dispatchGuarded(command)
+      })
+
+      expect(second).toEqual({ success: true })
+      expect(result.current.error).toBeNull()
+    })
+
+    it('does not let a refused repeat swallow the first call’s failure', async () => {
+      /*
+       * The reason the guard is consulted before `runCall` and not inside it.
+       * `runCall` aborts the previous call and resets loading/error on entry,
+       * so a refusal reaching it would tear down the state of the dispatch
+       * still in flight: the abort makes the first call skip its own error
+       * update when it finally fails, while the repeat has already returned
+       * success. Pressing a button twice would make a real failure vanish.
+       */
+      let failFirst: (result: { success: boolean; error?: string }) => void = () => {}
+      vi.mocked(hassService.callServiceOnce).mockReturnValue(
+        new Promise((resolve) => {
+          failFirst = resolve
+        })
+      )
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      let first: Promise<unknown> | undefined
+      act(() => {
+        first = result.current.dispatchGuarded(command)
+      })
+      await waitFor(() => expect(result.current.loading).toBe(true))
+
+      // The repeat is refused while the first is still travelling.
+      let refused: { success: boolean } | undefined
+      await act(async () => {
+        refused = await result.current.dispatchGuarded(command)
+      })
+      expect(refused).toEqual({ success: true })
+      expect(hassService.callServiceOnce).toHaveBeenCalledTimes(1)
+
+      // Now the first one fails. Its error must still reach the card.
+      await act(async () => {
+        failFirst({ success: false, error: 'Cover jammed' })
+        await first
+      })
+
+      await waitFor(() => expect(result.current.error).toBe('Cover jammed'))
+    })
+
+    it('surfaces a real failure', async () => {
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({
+        success: false,
+        error: 'Cover jammed',
+      })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+      })
+
+      await waitFor(() => expect(result.current.error).toBe('Cover jammed'))
+    })
   })
 
   it('should clear error', () => {
