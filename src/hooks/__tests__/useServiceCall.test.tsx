@@ -5,6 +5,7 @@ import { hassService } from '../../services/hassService'
 import { HomeAssistantProvider } from '../../contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext'
+import { resetDispatchGuard } from '../../services/guardedDispatch'
 
 vi.mock('../../services/hassService', () => ({
   hassService: {
@@ -18,6 +19,9 @@ describe('useServiceCall', () => {
   let mockHass: HomeAssistant
 
   beforeEach(() => {
+    // The dispatch guard is process-wide, so one case's pending window would
+    // otherwise carry into the next.
+    resetDispatchGuard()
     vi.clearAllMocks()
 
     mockHass = createMockHomeAssistant({

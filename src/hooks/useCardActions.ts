@@ -14,9 +14,9 @@ import {
 import {
   ENTITY_MATCH_ALL,
   ENTITY_MATCH_NONE,
+  guardedDispatch,
   resolveCommandTarget,
-  useGuardedDispatch,
-} from './useGuardedDispatch'
+} from '../services/guardedDispatch'
 import { readCardConfirm } from '../store/switchOptions'
 import type { ScreenConfig } from '../store/types'
 
@@ -223,7 +223,6 @@ export function useCardActions({
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdFiredRef = useRef(false)
-  const guardedDispatch = useGuardedDispatch()
 
   /**
    * Dispatch a gesture's command through the shared at-most-once guard.
@@ -259,7 +258,7 @@ export function useCardActions({
         }
       })
     },
-    [guardedDispatch]
+    []
   )
 
   /*

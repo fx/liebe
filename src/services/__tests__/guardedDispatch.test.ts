@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import { useGuardedDispatch, resolveCommandTarget } from '../useGuardedDispatch'
-import { hassService } from '../../services/hassService'
+import {
+  admitCommand,
+  guardedDispatch,
+  resetDispatchGuard,
+  resolveCommandTarget,
+} from '../guardedDispatch'
+import { hassService } from '../hassService'
 import { entityStore } from '../../store/entityStore'
 import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '../../store/cardActions'
 import type { HassEntity } from '../../store/entityTypes'
@@ -29,13 +33,14 @@ const setEntity = (entityId: string, lastUpdated: string) => {
   }))
 }
 
-describe('useGuardedDispatch', () => {
+describe('guardedDispatch', () => {
   let once: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2024-01-01T00:00:00Z'))
     entityStore.setState((state) => ({ ...state, entities: {} }))
+    resetDispatchGuard()
     once = vi.spyOn(hassService, 'callServiceOnce').mockResolvedValue({ success: true })
   })
 
@@ -47,23 +52,19 @@ describe('useGuardedDispatch', () => {
   const cover = { domain: 'cover', service: 'open_cover', entityId: 'cover.garage' }
 
   it('dispatches through the non-retrying path', async () => {
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
 
-    await act(async () => {
-      await result.current(cover)
-    })
+    await guardedDispatch(cover)
 
     expect(once).toHaveBeenCalledTimes(1)
     expect(once).toHaveBeenCalledWith(cover)
   })
 
   it('refuses a repeat of the same command while the first is in flight', async () => {
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
 
-    const first = await act(async () => result.current(cover))
-    const second = await act(async () => result.current(cover))
+    const first = await guardedDispatch(cover)
+    const second = await guardedDispatch(cover)
 
     expect(once).toHaveBeenCalledTimes(1)
     expect(first).toEqual({ success: true })
@@ -79,27 +80,25 @@ describe('useGuardedDispatch', () => {
    * not moved: the command must still be refused.
    */
   it('stays shut after the service call resolves, before the entity moves', async () => {
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
 
-    const first = await act(async () => result.current(cover))
+    const first = await guardedDispatch(cover)
     expect(first).toEqual({ success: true }) // acknowledged...
 
     // ...but nothing has moved yet, and time has not run out.
     vi.advanceTimersByTime(ACKNOWLEDGEMENT_TIMEOUT_MS - 1)
-    const second = await act(async () => result.current(cover))
+    const second = await guardedDispatch(cover)
 
     expect(second).toBeNull()
     expect(once).toHaveBeenCalledTimes(1)
   })
 
   it('reopens once the watched entity actually transitions', async () => {
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
 
-    await act(async () => result.current(cover))
+    await guardedDispatch(cover)
     setEntity('cover.garage', '2024-01-01T00:00:03Z')
-    await act(async () => result.current(cover))
+    await guardedDispatch(cover)
 
     expect(once).toHaveBeenCalledTimes(2)
   })
@@ -107,12 +106,11 @@ describe('useGuardedDispatch', () => {
   it('reopens on the timeout when the entity never transitions', async () => {
     // The other reopen path, and a different one: nothing landed, but a control
     // that can never be used again is worse than one that retries by hand.
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
 
-    await act(async () => result.current(cover))
+    await guardedDispatch(cover)
     vi.advanceTimersByTime(ACKNOWLEDGEMENT_TIMEOUT_MS + 1)
-    await act(async () => result.current(cover))
+    await guardedDispatch(cover)
 
     expect(once).toHaveBeenCalledTimes(2)
   })
@@ -121,19 +119,15 @@ describe('useGuardedDispatch', () => {
     // Stopping a cover that is travelling too far is the command most likely to
     // arrive while the first is in flight, and the one that must never be
     // swallowed.
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
 
-    await act(async () => result.current(cover))
-    await act(async () =>
-      result.current({ domain: 'cover', service: 'stop_cover', entityId: 'cover.garage' })
-    )
+    await guardedDispatch(cover)
+    await guardedDispatch({ domain: 'cover', service: 'stop_cover', entityId: 'cover.garage' })
 
     expect(once).toHaveBeenCalledTimes(2)
   })
 
   it('treats a different payload as a different command', async () => {
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
     const position = (value: number) => ({
       domain: 'cover',
@@ -142,19 +136,48 @@ describe('useGuardedDispatch', () => {
       data: { position: value },
     })
 
-    await act(async () => result.current(position(100)))
-    await act(async () => result.current(position(0)))
+    await guardedDispatch(position(100))
+    await guardedDispatch(position(0))
 
     expect(once).toHaveBeenCalledTimes(2)
+  })
+
+  it('holds one window per command, not one in total', async () => {
+    // A card with open/stop/close pills is not a card doing one thing at a
+    // time. With a single pending slot, the `stop` in the middle evicts the
+    // `open`, and the third press dispatches `open` a second time while the
+    // first has not landed.
+    setEntity('cover.garage', '2024-01-01T00:00:00Z')
+    const open = cover
+    const stop = { domain: 'cover', service: 'stop_cover', entityId: 'cover.garage' }
+
+    await guardedDispatch(open)
+    await guardedDispatch(stop)
+    const repeat = await guardedDispatch(open)
+
+    expect(repeat).toBeNull()
+    expect(once).toHaveBeenCalledTimes(2)
+  })
+
+  it('is one guard process-wide, not one per caller', async () => {
+    // The guarantee is that a command reaches Home Assistant at most once — not
+    // that one component dispatches at most once. A card's embedded control and
+    // its whole-tile gesture are different callers issuing the same command,
+    // and so are two cards showing the same entity.
+    setEntity('cover.garage', '2024-01-01T00:00:00Z')
+
+    expect(admitCommand(cover)).toBe(true)
+    expect(admitCommand(cover)).toBe(false)
+    expect(await guardedDispatch(cover)).toBeNull()
+    expect(once).not.toHaveBeenCalled()
   })
 
   it('does not hold back a command that aims at nothing', async () => {
     // Nothing to observe and nothing to repeat harmfully: a notification or a
     // scene the card cannot watch must not be held shut on the timeout alone.
-    const { result } = renderHook(() => useGuardedDispatch())
 
-    await act(async () => result.current({ domain: 'notify', service: 'persistent' }))
-    await act(async () => result.current({ domain: 'notify', service: 'persistent' }))
+    await guardedDispatch({ domain: 'notify', service: 'persistent' })
+    await guardedDispatch({ domain: 'notify', service: 'persistent' })
 
     expect(once).toHaveBeenCalledTimes(2)
   })
@@ -162,19 +185,18 @@ describe('useGuardedDispatch', () => {
   it('guards a command aimed at everything, which it cannot watch', async () => {
     // `entity_id: all` is as consequential as a command gets and has no single
     // `last_updated` to read. Aimed but unobservable: held until the timeout.
-    const { result } = renderHook(() => useGuardedDispatch())
     const all = {
       domain: 'homeassistant',
       service: 'turn_off',
       data: { entity_id: 'all' },
     }
 
-    await act(async () => result.current(all))
-    await act(async () => result.current(all))
+    await guardedDispatch(all)
+    await guardedDispatch(all)
     expect(once).toHaveBeenCalledTimes(1)
 
     vi.advanceTimersByTime(ACKNOWLEDGEMENT_TIMEOUT_MS + 1)
-    await act(async () => result.current(all))
+    await guardedDispatch(all)
     expect(once).toHaveBeenCalledTimes(2)
   })
 
@@ -182,7 +204,6 @@ describe('useGuardedDispatch', () => {
     // `buildServiceData` spreads `data` over the implicit target, so the array
     // is what actually gets dispatched at. Watching the card's entity instead
     // would let an unrelated change here admit a duplicate there.
-    const { result } = renderHook(() => useGuardedDispatch())
     setEntity('sensor.hallway', '2024-01-01T00:00:00Z')
     setEntity('cover.garage', '2024-01-01T00:00:00Z')
     const command = {
@@ -192,16 +213,16 @@ describe('useGuardedDispatch', () => {
       data: { entity_id: ['cover.garage'] },
     }
 
-    await act(async () => result.current(command))
+    await guardedDispatch(command)
 
     // The card's own entity moving is not the cover having opened.
     setEntity('sensor.hallway', '2024-01-01T00:00:09Z')
-    await act(async () => result.current(command))
+    await guardedDispatch(command)
     expect(once).toHaveBeenCalledTimes(1)
 
     // The entity actually dispatched at moving is.
     setEntity('cover.garage', '2024-01-01T00:00:09Z')
-    await act(async () => result.current(command))
+    await guardedDispatch(command)
     expect(once).toHaveBeenCalledTimes(2)
   })
 })
@@ -227,6 +248,11 @@ describe('resolveCommandTarget', () => {
     expect(resolveCommandTarget(undefined, undefined)).toEqual({ aimed: false })
     expect(resolveCommandTarget('cover.garage', { entity_id: 'none' })).toEqual({ aimed: false })
     expect(resolveCommandTarget('cover.garage', { entity_id: [] })).toEqual({ aimed: false })
+    // The wildcards mean the same inside a list as outside one.
+    expect(resolveCommandTarget('cover.garage', { entity_id: ['none'] })).toEqual({ aimed: false })
+    expect(resolveCommandTarget('cover.garage', { entity_id: ['none', 'none'] })).toEqual({
+      aimed: false,
+    })
   })
 
   it('lets the payload’s own target win over the card’s', () => {
@@ -247,6 +273,13 @@ describe('resolveCommandTarget', () => {
     expect(
       resolveCommandTarget('cover.garage', { entity_id: ['cover.side', 'cover.garage'] })
     ).toEqual({ aimed: true, watch: 'cover.garage' })
+  })
+
+  it('still aims at the real entity in a list that also carries a wildcard', () => {
+    expect(resolveCommandTarget('cover.garage', { entity_id: ['none', 'switch.pump'] })).toEqual({
+      aimed: true,
+      watch: 'switch.pump',
+    })
   })
 
   it('takes the first nameable entry of a list it does not belong to', () => {

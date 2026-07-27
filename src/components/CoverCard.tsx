@@ -167,15 +167,23 @@ function CoverCardComponent({
     })
   }, [dispatchGuarded, entityId, error, isLoading, clearError])
 
+  /*
+   * No `isLoading` guard, unlike its siblings: stop is the inverse action, and
+   * inverse or cancel actions must stay available during a transitional state
+   * (REVIEW.md — blanket disabling of transitional states is prohibited). Stop
+   * is exactly what someone reaches for while a physical object is moving, and
+   * the window the dispatch guard opens on `open_cover` is precisely when they
+   * reach for it. The guard keys per command, so a pending `open_cover` does
+   * not hold `stop_cover` back.
+   */
   const handleStop = useCallback(async () => {
-    if (isLoading) return
     if (error) clearError()
     await dispatchGuarded({
       domain: 'cover',
       service: 'stop_cover',
       entityId,
     })
-  }, [dispatchGuarded, entityId, error, isLoading, clearError])
+  }, [dispatchGuarded, entityId, error, clearError])
 
   const handlePositionChange = useCallback((value: number) => {
     // The anatomy slider reports every value the drag passes through, which is
@@ -368,7 +376,7 @@ function CoverCardComponent({
             hideLabel
             icon={<PauseIcon />}
             onClick={handleStop}
-            disabled={isLoading || !isMoving}
+            disabled={!isMoving}
           />
         )}
         {supportsClose && (

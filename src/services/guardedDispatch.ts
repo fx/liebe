@@ -1,5 +1,4 @@
-import { useCallback, useRef } from 'react'
-import { hassService, type ServiceCallResult } from '../services/hassService'
+import { hassService, type ServiceCallResult } from './hassService'
 import { entityStore } from '../store/entityStore'
 import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '../store/cardActions'
 
@@ -8,20 +7,32 @@ import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '../store/cardActions'
  * card — gestures and embedded controls alike.
  *
  * Spec: docs/specs/entity-cards/options/common.md — "Dispatch guarantees",
- * which are normative "for every action **and every embedded control, on every
- * card**". Change 0014 built this for the shell's gestures and left it private
- * to `useCardActions`, so every card's sliders, pills and steppers kept
- * dispatching through the retrying path; this hook is that guard made
- * holdable by a control (docs/changes — issue "embedded controls dispatch
- * through the retrying path").
+ * normative "for every action **and every embedded control, on every card**".
+ * Change 0014 built this for the shell's gestures and left it private to
+ * `useCardActions`, so every card's sliders, pills and steppers kept
+ * dispatching through the retrying path.
  *
  * It owns exactly one stage of the pipeline. The order is forced from both
  * ends: **resolution → confirmation gate → guard → dispatch**. The gate
  * classifies by effect on the entity, so it needs the *resolved action*; this
  * guard keys on `domain.service:target:data`, so it needs the *final payload*.
  * Neither can cross the other without losing what it operates on — which is why
- * this hook takes an already-resolved, already-gated command and never inspects
- * an action.
+ * this takes an already-resolved, already-gated command and never inspects an
+ * action.
+ *
+ * **Why module scope rather than a hook's ref.** The guarantee is about a
+ * command reaching Home Assistant at most once, not about one React component
+ * dispatching at most once. Two things follow, and a per-instance ref gets both
+ * wrong: a card's embedded control and its whole-tile gesture are different
+ * hook instances issuing the *same* command, and so are two cards showing the
+ * same entity. The pending set is therefore process-wide, exactly like the
+ * Home Assistant connection it protects.
+ *
+ * Entries are keyed per command rather than held in a single slot, because a
+ * card with open/stop/close pills is not a card doing one thing at a time: a
+ * single slot means `open` → `stop` → `open` inside one window dispatches
+ * `open` twice, each command evicting the last. Keying per command also keeps
+ * the inverse command free, which is the point of C below.
  */
 
 /** Home Assistant's wildcard targets, which a payload may name instead of ids. */
@@ -53,6 +64,9 @@ export interface CommandTarget {
    */
   watch?: string
 }
+
+const isNameableTarget = (value: unknown): value is string =>
+  typeof value === 'string' && value !== ENTITY_MATCH_ALL && value !== ENTITY_MATCH_NONE
 
 /**
  * Resolve what a command targets, the way `HassService.buildServiceData`
@@ -102,14 +116,17 @@ export function resolveCommandTarget(
     if (entityId !== undefined && explicit.includes(entityId)) {
       return { aimed: true, watch: entityId }
     }
-    const named = explicit.find(
-      (target): target is string =>
-        typeof target === 'string' && target !== ENTITY_MATCH_ALL && target !== ENTITY_MATCH_NONE
-    )
+
+    const named = explicit.find(isNameableTarget)
     if (named !== undefined) return { aimed: true, watch: named }
-    // Nothing nameable left: `['all']` still aims at everything, an empty list
-    // at nothing.
-    return { aimed: explicit.length > 0 }
+
+    // Nothing nameable left, so the wildcards decide — and they mean the same
+    // inside a list as outside one: `['none']` and `[]` aim at nothing exactly
+    // as the bare `none` string does, while `['all']` aims at everything. A
+    // member of any other shape counts as aimed for the same reason an
+    // unresolvable bare value does: the dispatch happens regardless of what
+    // this build makes of it, so the safe reading is to guard it.
+    return { aimed: explicit.some((target) => target !== ENTITY_MATCH_NONE) }
   }
 
   return { aimed: true }
@@ -127,12 +144,42 @@ function commandKey({ domain, service, entityId, data }: GuardedCommand): string
   return `${domain}.${service}:${entityId ?? ''}:${JSON.stringify(data ?? null)}`
 }
 
+interface PendingCommand {
+  until: number
+  lastUpdated?: string
+}
+
 /**
- * Dispatch a command at most once until it is known to have landed.
+ * Commands dispatched and not yet known to have landed, keyed by identity.
  *
- * Resolves to the dispatch result, or to `null` when the guard refused it —
- * which is not a failure: the identical command is still in flight, and the
- * caller asked for it twice.
+ * Swept on every admission rather than by a timer: an entry past its deadline
+ * is already meaningless to `admitCommand`, so the only thing sweeping buys is
+ * that the map cannot grow without bound — and a timer would keep a reference
+ * alive for every command ever issued. The map is bounded in practice by the
+ * commands issued within one acknowledgement window.
+ *
+ * A card unmounting mid-window deliberately leaves its entry: the command is
+ * still travelling whether or not anything is rendering, and a remount must not
+ * become a way to re-fire it.
+ */
+const pending = new Map<string, PendingCommand>()
+
+const lastUpdatedOf = (id: string) => entityStore.state.entities[id]?.last_updated
+
+/**
+ * Clear the pending set. For tests, which share module state between cases and
+ * would otherwise carry one case's window into the next.
+ */
+export function resetDispatchGuard(): void {
+  pending.clear()
+}
+
+/**
+ * Whether a command may be dispatched now, reserving its window when it may.
+ *
+ * Separate from dispatching so a caller with its own loading/error bookkeeping
+ * can ask *before* disturbing it — a refused repeat must not abort the first
+ * call still in flight, nor clear the error it is about to report.
  *
  * The window reopens on whichever comes first: the watched entity's
  * `last_updated` moving (it landed) or `ACKNOWLEDGEMENT_TIMEOUT_MS` elapsing
@@ -141,44 +188,43 @@ function commandKey({ domain, service, entityId, data }: GuardedCommand): string
  * integration updates state, so reopening on resolution would admit the second
  * press while the first was still travelling, which for `button.press`, a
  * script or a motor is the command running twice.
- *
- * Keyed by service, target *and* payload rather than by entity alone: a
- * different command on the same device is a different intent, and the one most
- * likely to arrive while the first is in flight is the inverse — stopping a
- * cover that is travelling too far. Blocking that would be the exact opposite
- * of safe.
  */
-export type GuardedDispatch = (command: GuardedCommand) => Promise<ServiceCallResult | null>
+export function admitCommand(command: GuardedCommand): boolean {
+  const { aimed, watch } = resolveCommandTarget(command.entityId, command.data)
+  if (!aimed) return true
 
-export function useGuardedDispatch(): GuardedDispatch {
-  const pendingRef = useRef<{ key: string; until: number; lastUpdated?: string } | null>(null)
+  const now = Date.now()
+  for (const [key, entry] of pending) {
+    if (entry.until <= now) pending.delete(key)
+  }
 
-  return useCallback((command: GuardedCommand) => {
-    const { aimed, watch } = resolveCommandTarget(command.entityId, command.data)
-    const lastUpdatedOf = (id: string) => entityStore.state.entities[id]?.last_updated
+  const key = commandKey(command)
+  const entry = pending.get(key)
 
-    if (aimed) {
-      const key = commandKey(command)
-      const pending = pendingRef.current
+  if (
+    entry &&
+    // Aimed but unobservable: there is no transition to notice, so the window
+    // stays shut until the timeout.
+    (watch === undefined || lastUpdatedOf(watch) === entry.lastUpdated)
+  ) {
+    return false
+  }
 
-      if (
-        pending &&
-        pending.key === key &&
-        Date.now() < pending.until &&
-        // Aimed but unobservable: there is no transition to notice, so the
-        // window stays shut until the timeout.
-        (watch === undefined || lastUpdatedOf(watch) === pending.lastUpdated)
-      ) {
-        return Promise.resolve(null)
-      }
+  pending.set(key, {
+    until: now + ACKNOWLEDGEMENT_TIMEOUT_MS,
+    lastUpdated: watch === undefined ? undefined : lastUpdatedOf(watch),
+  })
+  return true
+}
 
-      pendingRef.current = {
-        key,
-        until: Date.now() + ACKNOWLEDGEMENT_TIMEOUT_MS,
-        lastUpdated: watch === undefined ? undefined : lastUpdatedOf(watch),
-      }
-    }
-
-    return hassService.callServiceOnce(command)
-  }, [])
+/**
+ * Dispatch a command at most once until it is known to have landed.
+ *
+ * Resolves to the dispatch result, or to `null` when the guard refused it —
+ * which is not a failure: the identical command is still in flight, and the
+ * caller asked for it twice.
+ */
+export function guardedDispatch(command: GuardedCommand): Promise<ServiceCallResult | null> {
+  if (!admitCommand(command)) return Promise.resolve(null)
+  return hassService.callServiceOnce(command)
 }

@@ -7,7 +7,7 @@ import {
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
 import { entityStore } from '../store/entityStore'
 import { buildSetDatetimePayload, describeInputDatetimeShape } from '../utils/inputDatetime'
-import { useGuardedDispatch } from './useGuardedDispatch'
+import { admitCommand } from '../services/guardedDispatch'
 
 export interface UseServiceCallResult {
   loading: boolean
@@ -38,7 +38,6 @@ export function useServiceCall(): UseServiceCallResult {
   const activeCallRef = useRef<AbortController | null>(null)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const hass = useHomeAssistantOptional()
-  const guardedDispatch = useGuardedDispatch()
 
   // Update hassService with current hass instance
   if (hass) {
@@ -167,9 +166,18 @@ export function useServiceCall(): UseServiceCallResult {
    * they really are the same command.
    */
   const dispatchGuarded = useCallback(
-    (options: ServiceCallOptions) =>
-      runCall(options, async (opts) => (await guardedDispatch(opts)) ?? { success: true }),
-    [guardedDispatch, runCall]
+    async (options: ServiceCallOptions): Promise<ServiceCallResult> => {
+      /*
+       * Asked *before* `runCall`, deliberately. `runCall` aborts the previous
+       * call and resets loading/error on entry, so consulting the guard from
+       * inside it would let a refused repeat tear down the state of the first
+       * dispatch that is still in flight — clearing its spinner, and swallowing
+       * the failure it was about to report while the repeat returned success.
+       */
+      if (!admitCommand(options)) return { success: true }
+      return runCall(options, hassService.callServiceOnce.bind(hassService))
+    },
+    [runCall]
   )
 
   const turnOn = useCallback(

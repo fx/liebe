@@ -381,6 +381,39 @@ describe('CoverCard', () => {
       expect(screen.getByText('50%')).toBeInTheDocument()
     })
 
+    it('leaves stop usable while a call is in flight', async () => {
+      // The inverse action must stay available during a transitional state
+      // (REVIEW.md). A moving cover with a dispatch in flight is exactly when
+      // someone reaches for stop, so a blanket `isLoading` guard here would
+      // disable the one control that matters.
+      const entity = createMockCoverEntity({ state: 'opening' })
+      ;(useEntity as any).mockReturnValue({ entity, isConnected: true, isStale: false })
+      ;(useServiceCall as any).mockReturnValue({
+        loading: true,
+        error: null,
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
+        turnOn: vi.fn(),
+        turnOff: vi.fn(),
+        toggle: vi.fn(),
+        setValue: vi.fn(),
+        clearError: vi.fn(),
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      const stop = screen.getByRole('button', { name: /stop/i })
+      expect(stop).not.toBeDisabled()
+
+      await userEvent.click(stop)
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'cover',
+        service: 'stop_cover',
+        entityId: 'cover.test_cover',
+      })
+    })
+
     it('calls set_cover_position service on slider change', async () => {
       const entity = createMockCoverEntity({
         state: 'open',
