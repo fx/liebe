@@ -22,6 +22,15 @@ import { StillImageFallback } from './StillImageFallback'
 import { CameraControls } from './CameraControls'
 import type { CameraStatus } from './CameraControls'
 import { CameraStats } from './CameraStats'
+import { CameraLiveBadge, CameraNameOverlay } from './CameraOverlay'
+import {
+  cameraStateText,
+  resolveCameraLiveBadge,
+  resolveCameraName,
+  resolveCameraOverlay,
+} from './overlay'
+import { readCameraOptions } from '~/store/cameraOptions'
+import { readCardDisplay } from '~/store/cardDisplay'
 import type { CardTier } from '~/utils/cardTier'
 import './CameraCard.css'
 
@@ -134,6 +143,20 @@ function CameraCardComponent({
   const fit = FIT_MODES.find((mode) => mode === config.fit) ?? 'cover'
   const matting = (config.matting as string) || 'small'
   const showStats = config.showStats === true
+  const { showNameOverlay, showLiveBadge } = readCameraOptions(item?.config)
+  /*
+   * The universal display options, read here because the camera renders its own
+   * name and state into a gradient over the feed rather than into the shell's
+   * `GridCard.Title`/`Status` slots — the two components that would otherwise
+   * apply `hideName`/`hideState` for it.
+   *
+   * Read WITHOUT a danger flag on purpose: this card passes no `danger` to its
+   * `GridCard` either, so the shell resolves exactly the same values and the two
+   * cannot disagree. A camera that ever gains a danger state must set the flag
+   * in both places at once — the floor takes `hideName`/`hideState` back
+   * (`applyDangerFloor`), which would re-expand an overlay a user had collapsed.
+   */
+  const display = readCardDisplay(item?.config)
 
   const supportsStream = !!(
     ((entity?.attributes as CameraAttributes | undefined)?.supported_features ?? 0) & SUPPORT_STREAM
@@ -303,7 +326,9 @@ function CameraCardComponent({
     )
   }
 
-  const friendlyName = entity.attributes.friendly_name || entity.entity_id
+  // The universal `name` override wins over the friendly name for every surface
+  // the card names the camera on — overlay, pill, and the surface's aria-label.
+  const friendlyName = resolveCameraName(display.name, entity)
   const isRecording = entity.state === 'recording'
   const isStreamingState = entity.state === 'streaming'
   const activeFit: FitMode = isFullscreen ? 'contain' : fit
@@ -339,17 +364,54 @@ function CameraCardComponent({
         ? 'var(--space-5)'
         : `var(--space-${defaultPadding})`
 
+  /*
+   * The presentation layers (change 0021), resolved from the stored options and
+   * the universal display flags. Both resolvers are pure and unit-tested in
+   * `overlay.ts` — the composition rules live there, not in this JSX.
+   *
+   * `streamMounted: streamEnabled` is what keeps the badge honest: a still-image
+   * fallback (readiness `unavailable`) whose entity state is `recording` reaches
+   * a live STATUS with nothing but a snapshot on screen, and a snapshot must
+   * never be labelled LIVE.
+   */
+  const overlay = resolveCameraOverlay({
+    hasFeed: supportsStream && !streamError,
+    showNameOverlay,
+    hideName: display.hideName,
+    hideState: display.hideState,
+  })
+  const liveBadge = resolveCameraLiveBadge({
+    showLiveBadge,
+    streamMounted: streamEnabled,
+    status,
+  })
+
   // Status pill + controls: a SINGLE instance (replacing the old duplicated
   // in-card/fullscreen pair). It lives inside the stream container so the
   // container's normal→fullscreen position flip carries it with no DOM move;
   // it also renders in the non-stream branch and during the error branch (the
   // ERROR pill). Buttons stopPropagation so they never toggle fullscreen.
+  //
+  // Its two info lines YIELD to the layers above rather than repeating them:
+  // the name moves into the gradient overlay when that draws it, and the live
+  // states move into the badge (change 0021's subsumption — never two live-ness
+  // indicators). Non-live states stay here, unchanged and owned by
+  // camera-streaming — `hideState` hides the overlay's state line, not the
+  // stream-health pill the streaming spec requires the card to show. `hideName`
+  // by contrast hides the name outright: yielding it back to the pill because
+  // the overlay stood down would be the option doing nothing.
+  //
+  // Whenever the band is drawn the block also moves to the opposite corner, so
+  // the buttons never sit on top of the lines in it.
+  const controlsAtEnd = overlay.visible
   const controls = (
     <div
       style={{
         position: 'absolute',
         bottom: isFullscreen ? '2%' : '8px',
-        left: isFullscreen ? '2%' : '8px',
+        ...(controlsAtEnd
+          ? { right: isFullscreen ? '2%' : '8px' }
+          : { left: isFullscreen ? '2%' : '8px' }),
         fontSize: isFullscreen
           ? 'min(3.2vw, 19.2px)' // Scale with viewport width (reduced by 20%)
           : '9.6px',
@@ -360,6 +422,8 @@ function CameraCardComponent({
         status={status}
         rawState={entity.state}
         showControls={showControls}
+        showName={!display.hideName && !overlay.showName}
+        showStatus={liveBadge === null}
         isMuted={isMuted}
         handleToggleMute={handleToggleMute}
         handleVideoFullscreen={handleVideoFullscreen}
@@ -520,6 +584,22 @@ function CameraCardComponent({
                     </div>
                   )}
                 </>
+              )}
+              {/* Sibling layers over the stationary container — never wrappers
+                  around the stream node (change 0008's no-DOM-move invariant is
+                  what every option here is built under). Ordered before the
+                  controls so the gradient paints behind them; the badge is gated
+                  on a mounted stream inside `resolveCameraLiveBadge`, and the
+                  overlay on an actual feed inside `resolveCameraOverlay`. */}
+              {liveBadge && <CameraLiveBadge variant={liveBadge} isFullscreen={isFullscreen} />}
+              {overlay.visible && (
+                <CameraNameOverlay
+                  name={friendlyName}
+                  state={cameraStateText(entity.state)}
+                  showName={overlay.showName}
+                  showState={overlay.showState}
+                  isFullscreen={isFullscreen}
+                />
               )}
               {controls}
             </div>

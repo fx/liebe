@@ -83,6 +83,18 @@ export interface CameraControlsProps {
   rawState: string
   /** Whether the mute/fullscreen buttons render (active stream outside edit mode). */
   showControls: boolean
+  /**
+   * Whether the name line renders here. `false` while the gradient overlay
+   * carries it, so the camera is never named twice over its own feed
+   * (docs/specs/entity-cards/options/camera.md — `showNameOverlay`).
+   */
+  showName?: boolean
+  /**
+   * Whether the status line renders here. `false` only while the `LIVE` badge is
+   * presenting the same live state — change 0021's subsumption. Every non-live
+   * state stays on this line, owned by camera-streaming.
+   */
+  showStatus?: boolean
   isMuted: boolean
   handleToggleMute: (e: React.MouseEvent) => void
   handleVideoFullscreen: (e: React.MouseEvent) => void
@@ -96,6 +108,8 @@ export function CameraControls({
   status,
   rawState,
   showControls,
+  showName = true,
+  showStatus = true,
   isMuted,
   handleToggleMute,
   handleVideoFullscreen,
@@ -104,6 +118,12 @@ export function CameraControls({
 }: CameraControlsProps) {
   // Base scale factor for different sizes
   const scaleFactor = size === 'small' ? 0.64 : size === 'large' ? 0.96 : 0.8
+
+  // With the overlay carrying the name and the badge carrying the live state,
+  // an edit-mode card (no buttons) has nothing left to put in here — and an
+  // empty backdrop-blurred box over the corner of a feed is a smudge, not a
+  // control block.
+  if (!showName && !showStatus && !showControls) return null
 
   return (
     <div
@@ -118,37 +138,44 @@ export function CameraControls({
         fontSize: isFullscreen ? 'inherit' : `${scaleFactor}em`,
       }}
     >
-      {/* Entity info */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: `${0.08 * scaleFactor}em` }}>
-        <div
-          style={{
-            color: 'white',
-            fontSize: '1em',
-            fontWeight: 600,
-            lineHeight: 1.25,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {friendlyName}
+      {/* Entity info. The whole block goes when neither line is this one's to
+          show, so the buttons do not sit behind a stray flex gap. */}
+      {(showName || showStatus) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: `${0.08 * scaleFactor}em` }}>
+          {showName && (
+            <div
+              style={{
+                color: 'white',
+                fontSize: '1em',
+                fontWeight: 600,
+                lineHeight: 1.25,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {friendlyName}
+            </div>
+          )}
+          {showStatus && (
+            <div
+              style={{
+                color: statusColor(status),
+                fontSize: '0.8em',
+                lineHeight: 1.2,
+                textTransform: 'uppercase',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: `${0.4 * scaleFactor}em`,
+              }}
+            >
+              <StatusIcon status={status} />
+              {status === 'raw' ? rawState.toUpperCase() : STATUS_LABELS[status]}
+            </div>
+          )}
         </div>
-        <div
-          style={{
-            color: statusColor(status),
-            fontSize: '0.8em',
-            lineHeight: 1.2,
-            textTransform: 'uppercase',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: `${0.4 * scaleFactor}em`,
-          }}
-        >
-          <StatusIcon status={status} />
-          {status === 'raw' ? rawState.toUpperCase() : STATUS_LABELS[status]}
-        </div>
-      </div>
+      )}
 
       {/* Control buttons */}
       {showControls && (
