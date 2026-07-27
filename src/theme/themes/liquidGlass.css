@@ -1,0 +1,201 @@
+/*
+ * Liquid Glass — a token-only theme.
+ *
+ * CONSTRAINT, quoted from docs/specs/theming/index.md
+ * ("Built-in theme: Liquid Glass"):
+ *
+ *   "Pure token override (no scoped rules)."
+ *   "Because it is token-only, Liquid Glass MUST keep working without
+ *    theme-specific code paths; it doubles as the regression canary for token
+ *    routing (backdrop-filter, border, gradient backgrounds)."
+ *
+ * And from docs/changes/0013-built-in-themes.md: "a diff adding any selector to
+ * that file fails review. If Liquid Glass turns out to need a rule, the token
+ * contract is incomplete — fix the contract, not the theme."
+ *
+ * So this sheet contains two rules — the theme root, and the appearance
+ * override on that same root — and nothing in them but `--liebe-*` custom
+ * properties. `__tests__/liquidGlass.test.ts` enforces exactly that, so the
+ * constraint is a gate rather than a review convention.
+ *
+ * WHERE IT DECLARES
+ * -----------------
+ * On `.radix-themes`, the same root the base layer uses (src/styles/tokens.css)
+ * — custom properties inherit downward only, so an override on a descendant
+ * would leave the derived `-tint` companions resolving against the base layer's
+ * hue. Light values sit on the zero-specificity root rule because Radix's
+ * classless default is light; the dark block below mirrors Radix's own dark
+ * selector pair and overrides only what actually differs.
+ *
+ * WHAT IT OVERRIDES, AND WHAT IT DELIBERATELY DOES NOT
+ * ----------------------------------------------------
+ * Overridden: the wallpaper, the card surface (fill, border, blur, shadow,
+ * radius) and — in dark — the neutral foreground tiers, which have to be white
+ * rather than the Radix slate steps to read on translucent glass.
+ *
+ * Left to the base layer: all geometry apart from the card radius, the whole
+ * typography group, and every domain BASE hue and its derived `-tint`. Liquid
+ * Glass recolours the ground, not the state palette, so the domain hues stay
+ * exactly the Radix step 9 the base layer defaults them to and the tints stay
+ * derived — meaning user CSS remapping `--liebe-c-light` under this theme
+ * recolours glyph and tint together, as the contract promises.
+ *
+ * WHY `-text` IS PINNED TO STEP 12 (and not left derived, nor pinned to 11)
+ * -------------------------------------------------------------------------
+ * The base layer derives `-text` from the base hue, i.e. raw step 9, which
+ * carries no text contrast on any ground; the Default theme therefore pins
+ * step 11, Radix's low-contrast text step. Step 11 is calibrated against the
+ * scale's steps 1–3, and a glass card is not one of those: in dark it is 10%
+ * white over a lit wallpaper (much lighter than `--gray-2`), and in light it is
+ * a translucent white veil over a tinted mesh (slightly darker and more
+ * chromatic than `--gray-1`). Measured on this theme's own surfaces, several
+ * step-11 hues fall under the 4.5:1 floor there — teal and amber worst. Step 12
+ * is Radix's high-contrast text step and clears the floor on both glass
+ * surfaces with room to spare, which is why the state line takes it here.
+ *
+ * Saturation is not lost with it: the glyph and the slider fill still render
+ * the full step-9 hue, so the domain signal is carried by the coloured parts
+ * and the text merely agrees with them. Setting `-text` explicitly is what the
+ * theming spec asks a theme to do when its ground moves out from under the
+ * default text step ("Stable selector contract").
+ *
+ * PERFORMANCE
+ * -----------
+ * `--liebe-card-blur` is a real `backdrop-filter` on every card, which is
+ * GPU-costly on low-end wall tablets. The picker carries that warning
+ * (`note` on the registry entry) and this theme is not the default.
+ *
+ * OFFLINE
+ * -------
+ * No `url()`, no webfont, no external reference of any kind — the whole theme
+ * is colour maths, so it works on a LAN-only Home Assistant install.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-theme {
+  /*
+   * Light appearance — the classless default, mirroring the base sheet.
+   *
+   * `:where()` keeps this at zero specificity so the dark block below wins on
+   * specificity alone, exactly as the base layer's two blocks relate. No
+   * `!important` anywhere: importance is reversed across cascade layers, so an
+   * important declaration here would outrank the user layer that is meant to
+   * win.
+   */
+  :where(.radix-themes) {
+    /*
+     * The wallpaper. Three radial glows over a pale lavender ground, in one
+     * `background` shorthand because that is what `--liebe-bg` is consumed by
+     * (src/styles/app.css paints the ground with `background`, not
+     * `background-color`, for exactly this).
+     *
+     * `fixed` on each glow layer so the mesh is wallpaper rather than something
+     * that scrolls with the dashboard. The final layer is the flat ground
+     * colour and needs no attachment.
+     *
+     * Each glow fades to its OWN hue at zero alpha rather than to
+     * `transparent`: `transparent` is `rgba(0, 0, 0, 0)`, and interpolating
+     * towards it in a premultiplied-alpha-unaware way greys the midpoint of the
+     * ramp — a visible dirty halo around every glow.
+     */
+    --liebe-bg:
+      radial-gradient(58% 52% at 14% 8%, rgba(129, 116, 255, 0.28) 0%, rgba(129, 116, 255, 0) 62%)
+        fixed,
+      radial-gradient(48% 46% at 88% 4%, rgba(255, 122, 170, 0.24) 0%, rgba(255, 122, 170, 0) 64%)
+        fixed,
+      radial-gradient(56% 58% at 76% 94%, rgba(64, 214, 202, 0.24) 0%, rgba(64, 214, 202, 0) 66%)
+        fixed,
+      #eceafa;
+
+    /*
+     * The glass itself. A heavier white veil than the dark variant's — the spec
+     * calls for the light variant to raise the card alpha, and it has to: 10%
+     * white over a pale ground is not a surface at all.
+     */
+    --liebe-card-bg: rgba(255, 255, 255, 0.58);
+    --liebe-card-border: 1px solid rgba(255, 255, 255, 0.7);
+    --liebe-card-blur: blur(22px) saturate(1.6);
+    --liebe-card-shadow: 0 8px 32px rgba(19, 16, 51, 0.14);
+    --liebe-card-radius: 26px;
+
+    /*
+     * Neutrals stay on the base layer's Radix slate alphas in light: they are
+     * dark ink, they composite correctly over a near-white veil, and leaving
+     * them alone keeps the theme's surface area honest.
+     *
+     * The hairline and the slider track do get a touch more presence, because
+     * both sit ON the glass rather than behind it and `--gray-a3` all but
+     * vanishes against a 58% white veil.
+     */
+    --liebe-hairline: rgba(19, 16, 51, 0.1);
+    --liebe-track: rgba(19, 16, 51, 0.08);
+
+    /*
+     * State text: the high-contrast step, for the reason in the header.
+     *
+     * Declared once, here, and NOT repeated in the dark block — these alias
+     * Radix scale steps, and Radix flips the scales itself, so `--amber-12` is
+     * the deep brown in light and the pale wheat in dark from this single
+     * declaration. Repeating them under the dark selector would be dead CSS.
+     */
+    --liebe-c-light-text: var(--amber-12);
+    --liebe-c-heat-text: var(--orange-12);
+    --liebe-c-cool-text: var(--sky-12);
+    --liebe-c-ok-text: var(--green-12);
+    --liebe-c-alert-text: var(--red-12);
+    --liebe-c-media-text: var(--indigo-12);
+    --liebe-c-vacuum-text: var(--teal-12);
+    --liebe-c-water-text: var(--cyan-12);
+    --liebe-c-default-text: var(--blue-12);
+    --liebe-c-brand-text: var(--crimson-12);
+  }
+
+  /*
+   * Dark appearance — the theme's default bias. Selector list copied from the
+   * base sheet, which copies Radix's own: a theme root that declares itself
+   * dark, and a nested theme inheriting darkness without overriding it.
+   */
+  .radix-themes:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
+    /*
+     * The same mesh over near-black. Two things are deliberate about it.
+     *
+     * The glows are deep and blue-biased: green and red channels dominate
+     * relative luminance, so a vivid cyan or rose glow at the same apparent
+     * intensity lifts the ground far more than an indigo one does.
+     *
+     * And their alphas are capped, which is the part that is a measurement
+     * rather than a taste. A card is 10% white over whatever the mesh is doing
+     * beneath it, and the icon circle then puts a 20% domain tint on top of
+     * that — so a bright glow travels all the way through to the tint the
+     * glyph sits on. Measured on the gallery, the darkest domain glyph (green)
+     * clears the 3:1 non-text floor at these alphas and falls under it at
+     * roughly half again as much glow. The wallpaper is bounded by the card
+     * that has to sit on it.
+     */
+    --liebe-bg:
+      radial-gradient(58% 52% at 14% 8%, rgba(88, 74, 232, 0.34) 0%, rgba(88, 74, 232, 0) 62%) fixed,
+      radial-gradient(48% 46% at 88% 4%, rgba(198, 56, 122, 0.26) 0%, rgba(198, 56, 122, 0) 64%)
+        fixed,
+      radial-gradient(56% 58% at 76% 94%, rgba(16, 132, 138, 0.28) 0%, rgba(16, 132, 138, 0) 66%)
+        fixed,
+      #0f1020;
+
+    --liebe-card-bg: rgba(255, 255, 255, 0.1);
+    --liebe-card-border: 1px solid rgba(255, 255, 255, 0.18);
+    --liebe-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+    /*
+     * White foreground tiers rather than the base layer's slate alphas. A
+     * neutral gray alpha over a chromatic, semi-lit glass surface picks up the
+     * wallpaper's hue and loses contrast where the mesh is brightest; plain
+     * white does neither.
+     */
+    --liebe-fg: #fff;
+    --liebe-muted: rgba(255, 255, 255, 0.68);
+    --liebe-faint: rgba(255, 255, 255, 0.45);
+    --liebe-hairline: rgba(255, 255, 255, 0.14);
+    --liebe-track: rgba(255, 255, 255, 0.16);
+  }
+}
