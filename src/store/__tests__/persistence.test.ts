@@ -603,6 +603,36 @@ describe('persistence', () => {
       })
     })
 
+    it('migrates cards on child screens too', () => {
+      // Screens nest, so a legacy card can sit anywhere in the tree. The walk
+      // recurses; if it did not, the rename would reach only the top level and
+      // a nested light would keep the key forever.
+      const child = {
+        id: 'child',
+        name: 'Child',
+        slug: 'child',
+        type: 'grid',
+        grid: { resolution: { columns: 12, rows: 8 }, items: [legacyItem] },
+      }
+      const parent = {
+        id: 'parent',
+        name: 'Parent',
+        slug: 'parent',
+        type: 'grid',
+        grid: { resolution: { columns: 12, rows: 8 }, items: [] },
+        children: [child],
+      }
+      localStorageMock.getItem.mockReturnValueOnce(
+        JSON.stringify({ version: '1.0.0', screens: [parent] })
+      )
+
+      const loaded = loadDashboardConfig()
+
+      expect(loaded?.screens[0].children?.[0].grid?.items[0].config).toEqual({
+        showBrightnessSlider: false,
+      })
+    })
+
     it('handles screens with an empty or absent grid', () => {
       const config = {
         version: '1.0.0',
