@@ -4,7 +4,7 @@
 
 Ship the two non-default built-in themes specified in [theming](../specs/theming/index.md): **Liquid Glass** (token-only frosted translucency) and **LCARS** (dark-only okudagram console with bundled Antonio font and scoped rules on the stable selector contract). Includes the theme gallery stories that become the permanent visual acceptance surface for both themes.
 
-**Spec:** [theming](../specs/theming/index.md) · **Status:** draft · **Depends on:** 0012
+**Spec:** [theming](../specs/theming/index.md) · **Status:** complete · **Depends on:** 0012
 
 ## Motivation
 
@@ -54,7 +54,7 @@ The [theming spec](../specs/theming/index.md) owns both themes' token values, pa
 
 - [x] **PR 1 — Liquid Glass**: theme asset + registry entry (`both` appearances incl. light variant), gallery + stories, a11y pass, picker perf note
 - [x] **PR 2 — LCARS**: Antonio asset + OFL license + document-level registration; theme CSS (tokens + scoped rules within contract); gallery + stories; unit tests for dark-forcing and font registration
-- [ ] **PR 3 — E2E + cleanup**: per-theme e2e smoke; update design-system/theming spec statuses + changelogs
+- [x] **PR 3 — E2E + cleanup**: per-theme e2e smoke (`tests/e2e/built-in-themes.spec.ts`); update design-system/theming spec statuses + changelogs
 
 ## Out of Scope
 
