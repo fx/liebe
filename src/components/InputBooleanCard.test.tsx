@@ -61,6 +61,35 @@ describe('InputBooleanCard', () => {
     expect(screen.getByText('Test Toggle')).toBeInTheDocument()
   })
 
+  /**
+   * The contract the E2E helper reads, since it can no longer read a switch:
+   * the shell stamps the domain on the card and marks the active state with
+   * `data-active`, present only when the helper is on. A poll comparing against
+   * `'true'` depends on the inactive case *omitting* the attribute rather than
+   * spelling `false`.
+   */
+  it('stamps the domain, and marks the active state by presence', () => {
+    // `isSelected` is toggled to force the memoized card to re-render, the way
+    // a store update would — identical props would otherwise bail out.
+    const { container, rerender } = render(
+      <InputBooleanCard entityId="input_boolean.test_toggle" isSelected={false} />
+    )
+    const card = () => container.querySelector('[data-domain="input_boolean"]')
+
+    expect(card()).not.toBeNull()
+    expect(card()).not.toHaveAttribute('data-active')
+
+    vi.mocked(useEntity).mockReturnValue({
+      entity: { ...defaultEntity, state: 'on' },
+      isConnected: true,
+      isLoading: false,
+      isStale: false,
+    } as unknown as ReturnType<typeof useEntity>)
+    rerender(<InputBooleanCard entityId="input_boolean.test_toggle" isSelected />)
+
+    expect(card()).toHaveAttribute('data-active', 'true')
+  })
+
   it('renders no discrete control by default — the tile is the toggle', () => {
     // `controlStyle: 'tile'` (docs/specs/entity-cards/options/input-helpers.md).
     // Existing placed cards keep their switch through the loader's pinning; a
