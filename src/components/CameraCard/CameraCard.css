@@ -86,6 +86,34 @@
     opacity: 0.85;
   }
 
+  /* The motion line sits under the state at the same size, one step brighter:
+     it is the line a camera tile is actually watched for. */
+  .camera-overlay-motion {
+    overflow: hidden;
+    font-size: 0.9em;
+    font-weight: 500;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The degraded tile's tap target — a plain full-size box, since the layout
+     inside it is the shared card body rather than a feed. */
+  .camera-thumb-surface {
+    display: flex;
+    width: 100%;
+    height: 100%;
+  }
+
+  .camera-thumb-surface:focus {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+
+  .camera-thumb-surface:focus:not(:focus-visible) {
+    outline: none;
+  }
+
   .camera-live-badge {
     position: absolute;
     top: 0.8em;
@@ -102,6 +130,36 @@
     border-radius: 0.6em;
     backdrop-filter: blur(8px);
     pointer-events: none;
+  }
+
+  /* The degraded tiers' still thumbnail (change 0021). It stands where the icon
+     circle stands on other cards, so it is sized by the tile rather than by a
+     fixed box: a `row` tile gives it the line's height at 16:9, and the stacked
+     shapes give it whatever the meta leaves — which is what keeps a 1×1 tile a
+     picture with a caption rather than a caption with a stamp. */
+  .camera-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: var(--liebe-media-bg);
+    border-radius: var(--liebe-card-radius, var(--radius-2));
+  }
+
+  .camera-thumb[data-arrangement='row'] {
+    flex: 0 0 auto;
+    height: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  /* `min-height: 0` so the thumbnail yields to the caption instead of pushing
+     it out of a short tile — a flex item's default `min-height: auto` refuses
+     to shrink below its content. */
+  .camera-thumb[data-arrangement='stack'],
+  .camera-thumb[data-arrangement='tall'] {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
   }
 
   .camera-live-badge-fullscreen {

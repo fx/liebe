@@ -2,12 +2,18 @@ import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, waitFor } from 'storybook/test'
 import { CameraCard } from './index'
-import { asUnavailable, createCameraEntity, type EntityOverrides } from '~/test/fixtures'
+import {
+  asUnavailable,
+  createBinarySensorEntity,
+  createCameraEntity,
+  type EntityOverrides,
+} from '~/test/fixtures'
 import type { GridItem } from '~/store/types'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
 import { MOCK_CAMERA_FRAME } from '../../../.storybook/mockCameraStream'
 
 const entityId = 'camera.driveway'
+const MOTION_ENTITY = 'binary_sensor.driveway_motion'
 
 /**
  * Camera fixture wired to the workshop's stream mocks.
@@ -38,6 +44,22 @@ function camera(
   })
 }
 
+/**
+ * The linked motion sensor for the `showLastMotion` stories.
+ *
+ * `last_changed` is set relative to now and half a minute off the boundary, so
+ * the floored minute the card renders is stable rather than flipping under the
+ * story as the clock crosses a minute.
+ */
+function motionSensor(state: string, minutesAgo = 12.5) {
+  return createBinarySensorEntity({
+    entity_id: MOTION_ENTITY,
+    state,
+    attributes: { friendly_name: 'Driveway Motion', device_class: 'motion' },
+    last_changed: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
+  })
+}
+
 /** A grid item so the card's configuration surface (fit, matting) is reachable. */
 function cameraItem(config: GridItem['config'] = {}): GridItem {
   return {
@@ -64,7 +86,10 @@ const meta: Meta<CameraCardStoryProps> = {
   },
   args: {
     entityId,
-    tier: 'row',
+    // `full`, because it is the only tier that mounts a live feed at all: below
+    // 2×2 the card degrades to a still thumbnail, which the degraded-tier
+    // stories below show on purpose.
+    tier: 'full',
     gridWidth: 4,
     gridHeight: 3,
   },
@@ -83,6 +108,8 @@ const overlayState = (canvas: HTMLElement) =>
   canvas.querySelector('.camera-name-overlay .camera-overlay-state')?.textContent ?? null
 const liveBadge = (canvas: HTMLElement) =>
   canvas.querySelector('.camera-live-badge')?.textContent ?? null
+const overlayMotion = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-name-overlay .camera-overlay-motion')?.textContent ?? null
 
 /* ------------------------------------------------------------------ *
  * Stream states
@@ -272,6 +299,118 @@ export const OverlayCollapsed: Story = {
     await waitFor(() => expect(liveBadge(canvasElement)).toBe('LIVE'))
     await expect(canvasElement.querySelector('.camera-name-overlay')).toBeNull()
     await expect(canvasElement.textContent).not.toContain('Driveway')
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion line (change 0021)
+ * ------------------------------------------------------------------ */
+
+/** A sensor that is currently seeing something. */
+export const MotionDetected: Story = {
+  args: { item: cameraItem({ showLastMotion: true, motionEntity: MOTION_ENTITY }) },
+  parameters: { liebe: { entities: [camera('idle'), motionSensor('on')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayMotion(canvasElement)).toBe('Motion detected'))
+    // Added to the state area, not in place of the state.
+    await expect(overlayState(canvasElement)).toBe('Idle')
+  },
+}
+
+/**
+ * A clear sensor reads "Clear for X" — never "Motion X ago". `last_changed`
+ * measures the state the sensor is in NOW, so after a Home Assistant restart it
+ * marks that restart rather than a motion event; claiming an event from it would
+ * invent one that never happened.
+ */
+export const MotionClear: Story = {
+  args: { item: cameraItem({ showLastMotion: true, motionEntity: MOTION_ENTITY }) },
+  parameters: { liebe: { entities: [camera('idle'), motionSensor('off')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayMotion(canvasElement)).toBe('Clear for 12 min'))
+  },
+}
+
+/**
+ * A sensor that is unavailable drops the line and nothing else — a camera card
+ * must never take on a linked sensor's error state. Same for a `motionEntity`
+ * naming an entity this Home Assistant does not have.
+ */
+export const MotionSensorUnavailable: Story = {
+  args: { item: cameraItem({ showLastMotion: true, motionEntity: MOTION_ENTITY }) },
+  parameters: {
+    liebe: { entities: [camera('idle'), asUnavailable(motionSensor('off'))] },
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    await expect(overlayMotion(canvasElement)).toBeNull()
+    await expect(canvasElement.querySelector('[data-error]')).toBeNull()
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Degraded tiers (change 0021)
+ * ------------------------------------------------------------------ */
+
+/**
+ * 1×1. Below 2×2 a live feed is illegible, so the card mounts NO stream at all
+ * and stands the `entity_picture` snapshot in its place — the omit-never-clip
+ * rule applied to video. The overlay and the LIVE badge go with it; a gradient
+ * band over a tile this size would be furniture with no room to stand on.
+ * Tapping still opens fullscreen, where the stream is mounted lazily.
+ */
+export const GlanceTier: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('ha-camera-stream')).toBeNull()
+    await expect(canvasElement.querySelector('.camera-name-overlay')).toBeNull()
+    await expect(liveBadge(canvasElement)).toBeNull()
+    await expect(canvasElement.querySelector('.liebe-name')?.textContent).toBe('Driveway')
+    // One cell wide: the name alone, no state line to clip.
+    await expect(canvasElement.querySelector('.liebe-state')).toBeNull()
+  },
+}
+
+/** ≥2×1 — the one degraded tier with the width for a state line beside the name. */
+export const RowTier: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('ha-camera-stream')).toBeNull()
+    await expect(canvasElement.querySelector('.liebe-name')?.textContent).toBe('Driveway')
+    await expect(canvasElement.querySelector('.liebe-state')?.textContent).toBe('Idle')
+  },
+}
+
+/** 1×≥2 — thumbnail on top, name below; the same degradation as `glance`. */
+export const TallTier: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('ha-camera-stream')).toBeNull()
+    await expect(canvasElement.querySelector('.liebe-state')).toBeNull()
+  },
+}
+
+/**
+ * `hideName` on a degraded tile leaves the picture alone — an image-only tile,
+ * which the tier table requires to stay a valid layout.
+ */
+export const GlanceTierImageOnly: Story = {
+  args: {
+    tier: 'glance',
+    gridWidth: 1,
+    gridHeight: 1,
+    item: cameraItem({ hideName: true }),
+  },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('.liebe-name')).toBeNull()
   },
 }
 

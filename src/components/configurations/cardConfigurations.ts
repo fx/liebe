@@ -421,6 +421,27 @@ export const cardConfigurations: Record<
         description:
           'A LIVE pill while frames are actually flowing. Never shown over the still snapshot a camera falls back to, which is not live.',
       },
+      showLastMotion: {
+        type: 'boolean',
+        default: CAMERA_OPTION_DEFAULTS.showLastMotion,
+        label: 'Show motion',
+        description:
+          'Adds “Motion detected” or “Clear for 12 min” to the feed, from the sensor below. Needs a sensor linked, and a card big enough to show the overlay.',
+      },
+      motionEntity: {
+        type: 'entity',
+        default: CAMERA_OPTION_DEFAULTS.motionEntity,
+        label: 'Motion sensor',
+        /*
+         * Narrowed to the domain and no further. A device class would make the
+         * picker shorter, but plenty of real motion sensors — template ones
+         * especially — carry none at all, and a picker that cannot offer the
+         * sensor a user actually has is worse than a long one.
+         */
+        domains: ['binary_sensor'],
+        description:
+          'The sensor that watches this camera. Liebe only reads it — nothing is created, and a sensor that goes missing or unavailable just drops the line.',
+      },
       fit: {
         type: 'select',
         default: 'cover',

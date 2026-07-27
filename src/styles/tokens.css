@@ -90,6 +90,15 @@
     --liebe-faint: var(--gray-a9);
     --liebe-hairline: var(--gray-a3);
     --liebe-track: var(--gray-a3);
+    /*
+     * The well a picture sits in — a camera thumbnail or feed — while it loads,
+     * and the letterbox around one that does not fill its box. A token rather
+     * than the Radix step it aliases, so a theme that restyles Liebe's surfaces
+     * restyles this one too; reaching `--gray-3` at the point of use would put
+     * every camera tile outside the token contract
+     * (docs/specs/theming — "Application mechanism").
+     */
+    --liebe-media-bg: var(--gray-3);
 
     /*
      * --- Typography ---------------------------------------------------

@@ -22,16 +22,31 @@ describe('readCameraOptions', () => {
     expect(readCameraOptions({})).toEqual(CAMERA_OPTION_DEFAULTS)
   })
 
-  it('shows both the overlay and the badge on an unconfigured card', () => {
+  it('shows the overlay and the badge, and links no sensor, out of the box', () => {
     // The option doc's defaults: a camera tile says which camera it is and
-    // whether it is live without anybody configuring it.
-    expect(CAMERA_OPTION_DEFAULTS).toEqual({ showNameOverlay: true, showLiveBadge: true })
+    // whether it is live without anybody configuring it — and the motion line
+    // stays off, because it reads an entity only the user can name.
+    expect(CAMERA_OPTION_DEFAULTS).toEqual({
+      showNameOverlay: true,
+      showLiveBadge: true,
+      showLastMotion: false,
+      motionEntity: '',
+    })
   })
 
   it('reads a fully configured card', () => {
-    expect(readCameraOptions({ showNameOverlay: false, showLiveBadge: false })).toEqual({
+    expect(
+      readCameraOptions({
+        showNameOverlay: false,
+        showLiveBadge: false,
+        showLastMotion: true,
+        motionEntity: 'binary_sensor.driveway_motion',
+      })
+    ).toEqual({
       showNameOverlay: false,
       showLiveBadge: false,
+      showLastMotion: true,
+      motionEntity: 'binary_sensor.driveway_motion',
     })
   })
 
@@ -40,6 +55,8 @@ describe('readCameraOptions', () => {
     ['an overlay flag written as a number', { showNameOverlay: 0 }],
     ['a badge flag written as a string', { showLiveBadge: 'false' }],
     ['a badge flag that is null', { showLiveBadge: null }],
+    ['a motion flag written as a string', { showLastMotion: 'yes' }],
+    ['a motion entity that is not text', { motionEntity: ['binary_sensor.x'] }],
   ])('falls back to the default for %s', (_name, config) => {
     expect(readCameraOptions(config)).toEqual(CAMERA_OPTION_DEFAULTS)
   })
@@ -49,6 +66,41 @@ describe('readCameraOptions', () => {
       ...CAMERA_OPTION_DEFAULTS,
       showNameOverlay: false,
     })
+  })
+
+  it.each([
+    ['a switch', 'switch.porch'],
+    ['a light', 'light.porch'],
+    ['a bare domain', 'binary_sensor.'],
+    ['no domain at all', 'driveway_motion'],
+    ['a capitalised id', 'binary_sensor.Driveway'],
+  ])('resolves %s to no linked sensor rather than reading it as motion', (_name, motionEntity) => {
+    /*
+     * The picker only narrows what a user can CHOOSE; a shared YAML can say
+     * anything. A camera announcing "Motion detected" because somebody turned
+     * the porch light on is a card lying about the world, with nothing on its
+     * face to explain why — so an entity outside the domain resolves to "none
+     * linked", which is no motion line at all.
+     */
+    expect(readCameraOptions({ showLastMotion: true, motionEntity })).toEqual({
+      ...CAMERA_OPTION_DEFAULTS,
+      showLastMotion: true,
+    })
+  })
+
+  it('leaves the stored document alone while resolving it', () => {
+    // Resolved for display, never rewritten: a document this build cannot fully
+    // interpret survives a round trip unchanged
+    // (docs/specs/dashboard-config — "Forward Compatibility").
+    const stored = { showLastMotion: true, motionEntity: 'switch.porch' }
+    readCameraOptions(stored)
+    expect(stored).toEqual({ showLastMotion: true, motionEntity: 'switch.porch' })
+  })
+
+  it('accepts a real motion sensor', () => {
+    expect(
+      readCameraOptions({ motionEntity: 'binary_sensor.driveway_motion_2' }).motionEntity
+    ).toBe('binary_sensor.driveway_motion_2')
   })
 
   it('ignores keys belonging to other cards and to the streaming spec', () => {
@@ -67,7 +119,12 @@ describe('readCameraOptions', () => {
 describe('cameraOptionsConfigSchema', () => {
   it('accepts what the form writes', () => {
     expect(
-      cameraOptionsConfigSchema.safeParse({ showNameOverlay: true, showLiveBadge: false }).success
+      cameraOptionsConfigSchema.safeParse({
+        showNameOverlay: true,
+        showLiveBadge: false,
+        showLastMotion: true,
+        motionEntity: 'binary_sensor.driveway_motion',
+      }).success
     ).toBe(true)
   })
 
@@ -78,6 +135,13 @@ describe('cameraOptionsConfigSchema', () => {
   it.each([
     ['a badge flag that is not a boolean', { showLiveBadge: 'no' }],
     ['an overlay flag that is not a boolean', { showNameOverlay: 1 }],
+    ['a motion flag that is not a boolean', { showLastMotion: 'yes' }],
+    ['a motion entity that is not a string', { motionEntity: 42 }],
+    // The gate is where the author gets told: a document naming a switch as
+    // its motion source is one whose author needs telling, rather than a card
+    // that silently reads a light switch as a person walking past.
+    ['a motion entity outside the domain', { motionEntity: 'switch.porch' }],
+    ['a motion entity with no domain', { motionEntity: 'driveway_motion' }],
   ])('rejects %s at the gate', (_name, config) => {
     // `showLiveBadge: "no"` in particular: silently falling back to the enabled
     // default would label a feed live in a document that asked for the opposite.
