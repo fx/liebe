@@ -98,7 +98,9 @@ describe('binary sensor presentation (pinned)', () => {
   })
 
   it('falls an unmapped device class back to the generic pair', () => {
-    const unmapped = { friendly_name: 'Sensor', device_class: 'battery_charging' }
+    // `battery_charging` used to stand in for "unmapped"; change 0018 PR 2's
+    // icon audit gave it a row, so this needs a class no build has.
+    const unmapped = { friendly_name: 'Sensor', device_class: 'from_a_newer_home_assistant' }
     const none = { friendly_name: 'Sensor', device_class: undefined }
 
     // Same glyphs as a sensor with no device class at all: the map has no entry

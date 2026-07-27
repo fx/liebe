@@ -12,77 +12,159 @@ import type { BinarySensorOptions } from '~/store/binarySensorOptions'
  * (docs/changes/0018-sensor-cards-to-spec.md). This module is that point.
  */
 
-/** The on/off text a `device_class` implies, following Home Assistant's naming. */
-export interface BinarySensorLabels {
-  on: string
-  off: string
+/** What one state of a binary sensor says and shows. */
+export interface BinarySensorStateFace {
+  label: string
+  /** A glyph name from the curated list in `src/utils/iconList.ts`. */
+  icon: string
+}
+
+/** The pair of faces a `device_class` gives its two states. */
+export interface BinarySensorFaces {
+  on: BinarySensorStateFace
+  off: BinarySensorStateFace
 }
 
 /**
- * The `device_class` → label table Liebe ships.
+ * The `device_class` → presentation table Liebe ships: for each class, what
+ * each state SAYS and what it SHOWS, written together.
  *
- * Local by decision, not by accident: change 0018 resolved the option doc's
- * open question in favour of shipping our own map rather than reaching into
- * Home Assistant frontend internals at runtime, which are not a contract and
- * are not loaded when the panel renders in isolation (Storybook, tests). The
- * wording follows Home Assistant's own so a dashboard does not disagree with
- * the app it lives in.
+ * The two used to be separate tables — labels here, glyphs there — and that
+ * shape shipped two inversions at once. `lock` paired the word "Unlocked" with
+ * a closed padlock, and `safety` paired "Unsafe" with a check-marked shield;
+ * both read as the opposite of the state they described, and a glance reads the
+ * glyph. Neither survived review of the table itself, because checking them
+ * meant holding two lists side by side and comparing the nth row of one against
+ * the nth row of the other.
+ *
+ * Written as one row per class, an inversion is a word and a glyph that
+ * contradict each other **on the same line**, which is the difference between
+ * an error a reader can see and one they have to reconstruct. The vocabulary
+ * test in `__tests__/presentation.test.ts` closes the rest of the gap.
+ *
+ * The wording is Home Assistant's own, so a dashboard does not disagree with
+ * the app it lives in; the table is local by decision (change 0018 resolved the
+ * option doc's open question that way) rather than read from frontend
+ * internals, which are not a contract and are not loaded when the panel renders
+ * in Storybook or in tests.
  */
-export const BINARY_SENSOR_LABELS: Readonly<Record<string, BinarySensorLabels>> = {
-  battery: { on: 'Low', off: 'Normal' },
-  battery_charging: { on: 'Charging', off: 'Not charging' },
-  carbon_monoxide: { on: 'Detected', off: 'Clear' },
-  cold: { on: 'Cold', off: 'Normal' },
-  connectivity: { on: 'Connected', off: 'Disconnected' },
-  door: { on: 'Open', off: 'Closed' },
-  garage_door: { on: 'Open', off: 'Closed' },
-  gas: { on: 'Detected', off: 'Clear' },
-  heat: { on: 'Hot', off: 'Normal' },
-  light: { on: 'Detected', off: 'No light' },
-  lock: { on: 'Unlocked', off: 'Locked' },
-  moisture: { on: 'Wet', off: 'Dry' },
-  motion: { on: 'Detected', off: 'Clear' },
-  moving: { on: 'Moving', off: 'Not moving' },
-  occupancy: { on: 'Detected', off: 'Clear' },
-  opening: { on: 'Open', off: 'Closed' },
-  plug: { on: 'Plugged in', off: 'Unplugged' },
-  presence: { on: 'Home', off: 'Away' },
-  problem: { on: 'Problem', off: 'OK' },
-  running: { on: 'Running', off: 'Not running' },
-  safety: { on: 'Unsafe', off: 'Safe' },
-  smoke: { on: 'Detected', off: 'Clear' },
-  sound: { on: 'Detected', off: 'Clear' },
-  tamper: { on: 'Detected', off: 'Clear' },
-  update: { on: 'Update available', off: 'Up-to-date' },
-  vibration: { on: 'Detected', off: 'Clear' },
-  water: { on: 'Wet', off: 'Dry' },
-  window: { on: 'Open', off: 'Closed' },
+export const BINARY_SENSOR_FACES: Readonly<Record<string, BinarySensorFaces>> = {
+  // A low battery is the notable state, so it takes the warning glyph and the
+  // plain battery marks the normal one.
+  battery: {
+    on: { label: 'Low', icon: 'AlertTriangle' },
+    off: { label: 'Normal', icon: 'Battery' },
+  },
+  battery_charging: {
+    on: { label: 'Charging', icon: 'Power' },
+    off: { label: 'Not charging', icon: 'PowerOff' },
+  },
+  carbon_monoxide: {
+    on: { label: 'Detected', icon: 'AlertTriangle' },
+    off: { label: 'Clear', icon: 'ShieldCheck' },
+  },
+  cold: { on: { label: 'Cold', icon: 'Temperature' }, off: { label: 'Normal', icon: 'Circle' } },
+  connectivity: {
+    on: { label: 'Connected', icon: 'Wifi' },
+    off: { label: 'Disconnected', icon: 'WifiOff' },
+  },
+  /*
+   * `Door`/`DoorOff` is the active/inactive convention every `*Off` pair in
+   * this table follows, not a literal drawing of a door's position — the
+   * curated glyph list has no open-door glyph. Open is the notable state and
+   * takes the plain glyph; closed takes the struck-through one.
+   */
+  door: { on: { label: 'Open', icon: 'Door' }, off: { label: 'Closed', icon: 'DoorOff' } },
+  garage_door: { on: { label: 'Open', icon: 'Door' }, off: { label: 'Closed', icon: 'DoorOff' } },
+  gas: {
+    on: { label: 'Detected', icon: 'AlertTriangle' },
+    off: { label: 'Clear', icon: 'ShieldCheck' },
+  },
+  heat: { on: { label: 'Hot', icon: 'Flame' }, off: { label: 'Normal', icon: 'FlameOff' } },
+  light: { on: { label: 'Detected', icon: 'Bulb' }, off: { label: 'No light', icon: 'BulbOff' } },
+  /*
+   * The pair Copilot caught. `on` is "Unlocked", so `on` gets the OPEN padlock:
+   * the glyph that matches the word beside it, not the one that matches the
+   * class's name.
+   */
+  lock: { on: { label: 'Unlocked', icon: 'LockOpen' }, off: { label: 'Locked', icon: 'Lock' } },
+  moisture: { on: { label: 'Wet', icon: 'Droplet' }, off: { label: 'Dry', icon: 'DropletOff' } },
+  // Different stems on purpose: the sensor glyph reads "movement", and there is
+  // no struck-through motion glyph to pair it with.
+  motion: {
+    on: { label: 'Detected', icon: 'MotionSensor' },
+    off: { label: 'Clear', icon: 'UserOff' },
+  },
+  moving: {
+    on: { label: 'Moving', icon: 'MotionSensor' },
+    off: { label: 'Not moving', icon: 'Circle' },
+  },
+  occupancy: { on: { label: 'Detected', icon: 'User' }, off: { label: 'Clear', icon: 'UserOff' } },
+  opening: { on: { label: 'Open', icon: 'Door' }, off: { label: 'Closed', icon: 'DoorOff' } },
+  plug: {
+    on: { label: 'Plugged in', icon: 'Power' },
+    off: { label: 'Unplugged', icon: 'PowerOff' },
+  },
+  presence: { on: { label: 'Home', icon: 'User' }, off: { label: 'Away', icon: 'UserOff' } },
+  problem: {
+    on: { label: 'Problem', icon: 'AlertTriangle' },
+    off: { label: 'OK', icon: 'ShieldCheck' },
+  },
+  running: {
+    on: { label: 'Running', icon: 'Power' },
+    off: { label: 'Not running', icon: 'PowerOff' },
+  },
+  /*
+   * The second inversion, which nobody flagged: "Unsafe" carried the
+   * check-marked shield — the universal "verified, all good" glyph — on a class
+   * that is in `ALERT_DEVICE_CLASSES`. A triggered safety sensor got the alert
+   * triplet and a reassuring tick at the same time, which is the danger floor
+   * refusing to let a user configure the card into looking calm while the
+   * default did exactly that.
+   */
+  safety: {
+    on: { label: 'Unsafe', icon: 'AlertTriangle' },
+    off: { label: 'Safe', icon: 'ShieldCheck' },
+  },
+  smoke: { on: { label: 'Detected', icon: 'Flame' }, off: { label: 'Clear', icon: 'FlameOff' } },
+  sound: { on: { label: 'Detected', icon: 'Volume' }, off: { label: 'Clear', icon: 'VolumeOff' } },
+  tamper: {
+    on: { label: 'Detected', icon: 'AlertTriangle' },
+    off: { label: 'Clear', icon: 'ShieldCheck' },
+  },
+  // The one class where the check-mark belongs on `off`: being up to date is
+  // the verified-good state.
+  update: {
+    on: { label: 'Update available', icon: 'InfoCircle' },
+    off: { label: 'Up-to-date', icon: 'CircleCheck' },
+  },
+  vibration: { on: { label: 'Detected', icon: 'Bell' }, off: { label: 'Clear', icon: 'BellOff' } },
+  water: { on: { label: 'Wet', icon: 'Droplet' }, off: { label: 'Dry', icon: 'DropletOff' } },
+  window: { on: { label: 'Open', icon: 'Door' }, off: { label: 'Closed', icon: 'DoorOff' } },
 }
 
-/** What a sensor with no `device_class`, or one this build has no entry for, says. */
-export const DEFAULT_BINARY_SENSOR_LABELS: BinarySensorLabels = { on: 'On', off: 'Off' }
-
-/** The `device_class` → glyph-name pairs, unchanged from what ships today. */
-const BINARY_SENSOR_ICONS: Readonly<Record<string, BinarySensorLabels>> = {
-  occupancy: { on: 'User', off: 'UserOff' },
-  presence: { on: 'User', off: 'UserOff' },
-  door: { on: 'Door', off: 'DoorOff' },
-  window: { on: 'Door', off: 'DoorOff' }, // Using door icons for windows
-  motion: { on: 'MotionSensor', off: 'UserOff' },
-  moisture: { on: 'Droplet', off: 'DropletOff' },
-  water: { on: 'Droplet', off: 'DropletOff' },
-  lock: { on: 'Lock', off: 'LockOpen' },
-  safety: { on: 'ShieldCheck', off: 'Shield' },
-  smoke: { on: 'Flame', off: 'FlameOff' },
-  sound: { on: 'Volume', off: 'VolumeOff' },
-  vibration: { on: 'Bell', off: 'BellOff' },
-  light: { on: 'Bulb', off: 'BulbOff' },
+/**
+ * What a sensor with no `device_class`, or one this build has no row for, shows.
+ *
+ * `Eye`/`EyeOff` rather than the check-and-circle pair that shipped. A tick is
+ * a VERDICT — "this is fine" — and the generic case is precisely the one with
+ * no idea whether `on` is fine: it is reached by an unclassed sensor and by any
+ * `device_class` a newer Home Assistant adds, which may well be a hazard. The
+ * eye says "reporting / not reporting" and passes no judgement.
+ *
+ * This is not a small default. Before this change fourteen of the twenty-eight
+ * classes above had no glyphs of their own and landed here, five of them
+ * alert-class — so a tripped gas, carbon-monoxide, tamper, heat or problem
+ * sensor rendered a green tick while the card around it went red.
+ */
+export const DEFAULT_BINARY_SENSOR_FACES: BinarySensorFaces = {
+  on: { label: 'On', icon: 'Eye' },
+  off: { label: 'Off', icon: 'EyeOff' },
 }
 
-/** The generic pair, for a device class with no glyphs of its own. */
-export const DEFAULT_BINARY_SENSOR_ICONS: BinarySensorLabels = {
-  on: 'CircleCheck',
-  off: 'Circle',
+/** The faces for a device class, falling back to the generic pair. */
+export function facesForDeviceClass(deviceClass: string | undefined): BinarySensorFaces {
+  return (deviceClass && BINARY_SENSOR_FACES[deviceClass]) || DEFAULT_BINARY_SENSOR_FACES
 }
 
 /**
@@ -184,26 +266,33 @@ export function resolveBinarySensorPresentation({
   const hasOpposite = rawOn || state === 'off'
   const danger = rawOn && deviceClass !== undefined && ALERT_DEVICE_CLASSES.has(deviceClass)
 
-  const labels = (deviceClass && BINARY_SENSOR_LABELS[deviceClass]) || DEFAULT_BINARY_SENSOR_LABELS
-  const icons = (deviceClass && BINARY_SENSOR_ICONS[deviceClass]) || DEFAULT_BINARY_SENSOR_ICONS
+  const faces = facesForDeviceClass(deviceClass)
 
   // A hazard is always presented as active; otherwise `invert` decides, and
   // only where there are two states to swap.
   const presentedOn = danger || (hasOpposite && options.invert ? !rawOn : rawOn)
 
+  /*
+   * The face this state shows, and the one the options may replace parts of.
+   * Both the word and the glyph come from the SAME row now, so a configuration
+   * that replaces one of them cannot leave the card describing its state twice
+   * in two different directions.
+   */
+  const face = presentedOn ? faces.on : faces.off
+
   const label = danger
     ? // The device-class hazard word, not the configured one: `onLabel: "All
       // clear"` on a sounding detector is exactly what this rule exists for.
-      labels.on
+      faces.on.label
     : hasOpposite
-      ? (presentedOn ? options.onLabel : options.offLabel) || (presentedOn ? labels.on : labels.off)
+      ? (presentedOn ? options.onLabel : options.offLabel) || face.label
       : // Neither on nor off: read the raw state out rather than mapping it to
         // a label that describes a state the entity did not report.
         state.toUpperCase()
 
   const iconName = danger
-    ? icons.on
-    : (presentedOn ? options.onIcon : options.offIcon) || (presentedOn ? icons.on : icons.off)
+    ? faces.on.icon
+    : (presentedOn ? options.onIcon : options.offIcon) || face.icon
 
   return {
     presentedOn,

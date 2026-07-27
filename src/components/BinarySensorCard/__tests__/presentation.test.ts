@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   ALERT_DEVICE_CLASSES,
-  BINARY_SENSOR_LABELS,
-  DEFAULT_BINARY_SENSOR_ICONS,
-  DEFAULT_BINARY_SENSOR_LABELS,
+  BINARY_SENSOR_FACES,
+  DEFAULT_BINARY_SENSOR_FACES,
   activeColorForDeviceClass,
   resolveBinarySensorPresentation,
 } from '../presentation'
+import { getIcon } from '~/utils/iconList'
 import {
   BINARY_SENSOR_OPTION_DEFAULTS,
   type BinarySensorOptions,
@@ -75,8 +75,8 @@ describe('label defaults', () => {
       // A device class from a newer Home Assistant is not an error; it is a
       // class this table has no wording for, and `On`/`Off` is what Home
       // Assistant itself says then.
-      expect(resolve('on', deviceClass).label).toBe(DEFAULT_BINARY_SENSOR_LABELS.on)
-      expect(resolve('off', deviceClass).label).toBe(DEFAULT_BINARY_SENSOR_LABELS.off)
+      expect(resolve('on', deviceClass).label).toBe(DEFAULT_BINARY_SENSOR_FACES.on.label)
+      expect(resolve('off', deviceClass).label).toBe(DEFAULT_BINARY_SENSOR_FACES.off.label)
     }
   )
 
@@ -116,9 +116,11 @@ describe('icons', () => {
     expect(resolve('off', 'door').iconName).toBe('DoorOff')
   })
 
-  it('falls back to the generic pair for a class with no glyphs', () => {
-    expect(resolve('on', 'plug').iconName).toBe(DEFAULT_BINARY_SENSOR_ICONS.on)
-    expect(resolve('off', undefined).iconName).toBe(DEFAULT_BINARY_SENSOR_ICONS.off)
+  it('falls back to the generic pair for a class with no row', () => {
+    expect(resolve('on', 'a_class_from_a_newer_home_assistant').iconName).toBe(
+      DEFAULT_BINARY_SENSOR_FACES.on.icon
+    )
+    expect(resolve('off', undefined).iconName).toBe(DEFAULT_BINARY_SENSOR_FACES.off.icon)
   })
 
   it('prefers a configured icon', () => {
@@ -284,22 +286,137 @@ describe('the alert set', () => {
   })
 })
 
-describe('the label table', () => {
-  it('names both states of every class it lists', () => {
-    // A half-filled row would render an empty state line for one of the two
-    // states, which reads as a card that failed rather than as a sensor.
-    for (const [deviceClass, labels] of Object.entries(BINARY_SENSOR_LABELS)) {
-      expect(labels.on, deviceClass).not.toBe('')
-      expect(labels.off, deviceClass).not.toBe('')
-      expect(labels.on, deviceClass).not.toBe(labels.off)
+/*
+ * The vocabulary audit — what makes an inverted row FAIL rather than have to be
+ * spotted.
+ *
+ * Two inversions shipped in the split tables this replaced: `lock` paired
+ * "Unlocked" with a closed padlock, and `safety` paired "Unsafe" with a
+ * check-marked shield. Both survived review because checking a pairing table by
+ * eye means comparing the nth row of one list against the nth row of another,
+ * and the eye slides.
+ *
+ * So the meaning of each glyph is declared HERE, independently of the table
+ * under test, and every row is checked against it. This is deliberately not a
+ * copy of the table — a test that restated the rows would have restated the
+ * bugs. It states one thing the table never says: which direction each glyph
+ * points.
+ */
+
+/** Glyphs that read as "something is happening, present, or wrong". */
+const ACTIVE_GLYPHS = new Set([
+  'AlertTriangle',
+  'Bell',
+  'Bulb',
+  'Door',
+  'Droplet',
+  'Eye',
+  'Flame',
+  'InfoCircle',
+  'LockOpen',
+  'MotionSensor',
+  'Power',
+  'Temperature',
+  'User',
+  'Volume',
+  'Wifi',
+])
+
+/** Glyphs that read as "nothing is happening, absent, or verified fine". */
+const CALM_GLYPHS = new Set([
+  'Battery',
+  'BellOff',
+  'BulbOff',
+  'Circle',
+  'CircleCheck',
+  'DoorOff',
+  'DropletOff',
+  'EyeOff',
+  'EyeOff',
+  'FlameOff',
+  'Lock',
+  'PowerOff',
+  'ShieldCheck',
+  'UserOff',
+  'VolumeOff',
+  'WifiOff',
+])
+
+/**
+ * The subset that reads as an ALARM rather than merely as activity. An
+ * alert-class sensor's active glyph has to be one of these: "something is
+ * happening" is not enough when the something is carbon monoxide.
+ */
+const ALARM_GLYPHS = new Set(['AlertTriangle', 'Flame'])
+
+describe('the presentation table', () => {
+  const entries = Object.entries(BINARY_SENSOR_FACES)
+
+  it('covers every class with two distinct, non-empty faces', () => {
+    for (const [deviceClass, faces] of entries) {
+      expect(faces.on.label, deviceClass).not.toBe('')
+      expect(faces.off.label, deviceClass).not.toBe('')
+      expect(faces.on.label, deviceClass).not.toBe(faces.off.label)
+      expect(faces.on.icon, deviceClass).not.toBe(faces.off.icon)
     }
   })
 
-  it('names every alert class it protects', () => {
-    // The hazard rule renders the table's `on` word. A class in the alert set
-    // with no row would fall back to "On", which is not a hazard label.
-    for (const deviceClass of ALERT_DEVICE_CLASSES) {
-      expect(BINARY_SENSOR_LABELS[deviceClass], deviceClass).toBeDefined()
+  it('points every active glyph at the active state', () => {
+    // The assertion that catches an inversion. `lock` failed this before the
+    // fix: `Lock` is a CALM glyph and it sat on the `on` face, whose label is
+    // "Unlocked".
+    for (const [deviceClass, faces] of entries) {
+      expect(ACTIVE_GLYPHS.has(faces.on.icon), `${deviceClass} on: ${faces.on.icon}`).toBe(true)
+      expect(CALM_GLYPHS.has(faces.off.icon), `${deviceClass} off: ${faces.off.icon}`).toBe(true)
     }
+  })
+
+  it('says nothing reassuring on an alarming state', () => {
+    // `safety` failed this before the fix: `ShieldCheck` on the "Unsafe" face.
+    // So did five more classes, through the old generic fallback — `gas`,
+    // `carbon_monoxide`, `tamper`, `heat` and `problem` all rendered a tick
+    // while the card around them went red.
+    for (const deviceClass of ALERT_DEVICE_CLASSES) {
+      const faces = BINARY_SENSOR_FACES[deviceClass]
+      expect(faces, deviceClass).toBeDefined()
+      expect(ALARM_GLYPHS.has(faces.on.icon), `${deviceClass} on: ${faces.on.icon}`).toBe(true)
+      expect(CALM_GLYPHS.has(faces.off.icon), `${deviceClass} off: ${faces.off.icon}`).toBe(true)
+    }
+  })
+
+  it('gives every alert class a row of its own', () => {
+    // Not the generic fallback, whatever that fallback happens to be: a hazard
+    // class must state its own glyphs so a change to the default cannot reach
+    // it.
+    for (const deviceClass of ALERT_DEVICE_CLASSES) {
+      expect(Object.keys(BINARY_SENSOR_FACES), deviceClass).toContain(deviceClass)
+    }
+  })
+
+  it('passes no verdict in the generic face', () => {
+    // The generic pair is reached by unclassed sensors AND by any device class
+    // a newer Home Assistant adds — which may be a hazard. A tick there is a
+    // claim this build is in no position to make.
+    expect(ACTIVE_GLYPHS.has(DEFAULT_BINARY_SENSOR_FACES.on.icon)).toBe(true)
+    expect(CALM_GLYPHS.has(DEFAULT_BINARY_SENSOR_FACES.off.icon)).toBe(true)
+    expect(DEFAULT_BINARY_SENSOR_FACES.on.icon).not.toBe('CircleCheck')
+  })
+
+  it('keeps the two vocabularies disjoint', () => {
+    // A glyph in both sets would make the direction assertions vacuous.
+    for (const glyph of ACTIVE_GLYPHS) {
+      expect(CALM_GLYPHS.has(glyph), glyph).toBe(false)
+    }
+  })
+
+  it('uses only glyphs the build actually has', () => {
+    // A name with no icon behind it falls through to the card's generic
+    // fallback at render time, which would silently undo a row of this table.
+    for (const [deviceClass, faces] of entries) {
+      expect(getIcon(faces.on.icon), `${deviceClass} on: ${faces.on.icon}`).toBeDefined()
+      expect(getIcon(faces.off.icon), `${deviceClass} off: ${faces.off.icon}`).toBeDefined()
+    }
+    expect(getIcon(DEFAULT_BINARY_SENSOR_FACES.on.icon)).toBeDefined()
+    expect(getIcon(DEFAULT_BINARY_SENSOR_FACES.off.icon)).toBeDefined()
   })
 })
