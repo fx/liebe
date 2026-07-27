@@ -8,10 +8,18 @@ import { Slider } from './anatomy'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface LightCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
+  /**
+   * The effective grid span behind `tier`. This card owns its own
+   * configuration modal, so it is also what the modal's preview renders at —
+   * the preview must show the tier the card behind it is rendering
+   * (docs/changes/0011-layout-tiers.md).
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -40,7 +48,8 @@ interface LightAttributes {
 
 function LightCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
+  span,
   onDelete,
   isSelected = false,
   onSelect,
@@ -126,7 +135,7 @@ function LightCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -135,6 +144,7 @@ function LightCardComponent({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -179,7 +189,7 @@ function LightCardComponent({
       <GridCard
         domain="light"
         color="light"
-        size={size}
+        tier={tier}
         isLoading={isLoading}
         isError={!!error}
         isStale={isStale}
@@ -238,6 +248,7 @@ function LightCardComponent({
           open={configOpen}
           onOpenChange={setConfigOpen}
           item={item}
+          span={span}
           onSave={handleConfigSave}
         />
       )}
@@ -250,7 +261,7 @@ const MemoizedLightCard = memo(LightCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
+    prevProps.tier === nextProps.tier &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect &&

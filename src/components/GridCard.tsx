@@ -11,6 +11,7 @@ import { readCardDisplay, resolveCardColor, type CardDisplayOptions } from '~/st
 import { getIcon } from '~/utils/iconList'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
+import type { CardTier } from '~/utils/cardTier'
 import './GridCard.css'
 
 // Types
@@ -46,7 +47,20 @@ export interface GridCardProps {
    * guards rather than after it.
    */
   danger?: boolean
-  size?: 'small' | 'medium' | 'large'
+  /**
+   * The layout tier this card renders at, derived by the renderer from the
+   * item's effective grid span (`~/utils/cardTier`) and stamped on the tile as
+   * `data-tier` — public API under the stable selector contract
+   * (docs/specs/theming/index.md).
+   *
+   * Defaulted rather than required, unlike `domain`: every shell renders at
+   * some tier, so the contract's presence guarantee has to hold even for a
+   * shell rendered outside a grid — a story, the configuration preview, the
+   * sidebar widget. `row` is that default because it is the shape a card with
+   * no other information should take: the icon-and-meta row every card
+   * implements.
+   */
+  tier?: CardTier
   isLoading?: boolean
   isError?: boolean
   isStale?: boolean
@@ -275,7 +289,7 @@ function isEmbeddedControl(e: React.SyntheticEvent): boolean {
 }
 
 interface GridCardContextValue {
-  size: 'small' | 'medium' | 'large'
+  tier: CardTier
   isLoading?: boolean
   domain: string
   color: DomainColorName
@@ -286,7 +300,7 @@ interface GridCardContextValue {
 
 // Context for compound components
 const GridCardContext = React.createContext<GridCardContextValue>({
-  size: 'medium',
+  tier: 'row',
   isLoading: false,
   domain: 'unknown',
   color: 'default',
@@ -319,7 +333,7 @@ export const GridCard = React.memo(
         domain,
         color = 'default',
         danger = false,
-        size = 'medium',
+        tier = 'row',
         isLoading = false,
         isError = false,
         transparent = false,
@@ -515,8 +529,8 @@ export const GridCard = React.memo(
       }
 
       const contextValue = React.useMemo(
-        () => ({ size, isLoading, domain, color: resolvedColor, isOn, display }),
-        [size, isLoading, domain, resolvedColor, isOn, display]
+        () => ({ tier, isLoading, domain, color: resolvedColor, isOn, display }),
+        [tier, isLoading, domain, resolvedColor, isOn, display]
       )
 
       /*
@@ -565,7 +579,7 @@ export const GridCard = React.memo(
             className={`liebe-card grid-card${className ? ` ${className}` : ''}`}
             data-domain={domain}
             data-color={resolvedColor}
-            data-size={size}
+            data-tier={tier}
             data-icon-only={isIconOnly ? 'true' : undefined}
             data-active={isOn ? 'true' : undefined}
             data-selected={isSelected && isEditMode ? 'true' : undefined}

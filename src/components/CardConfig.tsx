@@ -30,12 +30,20 @@ import { BinarySensorCard } from './BinarySensorCard'
 import { Separator as SeparatorCard } from './Separator'
 import { GridCard } from './GridCard'
 import { dashboardStore } from '~/store'
+import { deriveCardTier, type CardSpan } from '~/utils/cardTier'
 import { useEffect } from 'react'
 
 interface ModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   item: GridItem
+  /**
+   * The span the item is being laid out at, for the preview. The caller has it
+   * — `GridView` from the grid, a card from its own props — and the preview
+   * cannot recover it, since nothing about a `GridItem` records the breakpoint
+   * it is being shown at.
+   */
+  span?: CardSpan
   onSave: (updates: Partial<GridItem>) => void
 }
 
@@ -405,6 +413,7 @@ function UniversalOptions({ item, config, onChange }: Required<ContentProps>) {
 interface PreviewProps {
   item: GridItem
   config: Record<string, unknown>
+  span?: CardSpan
 }
 
 // Wrapper component that temporarily sets mode to 'view' for preview
@@ -431,7 +440,18 @@ function ViewModeWrapper({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function Preview({ item, config }: PreviewProps) {
+function Preview({ item, config, span }: PreviewProps) {
+  /*
+   * The preview renders the card at the tier it will actually render at on the
+   * grid, which means the *effective* span — the caller's, scaled to the
+   * breakpoint's column count before it got here. Falling back to the stored
+   * dimensions is the last resort for a caller with no grid behind it: it is
+   * the same number at the wide breakpoints, and a preview is better than
+   * none at the narrow ones (docs/changes/0011-layout-tiers.md).
+   */
+  const effectiveSpan = span ?? { width: item.width, height: item.height }
+  const tier = deriveCardTier(effectiveSpan)
+
   const cardType =
     item?.type === 'separator'
       ? 'separator'
@@ -480,7 +500,7 @@ function Preview({ item, config }: PreviewProps) {
         >
           <Box style={{ width: '280px', pointerEvents: 'none' }}>
             {item.type === 'separator' ? (
-              <GridCard domain="separator" size="medium" transparent={previewItem.hideBackground}>
+              <GridCard domain="separator" tier={tier} transparent={previewItem.hideBackground}>
                 <SeparatorCard
                   title={previewItem.title}
                   orientation={previewItem.separatorOrientation || 'horizontal'}
@@ -488,10 +508,9 @@ function Preview({ item, config }: PreviewProps) {
                 />
               </GridCard>
             ) : item.type === 'text' ? (
-              <GridCard domain="text" size="medium" transparent={previewItem.hideBackground}>
+              <GridCard domain="text" tier={tier} transparent={previewItem.hideBackground}>
                 <TextCard
                   entityId={item.id}
-                  size="medium"
                   content={previewItem.content}
                   alignment={previewItem.alignment}
                   textSize={previewItem.textSize}
@@ -501,11 +520,16 @@ function Preview({ item, config }: PreviewProps) {
                 />
               </GridCard>
             ) : cardType === 'weather' && item.entityId ? (
-              <WeatherCard entityId={item.entityId} size="medium" config={config} />
+              <WeatherCard
+                entityId={item.entityId}
+                tier={tier}
+                span={effectiveSpan}
+                config={config}
+              />
             ) : cardType === 'light' && item.entityId ? (
-              <LightCard entityId={item.entityId} size="medium" item={previewItem} />
+              <LightCard entityId={item.entityId} tier={tier} item={previewItem} />
             ) : cardType === 'binary_sensor' && item.entityId ? (
-              <BinarySensorCard entityId={item.entityId} size="medium" item={previewItem} />
+              <BinarySensorCard entityId={item.entityId} tier={tier} item={previewItem} />
             ) : (
               <Text size="2" color="gray">
                 Preview not available for this card type
@@ -518,7 +542,7 @@ function Preview({ item, config }: PreviewProps) {
   )
 }
 
-function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
+function Modal({ open, onOpenChange, item, span, onSave }: ModalProps) {
   // Initialize config based on item type
   const getInitialConfig = () => {
     if (item.type === 'separator') {
@@ -639,7 +663,7 @@ function Modal({ open, onOpenChange, item, onSave }: ModalProps) {
                      * changed.
                      */}
                     <CardItemProvider entityId={item.entityId} config={localConfig}>
-                      <Preview item={item} config={localConfig} />
+                      <Preview item={item} config={localConfig} span={span} />
                     </CardItemProvider>
                   </Box>
                 </ScrollArea>

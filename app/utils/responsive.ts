@@ -122,3 +122,22 @@ export const gridConfig = {
 export function getGridConfig(breakpoint: Breakpoint) {
   return gridConfig[breakpoint]
 }
+
+/**
+ * How many columns a screen's grid is actually laid out in.
+ *
+ * A screen stores its own column count, and at the two wide breakpoints that is
+ * what it gets; the two narrow ones override it with the breakpoint's own
+ * count, which is how a 12-column screen becomes a 4-column one on a phone.
+ *
+ * Named and lifted out of `GridLayoutSection` because it is half of the
+ * effective-span derivation a card's layout tier now depends on — the other
+ * half being `scaleSpanToColumns` in `~/utils/cardTier`. A rule that decides
+ * what every card renders is worth stating once, where it can be read and
+ * tested on its own (docs/changes/0011-layout-tiers.md).
+ */
+export function getEffectiveColumns(breakpoint: Breakpoint, storedColumns: number): number {
+  return breakpoint === 'desktop' || breakpoint === 'wide'
+    ? storedColumns
+    : gridConfig[breakpoint].columns
+}

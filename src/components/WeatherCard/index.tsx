@@ -281,6 +281,11 @@ export function WeatherCard(props: CardProps) {
           open={configOpen}
           onOpenChange={setConfigOpen}
           item={props.item}
+          // This card owns its configuration modal, so the preview's tier has
+          // to come from the span the card itself was handed — otherwise it
+          // falls back to the stored dimensions and previews a different tier
+          // than the card behind it (docs/changes/0011-layout-tiers.md).
+          span={props.span}
           onSave={handleConfigSave}
         />
       )}

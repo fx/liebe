@@ -22,11 +22,18 @@ import { StillImageFallback } from './StillImageFallback'
 import { CameraControls } from './CameraControls'
 import type { CameraStatus } from './CameraControls'
 import { CameraStats } from './CameraStats'
+import type { CardTier } from '~/utils/cardTier'
 import './CameraCard.css'
 
 interface CameraCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  /**
+   * Stamped on the shell and otherwise unused. The camera's degradation below
+   * 2×2 is behavioural rather than a layout — the stream unmounts, a still
+   * stands in — and that belongs to change 0021; here the card renders the
+   * same at every span (docs/changes/0011-layout-tiers.md).
+   */
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -96,7 +103,7 @@ export function deriveCameraStatus({
 
 function CameraCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -277,7 +284,7 @@ function CameraCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or the entity is missing. The skeleton
@@ -288,6 +295,7 @@ function CameraCardComponent({
       <ErrorDisplay
         error="Disconnected from Home Assistant"
         variant="card"
+        tier={tier}
         title="Disconnected"
         onRetry={() => window.location.reload()}
         size="3"
@@ -321,8 +329,9 @@ function CameraCardComponent({
 
   // Calculate matting/padding based on configuration
   // Map matting values to Radix UI space tokens
-  // Small matches the default padding for the current card size
-  const defaultPadding = size === 'small' ? '2' : size === 'large' ? '4' : '3'
+  // One padding step at every tier, now that the legacy `size` scale is gone;
+  // the camera's own per-tier behaviour is 0021's.
+  const defaultPadding = '3'
   const mattingPadding =
     matting === 'none'
       ? '0'
@@ -343,11 +352,7 @@ function CameraCardComponent({
         left: isFullscreen ? '2%' : '8px',
         fontSize: isFullscreen
           ? 'min(3.2vw, 19.2px)' // Scale with viewport width (reduced by 20%)
-          : size === 'small'
-            ? '8px'
-            : size === 'large'
-              ? '11.2px'
-              : '9.6px',
+          : '9.6px',
       }}
     >
       <CameraControls
@@ -358,7 +363,7 @@ function CameraCardComponent({
         isMuted={isMuted}
         handleToggleMute={handleToggleMute}
         handleVideoFullscreen={handleVideoFullscreen}
-        size={isFullscreen ? 'large' : size}
+        size={isFullscreen ? 'large' : 'medium'}
         isFullscreen={isFullscreen}
       />
     </div>
@@ -371,7 +376,7 @@ function CameraCardComponent({
         // its own beyond the generic active colour a live stream resolves to.
         domain="camera"
         color="default"
-        size={size}
+        tier={tier}
         isLoading={false}
         isError={!!streamError}
         isStale={isStale}
@@ -487,7 +492,10 @@ function CameraCardComponent({
                       fullscreen). Readiness-gated: the still-image fallback has
                       no video to read playback quality from. */}
                   {showStats && readiness === 'ready' && (
-                    <CameraStats size={isFullscreen ? 'large' : size} videoElement={innerVideo} />
+                    <CameraStats
+                      size={isFullscreen ? 'large' : 'medium'}
+                      videoElement={innerVideo}
+                    />
                   )}
                   {/* Exit hint (fullscreen only). pointerEvents:none so a tap
                       landing on it still bubbles to the container's exit

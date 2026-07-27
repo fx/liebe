@@ -77,7 +77,7 @@ function getTemperatureDisplay(
 function WeatherCardDetailedContent(props: CardProps) {
   const {
     entityId,
-    size = 'medium',
+    tier = 'row',
     onDelete,
     isSelected = false,
     onSelect,
@@ -89,7 +89,7 @@ function WeatherCardDetailedContent(props: CardProps) {
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={3} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={3} />
   }
 
   // Show error state when disconnected or entity not found
@@ -98,6 +98,7 @@ function WeatherCardDetailedContent(props: CardProps) {
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -115,7 +116,9 @@ function WeatherCardDetailedContent(props: CardProps) {
     weatherConfig?.temperatureUnit || 'auto'
   )
 
-  const iconScale = size === 'large' ? 1.2 : size === 'medium' ? 1 : 0.8
+  // One glyph scale at every tier; the weather card's per-tier layout is
+  // 0011 PR 3's.
+  const iconScale = 1
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
 
   // Get background image for the current weather condition
@@ -128,7 +131,7 @@ function WeatherCardDetailedContent(props: CardProps) {
     return (
       <GridCard
         domain="weather"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
@@ -154,7 +157,7 @@ function WeatherCardDetailedContent(props: CardProps) {
   return (
     <GridCard
       domain="weather"
-      size={size}
+      tier={tier}
       isStale={isStale}
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
@@ -184,7 +187,7 @@ function WeatherCardDetailedContent(props: CardProps) {
         <Flex align="center" justify="between">
           <Box>
             <GridCard.Title>
-              <Heading size={size === 'large' ? '4' : '3'} style={emphasisStyles.text}>
+              <Heading size="3" style={emphasisStyles.text}>
                 {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
               </Heading>
             </GridCard.Title>

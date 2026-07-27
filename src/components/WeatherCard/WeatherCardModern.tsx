@@ -66,7 +66,7 @@ function getTemperatureDisplay(
 function WeatherCardModernContent(props: CardProps) {
   const {
     entityId,
-    size = 'medium',
+    tier = 'row',
     onDelete,
     isSelected = false,
     onSelect,
@@ -78,7 +78,7 @@ function WeatherCardModernContent(props: CardProps) {
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -87,6 +87,7 @@ function WeatherCardModernContent(props: CardProps) {
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -104,7 +105,8 @@ function WeatherCardModernContent(props: CardProps) {
   )
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
 
-  const iconSize = size === 'large' ? 64 : size === 'medium' ? 48 : 36
+  // One glyph size at every tier; the per-tier layout is 0011 PR 3's.
+  const iconSize = 48
 
   // Get background image for the current weather condition
   const backgroundImage = getWeatherBackground(entity.state)
@@ -116,7 +118,7 @@ function WeatherCardModernContent(props: CardProps) {
     return (
       <GridCard
         domain="weather"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
@@ -140,7 +142,7 @@ function WeatherCardModernContent(props: CardProps) {
   return (
     <GridCard
       domain="weather"
-      size={size}
+      tier={tier}
       isStale={isStale}
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
@@ -189,7 +191,7 @@ function WeatherCardModernContent(props: CardProps) {
           </Text>
 
           {tempDisplay && (
-            <Text size={size === 'large' ? '6' : '5'} weight="bold" style={emphasisStyles.text}>
+            <Text size="5" weight="bold" style={emphasisStyles.text}>
               {Math.round(tempDisplay.value)}
               {tempDisplay.unit}
             </Text>

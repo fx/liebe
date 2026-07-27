@@ -506,27 +506,4 @@ describe('CoverCard', () => {
       })
     })
   })
-
-  describe('Size Variants', () => {
-    it('applies correct size styles', () => {
-      const entity = createMockCoverEntity()
-      ;(useEntity as any).mockReturnValue({
-        entity,
-        isConnected: true,
-        isStale: false,
-      })
-
-      const { container, rerender } = render(<CoverCard entityId="cover.test_cover" size="small" />)
-      let card = container.querySelector('.cover-card')
-      expect(card).toHaveAttribute('data-size', 'small')
-
-      rerender(<CoverCard entityId="cover.test_cover" size="medium" />)
-      card = container.querySelector('.cover-card')
-      expect(card).toHaveAttribute('data-size', 'medium')
-
-      rerender(<CoverCard entityId="cover.test_cover" size="large" />)
-      card = container.querySelector('.cover-card')
-      expect(card).toHaveAttribute('data-size', 'large')
-    })
-  })
 })

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { GridItem } from '~/store/types'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 // Import all card components
 import { CameraCard } from './CameraCard'
@@ -20,7 +21,22 @@ import { InputDateTimeCard } from './InputDateTimeCard'
 // Card props interface that all cards must implement
 export interface CardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  /**
+   * The layout tier to render at. Derived by the renderer from `span` and
+   * handed down — a card never works it out for itself and never measures the
+   * DOM to find out how big it is (docs/specs/design-system —
+   * "Size-adaptive layouts").
+   */
+  tier?: CardTier
+  /**
+   * The effective grid span the tier came from, in cells.
+   *
+   * Passed alongside the tier because the tier is lossy: a card contract may
+   * key on width past a tier boundary — a `row` at four columns can carry more
+   * than a `row` at two — and a card that only knew its tier could not tell
+   * those apart.
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void

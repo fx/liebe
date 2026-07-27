@@ -13,10 +13,11 @@ import { GridCardWithComponents as GridCard } from './GridCard'
 import { Pill, PillGroup, Slider } from './anatomy'
 import { useDashboardStore } from '~/store'
 import type { DomainColorName } from '~/theme/tokens'
+import type { CardTier } from '~/utils/cardTier'
 
 interface CoverCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -42,7 +43,7 @@ interface CoverAttributes {
 
 function CoverCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -207,7 +208,7 @@ function CoverCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} showButton={true} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} showButton={true} />
   }
 
   // Show error state when disconnected or entity not found
@@ -216,6 +217,7 @@ function CoverCardComponent({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -228,7 +230,7 @@ function CoverCardComponent({
     return (
       <GridCard
         domain="cover"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
@@ -247,7 +249,7 @@ function CoverCardComponent({
     <GridCard
       domain="cover"
       color={stateColor}
-      size={size}
+      tier={tier}
       isLoading={isLoading}
       isError={!!error}
       isStale={isStale}
@@ -273,7 +275,9 @@ function CoverCardComponent({
         align="center"
         justify="center"
         gap="3"
-        style={{ minHeight: size === 'large' ? '200px' : size === 'medium' ? '180px' : '160px' }}
+        // No inner height floor: the shell owns it now, keyed on the tier
+        // (`GridCard.css`), so a `glance` tile can actually be one cell tall
+        // instead of being propped open from the inside.
       >
         {/* Name */}
         <GridCard.Title>{friendlyName}</GridCard.Title>
@@ -402,7 +406,7 @@ function CoverCardComponent({
 const MemoizedCoverCard = memo(CoverCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
+    prevProps.tier === nextProps.tier &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

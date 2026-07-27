@@ -5,10 +5,11 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import type { CardTier } from '~/utils/cardTier'
 
 interface InputDateTimeCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -23,7 +24,7 @@ interface InputDateTimeAttributes {
 
 export const InputDateTimeCard = memo(function InputDateTimeCard({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -119,7 +120,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -128,24 +129,19 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
     )
   }
 
-  const cardSize = {
-    small: { buttonSize: '1' },
-    medium: { buttonSize: '2' },
-    large: { buttonSize: '3' },
-  }[size]
-
   // Handle unavailable entities
   if (entity.state === 'unavailable') {
     return (
       <GridCard
         domain="input_datetime"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
@@ -179,7 +175,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
       // generic active colour the design system points them at.
       domain="input_datetime"
       color="default"
-      size={size}
+      tier={tier}
       isLoading={loading}
       isError={!!error}
       isStale={isStale}
@@ -204,24 +200,18 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
             <form onSubmit={handleSubmit} onClick={handleFieldClick}>
               <Flex align="center" gap="2">
                 <TextField.Root
-                  size={cardSize.buttonSize as '1' | '2' | '3'}
+                  size="2"
                   type={inputType}
                   value={localValue}
                   onChange={(e) => setLocalValue(e.target.value)}
                   autoFocus
                   style={{ minWidth: '200px' }}
                 />
-                <IconButton
-                  size={cardSize.buttonSize as '1' | '2' | '3'}
-                  type="submit"
-                  variant="soft"
-                  color="green"
-                  disabled={loading}
-                >
+                <IconButton size="2" type="submit" variant="soft" color="green" disabled={loading}>
                   <Check size={16} />
                 </IconButton>
                 <IconButton
-                  size={cardSize.buttonSize as '1' | '2' | '3'}
+                  size="2"
                   type="button"
                   variant="soft"
                   color="red"
@@ -242,12 +232,10 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
                   textAlign: 'center',
                 }}
               >
-                <Text size={size === 'small' ? '1' : size === 'large' ? '3' : '2'}>
-                  {displayValue}
-                </Text>
+                <Text size="2">{displayValue}</Text>
               </Box>
               <IconButton
-                size={cardSize.buttonSize as '1' | '2' | '3'}
+                size="2"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation()

@@ -17,6 +17,7 @@ import {
 } from '~/test/fixtures'
 import type { HassEntity } from '~/store/entityTypes'
 import { gridCellSize } from './decorators'
+import { deriveCardTier } from '~/utils/cardTier'
 
 /**
  * The theme gallery — the permanent visual acceptance surface for a built-in
@@ -110,7 +111,15 @@ function GalleryCell({ entity, width, height }: GalleryTile) {
 
   return (
     <div className="grid-item" style={{ display: 'grid', width: size.width, height: size.height }}>
-      {createElement(card, { entityId: entity.entity_id, size: 'medium' })}
+      {/*
+       * The tier comes from the tile's own span, exactly as `GridView` derives
+       * it, so a gallery cell renders the layout its size would really get.
+       */}
+      {createElement(card, {
+        entityId: entity.entity_id,
+        tier: deriveCardTier({ width, height }),
+        span: { width, height },
+      })}
     </div>
   )
 }

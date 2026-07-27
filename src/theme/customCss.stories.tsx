@@ -57,7 +57,7 @@ function Sample({ label }: { label: string }) {
           </Code>
         </Badge>
       </Flex>
-      <GridCard domain="light" size="medium">
+      <GridCard domain="light" tier="row">
         <Text size="2">A card wearing the resolved token.</Text>
       </GridCard>
     </Box>

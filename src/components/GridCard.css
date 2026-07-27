@@ -75,20 +75,28 @@
   }
 
   /*
-   * The legacy `size` prop, as three min-height stops. Change 0011 replaces it
-   * with the effective-span tiers, which is why the stops are plain lengths
-   * rather than new tokens: a token minted here would be contract to keep.
+   * The floor a tile keeps when nothing else gives it a height.
+   *
+   * Inside the grid this never binds: the cell's row height is the card's
+   * height, which is the whole point of deriving the tier from the span. It is
+   * here for the shells that render outside a grid — the configuration
+   * preview, the sidebar widget, the workshop — where an unsized tile would
+   * otherwise collapse onto its content.
+   *
+   * Two stops rather than four, because height is the only thing a floor can
+   * express and only one of the two span axes moves it: `glance` and `row` are
+   * one grid row tall, `tall` and `full` are two or more. That is also why
+   * these stay plain lengths — a token minted here would be contract to keep,
+   * and the tiers are meant to be laid out by the grid, not by this rule.
    */
-  .liebe-card[data-size='small'] {
+  .liebe-card[data-tier='glance'],
+  .liebe-card[data-tier='row'] {
     min-block-size: 60px;
   }
 
-  .liebe-card[data-size='medium'] {
-    min-block-size: 80px;
-  }
-
-  .liebe-card[data-size='large'] {
-    min-block-size: 100px;
+  .liebe-card[data-tier='tall'],
+  .liebe-card[data-tier='full'] {
+    min-block-size: 120px;
   }
 
   /*

@@ -10,10 +10,18 @@ import type { GridItem } from '~/store/types'
 import { getTablerIcon } from '~/utils/icons'
 import { getIcon } from '~/utils/iconList'
 import { IconCircle, IconCircleCheck } from '@tabler/icons-react'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface BinarySensorCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
+  /**
+   * The effective grid span behind `tier`. This card owns its own
+   * configuration modal, so it is also what the modal's preview renders at —
+   * the preview must show the tier the card behind it is rendering
+   * (docs/changes/0011-layout-tiers.md).
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -76,7 +84,8 @@ const getActiveColor = (deviceClass?: string): DomainColorName => {
 
 function BinarySensorCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
+  span,
   onDelete,
   isSelected = false,
   onSelect,
@@ -106,7 +115,7 @@ function BinarySensorCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -115,6 +124,7 @@ function BinarySensorCardComponent({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -124,8 +134,8 @@ function BinarySensorCardComponent({
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
   const isUnavailable = entity.state === 'unavailable'
 
-  // Get icon size based on card size
-  const iconSize = size === 'large' ? 24 : size === 'medium' ? 20 : 16
+  // One glyph size at every tier; the per-tier layout is 0011 PR 2's.
+  const iconSize = 20
 
   const handleConfigSave = (updates: Partial<GridItem>) => {
     if (item && item.id) {
@@ -141,7 +151,7 @@ function BinarySensorCardComponent({
       <GridCard
         domain="binary_sensor"
         color={getActiveColor(deviceClass)}
-        size={size}
+        tier={tier}
         isLoading={false}
         isError={false}
         isStale={isStale}
@@ -171,6 +181,7 @@ function BinarySensorCardComponent({
           open={configOpen}
           onOpenChange={setConfigOpen}
           item={item}
+          span={span}
           onSave={handleConfigSave}
         />
       )}
@@ -183,7 +194,7 @@ const MemoizedBinarySensorCard = memo(BinarySensorCardComponent, (prevProps, nex
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
+    prevProps.tier === nextProps.tier &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect &&

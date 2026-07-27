@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useState, useEffect, useRef } from 'react'
+import { ReactNode, useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import GridLayout, { getCompactor, type Layout, type LayoutItem } from 'react-grid-layout'
 // `absoluteStrategy` is only exported from the `react-grid-layout/core` subpath,
 // not the package root. It positions grid items via `top`/`left` instead of
@@ -9,7 +9,8 @@ import { absoluteStrategy } from 'react-grid-layout/core'
 import { Box } from '@radix-ui/themes'
 import { GridItem } from '../store/types'
 import { dashboardActions } from '../store'
-import { useBreakpoint, getGridConfig } from '../../app/utils/responsive'
+import { useBreakpoint, getGridConfig, getEffectiveColumns } from '../../app/utils/responsive'
+import { scaleSpanToColumns, type CardSpan } from '../utils/cardTier'
 
 // Preserve v1 behavior: no auto-compaction, and block items from overlapping.
 const freeFormCompactor = getCompactor(null, false, true)
@@ -19,7 +20,18 @@ interface GridLayoutSectionProps {
   items: GridItem[]
   isEditMode: boolean
   resolution: { columns: number; rows: number }
-  children: (item: GridItem) => ReactNode
+  /**
+   * Renders one placed item, given the span the grid is **actually** laying it
+   * out at.
+   *
+   * The stored dimensions are on the item; the effective ones exist only here,
+   * because only this component knows the breakpoint's column count. Handing
+   * them to the caller is what lets `GridView` derive a layout tier without
+   * either measuring the DOM or re-deriving the responsive mapping from
+   * scratch (docs/changes/0011-layout-tiers.md — "Renderer-computed tier,
+   * effective span exposed by the layout layer").
+   */
+  children: (item: GridItem, effectiveSpan: CardSpan) => ReactNode
 }
 
 export function GridLayoutSection({
@@ -34,16 +46,26 @@ export function GridLayoutSection({
   const responsiveConfig = getGridConfig(breakpoint)
 
   // Use responsive config for columns/rows, fallback to resolution prop
-  const effectiveColumns =
-    breakpoint === 'desktop' || breakpoint === 'wide'
-      ? resolution.columns
-      : responsiveConfig.columns
+  const effectiveColumns = useMemo(
+    () => getEffectiveColumns(breakpoint, resolution.columns),
+    [breakpoint, resolution.columns]
+  )
+
+  /*
+   * The span an item is really laid out at.
+   *
+   * One expression, read twice — by the layout below, and by the child callback
+   * at the bottom — so what a card is told about its size cannot drift from
+   * what the grid gives it.
+   */
+  const effectiveSpanOf = (item: GridItem): CardSpan =>
+    scaleSpanToColumns(item, resolution.columns, effectiveColumns)
 
   // Convert GridItem[] to react-grid-layout's Layout (readonly LayoutItem[])
   const layouts: LayoutItem[] = items.map((item) => {
     // Scale item dimensions based on column ratio
     const columnRatio = effectiveColumns / resolution.columns
-    const scaledWidth = Math.max(1, Math.round(item.width * columnRatio))
+    const scaledWidth = effectiveSpanOf(item).width
     const scaledX = Math.min(effectiveColumns - scaledWidth, Math.round(item.x * columnRatio))
 
     return {
@@ -156,7 +178,7 @@ export function GridLayoutSection({
       >
         {items.map((item) => (
           <div key={item.id} className="grid-item">
-            {children(item)}
+            {children(item, effectiveSpanOf(item))}
           </div>
         ))}
       </GridLayout>

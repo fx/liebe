@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 // `react-grid-layout/core` is the real module (only the package root is mocked
 // below), so this is the exact `absoluteStrategy` object the component passes.
@@ -6,6 +6,7 @@ import { absoluteStrategy } from 'react-grid-layout/core'
 import { GridLayoutSection } from '~/components/GridLayoutSection'
 import { dashboardActions } from '~/store'
 import type { GridItem } from '~/store/types'
+import type { CardSpan } from '~/utils/cardTier'
 import * as React from 'react'
 
 // Records the `positionStrategy` prop the component hands to <GridLayout>, so a
@@ -315,5 +316,75 @@ describe('GridLayoutSection', () => {
     // Check disconnect is called on unmount
     unmount()
     expect(disconnectMock).toHaveBeenCalled()
+  })
+
+  /*
+   * The effective span the layout layer hands back to its caller. It exists
+   * only here — the stored dimensions are on the item, and only this component
+   * knows the breakpoint's column count — so `GridView` has no other way to
+   * derive a layout tier without measuring the DOM
+   * (docs/changes/0011-layout-tiers.md).
+   */
+  describe('effective span', () => {
+    const originalWidth = window.innerWidth
+
+    afterEach(() => {
+      window.innerWidth = originalWidth
+    })
+
+    /** Renders the section and records the second argument each child call got. */
+    function captureSpans(width: number, resolutionColumns = 12) {
+      window.innerWidth = width
+      const spans: Record<string, CardSpan> = {}
+
+      render(
+        <GridLayoutSection {...defaultProps} resolution={{ columns: resolutionColumns, rows: 8 }}>
+          {(item, span) => {
+            spans[item.id] = span
+            return <div data-testid={`grid-item-${item.id}`}>{item.entityId}</div>
+          }}
+        </GridLayoutSection>
+      )
+
+      return spans
+    }
+
+    it('passes the stored span through when the screen keeps its own columns', () => {
+      const spans = captureSpans(1440)
+
+      expect(spans['item-1']).toEqual({ width: 2, height: 2 })
+      expect(spans['item-3']).toEqual({ width: 3, height: 1 })
+    })
+
+    it('scales the span to the breakpoint the grid is laid out at', () => {
+      // Four columns instead of twelve: a third of the width, floored at one
+      // cell. Height is untouched, because rows do not scale.
+      const spans = captureSpans(400)
+
+      expect(spans['item-1']).toEqual({ width: 1, height: 2 })
+      expect(spans['item-2']).toEqual({ width: 1, height: 1 })
+      expect(spans['item-3']).toEqual({ width: 1, height: 1 })
+    })
+
+    it('reports the same width the grid itself is given', () => {
+      // The two must not drift: a card told it is two cells wide while the grid
+      // lays it out at one would render the wrong tier and nothing would catch
+      // it. Asserted against the layout the mocked <GridLayout> received.
+      window.innerWidth = 400
+      const spans: Record<string, CardSpan> = {}
+      const { container } = render(
+        <GridLayoutSection {...defaultProps} resolution={{ columns: 12, rows: 8 }}>
+          {(item, span) => {
+            spans[item.id] = span
+            return <div data-testid={`grid-item-${item.id}`}>{item.entityId}</div>
+          }}
+        </GridLayoutSection>
+      )
+
+      for (const element of container.querySelectorAll('.react-grid-item')) {
+        const laidOut = JSON.parse(element.getAttribute('data-grid')!)
+        expect(spans[laidOut.i]).toEqual({ width: laidOut.w, height: laidOut.h })
+      }
+    })
   })
 })

@@ -7,11 +7,12 @@ import { CardState, Pill, PillGroup } from './anatomy'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { useDashboardStore } from '~/store'
 import type { DomainColorName } from '~/theme/tokens'
+import type { CardTier } from '~/utils/cardTier'
 import './ClimateCard.css'
 
 interface ClimateCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -191,7 +192,7 @@ function createArcPath(
 
 function ClimateCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -394,7 +395,9 @@ function ClimateCardComponent({
   ])
 
   // Arc parameters
-  const arcRadius = size === 'large' ? 90 : size === 'medium' ? 70 : 50
+  // One dial radius at every tier; the thermostat's per-tier layout is 0011
+  // PR 3's.
+  const arcRadius = 70
   const strokeWidth = 8
   const centerX = arcRadius + strokeWidth
   const centerY = arcRadius + strokeWidth
@@ -536,7 +539,7 @@ function ClimateCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={3} showButton={true} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={3} showButton={true} />
   }
 
   // Show error state when disconnected or entity not found
@@ -545,6 +548,7 @@ function ClimateCardComponent({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -557,7 +561,7 @@ function ClimateCardComponent({
     return (
       <GridCard
         domain="climate"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
@@ -577,7 +581,7 @@ function ClimateCardComponent({
     <GridCard
       domain="climate"
       color={statusColor}
-      size={size}
+      tier={tier}
       isLoading={isLoading}
       isError={!!error}
       isStale={isStale}
@@ -591,12 +595,10 @@ function ClimateCardComponent({
       title={error || undefined}
       className="climate-card"
     >
-      <Flex
-        direction="column"
-        align="center"
-        gap="2"
-        style={{ minHeight: size === 'large' ? '320px' : size === 'medium' ? '280px' : '220px' }}
-      >
+      {/* No inner height floor: the shell owns it now, keyed on the tier
+          (`GridCard.css`), so a `glance` tile can actually be one cell tall
+          instead of being propped open from the inside. */}
+      <Flex direction="column" align="center" gap="2">
         {/* Name */}
         <GridCard.Title className="climate-card-name">{friendlyName}</GridCard.Title>
 
@@ -795,17 +797,9 @@ function ClimateCardComponent({
 
             {/* Current temperature */}
             {currentTemp !== undefined && (
-              <Text
-                size={size === 'large' ? '8' : size === 'medium' ? '7' : '6'}
-                weight="bold"
-                style={{ lineHeight: 1 }}
-              >
+              <Text size="7" weight="bold" style={{ lineHeight: 1 }}>
                 {Math.round(currentTemp)}
-                <Text
-                  size={size === 'large' ? '5' : '4'}
-                  as="span"
-                  style={{ verticalAlign: 'super' }}
-                >
+                <Text size="4" as="span" style={{ verticalAlign: 'super' }}>
                   {tempUnit}
                 </Text>
               </Text>
@@ -914,7 +908,7 @@ function ClimateCardComponent({
 const MemoizedClimateCard = memo(ClimateCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
+    prevProps.tier === nextProps.tier &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

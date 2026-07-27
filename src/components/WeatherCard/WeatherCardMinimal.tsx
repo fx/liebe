@@ -51,7 +51,7 @@ function getTemperatureDisplay(
 function WeatherCardMinimalContent(props: CardProps) {
   const {
     entityId,
-    size = 'medium',
+    tier = 'row',
     onDelete,
     isSelected = false,
     onSelect,
@@ -63,7 +63,7 @@ function WeatherCardMinimalContent(props: CardProps) {
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={false} lines={1} />
+    return <SkeletonCard tier={tier} showIcon={false} lines={1} />
   }
 
   // Show error state when disconnected or entity not found
@@ -72,6 +72,7 @@ function WeatherCardMinimalContent(props: CardProps) {
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -93,7 +94,7 @@ function WeatherCardMinimalContent(props: CardProps) {
     return (
       <GridCard
         domain="weather"
-        size={size}
+        tier={tier}
         isUnavailable={true}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
@@ -114,7 +115,7 @@ function WeatherCardMinimalContent(props: CardProps) {
   return (
     <GridCard
       domain="weather"
-      size={size}
+      tier={tier}
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}

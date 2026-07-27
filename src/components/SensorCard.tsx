@@ -14,10 +14,11 @@ import type { HassEntity } from '~/store/entityTypes'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardValue } from './anatomy'
+import type { CardTier } from '~/utils/cardTier'
 
 interface SensorCardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -33,10 +34,12 @@ interface SensorAttributes {
 }
 
 // Get appropriate icon based on device class or entity domain
-const getSensorIcon = (entity: HassEntity, size: string) => {
+const getSensorIcon = (entity: HassEntity) => {
   const attributes = entity.attributes as SensorAttributes
   const deviceClass = attributes.device_class
-  const iconSize = size === 'large' ? '24' : size === 'medium' ? '20' : '16'
+  // One glyph size at every tier: the legacy `size` scale is gone, and the
+  // per-tier layout that replaces it is 0011 PR 2's.
+  const iconSize = '20'
 
   // Check device class first
   switch (deviceClass) {
@@ -120,7 +123,7 @@ const formatSensorValue = (entity: HassEntity): string => {
 
 function SensorCardComponent({
   entityId,
-  size = 'medium',
+  tier = 'row',
   onDelete,
   isSelected = false,
   onSelect,
@@ -129,7 +132,7 @@ function SensorCardComponent({
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard size={size} showIcon={true} lines={2} />
+    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
   // Show error state when disconnected or entity not found
@@ -138,6 +141,7 @@ function SensorCardComponent({
       <ErrorDisplay
         error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
         variant="card"
+        tier={tier}
         title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
         onRetry={!isConnected ? () => window.location.reload() : undefined}
       />
@@ -156,7 +160,7 @@ function SensorCardComponent({
       domain="sensor"
       color="default"
       isOn={!isUnavailable}
-      size={size}
+      tier={tier}
       isStale={isStale}
       isSelected={isSelected}
       isUnavailable={isUnavailable}
@@ -172,10 +176,12 @@ function SensorCardComponent({
         align="center"
         justify="center"
         gap="2"
-        style={{ minHeight: size === 'large' ? '120px' : size === 'medium' ? '100px' : '80px' }}
+        // No inner height floor: the shell owns it now, keyed on the tier
+        // (`GridCard.css`), so a `glance` tile can actually be one cell tall
+        // instead of being propped open from the inside.
       >
         {/* Icon */}
-        <GridCard.Icon>{getSensorIcon(entity, size)}</GridCard.Icon>
+        <GridCard.Icon>{getSensorIcon(entity)}</GridCard.Icon>
 
         {/* Value — the anatomy's big readout, so the figure is `tabular-nums`
             and does not jitter as its digits change. The unit stays part of the
@@ -196,7 +202,7 @@ const MemoizedSensorCard = memo(SensorCardComponent, (prevProps, nextProps) => {
   // Re-render if any of these props change
   return (
     prevProps.entityId === nextProps.entityId &&
-    prevProps.size === nextProps.size &&
+    prevProps.tier === nextProps.tier &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

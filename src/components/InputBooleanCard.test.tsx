@@ -298,44 +298,6 @@ describe('InputBooleanCard', () => {
     expect(card).toHaveAttribute('data-domain', 'input_boolean')
   })
 
-  describe('size variants', () => {
-    it('renders small size', () => {
-      const { container } = render(
-        <InputBooleanCard entityId="input_boolean.test_toggle" size="small" />
-      )
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'small')
-
-      const switchElement = screen.getByRole('switch')
-      expect(switchElement).toHaveClass('rt-r-size-1')
-    })
-
-    it('renders medium size', () => {
-      const { container } = render(
-        <InputBooleanCard entityId="input_boolean.test_toggle" size="medium" />
-      )
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'medium')
-
-      const switchElement = screen.getByRole('switch')
-      expect(switchElement).toHaveClass('rt-r-size-2')
-    })
-
-    it('renders large size', () => {
-      const { container } = render(
-        <InputBooleanCard entityId="input_boolean.test_toggle" size="large" />
-      )
-
-      const card = container.querySelector('.liebe-card')
-      expect(card).toHaveAttribute('data-size', 'large')
-
-      const switchElement = screen.getByRole('switch')
-      expect(switchElement).toHaveClass('rt-r-size-3')
-    })
-  })
-
   it('shows skeleton when entity is undefined but connected', () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: undefined,
