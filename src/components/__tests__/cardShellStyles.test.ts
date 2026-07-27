@@ -137,6 +137,31 @@ describe('card shell stylesheet', () => {
     expect(transparent).toContain('padding: 0;')
   })
 
+  it('centres the icon-only tile', () => {
+    // `hideName` and `hideState` together must stay a valid layout with a
+    // centred icon (docs/specs/entity-cards/options/common.md), and the
+    // centring belongs in the sheet rather than inline so a theme can restyle
+    // it with everything else.
+    const iconOnly = ruleBody('.liebe-card[data-icon-only]')
+    expect(iconOnly).toContain('display: flex;')
+    expect(iconOnly).toContain('align-items: center;')
+    expect(iconOnly).toContain('justify-content: center;')
+
+    // An emptied meta stack still takes the row's gap otherwise: measured in a
+    // real engine, putting it back into the row moves the centred icon 6px off
+    // centre, half the stack's 12px gap.
+    //
+    // The selector is `:empty`, and this assertion names it rather than a
+    // looser `.liebe-meta` match on purpose — a rule that hid the stack
+    // unconditionally would take the surviving line with it when only one of
+    // the two is hidden. What `:empty` needs in exchange is that the wrapper
+    // really has no child nodes once both slots render `null`, which is a
+    // property of the components rather than of this file; it is asserted on
+    // the rendered DOM in `GridCard.display.test.tsx` ("leaves the meta stack
+    // matching :empty when both lines go").
+    expect(ruleBody('.liebe-card[data-icon-only] .liebe-meta:empty')).toContain('display: none;')
+  })
+
   it('transitions state changes at the duration the spec gives', () => {
     expect(ruleBody('.liebe-card')).toContain('background-color 280ms ease-out')
   })

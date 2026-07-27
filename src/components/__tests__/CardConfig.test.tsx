@@ -484,4 +484,113 @@ describe('CardConfig', () => {
       expect(screen.queryByText('Actions')).not.toBeInTheDocument()
     })
   })
+
+  /**
+   * The display half of the same shared fragment: it is merged into every entity
+   * card's form beside whatever the card defines itself, and what it saves is
+   * the contract's key names under `item.config`
+   * (docs/specs/entity-cards/options/common.md — "Universal options").
+   */
+  describe('Universal display options', () => {
+    const sensorItem: GridItem = {
+      id: 'sensor-1',
+      type: 'entity',
+      entityId: 'sensor.hallway_temperature',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+    }
+
+    function renderModal(item: GridItem = sensorItem) {
+      return render(
+        <Theme>
+          <CardConfig.Modal
+            open={true}
+            onOpenChange={mockOnOpenChange}
+            item={item}
+            onSave={mockOnSave}
+          />
+        </Theme>
+      )
+    }
+
+    it('offers all five options for a card with no options of its own', () => {
+      renderModal()
+
+      expect(screen.getByText('Display')).toBeInTheDocument()
+      expect(screen.getByText('Name')).toBeInTheDocument()
+      expect(screen.getByText('Icon')).toBeInTheDocument()
+      expect(screen.getByText('Hide name')).toBeInTheDocument()
+      expect(screen.getByText('Hide state')).toBeInTheDocument()
+      expect(findSelectByLabel('Color')).toBeTruthy()
+    })
+
+    it('merges alongside a card’s own options rather than replacing them', () => {
+      renderModal({
+        ...sensorItem,
+        entityId: 'weather.home',
+        config: { variant: 'default', temperatureUnit: 'auto' },
+      })
+
+      expect(screen.getByText('Card Variant')).toBeInTheDocument()
+      expect(screen.getByText('Display')).toBeInTheDocument()
+      expect(screen.getByText('Actions')).toBeInTheDocument()
+    })
+
+    it('does not offer them on things that are not entity cards', () => {
+      renderModal({ id: 'sep-1', type: 'separator', x: 0, y: 0, width: 4, height: 1 })
+
+      expect(screen.queryByText('Display')).not.toBeInTheDocument()
+    })
+
+    it('offers exactly the canonical colour list, and saves the chosen value', async () => {
+      const user = userEvent.setup()
+      renderModal()
+
+      const colorTrigger = findSelectByLabel('Color')
+      expect(colorTrigger).toHaveTextContent('Automatic (follows the entity)')
+      await user.click(colorTrigger)
+
+      const dropdown = await waitFor(() => screen.getByRole('listbox'))
+      // Driven off `CARD_COLOR_OPTIONS`, so the form cannot offer a value the
+      // schema would reject — `brand` is not a card colour.
+      expect(within(dropdown).queryByText(/brand/i)).not.toBeInTheDocument()
+      await user.click(within(dropdown).getByText('Media (indigo)'))
+
+      await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+      expect(mockOnSave).toHaveBeenCalledWith({ config: { color: 'media' } })
+    })
+
+    it('saves a renamed, state-less card under the contract’s keys', async () => {
+      const user = userEvent.setup()
+      renderModal()
+
+      await user.type(screen.getByPlaceholderText('Entity name'), 'Hallway')
+      // The switch rows are labelled by the text beside them rather than by a
+      // `for`/`id` pair, so they are addressed positionally.
+      const switches = screen.getAllByRole('switch')
+      await user.click(switches[1])
+
+      await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+      expect(mockOnSave).toHaveBeenCalledWith({
+        config: { name: 'Hallway', hideState: true },
+      })
+    })
+
+    it('can clear an icon override back to the card’s own icon', async () => {
+      const user = userEvent.setup()
+      renderModal({ ...sensorItem, config: { icon: 'Bulb' } })
+
+      // An override the user cannot undo would be a trap, so the picker's own
+      // Clear has to reach the empty value the shell reads as "no override".
+      await user.click(screen.getByRole('button', { name: 'Bulb' }))
+      await user.click(await screen.findByRole('button', { name: 'Clear' }))
+      await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+      expect(mockOnSave).toHaveBeenCalledWith({ config: { icon: '' } })
+    })
+  })
 })

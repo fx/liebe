@@ -1,6 +1,6 @@
 import type { Preview } from '@storybook/react-vite'
 import { DEFAULT_THEME_ID, listThemes } from '~/theme/themeRegistry'
-import { withProviders, withServiceCalls, withStoreSeed } from './decorators'
+import { withCardItem, withProviders, withServiceCalls, withStoreSeed } from './decorators'
 import { registerMockCameraStream } from './mockCameraStream'
 
 // Custom elements are process-wide, so the stand-in for HA's
@@ -31,9 +31,21 @@ import '~/styles/app.css'
 import '~/styles/tokens.css'
 
 const preview: Preview = {
-  // Outermost first: providers wrap the mock connection, which wraps the
-  // seeded stores, which wrap the (opt-in) grid cell.
-  decorators: [withProviders, withServiceCalls, withStoreSeed],
+  // Outermost first. Only `withProviders`' position is load-bearing: it is the
+  // one decorator here that renders DOM, and the Radix theme root it mounts is
+  // both where the theme layer is injected and the element the `--liebe-*` and
+  // Radix tokens are declared on, so it has to stay an ancestor of the story
+  // and of anything else that renders. Nothing violates that today — the
+  // token-consuming grid cell is a story-level decorator, and those always nest
+  // inside the globals — but a DOM-rendering global added ahead of
+  // `withProviders` would resolve its tokens against nothing.
+  //
+  // The three inside it only publish context or write stores and do not read
+  // each other, so their relative order is free. `withCardItem` is last on
+  // purpose: it makes the item context the card's nearest ancestor, which is
+  // where the grid puts it in the panel — around the card shell, not around the
+  // screen. Keep new DOM-rendering decorators after `withProviders`.
+  decorators: [withProviders, withServiceCalls, withStoreSeed, withCardItem],
   parameters: {
     // The provider decorator paints the themed ground and supplies the
     // padding; Storybook's default `padded` layout would frame every story

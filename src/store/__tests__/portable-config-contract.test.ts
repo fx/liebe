@@ -6,6 +6,7 @@ import {
   saveDashboardConfig,
 } from '../persistence'
 import { DEFAULT_THEME_CONFIG } from '../themeConfig'
+import { readCardDisplay } from '../cardDisplay'
 import type { DashboardConfig, DashboardState, GridItem, WidgetConfig } from '../types'
 
 // Mock localStorage so import/save paths don't touch a real store.
@@ -214,6 +215,99 @@ describe('portable configuration contract', () => {
       // MUST contain the resolved fallback rather than the legacy shape.
       expect(persisted.sidebarWidgets).toEqual(richWidgets)
       expect(persisted.tabsExpanded).toBe(richState.tabsExpanded)
+    })
+  })
+
+  /**
+   * The universal display options travel inside `item.config`, which the
+   * contract above only checks the *presence* of. The spec's own scenario is
+   * that a configured card survives an export ("Options survive export",
+   * docs/specs/entity-cards/options/common.md), so the assertion is on the
+   * values as well as on the field.
+   */
+  describe('universal display options round-trip through YAML', () => {
+    const configuredItem: GridItem = {
+      id: 'item-display',
+      type: 'entity',
+      entityId: 'light.reading',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+      config: {
+        name: 'Reading lamp',
+        icon: 'Bulb',
+        hideName: false,
+        hideState: true,
+        color: 'media',
+        tapAction: 'toggle',
+        // A key no rule in this build mentions. Forward compatibility requires
+        // it back out of the far side untouched (docs/specs/dashboard-config —
+        // "Forward Compatibility").
+        somethingANewerBuildAdded: { nested: ['value'] },
+      },
+    }
+
+    function storeWith(item: GridItem) {
+      dashboardStore.setState(() => ({
+        ...richState,
+        screens: [
+          {
+            ...richState.screens[0],
+            grid: { resolution: { columns: 12, rows: 8 }, items: [item] },
+          },
+        ],
+      }))
+    }
+
+    async function roundTripThroughYaml(): Promise<Record<string, unknown>> {
+      const yamlStr = exportConfigurationAsYAML()
+
+      // Move the store off the exported values, so a no-op import cannot pass.
+      dashboardStore.setState((s) => ({ ...s, screens: [] }))
+
+      await importConfigurationFromFile(
+        new File([yamlStr], 'config.yaml', { type: 'application/x-yaml' })
+      )
+
+      const [screen] = dashboardActions.exportConfiguration().screens
+      return screen.grid!.items![0].config as Record<string, unknown>
+    }
+
+    it('reproduces every option, and the keys it does not know', async () => {
+      storeWith(configuredItem)
+
+      const config = await roundTripThroughYaml()
+
+      expect(config).toEqual(configuredItem.config)
+    })
+
+    it('renders the round-tripped card the way it was configured', async () => {
+      storeWith(configuredItem)
+
+      const config = await roundTripThroughYaml()
+
+      // The spec scenario: the re-imported card shows the override and no state
+      // line. `readCardDisplay` is what the shell resolves through.
+      expect(readCardDisplay(config)).toEqual({
+        name: 'Reading lamp',
+        icon: 'Bulb',
+        hideName: false,
+        hideState: true,
+        color: 'media',
+      })
+    })
+
+    it('rejects an import whose colour is outside the canonical list', async () => {
+      storeWith({ ...configuredItem, config: { color: 'amber' } })
+      const yamlStr = exportConfigurationAsYAML()
+
+      // A closed enum is where forward compatibility stops: the rejection names
+      // the field, because a shared document has an author who needs to know
+      // (docs/specs/dashboard-config — "This rule starts where validation ends").
+      await expect(importConfigurationFromFile(new File([yamlStr], 'config.yaml'))).rejects.toThrow(
+        /screens\.0\.grid\.items\.0\.config\.color/
+      )
     })
   })
 })
