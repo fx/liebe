@@ -476,6 +476,7 @@ export interface ForecastCacheEntry {
 
 - `ConnectionStatus` (`src/components/ConnectionStatus.tsx`) — Radix `Popover` + `TaskbarButton`, driven by `useConnectionStatus`, `useHomeAssistantOptional`, and direct `entityStore` selectors for counts.
 - `ConnectionLogDialog` (`src/components/ConnectionLogDialog.tsx`) — Radix `Dialog` over `connectionStore.log`.
+- `DetailHistory` (`src/components/EntityDetailDialog/DetailHistory.tsx`) — the entity detail dialog's history section and the first consumer of `useEntityHistory`: the window drawn through the sparkline anatomy, a Radix `Skeleton` holding the graph's box open until the first fetch lands, and the whole section absent on `unsupported` or error.
 
 ### Business Logic
 
@@ -574,9 +575,9 @@ Service-call retry (`src/services/hassService.ts:61`):
 - `src/services/forecastData.ts` — pure request/parse/capability/derivation (importable outside the panel bundle, like `historyData`).
 - `src/store/entityDebouncer.ts`, `src/store/entityBatcher.ts`, `src/store/entityStore.ts`, `src/store/connectionStore.ts`, `src/store/entityTypes.ts`, `src/store/historyStore.ts`, `src/store/forecastStore.ts`.
 - `src/hooks/useEntity.ts`, `useEntities.ts`, `useEntityAttribute.ts`, `useEntityConnection.ts`, `useEntityHistory.ts`, `useWeatherForecast.ts`, `useServiceCall.ts`, `useConnectionStatus.ts`.
-- `src/components/ConnectionStatus.tsx`, `src/components/ConnectionLogDialog.tsx`.
+- `src/components/ConnectionStatus.tsx`, `src/components/ConnectionLogDialog.tsx`, `src/components/EntityDetailDialog/DetailHistory.tsx`.
 - `src/test/fixtures/history.ts`, `src/test/fixtures/forecast.ts` — history and forecast factories and cache seeders for stories.
-- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService,historyData,entityHistory,forecastData,weatherForecast}.test.ts`, `src/hooks/__tests__/{useEntity,useEntityHistory,useWeatherForecast,useServiceCall}.test.tsx`, `tests/e2e/entity-history.spec.ts`.
+- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService,historyData,entityHistory,forecastData,weatherForecast}.test.ts`, `src/hooks/__tests__/{useEntity,useEntityHistory,useWeatherForecast,useServiceCall}.test.tsx`, `src/components/EntityDetailDialog/__tests__/DetailHistory.test.tsx`, `tests/e2e/entity-history.spec.ts`.
 - Related specs: `../panel-lifecycle/` (panel custom-element + `liebe-websocket-check` dispatch), `../entity-cards/` (consumers), `../camera-streaming/` (WebRTC).
 
 ## Changelog
@@ -587,3 +588,4 @@ Service-call retry (`src/services/hassService.ts:61`):
 | 2026-07-25 | Added target History & Forecast hook contracts (not yet implemented)                                                                                                                                                                                    | [0015](../../changes/0015-history-and-forecast-data.md) |
 | 2026-07-27 | History contract implemented: `useEntityHistory`, the two-level cache, the sample/delta downsampler, the pre-debounce raw ingress tap, and reconnect invalidation; scenarios given test references; forecast split into its own still-specified section | [0015](../../changes/0015-history-and-forecast-data.md) |
 | 2026-07-27 | Forecast contract implemented: `useWeatherForecast`, the per-type cache and refresh intervals, capability-driven `unsupported` resolution distinct from errors, and the twice-daily → daily derivation with its unpaired-half rules                     | [0015](../../changes/0015-history-and-forecast-data.md) |
+| 2026-07-27 | First history consumer: the entity detail dialog graphs the 24-hour window through the sparkline anatomy, hides the section entirely on `unsupported` and on error, and reserves the graph's box with a skeleton until the first fetch lands            | [0015](../../changes/0015-history-and-forecast-data.md) |

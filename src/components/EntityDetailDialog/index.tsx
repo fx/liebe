@@ -2,6 +2,7 @@ import { createElement, Fragment } from 'react'
 import { Badge, Box, Flex, Grid, Heading, Spinner, Text } from '@radix-ui/themes'
 import { useEntity } from '~/hooks/useEntity'
 import { Modal } from '../ui'
+import { DetailHistory } from './DetailHistory'
 import { getDetailControls } from './detailControls'
 import { redactState, redactedAttributes } from './redaction'
 
@@ -18,8 +19,9 @@ export interface EntityDetailDialogProps {
  * (docs/specs/entity-cards/options/common.md — "Action type").
  *
  * Deliberately minimal: it exists to make hold-to-more-info mean something now.
- * The history section is a placeholder until change 0015 lands history data, and
- * the domain control slot ships empty for later card changes to register into.
+ * The history section graphs the recent window for entities that have one (see
+ * `DetailHistory`), and the domain control slot ships empty for later card
+ * changes to register into.
  * It carries no link to the card's configuration — configuration stays reachable
  * only through the card's edit-mode settings button — and it cannot open in edit
  * mode, where the shell suppresses every action.
@@ -90,15 +92,8 @@ export function EntityDetailDialog({ entityId, open, onOpenChange }: EntityDetai
           {/* Empty until a card family registers controls for this domain. */}
           {domainControls && createElement(domainControls, { entity })}
 
-          <Box>
-            <Heading size="2" mb="1">
-              History
-            </Heading>
-            {/* Replaced by the real graph in change 0015. */}
-            <Text size="2" color="gray" data-testid="detail-history-placeholder">
-              History is not available yet.
-            </Text>
-          </Box>
+          {/* Absent entirely for an entity with no graphable history. */}
+          <DetailHistory entityId={entityId} />
 
           <Box>
             <Heading size="2" mb="2">

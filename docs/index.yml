@@ -151,7 +151,7 @@ changes:
     path: changes/0015-history-and-forecast-data.md
     description: Entity-state pipeline capabilities for downsampled numeric history (useEntityHistory) and weather forecasts (useWeatherForecast) with caching and graceful degradation, plus the detail-dialog history graph
     spec: entity-state
-    status: draft
+    status: complete
     depends_on: ['0014']
   - id: '0016'
     name: light-card-to-spec

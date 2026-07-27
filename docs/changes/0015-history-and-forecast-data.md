@@ -4,7 +4,7 @@
 
 Extend the entity-state pipeline with the two read-side capabilities the card specs depend on: **recent numeric history** (for sensor sparklines/graphs and the detail dialog) and **weather forecasts** (`weather.get_forecasts`). Closes the "sparkline data source" open question in [design-system](../specs/design-system/index.md#open-questions) and the forecast-fetch open question in [options/weather](../specs/entity-cards/options/weather.md).
 
-**Spec:** [entity-state](../specs/entity-state/index.md) · **Status:** draft · **Depends on:** 0014 (PR 3's detail-dialog graph only — PRs 1–2 are pure pipeline work with no dependencies and can run in parallel with the visual track)
+**Spec:** [entity-state](../specs/entity-state/index.md) · **Status:** complete · **Depends on:** 0014 (PR 3's detail-dialog graph only — PRs 1–2 are pure pipeline work with no dependencies and can run in parallel with the visual track)
 
 ## Motivation
 
@@ -46,7 +46,7 @@ The entity-state spec's [Entity History](../specs/entity-state/index.md#entity-h
 
 - [x] **PR 1 — History**: WS history fetch + cache + downsampler (sample/delta modes) + `useEntityHistory` + live append/reconnect; unit tests; e2e fetch against dockerized HA; fixture factories; **spec sync in this PR**: flip the entity-state history contract's status from specified to implemented, close the design-system "sparkline data source" open question, and add the changelog entry
 - [x] **PR 2 — Forecast**: `weather.get_forecasts` client + cache/refresh + `useWeatherForecast` (hourly/daily/twice-daily) + unsupported detection; unit tests; fixtures; **spec sync in this PR**: flip the entity-state forecast contract's status to implemented, close the weather option doc's forecast-fetch open question, and add the changelog entry
-- [ ] **PR 3 — Detail-dialog history + spec sync**: replace the entity detail dialog's history placeholder (from [0014](./0014-universal-card-options.md)) with a graph rendered from `useEntityHistory` via the spark/graph anatomy — numeric entities only, section hidden on `unsupported`/error; component test + story; entity-state spec changelog entry for the dialog integration (the hook contracts and open-question closures were already synced in PRs 1–2)
+- [x] **PR 3 — Detail-dialog history + spec sync**: replace the entity detail dialog's history placeholder (from [0014](./0014-universal-card-options.md)) with a graph rendered from `useEntityHistory` via the spark/graph anatomy — numeric entities only, section hidden on `unsupported`/error; component test + story; entity-state spec changelog entry for the dialog integration (the hook contracts and open-question closures were already synced in PRs 1–2)
 
 ## Out of Scope
 
