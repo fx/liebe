@@ -194,6 +194,7 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 - `useEntityAttribute(entityId, attribute, default)` MUST register/unregister attribute tracking on the batcher and return the tracked attribute value or the default.
 - `useEntityConnection()` MUST connect once per `hass` instance, wire the `liebe-websocket-check` window event to `checkConnectionHealth`, expose `reconnect`, and disconnect only when `hass` becomes absent.
 - `useServiceCall()` MUST expose `loading`/`error` plus `callService` and helpers, enforce a minimum visible loading time (400ms outside tests), and abort a prior in-flight call when a new one starts.
+- `useServiceCall().setValue` MUST map `input_datetime` to `input_datetime.set_datetime` and shape the payload from the helper's own `has_date`/`has_time` — `{ date }`, `{ time }`, or `{ datetime }`, the combination Home Assistant rejects being any other. The signature carries neither attribute, so the mapping resolves them from the entity store the card renders out of, and dispatches through the non-retrying path per [entity-cards — dispatch guarantees](../entity-cards/options/common.md). A value that cannot serve the helper's shape MUST report an error and dispatch nothing rather than send a guess. Translation between the published state (`YYYY-MM-DD HH:MM:SS`) and what the card's native inputs accept (`YYYY-MM-DDTHH:mm`, `HH:mm`) lives beside the mapping in `src/utils/inputDatetime.ts`, keeping format knowledge out of the card.
 - `useConnectionStatus()` and friends MUST expose `connectionStore` state as read-only reactive values.
 
 #### Scenario: Subscribe/unsubscribe lifecycle
@@ -323,6 +324,12 @@ A refetch never blanks what is already on screen: while one is in flight the hoo
 - **GIVEN** a `useServiceCall` whose underlying call resolves quickly
 - **WHEN** a call is started
 - **THEN** `loading` is true immediately and returns to false after the call settles (subject to the 400ms floor outside tests) (`src/hooks/__tests__/useServiceCall.test.tsx:83`).
+
+#### Scenario: Datetime save reaches Home Assistant
+
+- **GIVEN** an `input_datetime.alarm_time` helper with `has_time: true` and `has_date: false`
+- **WHEN** `setValue` is called with the `06:30` the time input produced
+- **THEN** `input_datetime.set_datetime` is called exactly once with `{ time: '06:30:00' }` — asserted with the connection boundary as the only stub, never `setValue` itself, since mocking `setValue` is what let the missing mapping ship green (`src/hooks/__tests__/useServiceCall.inputDatetime.test.tsx`).
 
 ### Connection Status UI
 
@@ -574,18 +581,19 @@ Service-call retry (`src/services/hassService.ts:61`):
 - `src/services/weatherForecast.ts` — forecast cache, `weather.get_forecasts` call, refresh, capability resolution.
 - `src/services/forecastData.ts` — pure request/parse/capability/derivation (importable outside the panel bundle, like `historyData`).
 - `src/store/entityDebouncer.ts`, `src/store/entityBatcher.ts`, `src/store/entityStore.ts`, `src/store/connectionStore.ts`, `src/store/entityTypes.ts`, `src/store/historyStore.ts`, `src/store/forecastStore.ts`.
-- `src/hooks/useEntity.ts`, `useEntities.ts`, `useEntityAttribute.ts`, `useEntityConnection.ts`, `useEntityHistory.ts`, `useWeatherForecast.ts`, `useServiceCall.ts`, `useConnectionStatus.ts`.
+- `src/hooks/useEntity.ts`, `useEntities.ts`, `useEntityAttribute.ts`, `useEntityConnection.ts`, `useEntityHistory.ts`, `useWeatherForecast.ts`, `useServiceCall.ts`, `useConnectionStatus.ts`, `src/utils/inputDatetime.ts`.
 - `src/components/ConnectionStatus.tsx`, `src/components/ConnectionLogDialog.tsx`, `src/components/EntityDetailDialog/DetailHistory.tsx`.
 - `src/test/fixtures/history.ts`, `src/test/fixtures/forecast.ts` — history and forecast factories and cache seeders for stories.
-- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService,historyData,entityHistory,forecastData,weatherForecast}.test.ts`, `src/hooks/__tests__/{useEntity,useEntityHistory,useWeatherForecast,useServiceCall}.test.tsx`, `src/components/EntityDetailDialog/__tests__/DetailHistory.test.tsx`, `tests/e2e/entity-history.spec.ts`.
+- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService,historyData,entityHistory,forecastData,weatherForecast}.test.ts`, `src/hooks/__tests__/{useEntity,useEntityHistory,useWeatherForecast,useServiceCall,useServiceCall.inputDatetime}.test.tsx`, `src/utils/__tests__/inputDatetime.test.ts`, `src/components/EntityDetailDialog/__tests__/DetailHistory.test.tsx`, `tests/e2e/entity-history.spec.ts`.
 - Related specs: `../panel-lifecycle/` (panel custom-element + `liebe-websocket-check` dispatch), `../entity-cards/` (consumers), `../camera-streaming/` (WebRTC).
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                                                                  | Document                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                                              | —                                                       |
-| 2026-07-25 | Added target History & Forecast hook contracts (not yet implemented)                                                                                                                                                                                    | [0015](../../changes/0015-history-and-forecast-data.md) |
-| 2026-07-27 | History contract implemented: `useEntityHistory`, the two-level cache, the sample/delta downsampler, the pre-debounce raw ingress tap, and reconnect invalidation; scenarios given test references; forecast split into its own still-specified section | [0015](../../changes/0015-history-and-forecast-data.md) |
-| 2026-07-27 | Forecast contract implemented: `useWeatherForecast`, the per-type cache and refresh intervals, capability-driven `unsupported` resolution distinct from errors, and the twice-daily → daily derivation with its unpaired-half rules                     | [0015](../../changes/0015-history-and-forecast-data.md) |
-| 2026-07-27 | First history consumer: the entity detail dialog graphs the 24-hour window through the sparkline anatomy, hides the section entirely on `unsupported` and on error, and reserves the graph's box with a skeleton until the first fetch lands            | [0015](../../changes/0015-history-and-forecast-data.md) |
+| Date       | Change                                                                                                                                                                                                                                                  | Document                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                                              | —                                                          |
+| 2026-07-25 | Added target History & Forecast hook contracts (not yet implemented)                                                                                                                                                                                    | [0015](../../changes/0015-history-and-forecast-data.md)    |
+| 2026-07-27 | History contract implemented: `useEntityHistory`, the two-level cache, the sample/delta downsampler, the pre-debounce raw ingress tap, and reconnect invalidation; scenarios given test references; forecast split into its own still-specified section | [0015](../../changes/0015-history-and-forecast-data.md)    |
+| 2026-07-27 | Forecast contract implemented: `useWeatherForecast`, the per-type cache and refresh intervals, capability-driven `unsupported` resolution distinct from errors, and the twice-daily → daily derivation with its unpaired-half rules                     | [0015](../../changes/0015-history-and-forecast-data.md)    |
+| 2026-07-27 | First history consumer: the entity detail dialog graphs the 24-hour window through the sparkline anatomy, hides the section entirely on `unsupported` and on error, and reserves the graph's box with a skeleton until the first fetch lands            | [0015](../../changes/0015-history-and-forecast-data.md)    |
+| 2026-07-27 | `useServiceCall.setValue` gains the `input_datetime` mapping it never had: `set_datetime` with the payload shaped by `has_date`/`has_time`, dispatched non-retrying, plus the state↔input format translation the card used to skip                     | [0022](../../changes/0022-switch-input-helpers-to-spec.md) |

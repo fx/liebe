@@ -5,6 +5,8 @@ import {
   type ServiceCallResult,
 } from '../services/hassService'
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
+import { entityStore } from '../store/entityStore'
+import { buildSetDatetimePayload } from '../utils/inputDatetime'
 
 export interface UseServiceCallResult {
   loading: boolean
@@ -40,8 +42,17 @@ export function useServiceCall(): UseServiceCallResult {
     }
   }, [])
 
-  const callService = useCallback(
-    async (options: ServiceCallOptions): Promise<ServiceCallResult> => {
+  /**
+   * The hook's loading/error/abort bookkeeping around one dispatch, with the
+   * dispatch itself left to the caller: `callService` retries, `dispatchOnce`
+   * does not. Everything between them — minimum loading time, abort of the
+   * previous call, error surfacing — is identical and lives here once.
+   */
+  const runCall = useCallback(
+    async (
+      options: ServiceCallOptions,
+      dispatch: (options: ServiceCallOptions) => Promise<ServiceCallResult>
+    ): Promise<ServiceCallResult> => {
       // Cancel any existing call
       if (activeCallRef.current) {
         activeCallRef.current.abort()
@@ -61,7 +72,7 @@ export function useServiceCall(): UseServiceCallResult {
       setError(null)
 
       try {
-        const result = await hassService.callService(options)
+        const result = await dispatch(options)
 
         // Calculate how long we've been loading
         const elapsedTime = Date.now() - startTime
@@ -111,6 +122,25 @@ export function useServiceCall(): UseServiceCallResult {
       }
     },
     []
+  )
+
+  const callService = useCallback(
+    (options: ServiceCallOptions) => runCall(options, hassService.callService.bind(hassService)),
+    [runCall]
+  )
+
+  /**
+   * The non-retrying dispatch from docs/changes/0014-universal-card-options.md.
+   * New dispatch code takes this path: a retried command is executed twice
+   * whenever an acknowledgement is merely slow, which
+   * docs/specs/entity-cards/options/common.md forbids for every control on every
+   * card. The existing `setValue` branches still retry — moving them is PR 3 of
+   * docs/changes/0022-switch-input-helpers-to-spec.md, not this bugfix.
+   */
+  const dispatchOnce = useCallback(
+    (options: ServiceCallOptions) =>
+      runCall(options, hassService.callServiceOnce.bind(hassService)),
+    [runCall]
   )
 
   const turnOn = useCallback(
@@ -168,6 +198,30 @@ export function useServiceCall(): UseServiceCallResult {
           entityId,
           data: { option: value },
         })
+      } else if (domain === 'input_datetime') {
+        /*
+         * `setValue(entityId, value)` carries neither `has_date` nor `has_time`,
+         * and `set_datetime` rejects a field set that disagrees with them, so the
+         * service layer resolves the helper's own attributes — from the store the
+         * card renders out of, so the two can never disagree about the shape.
+         */
+        const data = buildSetDatetimePayload(
+          value,
+          entityStore.state.entities[entityId]?.attributes
+        )
+
+        if (!data) {
+          const message = `Invalid input_datetime value for ${entityId}`
+          setError(message)
+          return { success: false, error: message }
+        }
+
+        return dispatchOnce({
+          domain,
+          service: 'set_datetime',
+          entityId,
+          data,
+        })
       } else if (domain === 'light' && typeof value === 'number') {
         return callService({
           domain,
@@ -180,7 +234,7 @@ export function useServiceCall(): UseServiceCallResult {
       setError(`setValue not supported for domain: ${domain}`)
       return { success: false, error: `setValue not supported for domain: ${domain}` }
     },
-    [callService]
+    [callService, dispatchOnce]
   )
 
   const clearError = useCallback(() => {
