@@ -48,6 +48,121 @@ describe('confirmableService', () => {
     ).toBe('turn_on')
   })
 
+  /**
+   * `HassService.buildServiceData` spreads `data` over the card's entity, so
+   * *any* `entity_id` in the payload replaces the target — not only a string.
+   * A classifier that recognised the string form alone let a single-element
+   * array through: dispatched at this entity, waved past the gate.
+   */
+  describe('payload target shapes', () => {
+    it('gates an array naming this entity', () => {
+      expect(
+        confirmableService(
+          {
+            action: 'call-service',
+            service: 'switch.turn_off',
+            data: { entity_id: [entityId] },
+          },
+          entityId
+        )
+      ).toBe('turn_off')
+    })
+
+    it('gates an array where this entity is one of several targets', () => {
+      expect(
+        confirmableService(
+          {
+            action: 'call-service',
+            service: 'switch.turn_off',
+            data: { entity_id: ['switch.other', entityId] },
+          },
+          entityId
+        )
+      ).toBe('turn_off')
+    })
+
+    it('does not gate an array naming only other entities', () => {
+      expect(
+        confirmableService(
+          {
+            action: 'call-service',
+            service: 'switch.turn_off',
+            data: { entity_id: ['switch.other', 'light.desk'] },
+          },
+          entityId
+        )
+      ).toBeNull()
+    })
+
+    it('does not gate an empty target list, which reaches nothing', () => {
+      expect(
+        confirmableService(
+          { action: 'call-service', service: 'switch.turn_off', data: { entity_id: [] } },
+          entityId
+        )
+      ).toBeNull()
+    })
+
+    it('gates the `all` wildcard, in either form', () => {
+      // `entity_id: all` reaches every entity, this one included.
+      expect(
+        confirmableService(
+          { action: 'call-service', service: 'homeassistant.turn_off', data: { entity_id: 'all' } },
+          entityId
+        )
+      ).toBe('turn_off')
+      expect(
+        confirmableService(
+          {
+            action: 'call-service',
+            service: 'homeassistant.turn_off',
+            data: { entity_id: ['all'] },
+          },
+          entityId
+        )
+      ).toBe('turn_off')
+    })
+
+    it('does not gate the `none` wildcard, which reaches nothing', () => {
+      expect(
+        confirmableService(
+          {
+            action: 'call-service',
+            service: 'homeassistant.turn_off',
+            data: { entity_id: 'none' },
+          },
+          entityId
+        )
+      ).toBeNull()
+    })
+
+    it('gates a shape it cannot resolve, rather than assuming it misses', () => {
+      // Confirming an action that turns out to target something else is
+      // visible and harmless; missing one is a gate that silently does not gate.
+      expect(
+        confirmableService(
+          { action: 'call-service', service: 'switch.turn_off', data: { entity_id: 7 } },
+          entityId
+        )
+      ).toBe('turn_off')
+      expect(
+        confirmableService(
+          { action: 'call-service', service: 'switch.turn_off', data: { entity_id: null } },
+          entityId
+        )
+      ).toBe('turn_off')
+    })
+
+    it('gates a payload that names no target at all', () => {
+      expect(
+        confirmableService(
+          { action: 'call-service', service: 'switch.turn_off', data: { transition: 2 } },
+          entityId
+        )
+      ).toBe('turn_off')
+    })
+  })
+
   it('leaves unrelated services, other entities and non-toggling actions ungated', () => {
     expect(
       confirmableService({ action: 'call-service', service: 'switch.reload' }, entityId)
@@ -181,6 +296,30 @@ describe('GridCard confirm gate', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Turn off' }))
     expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+
+  it('holds an array-targeted action at the dialog, and dispatches it only on confirm', () => {
+    // The bypass, end to end: `buildServiceData` spreads this payload over the
+    // card's entity, so the call lands on `switch.well_pump` either way. What
+    // must not happen is it landing without the dialog.
+    renderCard({
+      confirm: true,
+      tapAction: {
+        action: 'call-service',
+        service: 'switch.turn_off',
+        data: { entity_id: [ENTITY_ID] },
+      },
+    })
+
+    fireEvent.click(card())
+    expect(hass.callService).not.toHaveBeenCalled()
+    expect(screen.getByText('Turn off Well Pump?')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn off' }))
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', {
+      entity_id: [ENTITY_ID],
+    })
   })
 
   it('does not gate a call-service action on an unrelated service', () => {

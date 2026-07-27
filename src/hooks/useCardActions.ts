@@ -81,6 +81,47 @@ export interface CardConfirmRequest {
 
 const CONFIRMABLE_SERVICES: readonly string[] = ['toggle', 'turn_on', 'turn_off']
 
+/** Home Assistant's wildcard targets, which a payload may name instead of ids. */
+const ENTITY_MATCH_ALL = 'all'
+const ENTITY_MATCH_NONE = 'none'
+
+/**
+ * Whether a `call-service` payload reaches this entity.
+ *
+ * Resolved the way `HassService.buildServiceData` actually resolves it: the
+ * card's entity is the implicit target, and `data` is spread over it, so
+ * **any** `entity_id` in the payload replaces that target — not only a string
+ * one. Reading only the string form left a hole exactly where it hurts: an
+ * action carrying `entity_id: ['switch.well_pump']` dispatches at this entity
+ * while the gate, seeing a non-string, concluded the action was aimed
+ * elsewhere and waved it through unconfirmed.
+ *
+ * Where the shape cannot be resolved at all, this answers `true`. The two
+ * errors are not symmetric: confirming an action that turns out to target
+ * something else is a visible annoyance, while missing one is a `confirm`
+ * option that silently does not confirm.
+ */
+function targetsEntity(data: Record<string, unknown> | undefined, entityId: string): boolean {
+  const explicit = data?.entity_id
+
+  // No target of its own: the card's entity is what `buildServiceData` supplies.
+  if (explicit === undefined) return true
+
+  if (typeof explicit === 'string') {
+    if (explicit === ENTITY_MATCH_ALL) return true
+    if (explicit === ENTITY_MATCH_NONE) return false
+    return explicit === entityId
+  }
+
+  // A list reaches every entity in it — including when this one is merely a
+  // member of a larger target set.
+  if (Array.isArray(explicit)) {
+    return explicit.some((target) => target === entityId || target === ENTITY_MATCH_ALL)
+  }
+
+  return true
+}
+
 /**
  * Whether an action toggles *this* entity, and so passes through the card's
  * confirmation gate.
@@ -101,11 +142,10 @@ export function confirmableService(
   if (action === 'toggle') return 'toggle'
   if (typeof action !== 'object' || action.action !== 'call-service') return null
 
-  // The effective target: an explicit `data.entity_id` wins at dispatch, so an
-  // action aimed at another entity is not this card's toggle to gate.
-  const explicit = action.data?.entity_id
-  const target = typeof explicit === 'string' ? explicit : entityId
-  if (target !== entityId) return null
+  // An explicit `data.entity_id` wins at dispatch, so an action aimed only at
+  // other entities is not this card's toggle to gate — but one that reaches
+  // this entity by any shape is.
+  if (!targetsEntity(action.data, entityId)) return null
 
   const [serviceDomain, service] = action.service.split('.')
   if (!CONFIRMABLE_SERVICES.includes(service)) return null

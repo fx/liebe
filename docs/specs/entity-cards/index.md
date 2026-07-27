@@ -148,23 +148,16 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 
 ### Button and fallback card
 
-- `ButtonCard` MUST serve both as the `switch` domain card and as the fallback for any unmapped domain, toggling via the service-call hook and rendering a domain-appropriate icon (light → sun, switch → power, input_boolean → check, default → bolt). For `switch` entities the default glyph MUST follow `device_class` (`outlet` → plug) unless `deviceClassIcon: false`; for every other domain the lookup MUST NOT happen at all, since `device_class` means something different per domain and the fallback has no mapping for it.
-- `ButtonCard` MUST show `ERROR` / `UNAVAILABLE` states and MUST expose the configuration modal — the [switch option surface](./options/switch.md) (`confirm`, `deviceClassIcon`, `stateLabels`, `showLastChanged`) plus the universal options.
-- Configuration MUST resolve through the card that renders, not the raw entity domain: an unmapped domain resolves to the fallback card's option set, so the options are editable wherever the fallback is what the user sees.
-- `confirm` MUST gate every route that toggles the card's own entity — `default`, an explicit `toggle` on any gesture, and a `call-service` naming `toggle`/`turn_on`/`turn_off` in the entity's own domain or the generic `homeassistant` domain — and MUST gate nothing else. The gate MUST be applied after action resolution, in the shell, so a re-routed action cannot reach the entity around it.
-- Every option MUST be safe on an arbitrary domain: no crash, no `device_class` lookup, and states other than `on`/`off` rendered exactly as reported.
+- `ButtonCard` MUST serve both as the `switch` domain card and as the fallback for any unmapped domain, toggling via the service-call hook and rendering a domain-appropriate icon.
+- `ButtonCard` MUST show `ERROR` / `UNAVAILABLE` states and MUST expose the configuration modal.
+- Configuration MUST resolve through the card that renders, not the raw entity domain, so an unmapped domain reaches the fallback card's options rather than being told it has none.
+- Its option surface, the icon precedence, the confirmation gate's scope and the fallback-safety rules every option obeys are specified by [options/switch.md](./options/switch.md).
 
 #### Scenario: Fallback toggles an unmapped entity
 
 - **GIVEN** an unmapped-domain entity in the `on` state
 - **WHEN** the user clicks the card
 - **THEN** `ButtonCard` calls `toggle` for the entity (unless loading/unavailable) (`src/components/ButtonCard/index.tsx`).
-
-#### Scenario: Confirm gates a re-routed toggle
-
-- **GIVEN** a `switch.well_pump` card with `confirm: true` and `holdAction: toggle`
-- **WHEN** the user press-holds the card and cancels the dialog
-- **THEN** nothing is dispatched; confirming instead dispatches exactly one toggle (`src/components/__tests__/GridCard.confirm.test.tsx`).
 
 ### Text and separator widgets
 
@@ -324,7 +317,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 - Shell & boundary: `src/components/GridCard.tsx`, `src/components/ErrorBoundary.tsx`
 - Configuration: `src/components/CardConfig.tsx`, `src/components/configurations/cardConfigurations.ts`; non-scalar option controls in `ActionEditor.tsx`, `EntityPicker.tsx`, `NumberArrayEditor.tsx`, `OrderedMultiSelect.tsx`, with their value contracts in `src/store/configControls.ts`
 - Discovery: `src/components/EntityBrowser.tsx`, `src/components/EntitiesBrowserTab.tsx`, `src/components/CardsBrowserTab.tsx`
-- Cards: `LightCard.tsx`, `ClimateCard.tsx`, `CoverCard.tsx`, `FanCard.tsx`, `SensorCard.tsx`, `BinarySensorCard.tsx`, `ButtonCard.tsx`, `TextCard.tsx`, `Separator.tsx`, `WeatherCard/`, `Input{Boolean,Number,Select,Text,DateTime}Card.tsx`
+- Cards: `LightCard.tsx`, `ClimateCard.tsx`, `CoverCard.tsx`, `FanCard.tsx`, `SensorCard.tsx`, `BinarySensorCard.tsx`, `ButtonCard/`, `TextCard.tsx`, `Separator.tsx`, `WeatherCard/`, `Input{Boolean,Number,Select,Text,DateTime}Card.tsx`
 - Companion: [card-reference.md](./card-reference.md)
 - Related specs: [../camera-streaming/](../camera-streaming/), [../grid-layout/](../grid-layout/), [../entity-state/](../entity-state/)
 

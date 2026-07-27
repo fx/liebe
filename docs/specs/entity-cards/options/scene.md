@@ -2,7 +2,7 @@
 
 Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here). **Status: specified, not yet implemented (new cards).**
 
-This document specifies one **action card family** covering four domains: `scene`, `script`, `button`, and `input_button`. None of these has a dedicated card today — all four currently resolve through the registry fallback and render the generic fallback card, which attempts a meaningless `homeassistant.toggle` on them (see [entity-cards — Button and fallback card](../index.md#button-and-fallback-card), `src/components/ButtonCard.tsx`).
+This document specifies one **action card family** covering four domains: `scene`, `script`, `button`, and `input_button`. None of these has a dedicated card today — all four currently resolve through the registry fallback and render the generic fallback card, which attempts a meaningless `homeassistant.toggle` on them (see [entity-cards — Button and fallback card](../index.md#button-and-fallback-card), `src/components/ButtonCard/`).
 
 **One family card, not three.** These domains share everything that defines a card: they are fire-and-forget triggers with no continuous state to display, their primary action is a single service call, they are natural 1×1 tiles, and they need identical activation feedback, confirmation, and last-activated presentation. The only divergences are the service name per domain and the script-only running state — a per-domain action map plus one conditional behavior, not three components. A single card registered for all four domains (four registry entries → one component, mirroring how `switch` and the fallback share a component today) keeps the option surface, stories, and tests in one place. Scripts MUST NOT be split out for the running state alone; that state is specified below as a mode of this card.
 
@@ -123,7 +123,7 @@ Scenes are the canonical content of a header row of quick actions. When a scene 
 
 ## References
 
-- Current (fallback) behavior these cards replace: `src/components/ButtonCard.tsx`, [entity-cards — Button and fallback card](../index.md#button-and-fallback-card)
+- Current (fallback) behavior these cards replace: `src/components/ButtonCard/`, [entity-cards — Button and fallback card](../index.md#button-and-fallback-card)
 - Registry and dispatch: `src/components/cardRegistry.ts`, [entity-cards](../index.md#card-dispatch-and-registry)
 - Shared contract and conventions: [common.md](./common.md)
 - Layout tiers, chip anatomy, colors, motion: [design-system](../../design-system/)
