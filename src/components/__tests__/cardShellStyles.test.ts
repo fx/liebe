@@ -147,7 +147,18 @@ describe('card shell stylesheet', () => {
     expect(iconOnly).toContain('align-items: center;')
     expect(iconOnly).toContain('justify-content: center;')
 
-    // An emptied meta stack still takes the row's gap otherwise.
+    // An emptied meta stack still takes the row's gap otherwise: measured in a
+    // real engine, putting it back into the row moves the centred icon 6px off
+    // centre, half the stack's 12px gap.
+    //
+    // The selector is `:empty`, and this assertion names it rather than a
+    // looser `.liebe-meta` match on purpose — a rule that hid the stack
+    // unconditionally would take the surviving line with it when only one of
+    // the two is hidden. What `:empty` needs in exchange is that the wrapper
+    // really has no child nodes once both slots render `null`, which is a
+    // property of the components rather than of this file; it is asserted on
+    // the rendered DOM in `GridCard.display.test.tsx` ("leaves the meta stack
+    // matching :empty when both lines go").
     expect(ruleBody('.liebe-card[data-icon-only] .liebe-meta:empty')).toContain('display: none;')
   })
 

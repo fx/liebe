@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { Flex } from '@radix-ui/themes'
 import { SunIcon } from '@radix-ui/react-icons'
 import { GridCardWithComponents as GridCard, type GridCardProps } from './GridCard'
+import { CardItemProvider } from './cardItemContext'
 import { Slider } from './anatomy'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../.storybook/decorators'
 import { domainColors } from '~/theme/tokens'
@@ -21,6 +22,26 @@ function SampleContents({
       </GridCard.Icon>
       <GridCard.Title>{label}</GridCard.Title>
       <GridCard.Status>{state}</GridCard.Status>
+    </Flex>
+  )
+}
+
+/**
+ * The same two lines, wrapped in the anatomy's meta stack — the composition a
+ * card reaches for when the name and state sit beside an icon rather than under
+ * it. It is the one that exercises `.liebe-meta:empty`: hide both lines and the
+ * stack is left behind with nothing in it.
+ */
+function StackedContents({ label = 'Living Room', state = 'OFF' }) {
+  return (
+    <Flex align="center" gap="3">
+      <GridCard.Icon>
+        <SunIcon width={20} height={20} />
+      </GridCard.Icon>
+      <GridCard.Meta>
+        <GridCard.Title>{label}</GridCard.Title>
+        <GridCard.Status>{state}</GridCard.Status>
+      </GridCard.Meta>
     </Flex>
   )
 }
@@ -184,11 +205,30 @@ export const Gallery: Story = {
  * of them is demonstrated at both/all values, because a card whose options only
  * ever appear set is a card nobody can tell apart from one that ignores them.
  *
- * They are passed through `config` here, which is the same object the grid
- * publishes for a placed item — the stories therefore exercise the real path
- * rather than a story-only prop.
+ * Every one of them arrives through `CardItemProvider`, which is how the grid
+ * publishes a placed item's stored options (`GridView.tsx`) and therefore the
+ * path a configured card actually takes. The shell also accepts a `config`
+ * prop, and it would render the same tiles — but nothing in the dashboard sets
+ * it, so a story that used it would be demonstrating a path no user reaches.
+ * Single-card stories say the same thing through `parameters.liebe.itemConfig`,
+ * which the `withCardItem` decorator publishes into one provider around the
+ * whole story; the galleries below put one provider per tile, because each tile
+ * stands for a separately placed item.
  * ---------------------------------------------------------------------------
  */
+
+/**
+ * One tile with its own stored options, exactly as the grid renders a placed
+ * item: the config goes into the item context and the shell picks it up from
+ * there.
+ */
+function PlacedCard({ config, children, ...props }: GridCardProps) {
+  return (
+    <CardItemProvider config={config}>
+      <GridCard {...props}>{children}</GridCard>
+    </CardItemProvider>
+  )
+}
 
 /** A configuration that would make any card look calm and anonymous. */
 const CALMING_CONFIG = {
@@ -205,14 +245,14 @@ export const NameOverride: Story = {
   render: (args) => (
     <Flex gap="4" align="start">
       <div style={{ width: 160 }}>
-        <GridCard {...args}>
+        <PlacedCard {...args}>
           <SampleContents />
-        </GridCard>
+        </PlacedCard>
       </div>
       <div style={{ width: 160 }}>
-        <GridCard {...args} config={{ name: 'Reading lamp' }}>
+        <PlacedCard {...args} config={{ name: 'Reading lamp' }}>
           <SampleContents />
-        </GridCard>
+        </PlacedCard>
       </div>
     </Flex>
   ),
@@ -224,14 +264,14 @@ export const IconOverride: Story = {
   render: (args) => (
     <Flex gap="4" align="start">
       <div style={{ width: 160 }}>
-        <GridCard {...args}>
+        <PlacedCard {...args}>
           <SampleContents label="Card icon" />
-        </GridCard>
+        </PlacedCard>
       </div>
       <div style={{ width: 160 }}>
-        <GridCard {...args} config={{ icon: 'Bulb' }}>
+        <PlacedCard {...args} config={{ icon: 'Bulb' }}>
           <SampleContents label="Configured" />
-        </GridCard>
+        </PlacedCard>
       </div>
     </Flex>
   ),
@@ -241,6 +281,12 @@ export const IconOverride: Story = {
  * `hideName` and `hideState`, at every combination — including both together,
  * which the spec requires to stay a valid layout: an icon-only tile with the
  * icon centred.
+ *
+ * Rendered with the meta stack rather than three loose slots, because that is
+ * the composition the icon-only rule has to survive: hide both lines and the
+ * `liebe-meta` wrapper is still there with nothing in it, so the sheet has to
+ * take it out of the row rather than leave the icon pushed off-centre by an
+ * empty flex child.
  */
 export const HiddenLines: Story = {
   args: { gridWidth: 12, gridHeight: 2, isOn: true },
@@ -258,10 +304,10 @@ export const HiddenLines: Story = {
           },
         ] as const
       ).map(({ key, label, config }) => (
-        <div key={key} style={{ width: 150 }}>
-          <GridCard {...args} config={config}>
-            <SampleContents label={label} state="ON" />
-          </GridCard>
+        <div key={key} style={{ width: 150 }} data-testid={`hidden-lines-${key}`}>
+          <PlacedCard {...args} config={config}>
+            <StackedContents label={label} state="ON" />
+          </PlacedCard>
         </div>
       ))}
     </Flex>
@@ -286,9 +332,9 @@ export const ColorOverride: Story = {
     <Flex gap="3" align="start" wrap="wrap">
       {CARD_COLOR_OPTIONS.map((color) => (
         <div key={color} style={{ width: 130 }}>
-          <GridCard {...args} config={{ color }}>
+          <PlacedCard {...args} config={{ color }}>
             <SampleContents label={color} state="ON" />
-          </GridCard>
+          </PlacedCard>
         </div>
       ))}
     </Flex>
@@ -308,14 +354,14 @@ export const DangerIgnoresOverrides: Story = {
   render: (args) => (
     <Flex gap="4" align="start">
       <div style={{ width: 160 }}>
-        <GridCard {...args} color="ok" config={CALMING_CONFIG}>
+        <PlacedCard {...args} color="ok" config={CALMING_CONFIG}>
           <SampleContents label="Back door" state="LOCKED" />
-        </GridCard>
+        </PlacedCard>
       </div>
       <div style={{ width: 160 }}>
-        <GridCard {...args} color="alert" danger config={CALMING_CONFIG}>
+        <PlacedCard {...args} color="alert" danger config={CALMING_CONFIG}>
           <SampleContents label="Back door" state="JAMMED" />
-        </GridCard>
+        </PlacedCard>
       </div>
     </Flex>
   ),

@@ -130,6 +130,34 @@ describe('GridCard display options', () => {
 
       expect(card()).not.toHaveAttribute('data-icon-only')
     })
+
+    it('leaves the meta stack matching :empty when both lines go', () => {
+      // `GridCard.css` takes the emptied stack out of the row with
+      // `.liebe-card[data-icon-only] .liebe-meta:empty`, and `:empty` is exact:
+      // one stray text node — a space, a newline — and the selector stops
+      // matching, leaving an empty flex child still claiming the row's gap and
+      // pushing the centred icon off centre by half of it.
+      //
+      // It holds because JSX drops whitespace-only lines between elements, so
+      // two slots that both render `null` leave the wrapper with no child nodes
+      // at all. That is a property of how the slots are composed rather than
+      // of the stylesheet, so it is asserted here, on the DOM, next to the
+      // source-level assertion on the rule itself in `cardShellStyles.test.ts`.
+      renderCard({ hideName: true, hideState: true })
+
+      const meta = document.querySelector('.liebe-meta') as HTMLElement
+      expect(meta).toBeInTheDocument()
+      expect(meta.childNodes).toHaveLength(0)
+      expect(meta.matches(':empty')).toBe(true)
+    })
+
+    it('keeps the meta stack out of :empty while a line remains', () => {
+      // The other half of the rule: a stack with one line left must NOT be
+      // hidden, or hiding the state line would take the name with it.
+      renderCard({ hideState: true })
+
+      expect((document.querySelector('.liebe-meta') as HTMLElement).matches(':empty')).toBe(false)
+    })
   })
 
   describe('color', () => {

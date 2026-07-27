@@ -126,7 +126,16 @@
 
   /*
    * A card that wraps its two lines in the meta stack leaves an empty one
-   * behind, and an empty flex child still takes the row's gap.
+   * behind, and an empty flex child still takes the row's gap — measured at 6px
+   * of drift on the centred icon, half the stack's 12px gap.
+   *
+   * `:empty` is exact rather than whitespace-tolerant, so this depends on the
+   * wrapper really having no child nodes once both slots render `null`. It
+   * does: JSX drops the whitespace-only lines between elements, so nothing but
+   * the two nulls is passed. `GridCard.display.test.tsx` pins that on the
+   * rendered DOM, because it is the components' property and not this sheet's.
+   * The alternative — hiding the stack whenever `data-icon-only` is set — would
+   * be looser than the case it is for, and is not what the tile needs.
    */
   .liebe-card[data-icon-only] .liebe-meta:empty {
     display: none;
