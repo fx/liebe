@@ -114,7 +114,17 @@ const migrateItemConfig = (item: unknown, predatesControlStyle: boolean): unknow
  * this function, notably restoring from backup.
  */
 const migrateConfig = (config: unknown): DashboardConfig => {
-  const migrated = migrateScreenConfig(config)
+  /*
+   * Read once, here, and used for both decisions below: whether the cards this
+   * document carries were placed before `controlStyle` existed, and therefore
+   * whether this build is the one migrating it. Deriving it twice would let the
+   * pinning and the stamp disagree about the same document.
+   */
+  const predatesControlStyle = configPredatesControlStyle(
+    isPlainObject(config) ? config.version : undefined
+  )
+
+  const migrated = migrateScreenConfig(config, predatesControlStyle)
   migrated.theme = migrateThemeConfig(migrated.theme)
   /*
    * Stamping the version is what makes a version-keyed migration idempotent: a
@@ -132,23 +142,20 @@ const migrateConfig = (config: unknown): DashboardConfig => {
    * "Forward Compatibility"). Same predicate as the pinning decision, so the
    * two can never disagree about what counts as old.
    */
-  if (configPredatesControlStyle(isPlainObject(config) ? config.version : undefined)) {
-    migrated.version = CURRENT_VERSION
-  }
+  if (predatesControlStyle) migrated.version = CURRENT_VERSION
   return migrated
 }
 
 // Migrate old screen format to new format with items and slugs
-const migrateScreenConfig = (config: unknown): DashboardConfig => {
-  const allSlugs: string[] = []
+const migrateScreenConfig = (
+  config: unknown,
   /*
-   * Read once, from the document rather than from each item: whether these
-   * cards were placed before `controlStyle` existed is a property of the
-   * document that wrote them, and the stamp below moves it forward exactly once.
+   * A property of the document that wrote these cards rather than of any one
+   * item, so it is decided by the caller and handed down — see `migrateConfig`.
    */
-  const predatesControlStyle = configPredatesControlStyle(
-    isPlainObject(config) ? config.version : undefined
-  )
+  predatesControlStyle: boolean
+): DashboardConfig => {
+  const allSlugs: string[] = []
 
   interface ScreenToMigrate {
     grid?: {
