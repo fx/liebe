@@ -579,6 +579,24 @@ describe('Sparkline', () => {
     expect(container.querySelector('.liebe-spark-dot')).not.toBeInTheDocument()
   })
 
+  it('keeps the baseline at zero for a series that never reaches it', () => {
+    // The case the previous test cannot prove, because a series containing 0
+    // has the same domain either way: 4, 5 and 6 kWh scaled between their OWN
+    // extremes would draw the first hour as no consumption at all. Every bar
+    // has height here, and they are in proportion to the values.
+    const { container } = render(<Sparkline values={[4, 5, 6]} domain="sensor" mode="bar" />)
+
+    const heights = Array.from(container.querySelectorAll('.liebe-spark-bar')).map((bar) =>
+      Number(bar.getAttribute('height'))
+    )
+    expect(heights.every((height) => height > 0)).toBe(true)
+    // 4:5:6 — the ratios survive, which is what a zero baseline buys. Loosely
+    // compared, because the coordinates are rounded to two decimals on the way
+    // into the DOM.
+    expect(heights[1] / heights[0]).toBeCloseTo(5 / 4, 2)
+    expect(heights[2] / heights[0]).toBeCloseTo(6 / 4, 2)
+  })
+
   it('hangs a negative bucket below the baseline', () => {
     // A `total` sensor can legitimately fall (net energy), so its bars are
     // signed and the baseline moves off the floor of the box.
