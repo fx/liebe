@@ -128,6 +128,46 @@ export interface NumberHelperBounds {
   step?: number
 }
 
+/** `Number.prototype.toFixed` accepts 0–100 and throws a `RangeError` past it. */
+const MAX_FRACTION_DIGITS = 100
+
+/**
+ * How many decimals the helper's own `step` implies — the precision at which a
+ * value both displays and quantizes, so the number on screen is one the helper
+ * would actually accept.
+ *
+ * Derived from the step rather than from a coarse "is it fractional" test: a
+ * helper stepping by `0.01` was previously formatted to one place, so the card
+ * showed a value the helper would immediately round, and the readout disagreed
+ * with what could be set.
+ *
+ * Read off the decimal text rather than computed with logarithms, which is what
+ * makes `0.3` (`log10` → -0.52…) and `0.001` come out right rather than one
+ * place adrift. Exponent notation is handled separately because `String`
+ * switches to it below `1e-6`, where the fraction digits are not in the text at
+ * all — a `1e-7` step formatted from its literal text would read as zero
+ * decimals. Clamped at what `toFixed` accepts: a hand-edited `step: 1e-300` is
+ * absurd, but it is a number a YAML field can hold, and an unclamped count
+ * would throw a `RangeError` in the middle of a render.
+ */
+export function decimalsFor(step?: number): number {
+  if (!step || !Number.isFinite(step)) return 0
+
+  const text = String(Math.abs(step))
+  const exponentAt = text.indexOf('e')
+
+  if (exponentAt === -1) {
+    return Math.min((text.split('.')[1] ?? '').length, MAX_FRACTION_DIGITS)
+  }
+
+  const mantissaDecimals = (text.slice(0, exponentAt).split('.')[1] ?? '').length
+  const exponent = Number(text.slice(exponentAt + 1))
+
+  // A positive exponent is a step of 1e21 or more, which implies no decimals at
+  // all; `Math.max` is what keeps that from going negative.
+  return Math.min(Math.max(mantissaDecimals - exponent, 0), MAX_FRACTION_DIGITS)
+}
+
 /**
  * A slider position turned into a value the helper will accept: quantized to
  * `step` from `min`, then clamped to `[min, max]`.
@@ -141,9 +181,17 @@ export function quantizeHelperValue(value: number, { min, max, step }: NumberHel
   const base = min ?? 0
   let quantized = step ? base + Math.round((value - base) / step) * step : value
 
-  // `step` is routinely fractional (0.1, 0.5), and the arithmetic above
-  // reintroduces the binary-float tail it exists to remove.
-  quantized = Number.parseFloat(quantized.toFixed(4))
+  /*
+   * `step` is routinely fractional (0.1, 0.5), and the arithmetic above
+   * reintroduces the binary-float tail it exists to remove.
+   *
+   * Rounded at the step's own precision, never below four places. A fixed four
+   * was the tail-trimming depth and doubled as a precision ceiling by accident:
+   * a helper stepping by `1e-5` had its quantized value rounded straight back
+   * off the grid it was just snapped to. The floor keeps every step of `0.0001`
+   * or coarser — which is all of them in practice — trimming exactly as before.
+   */
+  quantized = Number.parseFloat(quantized.toFixed(Math.max(decimalsFor(step), 4)))
 
   if (min !== undefined) quantized = Math.max(quantized, min)
   if (max !== undefined) quantized = Math.min(quantized, max)

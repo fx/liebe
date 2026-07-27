@@ -46,6 +46,32 @@ interface InputTextAttributes {
  */
 const PASSWORD_MASK = '••••••••'
 
+/**
+ * Whether a value satisfies the helper's own `pattern`.
+ *
+ * `pattern` is a hand-edited string on a user-defined helper, so it is not
+ * always a valid regular expression: an unbalanced bracket or a stray
+ * quantifier makes `new RegExp` throw. Uncaught, that throw happens inside a
+ * submit handler and takes the card down with it — and the detail dialog, which
+ * since change 0022 is the only way a 1×1 text helper can be operated at all
+ * (docs/specs/entity-cards/options/input-helpers.md — the tier table). A typo
+ * in Home Assistant would cost the user the tile rather than the keystroke.
+ *
+ * An unusable pattern reads as "nothing matches", so the commit is refused the
+ * way a genuinely non-matching value is. The other reading — "everything
+ * matches" — would send a value the helper is configured to reject, which is
+ * the failure `pattern` exists to prevent; between a validator that cannot be
+ * evaluated and a helper that may reject the write, refusing is the direction
+ * that loses nothing.
+ */
+function matchesPattern(value: string, pattern: string): boolean {
+  try {
+    return new RegExp(pattern).test(value)
+  } catch {
+    return false
+  }
+}
+
 /** What the helper's value reads as where it is displayed rather than edited. */
 export function displayTextHelperValue(entity: HassEntity): string {
   const { mode } = entity.attributes as InputTextAttributes
@@ -109,12 +135,9 @@ export function TextHelperControl({
     }
 
     // Validate pattern if provided
-    if (attributes.pattern) {
-      const regex = new RegExp(attributes.pattern)
-      if (!regex.test(localValue)) {
-        onEditingChange(false)
-        return
-      }
+    if (attributes.pattern && !matchesPattern(localValue, attributes.pattern)) {
+      onEditingChange(false)
+      return
     }
 
     onCommit(localValue)

@@ -13,6 +13,7 @@ import {
   type EntityDetailControlsProps,
 } from './EntityDetailDialog/detailControls'
 import {
+  decimalsFor,
   quantizeHelperValue,
   readNumberControlStyle,
   type NumberControlStyle,
@@ -46,13 +47,6 @@ interface InputNumberAttributes {
   mode?: 'slider' | 'box'
   _stale?: boolean
 }
-
-/**
- * How many decimals the helper's own `step` implies. A sub-unit step is the
- * only reason to print one, and `step` is routinely absent on a hand-edited
- * helper — which reads as the integer case, exactly as `step || 1` does below.
- */
-const decimalsFor = (step?: number) => (step && step < 1 ? 1 : 0)
 
 /**
  * The helper's value as text, or `—` when it has none.
