@@ -10,6 +10,7 @@ vi.mock('../../services/hassService', () => ({
   hassService: {
     setHass: vi.fn(),
     callService: vi.fn(),
+    callServiceOnce: vi.fn(),
   },
 }))
 
@@ -178,6 +179,70 @@ describe('useServiceCall', () => {
     })
 
     expect(result.current.error).toBe('setValue not supported for domain: sensor')
+  })
+
+  /**
+   * `dispatchGuarded` is what a card's embedded controls dispatch through, so
+   * these assert at the service boundary rather than at the hook's own API: a
+   * card test that mocks this hook cannot tell the retrying path from the
+   * non-retrying one, and that difference is the whole point of the method
+   * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
+   */
+  describe('dispatchGuarded', () => {
+    const command = { domain: 'cover', service: 'open_cover', entityId: 'cover.garage' }
+
+    it('never reaches the retrying path', async () => {
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+      })
+
+      expect(hassService.callServiceOnce).toHaveBeenCalledWith(command)
+      expect(hassService.callService).not.toHaveBeenCalled()
+    })
+
+    it('holds back a repeat of the same command', async () => {
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+        await result.current.dispatchGuarded(command)
+      })
+
+      expect(hassService.callServiceOnce).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports a refused repeat as success rather than as an error', async () => {
+      // The first command is still in flight; there is nothing to show the user.
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      let second: { success: boolean } | undefined
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+        second = await result.current.dispatchGuarded(command)
+      })
+
+      expect(second).toEqual({ success: true })
+      expect(result.current.error).toBeNull()
+    })
+
+    it('surfaces a real failure', async () => {
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({
+        success: false,
+        error: 'Cover jammed',
+      })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.dispatchGuarded(command)
+      })
+
+      await waitFor(() => expect(result.current.error).toBe('Cover jammed'))
+    })
   })
 
   it('should clear error', () => {
