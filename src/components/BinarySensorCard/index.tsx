@@ -208,8 +208,12 @@ function BinarySensorCardComponent({
               <GridCard.Status>{presentation.label}</GridCard.Status>
             </GridCard.Meta>
           }
+          /* One tier gate, not two: `useRelativeSince` is asked for the line
+             only at `full`, so it answers `null` everywhere else and a second
+             check here would be unreachable — and unreachable guards are the
+             ones that rot, because nothing fails when they stop being true. */
           extra={
-            tier === 'full' && since ? (
+            since ? (
               <Text size="1" color="gray" data-testid="binary-sensor-since">
                 {since}
               </Text>
