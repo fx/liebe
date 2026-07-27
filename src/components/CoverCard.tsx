@@ -1,4 +1,4 @@
-import { Box, Flex, Text, Button } from '@radix-ui/themes'
+import { Flex, Text, Button } from '@radix-ui/themes'
 import {
   CaretUpIcon,
   CaretDownIcon,
@@ -11,6 +11,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { Pill, PillGroup, Slider } from './anatomy'
 import { useDashboardStore } from '~/store'
 import type { DomainColorName } from '~/theme/tokens'
@@ -282,10 +283,9 @@ function CoverCardComponent({
    *   full    row content plus the open/stop/close row, then the tilt controls
    *           when the cover supports tilt.
    */
-  const isGlance = tier === 'glance'
   const isTall = tier === 'tall'
   const isFull = tier === 'full'
-  const showPositionSlider = !isGlance && !isEditMode && supportsSetPosition
+  const showPositionSlider = tier !== 'glance' && !isEditMode && supportsSetPosition
   const showButtons = isFull && !isEditMode
   const showTilt = isFull && !isEditMode && supportsTilt
 
@@ -310,21 +310,23 @@ function CoverCardComponent({
     </GridCard.Meta>
   )
 
-  const positionSlider = (orientation: 'horizontal' | 'vertical') => (
+  const positionSlider = showPositionSlider ? (
     <GridCard.Controls>
       <Slider
         domain="cover"
         color={stateColor}
         active={displayPosition > 0}
         label="Position"
-        orientation={orientation}
+        // Vertical in `tall`, where the top of the track is fully open and the
+        // control reads as a miniature of the blind it drives.
+        orientation={isTall ? 'vertical' : 'horizontal'}
         value={displayPosition}
         readout={`${displayPosition}%`}
         onValueChange={handlePositionChange}
         onValueCommit={handlePositionCommit}
       />
     </GridCard.Controls>
-  )
+  ) : undefined
 
   const buttons = (
     <GridCard.Controls>
@@ -461,34 +463,24 @@ function CoverCardComponent({
       title={error || undefined}
       className="cover-card"
     >
-      {isGlance ? (
-        <Flex direction="column" align="center" justify="center" gap="2">
-          {icon}
-          {meta}
-        </Flex>
-      ) : isTall ? (
-        <Flex direction="column" align="center" gap="2" height="100%">
-          {icon}
-          {/* Top of the track is fully open, so the control reads as a
-              miniature of the blind it drives. */}
-          {showPositionSlider && (
-            <Box flexGrow="1" style={{ display: 'flex', minHeight: 0 }}>
-              {positionSlider('vertical')}
-            </Box>
-          )}
-          {meta}
-        </Flex>
-      ) : (
-        <Flex direction="column" gap="3">
-          <Flex align="center" gap="3">
-            {icon}
-            {meta}
-            {showPositionSlider && <Box flexGrow="1">{positionSlider('horizontal')}</Box>}
-          </Flex>
-          {showButtons && buttons}
-          {showTilt && tilt}
-        </Flex>
-      )}
+      {/* The slider takes the room its tier leaves over — the width the icon
+          and the meta do not use on a row, the height they do not use in
+          `tall`. The button row and the tilt block are `full`'s secondary
+          content, and stay out of the DOM at every other tier rather than
+          being hidden there. */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        controlSize="fill"
+        lead={icon}
+        meta={meta}
+        control={positionSlider}
+        extra={
+          <>
+            {showButtons && buttons}
+            {showTilt && tilt}
+          </>
+        }
+      />
     </GridCard>
   )
 }

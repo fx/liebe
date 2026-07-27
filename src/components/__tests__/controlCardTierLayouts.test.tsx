@@ -18,10 +18,12 @@ import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
  * What each control-set card KEEPS and what it DROPS at every tier.
  *
  * The simple set has its own file, `cardTierLayouts.test.tsx` (change 0011
- * PR 2). The two are split by card family rather than combined because they
- * were written against different card shapes — the simple set reads the shared
- * `CardBody`'s `data-arrangement`, while the control cards still arrange their
- * own slots per tier — and each carries the helpers its own cards need.
+ * PR 2). The two are split by card family rather than combined because each
+ * carries the helpers its own cards need — the control set's sliders, pill
+ * groups and steppers against the simple set's switches and text fields. Both
+ * families now render through the shared `CardBody`, so both read the shape off
+ * its `data-arrangement`; the last describe block below is where this file
+ * asserts that.
  *
  * The tier tables live in the per-card option docs
  * (docs/specs/entity-cards/options/) under the design system's omit-never-clip
@@ -90,6 +92,17 @@ function stampedTier(): string | null {
 function sliderOrientation(label: string): string | null {
   return screen.getByLabelText(label).closest('.liebe-slider')!.getAttribute('data-orientation')
 }
+
+/** The shape the shared body laid the tile out in. */
+const arrangement = () =>
+  document.querySelector('.liebe-card-body')!.getAttribute('data-arrangement')
+
+/** How the body sized the control slot — content-width, or the tier's leftover room. */
+const controlSize = () =>
+  document.querySelector('.liebe-card-body')!.getAttribute('data-control-size')
+
+/** The `tall` band a filling control sits in, or null when no band was rendered. */
+const fillBand = () => document.querySelector('.liebe-card-body-fill')
 
 beforeEach(() => {
   hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
@@ -815,5 +828,137 @@ describe('WeatherCard tiers', () => {
     expect(screen.queryByText('Temperature')).not.toBeInTheDocument()
     expect(screen.queryByText('Humidity')).not.toBeInTheDocument()
     expect(screen.getByText('22°C')).toBeInTheDocument()
+  })
+})
+
+describe('control-set cards — the shared body', () => {
+  /*
+   * The control set arranges its tiers through `CardBody` rather than through
+   * four hand-written per-tier layouts. Asserted here rather than left to the
+   * per-card blocks above because it is one claim about four cards, and because
+   * the shape is otherwise only observable through CSS: `data-arrangement` and
+   * `data-control-size` are stamped precisely so a test can see it.
+   *
+   * `CardBody`'s own contract — which slot goes where in each arrangement — is
+   * pinned by the simple set in `cardTierLayouts.test.tsx`. What is new here is
+   * the filling control slot the vertical controls need, which the simple set
+   * has no card for.
+   */
+
+  const light = makeEntity('light.living_room', 'on', {
+    friendly_name: 'Living Room',
+    brightness: 128,
+    supported_color_modes: ['brightness'],
+  })
+
+  it('lays each tier out in the arrangement its tier table names', () => {
+    for (const [tier, shape] of [
+      ['glance', 'stack'],
+      ['row', 'row'],
+      ['tall', 'tall'],
+      ['full', 'row'],
+    ] as const) {
+      seed(light)
+      const { unmount } = renderCard(<LightCard entityId="light.living_room" tier={tier} />)
+
+      expect(arrangement()).toBe(shape)
+      unmount()
+    }
+  })
+
+  it('gives the vertical controls the band between the icon and the meta', () => {
+    /*
+     * The extension the control set needed: a control slot that takes the
+     * height the icon and the meta leave, rather than one sized by its content.
+     * A slider has no intrinsic length, so without it a `tall` tile would give
+     * the control no travel at all — which is the one thing that tier is for.
+     */
+    seed(light)
+    const { unmount } = renderCard(<LightCard entityId="light.living_room" tier="tall" />)
+
+    expect(controlSize()).toBe('fill')
+    expect(fillBand()).toContainElement(screen.getByLabelText('Brightness'))
+    unmount()
+
+    seed(
+      makeEntity('cover.living_room', 'open', {
+        friendly_name: 'Blinds',
+        current_position: 60,
+        supported_features: 127,
+      })
+    )
+    const cover = renderCard(<CoverCard entityId="cover.living_room" tier="tall" />)
+
+    expect(fillBand()).toContainElement(screen.getByLabelText('Position'))
+    cover.unmount()
+
+    seed(
+      makeEntity('fan.living_room', 'on', {
+        friendly_name: 'Living Room Fan',
+        percentage: 50,
+        supported_features: 1,
+      })
+    )
+    const fan = renderCard(<FanCard entityId="fan.living_room" tier="tall" />)
+
+    expect(fillBand()).toContainElement(screen.getByRole('group', { name: 'Fan speed' }))
+    fan.unmount()
+
+    seed(
+      makeEntity('climate.hallway', 'heat', {
+        friendly_name: 'Hallway',
+        current_temperature: 19,
+        temperature: 21,
+        min_temp: 7,
+        max_temp: 35,
+        target_temp_step: 0.5,
+        temperature_unit: '°C',
+        hvac_modes: ['off', 'heat'],
+        supported_features: 1,
+      })
+    )
+    renderCard(
+      <ClimateCard entityId="climate.hallway" tier="tall" span={{ width: 1, height: 3 }} />
+    )
+
+    expect(fillBand()).toContainElement(screen.getByLabelText('Increase temperature'))
+  })
+
+  it('renders no band at all when the tall tier has no control to put in it', () => {
+    // An empty band would still take the height, which would push the icon and
+    // the meta to the ends of a tile that has nothing between them.
+    seed(
+      makeEntity('light.living_room', 'off', {
+        friendly_name: 'Living Room',
+        supported_color_modes: ['brightness'],
+      })
+    )
+    renderCard(<LightCard entityId="light.living_room" tier="tall" />)
+
+    expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
+    expect(fillBand()).toBeNull()
+  })
+
+  it('keeps a stepper content-sized on the tiers that are not tall', () => {
+    // The other half of the fill decision, and why it is the card's rather than
+    // the tier's: grown to a row's width the thermostat's two buttons would
+    // float apart from the readout between them.
+    seed(
+      makeEntity('climate.hallway', 'heat', {
+        friendly_name: 'Hallway',
+        current_temperature: 19,
+        temperature: 21,
+        min_temp: 7,
+        max_temp: 35,
+        target_temp_step: 0.5,
+        temperature_unit: '°C',
+        hvac_modes: ['off', 'heat'],
+        supported_features: 1,
+      })
+    )
+    renderCard(<ClimateCard entityId="climate.hallway" tier="row" span={{ width: 2, height: 1 }} />)
+
+    expect(controlSize()).toBe('content')
+    expect(fillBand()).toBeNull()
   })
 })

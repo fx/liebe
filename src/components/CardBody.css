@@ -84,4 +84,56 @@
     inline-size: auto;
     justify-content: flex-end;
   }
+
+  /*
+   * `controlSize: fill` on a row shape: the control takes the width the icon
+   * and the meta leave instead of hugging the trailing edge, and the meta stops
+   * competing for the same space — a brightness slider is as long as the row
+   * lets it be, while the name beside it stays the width of its text.
+   *
+   * `justify-content` goes back to its initial value with it. Trailing-edge
+   * alignment is what sizes a content-width control against the tile's edge;
+   * once the slot IS the free space, aligning inside it would push a control
+   * that does not fill its slot (a fan's step pills) away from the meta it
+   * belongs to.
+   */
+  .liebe-card-body[data-control-size='fill'] > .liebe-card-body-line > .liebe-card-controls {
+    flex: 1 1 auto;
+    inline-size: auto;
+    justify-content: normal;
+  }
+
+  .liebe-card-body[data-control-size='fill'] > .liebe-card-body-line > .liebe-meta {
+    flex: 0 1 auto;
+  }
+
+  /*
+   * `controlSize: fill` in `tall`: the band between the icon and the meta,
+   * taking whatever height they leave. This is the shape the vertical controls
+   * are for — a slider sized by its content has no length at all, and the tier
+   * exists to give it travel rather than whitespace.
+   *
+   * `min-block-size: 0` because a flex item's automatic minimum size is its
+   * content: without it a control taller than the room left would push the meta
+   * off the bottom of the tile instead of shrinking inside the band.
+   */
+  .liebe-card-body-fill {
+    align-items: center;
+    display: flex;
+    flex: 1 1 auto;
+    justify-content: center;
+    min-block-size: 0;
+  }
+
+  /*
+   * A control slot in that band takes the whole of it rather than being centred
+   * in it: a vertical slider's length IS the height the tier gave it
+   * (`.liebe-slider[data-orientation='vertical']` is `block-size: 100%`, which
+   * resolves against this). Anything that should stay its own size — a step
+   * pill group, a stepper — is centred by `.liebe-card-controls`' own
+   * `align-items`, or by the band itself when the card passes something else.
+   */
+  .liebe-card-body-fill > .liebe-card-controls {
+    align-self: stretch;
+  }
 }
