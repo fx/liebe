@@ -99,6 +99,26 @@ export function buildSetDatetimePayload(
 }
 
 /**
+ * What the card tells the user when their value cannot serve the helper.
+ *
+ * Names the shape and the accepted format rather than reporting the value as
+ * merely invalid: `has_date`/`has_time` are set in Home Assistant, often long
+ * ago, and the card is the only place the person typing is looking. "Invalid
+ * value" leaves them to guess which of three shapes this helper wanted.
+ */
+export function describeInputDatetimeShape(entityId: string, attributes?: InputDatetimeShape) {
+  const { hasDate, hasTime } = resolveShape(attributes)
+
+  if (hasDate && hasTime) return `${entityId} expects a date and time (YYYY-MM-DD HH:MM)`
+  if (hasDate) return `${entityId} expects a date (YYYY-MM-DD)`
+  if (hasTime) return `${entityId} expects a time (HH:MM)`
+
+  // Home Assistant does not produce this helper, but a hand-edited one would
+  // otherwise get a message naming a format that cannot be right either.
+  return `${entityId} has neither a date nor a time to set`
+}
+
+/**
  * The value for the card's native input, given the helper's published state.
  * `''` for anything the input cannot represent, which is what a native input
  * does with a malformed value anyway — only now the card and the DOM agree on it.

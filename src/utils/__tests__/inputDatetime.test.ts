@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { buildSetDatetimePayload, toDatetimeInputValue } from '../inputDatetime'
+import {
+  buildSetDatetimePayload,
+  describeInputDatetimeShape,
+  toDatetimeInputValue,
+} from '../inputDatetime'
 
 const DATE_ONLY = { has_date: true, has_time: false }
 const TIME_ONLY = { has_date: false, has_time: true }
@@ -70,6 +74,28 @@ describe('buildSetDatetimePayload', () => {
 
   it('ignores surrounding whitespace', () => {
     expect(buildSetDatetimePayload('  2024-03-02  ', DATE_ONLY)).toEqual({ date: '2024-03-02' })
+  })
+})
+
+describe('describeInputDatetimeShape', () => {
+  const id = 'input_datetime.alarm_time'
+
+  it('names the shape and the format the helper accepts', () => {
+    expect(describeInputDatetimeShape(id, DATE_ONLY)).toBe(`${id} expects a date (YYYY-MM-DD)`)
+    expect(describeInputDatetimeShape(id, TIME_ONLY)).toBe(`${id} expects a time (HH:MM)`)
+    expect(describeInputDatetimeShape(id, COMBINED)).toBe(
+      `${id} expects a date and time (YYYY-MM-DD HH:MM)`
+    )
+  })
+
+  it('describes a helper carrying neither half without naming a format', () => {
+    expect(describeInputDatetimeShape(id, NEITHER)).toBe(
+      `${id} has neither a date nor a time to set`
+    )
+  })
+
+  it('treats absent attributes as a combined helper, as the payload builder does', () => {
+    expect(describeInputDatetimeShape(id)).toBe(`${id} expects a date and time (YYYY-MM-DD HH:MM)`)
   })
 })
 

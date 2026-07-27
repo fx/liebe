@@ -6,7 +6,7 @@ import {
 } from '../services/hassService'
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
 import { entityStore } from '../store/entityStore'
-import { buildSetDatetimePayload } from '../utils/inputDatetime'
+import { buildSetDatetimePayload, describeInputDatetimeShape } from '../utils/inputDatetime'
 
 export interface UseServiceCallResult {
   loading: boolean
@@ -205,13 +205,13 @@ export function useServiceCall(): UseServiceCallResult {
          * service layer resolves the helper's own attributes — from the store the
          * card renders out of, so the two can never disagree about the shape.
          */
-        const data = buildSetDatetimePayload(
-          value,
-          entityStore.state.entities[entityId]?.attributes
-        )
+        const attributes = entityStore.state.entities[entityId]?.attributes
+        const data = buildSetDatetimePayload(value, attributes)
 
         if (!data) {
-          const message = `Invalid input_datetime value for ${entityId}`
+          // The card surfaces this verbatim, so it names the shape the helper
+          // wants and the format that would satisfy it.
+          const message = describeInputDatetimeShape(entityId, attributes)
           setError(message)
           return { success: false, error: message }
         }
