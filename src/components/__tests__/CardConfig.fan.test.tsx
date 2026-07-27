@@ -111,6 +111,20 @@ describe('fan card configuration form', () => {
     expect(screen.queryByText('Show preset modes')).not.toBeInTheDocument()
   })
 
+  it('withholds it for a list of modes no pill could be labelled with', () => {
+    /*
+     * The gate and the renderer have to answer the same question about the same
+     * attribute. This one asked "are there any entries?" while the card asked
+     * "are there any *strings*?", so this fan was offered the option and turning
+     * it on produced a card that could never show a preset control — no error,
+     * nothing to indicate why, which is worse than the option being absent.
+     */
+    seed({ supported_features: 9, preset_modes: [1, null] })
+    renderModal()
+
+    expect(screen.queryByText('Show preset modes')).not.toBeInTheDocument()
+  })
+
   it('withholds it when the fan does not advertise presets at all', () => {
     seed({ supported_features: 1, preset_modes: ['auto'] })
     renderModal()

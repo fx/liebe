@@ -65,3 +65,32 @@ export function readFanFeatures(attributes: FanAttributes | undefined): FanFeatu
     preset: (mask & FAN_FEATURE.PRESET_MODE) !== 0,
   }
 }
+
+/**
+ * The preset modes this card can actually render.
+ *
+ * Filtered to strings, because `preset_modes` arrives from YAML as whatever was
+ * written there and a pill needs a label. One reader rather than a copy per
+ * call site: the card, the detail controls and the configuration form all have
+ * to answer the same question about the same attribute, and three predicates
+ * over one attribute is exactly how they drift apart.
+ */
+export function readFanPresetModes(attributes: FanAttributes | undefined): string[] {
+  const raw = attributes?.preset_modes
+  if (!Array.isArray(raw)) return []
+  return raw.filter((mode): mode is string => typeof mode === 'string')
+}
+
+/**
+ * Whether a preset control can render at all: the fan advertises `PRESET_MODE`
+ * **and** publishes modes this card can label.
+ *
+ * This is the predicate the configuration form gates `showPresets` on, and it
+ * has to be the same one the renderers use. When it was not, a fan publishing
+ * `[1, null]` was offered the option, and turning it on produced a card that
+ * could never render a preset control — no error, nothing to indicate why,
+ * which is worse than the option simply being absent.
+ */
+export function fanHasPresets(attributes: FanAttributes | undefined): boolean {
+  return readFanFeatures(attributes).preset && readFanPresetModes(attributes).length > 0
+}

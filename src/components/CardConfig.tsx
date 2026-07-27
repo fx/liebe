@@ -20,7 +20,7 @@ import {
   readCoverDeviceClass,
 } from './CoverCard/presentation'
 import { isSecurityCover } from '~/store/coverOptions'
-import { readFanFeatures } from './FanCard/features'
+import { fanHasPresets, readFanFeatures } from './FanCard/features'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
@@ -70,6 +70,16 @@ interface ContentProps {
  * feature-gated automatically from the entity, never from config
  * (docs/specs/entity-cards/options/common.md, convention 3), and a control that
  * writes a key nothing will read looks like a setting that did nothing.
+ *
+ * **Every requirement below MUST be answered by the same predicate its render
+ * path uses — never by a second one shaped like it.** A gate and a renderer
+ * asking different questions about one attribute is how a user is offered an
+ * option, turns it on, and nothing happens, with no error and nothing to say
+ * why. `fan-presets` shipped that way: the form asked whether `preset_modes`
+ * had entries while the card asked whether it had *strings*, so a fan
+ * publishing `[1, null]` was offered a control it could never render. So a new
+ * requirement imports the card's predicate; if the card has none to import,
+ * that is the thing to write first.
  *
  * - `numeric` — the entity reports readings rather than text, so it has a
  *   history a graph or a trend can be drawn from.
@@ -455,9 +465,13 @@ function meetsRequirement(
     if (requires === 'fan-speed') return features.speed
     if (requires === 'fan-oscillate') return features.oscillate
     if (requires === 'fan-direction') return features.direction
-    return features.preset && Array.isArray(entity?.attributes?.preset_modes)
-      ? entity.attributes.preset_modes.length > 0
-      : false
+    /*
+     * The card's own predicate, not a second one shaped like it. Reading only
+     * `preset_modes.length` offered the option to a fan publishing `[1, null]`
+     * — modes the renderers filter out — so enabling it produced a card that
+     * could never show a preset control, with nothing to say why.
+     */
+    return fanHasPresets(entity?.attributes)
   }
 
   if (!isNumericSensorEntity(entity)) return false

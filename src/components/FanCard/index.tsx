@@ -17,7 +17,7 @@ import {
   readFanPercentage,
   selectedSpeedStep,
 } from './speedSteps'
-import { readFanFeatures, type FanAttributes } from './features'
+import { fanHasPresets, readFanFeatures, readFanPresetModes, type FanAttributes } from './features'
 import type { CardTier } from '~/utils/cardTier'
 
 interface FanCardProps {
@@ -97,9 +97,7 @@ function FanCardComponent({
   const percentage = readFanPercentage(fanAttributes?.percentage)
   const presetMode =
     typeof fanAttributes?.preset_mode === 'string' ? fanAttributes.preset_mode : undefined
-  const presetModes = Array.isArray(fanAttributes?.preset_modes)
-    ? fanAttributes.preset_modes.filter((mode): mode is string => typeof mode === 'string')
-    : []
+  const presetModes = readFanPresetModes(fanAttributes)
 
   const steps = useMemo(
     () => deriveSpeedSteps(fanAttributes?.percentage_step),
@@ -244,8 +242,7 @@ function FanCardComponent({
   const isFull = tier === 'full'
   const controlsVisible = !isEditMode && tier !== 'glance'
   const showSpeed = controlsVisible && features.speed && options.speedControl !== 'none' && isOn
-  const showPresets =
-    isFull && !isEditMode && options.showPresets && features.preset && presetModes.length > 0
+  const showPresets = isFull && !isEditMode && options.showPresets && fanHasPresets(fanAttributes)
   const showOscillate = isFull && !isEditMode && options.showOscillate && features.oscillate
   const showDirection = isFull && !isEditMode && options.showDirection && features.direction
 

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 import { useServiceCall } from '~/hooks'
 import { Pill, PillGroup, Slider } from '../anatomy'
 import { readFanPercentage } from './speedSteps'
-import { readFanFeatures, type FanAttributes } from './features'
+import { fanHasPresets, readFanFeatures, readFanPresetModes, type FanAttributes } from './features'
 import type { EntityDetailControlsProps } from '../EntityDetailDialog/detailControls'
 
 /**
@@ -29,9 +29,7 @@ export function FanDetailControls({ entity }: EntityDetailControlsProps) {
   const percentage = readFanPercentage(attributes?.percentage)
   const presetMode =
     typeof attributes?.preset_mode === 'string' ? attributes.preset_mode : undefined
-  const presetModes = Array.isArray(attributes?.preset_modes)
-    ? attributes.preset_modes.filter((mode): mode is string => typeof mode === 'string')
-    : []
+  const presetModes = readFanPresetModes(attributes)
 
   const entityId = entity.entity_id
 
@@ -52,7 +50,7 @@ export function FanDetailControls({ entity }: EntityDetailControlsProps) {
   )
 
   const showSpeed = features.speed
-  const showPresets = features.preset && presetModes.length > 0
+  const showPresets = fanHasPresets(attributes)
 
   /*
    * What the slider sits at: the value being dragged, else the fan's own, else
