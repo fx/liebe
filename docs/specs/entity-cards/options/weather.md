@@ -47,7 +47,7 @@ Forecast content depends on the `weather.get_forecasts` service (modern Home Ass
 - Hourly and daily availability MUST be derived per type from what the integration actually provides (`supported_features` forecast flags and/or a successful `weather.get_forecasts` response for that type) — where **daily availability includes the derived twice-daily path**: an integration advertising only `FORECAST_TWICE_DAILY` yields a daily view built from daytime entries with paired-night lows (per change 0015's hook contract), and the daily section renders rather than hiding.
 - When a forecast type is unavailable, the corresponding section MUST be hidden entirely — no empty strip, no placeholder, no error state — regardless of `showHourlyForecast` / `showDailyForecast` being `true`. Options gate presentation only; capability comes from the entity (common convention 3).
 - `forecastHours` / `forecastDays` are upper bounds: when the service returns fewer entries than configured, the card MUST render what it received and MUST NOT pad.
-- The entity-state pipeline currently has no forecast fetch; the fetch/cache/refresh contract is defined by change 0015 (see the answered question below). This spec constrains presentation only.
+- The fetch/cache/refresh contract belongs to the entity-state spec's [Weather Forecast](../../entity-state/index.md#weather-forecast) section and is implemented; cards MUST read forecasts through `useWeatherForecast` rather than calling the service themselves. This spec constrains presentation only.
 
 ### Secondary info (`secondaryInfo`)
 
@@ -104,7 +104,7 @@ Forecast columns are non-interactive; taps on them fall through to the card's ta
 
 ## Open Questions
 
-- ~~**Forecast fetch in the entity-state pipeline.**~~ Answered by change [0015](../../../changes/0015-history-and-forecast-data.md) (pending implementation): a `useWeatherForecast(entityId, {type: hourly|daily|twice_daily})` hook with response caching, periodic refresh (≈30min hourly / 2h daily), `unsupported` resolution, and the twice-daily→daily derivation. Forecast tiers land with 0020 consuming it.
+- ~~**Forecast fetch in the entity-state pipeline.**~~ Settled and shipped: forecast content comes from [`useWeatherForecast`](../../entity-state/index.md#weather-forecast), which owns the contract — per-type caching, periodic refresh (30min hourly / 2h daily and twice-daily), `unsupported` resolution distinct from errors, and the twice-daily→daily derivation (change [0015](../../../changes/0015-history-and-forecast-data.md) PR 2). Wiring the forecast tiers to it is 0020.
 - **`secondaryInfo` as ordered multi-select.** The `full` detail line wants multiple values; whether `secondaryInfo` should grow into an ordered multi-select (with the current single value migrating to a one-element list) or stay a single "featured" select with a fixed supplemental order is open.
 - **Variant consolidation under tiers.** Tiers absorb much of what the four variants were built for (density-by-size). Whether `modern`/`detailed` remain worth maintaining as distinct styles once tier layouts ship, or collapse into `default` via a future migration, should be revisited after implementation — `variant` values stay stable either way.
 - **Feels-like source.** `apparent_temperature` is not provided by every integration; whether to approximate it (wind chill / heat index) when absent or simply fall back per the `secondaryInfo` rules is undecided (fallback is the specified behavior until then).
