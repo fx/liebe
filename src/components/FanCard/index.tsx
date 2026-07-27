@@ -68,6 +68,29 @@ function FanCardComponent({
   const [localPercentage, setLocalPercentage] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
+  /*
+   * A drag belongs to one fan being operated in view mode, so it is dropped
+   * when either changes.
+   *
+   * The state outlives what created it otherwise: `isDragging` is only cleared
+   * on commit, so a card recycled onto another fan mid-gesture would show the
+   * previous fan's speed on the new fan's slider — and commit *that* value to
+   * it. Edit mode is the same shape as the cover's held confirmation: the
+   * control is hidden rather than reset, so leaving edit mode brings back a
+   * slider still pinned to a drag nobody is making.
+   *
+   * Reset during render with previous-value guards, this repo's pattern for the
+   * job (`InputNumberCard`) and what `react-hooks/set-state-in-effect` requires.
+   */
+  const [prevIsEditMode, setPrevIsEditMode] = useState(isEditMode)
+  const [prevEntityId, setPrevEntityId] = useState(entityId)
+  if (isEditMode !== prevIsEditMode || entityId !== prevEntityId) {
+    setPrevIsEditMode(isEditMode)
+    setPrevEntityId(entityId)
+    setIsDragging(false)
+    setLocalPercentage(null)
+  }
+
   const fanAttributes = entity?.attributes as FanAttributes | undefined
   const features = readFanFeatures(fanAttributes)
 

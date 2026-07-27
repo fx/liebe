@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
@@ -465,5 +465,65 @@ describe('dispatch guarantees', () => {
       .mocked(hass.callService)
       .mock.calls.map(([, , data]) => (data as { percentage: number }).percentage)
     expect(payloads[0]).not.toBe(payloads[1])
+  })
+})
+
+/**
+ * State that outlives the gesture that created it — the shape behind the cover
+ * card's held-confirmation defect, checked here for the fan's own local state.
+ */
+describe('optimistic drag state', () => {
+  it('drops a drag when the card is recycled onto another fan', () => {
+    seed(makeFan('on', { percentage: 20 }))
+    const other = makeFan('on', { friendly_name: 'Study Fan', percentage: 80 })
+
+    const { rerender } = renderCard(<FanCard entityId={ENTITY_ID} tier="row" />)
+
+    // Mid-gesture: the slider is showing a local value, not the entity's.
+    const thumb = screen.getByLabelText('Fan speed')
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Fan speed')).toHaveAttribute('aria-valuetext', '21%')
+
+    act(() => {
+      entityStore.setState((state) => ({
+        ...state,
+        entities: {
+          ...state.entities,
+          'fan.study': { ...other, entity_id: 'fan.study' },
+        },
+      }))
+    })
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId="fan.study">
+            <FanCard entityId="fan.study" tier="row" />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    // The new fan's own speed, not the drag left over from the previous one —
+    // which is also the value a commit would have sent to it.
+    expect(screen.getByLabelText('Fan speed')).toHaveAttribute('aria-valuetext', '80%')
+  })
+
+  it('does not bring a stale drag back out of edit mode', () => {
+    seed(makeFan('on', { percentage: 20 }))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="row" />)
+
+    const thumb = screen.getByLabelText('Fan speed')
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Fan speed')).toHaveAttribute('aria-valuetext', '21%')
+
+    // Edit mode hides the control rather than resetting the card, so without a
+    // reset the slider comes back still pinned to a drag nobody is making.
+    act(() => dashboardActions.setMode('edit'))
+    expect(screen.queryByLabelText('Fan speed')).not.toBeInTheDocument()
+
+    act(() => dashboardActions.setMode('view'))
+
+    expect(screen.getByLabelText('Fan speed')).toHaveAttribute('aria-valuetext', '20%')
   })
 })
