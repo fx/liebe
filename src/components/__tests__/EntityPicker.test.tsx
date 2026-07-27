@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Theme } from '@radix-ui/themes'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { EntityPicker } from '../EntityPicker'
-import { entityStore } from '~/store/entityStore'
+import { entityStore, entityStoreActions } from '~/store/entityStore'
 import type { HassEntity } from '~/store/entityTypes'
 import { createBinarySensorEntity, createSensorEntity } from '~/test/fixtures'
 
@@ -290,6 +290,93 @@ describe('EntityPicker', () => {
       'No entity linked'
     )
     expect(onChange).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The picker reads every entity there is, because its filters are predicates
+   * over domain and `device_class` rather than a list of ids — so it re-renders
+   * on every entity-store batch, and a real Home Assistant produces those
+   * continuously for thousands of entities. The list must therefore cost
+   * nothing while nobody is looking at it: this control sits in every card's
+   * config form, and sorting a few thousand names behind a closed popover is
+   * what makes typing in an unrelated field stutter.
+   *
+   * The probe counts reads of `friendly_name`, which is what building the list
+   * does — the sort comparator reads two per comparison. Zero reads is the
+   * assertion, and it holds only if nothing is built, filtered, sorted or
+   * sliced.
+   */
+  describe('while the popover is closed', () => {
+    let nameReads = 0
+
+    function probe(index: number): HassEntity {
+      const id = `sensor.probe_${String(index).padStart(3, '0')}`
+      const entity = createSensorEntity({ entity_id: id, attributes: { friendly_name: '' } })
+      Object.defineProperty(entity.attributes, 'friendly_name', {
+        get: () => {
+          nameReads++
+          return `Probe ${String(index).padStart(3, '0')}`
+        },
+        configurable: true,
+      })
+      return entity
+    }
+
+    beforeEach(() => {
+      nameReads = 0
+      seed(Array.from({ length: 400 }, (_, index) => probe(index)))
+    })
+
+    /** Tens of batches, each touching a handful of entities, as HA delivers them. */
+    function driveUpdates(batches = 30) {
+      for (let batch = 0; batch < batches; batch++) {
+        act(() => {
+          entityStoreActions.updateEntities(
+            Array.from({ length: 5 }, (_, offset) => probe((batch * 5 + offset) % 400))
+          )
+        })
+      }
+    }
+
+    it('never builds the list, however many entity updates arrive', () => {
+      renderPicker()
+      nameReads = 0
+
+      driveUpdates()
+
+      expect(nameReads).toBe(0)
+    })
+
+    it('still has a current list in the first frame it opens', async () => {
+      renderPicker()
+      driveUpdates()
+      // A name that changed while the popover was closed. Deferred work must not
+      // show the list as it was before these updates, nor show it empty first.
+      act(() => {
+        entityStoreActions.updateEntities([
+          createSensorEntity({
+            entity_id: 'sensor.probe_000',
+            attributes: { friendly_name: 'Aaa Renamed While Closed' },
+          }),
+        ])
+      })
+
+      await openPicker()
+
+      expect(screen.getByText('Aaa Renamed While Closed')).toBeInTheDocument()
+      expect(
+        screen.getByText('Showing 50 of 400 — keep typing to narrow it down')
+      ).toBeInTheDocument()
+    })
+
+    it('keeps showing the linked entity by name', () => {
+      // The trigger reads one name on every render and must go on doing so: the
+      // gate is about the list, not about the selection.
+      renderPicker({ value: 'sensor.probe_007' })
+      driveUpdates()
+
+      expect(screen.getByRole('button', { name: 'Motion sensor' })).toHaveTextContent('Probe 007')
+    })
   })
 
   it('renders its description when given one', () => {

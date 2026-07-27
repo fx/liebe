@@ -12,6 +12,9 @@ import type { HassEntity } from '~/store/entityTypes'
  */
 const MAX_RESULTS = 50
 
+/** Shared empty list, so a closed picker's memo keeps a stable reference. */
+const NO_ENTITIES: HassEntity[] = []
+
 export interface EntityPickerProps {
   label: string
   description?: string
@@ -140,12 +143,23 @@ export function EntityPicker({
    * tell them apart: an option that asks for `motion binary_sensor` on an
    * instance with none of them is empty before the user types anything, and
    * that is a different sentence from a search that found nothing.
+   *
+   * Both steps are gated on `open`, and that gate carries real weight. The
+   * picker's filters are predicates over domain and `device_class`, not a list
+   * of ids, so there is nothing narrower for `useEntities()` to subscribe to —
+   * it takes the whole store map and this component re-renders on every batch
+   * Home Assistant sends. Sorting a few thousand names on each of those, for a
+   * list behind a closed popover, is what makes a config form stutter while the
+   * user types in an unrelated field. Nothing is deferred past the point it is
+   * needed: `open` flips during render, so the frame that opens the popover
+   * builds the list from the entities as they are right then.
    */
   const available = React.useMemo(() => {
+    if (!open) return NO_ENTITIES
     return Object.values(entities)
       .filter((entity) => matchesFilters(entity, domains, deviceClasses))
       .sort((a, b) => friendlyNameOf(a).localeCompare(friendlyNameOf(b)))
-  }, [entities, domains, deviceClasses])
+  }, [open, entities, domains, deviceClasses])
 
   const matches = React.useMemo(
     () => available.filter((entity) => matchesSearch(entity, search)),
@@ -154,14 +168,18 @@ export function EntityPicker({
 
   const shown = matches.slice(0, MAX_RESULTS)
 
-  const emptyMessage = emptyListMessage({
-    isLoading,
-    isConnected,
-    hasEntities: Object.keys(entities).length > 0,
-    hasAvailable: available.length > 0,
-    domains,
-    deviceClasses,
-  })
+  // Only the open popover renders this, and counting the keys of every entity
+  // in Home Assistant is not free either.
+  const emptyMessage = open
+    ? emptyListMessage({
+        isLoading,
+        isConnected,
+        hasEntities: Object.keys(entities).length > 0,
+        hasAvailable: available.length > 0,
+        domains,
+        deviceClasses,
+      })
+    : ''
 
   /*
    * Closing is the only place the search resets, and every way of closing goes
