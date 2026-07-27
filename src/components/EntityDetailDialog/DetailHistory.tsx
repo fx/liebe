@@ -1,12 +1,16 @@
 import { Box, Heading, Skeleton } from '@radix-ui/themes'
 import { Sparkline } from '../anatomy'
 import { useEntityHistory } from '~/hooks/useEntityHistory'
+import { DEFAULT_HISTORY_HOURS } from '~/services/historyData'
 
 /**
- * The window the dialog graphs. The hook's own default, restated here because
- * the graph's accessible label has to say which window it is showing.
+ * The window the dialog graphs — the pipeline's own default, taken from the
+ * pipeline rather than restated. The label has to name the window, and a local
+ * copy would keep naming `24` after the canonical default moved: the request
+ * and the accessible label would then describe different windows, silently, and
+ * the label is all a screen-reader user has to go on.
  */
-const HISTORY_HOURS = 24
+const HISTORY_HOURS = DEFAULT_HISTORY_HOURS
 
 /**
  * Height of the graph area. The skeleton below fills the same box, so the

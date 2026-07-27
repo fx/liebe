@@ -47,17 +47,22 @@ const meta: Meta<EntityDetailDialogProps> = {
 export default meta
 type Story = StoryObj<EntityDetailDialogProps>
 
-function ControlledDialog({ open, ...rest }: EntityDetailDialogProps) {
+/**
+ * The dialog's own state has to follow the `open` arg back down, so toggling the
+ * control reopens a dialog that closed itself — and it does that by REMOUNTING
+ * on the arg rather than by writing state. The two alternatives are both worse
+ * here: adjusting state during render runs twice under the StrictMode the
+ * workshop and the test runner render in, and syncing in an effect is what
+ * `react-hooks/set-state-in-effect` rejects. The wrapper holds nothing worth
+ * preserving across the toggle, so throwing it away is the cheapest correct
+ * answer.
+ */
+function ControlledDialog(props: EntityDetailDialogProps) {
+  return <DialogOpenedByArg key={String(props.open)} {...props} />
+}
+
+function DialogOpenedByArg({ open, ...rest }: EntityDetailDialogProps) {
   const [isOpen, setIsOpen] = useState(open)
-  const [lastArg, setLastArg] = useState(open)
-  // Follow the arg back up after the dialog has closed itself, so toggling the
-  // `open` control reopens it instead of doing nothing. Adjusted during render
-  // rather than in an effect — React's own pattern for a prop the state has to
-  // follow, and the one that does not cost a second commit.
-  if (lastArg !== open) {
-    setLastArg(open)
-    setIsOpen(open)
-  }
   return <EntityDetailDialog {...rest} open={isOpen} onOpenChange={setIsOpen} />
 }
 
