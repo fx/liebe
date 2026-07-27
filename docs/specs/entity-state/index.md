@@ -10,11 +10,12 @@ Liebe runs as a custom panel inside the Home Assistant frontend and receives a `
 
 The pipeline is deliberately staged to protect render performance:
 
-- **Ingress** — `HassConnectionManager` owns the WebSocket subscription and turns raw `state_changed` events into store operations.
+- **Ingress** — `HassConnectionManager` owns the WebSocket subscription and turns raw `state_changed` events into store operations. History taps this stage directly, before debouncing, because the stages below are lossy by design.
 - **Debounce** — `EntityDebouncer` collapses rapid updates per entity, with domain- and device-class-aware timings.
 - **Batch** — `EntityUpdateBatcher` coalesces debounced updates into a single store write within a 50ms window (or immediately when a size cap is hit), and drops no-op updates.
 - **Store** — `entityStore` (entities, connection flags, subscriptions, staleness) and `connectionStore` (status + rolling event log) hold reactive state via TanStack Store.
-- **Consumers** — hooks (`useEntity`, `useEntities`, `useEntityAttribute`, `useEntityConnection`, `useServiceCall`, `useConnectionStatus`) read the stores and drive components (`ConnectionStatus`, `ConnectionLogDialog`).
+- **History** — `EntityHistoryService` caches a rolling window of raw numeric samples per entity (`historyStore`) and derives the downsampled series cards graph.
+- **Consumers** — hooks (`useEntity`, `useEntities`, `useEntityAttribute`, `useEntityConnection`, `useEntityHistory`, `useServiceCall`, `useConnectionStatus`) read the stores and drive components (`ConnectionStatus`, `ConnectionLogDialog`).
 
 Service calls flow through a separate singleton, `HassService`, and the low-level `hassService` shim in `src/services/hass.ts` wraps `window.hass` for code paths that reach Home Assistant directly.
 
@@ -33,19 +34,19 @@ Service calls flow through a separate singleton, `HassService`, and the low-leve
 
 - **GIVEN** a `hass` object exposing `states` with two entities and a healthy `connection`
 - **WHEN** `hassConnectionManager.connect(hass)` is called
-- **THEN** the store is marked connected, error is cleared, initial-loading toggles true then false, `updateEntities` receives both entities, and `connection.subscribeEvents(handler, 'state_changed')` is invoked (verified in `src/services/__tests__/hassConnection.test.ts:124`).
+- **THEN** the store is marked connected, error is cleared, initial-loading toggles true then false, `updateEntities` receives both entities, and `connection.subscribeEvents(handler, 'state_changed')` is invoked (verified in `src/services/__tests__/hassConnection.test.ts:133`).
 
 #### Scenario: Connect failure schedules reconnect
 
 - **GIVEN** a `hass` whose `subscribeEvents` throws
 - **WHEN** `connect()` is called
-- **THEN** the store error is set to `Connection failed: Connection failed` and exactly one reconnect timer is scheduled (`src/services/__tests__/hassConnection.test.ts:146`).
+- **THEN** the store error is set to `Connection failed: Connection failed` and exactly one reconnect timer is scheduled (`src/services/__tests__/hassConnection.test.ts:163`).
 
 #### Scenario: Clean disconnect
 
 - **GIVEN** a connected manager
 - **WHEN** `disconnect()` is called
-- **THEN** the unsubscribe function is invoked and the store is marked disconnected (`src/services/__tests__/hassConnection.test.ts:171`).
+- **THEN** the unsubscribe function is invoked and the store is marked disconnected (`src/services/__tests__/hassConnection.test.ts:188`).
 
 ### Initial State Load
 
@@ -56,7 +57,7 @@ Service calls flow through a separate singleton, `HassService`, and the low-leve
 
 - **GIVEN** `hass.states` containing `light.living_room` and `switch.kitchen`
 - **WHEN** initial states load
-- **THEN** `updateEntities` is called once with objects matching both `entity_id`s (`src/services/__tests__/hassConnection.test.ts:133`).
+- **THEN** `updateEntities` is called once with objects matching both `entity_id`s (`src/services/__tests__/hassConnection.test.ts:142`).
 
 ### State-Change Ingress
 
@@ -68,13 +69,13 @@ Service calls flow through a separate singleton, `HassService`, and the low-leve
 
 - **GIVEN** a subscribed manager
 - **WHEN** a `state_changed` event with a non-null `new_state` arrives
-- **THEN** `entityDebouncer.processUpdate` receives `new_state` (`src/services/__tests__/hassConnection.test.ts:190`).
+- **THEN** `entityDebouncer.processUpdate` receives `new_state` (`src/services/__tests__/hassConnection.test.ts:207`).
 
 #### Scenario: Removal
 
 - **GIVEN** a `state_changed` event with `new_state: null` and a non-null `old_state`
 - **WHEN** the handler runs
-- **THEN** `removeEntity('light.living_room')` is called (`src/services/__tests__/hassConnection.test.ts:220`).
+- **THEN** `removeEntity('light.living_room')` is called (`src/services/__tests__/hassConnection.test.ts:302`).
 
 ### Reconnection & Health Monitoring
 
@@ -88,13 +89,13 @@ Service calls flow through a separate singleton, `HassService`, and the low-leve
 
 - **GIVEN** `reconnectAttempts` set to 0, 1, 2, 3 in turn
 - **WHEN** `scheduleReconnect()` runs for each
-- **THEN** the scheduled delays are 1000, 2000, 4000, 8000 ms (`src/services/__tests__/hassConnection.test.ts:256`).
+- **THEN** the scheduled delays are 1000, 2000, 4000, 8000 ms (`src/services/__tests__/hassConnection.test.ts:338`).
 
 #### Scenario: Give up after max attempts
 
 - **GIVEN** `reconnectAttempts` set to 10
 - **WHEN** `scheduleReconnect()` runs
-- **THEN** no timer is scheduled and the store error becomes `Unable to reconnect to Home Assistant` (`src/services/__tests__/hassConnection.test.ts:295`).
+- **THEN** no timer is scheduled and the store error becomes `Unable to reconnect to Home Assistant` (`src/services/__tests__/hassConnection.test.ts:377`).
 
 ### Entity Debouncing
 
@@ -206,9 +207,7 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 - **WHEN** the store entity is updated to `off`
 - **THEN** the hook re-renders with `off` (`src/hooks/__tests__/useEntity.test.tsx:148`).
 
-### History & Forecast Hooks (specified, not yet implemented)
-
-Target contract for the two data capabilities cards consume beyond current state. Implemented by change [0015](../../changes/0015-history-and-forecast-data.md); the requirements above remain the implemented baseline until it lands.
+### Entity History
 
 - `useEntityHistory(entityId, {hours, points, mode})` MUST return a downsampled numeric series for the window (default 24h), backed by the Home Assistant WebSocket history API, with `mode: 'sample' | 'delta'` (default `'sample'`).
 - **Caching MUST be two-level**: raw history cached per entity + window (the expensive fetch), with projections computed per subscriber request. If projections are cached, the key MUST include mode and `points` — point count changes bucket boundaries and therefore both sampled and delta values, so two consumers requesting different `points` MUST NOT share a projected series. Concurrent requests for the same entity + window MUST be deduped.
@@ -216,16 +215,63 @@ Target contract for the two data capabilities cards consume beyond current state
 - **`delta` mode MUST compute per-bucket values from raw samples before downsampling** — a reset inside a bucket is invisible after min/max reduction (`0→10→0→5` must yield 15, not 10). `total_increasing` applies reset-aware summation (a decrease starts a new counter run); `total` uses signed differences (decreases are legitimate).
 - **Live appends MUST consume raw `state_changed` ingress before debouncing**, or refetch from the recorder. The debounced store slices intentionally keep only the latest update in a window, which would silently drop intermediate counter resets and measurement spikes before delta/min-max processing.
 - **Freshness MUST survive unmounting.** Live appends only keep an entry fresh while a subscriber is mounted, so cache entries MUST carry a fetched/last-appended timestamp. On (re)subscription the hook MUST prune points aged out of the rolling window — always retaining **one sentinel sample immediately before the window cutoff**, so `delta`'s first bucket keeps a predecessor as the window advances — and MUST refetch when the entry is stale (no active subscriber since its last append, or beyond a freshness TTL; SHOULD: 5 minutes). A remounting card MUST NOT render a series with a gap. While subscribers stay mounted the same maintenance MUST run periodically (SHOULD: each downsample-bucket interval), so a long-mounted card on a quiet entity never shows an indefinitely stale window.
-- Non-numeric entities MUST resolve to an explicit `unsupported` result rather than an error.
-- `useWeatherForecast(entityId, {type: hourly | daily | twice_daily})` MUST call `weather.get_forecasts` with response caching and a refresh interval (SHOULD: 30min hourly, 2h daily and twice-daily), resolving `unsupported` when the service or feature is unavailable. Integrations advertising only `FORECAST_TWICE_DAILY` MUST NOT resolve daily as unsupported: the hook MUST derive a daily view from twice-daily data, with daytime entries (`is_daytime: true`) carrying the day's condition and high and the paired nighttime entry supplying the low.
-- Both hooks MUST follow the existing store/subscription patterns (per-entity slices, change [0001](../../changes/0001-per-entity-store-selectors.md)) so graph updates do not re-render unrelated cards.
-- Failures MUST be non-fatal: errors surface via the hook result rather than thrown, and consumers render without graph or forecast.
+- **A failed fetch MUST count as an attempt for freshness purposes**, so a window whose fetch failed is retried no more often than the TTL rather than on every maintenance tick. A dashboard that has lost Home Assistant must go quieter, not busier: each retry is a store write, and each store write re-renders the cards watching it. Regaining a connection still refetches immediately, so the case that actually resolves the failure never waits on the TTL.
+- **Junk numeric options MUST resolve to a defined series rather than a throw.** `hours` and `points` arrive from card configuration, and a document this build cannot fully interpret still reaches the render path (dashboard-config, Forward Compatibility), so a `NaN`, an `Infinity` or a negative value gets read, not rejected. Non-finite and non-positive windows fall back to the default window; non-finite point counts fall back to the default count, non-positive ones mean an empty series (`points` is a maximum), and both are capped so no configuration can ask for an unrepresentable date or an unallocatable array.
+- **A restarted event stream MUST invalidate every watched window.** Whatever changed while the socket was down cannot be recovered by appending, so those windows are refetched from the recorder on reconnect.
+- Non-numeric entities MUST resolve to an explicit `unsupported` result rather than an error. States that merely carry no reading (`unavailable`, `unknown`) MUST NOT resolve `unsupported` — every numeric entity passes through them.
+- The hook MUST follow the existing store/subscription patterns (per-entity slices, change [0001](../../changes/0001-per-entity-store-selectors.md)) so graph updates do not re-render unrelated cards.
+- Failures MUST be non-fatal: errors surface via the hook result rather than thrown, and consumers render without a graph.
 
 #### Scenario: Counter reset inside a bucket
 
 - **GIVEN** a `total_increasing` sensor whose raw history within one bucket reads `0 → 10 → 0 → 5`
 - **WHEN** a consumer requests `mode: 'delta'`
-- **THEN** the bucket's value is `15` — the reset is summed reset-aware from raw samples, not the `10` a min/max downsample would leave behind.
+- **THEN** the bucket's value is `15` — the reset is summed reset-aware from raw samples, not the `10` a min/max downsample would leave behind (`src/services/__tests__/historyData.test.ts:268`).
+
+#### Scenario: A spike survives downsampling
+
+- **GIVEN** a bucket whose raw samples run `5 → 40`
+- **WHEN** the series is downsampled in `sample` mode
+- **THEN** the point reads `value: 40` with `min: 5, max: 40` — the extremes travel with the bucket (`src/services/__tests__/historyData.test.ts:218`).
+
+#### Scenario: Raw ingress reaches history first
+
+- **GIVEN** a subscribed connection manager
+- **WHEN** a `state_changed` event arrives
+- **THEN** the history service receives the raw state before `entityDebouncer.processUpdate` does (`src/services/__tests__/hassConnection.test.ts:237`).
+
+#### Scenario: A remounting card shows no gap
+
+- **GIVEN** a window whose only subscriber unmounted and has now remounted
+- **WHEN** the hook resubscribes
+- **THEN** the cached window renders immediately, aged-out samples are pruned to one sentinel, and a refetch closes the unwatched gap (`src/services/__tests__/entityHistory.test.ts:346`, `src/services/__tests__/historyData.test.ts:178`).
+
+A refetch never blanks what is already on screen: while one is in flight the hook keeps reporting the cached series and reports loading alongside it, so a consumer that wants to show progress can, and one that does not simply keeps drawing. The result only changes when the refetch lands.
+
+#### Scenario: A disconnected dashboard stops asking
+
+- **GIVEN** a subscribed window on a panel with no Home Assistant connection
+- **WHEN** several maintenance ticks pass
+- **THEN** the fetch is attempted once, not once per tick, and the store is not written again (`src/services/__tests__/entityHistory.test.ts:511`, `src/services/__tests__/entityHistory.test.ts:529`).
+
+#### Scenario: A junk point count still renders
+
+- **GIVEN** a card configured with `points: Infinity` (or `NaN`, `-1`, `0`, `2.5`)
+- **WHEN** the series is projected
+- **THEN** the result is a defined series — the default count, or empty for a non-positive request — rather than a thrown `RangeError` (`src/services/__tests__/historyData.test.ts:307`, `src/hooks/__tests__/useEntityHistory.test.tsx:196`).
+
+#### Scenario: Non-numeric entity degrades silently
+
+- **GIVEN** a `device_tracker` whose states are `home`/`not_home`
+- **WHEN** `useEntityHistory` resolves
+- **THEN** it returns `unsupported` with no error, and the consumer renders without a graph (`src/hooks/__tests__/useEntityHistory.test.tsx:135`).
+
+### Weather Forecast Hook (specified, not yet implemented)
+
+Target contract for the forecast capability. Implemented by change [0015](../../changes/0015-history-and-forecast-data.md) PR 2; until it lands, weather cards read only the entity's current state.
+
+- `useWeatherForecast(entityId, {type: hourly | daily | twice_daily})` MUST call `weather.get_forecasts` with response caching and a refresh interval (SHOULD: 30 minutes for `hourly`, 2 hours for `daily` and `twice_daily`), resolving `unsupported` when the service or feature is unavailable. Integrations advertising only `FORECAST_TWICE_DAILY` MUST NOT resolve daily as unsupported: the hook MUST derive a daily view from twice-daily data, with daytime entries (`is_daytime: true`) carrying the day's condition and high and the paired nighttime entry supplying the low.
+- The hook MUST follow the same per-entity slice pattern as the history hook, and its failures MUST be non-fatal in the same way: consumers render without forecast content.
 
 #### Scenario: Forecast unsupported degrades silently
 
@@ -281,9 +327,22 @@ Home Assistant (hass.connection WebSocket)
         ▼
 HassConnectionManager (singleton)          services/hassConnection.ts
   • loadInitialStates → entityStore.updateEntities
-  • handleStateChanged → entityDebouncer.processUpdate | removeEntity
+  • handleStateChanged → entityHistoryService.ingest (RAW, first)
+                       → entityDebouncer.processUpdate | removeEntity
   • scheduleReconnect (exp. backoff) + 30s health poll
-        │
+        │                              │  raw sample, pre-debounce
+        │                              ▼
+        │            EntityHistoryService (singleton)   services/entityHistory.ts
+        │              • WS history/history_during_period + dedupe + freshness
+        │              • prune / downsample (services/historyData.ts)
+        │                     │  patchEntry
+        │                     ▼
+        │            historyStore (TanStack Store)      store/historyStore.ts
+        │              • raw window per entity+hours; projections cached per
+        │                mode+points on top of it
+        │                     │  useEntityHistory
+        │                     ▼
+        │            Card graphs / detail dialog        hooks/useEntityHistory.ts
         ▼
 EntityDebouncer (singleton)                store/entityDebouncer.ts
   • per-entity, per-domain / device-class debounce
@@ -327,6 +386,33 @@ export interface EntityState {
 }
 ```
 
+`HistorySample`, `HistoryPoint` and `HistoryMode` (`src/services/historyData.ts`), and the cached window they live in (`src/store/historyStore.ts`):
+
+```typescript
+export interface HistorySample {
+  t: number // epoch ms
+  value: number
+}
+
+export interface HistoryPoint {
+  t: number // bucket end, epoch ms
+  value: number
+  min: number // === value in delta mode
+  max: number
+}
+
+export interface HistoryEntry {
+  entityId: string
+  hours: number
+  samples: HistorySample[]
+  version: number // bumped on every sample change; projections cache against it
+  isLoading: boolean
+  error: string | null
+  unsupported: boolean
+  updatedAt: number // last fetch OR live append
+}
+```
+
 `ConnectionState` (`src/store/connectionStore.ts:17`) holds `status`, `details`, `lastConnectedTime`, `lastDisconnectedTime`, `reconnectAttempts`, `isWebSocketConnected`, `isEntityStoreConnected`, `error`, and `log: ConnectionLogEntry[]`.
 
 ### API Surface
@@ -335,7 +421,9 @@ export interface EntityState {
 - `entityStoreActions`: `setConnected`, `setInitialLoading`, `setError`, `updateEntity`, `updateEntities`, `removeEntity`, `subscribeToEntity`, `unsubscribeFromEntity`, `clearSubscriptions`, `reset`, `markEntityStale`, `markEntityFresh`, `hasSubscribedEntityUpdates`.
 - `connectionActions`: `setStatus`, `setConnecting`, `setConnected`, `setReconnecting`, `setDisconnected`, `setError`, `setWebSocketStatus`, `setEntityStoreStatus`, `clearLog`.
 - `hassService` (`HassService`): `callService`, `turnOn`, `turnOff`, `toggle`, `setValue`, `setHass`, `cancelAll`.
-- Hooks: `useEntity`, `useEntities`, `useEntityAttribute`/`useEntityAttributes`, `useEntityConnection`, `useServiceCall`, `useConnectionStatus`/`useIsConnected`/`useIsConnecting`/`useConnectionDetails`.
+- `entityHistoryService` (`EntityHistoryService`): `subscribe(entityId, hours)` → release, `project(entry, {mode, points, stateClass})`, `ingest(entity)`, `handleReconnected()`, `setHass`, `reset`.
+- `historyStoreActions`: `patchEntry`, `reset`.
+- Hooks: `useEntity`, `useEntities`, `useEntityAttribute`/`useEntityAttributes`, `useEntityConnection`, `useEntityHistory`, `useServiceCall`, `useConnectionStatus`/`useIsConnected`/`useIsConnecting`/`useConnectionDetails`.
 
 ### UI Components
 
@@ -414,6 +502,7 @@ Service-call retry (`src/services/hassService.ts:61`):
 - **`subscribedEntities` does not gate updates.** All entities from `hass.states` are loaded and all `state_changed` events are processed into the store; subscription tracking only feeds staleness checks and the status UI counter. There is no server-side or client-side filtering to "only the subscribed entities."
 - **Singletons are module-global.** `hassConnectionManager`, `entityDebouncer`, `entityUpdateBatcher`, `entityStore`, `connectionStore`, and `hassService` are shared singletons; tests that need isolation instantiate the classes directly rather than using the exported instances.
 - **Two service-call paths coexist.** `src/services/hass.ts` (`hassService` shim over `window.hass`) and `src/services/hassService.ts` (`HassService` singleton, also exported as `hassService`) are distinct modules with the same export name; the retry/abort behavior described here lives only in the latter.
+- **History windows are never evicted.** A cached window outliving its subscriber is the point — it is what lets a remounting card render immediately — but nothing removes one afterwards, so a long session that visits many distinct entity + window pairs accumulates them (raw samples and their projections) until reload. Bounded in practice by how many entities a dashboard shows; unbounded in principle.
 - **Fixed thresholds.** Debounce times, the 50ms batch window, the 100-item batch cap, the 100-entry log cap, the 300s stale threshold, the 60s stale interval, the 30s health interval, and the `[1000, 2000, 4000]` retry ladder are compile-time constants (with `setDebounceTime`/`setThresholds`/`setExcludedEntityTypes` as the only runtime overrides).
 
 ## Open Questions
@@ -430,15 +519,19 @@ Service-call retry (`src/services/hassService.ts:61`):
 - `src/services/hass.ts` — low-level `window.hass` service shim.
 - `src/services/hassService.ts` — `HassService` singleton (service calls, retry, abort).
 - `src/services/staleEntityMonitor.ts` — staleness monitor + camera exclusion (PR #139).
-- `src/store/entityDebouncer.ts`, `src/store/entityBatcher.ts`, `src/store/entityStore.ts`, `src/store/connectionStore.ts`, `src/store/entityTypes.ts`.
-- `src/hooks/useEntity.ts`, `useEntities.ts`, `useEntityAttribute.ts`, `useEntityConnection.ts`, `useServiceCall.ts`, `useConnectionStatus.ts`.
+- `src/services/entityHistory.ts` — history cache, WebSocket fetch, freshness, live ingress.
+- `src/services/historyData.ts` — pure request/parse/prune/downsample (importable outside the panel bundle, which is what lets the e2e run the real parser over a real recorder payload).
+- `src/store/entityDebouncer.ts`, `src/store/entityBatcher.ts`, `src/store/entityStore.ts`, `src/store/connectionStore.ts`, `src/store/entityTypes.ts`, `src/store/historyStore.ts`.
+- `src/hooks/useEntity.ts`, `useEntities.ts`, `useEntityAttribute.ts`, `useEntityConnection.ts`, `useEntityHistory.ts`, `useServiceCall.ts`, `useConnectionStatus.ts`.
 - `src/components/ConnectionStatus.tsx`, `src/components/ConnectionLogDialog.tsx`.
-- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService}.test.ts`, `src/hooks/__tests__/{useEntity,useServiceCall}.test.tsx`.
+- `src/test/fixtures/history.ts` — history sample/response factories and a cache seeder for stories.
+- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService,historyData,entityHistory}.test.ts`, `src/hooks/__tests__/{useEntity,useEntityHistory,useServiceCall}.test.tsx`, `tests/e2e/entity-history.spec.ts`.
 - Related specs: `../panel-lifecycle/` (panel custom-element + `liebe-websocket-check` dispatch), `../entity-cards/` (consumers), `../camera-streaming/` (WebRTC).
 
 ## Changelog
 
-| Date       | Change                                                               | Document                                                |
-| ---------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)           | —                                                       |
-| 2026-07-25 | Added target History & Forecast hook contracts (not yet implemented) | [0015](../../changes/0015-history-and-forecast-data.md) |
+| Date       | Change                                                                                                                                                                                                                                                  | Document                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                                              | —                                                       |
+| 2026-07-25 | Added target History & Forecast hook contracts (not yet implemented)                                                                                                                                                                                    | [0015](../../changes/0015-history-and-forecast-data.md) |
+| 2026-07-27 | History contract implemented: `useEntityHistory`, the two-level cache, the sample/delta downsampler, the pre-debounce raw ingress tap, and reconnect invalidation; scenarios given test references; forecast split into its own still-specified section | [0015](../../changes/0015-history-and-forecast-data.md) |

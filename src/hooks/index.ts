@@ -3,6 +3,8 @@ export { useEntities } from './useEntities'
 export { useEntityConnection } from './useEntityConnection'
 export { useServiceCall } from './useServiceCall'
 export { useEntityAttribute, useEntityAttributes } from './useEntityAttribute'
+export { useEntityHistory } from './useEntityHistory'
+export type { EntityHistoryResult, UseEntityHistoryOptions } from './useEntityHistory'
 export { useHomeAssistantRouting } from './useHomeAssistantRouting'
 export { useIsHomeAssistant } from './useIsHomeAssistant'
 export {
