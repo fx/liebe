@@ -537,11 +537,112 @@ export async function storedTheme(page: Page): Promise<unknown> {
   })
 }
 
+// Computed styles of an element inside the panel's shadow root, optionally of
+// one of its pseudo-elements — which is where a theme that draws chrome puts
+// everything it paints, since the contract gives it hooks to hang decoration on
+// rather than elements to fill. `null` when the selector matches nothing, so a
+// hook that stopped being stamped fails the assertion instead of quietly
+// reading back a record of empty strings.
+export async function shadowComputedStyle(
+  page: Page,
+  selector: string,
+  properties: string[],
+  pseudoElement?: string
+): Promise<Record<string, string> | null> {
+  return page.evaluate(
+    ({ selector: sel, properties: names, pseudoElement: pseudo }) => {
+      const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+      const element = panel?.shadowRoot?.querySelector(sel)
+      if (!element) return null
+      const style = getComputedStyle(element, pseudo ?? null)
+      const values: Record<string, string> = {}
+      for (const name of names) values[name] = style.getPropertyValue(name).trim()
+      return values
+    },
+    { selector, properties, pseudoElement }
+  )
+}
+
+// An attribute of an element inside the shadow root. Used to read back what a
+// card resolved its `data-color` to, so a theme's remap can be asserted against
+// the triplet the card actually asked for rather than against a guess.
+export async function shadowAttribute(
+  page: Page,
+  selector: string,
+  attribute: string
+): Promise<string | null> {
+  return page.evaluate(
+    ({ selector: sel, attribute: attr }) => {
+      const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+      return panel?.shadowRoot?.querySelector(sel)?.getAttribute(attr) ?? null
+    },
+    { selector, attribute }
+  )
+}
+
+// The document-level `@font-face` registration a theme's bundled typeface got
+// (src/theme/fontRegistration.ts). It lives in Home Assistant's document, not in
+// the shadow root — a shadow root does not load faces declared inside it — and
+// its `url()`s are the asset base as the real install resolved it.
+export async function fontRegistrationCss(page: Page, themeId: string): Promise<string> {
+  return page.evaluate(
+    (id) =>
+      document.head.querySelector(`style[data-liebe="fonts"][data-liebe-theme="${id}"]`)
+        ?.textContent ?? '',
+    themeId
+  )
+}
+
+// The families the document has REGISTERED a face for, from `@font-face` rules
+// in any of its stylesheets plus anything added to the set programmatically.
+//
+// `document.fonts` is the registration set, not the availability set: a family
+// merely installed on the host is resolved by the font matcher and never
+// appears here. That is what makes this usable as a baseline — it cannot be
+// satisfied by a machine that happens to ship the typeface under test — and it
+// reads the mechanism directly, since document-level registration is the whole
+// reason a shadow-root theme can render in a bundled face at all.
+export async function documentFontFamilies(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    Array.from(document.fonts).map((face) => face.family.replace(/^['"]|['"]$/g, ''))
+  )
+}
+
+// Whether the document has actually LOADED a face, rather than merely been
+// handed a rule declaring it: `load()` fetches, so this comes back false if the
+// bundled woff2 is missing or its URL resolved somewhere that 404s.
+export async function documentFontLoaded(page: Page, font: string): Promise<boolean> {
+  return page.evaluate(async (spec) => {
+    // Fonts are subset by `unicode-range`, so both calls are made against text
+    // the dashboard really renders rather than against the whole face.
+    //
+    // `check()` on its own would be vacuous: it answers TRUE when no registered
+    // face matches the query at all — an unregistered family is simply resolved
+    // to a system fallback, which is always "available" — so an assertion built
+    // on it alone passes hardest when the registration is missing. What `load()`
+    // resolves with is the corrective: a non-empty result means there was a face
+    // to load, and a rejection (a `url()` that 404s) means there was not.
+    const faces = await document.fonts.load(spec, 'Liebe').catch(() => [])
+    return faces.length > 0 && document.fonts.check(spec, 'Liebe')
+  }, font)
+}
+
 // Open the taskbar's configuration menu. Its content portals to document.body,
 // outside the panel's shadow root — Playwright's engines pierce both.
 export async function openConfigurationMenu(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Configuration menu' }).click()
   await expect(page.getByRole('menu')).toBeVisible()
+}
+
+// Activate a theme the way a user does: through the picker in the configuration
+// menu. Seeding the id into localStorage would prove the loader works and
+// nothing about live application, which is the half a real browser is needed
+// for. `name` matches the item's accessible name as a substring, so a theme
+// whose item also carries a caveat (Liquid Glass) is addressed by its label.
+export async function selectTheme(page: Page, name: string): Promise<void> {
+  await openConfigurationMenu(page)
+  await page.getByRole('menuitemradio', { name }).click()
+  await expect(page.getByRole('menu')).toBeHidden()
 }
 
 // The open menu read as a portalled overlay: whether it really did escape the

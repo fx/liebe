@@ -4,7 +4,9 @@
 
 Ship the two non-default built-in themes specified in [theming](../specs/theming/index.md): **Liquid Glass** (token-only frosted translucency) and **LCARS** (dark-only okudagram console with bundled Antonio font and scoped rules on the stable selector contract). Includes the theme gallery stories that become the permanent visual acceptance surface for both themes.
 
-**Spec:** [theming](../specs/theming/index.md) · **Status:** draft · **Depends on:** 0012
+**Spec:** [theming](../specs/theming/index.md) · **Status:** complete · **Depends on:** 0012
+
+**Known exception:** LCARS ships **without a section title, without the concave inner fillet, and without the per-title code label** — three parts its own okudagram design calls for. The cause is not scheduling: `liebe-section-title` is stamped nowhere, and it was not stamped because no element in the markup means "the title of a section" (a screen renders no header, and the titled `separator` grid item is a widget the user places anywhere, including mid-section and vertically). Stamping the class on whatever is nearest would promise themes a bar at the head of a section that is not what renders. The gap is tracked as [#218](https://github.com/fx/liebe/issues/218) and recorded as the **Outstanding — `liebe-section-title`** entry under the [stable selector contract](../specs/theming/index.md#stable-selector-contract); the acceptance scenario below is narrowed to the frame LCARS actually draws rather than restated as met. The other contract gap found here — a theme cannot recolour pill and chip labels — is [#214](https://github.com/fx/liebe/issues/214).
 
 ## Motivation
 
@@ -42,19 +44,21 @@ The [theming spec](../specs/theming/index.md) owns both themes' token values, pa
 
 - **GIVEN** the e2e panel with LCARS activated
 - **WHEN** the dashboard renders
-- **THEN** the root carries `data-liebe-theme="lcars"` and `data-appearance="dark"`, body text computes to Antonio, and a section title bar computes the butterscotch background.
+- **THEN** the root carries `data-liebe-theme="lcars"` and `data-appearance="dark"`, body text computes to Antonio from a face registered in the owning document, the screen's rail and elbow compute the butterscotch background on `liebe-screen`, and each `liebe-section` computes its almond bar.
 
 ## Design Decisions
 
 - **Font at document level** — shadow roots don't load `@font-face` declared inside them (spec mechanism); registration is idempotent across panel remounts (see [panel-lifecycle](../specs/panel-lifecycle/index.md)).
-- **LCARS section frames** need the `liebe-section`/`liebe-section-title` structural hooks from the selector contract — verify they were stamped in 0010/0011; if missing, adding them is in-scope here (contract, not new design).
+- **LCARS section frames** need the `liebe-section`/`liebe-section-title` structural hooks from the selector contract — verify they were stamped in 0010/0011; if missing, adding them is in-scope here (contract, not new design). They were not: a grep of `src/` and `app/` returned zero occurrences of any of the three, so the spec's claim that 0010 shipped them was false and has been corrected.
+  - **Delivered:** `liebe-screen` and `liebe-section` are stamped and moved into the contract's stamped set, and LCARS draws its console frame on them — the screen's rail and elbow, plus an alternating bar per section with a counter-generated code label. Asserted by e2e on the real panel.
+  - **Still owed:** `liebe-section-title` stays unstamped, so the section title, the concave inner fillet and the per-title code label are not delivered. This one is not "adding a hook to existing markup": it needs a section heading that exists because a section genuinely has one, which is a screen/section structure question rather than a theming one. Picked up in [#218](https://github.com/fx/liebe/issues/218), against the **Outstanding** entry in the [selector contract](../specs/theming/index.md#stable-selector-contract).
 - **Reference values** come from the theming spec tables (validated in the mockup); no external fetches at build time.
 
 ## Tasks
 
 - [x] **PR 1 — Liquid Glass**: theme asset + registry entry (`both` appearances incl. light variant), gallery + stories, a11y pass, picker perf note
 - [x] **PR 2 — LCARS**: Antonio asset + OFL license + document-level registration; theme CSS (tokens + scoped rules within contract); gallery + stories; unit tests for dark-forcing and font registration
-- [ ] **PR 3 — E2E + cleanup**: per-theme e2e smoke; update design-system/theming spec statuses + changelogs
+- [x] **PR 3 — E2E + cleanup**: per-theme e2e smoke (`tests/e2e/built-in-themes.spec.ts`); update design-system/theming spec statuses + changelogs
 
 ## Out of Scope
 
