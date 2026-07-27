@@ -15,7 +15,8 @@ The pipeline is deliberately staged to protect render performance:
 - **Batch** — `EntityUpdateBatcher` coalesces debounced updates into a single store write within a 50ms window (or immediately when a size cap is hit), and drops no-op updates.
 - **Store** — `entityStore` (entities, connection flags, subscriptions, staleness) and `connectionStore` (status + rolling event log) hold reactive state via TanStack Store.
 - **History** — `EntityHistoryService` caches a rolling window of raw numeric samples per entity (`historyStore`) and derives the downsampled series cards graph.
-- **Consumers** — hooks (`useEntity`, `useEntities`, `useEntityAttribute`, `useEntityConnection`, `useEntityHistory`, `useServiceCall`, `useConnectionStatus`) read the stores and drive components (`ConnectionStatus`, `ConnectionLogDialog`).
+- **Forecast** — `WeatherForecastService` caches one `weather.get_forecasts` response per entity + requested type (`forecastStore`) and refreshes it on its own interval.
+- **Consumers** — hooks (`useEntity`, `useEntities`, `useEntityAttribute`, `useEntityConnection`, `useEntityHistory`, `useWeatherForecast`, `useServiceCall`, `useConnectionStatus`) read the stores and drive components (`ConnectionStatus`, `ConnectionLogDialog`).
 
 Service calls flow through a separate singleton, `HassService`, and the low-level `hassService` shim in `src/services/hass.ts` wraps `window.hass` for code paths that reach Home Assistant directly.
 
@@ -266,18 +267,34 @@ A refetch never blanks what is already on screen: while one is in flight the hoo
 - **WHEN** `useEntityHistory` resolves
 - **THEN** it returns `unsupported` with no error, and the consumer renders without a graph (`src/hooks/__tests__/useEntityHistory.test.tsx:135`).
 
-### Weather Forecast Hook (specified, not yet implemented)
-
-Target contract for the forecast capability. Implemented by change [0015](../../changes/0015-history-and-forecast-data.md) PR 2; until it lands, weather cards read only the entity's current state.
+### Weather Forecast
 
 - `useWeatherForecast(entityId, {type: hourly | daily | twice_daily})` MUST call `weather.get_forecasts` with response caching and a refresh interval (SHOULD: 30 minutes for `hourly`, 2 hours for `daily` and `twice_daily`), resolving `unsupported` when the service or feature is unavailable. Integrations advertising only `FORECAST_TWICE_DAILY` MUST NOT resolve daily as unsupported: the hook MUST derive a daily view from twice-daily data, with daytime entries (`is_daytime: true`) carrying the day's condition and high and the paired nighttime entry supplying the low.
+- **The cache MUST be keyed by entity + REQUESTED type**, not by the type that was fetched. A daily request against a twice-daily-only integration is fetched as `twice_daily` and derived before it is cached, so what an entry holds is always the view its subscribers asked for. Concurrent requests for the same entry MUST be deduped, and the entry MUST outlive its subscribers so a remounting card renders from cache rather than refetching.
+- **Capability MUST be read from `supported_features` before the call is made**, so a type the entity does not advertise resolves `unsupported` without a request; an entity that advertises nothing is not assumed incapable and the requested type is attempted. A non-`weather` entity resolves `unsupported` without a request for the same reason.
+- **`unsupported` and `error` MUST stay distinct**, because consumers render them differently — an unsupported forecast is hidden silently, an error is a fault. A missing service, a rejection saying the entity does not support the feature, and a successful call whose response carries no bucket for the entity are all `unsupported` with no error; a transport failure is an error. An empty forecast array is neither: the entity has a forecast and it is currently empty.
+- **The twice-daily → daily derivation MUST NOT assume ordered, complete pairs.** Entries are grouped by local calendar day after sorting, so reversed halves still pair. A day with no nighttime half keeps its high and condition and takes its low from its own `templow` if it has one. A day with no daytime half (the leading half of a forecast fetched in the evening) is still emitted, with the night's condition and low but NO temperature — a nighttime reading is not the day's high, and presenting it as one misreports the day. A missing `is_daytime` counts as a daytime half; duplicate halves keep the earlier entry. Nothing is fabricated: a day with no low available carries none.
+- **A junk `type` MUST resolve to a defined forecast rather than a throw.** It arrives from card configuration, and a document this build cannot fully interpret still reaches the render path (dashboard-config, Forward Compatibility), so an unrecognised value is read as "no preference" and falls back to `daily` — keeping it out of the cache key as well as out of the request.
+- **A failed fetch MUST count as an attempt for refresh purposes**, so a forecast whose fetch failed is retried no more often than its refresh interval — including across a remount — rather than on every tick. Regaining a connection still refetches immediately, so the case that actually resolves the failure never waits on the interval. A refetch never blanks what is already cached.
 - The hook MUST follow the same per-entity slice pattern as the history hook, and its failures MUST be non-fatal in the same way: consumers render without forecast content.
 
 #### Scenario: Forecast unsupported degrades silently
 
 - **GIVEN** a weather entity whose integration lacks `weather.get_forecasts`
 - **WHEN** `useWeatherForecast` resolves
-- **THEN** it returns `unsupported`, and consumers hide forecast content regardless of their options.
+- **THEN** it returns `unsupported` with no error, and consumers hide forecast content regardless of their options (`src/hooks/__tests__/useWeatherForecast.test.tsx:129`, `src/services/__tests__/weatherForecast.test.ts:190`).
+
+#### Scenario: Daily from a twice-daily-only integration
+
+- **GIVEN** a weather entity advertising only `FORECAST_TWICE_DAILY`
+- **WHEN** a consumer requests `type: 'daily'`
+- **THEN** the twice-daily forecast is fetched and derived into one entry per day — the daytime condition and high with the nighttime low — rather than resolving `unsupported` (`src/hooks/__tests__/useWeatherForecast.test.tsx:116`, `src/services/__tests__/weatherForecast.test.ts:236`).
+
+#### Scenario: A day with only one half
+
+- **GIVEN** a twice-daily forecast whose first day has no daytime entry
+- **WHEN** the daily view is derived
+- **THEN** that day is still emitted, carrying the night's condition and low and no temperature at all, rather than reporting a nighttime reading as the day's high (`src/services/__tests__/forecastData.test.ts:266`).
 
 ### Service Calls
 
@@ -413,6 +430,32 @@ export interface HistoryEntry {
 }
 ```
 
+`ForecastType` and `ForecastEntry` (`src/services/forecastData.ts`), and the cached forecast they live in (`src/store/forecastStore.ts`):
+
+```typescript
+export type ForecastType = 'hourly' | 'daily' | 'twice_daily'
+
+export interface ForecastEntry {
+  datetime: string // as the integration wrote it
+  timestamp: number // datetime as epoch ms
+  condition?: string
+  temperature?: number // a daily entry's high
+  templow?: number
+  is_daytime?: boolean // twice-daily only
+  [key: string]: unknown // unknown integration fields carried through
+}
+
+export interface ForecastCacheEntry {
+  entityId: string
+  type: ForecastType // the REQUESTED type, not always the fetched one
+  forecast: ForecastEntry[]
+  isLoading: boolean
+  error: string | null
+  unsupported: boolean
+  updatedAt: number // last answer, successful or failed
+}
+```
+
 `ConnectionState` (`src/store/connectionStore.ts:17`) holds `status`, `details`, `lastConnectedTime`, `lastDisconnectedTime`, `reconnectAttempts`, `isWebSocketConnected`, `isEntityStoreConnected`, `error`, and `log: ConnectionLogEntry[]`.
 
 ### API Surface
@@ -423,7 +466,9 @@ export interface HistoryEntry {
 - `hassService` (`HassService`): `callService`, `turnOn`, `turnOff`, `toggle`, `setValue`, `setHass`, `cancelAll`.
 - `entityHistoryService` (`EntityHistoryService`): `subscribe(entityId, hours)` → release, `project(entry, {mode, points, stateClass})`, `ingest(entity)`, `handleReconnected()`, `setHass`, `reset`.
 - `historyStoreActions`: `patchEntry`, `reset`.
-- Hooks: `useEntity`, `useEntities`, `useEntityAttribute`/`useEntityAttributes`, `useEntityConnection`, `useEntityHistory`, `useServiceCall`, `useConnectionStatus`/`useIsConnected`/`useIsConnecting`/`useConnectionDetails`.
+- `weatherForecastService` (`WeatherForecastService`): `subscribe(entityId, type)` → release, `handleReconnected()`, `setHass`, `reset`.
+- `forecastStoreActions`: `patchEntry`, `reset`.
+- Hooks: `useEntity`, `useEntities`, `useEntityAttribute`/`useEntityAttributes`, `useEntityConnection`, `useEntityHistory`, `useWeatherForecast`, `useServiceCall`, `useConnectionStatus`/`useIsConnected`/`useIsConnecting`/`useConnectionDetails`.
 
 ### UI Components
 
@@ -502,7 +547,9 @@ Service-call retry (`src/services/hassService.ts:61`):
 - **`subscribedEntities` does not gate updates.** All entities from `hass.states` are loaded and all `state_changed` events are processed into the store; subscription tracking only feeds staleness checks and the status UI counter. There is no server-side or client-side filtering to "only the subscribed entities."
 - **Singletons are module-global.** `hassConnectionManager`, `entityDebouncer`, `entityUpdateBatcher`, `entityStore`, `connectionStore`, and `hassService` are shared singletons; tests that need isolation instantiate the classes directly rather than using the exported instances.
 - **Two service-call paths coexist.** `src/services/hass.ts` (`hassService` shim over `window.hass`) and `src/services/hassService.ts` (`HassService` singleton, also exported as `hassService`) are distinct modules with the same export name; the retry/abort behavior described here lives only in the latter.
-- **History windows are never evicted.** A cached window outliving its subscriber is the point — it is what lets a remounting card render immediately — but nothing removes one afterwards, so a long session that visits many distinct entity + window pairs accumulates them (raw samples and their projections) until reload. Bounded in practice by how many entities a dashboard shows; unbounded in principle.
+- **History windows and forecasts are never evicted.** A cached entry outliving its subscriber is the point — it is what lets a remounting card render immediately — but nothing removes one afterwards, so a long session that visits many distinct entity + window (or entity + forecast type) pairs accumulates them until reload. Bounded in practice by how many entities a dashboard shows; unbounded in principle.
+- **An `unsupported` forecast is decided once per session.** Refresh skips an entry resolved `unsupported`, so an entity that gains a forecast capability mid-session (a reloaded integration, a firmware update) keeps reading as unsupported until the panel reloads. The trade is against polling a service that has already said no, on an interval, forever.
+- **Requesting both `daily` and `twice_daily` for one entity costs two calls.** The cache is keyed by the requested type, so a twice-daily-only integration serving both a derived daily view and a raw twice-daily one fetches the same payload twice. No card asks for both today.
 - **Fixed thresholds.** Debounce times, the 50ms batch window, the 100-item batch cap, the 100-entry log cap, the 300s stale threshold, the 60s stale interval, the 30s health interval, and the `[1000, 2000, 4000]` retry ladder are compile-time constants (with `setDebounceTime`/`setThresholds`/`setExcludedEntityTypes` as the only runtime overrides).
 
 ## Open Questions
@@ -521,11 +568,13 @@ Service-call retry (`src/services/hassService.ts:61`):
 - `src/services/staleEntityMonitor.ts` — staleness monitor + camera exclusion (PR #139).
 - `src/services/entityHistory.ts` — history cache, WebSocket fetch, freshness, live ingress.
 - `src/services/historyData.ts` — pure request/parse/prune/downsample (importable outside the panel bundle, which is what lets the e2e run the real parser over a real recorder payload).
-- `src/store/entityDebouncer.ts`, `src/store/entityBatcher.ts`, `src/store/entityStore.ts`, `src/store/connectionStore.ts`, `src/store/entityTypes.ts`, `src/store/historyStore.ts`.
-- `src/hooks/useEntity.ts`, `useEntities.ts`, `useEntityAttribute.ts`, `useEntityConnection.ts`, `useEntityHistory.ts`, `useServiceCall.ts`, `useConnectionStatus.ts`.
+- `src/services/weatherForecast.ts` — forecast cache, `weather.get_forecasts` call, refresh, capability resolution.
+- `src/services/forecastData.ts` — pure request/parse/capability/derivation (importable outside the panel bundle, like `historyData`).
+- `src/store/entityDebouncer.ts`, `src/store/entityBatcher.ts`, `src/store/entityStore.ts`, `src/store/connectionStore.ts`, `src/store/entityTypes.ts`, `src/store/historyStore.ts`, `src/store/forecastStore.ts`.
+- `src/hooks/useEntity.ts`, `useEntities.ts`, `useEntityAttribute.ts`, `useEntityConnection.ts`, `useEntityHistory.ts`, `useWeatherForecast.ts`, `useServiceCall.ts`, `useConnectionStatus.ts`.
 - `src/components/ConnectionStatus.tsx`, `src/components/ConnectionLogDialog.tsx`.
-- `src/test/fixtures/history.ts` — history sample/response factories and a cache seeder for stories.
-- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService,historyData,entityHistory}.test.ts`, `src/hooks/__tests__/{useEntity,useEntityHistory,useServiceCall}.test.tsx`, `tests/e2e/entity-history.spec.ts`.
+- `src/test/fixtures/history.ts`, `src/test/fixtures/forecast.ts` — history and forecast factories and cache seeders for stories.
+- Tests: `src/store/__tests__/{entityDebouncer,entityBatcher,entityStore}.test.ts`, `src/services/__tests__/{hassConnection,hassService,historyData,entityHistory,forecastData,weatherForecast}.test.ts`, `src/hooks/__tests__/{useEntity,useEntityHistory,useWeatherForecast,useServiceCall}.test.tsx`, `tests/e2e/entity-history.spec.ts`.
 - Related specs: `../panel-lifecycle/` (panel custom-element + `liebe-websocket-check` dispatch), `../entity-cards/` (consumers), `../camera-streaming/` (WebRTC).
 
 ## Changelog
@@ -535,3 +584,4 @@ Service-call retry (`src/services/hassService.ts:61`):
 | 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                                              | —                                                       |
 | 2026-07-25 | Added target History & Forecast hook contracts (not yet implemented)                                                                                                                                                                                    | [0015](../../changes/0015-history-and-forecast-data.md) |
 | 2026-07-27 | History contract implemented: `useEntityHistory`, the two-level cache, the sample/delta downsampler, the pre-debounce raw ingress tap, and reconnect invalidation; scenarios given test references; forecast split into its own still-specified section | [0015](../../changes/0015-history-and-forecast-data.md) |
+| 2026-07-27 | Forecast contract implemented: `useWeatherForecast`, the per-type cache and refresh intervals, capability-driven `unsupported` resolution distinct from errors, and the twice-daily → daily derivation with its unpaired-half rules                     | [0015](../../changes/0015-history-and-forecast-data.md) |
