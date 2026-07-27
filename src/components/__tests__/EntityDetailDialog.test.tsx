@@ -11,6 +11,7 @@ import { GridCardWithComponents as GridCard } from '../GridCard'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
+import { entityHistoryService } from '~/services/entityHistory'
 import { useEntity } from '~/hooks/useEntity'
 import { dashboardActions } from '~/store'
 import { HOLD_DURATION_MS } from '~/store/cardActions'
@@ -89,12 +90,17 @@ describe('EntityDetailDialog', () => {
   }
 
   beforeEach(() => {
+    // The dialog's history section subscribes a cached window and starts a
+    // maintenance timer; without this the cache — and the timer — outlive the
+    // test that created them.
+    entityHistoryService.reset()
     entityStore.setState((state) => ({ ...state, entities: {}, isInitialLoading: false }))
     dashboardActions.resetState()
     dialogRenders.props.length = 0
   })
 
   afterEach(() => {
+    entityHistoryService.reset()
     dashboardActions.resetState()
   })
 
@@ -119,11 +125,14 @@ describe('EntityDetailDialog', () => {
     expect(screen.queryByRole('button', { name: /configure|settings|copy/i })).toBeNull()
   })
 
-  it('renders a history placeholder until history data lands', () => {
+  it('renders the history section for an entity that has a graphable window', async () => {
+    // The 0014 placeholder is gone; the section itself, and every state it can
+    // be in, is covered in `EntityDetailDialog/__tests__/DetailHistory.test.tsx`.
     seed(createSensorEntity())
     renderDialog('sensor.living_room_temperature')
 
-    expect(screen.getByTestId('detail-history-placeholder')).toBeInTheDocument()
+    expect(await screen.findByTestId('detail-history')).toBeInTheDocument()
+    expect(screen.queryByTestId('detail-history-placeholder')).toBeNull()
   })
 
   it('falls back to the entity id when the entity has no friendly name', () => {

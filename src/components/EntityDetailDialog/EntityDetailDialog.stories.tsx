@@ -1,24 +1,29 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { EntityDetailDialog, type EntityDetailDialogProps } from './index'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardItemProvider } from '../cardItemContext'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
+import { createMockHass } from '../../../.storybook/mockHass'
+import { HomeAssistantProvider, type HomeAssistant } from '~/contexts/HomeAssistantContext'
+import { entityHistoryService } from '~/services/entityHistory'
+import type { HassEntity } from '~/store/entityTypes'
 import {
   asUnavailable,
+  createHistoryResponse,
   createInputTextEntity,
   createLightEntity,
   createSensorEntity,
+  createTemperatureHistory,
 } from '~/test/fixtures'
 
 /**
  * The entity detail dialog — what `more-info` opens, and therefore what a
  * press-and-hold reaches on every card by default.
  *
- * It is read-only on purpose: name, state, attributes, and a history section
- * that stays a placeholder until history data lands (change 0015). Later card
- * changes mount their own controls in the domain slot between the state and the
- * history section.
+ * It is read-only on purpose: name, state, attributes, and — for entities that
+ * have one — a graph of the last 24 hours. Later card changes mount their own
+ * controls in the domain slot between the state and the history section.
  *
  * The password-helper story is the one to keep an eye on: the dialog renders
  * state and attributes generically, so without redaction it would print in
@@ -36,17 +41,82 @@ const meta: Meta<EntityDetailDialogProps> = {
   },
   // Controlled by the story so the Close button, the overlay and Escape all
   // behave as they do in the panel; the toolbar's `open` arg reopens it.
-  render: function DialogStory({ open, ...rest }) {
-    const [isOpen, setIsOpen] = useState(open)
-    // Follow the arg back up after the dialog has closed itself, so toggling the
-    // `open` control reopens it instead of doing nothing.
-    useEffect(() => setIsOpen(open), [open])
-    return <EntityDetailDialog {...rest} open={isOpen} onOpenChange={setIsOpen} />
-  },
+  render: (args) => <ControlledDialog {...args} />,
 }
 
 export default meta
 type Story = StoryObj<EntityDetailDialogProps>
+
+function ControlledDialog({ open, ...rest }: EntityDetailDialogProps) {
+  const [isOpen, setIsOpen] = useState(open)
+  const [lastArg, setLastArg] = useState(open)
+  // Follow the arg back up after the dialog has closed itself, so toggling the
+  // `open` control reopens it instead of doing nothing. Adjusted during render
+  // rather than in an effect — React's own pattern for a prop the state has to
+  // follow, and the one that does not cost a second commit.
+  if (lastArg !== open) {
+    setLastArg(open)
+    setIsOpen(open)
+  }
+  return <EntityDetailDialog {...rest} open={isOpen} onOpenChange={setIsOpen} />
+}
+
+/**
+ * Substitutes the workshop's `hass` for one whose `callWS` answers the recorder
+ * request the history section makes — the workshop default resolves every
+ * WebSocket message with `undefined`, which is a numeric entity with no recorded
+ * rows and therefore an empty graph.
+ *
+ * The story drives the real pipeline this way rather than seeding the cache:
+ * what these stories are for is the states `useEntityHistory` puts the section
+ * in, and a seeded store would skip the code that decides them.
+ */
+function Recorder({ answer, children }: { answer: RecorderAnswer; children: ReactNode }) {
+  // `callWS` is generic over the response type it is asked for; a story answers
+  // the one message the history service sends, so the cast is the whole gap.
+  const hass = useMemo(
+    () => ({ ...createMockHass(), callWS: answer as HomeAssistant['callWS'] }),
+    [answer]
+  )
+  return <HomeAssistantProvider hass={hass}>{children}</HomeAssistantProvider>
+}
+
+/** How a story's recorder answers `history/history_during_period`. */
+type RecorderAnswer = () => Promise<unknown>
+
+/**
+ * One history story: its own entity id (the window cache is a singleton keyed by
+ * entity, so sharing one id would let the first story's answer decide the rest)
+ * and its own recorder behaviour.
+ */
+function historyStory(entity: HassEntity, answer: RecorderAnswer): Story {
+  return {
+    args: { entityId: entity.entity_id },
+    parameters: { liebe: { entities: [entity] } },
+    // The service outlives the story; without this a second visit renders from
+    // the window the first one fetched.
+    beforeEach: () => {
+      entityHistoryService.reset()
+      return () => entityHistoryService.reset()
+    },
+    render: (args) => (
+      <Recorder answer={answer}>
+        <ControlledDialog {...args} />
+      </Recorder>
+    ),
+  }
+}
+
+const temperature = (entityId: string) =>
+  createSensorEntity({
+    entity_id: entityId,
+    attributes: {
+      friendly_name: 'Living Room Temperature',
+      device_class: 'temperature',
+      unit_of_measurement: '°C',
+      state_class: 'measurement',
+    },
+  })
 
 /** A typical read-only entity: value, unit, and the attributes behind it. */
 export const Default: Story = {}
@@ -89,6 +159,58 @@ export const EntityNotPublished: Story = {
   args: { entityId: 'sensor.removed_by_integration' },
   parameters: { liebe: { entities: [] } },
 }
+
+/**
+ * The history graph: a day of readings drawn through the sparkline anatomy, so
+ * a theme restyles it exactly as it restyles the same graph on a card.
+ */
+export const HistoryGraph: Story = historyStory(temperature('sensor.history_graph'), async () =>
+  createHistoryResponse('sensor.history_graph', createTemperatureHistory({ end: Date.now() }))
+)
+
+/**
+ * The dialog opens before the recorder answers. The skeleton holds the graph's
+ * box open, so the attributes below it do not jump when the series lands — this
+ * story's recorder never answers, so the state stays on screen.
+ */
+export const HistoryLoading: Story = historyStory(
+  temperature('sensor.history_loading'),
+  () => new Promise(() => {})
+)
+
+/**
+ * A numeric entity the recorder has no rows for: the section stays and the
+ * anatomy draws its placeholder baseline, because the entity may yet have a
+ * series.
+ */
+export const HistoryEmpty: Story = historyStory(
+  temperature('sensor.history_empty'),
+  async () => ({})
+)
+
+/**
+ * A failed history fetch is non-fatal: the section is gone entirely — no empty
+ * frame, no apology — and the rest of the dialog is untouched.
+ */
+export const HistoryUnavailable: Story = historyStory(temperature('sensor.history_error'), () =>
+  Promise.reject(new Error('Recorder unavailable'))
+)
+
+/**
+ * A non-numeric entity has nothing to graph. `useEntityHistory` resolves it
+ * `unsupported` from its live state — no request is made at all — and the
+ * section is absent for the same reason as above.
+ */
+export const HistoryUnsupported: Story = historyStory(
+  {
+    ...createSensorEntity({
+      entity_id: 'device_tracker.phone',
+      attributes: { friendly_name: 'Phone', source_type: 'gps' },
+    }),
+    state: 'home',
+  },
+  async () => ({})
+)
 
 /**
  * The gesture itself: press and hold the tile for half a second and the dialog
