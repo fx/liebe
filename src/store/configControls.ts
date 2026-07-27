@@ -28,9 +28,24 @@ import { z } from 'zod'
  * same rule Core's own `valid_entity_id` applies: lowercase alphanumerics and
  * underscores, with no leading, trailing, or doubled underscore in either
  * segment. Copied rather than loosened so the schema rejects exactly what Home
- * Assistant would refuse to create.
+ * Assistant would refuse to create. Core spells it this way — read from the
+ * running Home Assistant container's own `homeassistant/core.py`:
+ *
+ *     ^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$
+ *
+ * We accept and reject exactly those strings, but without the lookarounds:
+ * `(?<!_)` is lookbehind, which Safari before 16.4 cannot *parse*, so a regex
+ * literal using it is a syntax error that takes the whole module down rather
+ * than degrading validation — and a wall-mounted tablet or an iPhone running
+ * the companion app is a realistic client for this panel. Writing the segment
+ * as "alphanumeric runs joined by single underscores" states the rule directly
+ * instead of asserting three separate things about it, and uses nothing beyond
+ * ES3 regex syntax. `configControls.test.ts` pins the two forms together over
+ * an exhaustive corpus, so this stays a restatement and never drifts into a
+ * relaxation.
  */
-const ENTITY_ID_PATTERN = /^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$/
+const ENTITY_ID_SEGMENT = String.raw`[\da-z]+(?:_[\da-z]+)*`
+const ENTITY_ID_PATTERN = new RegExp(`^${ENTITY_ID_SEGMENT}\\.${ENTITY_ID_SEGMENT}$`)
 
 export const entityIdSchema = z
   .string()

@@ -119,6 +119,29 @@ describe('EntityPicker', () => {
     expect(screen.getByText('No entity matches that search.')).toBeInTheDocument()
   })
 
+  it('forgets the search when the popover is dismissed without a selection', async () => {
+    renderPicker()
+    await openPicker()
+    fireEvent.change(screen.getByLabelText('Motion sensor search'), {
+      target: { value: 'driveway' },
+    })
+    expect(screen.queryByText('Phone Battery')).not.toBeInTheDocument()
+
+    // Escape and a click outside are how a user abandons a search, and neither
+    // goes through the commit path. A search that survived would filter the
+    // next open without the field showing it — the entity looks missing.
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Motion sensor search')).not.toBeInTheDocument()
+    )
+
+    await openPicker()
+    expect(screen.getByLabelText('Motion sensor search')).toHaveValue('')
+    expect(screen.getByText('Phone Battery')).toBeInTheDocument()
+    expect(screen.getByText('3 available')).toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it.each([
     [
       'still loading',

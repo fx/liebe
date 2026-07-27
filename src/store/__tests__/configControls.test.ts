@@ -45,6 +45,91 @@ describe('entity link', () => {
     expect(entityIdSchema.safeParse(value).success).toBe(false)
   })
 
+  /*
+   * The pattern is a restatement of Home Assistant's own `valid_entity_id`,
+   * written without lookbehind so it parses on engines that lack it (Safari
+   * before 16.4, where a lookbehind literal is a module-killing syntax error
+   * rather than a validation quirk). "Restatement" is only true if it is
+   * checked, so these tests run Core's pattern beside ours and require them to
+   * agree — including on the strings a hand-edited config is most likely to
+   * contain.
+   *
+   * Core's regex is built with `new RegExp` from a string on purpose: as a
+   * literal it would be parsed at module load, which is precisely the failure
+   * the production pattern exists to avoid.
+   */
+  const HA_VALID_ENTITY_ID = new RegExp(
+    String.raw`^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$`
+  )
+  const accepts = (value: string) => entityIdSchema.safeParse(value).success
+
+  it.each([
+    // Accepted shapes.
+    ['sensor.motion', 'the ordinary case'],
+    ['binary_sensor.driveway_motion', 'underscores in both segments'],
+    ['a.b', 'single-character segments'],
+    ['1.2', 'digits only'],
+    ['sensor2.motion_3', 'digits mixed in'],
+    ['a_1.b_2', 'an underscore between a letter and a digit'],
+    // Leading underscore.
+    ['_sensor.motion', 'a leading underscore on the domain'],
+    ['sensor._motion', 'a leading underscore on the object id'],
+    ['__sensor.motion', 'a doubled leading underscore'],
+    // Trailing underscore.
+    ['sensor_.motion', 'a trailing underscore on the domain'],
+    ['sensor.motion_', 'a trailing underscore on the object id'],
+    ['sensor.motion__', 'a doubled trailing underscore'],
+    // Doubled underscore, in either segment and longer runs of it.
+    ['sensor__aux.motion', 'a doubled underscore in the domain'],
+    ['sensor.front__door', 'a doubled underscore in the object id'],
+    ['sensor.mot___ion', 'a tripled underscore'],
+    ['_._', 'nothing but underscores'],
+    ['sensor._', 'an object id that is one underscore'],
+    // Empty segments, missing and extra separators.
+    ['', 'the empty string'],
+    ['.', 'a bare dot'],
+    ['.motion', 'an empty domain'],
+    ['sensor.', 'an empty object id'],
+    ['sensor', 'no dot at all'],
+    ['sensor.a.b', 'two dots'],
+    ['sensor..motion', 'a doubled dot'],
+    // Characters outside the alphabet.
+    ['Sensor.Motion', 'uppercase in both segments'],
+    ['sensor.Motion', 'uppercase in the object id'],
+    ['SENSOR.MOTION', 'all uppercase'],
+    ['sensor.motión', 'a non-ASCII letter'],
+    ['sensör.motion', 'a non-ASCII letter in the domain'],
+    ['sensor.日本', 'a non-Latin script'],
+    ['sensor.mot ion', 'a space'],
+    ['sensor.motion-1', 'a hyphen'],
+    // Anchoring: `$` in JavaScript stops at the end of input, with no
+    // concession for a trailing newline. Both patterns must agree on that too.
+    ['sensor.motion\n', 'a trailing newline'],
+    ['\nsensor.motion', 'a leading newline'],
+    ['sensor.motion\nlight.kitchen', 'two ids on separate lines'],
+  ])('agrees with Home Assistant on %s (%s)', (value) => {
+    expect(accepts(value)).toBe(HA_VALID_ENTITY_ID.test(value))
+  })
+
+  it('agrees with Home Assistant on every short string over the relevant alphabet', () => {
+    // The named cases above say what each category is; this says the two
+    // patterns are the same function. Four characters — a letter, a digit, the
+    // underscore, and the separator — generate every structural arrangement
+    // that matters, and exhausting lengths 1 through 5 covers all 1364 of them.
+    const alphabet = ['a', '1', '_', '.']
+    let strings = ['']
+    const divergent: string[] = []
+
+    for (let length = 1; length <= 5; length++) {
+      strings = strings.flatMap((prefix) => alphabet.map((character) => prefix + character))
+      for (const value of strings) {
+        if (accepts(value) !== HA_VALID_ENTITY_ID.test(value)) divergent.push(value)
+      }
+    }
+
+    expect(divergent).toEqual([])
+  })
+
   it('reads a stored id verbatim, including one this instance cannot resolve', () => {
     // Whether the entity exists is a question for the machine rendering the
     // card, not for the config: a shared dashboard lands on instances that name

@@ -111,10 +111,21 @@ export function EntityPicker({
       ? 'Not connected to Home Assistant — no entities to choose from.'
       : 'No entity matches that search.'
 
-  const commit = (entityId: string) => {
-    onChange(entityId)
+  /*
+   * Closing is the only place the search resets, and every way of closing goes
+   * through it — picking an entity, but also Escape and a click outside. A
+   * search that outlived its popover would silently re-apply itself on the next
+   * open, and a filtered list that nobody asked to filter reads as "that entity
+   * is not in Home Assistant".
+   */
+  const close = () => {
     setOpen(false)
     setSearch('')
+  }
+
+  const commit = (entityId: string) => {
+    onChange(entityId)
+    close()
   }
 
   return (
@@ -123,7 +134,7 @@ export function EntityPicker({
         {label}
       </Text>
 
-      <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Root open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
         <Popover.Trigger>
           <Button size="3" variant="soft" color="gray" aria-label={label}>
             <Text truncate>
