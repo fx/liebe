@@ -77,6 +77,15 @@ State is held in a TanStack `Store` (`dashboardStore`) and read through the `use
 - `removeGridItem(screenId, itemId)` MUST drop the matching item.
 - `reorderGrid(screenId)` MUST replace the screen's items with the result of `packGridItemsCompact` over the current items and resolution.
 - All MUST set `isDirty` true. (Grid geometry/packing rules themselves are specified in [../grid-layout/](../grid-layout/).)
+- A grid item's stored geometry is `x`, `y`, `width`, `height` and nothing else: a card's **layout tier is derived, never persisted** ([design-system — size-adaptive layouts](../design-system/index.md#size-adaptive-layouts)). Writing a resolved tier into an item would freeze a card at the size it happened to be created at, since the tier depends on the breakpoint the item is _rendered_ at, not the dimensions it is stored with.
+
+**Audit — the retired `size` prop (change [0011](../../changes/0011-layout-tiers.md)).** No stored configuration is affected by the removal of the legacy `size: small|medium|large` card prop, and no migration is needed:
+
+- `GridItem` has never carried a `size` key. The prop was computed at render time inside `GridView` from `item.width`/`item.height` and handed to cards; nothing wrote it back, so it never reached localStorage, the JSON export, or the YAML export (all three serialize the same `GridItem` shape).
+- The dimensions the tier is derived from — `width` and `height` — were already persisted and are unchanged, so a configuration exported before 0011 renders identically after it.
+- Nothing was added to the persisted shape either, so a pre-0011 build loading a post-0011 configuration sees no unknown keys, and the [forward-compatibility](#forward-compatibility) rule is not even exercised.
+
+This closes the "Legacy `size` prop migration" open question the design-system spec raised against this document.
 
 #### Scenario: Auto-position on default coordinates
 
@@ -437,9 +446,10 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                    | Document                                               |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                | —                                                      |
-| 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying                                           | [0004](../../changes/0004-portable-config-contract.md) |
-| 2026-07-26 | `theme` becomes `{ id, appearance, customCss }`: new store shape, `setTheme(partial)`, legacy scalar migration on every load route, object-shaped export, picker / appearance control / custom-CSS editor | [0012](../../changes/0012-theming-engine.md)           |
-| 2026-07-26 | Forward-compatibility invariant added: unrecognised values round-trip unchanged and are resolved for display only                                                                                         | [0012](../../changes/0012-theming-engine.md)           |
+| Date       | Change                                                                                                                                                                                                                 | Document                                               |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                             | —                                                      |
+| 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying                                                        | [0004](../../changes/0004-portable-config-contract.md) |
+| 2026-07-26 | `theme` becomes `{ id, appearance, customCss }`: new store shape, `setTheme(partial)`, legacy scalar migration on every load route, object-shaped export, picker / appearance control / custom-CSS editor              | [0012](../../changes/0012-theming-engine.md)           |
+| 2026-07-26 | Forward-compatibility invariant added: unrecognised values round-trip unchanged and are resolved for display only                                                                                                      | [0012](../../changes/0012-theming-engine.md)           |
+| 2026-07-27 | Legacy `size` prop audited against the persisted shape: never a stored key, derived at render time from the already-persisted `width`/`height`, so no configuration migrates; tier recorded as derived-never-persisted | [0011](../../changes/0011-layout-tiers.md)             |

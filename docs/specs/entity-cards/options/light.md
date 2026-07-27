@@ -2,7 +2,7 @@
 
 Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
 
-**Status: specified, not yet implemented.** The current `LightCard` implements toggle, brightness detection, and the brightness slider (gated by the legacy `enableBrightness` key); color temperature and color controls, tier layouts, `useLightColor`, and presets are new. See [entity-cards — Lights](../index.md#lights) for the implementation baseline.
+**Status: specified, not yet implemented.** The current `LightCard` implements toggle, brightness detection, and the brightness slider (gated by the legacy `enableBrightness` key); color temperature and color controls, `useLightColor`, and presets are new. **Tier layouts below are implemented** by change [0011](../../../changes/0011-layout-tiers.md) PR 3, with the controls that do not exist yet simply absent from their slots. See [entity-cards — Lights](../index.md#lights) for the implementation baseline.
 
 ## Primary action
 

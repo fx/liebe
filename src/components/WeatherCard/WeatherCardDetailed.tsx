@@ -116,10 +116,26 @@ function WeatherCardDetailedContent(props: CardProps) {
     weatherConfig?.temperatureUnit || 'auto'
   )
 
-  // One glyph scale at every tier; the weather card's per-tier layout is
-  // 0011 PR 3's.
+  // One glyph scale at every tier: a smaller tile omits content rather than
+  // scaling it down (docs/specs/design-system — "Size-adaptive layouts").
   const iconScale = 1
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
+
+  /*
+   * Tier layout (docs/specs/entity-cards/options/weather.md — "Tier layouts").
+   * `detailed` is the variant that adds pressure, and the tier decides how much
+   * of its detail block fits:
+   *
+   *   glance  icon + name + the temperature in the state slot; no condition
+   *           text and no detail block at all.
+   *   row     header plus the temperature and the secondary (humidity) line —
+   *           pressure is the first thing that does not fit.
+   *   tall    the same content, stacked.
+   *   full    the whole detail block, pressure included; the forecast strips
+   *           the doc puts here are change 0020's.
+   */
+  const isGlance = tier === 'glance'
+  const isFull = tier === 'full'
 
   // Get background image for the current weather condition
   const backgroundImage = getWeatherBackground(entity.state)
@@ -200,7 +216,9 @@ function WeatherCardDetailedContent(props: CardProps) {
                   textTransform: 'capitalize',
                 }}
               >
-                {entity.state}
+                {isGlance && tempDisplay
+                  ? `${Math.round(tempDisplay.value)}${tempDisplay.unit}`
+                  : entity.state}
               </Text>
             </GridCard.Status>
           </Box>
@@ -218,86 +236,88 @@ function WeatherCardDetailedContent(props: CardProps) {
           </GridCard.Icon>
         </Flex>
 
-        <GridCard.Controls>
-          <Box>
-            {tempDisplay && (
-              <Flex align="center" gap="2" mb="3">
-                <Thermometer
-                  size={20}
-                  style={{
-                    ...styles.icon,
-                    color: backgroundImage
-                      ? 'white'
-                      : isStale
-                        ? 'var(--orange-9)'
-                        : 'var(--gray-9)',
-                  }}
-                />
-                <Flex direction="column" gap="0">
-                  <Text
-                    size="1"
-                    color={getWeatherTextColor(!!backgroundImage, 'gray')}
-                    style={styles.text}
-                  >
-                    Temperature
-                  </Text>
-                  <Text size="4" weight="bold" style={styles.text}>
-                    {Math.round(tempDisplay.value)}
-                    {tempDisplay.unit}
-                  </Text>
+        {!isGlance && (
+          <GridCard.Controls>
+            <Box>
+              {tempDisplay && (
+                <Flex align="center" gap="2" mb="3">
+                  <Thermometer
+                    size={20}
+                    style={{
+                      ...styles.icon,
+                      color: backgroundImage
+                        ? 'white'
+                        : isStale
+                          ? 'var(--orange-9)'
+                          : 'var(--gray-9)',
+                    }}
+                  />
+                  <Flex direction="column" gap="0">
+                    <Text
+                      size="1"
+                      color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                      style={styles.text}
+                    >
+                      Temperature
+                    </Text>
+                    <Text size="4" weight="bold" style={styles.text}>
+                      {Math.round(tempDisplay.value)}
+                      {tempDisplay.unit}
+                    </Text>
+                  </Flex>
                 </Flex>
-              </Flex>
-            )}
+              )}
 
-            {humidity !== undefined && (
-              <Flex align="center" gap="2" mb="3">
-                <Droplets
-                  size={18}
-                  style={{
-                    ...styles.icon,
-                    color: backgroundImage ? 'white' : 'var(--gray-9)',
-                  }}
-                />
-                <Flex direction="column" gap="0">
-                  <Text
-                    size="1"
-                    color={getWeatherTextColor(!!backgroundImage, 'gray')}
-                    style={styles.text}
-                  >
-                    Humidity
-                  </Text>
-                  <Text size="3" weight="bold" style={styles.text}>
-                    {humidity}%
-                  </Text>
+              {humidity !== undefined && (
+                <Flex align="center" gap="2" mb="3">
+                  <Droplets
+                    size={18}
+                    style={{
+                      ...styles.icon,
+                      color: backgroundImage ? 'white' : 'var(--gray-9)',
+                    }}
+                  />
+                  <Flex direction="column" gap="0">
+                    <Text
+                      size="1"
+                      color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                      style={styles.text}
+                    >
+                      Humidity
+                    </Text>
+                    <Text size="3" weight="bold" style={styles.text}>
+                      {humidity}%
+                    </Text>
+                  </Flex>
                 </Flex>
-              </Flex>
-            )}
+              )}
 
-            {pressure !== undefined && (
-              <Flex align="center" gap="2">
-                <Gauge
-                  size={18}
-                  style={{
-                    ...styles.icon,
-                    color: backgroundImage ? 'white' : 'var(--gray-9)',
-                  }}
-                />
-                <Flex direction="column" gap="0">
-                  <Text
-                    size="1"
-                    color={getWeatherTextColor(!!backgroundImage, 'gray')}
-                    style={styles.text}
-                  >
-                    Pressure
-                  </Text>
-                  <Text size="3" weight="bold" style={styles.text}>
-                    {Math.round(pressure)} hPa
-                  </Text>
+              {isFull && pressure !== undefined && (
+                <Flex align="center" gap="2">
+                  <Gauge
+                    size={18}
+                    style={{
+                      ...styles.icon,
+                      color: backgroundImage ? 'white' : 'var(--gray-9)',
+                    }}
+                  />
+                  <Flex direction="column" gap="0">
+                    <Text
+                      size="1"
+                      color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                      style={styles.text}
+                    >
+                      Pressure
+                    </Text>
+                    <Text size="3" weight="bold" style={styles.text}>
+                      {Math.round(pressure)} hPa
+                    </Text>
+                  </Flex>
                 </Flex>
-              </Flex>
-            )}
-          </Box>
-        </GridCard.Controls>
+              )}
+            </Box>
+          </GridCard.Controls>
+        )}
       </Flex>
     </GridCard>
   )

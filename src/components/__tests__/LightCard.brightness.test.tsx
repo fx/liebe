@@ -139,6 +139,31 @@ describe('LightCard Brightness Slider', () => {
     expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
   })
 
+  it('renders no stray zero for a legacy light without the brightness bit', () => {
+    // The legacy branch masks `supported_features`, and React prints a numeric
+    // `0` as the text "0" — so an on/off light on the old attribute would put a
+    // visible zero where the slider is not.
+    vi.mocked(hooks.useEntity).mockReturnValue({
+      entity: {
+        ...mockEntity,
+        attributes: {
+          friendly_name: 'Test Light',
+          // No `supported_color_modes`, and no SUPPORT_BRIGHTNESS bit.
+          supported_features: 4,
+        },
+      },
+      isConnected: true,
+      isLoading: false,
+      isStale: false,
+    })
+
+    const { container } = render(<LightCard entityId="light.test_light" />)
+
+    expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
+    // Nothing this light legitimately renders contains a zero.
+    expect(container.querySelector('.liebe-card')!.textContent).not.toContain('0')
+  })
+
   it('renders slider with correct CSS classes', () => {
     const { container } = render(<LightCard entityId="light.test_light" />)
 

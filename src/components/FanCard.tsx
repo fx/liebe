@@ -133,9 +133,15 @@ function FanCardComponent({
   const isOn = entity.state === 'on'
   const fanAttributes = entity.attributes as FanAttributes
 
-  // Check supported features
-  const supportsSpeed = (fanAttributes.supported_features ?? 0) & SUPPORT_SET_SPEED
-  const supportsPresetMode = (fanAttributes.supported_features ?? 0) & SUPPORT_PRESET_MODE
+  /*
+   * Check supported features. Booleans at the point they are derived, not the
+   * masked bits: React prints a numeric `0` as the text "0", so the moment one
+   * of these gates JSX with `&&` it stamps a stray zero on the card. Coercing
+   * here rather than at each use site is what keeps that from coming back the
+   * next time one of them is read.
+   */
+  const supportsSpeed = ((fanAttributes.supported_features ?? 0) & SUPPORT_SET_SPEED) !== 0
+  const supportsPresetMode = ((fanAttributes.supported_features ?? 0) & SUPPORT_PRESET_MODE) !== 0
 
   // Get current speed/percentage info
   const currentPercentage = fanAttributes.percentage ?? 0
@@ -178,6 +184,104 @@ function FanCardComponent({
     }
   }
 
+  /*
+   * What each tier carries (docs/specs/entity-cards/options/fan.md — "Tier
+   * layouts"). Content that does not fit is omitted, never clipped
+   * (docs/specs/design-system — "Size-adaptive layouts"):
+   *
+   *   glance  icon + name + state; no embedded control — the whole tile
+   *           toggles, and hold opens the detail dialog (change 0014).
+   *   row     icon + meta + the horizontal speed control.
+   *   tall    icon on top, the step pills stacked vertically in the middle,
+   *           meta at the bottom. (The vertical *slider* the doc names is
+   *           `speedControl: slider`, which arrives with change 0019.)
+   *   full    row content plus the preset control as a secondary row; the
+   *           oscillate toggle and the direction control do not exist yet
+   *           (0019), so nothing renders for them.
+   *
+   * The primary speed control is the step pills wherever the fan supports a
+   * percentage; a preset-only fan keeps the preset select as its primary,
+   * because dropping it would leave that fan with no speed control at all.
+   */
+  const isGlance = tier === 'glance'
+  const isTall = tier === 'tall'
+  const isFull = tier === 'full'
+  const hasPresets = supportsPresetMode && (fanAttributes.preset_modes?.length ?? 0) > 0
+  const controlsVisible = !isEditMode && !isGlance && isOn
+  const showSpeedPills = controlsVisible && supportsSpeed
+  const showPresetSelect = controlsVisible && hasPresets && (isFull || !supportsSpeed)
+
+  const icon = (
+    <GridCard.Icon>
+      <span className={getAnimationClass()}>
+        <Fan size={24} />
+      </span>
+    </GridCard.Icon>
+  )
+
+  const meta = (
+    <GridCard.Meta>
+      <GridCard.Title>{friendlyName}</GridCard.Title>
+      <GridCard.Status>
+        {error
+          ? 'ERROR'
+          : isOn
+            ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
+            : // The state itself, not a hardcoded "OFF": `isOn` is false for
+              // `unknown` too, and a fan whose state nobody knows must not be
+              // reported as one that is definitely off.
+              entity.state.toUpperCase()}
+      </GridCard.Status>
+    </GridCard.Meta>
+  )
+
+  const speedPills = (
+    <PillGroup label="Fan speed" orientation={isTall ? 'vertical' : 'horizontal'}>
+      {(
+        [
+          { value: '25', label: 'Low speed (25%)', glyph: 12 },
+          { value: '50', label: 'Medium-low speed (50%)', glyph: 14 },
+          { value: '75', label: 'Medium-high speed (75%)', glyph: 16 },
+          { value: '100', label: 'High speed (100%)', glyph: 18 },
+        ] as const
+      ).map(({ value, label, glyph }) => (
+        <Pill
+          key={value}
+          domain="fan"
+          color="ok"
+          active={selectedButton === value}
+          label={label}
+          hideLabel
+          icon={<Wind size={glyph} />}
+          disabled={isLoading}
+          onClick={() => handleSpeedChange(value)}
+        />
+      ))}
+    </PillGroup>
+  )
+
+  // Built only where there is something to build it from: `hasPresets` is what
+  // makes the modes list non-empty, and a fan without one renders no select at
+  // any tier.
+  const presetSelect = hasPresets ? (
+    <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
+      <Select.Root
+        value={currentPresetMode || fanAttributes.preset_modes![0]}
+        onValueChange={handlePresetModeChange}
+        disabled={isLoading}
+      >
+        <Select.Trigger style={{ width: '100%' }} aria-label="Select fan preset mode" />
+        <Select.Content>
+          {fanAttributes.preset_modes!.map((mode) => (
+            <Select.Item key={mode} value={mode}>
+              {mode}
+            </Select.Item>
+          ))}
+        </Select.Content>
+      </Select.Root>
+    </Box>
+  ) : null
+
   return (
     <GridCard
       // Fans take the `ok` triplet in the design system's default mapping
@@ -195,81 +299,36 @@ function FanCardComponent({
       onClick={handleToggle}
       title={error || undefined}
     >
-      <Flex
-        direction="column"
-        align="center"
-        justify="center"
-        gap="2"
-        // No inner height floor: the shell owns it now, keyed on the tier
-        // (`GridCard.css`), so a `glance` tile can actually be one cell tall
-        // instead of being propped open from the inside.
-      >
-        <GridCard.Icon>
-          <span className={getAnimationClass()}>
-            <Fan size={24} />
-          </span>
-        </GridCard.Icon>
-
-        <GridCard.Title>{friendlyName}</GridCard.Title>
-
-        {/* Speed controls when on and supports speed */}
-        {!isEditMode && isOn && (supportsSpeed || supportsPresetMode) && (
-          <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
-            {supportsPresetMode &&
-            fanAttributes.preset_modes &&
-            fanAttributes.preset_modes.length > 0 ? (
-              <Select.Root
-                value={currentPresetMode || fanAttributes.preset_modes[0]}
-                onValueChange={handlePresetModeChange}
-                disabled={isLoading}
-              >
-                <Select.Trigger style={{ width: '100%' }} aria-label="Select fan preset mode" />
-                <Select.Content>
-                  {fanAttributes.preset_modes.map((mode) => (
-                    <Select.Item key={mode} value={mode}>
-                      {mode}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
-            ) : (
-              supportsSpeed && (
-                <PillGroup label="Fan speed">
-                  {(
-                    [
-                      { value: '25', label: 'Low speed (25%)', glyph: 12 },
-                      { value: '50', label: 'Medium-low speed (50%)', glyph: 14 },
-                      { value: '75', label: 'Medium-high speed (75%)', glyph: 16 },
-                      { value: '100', label: 'High speed (100%)', glyph: 18 },
-                    ] as const
-                  ).map(({ value, label, glyph }) => (
-                    <Pill
-                      key={value}
-                      domain="fan"
-                      color="ok"
-                      active={selectedButton === value}
-                      label={label}
-                      hideLabel
-                      icon={<Wind size={glyph} />}
-                      disabled={isLoading}
-                      onClick={() => handleSpeedChange(value)}
-                    />
-                  ))}
-                </PillGroup>
-              )
+      {isGlance ? (
+        <Flex direction="column" align="center" justify="center" gap="2">
+          {icon}
+          {meta}
+        </Flex>
+      ) : isTall ? (
+        <Flex direction="column" align="center" gap="2" height="100%">
+          {icon}
+          {showSpeedPills && (
+            <Box flexGrow="1" style={{ display: 'flex', alignItems: 'center', minHeight: 0 }}>
+              <GridCard.Controls>{speedPills}</GridCard.Controls>
+            </Box>
+          )}
+          {showPresetSelect && presetSelect}
+          {meta}
+        </Flex>
+      ) : (
+        <Flex direction="column" gap="2">
+          <Flex align="center" gap="3">
+            {icon}
+            {meta}
+            {showSpeedPills && (
+              <Box flexGrow="1">
+                <GridCard.Controls>{speedPills}</GridCard.Controls>
+              </Box>
             )}
-          </Box>
-        )}
-
-        {/* Status text */}
-        <GridCard.Status>
-          {error
-            ? 'ERROR'
-            : isOn
-              ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
-              : 'OFF'}
-        </GridCard.Status>
-      </Flex>
+          </Flex>
+          {showPresetSelect && presetSelect}
+        </Flex>
+      )}
     </GridCard>
   )
 }

@@ -137,3 +137,35 @@ export const EditMode: Story = {
   args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createWeatherEntity()], mode: 'edit' } },
 }
+
+/*
+ * Layout tiers (docs/specs/entity-cards/options/weather.md — "Tier layouts").
+ * Variant and tier are orthogonal: the variant picks the information density,
+ * the tier picks the arrangement and how much of it fits. The absence half of
+ * each tier is asserted in `src/components/__tests__/controlCardTierLayouts.test.tsx`.
+ */
+
+/** 1×1: condition glyph, name, and the temperature in the state slot. */
+export const TierGlance: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/** 2×1: the condition text and the secondary line join it. */
+export const TierRow: Story = {
+  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+}
+
+/** 1×3: the same content stacked down the tile. */
+export const TierTall: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/** 4×3: the detail line continues with feels-like and wind. */
+export const TierFull: Story = {
+  args: { tier: 'full', gridWidth: 4, gridHeight: 3 },
+}
+
+/** `detailed` at `row`: pressure is the first thing that does not fit. */
+export const TierRowDetailed: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1, config: { variant: 'detailed' } },
+}

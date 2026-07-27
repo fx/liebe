@@ -1,18 +1,26 @@
 import { Flex, Text, Box, IconButton } from '@radix-ui/themes'
 import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
+import { Thermometer } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
-import { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react'
+import { memo, useCallback, useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import { CardState, Pill, PillGroup } from './anatomy'
+import { CardState, CardValue, Pill, PillGroup } from './anatomy'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { useDashboardStore } from '~/store'
 import type { DomainColorName } from '~/theme/tokens'
-import type { CardTier } from '~/utils/cardTier'
+import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import './ClimateCard.css'
 
 interface ClimateCardProps {
   entityId: string
   tier?: CardTier
+  /**
+   * The effective grid span behind `tier`, in cells. The thermostat is one of
+   * the cards whose contract keys on width past the tier boundary: a `row` at
+   * three columns has room for independent low/high setpoints, a `row` at two
+   * does not (docs/specs/entity-cards/options/climate.md — "Tier layouts").
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -193,6 +201,7 @@ function createArcPath(
 function ClimateCardComponent({
   entityId,
   tier = 'row',
+  span,
   onDelete,
   isSelected = false,
   onSelect,
@@ -211,9 +220,13 @@ function ClimateCardComponent({
   const climateAttributes = entity?.attributes as ClimateAttributes | undefined
   const supportedFeatures = climateAttributes?.supported_features ?? 0
 
-  // Check supported features
-  const supportsTargetTemp = supportedFeatures & SUPPORT_TARGET_TEMPERATURE
-  const supportsTargetTempRange = supportedFeatures & SUPPORT_TARGET_TEMPERATURE_RANGE
+  /*
+   * Check supported features. Booleans, not the masked bits: these gate JSX
+   * with `&&`, and React renders a numeric `0` as the text "0" — an entity
+   * without the bit would print a stray zero into the dial layout.
+   */
+  const supportsTargetTemp = (supportedFeatures & SUPPORT_TARGET_TEMPERATURE) !== 0
+  const supportsTargetTempRange = (supportedFeatures & SUPPORT_TARGET_TEMPERATURE_RANGE) !== 0
   // const supportsFanMode = supportedFeatures & SUPPORT_FAN_MODE
   // const supportsPresetMode = supportedFeatures & SUPPORT_PRESET_MODE
   // const supportsSwingMode = supportedFeatures & SUPPORT_SWING_MODE
@@ -555,9 +568,18 @@ function ClimateCardComponent({
     )
   }
 
-  // Handle unavailable state
-  const isUnavailable = entity.state === 'unavailable'
-  if (isUnavailable) {
+  /*
+   * Handle the two states that carry no HVAC mode. `unknown` sits here with
+   * `unavailable` rather than falling through: `hvacMode` would become
+   * "unknown", which is not `off`, so the card would read as running and hand
+   * the user a live stepper that dispatches `climate.set_temperature` against
+   * an entity whose state — and whose setpoint — nobody knows. Both resolve to
+   * the shell's neutral, inert treatment with every control gone
+   * (docs/specs/entity-cards/options/climate.md — "showModePills and state
+   * colors").
+   */
+  const isInoperable = entity.state === 'unavailable' || entity.state === 'unknown'
+  if (isInoperable) {
     return (
       <GridCard
         domain="climate"
@@ -569,13 +591,266 @@ function ClimateCardComponent({
       >
         <Flex direction="column" align="center" justify="center" gap="2">
           <GridCard.Title>{entity.attributes.friendly_name || entity.entity_id}</GridCard.Title>
-          <GridCard.Status>UNAVAILABLE</GridCard.Status>
+          <GridCard.Status>{entity.state.toUpperCase()}</GridCard.Status>
         </Flex>
       </GridCard>
     )
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
+
+  /*
+   * What each tier carries (docs/specs/entity-cards/options/climate.md — "Tier
+   * layouts"). Content that does not fit is omitted, never clipped
+   * (docs/specs/design-system — "Size-adaptive layouts"):
+   *
+   *   glance  icon in the HVAC state colour, name, and the target temperature
+   *           in the state slot — plus the compact stepper. The thermostat is
+   *           the one card that KEEPS an embedded control at `glance`: its
+   *           replacement path is the detail dialog's domain controls, which
+   *           are registered by change 0017, and dropping the stepper before
+   *           they exist would leave the tile unoperable
+   *           (docs/changes/0011-layout-tiers.md — no operability regression).
+   *   row     icon + meta + the stepper with a large readout between the
+   *           buttons. Range mode gets independent low/high steppers at width
+   *           ≥3 and a lockstep pair at width 2 — which is why this card takes
+   *           the span and not only the tier.
+   *   tall    icon on top, readout with the stepper turned vertical (+ above,
+   *           − below), meta at the bottom.
+   *   full    the arc thermostat exactly as it renders today. The option doc's
+   *           `full` is the compact stepper layout plus pills, with the dial
+   *           behind `variant: dial` — but that option, and the loader
+   *           migration pinning today's always-dial cards onto it, belong to
+   *           change 0017 (common contract, convention 7). Swapping the dial
+   *           out here would replace an existing control surface with no
+   *           migration behind it.
+   */
+  const isFull = tier === 'full'
+  const isTall = tier === 'tall'
+  const isRangeMode = supportsTargetTempRange && hvacMode === 'heat_cool'
+  const hasRangeSetpoints =
+    isRangeMode && targetTempLow !== undefined && targetTempHigh !== undefined
+  /*
+   * Independent low/high needs the width for two steppers side by side; below
+   * that the pair moves the whole band. Read off the effective span rather than
+   * the tier, which cannot tell a 2×1 from a 4×1.
+   */
+  const hasWidthForBothSetpoints = (span?.width ?? 0) >= 3
+
+  const setpointText = hasRangeSetpoints
+    ? `${targetTempLow!.toFixed(1)}–${targetTempHigh!.toFixed(1)}${tempUnit}`
+    : supportsTargetTemp && targetTemp !== undefined
+      ? `${targetTemp.toFixed(1)}${tempUnit}`
+      : currentTemp !== undefined
+        ? `${Math.round(currentTemp)}${tempUnit}`
+        : (hvacAction ?? hvacMode).replace(/_/g, ' ').toUpperCase()
+
+  /** Both setpoints by one step, keeping the band width — the compact range control. */
+  const shiftRange = (delta: number) =>
+    handleHeatCoolTemperatureChange(targetTempLow! + delta, targetTempHigh! + delta)
+
+  const stepper = ({
+    decreaseLabel,
+    increaseLabel,
+    onDecrease,
+    onIncrease,
+    decreaseDisabled,
+    increaseDisabled,
+    readout,
+  }: {
+    decreaseLabel: string
+    increaseLabel: string
+    onDecrease: () => void
+    onIncrease: () => void
+    decreaseDisabled: boolean
+    increaseDisabled: boolean
+    readout: ReactNode
+  }) => {
+    /*
+     * `size="3"`, the same as the dial layout's steppers below: at `glance`,
+     * `row` and `tall` this pair is the tile's only control, so it is the last
+     * place to shrink a target. It stops at Radix's size 3 rather than the 48px
+     * box the dial's buttons carry — the card-wide 44px minimum is issue #204's
+     * to settle, not this change's.
+     */
+    const decrease = (
+      <IconButton
+        size="3"
+        variant="outline"
+        radius="full"
+        onClick={onDecrease}
+        disabled={isLoading || decreaseDisabled}
+        aria-label={decreaseLabel}
+      >
+        <MinusIcon />
+      </IconButton>
+    )
+    const increase = (
+      <IconButton
+        size="3"
+        variant="outline"
+        radius="full"
+        onClick={onIncrease}
+        disabled={isLoading || increaseDisabled}
+        aria-label={increaseLabel}
+      >
+        <PlusIcon />
+      </IconButton>
+    )
+
+    // `tall` stacks the pair — plus on top, minus below — around the readout,
+    // which is the axis the tier gives the card room on.
+    return isTall ? (
+      <Flex direction="column" align="center" gap="2">
+        {increase}
+        {readout}
+        {decrease}
+      </Flex>
+    ) : (
+      <Flex align="center" gap="2">
+        {decrease}
+        {readout}
+        {increase}
+      </Flex>
+    )
+  }
+
+  const compactControls =
+    isEditMode || hvacMode === 'off' ? null : hasRangeSetpoints ? (
+      hasWidthForBothSetpoints ? (
+        <Flex align="center" gap="3">
+          {stepper({
+            decreaseLabel: 'Decrease low temperature',
+            increaseLabel: 'Increase low temperature',
+            onDecrease: () => handleHeatCoolTemperatureChange(targetTempLow! - tempStep, undefined),
+            onIncrease: () => handleHeatCoolTemperatureChange(targetTempLow! + tempStep, undefined),
+            decreaseDisabled: targetTempLow! - tempStep < minTemp,
+            increaseDisabled: targetTempLow! + tempStep >= targetTempHigh!,
+            readout: (
+              <CardValue
+                domain="climate"
+                color="heat"
+                active
+                value={targetTempLow!.toFixed(1)}
+                unit={tempUnit}
+              />
+            ),
+          })}
+          {stepper({
+            decreaseLabel: 'Decrease high temperature',
+            increaseLabel: 'Increase high temperature',
+            onDecrease: () =>
+              handleHeatCoolTemperatureChange(undefined, targetTempHigh! - tempStep),
+            onIncrease: () =>
+              handleHeatCoolTemperatureChange(undefined, targetTempHigh! + tempStep),
+            decreaseDisabled: targetTempHigh! - tempStep <= targetTempLow!,
+            increaseDisabled: targetTempHigh! + tempStep > maxTemp,
+            readout: (
+              <CardValue
+                domain="climate"
+                color="cool"
+                active
+                value={targetTempHigh!.toFixed(1)}
+                unit={tempUnit}
+              />
+            ),
+          })}
+        </Flex>
+      ) : (
+        stepper({
+          decreaseLabel: 'Decrease temperature range',
+          increaseLabel: 'Increase temperature range',
+          onDecrease: () => shiftRange(-tempStep),
+          onIncrease: () => shiftRange(tempStep),
+          decreaseDisabled: targetTempLow! - tempStep < minTemp,
+          increaseDisabled: targetTempHigh! + tempStep > maxTemp,
+          readout: (
+            <CardValue
+              domain="climate"
+              color={statusColor}
+              active
+              value={`${targetTempLow!.toFixed(1)}–${targetTempHigh!.toFixed(1)}`}
+              unit={tempUnit}
+            />
+          ),
+        })
+      )
+    ) : supportsTargetTemp && !isRangeMode ? (
+      stepper({
+        decreaseLabel: 'Decrease temperature',
+        increaseLabel: 'Increase temperature',
+        onDecrease: () => handleTemperatureChange((targetTemp ?? 20) - tempStep),
+        onIncrease: () => handleTemperatureChange((targetTemp ?? 20) + tempStep),
+        decreaseDisabled: (targetTemp ?? 20) <= minTemp,
+        increaseDisabled: (targetTemp ?? 20) >= maxTemp,
+        readout: (
+          <CardValue
+            domain="climate"
+            color={statusColor}
+            active
+            value={(targetTemp ?? 20).toFixed(1)}
+            unit={tempUnit}
+          />
+        ),
+      })
+    ) : null
+
+  const compactIcon = (
+    <GridCard.Icon>
+      <Thermometer size={20} />
+    </GridCard.Icon>
+  )
+
+  const compactMeta = (
+    <GridCard.Meta>
+      <GridCard.Title>{friendlyName}</GridCard.Title>
+      <GridCard.Status>{setpointText}</GridCard.Status>
+    </GridCard.Meta>
+  )
+
+  if (!isFull) {
+    return (
+      <GridCard
+        domain="climate"
+        color={statusColor}
+        tier={tier}
+        isLoading={isLoading}
+        isError={!!error}
+        isStale={isStale}
+        isSelected={isSelected}
+        isOn={hvacMode !== 'off'}
+        onSelect={() => onSelect?.(!isSelected)}
+        onDelete={onDelete}
+        defaultAction="more-info"
+        title={error || undefined}
+        className="climate-card"
+      >
+        {isTall ? (
+          <Flex direction="column" align="center" gap="2" height="100%">
+            {compactIcon}
+            <Box flexGrow="1" style={{ display: 'flex', alignItems: 'center', minHeight: 0 }}>
+              {compactControls}
+            </Box>
+            {compactMeta}
+          </Flex>
+        ) : tier === 'glance' ? (
+          <Flex direction="column" align="center" justify="center" gap="2">
+            {compactIcon}
+            {compactMeta}
+            {compactControls}
+          </Flex>
+        ) : (
+          <Flex align="center" gap="3">
+            {compactIcon}
+            {compactMeta}
+            <Box flexGrow="1">
+              <Flex justify="end">{compactControls}</Flex>
+            </Box>
+          </Flex>
+        )}
+      </GridCard>
+    )
+  }
 
   return (
     <GridCard
@@ -909,6 +1184,9 @@ const MemoizedClimateCard = memo(ClimateCardComponent, (prevProps, nextProps) =>
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.tier === nextProps.tier &&
+    // The span as well as the tier: `row` covers 2×1 through N×1, and this card
+    // renders a different range control on either side of three columns.
+    isSameSpan(prevProps.span, nextProps.span) &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

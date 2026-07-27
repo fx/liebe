@@ -8,18 +8,35 @@ export interface PillGroupProps {
    * meaningless read as loose buttons ("Heat", "Cool", "Off" — of what?).
    */
   label: string
+  /**
+   * Which way the pills are laid out. `vertical` is what a `tall` tile needs:
+   * the tier gives a card height rather than width, and a row of pills squeezed
+   * into one cell of width would be the clipping the size-adaptive rules forbid
+   * (docs/specs/design-system — "Size-adaptive layouts").
+   *
+   * Stamped as `data-orientation` and styled by the sheet, the way the slider
+   * carries its own axis, so the component passes no layout of its own down.
+   */
+  orientation?: 'horizontal' | 'vertical'
   children: ReactNode
   className?: string
 }
 
 /**
  * The row a set of mode pills lives in. It is what makes them equal-width:
- * the pills are grid columns, so they share the row however many there are.
+ * the pills are grid columns, so they share the row however many there are —
+ * or grid rows, sharing the column, when the group is vertical.
  */
-export function PillGroup({ label, children, className }: PillGroupProps) {
+export function PillGroup({
+  label,
+  orientation = 'horizontal',
+  children,
+  className,
+}: PillGroupProps) {
   return (
     <div
       className={className ? `liebe-pill-group ${className}` : 'liebe-pill-group'}
+      data-orientation={orientation}
       role="group"
       aria-label={label}
     >

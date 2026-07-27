@@ -230,6 +230,18 @@
     gap: 6px;
   }
 
+  /*
+   * The vertical group a `tall` tile asks for: equal-height rows sharing the
+   * column, which is the same rule turned through ninety degrees. Written as an
+   * attribute rule rather than a second class so the group keeps one contract
+   * selector at either orientation.
+   */
+  .liebe-pill-group[data-orientation='vertical'] {
+    grid-auto-columns: auto;
+    grid-auto-flow: row;
+    grid-auto-rows: 1fr;
+  }
+
   .liebe-pill {
     appearance: none;
     block-size: 38px;

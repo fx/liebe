@@ -153,3 +153,32 @@ export const EditMode: Story = {
   args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createLightEntity()], mode: 'edit' } },
 }
+
+/*
+ * Layout tiers (docs/specs/design-system/index.md — "Size-adaptive layouts";
+ * docs/specs/entity-cards/options/light.md — "Tier layouts"). Each story sets
+ * the tier together with the grid cell it would be derived from, so the
+ * workshop shows the card at the size the tier is for. What each tier keeps and
+ * drops is asserted in `__tests__/controlCardTierLayouts.test.tsx` — a story shows the
+ * layout, it does not pin it.
+ */
+
+/** 1×1: icon over name and state. The whole tile toggles; no slider. */
+export const TierGlance: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/** 2×1: icon and meta in a row with the horizontal brightness slider. */
+export const TierRow: Story = {
+  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+}
+
+/** 1×3: the slider stands up and fills the height between icon and meta. */
+export const TierTall: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/** 3×2: the row content — colour and preset controls arrive with change 0016. */
+export const TierFull: Story = {
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}

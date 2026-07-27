@@ -125,3 +125,29 @@ export const EditMode: Story = {
   args: { onDelete: () => {}, gridHeight: 2 },
   parameters: { liebe: { entities: [createFanEntity()], mode: 'edit' } },
 }
+
+/*
+ * Layout tiers (docs/specs/entity-cards/options/fan.md — "Tier layouts").
+ * The absence half of each tier is asserted in
+ * `__tests__/controlCardTierLayouts.test.tsx`.
+ */
+
+/** 1×1: name and speed, no controls — the whole tile toggles. */
+export const TierGlance: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/** 2×1: icon, meta and the step pills in a row. */
+export const TierRow: Story = {
+  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+}
+
+/** 1×3: the step pills stacked down the middle of the tile. */
+export const TierTall: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/** 3×2: row content plus the preset control, where the fan has presets. */
+export const TierFull: Story = {
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}
