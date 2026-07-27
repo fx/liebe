@@ -554,6 +554,53 @@ describe('Sparkline', () => {
     expect(container.querySelector<HTMLElement>('.liebe-spark-dot')?.style.top).toBe('50%')
   })
 
+  it('draws bars from a zero baseline', () => {
+    const { container } = render(<Sparkline values={[0, 5, 10]} domain="sensor" mode="bar" />)
+
+    const bars = Array.from(container.querySelectorAll('.liebe-spark-bar')).map((bar) => ({
+      x: bar.getAttribute('x'),
+      y: bar.getAttribute('y'),
+      height: bar.getAttribute('height'),
+      width: bar.getAttribute('width'),
+    }))
+    // Zero is forced into the domain rather than taken from the data: a bar's
+    // length IS its value, so the first bucket draws nothing and the last
+    // spans the box. Scaled between the smallest and largest bucket instead,
+    // a window of 4, 5 and 6 kWh would read as "the first hour used none".
+    expect(bars).toEqual([
+      { x: '5', y: '29', height: '0', width: '23.33' },
+      { x: '38.33', y: '16', height: '13', width: '23.33' },
+      { x: '71.67', y: '3', height: '26', width: '23.33' },
+    ])
+    // The line's parts belong to the line: no area wash under columns, and the
+    // endpoint dot marks "the latest sample" on a curve that is not drawn here.
+    expect(container.querySelector('.liebe-spark-line')).not.toBeInTheDocument()
+    expect(container.querySelector('.liebe-spark-area')).not.toBeInTheDocument()
+    expect(container.querySelector('.liebe-spark-dot')).not.toBeInTheDocument()
+  })
+
+  it('hangs a negative bucket below the baseline', () => {
+    // A `total` sensor can legitimately fall (net energy), so its bars are
+    // signed and the baseline moves off the floor of the box.
+    const { container } = render(<Sparkline values={[-5, 5]} domain="sensor" mode="bar" />)
+
+    const bars = Array.from(container.querySelectorAll('.liebe-spark-bar'))
+    expect(bars.map((bar) => bar.getAttribute('y'))).toEqual(['16', '3'])
+    expect(bars.map((bar) => bar.getAttribute('height'))).toEqual(['13', '13'])
+  })
+
+  it('shows the placeholder for a window in which nothing moved', () => {
+    // Every bar would have zero height, which is a graph of nothing drawn as
+    // nothing — the placeholder at least says so.
+    const { container } = render(<Sparkline values={[0, 0, 0]} domain="sensor" mode="bar" active />)
+
+    const spark = container.querySelector('.liebe-spark')
+    expect(spark).toHaveAttribute('data-empty', 'true')
+    expect(spark).not.toHaveAttribute('data-active')
+    expect(container.querySelector('.liebe-spark-bar')).not.toBeInTheDocument()
+    expect(container.querySelector('.liebe-spark-baseline')).toBeInTheDocument()
+  })
+
   it.each([
     ['no series at all', undefined, false],
     ['a single sample', [3], false],

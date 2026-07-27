@@ -131,7 +131,7 @@ Every entity card composes from a fixed set of anatomy parts, each with a stable
 - **Pill controls** (`liebe-pill`): 38px equal-width mode buttons; selected pill uses the active tint pattern.
 - **Chip** (`liebe-chip`): 34px pill for header rows — icon-dot + label, same tint pattern.
 - **Big value** (`liebe-value`): the large numeric readout with unit in muted 14px.
-- **Sparkline** (`liebe-spark`): inline history graph — 2px domain-color line, 14%-alpha area fill, emphasized endpoint dot; no axes or gridlines at card sizes.
+- **Sparkline** (`liebe-spark`): inline history graph — 2px domain-color line, 14%-alpha area fill, emphasized endpoint dot; no axes or gridlines at card sizes. A `bar` variant draws one domain-colored column per point from a **zero baseline** instead, for series whose points are quantities per interval rather than levels (a counter's per-bucket differences, [options/sensor](../entity-cards/options/sensor.md) `graphMode`); zero is forced into the domain because a bar's length is its value, and a signed series therefore hangs its negative columns below the baseline. The line's endpoint dot and area fill are the line's alone. A series with no range to draw — every bar zero — falls back to the placeholder baseline, as an undrawable line does.
 
 Every part MUST also stamp the attributes of the [stable selector contract](../theming/index.md#stable-selector-contract), which owns their names and semantics — including how a part's colour is selected.
 

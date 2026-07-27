@@ -82,10 +82,24 @@ describe('sensor value formatting (pinned matrix)', () => {
     ['unknown', 'unknown', { device_class: 'temperature', unit: '°C' }, 'UNKNOWN'],
     ['non-numeric', 'charging', { device_class: undefined, unit: undefined }, 'CHARGING'],
     ['numeric without a unit', '42', { device_class: undefined, unit: undefined }, '42'],
-    // pinned as it stands today, not as it should be — see the file comment
-    ['k-scaled without a unit', '1250', { device_class: 'power', unit: undefined }, '1.3 k'],
-    ['empty state', '', { device_class: 'temperature', unit: '°C' }, 'NaN °C'],
-    ['whitespace state', '   ', { device_class: 'temperature', unit: '°C' }, 'NaN °C'],
+  ])('%s', (_name, state, { device_class, unit }, expected) => {
+    expect(formatted(state, { device_class, unit_of_measurement: unit })).toBe(expected)
+  })
+
+  /*
+   * The three cases change 0018 changed on purpose. They were pinned first at
+   * the values in the comments, which is the only reason it is visible here
+   * that they moved — each is an input shape the shipped formatter had no
+   * branch for rather than a rule anyone chose.
+   */
+  it.each([
+    // was `1.3 k`: dividing by a thousand is only meaningful if the card can
+    // say `k` about it, so with no unit to prefix the value stays whole
+    ['k-scaled without a unit', '1250', { device_class: 'power', unit: undefined }, '1250'],
+    // was `NaN °C`: `Number('')` is 0, so a blank state parsed as a reading and
+    // then formatted through `parseFloat`, which does not agree
+    ['empty state', '', { device_class: 'temperature', unit: '°C' }, ''],
+    ['whitespace state', '   ', { device_class: 'temperature', unit: '°C' }, ''],
   ])('%s', (_name, state, { device_class, unit }, expected) => {
     expect(formatted(state, { device_class, unit_of_measurement: unit })).toBe(expected)
   })

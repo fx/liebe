@@ -20,6 +20,71 @@ interface SparkShape {
   endpoint: { x: number; y: number }
 }
 
+/**
+ * How the series is drawn.
+ *
+ * `line` is the continuous reading of a measurement. `bar` draws one column per
+ * point from a zero baseline, which is what a cumulative counter's per-bucket
+ * *differences* are — a quantity per interval, not a level, and drawing those
+ * as a connected line would imply a continuity between buckets that a counter
+ * does not have (docs/specs/entity-cards/options/sensor.md — `graphMode`).
+ */
+export type SparklineMode = 'line' | 'bar'
+
+/** One column of a bar series, in view units. */
+interface SparkBar {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** The drawable vertical range, once padding is taken off the box. */
+const PLOT_HEIGHT = VIEW_HEIGHT - VIEW_PADDING * 2
+
+/** Share of a column's slot the bar itself takes; the rest is the gap. */
+const BAR_FILL = 0.7
+
+/**
+ * Columns from a zero baseline.
+ *
+ * Zero is forced into the domain rather than derived from the data, because a
+ * bar's length is its value: scaled between the smallest and largest bucket
+ * instead, a window of 4, 5 and 6 kWh would draw as nothing, half, and full,
+ * which reads as "the first hour used none". Signed series (a `total` sensor
+ * can legitimately fall) therefore get a baseline somewhere in the middle and
+ * bars that hang below it.
+ *
+ * Returns `null` for a series with no range at all — every bucket zero, the
+ * counter that did not move — since every bar would have zero height and the
+ * placeholder says "nothing to draw" honestly.
+ */
+function sparkBars(values: number[]): SparkBar[] | null {
+  let min = 0
+  let max = 0
+  for (const value of values) {
+    if (value < min) min = value
+    if (value > max) max = value
+  }
+  const span = max - min
+  if (span === 0) return null
+
+  const slot = VIEW_WIDTH / values.length
+  const width = slot * BAR_FILL
+  const y = (value: number) => VIEW_HEIGHT - VIEW_PADDING - ((value - min) / span) * PLOT_HEIGHT
+  const baseline = y(0)
+
+  return values.map((value, index) => {
+    const top = y(value)
+    return {
+      x: round(slot * index + (slot - width) / 2),
+      y: round(Math.min(top, baseline)),
+      width: round(width),
+      height: round(Math.abs(top - baseline)),
+    }
+  })
+}
+
 /** Trims the coordinate noise that would otherwise fill the DOM. */
 function round(value: number): number {
   return Math.round(value * 100) / 100
@@ -76,25 +141,32 @@ export interface SparklineProps extends AnatomyPartProps {
    * unlabelled graph in the accessibility tree is noise.
    */
   label?: string
+  /** Line by default; `bar` for the per-bucket differences of a counter. */
+  mode?: SparklineMode
 }
 
 /**
  * The inline history graph (`liebe-spark`) — a domain-coloured line over a 14%
- * area fill, with the latest sample marked. No axes, no gridlines: at card
- * sizes they cost more room than they add meaning.
+ * area fill, with the latest sample marked, or domain-coloured columns from a
+ * zero baseline in `bar` mode. No axes, no gridlines: at card sizes they cost
+ * more room than they add meaning. The endpoint dot is the line's: it marks
+ * "the latest sample", and a bar series' last column is already its own mark.
  */
-export function Sparkline({ values = [], label, ...part }: SparklineProps) {
-  const shape = values.length > 1 && values.every(Number.isFinite) ? sparkShape(values) : null
+export function Sparkline({ values = [], label, mode = 'line', ...part }: SparklineProps) {
+  const drawable = values.length > 1 && values.every(Number.isFinite)
+  const shape = drawable && mode === 'line' ? sparkShape(values) : null
+  const bars = drawable && mode === 'bar' ? sparkBars(values) : null
   // The placeholder is not a state readout. With no drawable series there is
   // nothing for the domain colour to be describing, so an empty sparkline stays
   // neutral however the card's `active` reads — otherwise a card whose history
   // has not arrived shows a saturated "no data" baseline.
-  const attributes = anatomyPart('liebe-spark', { ...part, active: shape ? part.active : false })
+  const drawn = Boolean(shape ?? bars)
+  const attributes = anatomyPart('liebe-spark', { ...part, active: drawn ? part.active : false })
 
   return (
     <div
       {...attributes}
-      data-empty={shape ? undefined : 'true'}
+      data-empty={drawn ? undefined : 'true'}
       {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
     >
       <svg
@@ -108,6 +180,17 @@ export function Sparkline({ values = [], label, ...part }: SparklineProps) {
             <path className="liebe-spark-area" d={shape.area} />
             <path className="liebe-spark-line" d={shape.line} />
           </>
+        ) : bars ? (
+          bars.map((bar, index) => (
+            <rect
+              className="liebe-spark-bar"
+              key={index}
+              x={bar.x}
+              y={bar.y}
+              width={bar.width}
+              height={bar.height}
+            />
+          ))
         ) : (
           <line
             className="liebe-spark-baseline"

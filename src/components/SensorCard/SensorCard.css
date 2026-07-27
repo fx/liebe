@@ -1,0 +1,49 @@
+/*
+ * The sensor card's graph region — the box the `liebe-spark` anatomy is drawn
+ * into, one shape per tier (docs/specs/entity-cards/options/sensor.md — "Tier
+ * layouts").
+ *
+ * The sparkline is `block-size: 100%` of whatever it is given and has no
+ * intrinsic height of its own, so something has to give it one; these rules are
+ * that something. `liebe-sensor-graph` is internal, like `liebe-card-body` —
+ * the stable selector contract is the anatomy's `liebe-spark` inside it
+ * (docs/specs/theming/index.md).
+ *
+ * Layered like every other baseline sheet: an unlayered author rule outranks
+ * all cascade layers, so leaving these unlayered would put the graph's box
+ * beyond a theme's reach. The layer-order statement is repeated here, as in
+ * every sibling sheet, so the order holds whichever sheet the bundler emits
+ * first.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  .liebe-sensor-graph {
+    inline-size: 100%;
+    /* A flex item's automatic minimum size is its content; without this the
+       graph would refuse to shrink below the SVG's intrinsic width and push
+       the meta block out of the row. */
+    min-inline-size: 0;
+  }
+
+  /* `row`: the width the icon and the meta leave, at the height of a line of
+     text rather than of the tile — a row tile is one cell tall in total. */
+  .liebe-sensor-graph[data-region='inline'] {
+    block-size: 32px;
+    flex: 1 1 auto;
+  }
+
+  /* `tall`: the band between the big value and the name, taking whatever
+     height they leave. */
+  .liebe-sensor-graph[data-region='band'] {
+    flex: 1 1 auto;
+    min-block-size: 0;
+  }
+
+  /* `full`: the tier's own content, so it gets a block worth looking at
+     rather than a line's worth. */
+  .liebe-sensor-graph[data-region='full'] {
+    block-size: 72px;
+  }
+}
