@@ -186,6 +186,11 @@ describe('CoverCard tiers', () => {
     expect(screen.getByLabelText('Stop cover')).toBeInTheDocument()
     expect(screen.getByLabelText('Close cover')).toBeInTheDocument()
     expect(screen.getByLabelText('Tilt position')).toBeInTheDocument()
+    // Named, not merely present: these two are icon-only, so the label is the
+    // only thing that makes them controls rather than pictures of controls
+    // (`controlCardAccessibleNames.test.tsx` sweeps for the general case).
+    expect(screen.getByLabelText('Open cover tilt')).toBeInTheDocument()
+    expect(screen.getByLabelText('Close cover tilt')).toBeInTheDocument()
   })
 
   it('renders a binary cover’s glance content in the row arrangement', () => {

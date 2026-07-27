@@ -363,13 +363,32 @@ function CoverCardComponent({
       </Text>
       {/* Tilt buttons */}
       <Flex gap="2" justify="center">
+        {/*
+         * Icon-only, so the label has to be the accessible name — without it
+         * these two announce as nothing at all, which is the naming half of
+         * issue #191 and the same defect the simple set shipped at `glance`.
+         * Named for what they do to the slats, not to the cover: "Open cover"
+         * is already the pill above them.
+         */}
         {supportsOpenTilt && (
-          <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
+          <Button
+            size="1"
+            variant="soft"
+            onClick={handleOpenTilt}
+            disabled={isLoading}
+            aria-label="Open cover tilt"
+          >
             <ChevronRightIcon />
           </Button>
         )}
         {supportsCloseTilt && (
-          <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
+          <Button
+            size="1"
+            variant="soft"
+            onClick={handleCloseTilt}
+            disabled={isLoading}
+            aria-label="Close cover tilt"
+          >
             <ChevronLeftIcon />
           </Button>
         )}
