@@ -7,6 +7,7 @@ import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
 import { dashboardActions } from '~/store'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { CardItemProvider } from '../cardItemContext'
 import {
   createBinarySensorEntity,
@@ -101,6 +102,9 @@ function slotIndex(selector: string): number {
 
 beforeEach(() => {
   dashboardActions.resetState()
+  // The at-most-once guard is process-wide, so two cases issuing the same
+  // command would otherwise see the second refused as a repeat of the first.
+  resetDispatchGuard()
   hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
 })
 

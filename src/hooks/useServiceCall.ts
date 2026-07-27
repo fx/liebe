@@ -55,8 +55,8 @@ export function useServiceCall(): UseServiceCallResult {
 
   /**
    * The hook's loading/error/abort bookkeeping around one dispatch, with the
-   * dispatch itself left to the caller: `callService` retries, `dispatchOnce`
-   * does not. Everything between them — minimum loading time, abort of the
+   * dispatch itself left to the caller: `callService` retries, the guarded
+   * path does not. Everything between them — minimum loading time, abort of the
    * previous call, error surfacing — is identical and lives here once.
    */
   const runCall = useCallback(
@@ -141,24 +141,10 @@ export function useServiceCall(): UseServiceCallResult {
   )
 
   /**
-   * The non-retrying dispatch from docs/changes/0014-universal-card-options.md.
-   * New dispatch code takes this path: a retried command is executed twice
-   * whenever an acknowledgement is merely slow, which
-   * docs/specs/entity-cards/options/common.md forbids for every control on every
-   * card. The existing `setValue` branches still retry — moving them is PR 3 of
-   * docs/changes/0022-switch-input-helpers-to-spec.md, not this bugfix.
-   */
-  const dispatchOnce = useCallback(
-    (options: ServiceCallOptions) =>
-      runCall(options, hassService.callServiceOnce.bind(hassService)),
-    [runCall]
-  )
-
-  /**
-   * `dispatchOnce` with the at-most-once guard in front of it, which is what the
-   * contract actually requires of a control: not retrying is half of it, and not
-   * re-issuing the same command while the first is still travelling is the
-   * other half.
+   * A single non-retrying dispatch with the at-most-once guard in front of it,
+   * which is what the contract actually requires of a control: not retrying is
+   * half of it, and not re-issuing the same command while the first is still
+   * travelling is the other half.
    *
    * The guard is shared with the shell's gestures (`useGuardedDispatch`), so a
    * card's control and its whole-tile tap are governed by the same rule — and
@@ -222,14 +208,14 @@ export function useServiceCall(): UseServiceCallResult {
 
       // Handle different entity types
       if (domain === 'input_number' || domain === 'input_text') {
-        return callService({
+        return dispatchGuarded({
           domain,
           service: 'set_value',
           entityId,
           data: { value },
         })
       } else if (domain === 'input_select') {
-        return callService({
+        return dispatchGuarded({
           domain,
           service: 'select_option',
           entityId,
@@ -253,7 +239,7 @@ export function useServiceCall(): UseServiceCallResult {
           return { success: false, error: message }
         }
 
-        return dispatchOnce({
+        return dispatchGuarded({
           domain,
           service: 'set_datetime',
           entityId,
@@ -271,7 +257,7 @@ export function useServiceCall(): UseServiceCallResult {
       setError(`setValue not supported for domain: ${domain}`)
       return { success: false, error: `setValue not supported for domain: ${domain}` }
     },
-    [callService, dispatchOnce]
+    [callService, dispatchGuarded]
   )
 
   const clearError = useCallback(() => {
