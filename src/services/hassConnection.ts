@@ -5,6 +5,7 @@ import { entityStoreActions } from '../store/entityStore'
 import { entityDebouncer } from '../store/entityDebouncer'
 import { entityUpdateBatcher } from '../store/entityBatcher'
 import { connectionActions } from '../store/connectionStore'
+import { entityHistoryService } from './entityHistory'
 
 export interface StateChangedEvent {
   event_type: 'state_changed'
@@ -64,6 +65,10 @@ export class HassConnectionManager {
 
       // Subscribe to state changes
       await this.subscribeToStateChanges()
+
+      // Whatever the socket missed while it was down is a hole in every cached
+      // history window; only the recorder can fill it.
+      entityHistoryService.handleReconnected()
 
       // Start connection health monitoring
       this.startConnectionHealthMonitoring()
@@ -190,6 +195,10 @@ export class HassConnectionManager {
 
     // Handle entity update or addition
     if (new_state) {
+      // History buckets consume RAW ingress, ahead of the debouncer: the
+      // debounced pipeline keeps only the last update in its window, which is
+      // exactly the counter resets and spikes a graph must not lose.
+      entityHistoryService.ingest(new_state)
       // Use debouncer which will pass to batcher
       entityDebouncer.processUpdate(new_state)
     }

@@ -25,7 +25,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ### Functional requirements
 
-The [entity-state spec's History & Forecast Hooks section](../specs/entity-state/index.md#history--forecast-hooks-specified-not-yet-implemented) owns both hook contracts — caching levels and keys, downsampling, delta semantics, raw-ingress and freshness rules, `unsupported` resolution, and its scenarios. This change implements them. What it owns beyond the spec:
+The entity-state spec's [Entity History](../specs/entity-state/index.md#entity-history) and [Weather Forecast Hook](../specs/entity-state/index.md#weather-forecast-hook-specified-not-yet-implemented) sections own both hook contracts — caching levels and keys, downsampling, delta semantics, raw-ingress and freshness rules, `unsupported` resolution, and its scenarios. This change implements them. What it owns beyond the spec:
 
 - **PRs 1 and 2 are pure pipeline work with no dependencies** and can run in parallel with the visual track; only PR 3's detail-dialog graph depends on [0014](./0014-universal-card-options.md).
 - **The two consumers must not be built against assumptions.** [0018](./0018-sensor-cards-to-spec.md) selects `sample` or `delta` per rendering surface and [0020](./0020-weather-card-to-spec.md) consumes forecasts exclusively through the hook; both land after this change, so the projection cache key (entity + window + mode + `points`) MUST be in place from PR 1 rather than retrofitted.
@@ -40,7 +40,7 @@ The [entity-state spec's History & Forecast Hooks section](../specs/entity-state
 
 ## Tasks
 
-- [ ] **PR 1 — History**: WS history fetch + cache + downsampler (sample/delta modes) + `useEntityHistory` + live append/reconnect; unit tests; e2e fetch against dockerized HA; fixture factories; **spec sync in this PR**: flip the entity-state history contract's status from specified to implemented, close the design-system "sparkline data source" open question, and add the changelog entry
+- [x] **PR 1 — History**: WS history fetch + cache + downsampler (sample/delta modes) + `useEntityHistory` + live append/reconnect; unit tests; e2e fetch against dockerized HA; fixture factories; **spec sync in this PR**: flip the entity-state history contract's status from specified to implemented, close the design-system "sparkline data source" open question, and add the changelog entry
 - [ ] **PR 2 — Forecast**: `weather.get_forecasts` client + cache/refresh + `useWeatherForecast` (hourly/daily/twice-daily) + unsupported detection; unit tests; fixtures; **spec sync in this PR**: flip the entity-state forecast contract's status to implemented, close the weather option doc's forecast-fetch open question, and add the changelog entry
 - [ ] **PR 3 — Detail-dialog history + spec sync**: replace the entity detail dialog's history placeholder (from [0014](./0014-universal-card-options.md)) with a graph rendered from `useEntityHistory` via the spark/graph anatomy — numeric entities only, section hidden on `unsupported`/error; component test + story; entity-state spec changelog entry for the dialog integration (the hook contracts and open-question closures were already synced in PRs 1–2)
 

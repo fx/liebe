@@ -54,6 +54,15 @@ vi.mock('../../store/entityBatcher', () => ({
   },
 }))
 
+// Mock the history service: the raw-ingress tap and the reconnect notification
+// are what this manager owes it, and both are asserted below.
+vi.mock('../entityHistory', () => ({
+  entityHistoryService: {
+    ingest: vi.fn(),
+    handleReconnected: vi.fn(),
+  },
+}))
+
 // Mock the stale entity monitor
 vi.mock('../staleEntityMonitor', () => ({
   staleEntityMonitor: {
@@ -143,6 +152,14 @@ describe('HassConnectionManager', () => {
       )
     })
 
+    it('should tell history the event stream restarted', async () => {
+      await connectionManager.connect(mockHass)
+
+      // Whatever the socket missed is a hole live appends cannot fill.
+      const { entityHistoryService } = await import('../entityHistory')
+      expect(entityHistoryService.handleReconnected).toHaveBeenCalled()
+    })
+
     it('should handle connection errors and schedule reconnect', async () => {
       const errorConnection = {
         ...mockHass.connection,
@@ -215,6 +232,38 @@ describe('HassConnectionManager', () => {
 
       const { entityDebouncer } = await import('../../store/entityDebouncer')
       expect(entityDebouncer.processUpdate).toHaveBeenCalledWith(event.data.new_state)
+    })
+
+    it('should feed raw ingress to history before the debouncer collapses it', async () => {
+      const event: StateChangedEvent = {
+        event_type: 'state_changed',
+        data: {
+          entity_id: 'sensor.power',
+          old_state: null,
+          new_state: {
+            entity_id: 'sensor.power',
+            state: '120',
+            attributes: {},
+            last_changed: '2023-01-01T00:01:00Z',
+            last_updated: '2023-01-01T00:01:00Z',
+            context: { id: '789', parent_id: null, user_id: null },
+          },
+        },
+      }
+
+      stateChangeHandler(event)
+
+      const { entityHistoryService } = await import('../entityHistory')
+      const { entityDebouncer } = await import('../../store/entityDebouncer')
+      const ingest = vi.mocked(entityHistoryService.ingest)
+      const processUpdate = vi.mocked(entityDebouncer.processUpdate)
+
+      expect(ingest).toHaveBeenCalledWith(event.data.new_state)
+      // Order is the whole point: the debouncer keeps only the last update in
+      // its window, so history has to see the sample first.
+      expect(ingest.mock.invocationCallOrder[0]).toBeLessThan(
+        processUpdate.mock.invocationCallOrder[0]
+      )
     })
 
     it('should handle entity removal', () => {

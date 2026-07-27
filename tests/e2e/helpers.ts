@@ -13,6 +13,9 @@ export const E2E_SECRET = 'input_text.e2e_secret'
 export const E2E_SECRET_VALUE = 'redaction-fixture-value'
 // Synthetic ffmpeg camera fed by the go2rtc testsrc2 stream (docs/changes/0007).
 export const E2E_CAMERA = 'camera.e2e_pattern'
+// A numeric helper from configuration.yaml. Its value is settable over REST and
+// recorded, which is what makes it usable as a history fixture.
+export const E2E_LEVEL = 'input_number.e2e_level'
 
 // Deterministic dashboard configs seeded into localStorage before the panel
 // boots, so cards render without any UI drag/drop. The panel reads `liebe-config`
