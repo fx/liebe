@@ -10,14 +10,38 @@ import { FAN_FEATURE, fanHasPresets, readFanFeatures, readFanPresetModes } from 
  * whatever an integration, a template, or a hand-written YAML put there.
  */
 describe('readFanFeatures', () => {
-  it('names Home Assistant’s FanEntityFeature bits', () => {
-    expect(FAN_FEATURE).toEqual({ SET_SPEED: 1, OSCILLATE: 2, DIRECTION: 4, PRESET_MODE: 8 })
+  it('names Home Assistant’s FanEntityFeature bits, in full', () => {
+    // Verified against the running Home Assistant (2026.7.2), not from memory.
+    // `TURN_OFF`/`TURN_ON` are here so the table cannot read as though 16 and
+    // 32 were free — the mistake behind the cover card's tilt-bit defect.
+    expect(FAN_FEATURE).toEqual({
+      SET_SPEED: 1,
+      OSCILLATE: 2,
+      DIRECTION: 4,
+      PRESET_MODE: 8,
+      TURN_OFF: 16,
+      TURN_ON: 32,
+    })
+  })
+
+  it('accepts a preset on either bit, because Home Assistant does', () => {
+    /*
+     * `set_preset_mode` is registered with `[SET_SPEED, PRESET_MODE]` and
+     * `required_features` is evaluated as "satisfies at least one feature set",
+     * so either bit alone is enough. Reading it as "both" would hide the preset
+     * control from a fan that can take one — removing a control that works.
+     */
+    expect(readFanFeatures({ supported_features: 8 }).preset).toBe(true)
+    expect(readFanFeatures({ supported_features: 1 }).preset).toBe(true)
+    expect(readFanFeatures({ supported_features: 9 }).preset).toBe(true)
+    // Neither bit: oscillate and direction alone cannot take a preset.
+    expect(readFanFeatures({ supported_features: 6 }).preset).toBe(false)
   })
 
   it('reads each bit independently', () => {
-    expect(readFanFeatures({ supported_features: 1 })).toEqual({
-      speed: true,
-      oscillate: false,
+    expect(readFanFeatures({ supported_features: 2 })).toEqual({
+      speed: false,
+      oscillate: true,
       direction: false,
       preset: false,
     })
@@ -27,11 +51,11 @@ describe('readFanFeatures', () => {
       direction: true,
       preset: true,
     })
-    expect(readFanFeatures({ supported_features: 9 })).toMatchObject({
-      speed: true,
-      preset: true,
+    expect(readFanFeatures({ supported_features: 4 })).toMatchObject({
+      speed: false,
       oscillate: false,
-      direction: false,
+      direction: true,
+      preset: false,
     })
   })
 
@@ -93,13 +117,20 @@ describe('readFanPresetModes', () => {
 })
 
 describe('fanHasPresets', () => {
-  it('needs the bit and at least one usable mode', () => {
+  it('needs a preset-capable bit and at least one usable mode', () => {
     expect(fanHasPresets({ supported_features: 8, preset_modes: ['auto'] })).toBe(true)
     // The bit without a list, which HA entities really do publish.
     expect(fanHasPresets({ supported_features: 8 })).toBe(false)
     expect(fanHasPresets({ supported_features: 8, preset_modes: [] })).toBe(false)
-    // A list without the bit.
-    expect(fanHasPresets({ supported_features: 1, preset_modes: ['auto'] })).toBe(false)
+    /*
+     * A `SET_SPEED`-only fan that lists modes DOES get the control: Home
+     * Assistant accepts `set_preset_mode` on either bit. This expectation used
+     * to be `false`, which is the regression a "requires both bits" reading
+     * produces — a control withheld from a fan that can use it.
+     */
+    expect(fanHasPresets({ supported_features: 1, preset_modes: ['auto'] })).toBe(true)
+    // Neither preset-capable bit: oscillate and direction cannot take one.
+    expect(fanHasPresets({ supported_features: 6, preset_modes: ['auto'] })).toBe(false)
   })
 
   it('is false for a list of modes no pill could be labelled with', () => {

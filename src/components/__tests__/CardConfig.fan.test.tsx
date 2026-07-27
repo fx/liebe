@@ -125,8 +125,23 @@ describe('fan card configuration form', () => {
     expect(screen.queryByText('Show preset modes')).not.toBeInTheDocument()
   })
 
-  it('withholds it when the fan does not advertise presets at all', () => {
+  it('offers it to a speed-capable fan that lists modes without the preset bit', () => {
+    /*
+     * Home Assistant accepts `set_preset_mode` on **either** `SET_SPEED` or
+     * `PRESET_MODE`, so this fan can take one and the option belongs. This case
+     * asserted the opposite until the gate was checked against the real service
+     * registration — the "requires both bits" reading withholds a control that
+     * works.
+     */
     seed({ supported_features: 1, preset_modes: ['auto'] })
+    renderModal()
+
+    expect(screen.getByText('Show preset modes')).toBeInTheDocument()
+  })
+
+  it('withholds it from a fan with neither preset-capable bit', () => {
+    // Oscillate and direction only: nothing here can take a preset.
+    seed({ supported_features: 6, preset_modes: ['auto'] })
     renderModal()
 
     expect(screen.queryByText('Show preset modes')).not.toBeInTheDocument()
@@ -153,12 +168,10 @@ describe('fan card configuration form', () => {
     seed({ supported_features: 1 })
     const onSave = renderModal()
 
-    // The select trigger carries no accessible name of its own, so it is found
-    // by the label it sits beneath.
-    const trigger = screen
-      .getByText('Speed control')
-      .parentElement!.querySelector('[role="combobox"]') as HTMLElement
-    await user.click(trigger)
+    // Addressed by its accessible name, which is what a screen-reader user has
+    // to work with too. Walking the DOM from the neighbouring label — which is
+    // what this did — routed around a missing name rather than reporting it.
+    await user.click(screen.getByRole('combobox', { name: 'Speed control' }))
     await user.click(within(screen.getByRole('listbox')).getByText('Step buttons'))
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
 

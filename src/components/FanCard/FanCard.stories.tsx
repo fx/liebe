@@ -150,7 +150,10 @@ export const Loading: Story = {
 
 /**
  * Every service call fails, so toggling the fan surfaces `ERROR`.
- * `HassService` retries three times with 1s/2s/4s backoff before it lands.
+ *
+ * It lands immediately now: this card's commands moved onto the guarded,
+ * non-retrying path, so the failure is reported on the first attempt rather
+ * than after `HassService`'s three retries and their 1s/2s/4s backoff.
  */
 export const ServiceCallFailure: Story = {
   parameters: {
@@ -162,7 +165,7 @@ export const ServiceCallFailure: Story = {
   },
   play: async ({ canvasElement }) => {
     // Before the interaction it is an ordinary stopped fan; the error is what
-    // pressing it produces, seven seconds later.
+    // pressing it produces, on the first attempt.
     await expect(readState(canvasElement)).toBe('OFF')
   },
 }

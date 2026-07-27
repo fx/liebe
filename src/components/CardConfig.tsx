@@ -320,7 +320,16 @@ function Component({ title, description, configDefinition, config, onChange }: C
               value={String(currentValue || option.default || '')}
               onValueChange={(value) => handleChange(key, value, option)}
             >
-              <Select.Trigger />
+              {/*
+               * The trigger carries the option's label as its accessible name.
+               * Without it the control announces as nothing: the `<Text>` above
+               * is a sibling, not a `<label>`, so nothing associates the two —
+               * a screen-reader user meets an unnamed combobox, and the only
+               * way a test could reach it was by walking the DOM from the label
+               * beside it, which is a test routing around the defect rather
+               * than reporting it.
+               */}
+              <Select.Trigger aria-label={option.label} />
               <Select.Content position="popper">
                 {option.options?.map((opt) => (
                   <Select.Item key={opt.value} value={opt.value}>

@@ -8,12 +8,22 @@
  * ever hide a capability, never add one (common contract, convention 3).
  */
 
-/** Home Assistant's `FanEntityFeature` bits. */
+/**
+ * Home Assistant's `FanEntityFeature` bits, in full.
+ *
+ * Verified against the running Home Assistant rather than from memory:
+ * `FanEntityFeature` in 2026.7.2 is exactly these six. `TURN_OFF` and `TURN_ON`
+ * are listed even though nothing here gates on them yet, because a table that
+ * stops at `8` reads as though `16` and `32` were free — which is how the cover
+ * card came to treat stop-tilt as set-tilt-position.
+ */
 export const FAN_FEATURE = {
   SET_SPEED: 1,
   OSCILLATE: 2,
   DIRECTION: 4,
   PRESET_MODE: 8,
+  TURN_OFF: 16,
+  TURN_ON: 32,
 } as const
 
 /**
@@ -36,9 +46,16 @@ export interface FanAttributes {
 }
 
 export interface FanFeatures {
+  /** Accepts `fan.set_percentage`. */
   speed: boolean
+  /** Accepts `fan.oscillate`. */
   oscillate: boolean
+  /** Accepts `fan.set_direction`. */
   direction: boolean
+  /**
+   * Accepts `fan.set_preset_mode` — which is **either** `SET_SPEED` or
+   * `PRESET_MODE`, not both. See `readFanFeatures`.
+   */
   preset: boolean
 }
 
@@ -62,7 +79,21 @@ export function readFanFeatures(attributes: FanAttributes | undefined): FanFeatu
     speed: (mask & FAN_FEATURE.SET_SPEED) !== 0,
     oscillate: (mask & FAN_FEATURE.OSCILLATE) !== 0,
     direction: (mask & FAN_FEATURE.DIRECTION) !== 0,
-    preset: (mask & FAN_FEATURE.PRESET_MODE) !== 0,
+    /*
+     * `set_preset_mode` takes **either** bit, not both. Home Assistant registers
+     * it with `[FanEntityFeature.SET_SPEED, FanEntityFeature.PRESET_MODE]`, and
+     * `helpers/service.py` evaluates `required_features` as
+     * `any(supported & feature_set == feature_set for feature_set in ...)` — a
+     * list of feature *sets*, of which the entity must satisfy one. Each entry
+     * here is a single bit, so either alone is enough.
+     *
+     * Reading that as "both" would hide the preset control from a fan
+     * advertising only one of them, which is the direction that removes a
+     * control that works. Confirmed by evaluating the real gate against a
+     * `SET_SPEED`-only entity in Home Assistant 2026.7.2: `set_preset_mode`
+     * came back callable.
+     */
+    preset: (mask & (FAN_FEATURE.SET_SPEED | FAN_FEATURE.PRESET_MODE)) !== 0,
   }
 }
 
