@@ -42,9 +42,14 @@ export function ConfirmToggleDialog({ request, isOn, name, onResolve }: ConfirmT
   return (
     <AlertDialog.Root
       open
-      onOpenChange={(open) => {
-        if (!open) onResolve()
-      }}
+      /*
+       * Any reported change settles the request. Unlike the detail dialog —
+       * whose `open` is bound to state that can legitimately report `true`
+       * while reconciling — this one is mounted at a literal `open` and
+       * unmounted the moment it resolves, so the only change it can ever report
+       * is the close from Cancel, Escape, or the action button.
+       */
+      onOpenChange={onResolve}
     >
       <AlertDialog.Content maxWidth="420px">
         <AlertDialog.Title>{`${verb} ${label}?`}</AlertDialog.Title>

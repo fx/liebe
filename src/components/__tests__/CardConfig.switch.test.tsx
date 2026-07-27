@@ -95,6 +95,16 @@ describe('switch card configuration form', () => {
     })
   })
 
+  it('creates the nested key when the card has never had one', async () => {
+    const user = userEvent.setup()
+    const onSave = renderModal(item('switch.coffee_maker'))
+
+    await user.type(screen.getByPlaceholderText('OFF'), 'Idle')
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    expect(onSave).toHaveBeenCalledWith({ config: { stateLabels: { offLabel: 'Idle' } } })
+  })
+
   it('seeds each control from the stored nested value', () => {
     renderModal(
       item('switch.coffee_maker', { stateLabels: { onLabel: 'Brewing', offLabel: 'Idle' } })

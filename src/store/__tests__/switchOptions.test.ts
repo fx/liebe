@@ -33,6 +33,10 @@ describe('readSwitchOptions', () => {
       onLabel: 'Brewing',
       offLabel: '',
     })
+    expect(readSwitchOptions({ stateLabels: { offLabel: 'Idle' } }).stateLabels).toEqual({
+      onLabel: '',
+      offLabel: 'Idle',
+    })
   })
 
   it('falls back per key, so one bad value does not cost the others', () => {

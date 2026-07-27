@@ -80,15 +80,21 @@ function ButtonCardComponent({
     return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
-  // Show error state when disconnected or entity not found
+  /*
+   * Reachable only while disconnected. `useEntity` cannot tell "not loaded yet"
+   * from "does not exist", so a missing entity on a live connection is held at
+   * the skeleton above rather than reported as missing (docs/specs/entity-cards
+   * — "Initial load shows a skeleton"); by the time control reaches here, the
+   * connection is down whether or not the entity arrived.
+   */
   if (!entity || !isConnected) {
     return (
       <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        error="Disconnected from Home Assistant"
         variant="card"
         tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
+        title="Disconnected"
+        onRetry={() => window.location.reload()}
       />
     )
   }
