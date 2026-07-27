@@ -46,7 +46,7 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 | `controlStyle` | select | `dropdown` | row/tall/full | `dropdown` \| `pills` — how options present |
 
 - `dropdown` (default): the current Radix `Select` of the entity's `options` (`InputSelectCard.tsx`); MUST be disabled when the helper has no options.
-- `pills`: an equal-width [pill group](../../design-system/index.md#card-anatomy) (`liebe-pill`), one pill per option, the current state's pill selected via the active tint pattern. Pills render only in the `full` tier **and** only when the option count is ≤ 5; in other tiers, or with more than 5 options, the card MUST fall back to `dropdown` presentation (an oversized pill row would clip — degrade, never scroll).
+- `pills`: an equal-width [pill group](../../design-system/index.md#card-anatomy) (`liebe-pill`), one pill per option, the current state's pill selected via the active tint pattern and disabled (selecting the current option would send a `select_option` that changes nothing). Pills render only in the `full` tier **and** only when the option count is between 1 and 5; in other tiers, with more than 5 options, or with no options at all, the card MUST fall back to `dropdown` presentation — an oversized pill row would clip, and an empty one would leave the card with nothing to operate (degrade, never scroll).
 - Both styles send `input_select.select_option` with `{ option }`.
 
 ### `input_text`

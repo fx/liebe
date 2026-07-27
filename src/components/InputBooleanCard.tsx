@@ -7,6 +7,8 @@ import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { useDashboardStore } from '../store'
+import { readBooleanControlStyle } from '~/store/inputHelperOptions'
+import { useCardItem } from './cardItemContext'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputBooleanCardProps {
@@ -21,6 +23,8 @@ interface InputBooleanCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  /** The placed item's stored options, when the renderer passes them directly. */
+  config?: Record<string, unknown>
 }
 
 function InputBooleanCardComponent({
@@ -29,11 +33,17 @@ function InputBooleanCardComponent({
   onDelete,
   isSelected = false,
   onSelect,
+  config,
 }: InputBooleanCardProps) {
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { toggle, loading, error } = useServiceCall()
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
+  // The same stored options the shell reads, from the same place the grid
+  // publishes them (see `ButtonCard`); the prop is what the grid also passes
+  // directly, and wins when present.
+  const publishedItem = useCardItem()
+  const controlStyle = readBooleanControlStyle(config ?? publishedItem.config)
 
   const handleClick = useCallback(() => {
     if (entity) {
@@ -122,21 +132,23 @@ function InputBooleanCardComponent({
       title={error || undefined}
     >
       {/*
-       * `glance` drops the switch; every other tier keeps it.
+       * Whether a discrete switch renders at all is `controlStyle`
+       * (docs/specs/entity-cards/options/input-helpers.md):
        *
-       * This is the one card in the simple set that may lose a control here,
-       * and only at one cell: its operability comes from the whole-tile tap,
-       * which 0014 shipped along with the more-info dialog, so a `glance`
-       * boolean is still toggled by pressing it (docs/changes/0011 — "no
-       * operability regression"; docs/specs/entity-cards/options/input-helpers.md
-       * — "In `glance` the switch is omitted and the card behaves as `tile`").
-       * The switch is omitted rather than shrunk: a 1×1 tile holding an icon, a
-       * name, a state line and a 44px control would clip one of them.
+       *   tile (default)  the whole tile is the toggle and no control renders —
+       *                   the active tint carries the state, as on a switch card.
+       *   switch          the discrete control returns, in the tiers with room
+       *                   for it.
        *
-       * The other tiers keep today's switch because `controlStyle` does not
-       * exist yet (0022 adds it, with `tile` as the default that removes the
-       * discrete control everywhere). Anticipating that default here would drop
-       * a working control a change early.
+       * `glance` never renders it either way: a 1×1 tile holding an icon, a
+       * name, a state line and a 44px control would clip one of them, so the
+       * option degrades by omission and the tile tap still toggles
+       * (docs/changes/0011 — "no operability regression").
+       *
+       * Existing cards were built with the switch, so the loader pins
+       * `controlStyle: 'switch'` onto items from documents that predate the
+       * option — the tile default reaches new cards only (common contract,
+       * convention 7).
        */}
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
@@ -154,7 +166,7 @@ function InputBooleanCardComponent({
           </GridCard.Meta>
         }
         control={
-          !isEditMode && tier !== 'glance' ? (
+          !isEditMode && tier !== 'glance' && controlStyle === 'switch' ? (
             <GridCard.Controls>
               <Switch
                 size="3"

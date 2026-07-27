@@ -259,15 +259,27 @@ describe('InputBooleanCard tiers', () => {
     ['row', 'row'],
     ['tall', 'tall'],
     ['full', 'row'],
-  ] as const)('keeps the switch at %s', (tier, shape) => {
-    renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier={tier} />)
+  ] as const)('keeps the switch at %s when the card asks for one', (tier, shape) => {
+    renderCard(
+      <InputBooleanCard
+        entityId="input_boolean.guest_mode"
+        tier={tier}
+        config={{ controlStyle: 'switch' }}
+      />
+    )
 
     expect(arrangement()).toBe(shape)
     expect(screen.getByRole('switch')).toBeInTheDocument()
   })
 
   it('puts the switch between the icon and the meta in tall', () => {
-    renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier="tall" />)
+    renderCard(
+      <InputBooleanCard
+        entityId="input_boolean.guest_mode"
+        tier="tall"
+        config={{ controlStyle: 'switch' }}
+      />
+    )
 
     // "Icon on top, vertical control, meta at bottom" — a tall tile that stacked
     // its control under the meta would just be a taller `glance`
@@ -277,7 +289,13 @@ describe('InputBooleanCard tiers', () => {
   })
 
   it('puts the switch after the meta in row', () => {
-    renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier="row" />)
+    renderCard(
+      <InputBooleanCard
+        entityId="input_boolean.guest_mode"
+        tier="row"
+        config={{ controlStyle: 'switch' }}
+      />
+    )
 
     // "Icon + meta in a row, plus the primary embedded control" — the control is
     // the trailing edge of the line, not something between icon and name.
@@ -315,8 +333,16 @@ describe('InputNumberCard tiers', () => {
     ['row', 'row'],
     ['tall', 'tall'],
     ['full', 'row'],
-  ] as const)('gives %s the whole stepper', (tier, shape) => {
-    renderCard(<InputNumberCard entityId="input_number.target_humidity" tier={tier} />)
+  ] as const)('gives %s the whole stepper when the card asks for one', (tier, shape) => {
+    // The fixture helper is `mode: slider`, which is now the default this card
+    // follows; the stepper is what an explicit `controlStyle` selects.
+    renderCard(
+      <InputNumberCard
+        entityId="input_number.target_humidity"
+        tier={tier}
+        config={{ controlStyle: 'stepper' }}
+      />
+    )
 
     expect(arrangement()).toBe(shape)
     expect(part('.liebe-icon')).not.toBeNull()

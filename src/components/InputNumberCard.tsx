@@ -6,6 +6,9 @@ import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { Slider } from './anatomy'
+import { readNumberControlStyle } from '~/store/inputHelperOptions'
+import { useCardItem } from './cardItemContext'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputNumberCardProps {
@@ -20,6 +23,8 @@ interface InputNumberCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  /** The placed item's stored options, when the renderer passes them directly. */
+  config?: Record<string, unknown>
 }
 
 interface InputNumberAttributes {
@@ -38,12 +43,20 @@ export const InputNumberCard = memo(function InputNumberCard({
   onDelete,
   isSelected = false,
   onSelect,
+  config,
 }: InputNumberCardProps) {
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
+  const publishedItem = useCardItem()
 
   const [localValue, setLocalValue] = useState<string>(entity?.state ?? '')
   const [isEditing, setIsEditing] = useState(false)
+  /**
+   * Where the slider sits while a finger is on it. `null` means "not dragging",
+   * so the released control goes straight back to reporting the entity — the
+   * card must not hold a stale local value after the service call lands.
+   */
+  const [dragValue, setDragValue] = useState<number | null>(null)
 
   // Sync the local value from the entity while the user is not editing. Done
   // during render (not in an effect) per react-hooks/set-state-in-effect; the
@@ -136,6 +149,34 @@ export const InputNumberCard = memo(function InputNumberCard({
       setIsEditing(false)
     }
   }, [entity])
+
+  /**
+   * The slider's release, quantized to the helper's `step` and clamped to its
+   * range before it is sent — the same rules the stepper and the typed field
+   * already obey, because they are the helper's rules and not the control's.
+   *
+   * Local state is dropped in the same breath: the entity is the value from
+   * here on, and holding the released position would leave the card showing a
+   * number Home Assistant may have adjusted.
+   */
+  const handleSliderCommit = useCallback(
+    (value: number) => {
+      setDragValue(null)
+      if (!entity) return
+
+      const { min, max, step } = entity.attributes as InputNumberAttributes
+      const base = min ?? 0
+      let committed = step ? base + Math.round((value - base) / step) * step : value
+      // `step` is routinely fractional (0.1, 0.5), and the arithmetic above
+      // reintroduces the binary-float tail it exists to remove.
+      committed = Number.parseFloat(committed.toFixed(4))
+      if (min !== undefined) committed = Math.max(committed, min)
+      if (max !== undefined) committed = Math.min(committed, max)
+
+      setValue(entity.entity_id, committed)
+    },
+    [entity, setValue]
+  )
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -290,6 +331,47 @@ export const InputNumberCard = memo(function InputNumberCard({
     </GridCard.Controls>
   )
 
+  /*
+   * Which embedded control renders (`controlStyle`), defaulting to the helper's
+   * own `mode` attribute — `box` steps, `slider` slides — so a helper
+   * reconfigured in Home Assistant keeps steering cards nobody has configured
+   * (docs/specs/entity-cards/options/input-helpers.md). Existing cards were
+   * built with the stepper, so the loader pins them to it; the attribute
+   * default reaches new cards only (common contract, convention 7).
+   */
+  const controlStyle = readNumberControlStyle(config ?? publishedItem.config, attributes.mode)
+
+  /*
+   * The slider commits on release, never while dragging: the value under the
+   * finger is a position, not an intent, and dispatching per pixel would send a
+   * service call per frame. `dragValue` is what the card shows meanwhile — the
+   * readout in the track follows the thumb, so what is committed is what was
+   * visibly chosen.
+   *
+   * Vertical in `tall`, where the tile's height is the travel; horizontal
+   * everywhere else. `glance` gets no slider at all — it keeps the readout that
+   * is its only way to operate the helper.
+   */
+  const sliderValue = dragValue ?? parseFloat(entity.state)
+  const slider = (
+    <GridCard.Controls>
+      <Slider
+        label={`Set ${attributes.friendly_name || entity.entity_id.split('.')[1]}`}
+        value={Number.isFinite(sliderValue) ? sliderValue : (attributes.min ?? 0)}
+        min={attributes.min ?? 0}
+        max={attributes.max ?? 100}
+        step={attributes.step || 1}
+        orientation={tier === 'tall' ? 'vertical' : 'horizontal'}
+        disabled={loading}
+        readout={valueLabel}
+        onValueChange={setDragValue}
+        onValueCommit={handleSliderCommit}
+        domain="input_number"
+        color="default"
+      />
+    </GridCard.Controls>
+  )
+
   return (
     <GridCard
       // Input helpers have no domain row of their own; `default` is the
@@ -337,7 +419,7 @@ export const InputNumberCard = memo(function InputNumberCard({
             ) : null}
           </GridCard.Meta>
         }
-        control={isGlance ? undefined : stepper}
+        control={isGlance ? undefined : controlStyle === 'slider' ? slider : stepper}
       />
     </GridCard>
   )

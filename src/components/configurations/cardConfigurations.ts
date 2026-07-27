@@ -1,5 +1,6 @@
 import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
+import { CONTROL_STYLE_KEY } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 
@@ -76,6 +77,63 @@ export const cardConfigurations: Record<
         label: 'Show time in state',
         description:
           'Adds how long the entity has been in its current state to the state line. Omitted on 1×1 cards, which have no room for it.',
+      },
+    },
+  },
+  /*
+   * The input helpers' one option each (docs/specs/entity-cards/options/input-helpers.md).
+   * `input_text` and `input_datetime` stay universal-only, so they have no
+   * entry here at all — the universal fragment renders for every entity card
+   * regardless.
+   */
+  input_boolean: {
+    title: 'Toggle Helper Card',
+    description: 'How the toggle presents.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        default: 'tile',
+        label: 'Control style',
+        description:
+          'The whole tile toggles either way. A discrete switch renders beside it in tiers with room — never on a 1×1 card.',
+        options: [
+          { value: 'tile', label: 'Tile only' },
+          { value: 'switch', label: 'Tile with a switch' },
+        ],
+      },
+    },
+  },
+  input_number: {
+    title: 'Number Helper Card',
+    description: 'Which control sets the value.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        default: 'stepper',
+        label: 'Control style',
+        description:
+          'Unset, this follows the helper’s own display mode in Home Assistant. Setting it overrides that in either direction.',
+        options: [
+          { value: 'stepper', label: 'Stepper (+ / −)' },
+          { value: 'slider', label: 'Slider' },
+        ],
+      },
+    },
+  },
+  input_select: {
+    title: 'Dropdown Helper Card',
+    description: 'How the options present.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        default: 'dropdown',
+        label: 'Control style',
+        description:
+          'Pills need a 2×2 card and at most five options; anywhere else the card shows the dropdown instead.',
+        options: [
+          { value: 'dropdown', label: 'Dropdown' },
+          { value: 'pills', label: 'Pills' },
+        ],
       },
     },
   },

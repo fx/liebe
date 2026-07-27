@@ -59,6 +59,22 @@ describe('InputBooleanCard', () => {
     render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
 
     expect(screen.getByText('Test Toggle')).toBeInTheDocument()
+  })
+
+  it('renders no discrete control by default — the tile is the toggle', () => {
+    // `controlStyle: 'tile'` (docs/specs/entity-cards/options/input-helpers.md).
+    // Existing placed cards keep their switch through the loader's pinning; a
+    // card rendered with no stored options follows the new default.
+    render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
+
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+  })
+
+  it('renders the discrete switch when the card asks for one', () => {
+    render(
+      <InputBooleanCard entityId="input_boolean.test_toggle" config={{ controlStyle: 'switch' }} />
+    )
+
     expect(screen.getByRole('switch')).toBeInTheDocument()
   })
 
@@ -88,7 +104,9 @@ describe('InputBooleanCard', () => {
       isStale: false,
     })
 
-    const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
+    const { container } = render(
+      <InputBooleanCard entityId="input_boolean.test_toggle" config={{ controlStyle: 'switch' }} />
+    )
     const card = container.querySelector('.liebe-card')
 
     // The `on` state no longer tints the tile: the design system keeps the
@@ -118,7 +136,9 @@ describe('InputBooleanCard', () => {
   })
 
   it('toggles on switch change', async () => {
-    render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
+    render(
+      <InputBooleanCard entityId="input_boolean.test_toggle" config={{ controlStyle: 'switch' }} />
+    )
 
     const switchElement = screen.getByRole('switch')
     fireEvent.click(switchElement)
@@ -194,7 +214,9 @@ describe('InputBooleanCard', () => {
       clearError: vi.fn(),
     })
 
-    const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
+    const { container } = render(
+      <InputBooleanCard entityId="input_boolean.test_toggle" config={{ controlStyle: 'switch' }} />
+    )
 
     // Check for loading class and disabled switch
     const card = container.querySelector('.liebe-card')

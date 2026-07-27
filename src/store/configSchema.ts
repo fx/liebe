@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { switchOptionsConfigSchema } from './switchOptions'
+import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
 import type { DashboardConfig } from './types'
 
 /**
@@ -54,6 +55,7 @@ const gridItemSchema = z
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
+      .merge(inputHelperOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative
