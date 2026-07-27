@@ -1,9 +1,9 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { LightCard } from './LightCard'
+import { LightCard } from './index'
 import { asUnavailable, createLightEntity } from '~/test/fixtures'
 import type { GridItem } from '~/store/types'
-import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../.storybook/decorators'
+import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
 
 const entityId = 'light.living_room'
 
