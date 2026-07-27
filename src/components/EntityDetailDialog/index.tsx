@@ -89,7 +89,7 @@ export function EntityDetailDialog({ entityId, open, onOpenChange }: EntityDetai
             </Flex>
           </Box>
 
-          {/* Empty until a card family registers controls for this domain. */}
+          {/* Absent for a domain no card family has registered controls for. */}
           {domainControls && createElement(domainControls, { entity })}
 
           {/* Absent entirely for an entity with no graphable history. */}

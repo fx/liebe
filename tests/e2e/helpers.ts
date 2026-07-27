@@ -16,6 +16,11 @@ export const E2E_CAMERA = 'camera.e2e_pattern'
 // A numeric helper from configuration.yaml. Its value is settable over REST and
 // recorded, which is what makes it usable as a history fixture.
 export const E2E_LEVEL = 'input_number.e2e_level'
+// A select helper from configuration.yaml. Placed as a 1x1 tile, it is the
+// no-operability-regression case: at `glance` the card renders no control at
+// all, so the only way to change its option is the detail dialog its tap opens
+// (docs/specs/entity-cards/options/input-helpers.md — the tier table).
+export const E2E_MODE = 'input_select.e2e_mode'
 
 // Deterministic dashboard configs seeded into localStorage before the panel
 // boots, so cards render without any UI drag/drop. The panel reads `liebe-config`
@@ -106,6 +111,8 @@ export function seedDetailDialogConfig(): SeedConfig {
     items: [
       { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 0, y: 0, width: 2, height: 2 },
       { id: 'item-secret', type: 'entity', entityId: E2E_SECRET, x: 2, y: 0, width: 3, height: 2 },
+      // Deliberately 1x1 — the `glance` tier, where the card carries no control.
+      { id: 'item-mode', type: 'entity', entityId: E2E_MODE, x: 0, y: 2, width: 1, height: 1 },
     ],
   })
 }

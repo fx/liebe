@@ -200,7 +200,7 @@ changes:
     path: changes/0022-switch-input-helpers-to-spec.md
     description: Switch confirm/device-class/label options, input helper control styles, and the input_datetime set_datetime service-mapping bugfix
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0023'
     name: media-player-card
