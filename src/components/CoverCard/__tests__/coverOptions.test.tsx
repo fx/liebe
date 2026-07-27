@@ -777,3 +777,82 @@ describe('re-render comparator', () => {
     expect(stateLine()).toBe('70% OPEN')
   })
 })
+
+/**
+ * State that outlives the gesture that created it — the shape behind the held
+ * confirmation, one control over.
+ */
+describe('optimistic drag state', () => {
+  it('drops a drag when the card is recycled onto another cover', () => {
+    seed(makeCover('open', { current_position: 20, supported_features: 255 }))
+    const other = makeCover('open', {
+      friendly_name: 'Study Blinds',
+      current_position: 80,
+      supported_features: 255,
+    })
+
+    const { rerender } = renderCard(<CoverCard entityId={ENTITY_ID} tier="row" />)
+
+    // Mid-gesture: the slider shows a local value, not the entity's.
+    fireEvent.keyDown(screen.getByLabelText('Position'), { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Position')).toHaveAttribute('aria-valuetext', '21%')
+
+    act(() => {
+      entityStore.setState((state) => ({
+        ...state,
+        entities: {
+          ...state.entities,
+          'cover.study': { ...other, entity_id: 'cover.study' },
+        },
+      }))
+    })
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId="cover.study">
+            <CoverCard entityId="cover.study" tier="row" />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    // The new cover's own position, not the drag left over from the previous
+    // one — which is also the value a commit would have sent to it.
+    expect(screen.getByLabelText('Position')).toHaveAttribute('aria-valuetext', '80%')
+  })
+
+  it('does not bring a stale drag back out of edit mode', () => {
+    seed(makeCover('open', { current_position: 20, supported_features: 255 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="row" />)
+
+    fireEvent.keyDown(screen.getByLabelText('Position'), { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Position')).toHaveAttribute('aria-valuetext', '21%')
+
+    act(() => dashboardActions.setMode('edit'))
+    expect(screen.queryByLabelText('Position')).not.toBeInTheDocument()
+
+    act(() => dashboardActions.setMode('view'))
+
+    expect(screen.getByLabelText('Position')).toHaveAttribute('aria-valuetext', '20%')
+  })
+
+  it('drops a tilt drag on the same keys', () => {
+    seed(
+      makeCover('open', {
+        current_position: 20,
+        current_tilt_position: 30,
+        supported_features: 255,
+      })
+    )
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />)
+
+    fireEvent.keyDown(screen.getByLabelText('Tilt position'), { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Tilt position')).toHaveAttribute('aria-valuetext', '31%')
+
+    act(() => dashboardActions.setMode('edit'))
+    act(() => dashboardActions.setMode('view'))
+
+    expect(screen.getByLabelText('Tilt position')).toHaveAttribute('aria-valuetext', '30%')
+  })
+})

@@ -136,6 +136,18 @@ function CoverCardComponent({
     setPrevIsEditMode(isEditMode)
     setPrevEntityId(entityId)
     setConfirmRequest(null)
+    /*
+     * The drag state goes with it, because it is the same defect one control
+     * over. `isDraggingPosition` is only cleared on commit, so a card recycled
+     * onto another cover mid-gesture kept showing the previous cover's position
+     * — and would have committed that value to the new one. Edit mode hides
+     * these controls rather than resetting them, so leaving it brought back a
+     * slider pinned to a drag nobody was making.
+     */
+    setIsDraggingPosition(false)
+    setLocalPosition(null)
+    setIsDraggingTilt(false)
+    setLocalTiltPosition(null)
   }
 
   const coverAttributes = entity?.attributes as CoverAttributes | undefined
