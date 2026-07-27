@@ -429,15 +429,16 @@ describe('CardConfig', () => {
     }
 
     it('offers the action surface even for a card with no options of its own', () => {
-      // A fan card, which has none until change 0019 PR 2 — the sensor this
-      // used to use grew its own option surface in 0018, and the cover it used
-      // after that grew one in 0019 PR 1.
+      // A text-helper card. It is the stable choice rather than the next card
+      // waiting for its option surface: `input_text` and `input_datetime` are
+      // specified as universal-only, so they have no per-card entry by design
+      // — the sensor, cover and fan this test used in turn each grew one.
       render(
         <Theme>
           <CardConfig.Modal
             open={true}
             onOpenChange={mockOnOpenChange}
-            item={{ ...sensorItem, id: 'fan-1', entityId: 'fan.hallway' }}
+            item={{ ...sensorItem, id: 'text-1', entityId: 'input_text.note' }}
             onSave={mockOnSave}
           />
         </Theme>

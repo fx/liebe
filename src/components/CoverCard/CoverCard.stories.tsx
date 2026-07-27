@@ -175,8 +175,12 @@ export const Loading: Story = {
 
 /**
  * Every service call fails, so pressing open/close surfaces the card's `ERROR`
- * status. `HassService` retries three times with 1s/2s/4s backoff before the
- * error lands.
+ * status.
+ *
+ * It lands immediately now: this card's commands moved onto the guarded,
+ * non-retrying path — a retried `open_cover` moves a physical object twice — so
+ * the failure is reported on the first attempt rather than after
+ * `HassService`'s three retries and their 1s/2s/4s backoff.
  */
 export const ServiceCallFailure: Story = {
   parameters: {
@@ -188,7 +192,7 @@ export const ServiceCallFailure: Story = {
   },
   play: async ({ canvasElement }) => {
     // Before the interaction, the card is an ordinary closed cover — the error
-    // state is what pressing open produces, seven seconds later.
+    // state is what pressing open produces, on the first attempt.
     await expect(readState(canvasElement)).toBe('CLOSED')
   },
 }
