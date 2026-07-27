@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
+import { coverOptionsConfigSchema } from './coverOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -64,12 +65,19 @@ const gridItemSchema = z
     // presentation flip: `invert: "yes"` on a door sensor is a document whose
     // author needs telling, rather than a card that silently reads the door
     // backwards (same doc).
+    // The cover keys join them for the sharpest version of the same reason:
+    // `confirmOpen: "false"` is a string, so it is truthy, and a gate that
+    // silently stayed shut would at least be safe — but `invertPosition: "yes"`
+    // would flip which way a garage door is driven, and `stateLabels: pct` is a
+    // style no build has. Both are documents whose author needs telling
+    // (docs/specs/entity-cards/options/cover.md).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
       .merge(inputHelperOptionsConfigSchema)
       .merge(sensorOptionsConfigSchema)
       .merge(binarySensorOptionsConfigSchema)
+      .merge(coverOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

@@ -37,7 +37,14 @@ export function ConfirmToggleDialog({ request, isOn, name, onResolve }: ConfirmT
   // `toggle` is the only route whose target depends on where the entity is now;
   // the other two say so themselves.
   const targetOn = request.service === 'toggle' ? !isOn : request.service === 'turn_on'
-  const verb = targetOn ? 'Turn on' : 'Turn off'
+  /*
+   * A card family that named the action wins over the on/off reading. "Turn on
+   * Garage Door?" is the wrong question to put in front of someone: the dialog
+   * has to say what the button will do to the thing, or it is one more prompt
+   * to dismiss without reading (docs/specs/entity-cards/options/cover.md).
+   */
+  const verb = request.prompt?.verb ?? (targetOn ? 'Turn on' : 'Turn off')
+  const gerund = request.prompt?.gerund ?? 'switching'
 
   return (
     <AlertDialog.Root
@@ -54,7 +61,7 @@ export function ConfirmToggleDialog({ request, isOn, name, onResolve }: ConfirmT
       <AlertDialog.Content maxWidth="420px">
         <AlertDialog.Title>{`${verb} ${label}?`}</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          This card asks before switching {label}.
+          This card asks before {gerund} {label}.
         </AlertDialog.Description>
 
         <Flex gap="3" mt="4" justify="end">

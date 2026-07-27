@@ -429,14 +429,15 @@ describe('CardConfig', () => {
     }
 
     it('offers the action surface even for a card with no options of its own', () => {
-      // A cover card, which has none until change 0019 — the sensor this used
-      // to use grew its own option surface in change 0018.
+      // A fan card, which has none until change 0019 PR 2 — the sensor this
+      // used to use grew its own option surface in 0018, and the cover it used
+      // after that grew one in 0019 PR 1.
       render(
         <Theme>
           <CardConfig.Modal
             open={true}
             onOpenChange={mockOnOpenChange}
-            item={{ ...sensorItem, id: 'cover-1', entityId: 'cover.hallway_blind' }}
+            item={{ ...sensorItem, id: 'fan-1', entityId: 'fan.hallway' }}
             onSave={mockOnSave}
           />
         </Theme>
