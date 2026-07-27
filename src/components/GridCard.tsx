@@ -38,6 +38,13 @@ export interface GridCardProps {
    */
   color?: DomainColorName
   /**
+   * A live colour the entity itself reports — a bulb's actual RGB under the
+   * light card's `useLightColor`. Offered rather than applied: `resolveCardHue`
+   * decides whether it survives the card's configured colour and its danger
+   * state, and parts read the survivor off context.
+   */
+  hue?: string
+  /**
    * The entity is in a danger state — a jammed lock, a triggered alarm — as
    * opposed to merely active. A card family declares it from its own domain
    * knowledge; the shell's part is that such a card cannot be *configured* into
@@ -297,6 +304,44 @@ interface GridCardContextValue {
   isOn: boolean
   /** The stored display options, already resolved — see `readCardDisplay`. */
   display: CardDisplayOptions
+  /**
+   * The data-driven colour that survived the precedence below, if any. Parts
+   * read it from here rather than from the card, so the icon the shell renders
+   * and a control the card renders cannot disagree about whether the tint
+   * applies — see `resolveCardHue`.
+   */
+  hue?: string
+}
+
+/**
+ * Which colour wins: the entity's own, the user's, or the card's.
+ *
+ * Three rules meet on one property, and each is owned by a different document,
+ * so this composes them in the one place that can see all three rather than
+ * letting whichever is implemented last decide.
+ *
+ * 1. **A danger state suppresses the tint outright.** The floor in
+ *    `readCardDisplay` reverts the signalling options to "what the card itself
+ *    renders", and a bulb-derived hue is precisely not that — it is a
+ *    data-driven override sitting on top of the card's own treatment, so the
+ *    floor already excludes it. It matters more here than for a configured
+ *    colour, not less: an auditor can read `color: ok` in a config and see a
+ *    danger state dressed up as calm, but a hue arriving from an entity at
+ *    render time appears nowhere in the configuration at all.
+ * 2. **An explicit `color` wins over the bulb.** "An explicit universal `color`
+ *    MUST win over everything, including the bulb-derived color — a named value
+ *    pins the card's active treatment predictably"
+ *    (docs/specs/entity-cards/options/light.md).
+ * 3. **`auto` lets the bulb through**, which is the only case the option
+ *    governs.
+ */
+export function resolveCardHue(
+  hue: string | undefined,
+  display: CardDisplayOptions,
+  danger: boolean
+): string | undefined {
+  if (danger) return undefined
+  return display.color === 'auto' ? hue : undefined
 }
 
 // Context for compound components
@@ -333,6 +378,7 @@ export const GridCard = React.memo(
         children,
         domain,
         color = 'default',
+        hue,
         danger = false,
         tier = 'row',
         isLoading = false,
@@ -549,9 +595,11 @@ export const GridCard = React.memo(
         }
       }
 
+      const effectiveHue = resolveCardHue(hue, display, danger)
+
       const contextValue = React.useMemo(
-        () => ({ tier, isLoading, domain, color: resolvedColor, isOn, display }),
-        [tier, isLoading, domain, resolvedColor, isOn, display]
+        () => ({ tier, isLoading, domain, color: resolvedColor, isOn, display, hue: effectiveHue }),
+        [tier, isLoading, domain, resolvedColor, isOn, display, effectiveHue]
       )
 
       /*
@@ -765,7 +813,7 @@ interface GridCardIconProps {
 }
 
 export const GridCardIcon = React.memo(({ children, className }: GridCardIconProps) => {
-  const { isLoading, domain, color, isOn, display } = React.useContext(GridCardContext)
+  const { isLoading, domain, color, isOn, display, hue } = React.useContext(GridCardContext)
 
   /*
    * The `icon` override. An unset override, and one naming an icon this build
@@ -779,6 +827,7 @@ export const GridCardIcon = React.memo(({ children, className }: GridCardIconPro
     <IconCircle
       domain={domain}
       color={color}
+      hue={hue}
       active={isOn}
       className={`grid-card-icon${className ? ` ${className}` : ''}`}
     >
