@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cameraOptionsConfigSchema } from './cameraOptions'
+import { coverOptionsConfigSchema } from './coverOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -70,6 +71,12 @@ const gridItemSchema = z
     // and label a feed live in a document whose author asked for the opposite —
     // telling them beats quietly disagreeing with them
     // (docs/specs/entity-cards/options/camera.md).
+    // The cover keys join them for the sharpest version of the same reason:
+    // `confirmOpen: "false"` is a string, so it is truthy, and a gate that
+    // silently stayed shut would at least be safe — but `invertPosition: "yes"`
+    // would flip which way a garage door is driven, and `stateLabels: pct` is a
+    // style no build has. Both are documents whose author needs telling
+    // (docs/specs/entity-cards/options/cover.md).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
@@ -77,6 +84,7 @@ const gridItemSchema = z
       .merge(sensorOptionsConfigSchema)
       .merge(binarySensorOptionsConfigSchema)
       .merge(cameraOptionsConfigSchema)
+      .merge(coverOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

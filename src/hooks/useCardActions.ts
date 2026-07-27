@@ -70,15 +70,49 @@ export interface UseCardActionsOptions {
    * become a card that cannot be operated at all.
    */
   requestConfirmation?: (request: CardConfirmRequest) => void
+  /**
+   * A card family's own confirmation rule, replacing the on/off classification
+   * below for the cards whose gate is not about switching.
+   *
+   * The cover is the case it exists for: `confirmOpen` gates every route that
+   * *increases the opening* — an opening `toggle`, a `set_cover_position` commit
+   * to a higher effective position, `cover.open_cover` and the generic aliases —
+   * while closing stays ungated, which no on/off reading can express
+   * (docs/specs/entity-cards/options/cover.md — `confirmOpen`). It is consulted
+   * here, after resolution, for the same reason the built-in gate is: every
+   * gesture and every re-routed action arrives at this one point, so there is no
+   * path to the device the rule does not see.
+   *
+   * Returning a prompt gates the action and names it in the dialog; returning
+   * `null` lets it through.
+   */
+  confirmRoute?: (action: ResolvedCardAction) => CardConfirmPrompt | null
 }
 
 /** The toggle-equivalent effect a gated route would have on the entity. */
 export type ConfirmableService = 'toggle' | 'turn_on' | 'turn_off'
 
+/**
+ * How a gated route is named in the confirmation dialog, for a card family
+ * whose actions are not "turn it on" and "turn it off".
+ */
+export interface CardConfirmPrompt {
+  /** Titles the dialog and labels its action button — "Open". */
+  verb: string
+  /** Names the action in the description — "opening". */
+  gerund: string
+}
+
 export interface CardConfirmRequest {
   entityId: string
-  /** What the gated route does, so the dialog can name the target state. */
-  service: ConfirmableService
+  /**
+   * What the gated route does, so the dialog can name the target state. Set by
+   * the built-in on/off gate; a card family supplying its own `prompt` names the
+   * action directly instead.
+   */
+  service?: ConfirmableService
+  /** Overrides the on/off wording — see `CardConfirmPrompt`. */
+  prompt?: CardConfirmPrompt
   /** Dispatches the action the gate held. Called at most once, on confirm. */
   proceed: () => void
 }
@@ -101,7 +135,10 @@ const CONFIRMABLE_SERVICES: readonly string[] = ['toggle', 'turn_on', 'turn_off'
  * something else is a visible annoyance, while missing one is a `confirm`
  * option that silently does not confirm.
  */
-function targetsEntity(data: Record<string, unknown> | undefined, entityId: string): boolean {
+export function targetsEntity(
+  data: Record<string, unknown> | undefined,
+  entityId: string
+): boolean {
   const explicit = data?.entity_id
 
   // No target of its own: the card's entity is what `buildServiceData` supplies.
@@ -211,6 +248,7 @@ export function useCardActions({
   unavailable = false,
   disabled = false,
   requestConfirmation,
+  confirmRoute,
 }: UseCardActionsOptions): CardGestures {
   const hass = useHomeAssistantOptional()
   // `warn: false` returns `undefined` outside a `RouterProvider` instead of
@@ -359,22 +397,37 @@ export function useCardActions({
    */
   const dispatch = useCallback(
     (action: ResolvedCardAction) => {
+      // Held, not queued: nothing is dispatched, and nothing about the card
+      // changes, until the user says so. Cancelling drops this closure.
+      const proceed = () => performDispatch(action)
+
+      /*
+       * A card family's own rule replaces the on/off one rather than joining it.
+       * Two gates over one action would ask twice for the route both recognise,
+       * and the family that declared a rule is the one that knows what its
+       * services do.
+       */
+      if (confirmRoute && requestConfirmation && entityId) {
+        const prompt = confirmRoute(action)
+        if (prompt) {
+          requestConfirmation({ entityId, prompt, proceed })
+          return
+        }
+
+        performDispatch(action)
+        return
+      }
+
       const service = confirmableService(action, entityId)
 
       if (service && confirm && requestConfirmation && entityId) {
-        requestConfirmation({
-          entityId,
-          service,
-          // Held, not queued: nothing is dispatched, and nothing about the card
-          // changes, until the user says so. Cancelling drops this closure.
-          proceed: () => performDispatch(action),
-        })
+        requestConfirmation({ entityId, service, proceed })
         return
       }
 
       performDispatch(action)
     },
-    [confirm, entityId, performDispatch, requestConfirmation]
+    [confirm, confirmRoute, entityId, performDispatch, requestConfirmation]
   )
 
   const clearTapTimer = useCallback(() => {

@@ -88,16 +88,21 @@ See [card reference — Climate](./card-reference.md#climate) for range mode, mi
 
 ### Covers and fans
 
-- `CoverCard` MUST expose open / close / stop actions (`cover.open_cover`, `cover.close_cover`, `cover.stop_cover`), a position slider (`cover.set_cover_position` with `{ position }`), and — when tilt is supported — tilt controls (`set_cover_tilt_position`, `open_cover_tilt`, `close_cover_tilt`), each gated by its own `supported_features` bit **and by the tier**: the position slider renders at `row` (horizontal), `tall` (vertical) and `full`, the open/stop/close row and the tilt block at `full` only, and `glance` carries no embedded control at all ([options/cover.md — tier layouts](./options/cover.md#tier-layouts)).
+**Cover status: implemented** by change [0019](../../changes/0019-cover-fan-cards-to-spec.md) PR 1; the fan option surface follows in PR 2.
+
+- `CoverCard` MUST expose open / close / stop actions (`cover.open_cover`, `cover.close_cover`, `cover.stop_cover`), a position slider (`cover.set_cover_position` with `{ position }`), and — when tilt is supported — tilt controls (`set_cover_tilt_position`, `open_cover_tilt`, `close_cover_tilt`, `stop_cover_tilt`), each gated by its own `supported_features` bit **and by the tier**: the position slider renders at `row` (horizontal), `tall` (vertical) and `full`, the open/stop/close row and the tilt block at `full` only, and `glance` carries no embedded control at all ([options/cover.md — tier layouts](./options/cover.md#tier-layouts)). The tilt bits are `16`/`32`/`64`/`128` — stop-tilt is `64` and set-tilt-position is `128`, not the other way round.
 - `CoverCard` MUST enable/disable open and close by **position alone whenever the entity reports one** — open disabled at `100`, close disabled at `0`, so a stationary partially open cover keeps both enabled — reading `current_position` with a `position` fallback; state-based disabling (`open` disables open, `closed` disables close) applies only to covers that report no position. Stop MUST be disabled unless the cover is `opening` or `closing`.
+- `CoverCard` MUST resolve its glyph, its state text, its active tint and its button disabling from a **single** reading of the entity, so `invertPosition` cannot move one of the four without the others; and it MUST apply that inversion once at the entity boundary, on committed `{ position }` payloads as well as on what it displays.
+- `CoverCard` MUST resolve `tapAction: default` state-aware — inert while `unknown`/`unavailable`, `more-info` for a tilt-only entity and for the `garage`/`gate`/`door` device classes, `cover.stop_cover` while moving where stop is supported, `cover.toggle` otherwise — and MUST gate **every** route that increases a security opening behind one confirmation per gesture, classifying by effect so a re-routed `call-service` cannot bypass it.
+- `CoverCard` MUST register its open / stop / close controls in the detail dialog's domain slot, so a cover stays operable at the tiers where the button row does not render.
 - `FanCard` MUST toggle the fan on card click, set speed via `fan.set_percentage` (`{ entity_id, percentage }`, with 0% turning the fan off), and set preset via `fan.set_preset_mode`; speed support is gated by `SUPPORT_SET_SPEED` (bit 1) and presets by `SUPPORT_PRESET_MODE` (bit 8). Its controls render only while the fan is on and never at `glance`: the speed pills at `row` (horizontal), `tall` (vertical) and `full`, and the preset select at `full` — or at any of those tiers as the primary control of a fan that supports presets but no percentage ([options/fan.md — tier layouts](./options/fan.md#tier-layouts)).
-- Both cards MUST hide their controls in edit mode and MUST NOT expose a configuration modal.
+- Both cards MUST hide their controls in edit mode. `CoverCard`'s options render in the shared configuration form, capability-gated from the entity; `FanCard` has no option surface until PR 2.
 
 #### Scenario: Open button opens the cover
 
 - **GIVEN** a cover advertising `supported_features: 1` (open)
 - **WHEN** the user clicks "Open cover"
-- **THEN** it calls `cover.open_cover` for that entity with no data (`CoverCard.test.tsx:139-159`).
+- **THEN** it calls `cover.open_cover` for that entity with no data (`src/components/CoverCard/__tests__/CoverCard.test.tsx`).
 
 See [card reference — Covers and fans](./card-reference.md#covers-and-fans) for tilt, position-slider commit, and speed-bucketing details.
 
@@ -323,7 +328,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 - Shell & boundary: `src/components/GridCard.tsx`, `src/components/ErrorBoundary.tsx`
 - Configuration: `src/components/CardConfig.tsx`, `src/components/configurations/cardConfigurations.ts`; non-scalar option controls in `ActionEditor.tsx`, `EntityPicker.tsx`, `NumberArrayEditor.tsx`, `OrderedMultiSelect.tsx`, with their value contracts in `src/store/configControls.ts`
 - Discovery: `src/components/EntityBrowser.tsx`, `src/components/EntitiesBrowserTab.tsx`, `src/components/CardsBrowserTab.tsx`
-- Cards: `LightCard.tsx`, `ClimateCard.tsx`, `CoverCard.tsx`, `FanCard.tsx`, `SensorCard.tsx`, `BinarySensorCard.tsx`, `ButtonCard/`, `TextCard.tsx`, `Separator.tsx`, `WeatherCard/`, `Input{Boolean,Number,Select,Text,DateTime}Card.tsx`
+- Cards: `LightCard.tsx`, `ClimateCard.tsx`, `CoverCard/`, `FanCard.tsx`, `SensorCard.tsx`, `BinarySensorCard.tsx`, `ButtonCard/`, `TextCard.tsx`, `Separator.tsx`, `WeatherCard/`, `Input{Boolean,Number,Select,Text,DateTime}Card.tsx`
 - Companion: [card-reference.md](./card-reference.md)
 - Related specs: [../camera-streaming/](../camera-streaming/), [../grid-layout/](../grid-layout/), [../entity-state/](../entity-state/)
 

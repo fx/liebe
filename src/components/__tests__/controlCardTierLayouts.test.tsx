@@ -156,12 +156,14 @@ describe('LightCard tiers', () => {
 })
 
 describe('CoverCard tiers', () => {
-  // OPEN + CLOSE + SET_POSITION + STOP + tilt (open/close/set)
+  // OPEN + CLOSE + SET_POSITION + STOP + tilt (open/close/set-position).
+  // Set-tilt-position is bit 128, not the 64 this used to name — 64 is
+  // stop-tilt (docs/specs/entity-cards/options/cover.md — "Options").
   const cover = makeEntity('cover.living_room', 'open', {
     friendly_name: 'Blinds',
     current_position: 60,
     current_tilt_position: 30,
-    supported_features: 127,
+    supported_features: 191,
   })
 
   beforeEach(() => seed(cover))

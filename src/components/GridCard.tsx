@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom'
 import { IconButton, Spinner } from '@radix-ui/themes'
 import { X, Settings } from 'lucide-react'
 import { useDashboardStore } from '~/store'
-import { useCardActions, type CardConfirmRequest } from '~/hooks/useCardActions'
+import {
+  useCardActions,
+  type CardConfirmPrompt,
+  type CardConfirmRequest,
+} from '~/hooks/useCardActions'
 import { useCardItem } from './cardItemContext'
 import { EntityDetailDialog } from './EntityDetailDialog'
 import { ConfirmToggleDialog } from './ConfirmToggleDialog'
@@ -109,6 +113,13 @@ export interface GridCardProps {
    * and `more-info` stays inert there.
    */
   onMoreInfo?: () => void
+  /**
+   * The card family's own confirmation rule, consulted after an action
+   * resolves. The cover's `confirmOpen` is what it is for — see
+   * `UseCardActionsOptions.confirmRoute`. A card that declares one still gates
+   * its *embedded* controls itself: the shell gates what the shell dispatches.
+   */
+  confirmRoute?: (action: ResolvedCardAction) => CardConfirmPrompt | null
   onConfigure?: () => void
   hasConfiguration?: boolean
   title?: string
@@ -348,6 +359,7 @@ export const GridCard = React.memo(
         config,
         defaultAction,
         onMoreInfo,
+        confirmRoute,
         onConfigure,
         hasConfiguration = false,
         title,
@@ -502,6 +514,7 @@ export const GridCard = React.memo(
         unavailable: isUnavailable,
         disabled: isEditMode,
         requestConfirmation: setConfirmRequest,
+        confirmRoute,
       })
 
       /**
