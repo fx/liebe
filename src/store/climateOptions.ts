@@ -66,7 +66,14 @@ export function pinLegacyClimateVariant(
   config: Record<string, unknown>
 ): Record<string, unknown> {
   if (domain !== 'climate') return config
-  if (CLIMATE_VARIANT_KEY in config) return config
+  /*
+   * An own-property check rather than `in`. The key is a fixed literal that no
+   * prototype declares, so this is exactness rather than a fix — but "does this
+   * document already say something" is a question about the document, and a
+   * migration answering it from the prototype chain is the shape that bit the
+   * mode lookup (`ClimateCard/climateModel.ts` — `hvacModeConfig`).
+   */
+  if (Object.prototype.hasOwnProperty.call(config, CLIMATE_VARIANT_KEY)) return config
 
   return { ...config, [CLIMATE_VARIANT_KEY]: 'dial' satisfies ClimateVariant }
 }

@@ -117,6 +117,26 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
 
   const [drag, setDrag] = useState<DialDrag | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  /**
+   * The band as the pointer has it *now*, which is not the same thing as the
+   * band the last render drew.
+   *
+   * The commit reads this rather than state, because `mouseup` can arrive
+   * before React has flushed the render the preceding `mousemove` scheduled.
+   * Reading state there sends the band from one step before the release: the
+   * user lets go at 21° and the thermostat is set to 20.5°, then the card
+   * re-renders showing what Home Assistant echoes back, so the value silently
+   * disagrees with the gesture with nothing to explain it. A ref is written
+   * synchronously in the same handler, so the release always sees the move
+   * that preceded it.
+   */
+  const dragRef = useRef<DialDrag | null>(null)
+
+  /** Both, always together — the ref for correctness, the state to render. */
+  const updateDrag = useCallback((next: DialDrag | null) => {
+    dragRef.current = next
+    setDrag(next)
+  }, [])
 
   const reading = model.reading
   const minTemp = reading?.minTemp ?? 0
@@ -155,22 +175,36 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
   /*
    * The pointer listeners live on the document rather than on the handle: a
    * drag that leaves the circle must keep tracking, and must end wherever the
-   * pointer is released. They exist only while a handle is held, which is also
-   * what makes the updater below safe to write without a null check — nothing
-   * can call it once the drag it belongs to is over.
+   * pointer is released. They exist only while a handle is held, which is what
+   * makes the non-null reads below safe — nothing can call either handler once
+   * the drag it belongs to is over.
+   *
+   * Keyed on *whether* a drag is in progress rather than on the band itself, so
+   * a drag registers its listeners once instead of tearing them down and
+   * rebuilding them on every pointer sample.
    */
+  const isDragging = drag !== null
+
   useEffect(() => {
-    if (!drag) return
+    if (!isDragging) return
 
     const move = (event: MouseEvent | TouchEvent) => {
+      /*
+       * `in`, deliberately, and unlike the mode lookup: `touches` is declared
+       * on `TouchEvent.prototype`, not on the event instance, so an
+       * own-property check would answer `false` for every touch and drop the
+       * gesture. The hazard `in` carries is a *lookup table* answering for keys
+       * it never declared; a branded-interface check is what it is for.
+       */
       const point = 'touches' in event ? event.touches[0] : event
       const temp = angleToTemp(getAngleFromPosition(point.clientX, point.clientY))
-      setDrag((current) => nextDialDrag(current!, temp, tempStep))
+      updateDrag(nextDialDrag(dragRef.current!, temp, tempStep))
     }
 
     const end = () => {
-      setDrag(null)
-      commitRange(drag.low, drag.high)
+      const released = dragRef.current!
+      updateDrag(null)
+      commitRange(released.low, released.high)
     }
 
     document.addEventListener('mousemove', move)
@@ -184,7 +218,7 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
       document.removeEventListener('mouseup', end)
       document.removeEventListener('touchend', end)
     }
-  }, [drag, angleToTemp, getAngleFromPosition, commitRange, tempStep])
+  }, [isDragging, angleToTemp, getAngleFromPosition, commitRange, tempStep, updateDrag])
 
   const fallback = climateCardFallback({
     model,
@@ -285,11 +319,11 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
         }}
         onMouseDown={(event) => {
           event.preventDefault()
-          setDrag({ handle, low: lowSetpoint, high: highSetpoint })
+          updateDrag({ handle, low: lowSetpoint, high: highSetpoint })
         }}
         onTouchStart={(event) => {
           event.preventDefault()
-          setDrag({ handle, low: lowSetpoint, high: highSetpoint })
+          updateDrag({ handle, low: lowSetpoint, high: highSetpoint })
         }}
         onKeyDown={(event) => {
           const delta = arrowKeyDelta(event.key, tempStep)

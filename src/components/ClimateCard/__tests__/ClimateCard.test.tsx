@@ -488,6 +488,52 @@ describe('ClimateCard', () => {
       expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
     })
 
+    it('drops a mode named after an inherited property rather than crashing', () => {
+      /*
+       * `hvac_modes` comes off the entity, so a template sensor can put any
+       * string in it — and `'toString' in HVAC_MODES` is `true`, because `in`
+       * walks the prototype chain. Such a mode passed the old filter and was
+       * then looked up as a config with no `label` and no `color`, which threw
+       * while rendering the row.
+       */
+      seed(
+        createMockClimateEntity({
+          state: 'heat',
+          attributes: {
+            friendly_name: 'Test Thermostat',
+            hvac_mode: 'heat',
+            hvac_modes: ['toString', 'constructor', '__proto__', 'heat'],
+          },
+        })
+      )
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      // The heat glyph draws no text of its own, so the pill's whole text is
+      // its label.
+      expect(modeButtons.map((pill) => pill.textContent)).toEqual(['Heat'])
+    })
+
+    it('renders no row for a thermostat reporting only inherited names', () => {
+      seed(
+        createMockClimateEntity({
+          state: 'heat',
+          attributes: {
+            friendly_name: 'Test Thermostat',
+            hvac_mode: 'heat',
+            hvac_modes: ['toString', 'valueOf'],
+          },
+        })
+      )
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+    })
+
     it('survives an entity whose hvac_modes is not a list at all', () => {
       // Hand-written templates reach cards too, and a card that throws while
       // rendering takes the whole screen with it.

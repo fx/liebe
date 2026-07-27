@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { ClimateCard } from '..'
 import { arrowKeyDelta, nextDialDrag } from '../ClimateDial'
@@ -476,6 +476,34 @@ describe('ClimateCard dial variant', () => {
 
       // Straight up is the middle of the sweep: halfway between 7° and 35°.
       expect(handle('Cool setpoint')).toHaveAttribute('aria-valuenow', '21')
+    })
+
+    it('commits where the pointer was released, even with no render in between', () => {
+      /*
+       * The race, dispatched rather than fired: `fireEvent` flushes React
+       * between calls, so a test that moves, waits, then releases passes
+       * against the bug. Home Assistant sees only what the release commits, and
+       * a `mouseup` can arrive before React has flushed the render the last
+       * `mousemove` scheduled — so the commit has to read the band the pointer
+       * has, not the band the last render drew.
+       */
+      seed(rangeEntity())
+
+      renderDial()
+
+      fireEvent.mouseDown(handle('Cool setpoint'))
+
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 78 }))
+        document.dispatchEvent(new MouseEvent('mouseup'))
+      })
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'climate',
+        service: 'set_temperature',
+        entityId: 'climate.test_thermostat',
+        data: { target_temp_low: 20, target_temp_high: 30 },
+      })
     })
 
     it('follows a touch as well as a mouse', () => {

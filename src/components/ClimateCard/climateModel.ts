@@ -41,6 +41,29 @@ export const HVAC_MODES = {
   fan_only: { label: 'Fan', color: 'ok' },
 } as const satisfies Record<string, { label: string; color: DomainColorName }>
 
+export type HvacModeConfig = (typeof HVAC_MODES)[keyof typeof HVAC_MODES]
+
+/**
+ * The label and colour for one HVAC mode, or `undefined` for a mode this build
+ * does not know.
+ *
+ * An **own-property** check, not `mode in HVAC_MODES`. `hvac_modes` comes off
+ * the entity, so a template sensor or a misconfigured integration can put any
+ * string in it — and `'toString' in HVAC_MODES` is `true`, because `in` walks
+ * the prototype chain. A mode named after an inherited member would pass that
+ * filter and then be looked up as a config with no `label` and no `color`,
+ * which crashes while rendering the pill row.
+ *
+ * The indexing sites that resolve a *colour* are safe either way, because they
+ * optional-chain to a fallback; this exists for the one place that dereferences
+ * what it finds.
+ */
+export function hvacModeConfig(mode: string): HvacModeConfig | undefined {
+  return Object.prototype.hasOwnProperty.call(HVAC_MODES, mode)
+    ? HVAC_MODES[mode as keyof typeof HVAC_MODES]
+    : undefined
+}
+
 export interface ClimateAttributes {
   current_temperature?: number
   temperature?: number
