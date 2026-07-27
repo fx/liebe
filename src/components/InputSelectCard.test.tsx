@@ -139,11 +139,13 @@ describe('InputSelectCard', () => {
         entityId="input_select.test_select"
         onSelect={mockOnSelect}
         isSelected={false}
+        tier="full"
       />
     )
 
     // Select is still visible in edit mode but disabled for interaction
     expect(screen.queryByRole('combobox')).toBeInTheDocument()
+    // The option count is `full`-only — see the tier assertions below.
     expect(screen.getByText('3 options')).toBeInTheDocument()
 
     const card = screen.getByText('Test Select').closest('.liebe-card')!
@@ -301,7 +303,7 @@ describe('InputSelectCard', () => {
       isStale: false,
     })
 
-    render(<InputSelectCard entityId="input_select.test_select" />)
+    render(<InputSelectCard entityId="input_select.test_select" tier="full" />)
     expect(screen.getByText('1 option')).toBeInTheDocument() // Singular
   })
 

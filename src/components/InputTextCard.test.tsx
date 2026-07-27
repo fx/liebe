@@ -82,7 +82,10 @@ describe('InputTextCard', () => {
   })
 
   it('shows character limits when min and max are defined', () => {
-    render(<InputTextCard entityId="input_text.test_text" />)
+    // `full` is the only tier that carries the length-constraint line: it
+    // describes the helper rather than reporting its state, so the smaller
+    // tiers omit it (docs/specs/entity-cards/options/input-helpers.md).
+    render(<InputTextCard entityId="input_text.test_text" tier="full" />)
     expect(screen.getByText('3 - 20 chars')).toBeInTheDocument()
   })
 

@@ -27,7 +27,7 @@ const renderWithTheme = (ui: React.ReactElement) => {
  * (3×3) put it at — because that is where the arc dial, the mode pills and the
  * heat/cool drag handles they assert against live under change 0011's tier
  * layouts. The compact tiers are pinned in
- * `__tests__/cardTierLayouts.test.tsx`, which is also where the rule that the
+ * `__tests__/controlCardTierLayouts.test.tsx`, which is also where the rule that the
  * thermostat KEEPS a control at `glance` lives.
  */
 describe('ClimateCard', () => {

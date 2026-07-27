@@ -20,7 +20,7 @@ vi.mock('~/store', () => ({
  * These render at `full` — the tier a cover's own default dimensions (2×3) put
  * it at — because that is where the open/stop/close row and the tilt controls
  * live under change 0011's tier layouts. What each tier keeps and drops is pinned
- * in `__tests__/cardTierLayouts.test.tsx`.
+ * in `__tests__/controlCardTierLayouts.test.tsx`.
  */
 describe('CoverCard', () => {
   const mockCallService = vi.fn()

@@ -84,16 +84,18 @@ describe('InputNumberCard', () => {
   })
 
   it('shows min and max range', () => {
-    render(<InputNumberCard entityId="input_number.test_number" />)
+    // `full` is the only tier that carries the range line — the tier table
+    // gives it "`row` control plus the `min – max` range line", and the
+    // smaller tiers omit it rather than squeeze it in
+    // (docs/specs/entity-cards/options/input-helpers.md).
+    render(<InputNumberCard entityId="input_number.test_number" tier="full" />)
     expect(screen.getByText('0 - 100')).toBeInTheDocument()
   })
 
   it('increments value on plus button click', async () => {
     render(<InputNumberCard entityId="input_number.test_number" />)
 
-    const buttons = screen.getAllByRole('button')
-    const plusButton = buttons[buttons.length - 1] // Plus button is last
-    fireEvent.click(plusButton)
+    fireEvent.click(screen.getByLabelText('Increase value'))
 
     await waitFor(() => {
       expect(mockSetValue).toHaveBeenCalledWith('input_number.test_number', 51)
@@ -103,9 +105,7 @@ describe('InputNumberCard', () => {
   it('decrements value on minus button click', async () => {
     render(<InputNumberCard entityId="input_number.test_number" />)
 
-    const buttons = screen.getAllByRole('button')
-    const minusButton = buttons[buttons.length - 2] // Minus button is second to last
-    fireEvent.click(minusButton)
+    fireEvent.click(screen.getByLabelText('Decrease value'))
 
     await waitFor(() => {
       expect(mockSetValue).toHaveBeenCalledWith('input_number.test_number', 49)
@@ -125,9 +125,7 @@ describe('InputNumberCard', () => {
 
     render(<InputNumberCard entityId="input_number.test_number" />)
 
-    const buttons = screen.getAllByRole('button')
-    const plusButton = buttons[buttons.length - 1] // Plus button is last
-    expect(plusButton).toBeDisabled()
+    expect(screen.getByLabelText('Increase value')).toBeDisabled()
   })
 
   it('respects min value limit', async () => {
@@ -143,9 +141,7 @@ describe('InputNumberCard', () => {
 
     render(<InputNumberCard entityId="input_number.test_number" />)
 
-    const buttons = screen.getAllByRole('button')
-    const minusButton = buttons[buttons.length - 2] // Minus button is second to last
-    expect(minusButton).toBeDisabled()
+    expect(screen.getByLabelText('Decrease value')).toBeDisabled()
   })
 
   it('uses step value for increment/decrement', async () => {
@@ -165,9 +161,7 @@ describe('InputNumberCard', () => {
 
     render(<InputNumberCard entityId="input_number.test_number" />)
 
-    const buttons = screen.getAllByRole('button')
-    const plusButton = buttons[buttons.length - 1] // Plus button is last
-    fireEvent.click(plusButton)
+    fireEvent.click(screen.getByLabelText('Increase value'))
 
     await waitFor(() => {
       expect(mockSetValue).toHaveBeenCalledWith('input_number.test_number', 55)
@@ -274,10 +268,11 @@ describe('InputNumberCard', () => {
     const card = container.querySelector('.liebe-card')
     expect(card).toHaveAttribute('data-loading', 'true')
 
-    // Buttons should be disabled during loading
-    const buttons = screen.getAllByRole('button')
-    expect(buttons[buttons.length - 2]).toBeDisabled() // Minus button
-    expect(buttons[buttons.length - 1]).toBeDisabled() // Plus button
+    // Buttons should be disabled during loading. Found by their labels: the
+    // readout between them is a button too, so a positional lookup would now
+    // point at the wrong element.
+    expect(screen.getByLabelText('Decrease value')).toBeDisabled()
+    expect(screen.getByLabelText('Increase value')).toBeDisabled()
   })
 
   it('shows error state', () => {

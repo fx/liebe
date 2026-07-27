@@ -113,3 +113,45 @@ export const EditMode: Story = {
   args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createSensorEntity()], mode: 'edit' } },
 }
+
+/* ------------------------------------------------------------------ *
+ * Layout tiers
+ *
+ * One story per tier the card implements, each sized through the
+ * grid-cell decorator so the span the tier is derived from is the span
+ * the story is rendered at (docs/specs/storybook/index.md). The `grid
+ * width` / `grid height` controls resize any of them interactively.
+ * ------------------------------------------------------------------ */
+
+/**
+ * The big value anchors the tile and replaces the icon circle; the state line
+ * goes with it, because the reading is the state.
+ */
+export const TierGlance: Story = {
+  name: 'Tier — glance (1×1)',
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/**
+ * Icon and meta side by side, with the reading on the state line. No big
+ * figure — it would say the same number twice.
+ */
+export const TierRow: Story = {
+  name: 'Tier — row (3×1)',
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+}
+
+/** Icon on top, the big value centred beneath it, name at the bottom. */
+export const TierTall: Story = {
+  name: 'Tier — tall (1×3)',
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/**
+ * The row shape with the value alongside — the meta-plus-value arrangement the
+ * option doc falls back to while no graph renders (history wiring is 0018’s).
+ */
+export const TierFull: Story = {
+  name: 'Tier — full (3×2)',
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}

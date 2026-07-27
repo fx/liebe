@@ -144,7 +144,7 @@ export const EditMode: Story = {
 /*
  * Layout tiers (docs/specs/entity-cards/options/cover.md — "Tier layouts").
  * The absence half of each tier is asserted in
- * `__tests__/cardTierLayouts.test.tsx`.
+ * `__tests__/controlCardTierLayouts.test.tsx`.
  */
 
 /** 1×1: name and position, no controls at all. */

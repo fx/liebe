@@ -129,7 +129,7 @@ export const EditMode: Story = {
  * the dialog-registered controls that replace it arrive with change 0017, and
  * until then a control-free tile would be a thermostat nobody can turn up
  * (docs/changes/0011-layout-tiers.md — no operability regression). Assertions
- * live in `__tests__/cardTierLayouts.test.tsx`.
+ * live in `__tests__/controlCardTierLayouts.test.tsx`.
  */
 
 /** 1×1: icon, name, setpoint — and the compact stepper that stays. */

@@ -142,7 +142,7 @@ export const EditMode: Story = {
  * Layout tiers (docs/specs/entity-cards/options/weather.md — "Tier layouts").
  * Variant and tier are orthogonal: the variant picks the information density,
  * the tier picks the arrangement and how much of it fits. The absence half of
- * each tier is asserted in `src/components/__tests__/cardTierLayouts.test.tsx`.
+ * each tier is asserted in `src/components/__tests__/controlCardTierLayouts.test.tsx`.
  */
 
 /** 1×1: condition glyph, name, and the temperature in the state slot. */

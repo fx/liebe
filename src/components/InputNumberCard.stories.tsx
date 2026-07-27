@@ -109,3 +109,40 @@ export const EditMode: Story = {
   args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createInputNumberEntity()], mode: 'edit' } },
 }
+
+/* ------------------------------------------------------------------ *
+ * Layout tiers
+ *
+ * One story per tier the card implements, each sized through the
+ * grid-cell decorator so the span the tier is derived from is the span
+ * the story is rendered at (docs/specs/storybook/index.md). The `grid
+ * width` / `grid height` controls resize any of them interactively.
+ * ------------------------------------------------------------------ */
+
+/**
+ * The value anchors the tile: icon circle and step buttons are omitted, and
+ * what stays is still a control — the readout is click-to-edit, which is the
+ * helper’s only way to be set until 0022 registers a dialog control.
+ */
+export const TierGlance: Story = {
+  name: 'Tier — glance (1×1)',
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/** Icon, meta and the whole stepper in a row. */
+export const TierRow: Story = {
+  name: 'Tier — row (3×1)',
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+}
+
+/** Icon on top, stepper between, meta at the bottom. */
+export const TierTall: Story = {
+  name: 'Tier — tall (1×3)',
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/** The row control plus the `min – max` range line, which is `full`-only. */
+export const TierFull: Story = {
+  name: 'Tier — full (3×2)',
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}
