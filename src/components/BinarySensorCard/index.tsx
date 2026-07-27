@@ -9,7 +9,7 @@ import { CardConfig } from '../CardConfig'
 import { useCardItem } from '../cardItemContext'
 import { readBinarySensorOptions } from '~/store/binarySensorOptions'
 import type { GridItem } from '~/store/types'
-import { getTablerIcon } from '~/utils/icons'
+import type { HassEntity } from '~/store/entityTypes'
 import { getIcon } from '~/utils/iconList'
 import { IconCircle, IconCircleCheck } from '@tabler/icons-react'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
@@ -48,6 +48,19 @@ const arrangementForTier: Readonly<Record<CardTier, CardArrangement>> = {
   full: 'row',
 }
 
+/**
+ * A string attribute, or nothing.
+ *
+ * The attribute map is `Record<string, unknown>` on the wire whatever the local
+ * type says: a template binary sensor can publish a numeric `friendly_name`,
+ * and an entity can arrive carrying no attributes at all. Reading through here
+ * is what keeps the first from rendering as a name and the second from throwing.
+ */
+function readStringAttribute(entity: HassEntity | undefined, key: string): string | undefined {
+  const value = entity?.attributes?.[key]
+  return typeof value === 'string' ? value : undefined
+}
+
 function BinarySensorCardComponent({
   entityId,
   tier = 'row',
@@ -71,24 +84,30 @@ function BinarySensorCardComponent({
    */
   const { config } = useCardItem()
   const options = useMemo(() => readBinarySensorOptions(config), [config])
-  const deviceClass = entity?.attributes?.device_class
+  const deviceClass = readStringAttribute(entity, 'device_class')
   const state = entity?.state
 
   const presentation = useMemo(
     () =>
       resolveBinarySensorPresentation({
         state: state ?? '',
-        deviceClass: typeof deviceClass === 'string' ? deviceClass : undefined,
+        deviceClass,
         options,
       }),
     [state, deviceClass, options]
   )
 
+  /*
+   * The glyph, with the generic pair behind it for a name this build has no
+   * icon for — a configured `onIcon` from a newer Liebe, or a hand-edited YAML.
+   *
+   * One lookup, not two: this used to try `getTablerIcon` and then `getIcon`,
+   * but the former is a one-line alias of the latter, so the second call could
+   * only ever repeat the first one's answer.
+   */
   const IconComponent = useMemo(() => {
     const { iconName, presentedOn } = presentation
-    return (
-      getTablerIcon(iconName) || getIcon(iconName) || (presentedOn ? IconCircleCheck : IconCircle)
-    )
+    return getIcon(iconName) || (presentedOn ? IconCircleCheck : IconCircle)
   }, [presentation])
 
   /*
@@ -124,7 +143,7 @@ function BinarySensorCardComponent({
     )
   }
 
-  const friendlyName = entity.attributes.friendly_name || entity.entity_id
+  const friendlyName = readStringAttribute(entity, 'friendly_name') || entity.entity_id
   const isUnavailable = entity.state === 'unavailable'
 
   // One glyph size at every tier; the per-tier layout is 0011 PR 2's.

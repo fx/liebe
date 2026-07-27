@@ -236,6 +236,28 @@ describe('BinarySensorCard full tier', () => {
   })
 })
 
+describe('BinarySensorCard icons', () => {
+  it.each([
+    ['on', 'CircleCheck'],
+    ['off', 'Circle'],
+  ])('falls back to the generic glyph for an unknown icon name while %s', (state, expected) => {
+    // A name from a newer Liebe, or a hand-edited YAML. The card renders the
+    // generic pair rather than nothing at all — an icon circle with no glyph
+    // in it reads as a card that failed to load.
+    seed(createBinarySensorEntity({ state }))
+    renderCard(<BinarySensorCard entityId={ENTITY} />, {
+      onIcon: 'NotAnIconThisBuildHas',
+      offIcon: 'NorIsThis',
+    })
+
+    const glyph = icon()?.querySelector('svg')
+    expect(glyph).not.toBeNull()
+    expect(glyph?.getAttribute('class')).toContain(
+      expected === 'CircleCheck' ? 'circle-check' : 'circle'
+    )
+  })
+})
+
 describe('BinarySensorCard states without a card', () => {
   it('holds a skeleton for an entity the store has not got', () => {
     seed(createBinarySensorEntity())
@@ -267,6 +289,32 @@ describe('BinarySensorCard states without a card', () => {
 
     expect(card()).toHaveAttribute('data-unavailable', 'true')
     expect(stateLine()).toHaveTextContent('UNAVAILABLE')
+  })
+
+  it('ignores attributes that are not text, whatever the type says', () => {
+    // An attribute map is `Record<string, unknown>` on the wire. A numeric
+    // `friendly_name` would otherwise render as the card's name, and a
+    // non-string `device_class` would be looked up as one.
+    seed({
+      ...createBinarySensorEntity({ state: 'on' }),
+      attributes: { friendly_name: 42, device_class: ['door'] },
+    } as unknown as HassEntity)
+    renderCard(<BinarySensorCard entityId={ENTITY} />)
+
+    expect(screen.getByText(ENTITY)).toBeInTheDocument()
+    // No device class this build can read, so the generic naming applies.
+    expect(stateLine()).toHaveTextContent('On')
+  })
+
+  it('renders an entity carrying no attributes at all', () => {
+    seed({
+      ...createBinarySensorEntity({ state: 'off' }),
+      attributes: undefined,
+    } as unknown as HassEntity)
+    renderCard(<BinarySensorCard entityId={ENTITY} />)
+
+    expect(screen.getByText(ENTITY)).toBeInTheDocument()
+    expect(stateLine()).toHaveTextContent('Off')
   })
 
   it('names an entity that has no friendly name after its id', () => {
@@ -309,6 +357,25 @@ describe('BinarySensorCard configuration modal', () => {
       'bs-1',
       expect.objectContaining({ config: expect.objectContaining({ onLabel: 'Ajar' }) })
     )
+    updateGridItem.mockRestore()
+  })
+
+  it('saves nothing when there is no screen to save it to', async () => {
+    // The dashboard has no current screen — mid-navigation, or a preview
+    // rendered outside one. The save is dropped rather than writing the item
+    // into whichever screen happens to be first.
+    const user = userEvent.setup()
+    const updateGridItem = vi.spyOn(dashboardActions, 'updateGridItem').mockImplementation(() => {})
+    dashboardActions.setMode('edit')
+    dashboardStore.setState((state) => ({ ...state, currentScreenId: undefined }))
+
+    seed(createBinarySensorEntity({ state: 'on' }))
+    renderCard(<BinarySensorCard entityId={ENTITY} item={item} />)
+
+    await user.click(screen.getByRole('button', { name: /configure/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(updateGridItem).not.toHaveBeenCalled()
     updateGridItem.mockRestore()
   })
 

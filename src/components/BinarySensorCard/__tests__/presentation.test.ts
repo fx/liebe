@@ -258,6 +258,32 @@ describe('the hazard rule', () => {
   })
 })
 
+describe('the alert set', () => {
+  it('is exactly the classes it claims to be', () => {
+    /*
+     * Written out rather than iterated. Every other assertion about hazards in
+     * this file loops over `ALERT_DEVICE_CLASSES`, so removing a class from the
+     * set would quietly remove its test cases too and the suite would still
+     * pass — with a device class that no longer alarms. This is the one
+     * assertion a narrowed set has to get past.
+     *
+     * The option doc names six; `heat` is the seventh, ships alert-coloured
+     * today, and is one of Home Assistant's own danger classes. Adding to this
+     * set only ever means "a sounding sensor of this class cannot be configured
+     * to look calm", so the superset is the safe direction.
+     */
+    expect([...ALERT_DEVICE_CLASSES].sort()).toEqual([
+      'carbon_monoxide',
+      'gas',
+      'heat',
+      'problem',
+      'safety',
+      'smoke',
+      'tamper',
+    ])
+  })
+})
+
 describe('the label table', () => {
   it('names both states of every class it lists', () => {
     // A half-filled row would render an empty state line for one of the two
