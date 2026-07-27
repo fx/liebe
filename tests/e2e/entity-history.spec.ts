@@ -13,8 +13,11 @@ import {
 // then runs the panel's own parser and downsampler over it. Mocked unit tests
 // cannot catch a compressed-row rename; this can.
 
-// Values written to input_number.e2e_level, in order. Distinct and outside the
-// helper's initial 42 so the recorder rows are unambiguous.
+// Values written to input_number.e2e_level, in order, after a baseline write.
+// The baseline matters: this suite shares ONE Home Assistant whose recorder
+// database persists, so a previous run left the helper at the last value here —
+// and writing a value it already holds changes no state and records no row.
+const BASELINE = 0
 const WRITTEN = [10, 25, 60]
 
 // Fetch a window through the panel's live, authenticated WebSocket connection —
@@ -39,7 +42,7 @@ test('fetches real recorder history through the panel websocket', async ({ page 
   const { accessToken } = await openPanel(page)
 
   const start = Date.now()
-  for (const value of WRITTEN) {
+  for (const value of [BASELINE, ...WRITTEN]) {
     await callService(accessToken, 'input_number', 'set_value', {
       entity_id: E2E_LEVEL,
       value,
@@ -50,7 +53,9 @@ test('fetches real recorder history through the panel websocket', async ({ page 
   }
 
   // Poll: the recorder writes asynchronously, so the last value may not have
-  // been committed when the first request lands.
+  // been committed when the first request lands. The window opens before the
+  // first write, so its first row is whatever the helper already held — the
+  // assertion is on the tail this test actually produced.
   let parsed = parseHistoryResponse({}, E2E_LEVEL)
   await expect
     .poll(
@@ -60,17 +65,17 @@ test('fetches real recorder history through the panel websocket', async ({ page 
           buildHistoryRequest(E2E_LEVEL, start - 60_000, Date.now())
         )
         parsed = parseHistoryResponse(response, E2E_LEVEL)
-        return parsed.samples.map((sample) => sample.value)
+        return parsed.samples.slice(-WRITTEN.length).map((sample) => sample.value)
       },
       { timeout: 30_000 }
     )
-    .toEqual(expect.arrayContaining(WRITTEN))
+    .toEqual(WRITTEN)
 
-  // Every written value survived the parse as a finite number on a sane epoch.
+  // Every value survived the parse as a finite number on a real timestamp.
   expect(parsed.nonNumeric).toBe(false)
   for (const sample of parsed.samples) {
     expect(Number.isFinite(sample.value)).toBe(true)
-    expect(sample.t).toBeGreaterThan(start - 120_000)
+    expect(Number.isFinite(sample.t)).toBe(true)
     expect(sample.t).toBeLessThanOrEqual(Date.now())
   }
   // Ascending, as everything downstream assumes.

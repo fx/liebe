@@ -170,6 +170,33 @@ describe('EntityHistoryService', () => {
       expect(entry()?.error).toBe('Home Assistant not connected')
     })
 
+    it('retries a window that was fetched before a connection existed', async () => {
+      service.setHass(null)
+      service.subscribe(ENTITY, 24)
+      await flush()
+      expect(entry()?.error).toBe('Home Assistant not connected')
+
+      service.setHass(hass)
+      await flush()
+
+      expect(callWS).toHaveBeenCalledTimes(1)
+      expect(entry()?.error).toBeNull()
+      expect(entry()?.samples).toHaveLength(3)
+    })
+
+    it('does not refetch when a fresh hass object replaces the current one', async () => {
+      service.subscribe(ENTITY, 24)
+      await flush()
+      callWS.mockClear()
+
+      // Home Assistant re-supplies `hass` on every state change; that is not a
+      // reconnection and must not cost a fetch.
+      service.setHass(createMockHomeAssistant({ callWS: callWS as HomeAssistant['callWS'] }))
+      await flush()
+
+      expect(callWS).not.toHaveBeenCalled()
+    })
+
     it('keeps live appends that landed while the fetch was in flight', async () => {
       let resolveFetch: (value: HistoryResponse) => void = () => {}
       callWS.mockReturnValueOnce(
@@ -195,7 +222,6 @@ describe('EntityHistoryService', () => {
       callWS.mockResolvedValueOnce({})
       historyStoreActions.patchEntry(ENTITY, 24, {
         samples: [{ t: NOW, value: 7 }],
-        version: 1,
         updatedAt: NOW,
       })
       service.subscribe(ENTITY, 24)
@@ -541,6 +567,40 @@ describe('EntityHistoryService', () => {
       expect(increasing[0].value).toBe(15)
       expect(total[0].value).toBe(5)
     })
+  })
+
+  it('discards a fetch that resolves after a reset', async () => {
+    let resolveFetch: (value: HistoryResponse) => void = () => {}
+    callWS.mockReturnValueOnce(
+      new Promise<HistoryResponse>((resolve) => {
+        resolveFetch = resolve
+      })
+    )
+    service.subscribe(ENTITY, 24)
+    service.reset()
+
+    resolveFetch(response(seriesEndingAt(NOW, [1, 2, 3])))
+    await flush()
+
+    // The answer to a question nobody is asking any more must not resurrect
+    // the window it was fetched for.
+    expect(historyStore.state.entries).toEqual({})
+  })
+
+  it('discards a fetch that rejects after a reset', async () => {
+    let rejectFetch: (reason: Error) => void = () => {}
+    callWS.mockReturnValueOnce(
+      new Promise<HistoryResponse>((_resolve, reject) => {
+        rejectFetch = reject
+      })
+    )
+    service.subscribe(ENTITY, 24)
+    service.reset()
+
+    rejectFetch(new Error('too late'))
+    await flush()
+
+    expect(historyStore.state.entries).toEqual({})
   })
 
   it('clears every timer and cache on reset', async () => {

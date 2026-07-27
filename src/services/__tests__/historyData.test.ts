@@ -130,6 +130,27 @@ describe('parseHistoryResponse', () => {
     expect(parsed).toEqual({ samples: [], nonNumeric: true })
   })
 
+  it('does not report a window of nothing but unavailable as non-numeric', () => {
+    // An integration that was down for the whole window says nothing about
+    // whether the entity is graphable — resolving `unsupported` here would
+    // blank a real sensor's graph until its integration came back.
+    const parsed = parseHistoryResponse(
+      {
+        'sensor.t': [
+          { s: 'unavailable', lu: T0 / 1000 },
+          { s: 'unknown', lu: (T0 + HOUR) / 1000 },
+        ],
+      },
+      'sensor.t'
+    )
+    expect(parsed).toEqual({ samples: [], nonNumeric: false })
+  })
+
+  it('does not report a numeric entity as non-numeric when its timestamps are unusable', () => {
+    const parsed = parseHistoryResponse({ 'sensor.t': [{ s: '21.4' }] }, 'sensor.t')
+    expect(parsed).toEqual({ samples: [], nonNumeric: false })
+  })
+
   it('reports an absent or empty entity as neither samples nor non-numeric', () => {
     expect(parseHistoryResponse({}, 'sensor.t')).toEqual({ samples: [], nonNumeric: false })
     expect(parseHistoryResponse(null, 'sensor.t')).toEqual({ samples: [], nonNumeric: false })

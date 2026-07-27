@@ -69,9 +69,20 @@ export class EntityHistoryService {
   private inflight = new Map<string, Promise<void>>()
   private maintenanceTimers = new Map<string, ReturnType<typeof setInterval>>()
   private projections = new Map<string, CachedProjection>()
+  /**
+   * Bumped by `reset()`. A fetch that was already in flight resolves into a
+   * service that no longer wants it, and without this it would resurrect the
+   * window it was fetching and evict a fresh fetch's in-flight entry.
+   */
+  private generation = 0
 
   setHass(hass: HomeAssistant | null): void {
+    // Gaining a connection is the same situation as regaining one: any window
+    // fetched without it holds an error rather than data, and nothing else
+    // would retry it before the next maintenance tick.
+    const gained = hass !== null && this.hass === null
     this.hass = hass
+    if (gained) this.handleReconnected()
   }
 
   /**
@@ -171,7 +182,6 @@ export class EntityHistoryService {
       const appended = [...entry.samples, { t, value }]
       historyStoreActions.patchEntry(entry.entityId, entry.hours, {
         samples: pruneSamples(appended, now - historyWindowMs(entry.hours)),
-        version: entry.version + 1,
         updatedAt: now,
       })
     }
@@ -194,6 +204,7 @@ export class EntityHistoryService {
 
   /** Drop all state. Test-only seam — the singleton is module-global. */
   reset(): void {
+    this.generation += 1
     for (const timer of this.maintenanceTimers.values()) clearInterval(timer)
     this.maintenanceTimers.clear()
     this.subscribers.clear()
@@ -229,10 +240,7 @@ export class EntityHistoryService {
     const now = Date.now()
     const pruned = pruneSamples(entry.samples, now - historyWindowMs(hours))
     if (pruned !== entry.samples) {
-      historyStoreActions.patchEntry(entityId, hours, {
-        samples: pruned,
-        version: entry.version + 1,
-      })
+      historyStoreActions.patchEntry(entityId, hours, { samples: pruned })
     }
 
     if (wentUnwatched || now - entry.updatedAt > HISTORY_FRESHNESS_TTL_MS) {
@@ -266,14 +274,15 @@ export class EntityHistoryService {
     const existing = this.inflight.get(key)
     if (existing) return existing
 
-    const request = this.runFetch(entityId, hours).finally(() => {
-      this.inflight.delete(key)
+    const generation = this.generation
+    const request = this.runFetch(entityId, hours, generation).finally(() => {
+      if (generation === this.generation) this.inflight.delete(key)
     })
     this.inflight.set(key, request)
     return request
   }
 
-  private async runFetch(entityId: string, hours: number): Promise<void> {
+  private async runFetch(entityId: string, hours: number, generation: number): Promise<void> {
     const { hass } = this
     if (!hass) {
       historyStoreActions.patchEntry(entityId, hours, {
@@ -294,7 +303,6 @@ export class EntityHistoryService {
         error: null,
         unsupported: true,
         samples: [],
-        version: (historyStore.state.entries[key]?.version ?? 0) + 1,
         updatedAt: Date.now(),
       })
       return
@@ -307,17 +315,21 @@ export class EntityHistoryService {
       const response = await hass.callWS<HistoryResponse>(
         buildHistoryRequest(entityId, end - historyWindowMs(hours), end)
       )
+      // The service may have been reset while this was in flight; writing the
+      // answer to a question nobody is asking any more would resurrect the
+      // window it was fetched for.
+      if (generation !== this.generation) return
       const { samples, nonNumeric } = parseHistoryResponse(response, entityId)
       const previous = historyStore.state.entries[key]
       historyStoreActions.patchEntry(entityId, hours, {
         samples: nonNumeric ? [] : mergeLiveTail(samples, previous?.samples ?? []),
-        version: (previous?.version ?? 0) + 1,
         isLoading: false,
         error: null,
         unsupported: nonNumeric,
         updatedAt: Date.now(),
       })
     } catch (error) {
+      if (generation !== this.generation) return
       // Non-fatal by contract: the consumer renders without a graph. Samples
       // already held are left in place rather than blanked.
       historyStoreActions.patchEntry(entityId, hours, {

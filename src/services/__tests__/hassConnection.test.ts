@@ -266,6 +266,39 @@ describe('HassConnectionManager', () => {
       )
     })
 
+    it('should keep the pipeline running when history ingest throws', async () => {
+      const { entityHistoryService } = await import('../entityHistory')
+      const { entityDebouncer } = await import('../../store/entityDebouncer')
+      vi.mocked(entityHistoryService.ingest).mockImplementationOnce(() => {
+        throw new Error('history exploded')
+      })
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const event: StateChangedEvent = {
+        event_type: 'state_changed',
+        data: {
+          entity_id: 'sensor.power',
+          old_state: null,
+          new_state: {
+            entity_id: 'sensor.power',
+            state: '120',
+            attributes: {},
+            last_changed: '2023-01-01T00:01:00Z',
+            last_updated: '2023-01-01T00:01:00Z',
+            context: { id: '789', parent_id: null, user_id: null },
+          },
+        },
+      }
+
+      stateChangeHandler(event)
+
+      // A fault in a graph's cache must not stop every card from seeing the
+      // state change.
+      expect(entityDebouncer.processUpdate).toHaveBeenCalledWith(event.data.new_state)
+      expect(consoleError).toHaveBeenCalled()
+      consoleError.mockRestore()
+    })
+
     it('should handle entity removal', () => {
       const event: StateChangedEvent = {
         event_type: 'state_changed',

@@ -188,7 +188,7 @@ Token layering (base → theme → user), application mechanism, and shadow-DOM 
 ## Open Questions
 
 - ~~**Radix alias fidelity.**~~ Answered by change [0010](../../changes/0010-design-tokens-and-anatomy.md) PR 1, compared side by side in the workshop's `Design System/Tokens` → _Alias fidelity_ story: no literals are pinned. In light Radix resolves both `--color-background` and `--color-panel-solid` to plain white, which would flatten ground and card into one surface, so the surface tokens alias appearance-specific gray-scale **steps** instead of the semantic pair — see the note under the surface token table.
-- ~~**Sparkline data source.**~~ Settled and shipped: the sparkline's data source is [`useEntityHistory`](../entity-state/index.md#entity-history) (change [0015](../../changes/0015-history-and-forecast-data.md) PR 1) — a windowed, downsampled numeric series with `sample`/`delta` modes, whose `values` are what the anatomy takes. Wiring cards to it is a follow-up (0018/0020); until then the anatomy renders its placeholder baseline, which is why an empty sparkline stays neutral rather than domain-coloured.
+- ~~**Sparkline data source.**~~ Settled and shipped: the sparkline consumes [`useEntityHistory`](../entity-state/index.md#entity-history), which owns the contract (change [0015](../../changes/0015-history-and-forecast-data.md) PR 1). Wiring cards to it is a follow-up (0018/0020).
 - **Legacy `size` prop migration.** Existing configs persist card dimensions already; the mapping from stored `size` values (if any survive) to tiers needs an audit in the dashboard-config spec before implementation.
 
 ## References

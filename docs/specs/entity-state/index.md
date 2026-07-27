@@ -75,7 +75,7 @@ Service calls flow through a separate singleton, `HassService`, and the low-leve
 
 - **GIVEN** a `state_changed` event with `new_state: null` and a non-null `old_state`
 - **WHEN** the handler runs
-- **THEN** `removeEntity('light.living_room')` is called (`src/services/__tests__/hassConnection.test.ts:269`).
+- **THEN** `removeEntity('light.living_room')` is called (`src/services/__tests__/hassConnection.test.ts:302`).
 
 ### Reconnection & Health Monitoring
 
@@ -89,13 +89,13 @@ Service calls flow through a separate singleton, `HassService`, and the low-leve
 
 - **GIVEN** `reconnectAttempts` set to 0, 1, 2, 3 in turn
 - **WHEN** `scheduleReconnect()` runs for each
-- **THEN** the scheduled delays are 1000, 2000, 4000, 8000 ms (`src/services/__tests__/hassConnection.test.ts:305`).
+- **THEN** the scheduled delays are 1000, 2000, 4000, 8000 ms (`src/services/__tests__/hassConnection.test.ts:338`).
 
 #### Scenario: Give up after max attempts
 
 - **GIVEN** `reconnectAttempts` set to 10
 - **WHEN** `scheduleReconnect()` runs
-- **THEN** no timer is scheduled and the store error becomes `Unable to reconnect to Home Assistant` (`src/services/__tests__/hassConnection.test.ts:344`).
+- **THEN** no timer is scheduled and the store error becomes `Unable to reconnect to Home Assistant` (`src/services/__tests__/hassConnection.test.ts:377`).
 
 ### Entity Debouncing
 
@@ -224,13 +224,13 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 
 - **GIVEN** a `total_increasing` sensor whose raw history within one bucket reads `0 → 10 → 0 → 5`
 - **WHEN** a consumer requests `mode: 'delta'`
-- **THEN** the bucket's value is `15` — the reset is summed reset-aware from raw samples, not the `10` a min/max downsample would leave behind (`src/services/__tests__/historyData.test.ts:247`).
+- **THEN** the bucket's value is `15` — the reset is summed reset-aware from raw samples, not the `10` a min/max downsample would leave behind (`src/services/__tests__/historyData.test.ts:268`).
 
 #### Scenario: A spike survives downsampling
 
 - **GIVEN** a bucket whose raw samples run `5 → 40`
 - **WHEN** the series is downsampled in `sample` mode
-- **THEN** the point reads `value: 40` with `min: 5, max: 40` — the extremes travel with the bucket (`src/services/__tests__/historyData.test.ts:197`).
+- **THEN** the point reads `value: 40` with `min: 5, max: 40` — the extremes travel with the bucket (`src/services/__tests__/historyData.test.ts:218`).
 
 #### Scenario: Raw ingress reaches history first
 
@@ -242,7 +242,7 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 
 - **GIVEN** a window whose only subscriber unmounted and has now remounted
 - **WHEN** the hook resubscribes
-- **THEN** the cached window renders immediately, aged-out samples are pruned to one sentinel, and a refetch closes the unwatched gap (`src/services/__tests__/entityHistory.test.ts:320`, `src/services/__tests__/historyData.test.ts:157`).
+- **THEN** the cached window renders immediately, aged-out samples are pruned to one sentinel, and a refetch closes the unwatched gap (`src/services/__tests__/entityHistory.test.ts:346`, `src/services/__tests__/historyData.test.ts:178`).
 
 #### Scenario: Non-numeric entity degrades silently
 
@@ -254,7 +254,7 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 
 Target contract for the forecast capability. Implemented by change [0015](../../changes/0015-history-and-forecast-data.md) PR 2; until it lands, weather cards read only the entity's current state.
 
-- `useWeatherForecast(entityId, {type: hourly | daily | twice_daily})` MUST call `weather.get_forecasts` with response caching and a refresh interval (SHOULD: 30min hourly, 2h daily and twice-daily), resolving `unsupported` when the service or feature is unavailable. Integrations advertising only `FORECAST_TWICE_DAILY` MUST NOT resolve daily as unsupported: the hook MUST derive a daily view from twice-daily data, with daytime entries (`is_daytime: true`) carrying the day's condition and high and the paired nighttime entry supplying the low.
+- `useWeatherForecast(entityId, {type: hourly | daily | twice_daily})` MUST call `weather.get_forecasts` with response caching and a refresh interval (SHOULD: 30 minutes for `hourly`, 2 hours for `daily` and `twice_daily`), resolving `unsupported` when the service or feature is unavailable. Integrations advertising only `FORECAST_TWICE_DAILY` MUST NOT resolve daily as unsupported: the hook MUST derive a daily view from twice-daily data, with daytime entries (`is_daytime: true`) carrying the day's condition and high and the paired nighttime entry supplying the low.
 - The hook MUST follow the same per-entity slice pattern as the history hook, and its failures MUST be non-fatal in the same way: consumers render without forecast content.
 
 #### Scenario: Forecast unsupported degrades silently
@@ -486,6 +486,7 @@ Service-call retry (`src/services/hassService.ts:61`):
 - **`subscribedEntities` does not gate updates.** All entities from `hass.states` are loaded and all `state_changed` events are processed into the store; subscription tracking only feeds staleness checks and the status UI counter. There is no server-side or client-side filtering to "only the subscribed entities."
 - **Singletons are module-global.** `hassConnectionManager`, `entityDebouncer`, `entityUpdateBatcher`, `entityStore`, `connectionStore`, and `hassService` are shared singletons; tests that need isolation instantiate the classes directly rather than using the exported instances.
 - **Two service-call paths coexist.** `src/services/hass.ts` (`hassService` shim over `window.hass`) and `src/services/hassService.ts` (`HassService` singleton, also exported as `hassService`) are distinct modules with the same export name; the retry/abort behavior described here lives only in the latter.
+- **History windows are never evicted.** A cached window outliving its subscriber is the point — it is what lets a remounting card render immediately — but nothing removes one afterwards, so a long session that visits many distinct entity + window pairs accumulates them (raw samples and their projections) until reload. Bounded in practice by how many entities a dashboard shows; unbounded in principle.
 - **Fixed thresholds.** Debounce times, the 50ms batch window, the 100-item batch cap, the 100-entry log cap, the 300s stale threshold, the 60s stale interval, the 30s health interval, and the `[1000, 2000, 4000]` retry ladder are compile-time constants (with `setDebounceTime`/`setThresholds`/`setExcludedEntityTypes` as the only runtime overrides).
 
 ## Open Questions

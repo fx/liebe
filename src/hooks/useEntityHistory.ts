@@ -60,13 +60,18 @@ export function useEntityHistory(
     return typeof value === 'string' ? value : undefined
   })
 
+  // Home Assistant hands down a NEW `hass` object on every state change, so
+  // this must stay separate from the subscription below — folding them together
+  // would tear the window's subscription down and refetch its history on every
+  // state change in the house.
+  useEffect(() => {
+    entityHistoryService.setHass(hass)
+  }, [hass])
+
   useEffect(() => {
     if (!entityId) return
-    // The panel hands a fresh `hass` down constantly; the service keeps the
-    // latest one so its fetches survive React's render lifecycle.
-    entityHistoryService.setHass(hass)
     return entityHistoryService.subscribe(entityId, hours)
-  }, [entityId, hours, hass])
+  }, [entityId, hours])
 
   const projected = useMemo(
     () => entityHistoryService.project(entry, { mode, points, stateClass }),

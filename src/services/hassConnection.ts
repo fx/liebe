@@ -197,8 +197,14 @@ export class HassConnectionManager {
     if (new_state) {
       // History buckets consume RAW ingress, ahead of the debouncer: the
       // debounced pipeline keeps only the last update in its window, which is
-      // exactly the counter resets and spikes a graph must not lose.
-      entityHistoryService.ingest(new_state)
+      // exactly the counter resets and spikes a graph must not lose. Guarded
+      // because this sits on the path EVERY entity update takes — a fault in a
+      // graph's cache must not stop the dashboard from seeing state changes.
+      try {
+        entityHistoryService.ingest(new_state)
+      } catch (error) {
+        console.error('History ingest failed:', error)
+      }
       // Use debouncer which will pass to batcher
       entityDebouncer.processUpdate(new_state)
     }

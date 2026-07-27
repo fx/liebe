@@ -88,7 +88,11 @@ export type HistoryResponse = Record<string, HistoryResponseRow[] | undefined>
 export interface ParsedHistory {
   /** Numeric samples, oldest first. */
   samples: HistorySample[]
-  /** The entity reported states, none of which were numeric. */
+  /**
+   * The entity reported states that prove it is not graphable, and never one
+   * that parsed as a number. A window of nothing but `unavailable` does NOT
+   * count — that is an integration that was down, not a text entity.
+   */
   nonNumeric: boolean
 }
 
@@ -137,16 +141,24 @@ export function parseHistoryResponse(
 ): ParsedHistory {
   const rows = response?.[entityId] ?? []
   const samples: HistorySample[] = []
-  let reported = 0
+  // Tracked separately from the sample count: a row can be numeric and still
+  // produce no sample (an unusable timestamp), and that must not be read as
+  // evidence the entity is non-numeric.
+  let sawNumeric = false
+  let sawNonNumeric = false
 
   for (const row of rows) {
     const state = row.s ?? row.state
     if (state === undefined) continue
-    reported += 1
     // `Number('')` is 0, so an empty state would otherwise parse as a reading.
     if (state.trim() === '') continue
     const value = Number(state)
-    if (!Number.isFinite(value)) continue
+    if (!Number.isFinite(value)) {
+      // `unavailable`/`unknown` prove nothing; a real word does.
+      sawNonNumeric ||= isNonNumericState(state)
+      continue
+    }
+    sawNumeric = true
     const t = rowTime(row)
     if (t === undefined) continue
     samples.push({ t, value })
@@ -155,7 +167,7 @@ export function parseHistoryResponse(
   // The recorder returns rows in order, but the parse is a boundary: sorting
   // here is what lets everything downstream assume ascending time.
   samples.sort((a, b) => a.t - b.t)
-  return { samples, nonNumeric: reported > 0 && samples.length === 0 }
+  return { samples, nonNumeric: sawNonNumeric && !sawNumeric }
 }
 
 /**
@@ -238,6 +250,9 @@ export function downsampleHistory(
       carried = sample
       continue
     }
+    // Clamped rather than dropped at the top end: Home Assistant's clock can
+    // run ahead of the browser's, and discarding the newest reading is a worse
+    // failure than attributing it to the last bucket.
     const index = Math.min(bucketCount - 1, Math.floor((sample.t - start) / width))
     buckets[index].push(sample)
   }

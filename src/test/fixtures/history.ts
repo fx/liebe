@@ -94,7 +94,6 @@ export function createNonNumericHistoryResponse(
 export function seedEntityHistory(entityId: string, samples: HistorySample[], hours = 24): void {
   historyStoreActions.patchEntry(entityId, hours, {
     samples,
-    version: 1,
     isLoading: false,
     error: null,
     unsupported: false,

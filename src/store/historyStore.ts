@@ -46,11 +46,17 @@ export const historyStoreActions = {
    * Merge a patch into one entry, creating it if absent. Only the patched
    * entry's identity changes, so the per-entry selectors in `useEntityHistory`
    * leave every other card alone.
+   *
+   * `version` is owned here rather than by callers: it is bumped exactly when
+   * the patch replaces `samples`, which is the one condition the projection
+   * cache keys off. A caller that had to remember to bump it would eventually
+   * forget, and a stale projection is invisible until someone stares at a
+   * graph that stopped moving.
    */
   patchEntry(
     entityId: string,
     hours: number,
-    patch: Partial<Omit<HistoryEntry, 'entityId' | 'hours'>>
+    patch: Partial<Omit<HistoryEntry, 'entityId' | 'hours' | 'version'>>
   ): void {
     const key = historyCacheKey(entityId, hours)
     historyStore.setState((state) => {
@@ -65,7 +71,13 @@ export const historyStoreActions = {
         unsupported: false,
         updatedAt: 0,
       }
-      return { ...state, entries: { ...state.entries, [key]: { ...base, ...patch } } }
+      const samplesReplaced = patch.samples !== undefined && patch.samples !== base.samples
+      const entry: HistoryEntry = {
+        ...base,
+        ...patch,
+        version: samplesReplaced ? base.version + 1 : base.version,
+      }
+      return { ...state, entries: { ...state.entries, [key]: entry } }
     })
   },
 

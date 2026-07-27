@@ -176,6 +176,23 @@ describe('useEntityHistory', () => {
     await waitFor(() => expect(callWS).toHaveBeenCalledTimes(2))
   })
 
+  it('does not refetch when Home Assistant re-supplies a fresh hass object', async () => {
+    const { result, rerender } = renderHook(() => useEntityHistory(ENTITY), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <HomeAssistantProvider hass={hass}>{children}</HomeAssistantProvider>
+      ),
+    })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    // HA mutates and re-supplies `hass` on every state change in the house;
+    // the window's subscription must survive that untouched.
+    hass = createMockHomeAssistant({ callWS: callWS as HomeAssistant['callWS'] })
+    rerender()
+    rerender()
+
+    expect(callWS).toHaveBeenCalledTimes(1)
+  })
+
   it('ignores history written for another entity', async () => {
     const { result } = renderHook(() => useEntityHistory(ENTITY), { wrapper })
     await waitFor(() => expect(result.current.isLoading).toBe(false))
@@ -184,7 +201,6 @@ describe('useEntityHistory', () => {
     act(() => {
       historyStoreActions.patchEntry('sensor.other', 24, {
         samples: [{ t: NOW, value: 99 }],
-        version: 1,
       })
     })
 
