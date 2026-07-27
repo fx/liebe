@@ -1,15 +1,22 @@
 import React, { memo, useCallback, useState } from 'react'
-import { Box, Flex, IconButton, Text, TextField } from '@radix-ui/themes'
+import { Button, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Hash, Minus, Plus } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
-import type { CardTier } from '~/utils/cardTier'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputNumberCardProps {
   entityId: string
   tier?: CardTier
+  /**
+   * The effective grid span behind `tier`. Accepted so any renderer can hand a
+   * card the pair `CardProps` defines; no number-helper layout keys on width
+   * past the tier boundary, so nothing here reads it.
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -159,15 +166,22 @@ export const InputNumberCard = memo(function InputNumberCard({
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
-        <Flex direction="column" align="center" gap="2">
-          <GridCard.Icon>
-            <Archive size={20} />
-          </GridCard.Icon>
-          <GridCard.Title>
-            {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
-          </GridCard.Title>
-          <GridCard.Status>Unavailable</GridCard.Status>
-        </Flex>
+        <CardBody
+          arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+          lead={
+            <GridCard.Icon>
+              <Archive size={20} />
+            </GridCard.Icon>
+          }
+          meta={
+            <GridCard.Meta>
+              <GridCard.Title>
+                {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
+              </GridCard.Title>
+              <GridCard.Status>Unavailable</GridCard.Status>
+            </GridCard.Meta>
+          }
+        />
       </GridCard>
     )
   }
@@ -179,6 +193,101 @@ export const InputNumberCard = memo(function InputNumberCard({
   // Format display value
   const displayValue = parseFloat(entity.state).toFixed(
     attributes.step && attributes.step < 1 ? 1 : 0
+  )
+
+  const isGlance = tier === 'glance'
+
+  /*
+   * The click-to-edit readout, which is also the card's minimal control: it
+   * enters an edit state and commits an arbitrary value inside `[min, max]`.
+   *
+   * It is a real `<button>` (Radix `Button`) rather than a styled `Box` with an
+   * `onClick`, because it is the control `glance` keeps — the one thing that
+   * stops a 1×1 `input_number` from being unoperable (docs/changes/0011 — "no
+   * operability regression"). A `div` that only answers to clicks satisfies
+   * that invariant for a pointer and breaks it for every keyboard, switch and
+   * screen-reader user, which is the case the invariant most needs to cover. A
+   * button is focusable in tab order, activates on both Enter and Space, and
+   * announces itself as something operable, all from the element rather than
+   * from handlers that have to be kept in sync.
+   *
+   * The label names the action and repeats the visible value, so the accessible
+   * name contains the visible one (WCAG "Label in Name") instead of replacing
+   * it — "50 %" alone would read as a value with no hint that pressing it does
+   * anything.
+   */
+  const valueLabel = `${displayValue}${unit ? ` ${unit}` : ''}`
+  const valueField = isEditing ? (
+    <form onSubmit={handleValueSubmit}>
+      <TextField.Root
+        size="3"
+        aria-label="Value"
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={handleFieldBlur}
+        autoFocus
+        style={{ width: '80px', textAlign: 'center' }}
+      />
+    </form>
+  ) : (
+    <Button
+      type="button"
+      variant="soft"
+      color="gray"
+      size="2"
+      aria-label={`Set value, currently ${valueLabel}`}
+      onClick={handleFieldClick}
+      style={{ minWidth: '60px' }}
+    >
+      <Text size="2" weight="bold">
+        {valueLabel}
+      </Text>
+    </Button>
+  )
+
+  /*
+   * The stepper: the two bound-clamped buttons around that readout.
+   *
+   * `glance` keeps the readout and drops the buttons. The option doc asks for
+   * "value big, no control" at one cell and the card cannot go that far — an
+   * `input_number` has no whole-tile action to fall back on, and its dialog
+   * control does not arrive until 0022, so a control-free glance would leave
+   * the tile with no way to set the helper at all (docs/changes/0011 — "no
+   * operability regression"). Dropping the two buttons is the omission that
+   * fits: a 1×1 tile cannot hold two 40px targets, a 60px readout and a name
+   * without clipping, and what stays behind is the more capable control of the
+   * three — the readout sets any value in range, the buttons only step by one.
+   */
+  const stepper = (
+    <GridCard.Controls>
+      <IconButton
+        size="3"
+        variant="soft"
+        aria-label="Decrease value"
+        onClick={handleDecrement}
+        disabled={
+          loading || (attributes.min !== undefined && parseFloat(entity.state) <= attributes.min)
+        }
+        style={{ cursor: 'pointer' }}
+      >
+        <Minus size={16} />
+      </IconButton>
+
+      {valueField}
+
+      <IconButton
+        size="3"
+        variant="soft"
+        aria-label="Increase value"
+        onClick={handleIncrement}
+        disabled={
+          loading || (attributes.max !== undefined && parseFloat(entity.state) >= attributes.max)
+        }
+        style={{ cursor: 'pointer' }}
+      >
+        <Plus size={16} />
+      </IconButton>
+    </GridCard.Controls>
   )
 
   return (
@@ -197,76 +306,39 @@ export const InputNumberCard = memo(function InputNumberCard({
       onClick={handleClick}
       title={error || undefined}
     >
-      <Flex direction="column" align="center" gap="2">
-        <GridCard.Icon>
-          <Hash size={24} style={{ color: 'var(--gray-9)' }} />
-        </GridCard.Icon>
-        <GridCard.Title>
-          {attributes.friendly_name || entity.entity_id.split('.')[1]}
-        </GridCard.Title>
-        <GridCard.Controls>
-          <IconButton
-            size="3"
-            variant="soft"
-            onClick={handleDecrement}
-            disabled={
-              loading ||
-              (attributes.min !== undefined && parseFloat(entity.state) <= attributes.min)
-            }
-            style={{ cursor: 'pointer' }}
-          >
-            <Minus size={16} />
-          </IconButton>
-
-          {isEditing ? (
-            <form onSubmit={handleValueSubmit}>
-              <TextField.Root
-                size="3"
-                value={localValue}
-                onChange={(e) => setLocalValue(e.target.value)}
-                onBlur={handleFieldBlur}
-                autoFocus
-                style={{ width: '80px', textAlign: 'center' }}
-              />
-            </form>
+      {/*
+       * `glance` anchors on the value and drops the icon circle with it, as the
+       * option doc's "value big" row asks. The helper's `min – max` range is
+       * secondary text and renders only in `full`, the one tier the tier table
+       * gives a line past the meta ("`row` control plus the `min – max` range
+       * line") — everywhere else it is omitted rather than squeezed onto a
+       * tile that is already carrying a name and a three-part control.
+       */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        lead={
+          isGlance ? (
+            valueField
           ) : (
-            <Box
-              onClick={handleFieldClick}
-              style={{
-                cursor: 'text',
-                padding: '4px 8px',
-                borderRadius: 'var(--radius-2)',
-                backgroundColor: 'var(--gray-2)',
-                minWidth: '60px',
-                textAlign: 'center',
-              }}
-            >
-              <Text size="2" weight="bold">
-                {displayValue}
-                {unit && ` ${unit}`}
-              </Text>
-            </Box>
-          )}
-
-          <IconButton
-            size="3"
-            variant="soft"
-            onClick={handleIncrement}
-            disabled={
-              loading ||
-              (attributes.max !== undefined && parseFloat(entity.state) >= attributes.max)
-            }
-            style={{ cursor: 'pointer' }}
-          >
-            <Plus size={16} />
-          </IconButton>
-        </GridCard.Controls>
-        {attributes.min !== undefined && attributes.max !== undefined && (
-          <GridCard.Status>
-            {attributes.min} - {attributes.max}
-          </GridCard.Status>
-        )}
-      </Flex>
+            <GridCard.Icon>
+              <Hash size={24} style={{ color: 'var(--gray-9)' }} />
+            </GridCard.Icon>
+          )
+        }
+        meta={
+          <GridCard.Meta>
+            <GridCard.Title>
+              {attributes.friendly_name || entity.entity_id.split('.')[1]}
+            </GridCard.Title>
+            {tier === 'full' && attributes.min !== undefined && attributes.max !== undefined ? (
+              <GridCard.Status>
+                {attributes.min} - {attributes.max}
+              </GridCard.Status>
+            ) : null}
+          </GridCard.Meta>
+        }
+        control={isGlance ? undefined : stepper}
+      />
     </GridCard>
   )
 })

@@ -61,10 +61,12 @@ describe('InputDateTimeCard', () => {
 
     expect(screen.getByText('Test DateTime')).toBeInTheDocument()
     // The exact format will depend on locale, just check that a formatted date is displayed
-    // The component shows the date in a Box element
+    // The component shows the date in a Box element, in the control slot — a
+    // sibling of the name's meta stack rather than a child of it.
     const dateDisplay = screen
       .getByText('Test DateTime')
-      .parentElement?.querySelector('.rt-Box span')
+      .closest('.liebe-card')
+      ?.querySelector('.rt-Box span')
     expect(dateDisplay).toBeInTheDocument()
     // The text content should include some part of the date
     expect(dateDisplay?.textContent).toMatch(/2024|15|30|PM|AM/)
@@ -89,7 +91,10 @@ describe('InputDateTimeCard', () => {
   })
 
   it('shows date and time indicator', () => {
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    // `full` is the only tier that carries the has-date/has-time line: it is
+    // secondary text about the helper, omitted where there is no room for it
+    // (docs/specs/entity-cards/options/input-helpers.md).
+    render(<InputDateTimeCard entityId="input_datetime.test_datetime" tier="full" />)
     expect(screen.getByText('Date & Time')).toBeInTheDocument()
   })
 
@@ -109,7 +114,7 @@ describe('InputDateTimeCard', () => {
       isStale: false,
     })
 
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    render(<InputDateTimeCard entityId="input_datetime.test_datetime" tier="full" />)
     expect(screen.getByText('Date Only')).toBeInTheDocument()
   })
 
@@ -129,7 +134,7 @@ describe('InputDateTimeCard', () => {
       isStale: false,
     })
 
-    render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
+    render(<InputDateTimeCard entityId="input_datetime.test_datetime" tier="full" />)
     expect(screen.getByText('Time Only')).toBeInTheDocument()
   })
 

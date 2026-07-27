@@ -1,15 +1,22 @@
 import React, { memo, useCallback } from 'react'
 import { Box, Flex, Select, Text } from '@radix-ui/themes'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { Archive, ChevronDown, List } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
-import type { CardTier } from '~/utils/cardTier'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputSelectCardProps {
   entityId: string
   tier?: CardTier
+  /**
+   * The effective grid span behind `tier`. Accepted so any renderer can hand a
+   * card the pair `CardProps` defines; no select-helper layout keys on width
+   * past the tier boundary, so nothing here reads it.
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -72,15 +79,22 @@ export const InputSelectCard = memo(function InputSelectCard({
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
-        <Flex direction="column" align="center" gap="2">
-          <GridCard.Icon>
-            <Archive size={20} />
-          </GridCard.Icon>
-          <GridCard.Title>
-            {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
-          </GridCard.Title>
-          <GridCard.Status>Unavailable</GridCard.Status>
-        </Flex>
+        <CardBody
+          arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+          lead={
+            <GridCard.Icon>
+              <Archive size={20} />
+            </GridCard.Icon>
+          }
+          meta={
+            <GridCard.Meta>
+              <GridCard.Title>
+                {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
+              </GridCard.Title>
+              <GridCard.Status>Unavailable</GridCard.Status>
+            </GridCard.Meta>
+          }
+        />
       </GridCard>
     )
   }
@@ -106,42 +120,66 @@ export const InputSelectCard = memo(function InputSelectCard({
       onClick={handleClick}
       title={error || undefined}
     >
-      <Flex direction="column" align="center" gap="2">
-        <GridCard.Icon>
-          <List size={24} style={{ color: 'var(--gray-9)' }} />
-        </GridCard.Icon>
-        <GridCard.Title>
-          {attributes.friendly_name || entity.entity_id.split('.')[1]}
-        </GridCard.Title>
-        <GridCard.Controls>
-          <Box onClick={(e) => e.stopPropagation()} style={{ minWidth: '120px' }}>
-            <Select.Root
-              value={currentValue}
-              onValueChange={handleValueChange}
-              disabled={loading || options.length === 0}
-            >
-              <Select.Trigger variant="soft" style={{ width: '100%' }}>
-                <Flex align="center" justify="between" style={{ width: '100%' }}>
-                  <Text size="2">{currentValue}</Text>
-                  <ChevronDown size={16} />
-                </Flex>
-              </Select.Trigger>
-              <Select.Content>
-                {options.map((option) => (
-                  <Select.Item key={option} value={option}>
-                    {option}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-          </Box>
-        </GridCard.Controls>
-        {options.length > 0 && (
-          <GridCard.Status>
-            {options.length} option{options.length !== 1 ? 's' : ''}
-          </GridCard.Status>
-        )}
-      </Flex>
+      {/*
+       * The dropdown renders at every tier, `glance` included.
+       *
+       * The option doc's `glance` row is control-free ("Icon + name + current
+       * option as state; tap → more-info"), but its replacement — an
+       * `input_select` control registered into the detail dialog — does not
+       * arrive until 0022. Removing the dropdown here would leave a 1×1 select
+       * helper with no way to change the option at all, which is exactly the
+       * regression docs/changes/0011 forbids at a merge point. The trigger
+       * doubles as the state the doc asks for: it reads out the current option.
+       *
+       * What `glance` and the middle tiers do omit is the option-count line.
+       * It is secondary text about the helper rather than its state, so it
+       * renders only in `full`, the one tier with a line past the meta.
+       */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        lead={
+          <GridCard.Icon>
+            <List size={24} style={{ color: 'var(--gray-9)' }} />
+          </GridCard.Icon>
+        }
+        meta={
+          <GridCard.Meta>
+            <GridCard.Title>
+              {attributes.friendly_name || entity.entity_id.split('.')[1]}
+            </GridCard.Title>
+            {tier === 'full' && options.length > 0 ? (
+              <GridCard.Status>
+                {options.length} option{options.length !== 1 ? 's' : ''}
+              </GridCard.Status>
+            ) : null}
+          </GridCard.Meta>
+        }
+        control={
+          <GridCard.Controls>
+            <Box onClick={(e) => e.stopPropagation()} style={{ minWidth: '120px' }}>
+              <Select.Root
+                value={currentValue}
+                onValueChange={handleValueChange}
+                disabled={loading || options.length === 0}
+              >
+                <Select.Trigger variant="soft" style={{ width: '100%' }}>
+                  <Flex align="center" justify="between" style={{ width: '100%' }}>
+                    <Text size="2">{currentValue}</Text>
+                    <ChevronDown size={16} />
+                  </Flex>
+                </Select.Trigger>
+                <Select.Content>
+                  {options.map((option) => (
+                    <Select.Item key={option} value={option}>
+                      {option}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            </Box>
+          </GridCard.Controls>
+        }
+      />
     </GridCard>
   )
 })

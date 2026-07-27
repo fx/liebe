@@ -47,7 +47,7 @@ The [design-system size-adaptive layouts section](../specs/design-system/index.m
 ## Tasks
 
 - [x] **PR 1 — Derivation + plumbing**: tier util + unit tests; `GridLayoutSection` exposes effective `{width, height}` through its child callback; `GridView` derives the tier and passes tier + effective span to cards; `data-tier` stamped; `size` prop removed from `CardProps` and `GridCard`; skeleton/error states tier-aware
-- [ ] **PR 2 — Existing cards, simple set**: sensor, binary sensor, switch/button, input helpers — glance/row (+full where specified) layouts + tier stories, **and a per-card tier assertion for each** (not only a story): PR 1 deleted these cards' `size variants` test blocks as tests of a removed prop rather than of a card, on the condition that real per-card tier coverage lands here
+- [x] **PR 2 — Existing cards, simple set**: sensor, binary sensor, switch/button, input helpers — glance/row (+full where specified) layouts + tier stories, **and a per-card tier assertion for each** (not only a story): PR 1 deleted these cards' `size variants` test blocks as tests of a removed prop rather than of a card, on the condition that real per-card tier coverage lands here
 - [ ] **PR 3 — Existing cards, control set**: light, climate, cover, fan, weather — tier layouts per option docs (existing controls only) + tier stories, **and a per-card tier assertion for each** (not only a story), replacing the `size variants` blocks PR 1 removed; camera receives only its `data-tier` stamp and a derivation test (all camera tier consumption, including sub-2×2 degradation, is 0021's per the functional-requirement exemption); e2e resize flow; dashboard-config audit note in spec changelog
 
 ## Out of Scope

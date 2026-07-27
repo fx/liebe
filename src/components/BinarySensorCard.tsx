@@ -1,9 +1,9 @@
-import { Flex } from '@radix-ui/themes'
 import { useEntity } from '~/hooks'
 import type { DomainColorName } from '~/theme/tokens'
 import { createElement, memo, useState, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, type CardArrangement } from './CardBody'
 import { useDashboardStore, dashboardStore, dashboardActions } from '~/store'
 import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
@@ -80,6 +80,22 @@ const getActiveColor = (deviceClass?: string): DomainColorName => {
     default:
       return 'default'
   }
+}
+
+/**
+ * How each tier lays the card out, per the tier table in
+ * docs/specs/entity-cards/options/sensor.md ("Binary sensor").
+ *
+ * `tall` deliberately takes the **row** shape rather than the default vertical
+ * one: the option doc specifies "row arrangement, vertically centred" for both
+ * `tall` and `full`, because this card has no control to put between the icon
+ * and the meta — the vertical shape exists to hold one.
+ */
+const arrangementForTier: Readonly<Record<CardTier, CardArrangement>> = {
+  glance: 'stack',
+  row: 'row',
+  tall: 'row',
+  full: 'row',
 }
 
 function BinarySensorCardComponent({
@@ -167,13 +183,28 @@ function BinarySensorCardComponent({
         hasConfiguration={!!item}
         title={undefined}
       >
-        <Flex direction="column" align="center" justify="center" gap="2">
-          <GridCard.Icon>{createElement(IconComponent, { size: iconSize })}</GridCard.Icon>
-
-          <GridCard.Title>{friendlyName}</GridCard.Title>
-
-          <GridCard.Status>{entity.state.toUpperCase()}</GridCard.Status>
-        </Flex>
+        {/*
+         * Every tier carries the same three parts — icon circle, name, state
+         * label — and differs only in how they are arranged. Nothing is
+         * omitted because nothing has to be: a binary sensor's whole content
+         * fits one cell.
+         *
+         * Nothing is *added* at `full` either. A binary sensor has no numeric
+         * history to graph and no control to operate, and the option doc is
+         * explicit that the extra real estate "stays calm rather than inventing
+         * content" — a "since <relative time>" line is offered there as a MAY
+         * and belongs to the per-card change (0018), not to a layout PR.
+         */}
+        <CardBody
+          arrangement={arrangementForTier[tier]}
+          lead={<GridCard.Icon>{createElement(IconComponent, { size: iconSize })}</GridCard.Icon>}
+          meta={
+            <GridCard.Meta>
+              <GridCard.Title>{friendlyName}</GridCard.Title>
+              <GridCard.Status>{entity.state.toUpperCase()}</GridCard.Status>
+            </GridCard.Meta>
+          }
+        />
       </GridCard>
 
       {item && (

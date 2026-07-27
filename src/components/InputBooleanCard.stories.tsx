@@ -81,3 +81,39 @@ export const EditMode: Story = {
   args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createInputBooleanEntity({ state: 'on' })], mode: 'edit' } },
 }
+
+/* ------------------------------------------------------------------ *
+ * Layout tiers
+ *
+ * One story per tier the card implements, each sized through the
+ * grid-cell decorator so the span the tier is derived from is the span
+ * the story is rendered at (docs/specs/storybook/index.md). The `grid
+ * width` / `grid height` controls resize any of them interactively.
+ * ------------------------------------------------------------------ */
+
+/**
+ * The switch is omitted at one cell — the whole tile toggles instead, which is
+ * the operability the option doc’s `tile` style describes.
+ */
+export const TierGlance: Story = {
+  name: 'Tier — glance (1×1)',
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/** Icon, meta and the discrete switch in a row. */
+export const TierRow: Story = {
+  name: 'Tier — row (3×1)',
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+}
+
+/** Icon on top, switch between, meta at the bottom. */
+export const TierTall: Story = {
+  name: 'Tier — tall (1×3)',
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/** The row arrangement, with the extra area as breathing room. */
+export const TierFull: Story = {
+  name: 'Tier — full (3×2)',
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}
