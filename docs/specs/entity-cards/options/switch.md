@@ -7,7 +7,7 @@ This document covers the switch card: the card registered for the `switch` domai
 ## Primary action
 
 - `tapAction: default` MUST mean **toggle** (`homeassistant.toggle` on the entity), for both the `switch` domain and fallback domains — with `unavailable`/`unknown` resolved first as **inert**: a critical load must never be actuated while its direction is indeterminate. Both states covered in the state-matrix tests.
-- Toggle MUST be suppressed from dispatch until the expected on/off transition is observed or an acknowledgement timeout elapses (Home Assistant acknowledges before slow integrations — a well pump, a heater relay — update state; a promise-scoped guard would allow a second toggle against stale state), and when the entity is `unavailable` or `unknown`. Both routes carry it: the card's own toggle dispatches through `useServiceCall.dispatchGuarded`, and the shell's `homeassistant.toggle` fallback through the same shared guard, so a second tap inside the window is refused whichever way it arrives. `confirm` sits in front of both, retrying or not.
+- Every route that toggles the entity — the whole-tile action, an explicit `toggle` bound to any gesture, and a toggle-equivalent `call-service` alike — MUST pass through **one shared** transition-or-timeout guard rather than a guard per route, so a second identical command is refused whichever route it arrives on. The guard's timing and non-retrying semantics are the [common dispatch guarantees](./common.md#action-type) and are not restated here; `confirm` sits in front of every route.
 - The whole tile is the touch target in every tier; the card embeds no discrete controls of its own.
 - For fallback domains where `homeassistant.toggle` is not meaningful, the tap simply results in a failed/no-op service call surfaced through the standard error state; users SHOULD set `tapAction: more-info` for such entities. The card MUST NOT try to guess a better action per unknown domain.
 
@@ -37,7 +37,7 @@ Default-icon precedence when no universal `icon` override is set:
 
 1. If the entity's domain is `switch`, `deviceClassIcon !== false`, and `attributes.device_class` maps to a known glyph — use it: `outlet` → plug glyph, `switch` → power glyph.
 2. Otherwise the domain default (power glyph for `switch`).
-3. For fallback domains, a generic glyph (the bolt, `src/components/ButtonCard/icon.ts`); `device_class` MUST NOT be consulted, since its meaning is domain-specific and the fallback cannot know the mapping. Structurally enforced: the lookup lives inside the `domain === 'switch'` branch of one pure helper, so a foreign domain's `device_class` is never in scope.
+3. For fallback domains, a generic glyph (the bolt); `device_class` MUST NOT be consulted, since its meaning is domain-specific and the fallback cannot know the mapping.
 
 The universal `icon` option always wins over all of the above. Visible in every tier (the icon circle renders in all four layouts).
 
@@ -103,7 +103,7 @@ The active/inactive icon-circle tint pattern and state-text coloring follow the 
 
 ## References
 
-- Current implementation: `src/components/ButtonCard/` (`index.tsx` + the pure `icon.ts` and `lastChanged.ts` helpers); options in `src/store/switchOptions.ts`, the gate's classification in `src/hooks/useCardActions.ts` and its dialog in `src/components/ConfirmToggleDialog.tsx`
+- Current implementation: `src/components/ButtonCard/` (`index.tsx` + the pure `icon.ts` and `lastChanged.ts` helpers — `icon.ts` keeps the `device_class` lookup inside its `switch` branch, so a foreign domain's `device_class` is never in scope, and the generic bolt is its fallback glyph); options in `src/store/switchOptions.ts`, the gate's classification in `src/hooks/useCardActions.ts` and its dialog in `src/components/ConfirmToggleDialog.tsx`; both toggle routes share `dispatchGuarded` from `src/hooks/useServiceCall.ts`
 - Baseline behavior: [entity-cards — Button and fallback card](../index.md#button-and-fallback-card)
 - Shared contract and conventions: [common.md](./common.md)
 - Layout tiers, anatomy, colors: [design-system](../../design-system/)
