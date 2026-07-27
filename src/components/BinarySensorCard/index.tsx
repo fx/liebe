@@ -1,16 +1,20 @@
 import { useEntity } from '~/hooks'
-import type { DomainColorName } from '~/theme/tokens'
 import { createElement, memo, useState, useMemo } from 'react'
-import { SkeletonCard, ErrorDisplay } from './ui'
-import { GridCardWithComponents as GridCard } from './GridCard'
-import { CardBody, type CardArrangement } from './CardBody'
+import { Text } from '@radix-ui/themes'
+import { SkeletonCard, ErrorDisplay } from '../ui'
+import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardBody, type CardArrangement } from '../CardBody'
 import { useDashboardStore, dashboardStore, dashboardActions } from '~/store'
-import { CardConfig } from './CardConfig'
+import { CardConfig } from '../CardConfig'
+import { useCardItem } from '../cardItemContext'
+import { readBinarySensorOptions } from '~/store/binarySensorOptions'
 import type { GridItem } from '~/store/types'
 import { getTablerIcon } from '~/utils/icons'
 import { getIcon } from '~/utils/iconList'
 import { IconCircle, IconCircleCheck } from '@tabler/icons-react'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
+import { useRelativeSince } from '../ButtonCard/lastChanged'
+import { resolveBinarySensorPresentation } from './presentation'
 
 interface BinarySensorCardProps {
   entityId: string
@@ -26,60 +30,6 @@ interface BinarySensorCardProps {
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
   item?: GridItem
-}
-
-// Get default icons based on device class
-const getDefaultIcons = (deviceClass?: string): { onIcon: string; offIcon: string } => {
-  if (!deviceClass) return { onIcon: 'CircleCheck', offIcon: 'Circle' }
-
-  // Map device classes to icon names from our curated list
-  const deviceClassMap: Record<string, { onIcon: string; offIcon: string }> = {
-    occupancy: { onIcon: 'User', offIcon: 'UserOff' },
-    presence: { onIcon: 'User', offIcon: 'UserOff' },
-    door: { onIcon: 'Door', offIcon: 'DoorOff' },
-    window: { onIcon: 'Door', offIcon: 'DoorOff' }, // Using door icons for windows
-    motion: { onIcon: 'MotionSensor', offIcon: 'UserOff' },
-    moisture: { onIcon: 'Droplet', offIcon: 'DropletOff' },
-    water: { onIcon: 'Droplet', offIcon: 'DropletOff' },
-    lock: { onIcon: 'Lock', offIcon: 'LockOpen' },
-    safety: { onIcon: 'ShieldCheck', offIcon: 'Shield' },
-    smoke: { onIcon: 'Flame', offIcon: 'FlameOff' },
-    sound: { onIcon: 'Volume', offIcon: 'VolumeOff' },
-    vibration: { onIcon: 'Bell', offIcon: 'BellOff' },
-    light: { onIcon: 'Bulb', offIcon: 'BulbOff' },
-  }
-
-  return deviceClassMap[deviceClass] || { onIcon: 'CircleCheck', offIcon: 'Circle' }
-}
-
-/**
- * Which `--liebe-c-*` triplet an active binary sensor resolves to.
- *
- * The design system resolves binary sensors by `device_class` rather than by
- * domain (docs/specs/design-system — "Domain color discipline"), so a smoke
- * detector that has tripped reads as an alert and a leak sensor reads as water,
- * while the classes that carry no urgency fall through to the generic active
- * colour. Off is never coloured at all, so this is only ever asked about `on`.
- */
-const getActiveColor = (deviceClass?: string): DomainColorName => {
-  switch (deviceClass) {
-    // Home Assistant's danger classes, in full — a tripped CO detector reading
-    // the same as a doorbell is the exact failure this mapping exists to
-    // prevent.
-    case 'carbon_monoxide':
-    case 'gas':
-    case 'heat':
-    case 'problem':
-    case 'safety':
-    case 'smoke':
-    case 'tamper':
-      return 'alert'
-    case 'moisture':
-    case 'water':
-      return 'water'
-    default:
-      return 'default'
-  }
 }
 
 /**
@@ -112,37 +62,64 @@ function BinarySensorCardComponent({
   const isEditMode = mode === 'edit'
   const [configOpen, setConfigOpen] = useState(false)
 
-  // Get config from item
-  const config = (item?.config as { onIcon?: string; offIcon?: string }) || {}
-  const deviceClass = entity?.attributes?.device_class as string | undefined
+  /*
+   * Options come off the placed-item context — the same surface the shell reads
+   * the universal options from — rather than off the `item` prop, which is here
+   * for this card's own configuration modal. One source per card, so a
+   * configured `onLabel` cannot reach the state line by a different route than
+   * a configured `hideState`.
+   */
+  const { config } = useCardItem()
+  const options = useMemo(() => readBinarySensorOptions(config), [config])
+  const deviceClass = entity?.attributes?.device_class
+  const state = entity?.state
 
-  // Memoize icon computation based on primitive values - must be before early returns
+  const presentation = useMemo(
+    () =>
+      resolveBinarySensorPresentation({
+        state: state ?? '',
+        deviceClass: typeof deviceClass === 'string' ? deviceClass : undefined,
+        options,
+      }),
+    [state, deviceClass, options]
+  )
+
   const IconComponent = useMemo(() => {
-    const isOn = entity?.state === 'on'
-    const defaults = getDefaultIcons(deviceClass)
-    const onIconName = config.onIcon || defaults.onIcon
-    const offIconName = config.offIcon || defaults.offIcon
-    const iconName = isOn ? onIconName : offIconName
-    return getTablerIcon(iconName) || getIcon(iconName) || (isOn ? IconCircleCheck : IconCircle)
-  }, [entity?.state, config.onIcon, config.offIcon, deviceClass])
+    const { iconName, presentedOn } = presentation
+    return (
+      getTablerIcon(iconName) || getIcon(iconName) || (presentedOn ? IconCircleCheck : IconCircle)
+    )
+  }, [presentation])
 
-  // Compute isOn for use in rendering (after useMemo to follow rules of hooks)
-  const isOn = entity?.state === 'on'
+  /*
+   * The `full` tier's "since" line, from `last_changed` — the one thing the
+   * option doc offers that tier, as a MAY, and this change takes it.
+   *
+   * Same phrasing and same per-minute refresh as the switch card's recency
+   * line, from the same helper: two cards inventing two wordings for "how long
+   * has it been like this" would read as two different facts. The timer runs
+   * only on the tier that shows it.
+   */
+  const since = useRelativeSince(entity?.last_changed, tier === 'full')
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
     return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
-  // Show error state when disconnected or entity not found
+  /*
+   * The one error state this read-only card can reach: a missing entity on a
+   * live connection returns at the skeleton above, so everything that reaches
+   * here is a disconnection.
+   */
   if (!entity || !isConnected) {
     return (
       <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        error="Disconnected from Home Assistant"
         variant="card"
         tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
+        title="Disconnected"
+        onRetry={() => window.location.reload()}
       />
     )
   }
@@ -166,14 +143,23 @@ function BinarySensorCardComponent({
     <>
       <GridCard
         domain="binary_sensor"
-        color={getActiveColor(deviceClass)}
+        color={presentation.color}
         tier={tier}
         isLoading={false}
         isError={false}
         isStale={isStale}
         isSelected={isSelected}
-        isOn={isOn}
+        isOn={presentation.presentedOn}
         isUnavailable={isUnavailable}
+        /*
+         * The other half of the hazard rule. This card resolves glyph, label
+         * and tint past every option of its own; the shell's danger floor does
+         * the same for the universal ones, taking back `icon`, `hideName`,
+         * `hideState` and `color` while keeping `name` (`readCardDisplay`).
+         * Both halves are driven from this one flag, so "is this dangerous" is
+         * decided in exactly one place.
+         */
+        danger={presentation.danger}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
         // Read-only card: `tapAction: default` resolves to `more-info` rather
@@ -189,11 +175,10 @@ function BinarySensorCardComponent({
          * omitted because nothing has to be: a binary sensor's whole content
          * fits one cell.
          *
-         * Nothing is *added* at `full` either. A binary sensor has no numeric
-         * history to graph and no control to operate, and the option doc is
-         * explicit that the extra real estate "stays calm rather than inventing
-         * content" — a "since <relative time>" line is offered there as a MAY
-         * and belongs to the per-card change (0018), not to a layout PR.
+         * `full` adds the one thing the option doc offers it and nothing else.
+         * A binary sensor has no numeric history to graph and no control to
+         * operate, so the extra real estate "stays calm rather than inventing
+         * content".
          */}
         <CardBody
           arrangement={arrangementForTier[tier]}
@@ -201,8 +186,15 @@ function BinarySensorCardComponent({
           meta={
             <GridCard.Meta>
               <GridCard.Title>{friendlyName}</GridCard.Title>
-              <GridCard.Status>{entity.state.toUpperCase()}</GridCard.Status>
+              <GridCard.Status>{presentation.label}</GridCard.Status>
             </GridCard.Meta>
+          }
+          extra={
+            tier === 'full' && since ? (
+              <Text size="1" color="gray" data-testid="binary-sensor-since">
+                {since}
+              </Text>
+            ) : undefined
           }
         />
       </GridCard>

@@ -57,13 +57,18 @@ beforeEach(() => {
 
 describe('binary sensor presentation (pinned)', () => {
   it.each([
-    ['on', 'ON'],
-    ['off', 'OFF'],
+    // Was `ON`/`OFF`, the raw upper-cased state. Change 0018 PR 2 supersedes
+    // that with the `device_class` naming, which the option doc says the empty
+    // `onLabel`/`offLabel` defaults resolve to.
+    ['on', 'Open'],
+    ['off', 'Closed'],
+    // Unchanged, and the point of pinning all four together: the label
+    // defaults replace the state text for `on` and `off` and NOTHING else. A
+    // state that is neither is still read out raw, because a door that reports
+    // `unknown` is not open and is not closed.
     ['unavailable', 'UNAVAILABLE'],
     ['unknown', 'UNKNOWN'],
-  ])('renders the raw state %s as %s', (state, expected) => {
-    // The raw upper-cased state is what ships; the `device_class` label
-    // defaults supersede it for `on`/`off` only.
+  ])('renders the state %s as %s', (state, expected) => {
     expect(
       renderState({ friendly_name: 'Front Door', device_class: 'door' }, state)
     ).toHaveTextContent(expected)

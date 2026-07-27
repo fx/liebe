@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
+import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { switchOptionsConfigSchema } from './switchOptions'
 import type { DashboardConfig } from './types'
@@ -51,9 +52,14 @@ const gridItemSchema = z
     // one every unmapped domain falls back to: `confirm: "yes"` on a well pump
     // is precisely the document whose author must be told, rather than a card
     // that silently actuates unguarded (docs/specs/entity-cards/options/switch.md).
+    // The binary-sensor keys join them because `invert` is a safety-adjacent
+    // presentation flip: `invert: "yes"` on a door sensor is a document whose
+    // author needs telling, rather than a card that silently reads the door
+    // backwards (docs/specs/entity-cards/options/sensor.md).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
+      .merge(binarySensorOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative
