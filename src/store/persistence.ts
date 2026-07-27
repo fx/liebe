@@ -4,6 +4,7 @@ import type { DashboardConfig } from './types'
 import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 import { validateDashboardConfig } from './configSchema'
 import { migrateThemeConfig } from './themeConfig'
+import { migrateLightCardConfig } from './lightOptions'
 import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
@@ -40,8 +41,30 @@ export const loadDashboardMode = (): 'view' | 'edit' => {
 }
 
 /**
+ * The per-card option renames, applied to one stored grid item.
+ *
+ * Renaming a shipped option key is a loader job (common contract, convention 1),
+ * so a card and its configuration form only ever see the current key. Each
+ * rename is scoped to the domain that owns it: a key this build does not
+ * recognise on a card it was not written for is left exactly where it is, like
+ * every other key from a document Liebe cannot fully interpret
+ * (docs/specs/dashboard-config/index.md — "Forward Compatibility").
+ *
+ * Returns the item unchanged, by reference, when no migration applies.
+ */
+const migrateItemConfig = (item: unknown): unknown => {
+  const { entityId, config } = item as { entityId?: string; config?: Record<string, unknown> }
+  if (config === undefined) return item
+
+  const migrated = entityId?.split('.')[0] === 'light' ? migrateLightCardConfig(config) : config
+
+  return migrated === config ? item : { ...(item as object), config: migrated }
+}
+
+/**
  * Upgrades a whole stored/imported document: screens to the flat grid format,
- * and `theme` from the legacy scalar to `{ id, appearance, customCss }`.
+ * per-card options to their current keys, and `theme` from the legacy scalar to
+ * `{ id, appearance, customCss }`.
  *
  * The theme step is repeated by `loadConfiguration` — deliberately, because the
  * two cover different routes. This one is what makes the *preview* (which never
@@ -88,9 +111,10 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
       delete screenObj.grid.sections
     }
 
-    // Ensure grid has items array if it exists
-    if (screenObj.grid && !screenObj.grid.items) {
-      screenObj.grid.items = []
+    // Ensure grid has items array if it exists, and bring every item's stored
+    // options onto their current keys on the way past.
+    if (screenObj.grid) {
+      screenObj.grid.items = (screenObj.grid.items ?? []).map(migrateItemConfig)
     }
 
     // Add slug if it doesn't exist
@@ -356,7 +380,11 @@ export const restoreConfigurationFromBackup = (): void => {
     if (backup) {
       localStorage.setItem(STORAGE_KEY, backup)
       const config = JSON.parse(backup) as DashboardConfig
-      dashboardActions.loadConfiguration(config)
+      // Through the same migration as every other route in. The backup is a
+      // verbatim copy of whatever was in localStorage, which may predate any of
+      // them — restoring it must not put a legacy key back into the store, from
+      // where the next export would write it out again.
+      dashboardActions.loadConfiguration(migrateConfig(config))
     } else {
       throw new Error('No backup found')
     }

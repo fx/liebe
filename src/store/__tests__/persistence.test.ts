@@ -8,10 +8,12 @@ import {
   exportConfigurationAsYAML,
   getStorageInfo,
   parseConfigurationFromFile,
+  restoreConfigurationFromBackup,
 } from '../persistence'
 import { dashboardStore, dashboardActions } from '../dashboardStore'
 import { DEFAULT_THEME_CONFIG } from '../themeConfig'
-import type { DashboardConfig } from '../types'
+import type { DashboardConfig, GridItem } from '../types'
+import * as yaml from 'js-yaml'
 
 // Mock localStorage
 const localStorageMock = {
@@ -354,6 +356,167 @@ describe('persistence', () => {
       // With such a large config, percentage should be high
       expect(info.percentage).toBeGreaterThan(90)
       expect(info.available).toBe(false)
+    })
+  })
+
+  /**
+   * The `enableBrightness` → `showBrightnessSlider` rename
+   * (docs/specs/entity-cards/options/light.md — "Backward compatibility").
+   *
+   * The rename lives here, at the loader, rather than in the card: every route
+   * into the store passes through `migrateConfig`, so a card and its
+   * configuration form only ever see the current key, and nothing downstream
+   * needs a dual-key read. The rewrite itself is unit-tested in
+   * `lightOptions.test.ts`; these cover the wiring and the two guarantees the
+   * spec states about it — the legacy key is never written back, and an export
+   * carries only the new one.
+   */
+  describe('light brightness option migration', () => {
+    const legacyItem = {
+      id: 'item-1',
+      type: 'entity',
+      entityId: 'light.living_room',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+      config: { enableBrightness: false },
+    }
+
+    const withItems = (items: unknown[]) => ({
+      version: '1.0.0',
+      screens: [
+        {
+          id: 'screen-1',
+          name: 'Test Screen',
+          slug: 'test-screen',
+          type: 'grid',
+          grid: { resolution: { columns: 12, rows: 8 }, items },
+        },
+      ],
+      theme: { id: 'default', appearance: 'auto', customCss: '' },
+    })
+
+    const firstItemConfig = (config: DashboardConfig | null) =>
+      config?.screens[0].grid?.items[0].config
+
+    const savedPayloads = () =>
+      localStorageMock.setItem.mock.calls
+        .filter(([key]) => key === 'liebe-config')
+        .map(([, value]) => value as string)
+
+    it('rewrites a stored legacy config on load', () => {
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(withItems([legacyItem])))
+
+      const loaded = loadDashboardConfig()
+
+      expect(firstItemConfig(loaded)).toEqual({ showBrightnessSlider: false })
+    })
+
+    it('never writes the legacy key back', async () => {
+      // Through the real save path: importing persists the resolved config, so
+      // what lands in localStorage is what a reload would read back. A card
+      // whose legacy key survived here would carry it forever.
+      const file = new File([JSON.stringify(withItems([legacyItem]))], 'legacy.json', {
+        type: 'application/json',
+      })
+
+      await importConfigurationFromFile(file)
+
+      expect(dashboardStore.state.screens[0].grid?.items[0].config).toEqual({
+        showBrightnessSlider: false,
+      })
+
+      const written = savedPayloads()
+      expect(written.length).toBeGreaterThan(0)
+      for (const payload of written) {
+        expect(payload).toContain('showBrightnessSlider')
+        expect(payload).not.toContain('enableBrightness')
+      }
+    })
+
+    it('exports YAML carrying only the new key', () => {
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(withItems([legacyItem])))
+      dashboardActions.loadConfiguration(loadDashboardConfig() as DashboardConfig)
+
+      const exported = exportConfigurationAsYAML()
+
+      expect(exported).not.toContain('enableBrightness')
+
+      // And it round-trips: re-reading the export yields the same single key.
+      const reparsed = yaml.load(exported) as DashboardConfig
+      expect(firstItemConfig(reparsed)).toEqual({ showBrightnessSlider: false })
+    })
+
+    it('migrates a configuration restored from backup', () => {
+      // Backups are verbatim copies of localStorage, so they can predate the
+      // rename even when the live config no longer does.
+      localStorageMock.getItem.mockImplementation((key: string) =>
+        key === 'liebe-config-backup' ? JSON.stringify(withItems([legacyItem])) : null
+      )
+
+      restoreConfigurationFromBackup()
+
+      expect(dashboardStore.state.screens[0].grid?.items[0].config).toEqual({
+        showBrightnessSlider: false,
+      })
+      localStorageMock.getItem.mockReset()
+    })
+
+    it('keeps the options it does not recognise', () => {
+      // Forward compatibility (docs/specs/dashboard-config/index.md): a card
+      // configured by a newer Liebe survives a trip through this loader with
+      // everything but the renamed key untouched.
+      const item = {
+        ...legacyItem,
+        config: { enableBrightness: false, name: 'Reading lamp', brightnessPresets: [20, 50] },
+      }
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(withItems([item])))
+
+      expect(firstItemConfig(loadDashboardConfig())).toEqual({
+        showBrightnessSlider: false,
+        name: 'Reading lamp',
+        brightnessPresets: [20, 50],
+      })
+    })
+
+    it('leaves the same key alone on a card the rename is not for', () => {
+      // The rename is the light card's; on any other domain `enableBrightness`
+      // is a key this build has no meaning for, and rewriting it would be the
+      // truncation forward compatibility forbids.
+      const item = { ...legacyItem, id: 'item-2', entityId: 'switch.kettle' }
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(withItems([item])))
+
+      expect(firstItemConfig(loadDashboardConfig())).toEqual({ enableBrightness: false })
+    })
+
+    it('leaves an item with no stored options alone', () => {
+      const item: GridItem = { ...legacyItem, type: 'entity', config: undefined }
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(withItems([item])))
+
+      expect(firstItemConfig(loadDashboardConfig())).toBeUndefined()
+    })
+
+    it('handles screens with an empty or absent grid', () => {
+      const config = {
+        version: '1.0.0',
+        screens: [
+          { id: 'no-grid', name: 'No Grid', slug: 'no-grid', type: 'grid' },
+          {
+            id: 'empty-grid',
+            name: 'Empty Grid',
+            slug: 'empty-grid',
+            type: 'grid',
+            grid: { resolution: { columns: 12, rows: 8 } },
+          },
+        ],
+      }
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(config))
+
+      const loaded = loadDashboardConfig()
+
+      expect(loaded?.screens[0].grid).toBeUndefined()
+      expect(loaded?.screens[1].grid?.items).toEqual([])
     })
   })
 })

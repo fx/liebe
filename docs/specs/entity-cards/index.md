@@ -57,9 +57,9 @@ The registry pattern lets new domains be supported by adding one map entry plus 
 
 ### Lights
 
-- `LightCard` MUST toggle the light on card click via `light.turn_on` / `light.turn_off`, and MUST show a brightness slider only in view mode when the light is on, supports brightness, `config.enableBrightness !== false`, **and the tier is not `glance`** — a 1×1 tile carries no embedded control, and its operability comes from the whole-tile toggle and the hold action ([options/light.md — tier layouts](./options/light.md#tier-layouts)). The slider is horizontal at `row` and `full`, vertical at `tall`.
-- Brightness MUST be presented on a 0–100 scale, converted to/from Home Assistant's 0–255 `brightness` attribute; committing 0 MUST turn the light off.
-- Brightness support MUST be detected from modern `supported_color_modes` (brightness / color_temp / hs / xy / rgb / rgbw / rgbww) with a fallback to the legacy `SUPPORT_BRIGHTNESS` (bit 1) feature flag.
+- `LightCard` MUST toggle the light on card click via `light.turn_on` / `light.turn_off`, and MUST show a brightness slider only in view mode when the light is on, supports brightness, `config.showBrightnessSlider !== false`, **and the tier is not `glance`** — a 1×1 tile carries no embedded control, and its operability comes from the whole-tile toggle and the hold action ([options/light.md — tier layouts](./options/light.md#tier-layouts)). The slider is horizontal at `row` and `full`, vertical at `tall`.
+- Brightness MUST be presented on a 0–100 scale, converted to/from Home Assistant's 0–255 `brightness` attribute; committing 0 MUST turn the light off, and no nonzero percentage may round down to a `brightness` of 0 (which would be an off command in disguise).
+- Brightness support MUST be detected from modern `supported_color_modes` (brightness / white / color_temp / hs / xy / rgb / rgbw / rgbww) with a fallback to the legacy `SUPPORT_BRIGHTNESS` (bit 1) feature flag.
 - `LightCard` MUST expose a per-card configuration modal (`CardConfig.Modal`) via `onConfigure`.
 
 #### Scenario: Dragging the brightness slider sets brightness

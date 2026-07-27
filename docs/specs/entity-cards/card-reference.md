@@ -30,13 +30,13 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 ## Lights
 
-**Services** (`src/components/LightCard.tsx`): `light.turn_on` / `light.turn_off` on toggle (`145-158`); brightness commit sends `light.turn_on` with `{ brightness }` on 0–255 scale, or `turn_off` when the committed value is 0 (`66-81`).
+**Services** (`src/components/LightCard.tsx`): `light.turn_on` / `light.turn_off` on toggle (`176-189`); brightness commit sends `light.turn_on` with `{ brightness }` on 0–255 scale, or `turn_off` when the committed value is 0 (`97-112`).
 
-**Feature detection**: `SUPPORT_BRIGHTNESS = 1` (`22`). Brightness is supported when `supported_color_modes` includes any of `brightness`, `color_temp`, `hs`, `xy`, `rgb`, `rgbw`, `rgbww`, else the legacy `supported_features & 1` (`87-102`). Color and color-temp checks are stubbed as comments (`104-111`, `171`).
+**Feature detection**: `SUPPORT_BRIGHTNESS = 1` (`36`). Brightness is supported when `supported_color_modes` includes any of `BRIGHTNESS_COLOR_MODES` — `brightness`, `white`, `color_temp`, `hs`, `xy`, `rgb`, `rgbw`, `rgbww` (`39-49`) — else the legacy `supported_features & 1` (`120-132`). Color and color-temp checks do not exist yet.
 
-**Slider** (`226-244`): visible only when `!isEditMode && isOn && supportsBrightness && config.enableBrightness !== false`. Uses `localBrightness` + `isDragging` while dragging, `onValueCommit` to send. Display is `round(brightness/255*100)`; card click is suppressed while dragging (`185`).
+**Slider** (`242-256`): visible only when `!isEditMode && isOn && supportsBrightness && config.showBrightnessSlider !== false` (`220-221`). Uses `localBrightness` + `isDragging` while dragging, `onValueCommit` to send. Both scale conversions go through `src/utils/lightBrightness.ts`, which floors a nonzero percentage at `brightness: 1` so the lowest step dims rather than turning the light off; card click is suppressed while dragging (`200`).
 
-**Config**: `enableBrightness` boolean, default true (`src/components/configurations/cardConfigurations.ts:13-24`), edited via `CardConfig.Modal` (`src/components/LightCard.tsx:267-274`).
+**Config**: `showBrightnessSlider` boolean, default true (`src/components/configurations/cardConfigurations.ts:14-31`), read via `readShowBrightnessSlider` (`src/store/lightOptions.ts`) and edited via `CardConfig.Modal` (`src/components/LightCard.tsx:313-320`). The shipped key was `enableBrightness`; `migrateLightCardConfig` rewrites it at the loader (`src/store/persistence.ts`), so nothing downstream reads two keys.
 
 **States**: skeleton `124-126`; ErrorDisplay `129-138`; `on` styling amber-3 bg / amber-6 border, 2px border when selected/error/on (`191-193`).
 

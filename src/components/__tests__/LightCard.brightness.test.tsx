@@ -4,6 +4,7 @@ import { LightCard } from '../LightCard'
 import * as hooks from '~/hooks'
 import { useDashboardStore } from '~/store'
 import { HassEntity } from '~/store/entityTypes'
+import type { GridItem } from '~/store/types'
 
 // Mock the hooks
 vi.mock('~/hooks', () => ({
@@ -241,6 +242,137 @@ describe('LightCard Brightness Slider', () => {
         expect(mockServiceCallHandlers.turnOff).toHaveBeenCalledWith('light.test_light')
       )
       expect(mockServiceCallHandlers.turnOn).not.toHaveBeenCalled()
+    })
+
+    it('keeps the lowest step on rather than rounding it off', async () => {
+      // Zero is the only slider position that turns the light off; the step
+      // above it dims. `light.turn_on` with `brightness: 0` is itself an off
+      // command, so the conversion floors at 1 (docs/specs/entity-cards/
+      // options/light.md — "Brightness").
+      render(<LightCard entityId="light.test_light" />)
+
+      const thumb = screen.getByLabelText('Brightness')
+      fireEvent.keyDown(thumb, { key: 'Home' })
+      fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+
+      await waitFor(() =>
+        expect(mockServiceCallHandlers.turnOn).toHaveBeenCalledWith('light.test_light', {
+          brightness: 3,
+        })
+      )
+    })
+  })
+
+  /**
+   * `showBrightnessSlider` (docs/specs/entity-cards/options/light.md). The card
+   * reads only the current key — the loader has already rewritten the legacy
+   * `enableBrightness` by the time any config reaches here.
+   */
+  describe('the showBrightnessSlider option', () => {
+    const withConfig = (config: Record<string, unknown>): GridItem => ({
+      id: 'item-1',
+      type: 'entity',
+      entityId: 'light.test_light',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+      config,
+    })
+
+    it('shows the slider by default', () => {
+      render(<LightCard entityId="light.test_light" item={withConfig({})} />)
+
+      expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
+    })
+
+    it('hides the slider when set to false', () => {
+      render(
+        <LightCard entityId="light.test_light" item={withConfig({ showBrightnessSlider: false })} />
+      )
+
+      expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
+    })
+
+    it('shows the slider when set to true', () => {
+      render(
+        <LightCard entityId="light.test_light" item={withConfig({ showBrightnessSlider: true })} />
+      )
+
+      expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
+    })
+
+    it('does not read the legacy key', () => {
+      // If the card still honoured `enableBrightness` the slider would vanish
+      // here. It must not: the rename is the loader's job, and a card that read
+      // both keys would disagree with the configuration form, which offers only
+      // the new one.
+      render(
+        <LightCard entityId="light.test_light" item={withConfig({ enableBrightness: false })} />
+      )
+
+      expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
+    })
+
+    it('cannot conjure a slider onto a light that does not dim', () => {
+      // Convention 3: options hide capabilities, they never add them.
+      vi.mocked(hooks.useEntity).mockReturnValue({
+        entity: {
+          ...mockEntity,
+          attributes: { ...mockEntity.attributes, supported_color_modes: ['onoff'] },
+        },
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      render(
+        <LightCard entityId="light.test_light" item={withConfig({ showBrightnessSlider: true })} />
+      )
+
+      expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
+    })
+  })
+
+  /**
+   * The brightness capability matrix (docs/specs/entity-cards/options/light.md
+   * — "Brightness"): every `supported_color_modes` value Home Assistant treats
+   * as dimmable, and the legacy feature flag for entities reporting none.
+   */
+  describe('brightness capability detection', () => {
+    const renderWithModes = (supported_color_modes: string[]) => {
+      vi.mocked(hooks.useEntity).mockReturnValue({
+        entity: {
+          ...mockEntity,
+          attributes: { ...mockEntity.attributes, supported_color_modes, supported_features: 0 },
+        },
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      render(<LightCard entityId="light.test_light" />)
+    }
+
+    it.each([
+      ['brightness'],
+      ['white'],
+      ['color_temp'],
+      ['hs'],
+      ['xy'],
+      ['rgb'],
+      ['rgbw'],
+      ['rgbww'],
+    ])('dims a light whose only mode is %s', (mode) => {
+      renderWithModes([mode])
+
+      expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
+    })
+
+    it.each([['onoff'], ['unknown_future_mode']])('does not dim a %s light', (mode) => {
+      renderWithModes([mode])
+
+      expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
     })
   })
 })
