@@ -138,16 +138,29 @@ export interface ThemeGalleryProps {
  * The count is normalised rather than trusted: it reaches here from a story
  * arg, and a zero or a fraction would divide the tile list into no sections at
  * all — a gallery that renders nothing, which reads as a broken theme rather
- * than as a bad argument.
+ * than as a bad argument. It is clamped at the top end for the mirror-image
+ * reason: a Storybook control can be dragged to any number, and more sections
+ * than there are tiles would stamp empty `.liebe-section` blocks — a frame
+ * around nothing, and arbitrarily much of it.
+ *
+ * The remainder is spread across the leading sections rather than piled into
+ * the last one, so no section comes out empty at any count within the clamp.
+ * Eleven tiles across three sections is 4/4/3, which is what the LCARS
+ * section-frame story has always rendered.
  */
 function tileSections(count: number): GalleryTile[][] {
   const tiles = galleryTiles()
-  const sections = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1
-  const perSection = Math.ceil(tiles.length / sections)
+  const requested = Number.isFinite(count) ? Math.floor(count) : 1
+  // `|| 1` keeps the floor at one section if the tile list is ever empty:
+  // one empty frame, rather than no render and a division by zero.
+  const sections = Math.max(1, Math.min(requested, tiles.length || 1))
+  const perSection = Math.floor(tiles.length / sections)
+  const remainder = tiles.length % sections
 
-  return Array.from({ length: sections }, (_, index) =>
-    tiles.slice(index * perSection, (index + 1) * perSection)
-  )
+  return Array.from({ length: sections }, (_, index) => {
+    const start = index * perSection + Math.min(index, remainder)
+    return tiles.slice(start, start + perSection + (index < remainder ? 1 : 0))
+  })
 }
 
 /**
