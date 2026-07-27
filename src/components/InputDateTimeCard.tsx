@@ -252,6 +252,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
                 <Flex align="center" gap="2">
                   <TextField.Root
                     size="3"
+                    aria-label="Value"
                     type={inputType}
                     value={localValue}
                     onChange={(e) => setLocalValue(e.target.value)}
@@ -263,6 +264,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
                     type="submit"
                     variant="soft"
                     color="green"
+                    aria-label="Save value"
                     disabled={loading}
                   >
                     <Check size={16} />
@@ -272,6 +274,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
                     type="button"
                     variant="soft"
                     color="red"
+                    aria-label="Cancel editing"
                     onClick={handleCancel}
                   >
                     <X size={16} />
@@ -291,9 +294,18 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
                 >
                   <Text size="2">{displayValue}</Text>
                 </Box>
+                {/*
+                 * As in `InputTextCard`: the `Box` beside it only reports the
+                 * value, and this real `<button>` is what operates the helper,
+                 * so the control `glance` retains is focusable and
+                 * Enter/Space-operable rather than pointer-only
+                 * (docs/changes/0011 — "no operability regression"). Icon-only,
+                 * so it carries its name explicitly.
+                 */}
                 <IconButton
                   size="3"
                   variant="ghost"
+                  aria-label="Edit value"
                   onClick={(e) => {
                     e.stopPropagation()
                     setIsEditing(true)

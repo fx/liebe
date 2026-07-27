@@ -40,12 +40,15 @@ import { InputDateTimeCard } from '../InputDateTimeCard'
  * Every assertion below is about **presence or absence in the DOM**, never
  * about CSS. That is the point: the spec's degradation rule is "content that
  * does not fit MUST be omitted, never clipped or scrolled"
- * (docs/specs/design-system/index.md — "Size-adaptive layouts"), and a layout
- * that hid its overflow with `display: none` would satisfy the eye while
- * leaving the omitted content in the accessibility tree. So a tier that drops
- * something is checked with `queryBy…().toBeNull()`, and the arrangement is
- * read off `data-arrangement`, which is stamped precisely so the shape is
- * observable without a stylesheet.
+ * (docs/specs/design-system/index.md — "Size-adaptive layouts"), and a card
+ * that hid its overflow with `display: none` instead would satisfy the eye
+ * while failing every `toBeNull()` below — which is the whole reason to assert
+ * on the DOM. Hiding is not an accessibility-tree leak (`display: none` drops
+ * out of that tree too); it is a claim about the tier that no longer matches
+ * the tier's output, one `display: revert` in the themable cascade away from
+ * coming back. So a tier that drops something is checked with
+ * `queryBy…().toBeNull()`, and the arrangement is read off `data-arrangement`,
+ * which is stamped precisely so the shape is observable without a stylesheet.
  *
  * Rendered against the real entity store through the cards' own hooks rather
  * than against mocked ones — the tier is the only input under test, so
@@ -470,4 +473,197 @@ describe('the unavailable tile', () => {
       expect(part('.liebe-state')).toHaveTextContent('Unavailable')
     }
   )
+})
+
+/*
+ * That the control each helper keeps in `glance` can actually be operated.
+ *
+ * The four non-boolean helpers keep a minimal control at one cell because
+ * removing it would leave the tile with no way to operate the entity at all
+ * until 0022 registers their dialog controls (the note under the tier table in
+ * docs/specs/entity-cards/options/input-helpers.md). The invariant it serves is
+ * *operability*, and a control that answers only to a pointer does not satisfy
+ * it: to a keyboard, a switch device or a screen reader, a `div` carrying an
+ * `onClick` is indistinguishable from the control-free tile the retention
+ * exists to prevent — and those are the users with the fewest ways around it.
+ *
+ * So every retained control is driven here from the keyboard only, never with
+ * `user.click()`: reached with Tab, checked for an accessible name, and
+ * activated with Enter *and* with Space. A pointer-driven test passes on a
+ * plain `div` and therefore cannot tell "clickable" from "operable", which is
+ * the whole distinction these assertions exist to hold.
+ *
+ * Enter and Space are asserted separately because an element that fakes button
+ * semantics with a keydown handler typically honours one and drops the other;
+ * a real `<button>` gets both from the element.
+ */
+describe('keyboard operability of the retained glance controls', () => {
+  /** Enter, then Space — the two keys a native button activates on. */
+  const activationKeys = [
+    ['Enter', '{Enter}'],
+    ['Space', ' '],
+  ] as const
+
+  describe('input_number — the click-to-edit readout', () => {
+    beforeEach(() => seed(createInputNumberEntity()))
+
+    it('reaches the readout with Tab, under a name that says what it does', async () => {
+      const user = userEvent.setup()
+      renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
+
+      await user.tab()
+
+      // Named, not just labelled by its value: "45 %" alone announces a
+      // reading, with nothing to say it can be pressed. The visible text stays
+      // inside the accessible name (WCAG "Label in Name").
+      expect(screen.getByRole('button', { name: 'Set value, currently 45 %' })).toHaveFocus()
+    })
+
+    it.each(activationKeys)('enters the edit state on %s', async (_name, key) => {
+      const user = userEvent.setup()
+      renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
+
+      await user.tab()
+      await user.keyboard(key)
+
+      expect(screen.getByLabelText('Value')).toHaveValue('45')
+    })
+
+    it.each(activationKeys)(
+      'commits a typed value from the keyboard alone on %s',
+      async (_name, key) => {
+        const user = userEvent.setup()
+        renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
+
+        // The end of the invariant: not just "the editor opened" but "the helper
+        // was set", with the pointer never used.
+        await user.tab()
+        await user.keyboard(key)
+        await user.clear(screen.getByLabelText('Value'))
+        await user.keyboard('60{Enter}')
+
+        expect(hass.callService).toHaveBeenCalledWith('input_number', 'set_value', {
+          entity_id: 'input_number.target_humidity',
+          value: 60,
+        })
+      }
+    )
+  })
+
+  describe('input_text — the edit affordance beside the readout', () => {
+    beforeEach(() => seed(createInputTextEntity()))
+
+    it('reaches the edit button with Tab, under a name of its own', async () => {
+      const user = userEvent.setup()
+      renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+
+      await user.tab()
+
+      // Icon-only, so without the explicit name it would announce as an
+      // unlabelled button — focusable but not identifiable.
+      expect(screen.getByRole('button', { name: 'Edit value' })).toHaveFocus()
+    })
+
+    it.each(activationKeys)('enters the edit state on %s', async (_name, key) => {
+      const user = userEvent.setup()
+      renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+
+      await user.tab()
+      await user.keyboard(key)
+
+      expect(screen.getByLabelText('Value')).toHaveValue('Please leave parcels at the side door')
+    })
+
+    it('saves and cancels from named controls', async () => {
+      const user = userEvent.setup()
+      renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+
+      await user.tab()
+      await user.keyboard('{Enter}')
+      await user.clear(screen.getByLabelText('Value'))
+      await user.type(screen.getByLabelText('Value'), 'Ring twice')
+      await user.click(screen.getByRole('button', { name: 'Save value' }))
+
+      expect(hass.callService).toHaveBeenCalledWith('input_text', 'set_value', {
+        entity_id: 'input_text.doorbell_message',
+        value: 'Ring twice',
+      })
+
+      await user.click(screen.getByRole('button', { name: 'Edit value' }))
+      await user.click(screen.getByRole('button', { name: 'Cancel editing' }))
+
+      expect(screen.queryByLabelText('Value')).toBeNull()
+    })
+  })
+
+  describe('input_datetime — the edit affordance beside the readout', () => {
+    beforeEach(() => seed(createInputDateTimeEntity()))
+
+    it('reaches the edit button with Tab, under a name of its own', async () => {
+      const user = userEvent.setup()
+      renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+
+      await user.tab()
+
+      expect(screen.getByRole('button', { name: 'Edit value' })).toHaveFocus()
+    })
+
+    it.each(activationKeys)('enters the edit state on %s', async (_name, key) => {
+      const user = userEvent.setup()
+      renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+
+      await user.tab()
+      await user.keyboard(key)
+
+      // A `datetime-local` field has no implicit ARIA role, so the label is
+      // what makes it findable — which is the same reason a user needs it.
+      expect(screen.getByLabelText('Value')).toBeInTheDocument()
+    })
+
+    it('names its save and cancel controls, and leaves the edit state on cancel', async () => {
+      const user = userEvent.setup()
+      renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+
+      await user.tab()
+      await user.keyboard('{Enter}')
+
+      // Both are icon-only buttons; without names they are two unlabelled
+      // buttons in a row, which is unusable without sight of the glyphs.
+      expect(screen.getByRole('button', { name: 'Save value' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Cancel editing' }))
+
+      expect(screen.queryByLabelText('Value')).toBeNull()
+    })
+  })
+
+  describe('input_select — the dropdown trigger', () => {
+    beforeEach(() => seed(createInputSelectEntity()))
+
+    it('reaches the trigger with Tab', async () => {
+      const user = userEvent.setup()
+      renderCard(<InputSelectCard entityId="input_select.house_mode" tier="glance" />)
+
+      await user.tab()
+
+      // Radix renders the trigger as a real button; its name is the current
+      // option, which is also what the tier table asks it to read out.
+      expect(screen.getByRole('combobox')).toHaveFocus()
+    })
+
+    it.each(activationKeys)('opens the option list on %s', async (_name, key) => {
+      const user = userEvent.setup()
+      renderCard(<InputSelectCard entityId="input_select.house_mode" tier="glance" />)
+
+      // Captured before the key: an open Radix select marks the rest of the
+      // document `aria-hidden`, so the trigger is no longer reachable by role
+      // once the list is up.
+      const trigger = screen.getByRole('combobox')
+
+      await user.tab()
+      await user.keyboard(key)
+
+      expect(await screen.findByRole('listbox')).toBeInTheDocument()
+      expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    })
+  })
 })

@@ -61,9 +61,17 @@ export interface CardBodyProps {
  * docs/specs/entity-cards/options/, and a slot a tier has no room for is passed
  * as `undefined` so the content is genuinely absent from the DOM rather than
  * hidden by a stylesheet — content that does not fit MUST be omitted, never
- * clipped or scrolled (docs/specs/design-system — "Size-adaptive layouts"), and
- * a `display: none` would satisfy the eye while leaving the omitted content in
- * the accessibility tree.
+ * clipped or scrolled (docs/specs/design-system — "Size-adaptive layouts").
+ *
+ * Omitting rather than hiding is not an accessibility-tree argument: a
+ * `display: none` node is out of the accessibility tree as well, so hiding
+ * would not leak the content to assistive technology. It is a
+ * says-what-it-does argument. The DOM is then the whole answer to "what does
+ * this tier render", so the claim is checkable without reading a stylesheet;
+ * there is no hidden subtree to drift out of step with the tier that stopped
+ * rendering it; and no theme or user stylesheet can bring back content this
+ * tier decided does not fit, which one `display: revert` in the themable
+ * cascade (docs/specs/theming) could otherwise do.
  *
  * `data-arrangement` is internal, not part of the stable selector contract:
  * `data-tier` on the shell is the public signal. It is stamped because the

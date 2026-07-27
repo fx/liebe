@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useState } from 'react'
-import { Box, IconButton, Text, TextField } from '@radix-ui/themes'
+import { Button, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Hash, Minus, Plus } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
@@ -200,11 +200,28 @@ export const InputNumberCard = memo(function InputNumberCard({
   /*
    * The click-to-edit readout, which is also the card's minimal control: it
    * enters an edit state and commits an arbitrary value inside `[min, max]`.
+   *
+   * It is a real `<button>` (Radix `Button`) rather than a styled `Box` with an
+   * `onClick`, because it is the control `glance` keeps — the one thing that
+   * stops a 1×1 `input_number` from being unoperable (docs/changes/0011 — "no
+   * operability regression"). A `div` that only answers to clicks satisfies
+   * that invariant for a pointer and breaks it for every keyboard, switch and
+   * screen-reader user, which is the case the invariant most needs to cover. A
+   * button is focusable in tab order, activates on both Enter and Space, and
+   * announces itself as something operable, all from the element rather than
+   * from handlers that have to be kept in sync.
+   *
+   * The label names the action and repeats the visible value, so the accessible
+   * name contains the visible one (WCAG "Label in Name") instead of replacing
+   * it — "50 %" alone would read as a value with no hint that pressing it does
+   * anything.
    */
+  const valueLabel = `${displayValue}${unit ? ` ${unit}` : ''}`
   const valueField = isEditing ? (
     <form onSubmit={handleValueSubmit}>
       <TextField.Root
         size="3"
+        aria-label="Value"
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         onBlur={handleFieldBlur}
@@ -213,22 +230,19 @@ export const InputNumberCard = memo(function InputNumberCard({
       />
     </form>
   ) : (
-    <Box
+    <Button
+      type="button"
+      variant="soft"
+      color="gray"
+      size="2"
+      aria-label={`Set value, currently ${valueLabel}`}
       onClick={handleFieldClick}
-      style={{
-        cursor: 'text',
-        padding: '4px 8px',
-        borderRadius: 'var(--radius-2)',
-        backgroundColor: 'var(--gray-2)',
-        minWidth: '60px',
-        textAlign: 'center',
-      }}
+      style={{ minWidth: '60px' }}
     >
       <Text size="2" weight="bold">
-        {displayValue}
-        {unit && ` ${unit}`}
+        {valueLabel}
       </Text>
-    </Box>
+    </Button>
   )
 
   /*

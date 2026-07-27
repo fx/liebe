@@ -223,6 +223,7 @@ export const InputTextCard = memo(function InputTextCard({
                 <Flex align="center" gap="2">
                   <TextField.Root
                     size="3"
+                    aria-label="Value"
                     type={isPassword ? 'password' : 'text'}
                     value={localValue}
                     onChange={(e) => setLocalValue(e.target.value)}
@@ -235,6 +236,7 @@ export const InputTextCard = memo(function InputTextCard({
                     type="submit"
                     variant="soft"
                     color="green"
+                    aria-label="Save value"
                     disabled={loading}
                   >
                     <Check size={16} />
@@ -244,6 +246,7 @@ export const InputTextCard = memo(function InputTextCard({
                     type="button"
                     variant="soft"
                     color="red"
+                    aria-label="Cancel editing"
                     onClick={handleCancel}
                   >
                     <X size={16} />
@@ -265,9 +268,20 @@ export const InputTextCard = memo(function InputTextCard({
                     {shownValue || '(empty)'}
                   </Text>
                 </Box>
+                {/*
+                 * The readout beside it is a plain `Box`, and stays one: it
+                 * reports the value, it does not operate the helper. The edit
+                 * affordance is this button — a real `<button>`, focusable and
+                 * Enter/Space-operable — so the control `glance` retains is
+                 * reachable without a pointer (docs/changes/0011 — "no
+                 * operability regression"). An icon-only button has no text to
+                 * name it, so the name is spelled out here rather than left to
+                 * an `<svg>`.
+                 */}
                 <IconButton
                   size="3"
                   variant="ghost"
+                  aria-label="Edit value"
                   onClick={(e) => {
                     e.stopPropagation()
                     enterEditMode()
