@@ -3,6 +3,7 @@ import { cardActionsConfigSchema } from './cardActions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
+import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
 import type { DashboardConfig } from './types'
 
 /**
@@ -61,6 +62,7 @@ const gridItemSchema = z
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
+      .merge(inputHelperOptionsConfigSchema)
       .merge(sensorOptionsConfigSchema)
       .passthrough()
       .optional(),

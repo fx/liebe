@@ -6,6 +6,13 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { Pill, PillGroup } from './anatomy'
+import {
+  readSelectControlStyle,
+  readSelectOptions,
+  resolveSelectPresentation,
+} from '~/store/inputHelperOptions'
+import { useCardItem } from './cardItemContext'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputSelectCardProps {
@@ -20,11 +27,14 @@ interface InputSelectCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  /** The placed item's stored options, when the renderer passes them directly. */
+  config?: Record<string, unknown>
 }
 
 interface InputSelectAttributes {
   friendly_name?: string
-  options?: string[]
+  /** Whatever the helper published — validated at the read, not at the type. */
+  options?: unknown
   _stale?: boolean
 }
 
@@ -34,9 +44,11 @@ export const InputSelectCard = memo(function InputSelectCard({
   onDelete,
   isSelected = false,
   onSelect,
+  config,
 }: InputSelectCardProps) {
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
+  const publishedItem = useCardItem()
 
   const handleClick = useCallback(() => {
     // Card click is handled by GridCard
@@ -101,8 +113,71 @@ export const InputSelectCard = memo(function InputSelectCard({
 
   const attributes = entity.attributes as InputSelectAttributes
   const isStale = attributes._stale === true
-  const options = attributes.options || []
+  /*
+   * The helper's own list, read defensively: `options` is user-defined and can
+   * arrive absent, empty, or not a list at all from a hand-edited helper, and
+   * the pill gating below counts it.
+   */
+  const options = readSelectOptions(attributes)
   const currentValue = entity.state
+
+  /*
+   * `controlStyle` chooses the presentation, and the tier and the option count
+   * decide whether it fits (docs/specs/entity-cards/options/input-helpers.md).
+   * Pills need `full` and at most five options; anywhere else the stored value
+   * degrades to the dropdown rather than clipping a row that cannot fit —
+   * degrade, never scroll. Nothing is rewritten, so a card re-engages its pills
+   * when it is resized or the helper loses an option.
+   */
+  const controlStyle = readSelectControlStyle(config ?? publishedItem.config)
+  const presentation = resolveSelectPresentation(controlStyle, tier, options.length)
+
+  const dropdown = (
+    <GridCard.Controls>
+      <Box onClick={(e) => e.stopPropagation()} style={{ minWidth: '120px' }}>
+        <Select.Root
+          value={currentValue}
+          onValueChange={handleValueChange}
+          disabled={loading || options.length === 0}
+        >
+          <Select.Trigger variant="soft" style={{ width: '100%' }}>
+            <Flex align="center" justify="between" style={{ width: '100%' }}>
+              <Text size="2">{currentValue}</Text>
+              <ChevronDown size={16} />
+            </Flex>
+          </Select.Trigger>
+          <Select.Content>
+            {options.map((option) => (
+              <Select.Item key={option} value={option}>
+                {option}
+              </Select.Item>
+            ))}
+          </Select.Content>
+        </Select.Root>
+      </Box>
+    </GridCard.Controls>
+  )
+
+  const pills = (
+    <GridCard.Controls>
+      <PillGroup label={attributes.friendly_name || entity.entity_id.split('.')[1]}>
+        {options.map((option) => (
+          <Pill
+            key={option}
+            label={option}
+            active={option === currentValue}
+            // The current option is not a command: pressing it would send a
+            // `select_option` that changes nothing, and a control that does
+            // nothing must say so rather than look live.
+            disabled={loading || option === currentValue}
+            onClick={() => handleValueChange(option)}
+            domain="input_select"
+            color="default"
+          />
+        ))}
+      </PillGroup>
+    </GridCard.Controls>
+  )
 
   return (
     <GridCard
@@ -154,31 +229,7 @@ export const InputSelectCard = memo(function InputSelectCard({
             ) : null}
           </GridCard.Meta>
         }
-        control={
-          <GridCard.Controls>
-            <Box onClick={(e) => e.stopPropagation()} style={{ minWidth: '120px' }}>
-              <Select.Root
-                value={currentValue}
-                onValueChange={handleValueChange}
-                disabled={loading || options.length === 0}
-              >
-                <Select.Trigger variant="soft" style={{ width: '100%' }}>
-                  <Flex align="center" justify="between" style={{ width: '100%' }}>
-                    <Text size="2">{currentValue}</Text>
-                    <ChevronDown size={16} />
-                  </Flex>
-                </Select.Trigger>
-                <Select.Content>
-                  {options.map((option) => (
-                    <Select.Item key={option} value={option}>
-                      {option}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
-            </Box>
-          </GridCard.Controls>
-        }
+        control={presentation === 'pills' ? pills : dropdown}
       />
     </GridCard>
   )

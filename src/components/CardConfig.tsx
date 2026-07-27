@@ -94,6 +94,18 @@ export interface ConfigOption {
   step?: number // For number and number-array types
   integer?: boolean // For number-array type: whole numbers only
   unit?: string // For number-array type: suffix shown after each value
+  /**
+   * The value of the choice that means "no explicit setting" — selecting it
+   * *removes* the key rather than storing this string.
+   *
+   * For options whose real default is derived from the entity rather than
+   * fixed (`input_number`'s control style follows the helper's own `mode`),
+   * absence is the only way to say "follow it". Without a choice that writes
+   * absence, a form built on `Select` can only ever write a concrete value, so
+   * opening the form would silently pin a card that was following its entity —
+   * and nothing would ever get it back (docs/changes/0022).
+   */
+  clearValue?: string
   domains?: string[] // For entity type: narrows what the picker offers
   deviceClasses?: string[] // For entity type: narrows it further
   requires?: ConfigOptionRequirement // Hides the control when the entity cannot use it
@@ -163,8 +175,14 @@ function buildOptionUpdate(
 }
 
 function Component({ title, description, configDefinition, config, onChange }: ComponentProps) {
-  const handleChange = (key: string, value: unknown) => {
-    onChange(buildOptionUpdate(config, key, value))
+  const handleChange = (key: string, value: unknown, option?: ConfigOption) => {
+    // The "follow the entity" choice stores nothing: `undefined` is what the
+    // merge below removes the key on, so the card goes back to resolving its
+    // own default rather than carrying a value that pins it.
+    const stored =
+      option?.clearValue !== undefined && value === option.clearValue ? undefined : value
+
+    onChange(buildOptionUpdate(config, key, stored))
   }
 
   const renderConfigOption = (key: string, option: ConfigOption) => {
@@ -264,7 +282,7 @@ function Component({ title, description, configDefinition, config, onChange }: C
             </Text>
             <Select.Root
               value={String(currentValue || option.default || '')}
-              onValueChange={(value) => handleChange(key, value)}
+              onValueChange={(value) => handleChange(key, value, option)}
             >
               <Select.Trigger />
               <Select.Content position="popper">
@@ -676,7 +694,20 @@ function Modal({ open, onOpenChange, item, span, onSave }: ModalProps) {
   }
 
   const handleConfigChange = (updates: Record<string, unknown>) => {
-    setLocalConfig((prev) => ({ ...prev, ...updates }))
+    setLocalConfig((prev) => {
+      const next = { ...prev, ...updates }
+      /*
+       * An `undefined` update removes its key rather than storing it: a config
+       * carrying `controlStyle: undefined` is neither absent nor a value —
+       * `JSON.stringify` would drop it while a YAML dump would write something
+       * for it, so the two halves of the same document would disagree about
+       * whether the card is configured.
+       */
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === undefined) delete next[key]
+      }
+      return next
+    })
   }
 
   return (

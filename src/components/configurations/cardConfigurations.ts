@@ -1,5 +1,6 @@
 import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
+import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 import {
@@ -81,6 +82,73 @@ export const cardConfigurations: Record<
         label: 'Show time in state',
         description:
           'Adds how long the entity has been in its current state to the state line. Omitted on 1×1 cards, which have no room for it.',
+      },
+    },
+  },
+  /*
+   * The input helpers' one option each (docs/specs/entity-cards/options/input-helpers.md).
+   * `input_text` and `input_datetime` stay universal-only, so they have no
+   * entry here at all — the universal fragment renders for every entity card
+   * regardless.
+   */
+  input_boolean: {
+    title: 'Toggle Helper Card',
+    description: 'How the toggle presents.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        default: 'tile',
+        label: 'Control style',
+        description:
+          'The whole tile toggles either way. A discrete switch renders beside it in tiers with room — never on a 1×1 card.',
+        options: [
+          { value: 'tile', label: 'Tile only' },
+          { value: 'switch', label: 'Tile with a switch' },
+        ],
+      },
+    },
+  },
+  input_number: {
+    title: 'Number Helper Card',
+    description: 'Which control sets the value.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        /*
+         * The default is the *absence* of a value, which is what "follow the
+         * helper" means — so the form's default has to be the choice that
+         * writes absence, not one of the two concrete styles. Declaring
+         * `stepper` here would show a card that was following its helper as
+         * though it had been set to a stepper, and pin it to one on the next
+         * save (docs/changes/0022).
+         */
+        default: FOLLOW_ENTITY_MODE,
+        clearValue: FOLLOW_ENTITY_MODE,
+        label: 'Control style',
+        description:
+          'Follows the helper’s own display mode in Home Assistant unless you choose one. Choosing overrides it in either direction.',
+        options: [
+          { value: FOLLOW_ENTITY_MODE, label: 'Follow the helper' },
+          { value: 'stepper', label: 'Stepper (+ / −)' },
+          { value: 'slider', label: 'Slider' },
+        ],
+      },
+    },
+  },
+  input_select: {
+    title: 'Dropdown Helper Card',
+    description: 'How the options present.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        default: 'dropdown',
+        label: 'Control style',
+        description:
+          'Pills need a 2×2 card and at most five options; anywhere else the card shows the dropdown instead.',
+        options: [
+          { value: 'dropdown', label: 'Dropdown' },
+          { value: 'pills', label: 'Pills' },
+        ],
       },
     },
   },

@@ -126,11 +126,53 @@ export const TierTall: Story = {
   args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
 }
 
-/**
- * The row arrangement plus the option-count line, which is `full`-only. Pills
- * wait for the `controlStyle` option in 0022.
- */
+/** The row arrangement plus the option-count line, which is `full`-only. */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
   args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}
+
+/* ------------------------------------------------------------------ *
+ * controlStyle (docs/specs/entity-cards/options/input-helpers.md)
+ * ------------------------------------------------------------------ */
+
+/** `pills` where they fit: the `full` tier, with five options or fewer. */
+export const ControlStylePills: Story = {
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  parameters: {
+    liebe: {
+      entities: [createInputSelectEntity()],
+      itemConfig: { controlStyle: 'pills' },
+    },
+  },
+}
+
+/**
+ * The same stored `pills` at `row`, which cannot hold them: the card falls back
+ * to the dropdown with no configuration change, and re-engages the pills when it
+ * is resized again.
+ */
+export const ControlStylePillsDegradedByTier: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createInputSelectEntity()],
+      itemConfig: { controlStyle: 'pills' },
+    },
+  },
+}
+
+/** And the same fallback past five options, where a pill row would clip. */
+export const ControlStylePillsDegradedByCount: Story = {
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  parameters: {
+    liebe: {
+      entities: [
+        createInputSelectEntity({
+          attributes: { options: ['One', 'Two', 'Three', 'Four', 'Five', 'Six'] },
+        }),
+      ],
+      itemConfig: { controlStyle: 'pills' },
+    },
+  },
 }

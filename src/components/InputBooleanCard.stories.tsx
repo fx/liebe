@@ -117,3 +117,47 @@ export const TierFull: Story = {
   name: 'Tier — full (3×2)',
   args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
 }
+
+/* ------------------------------------------------------------------ *
+ * controlStyle (docs/specs/entity-cards/options/input-helpers.md)
+ * ------------------------------------------------------------------ */
+
+/**
+ * `tile` (the default): no discrete control at all — the whole tile is the
+ * toggle, and the active tint carries the state.
+ */
+export const ControlStyleTile: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createInputBooleanEntity({ state: 'on' })],
+      itemConfig: { controlStyle: 'tile' },
+    },
+  },
+}
+
+/** `switch`: the discrete control returns beside the meta. The tile still toggles. */
+export const ControlStyleSwitch: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createInputBooleanEntity({ state: 'on' })],
+      itemConfig: { controlStyle: 'switch' },
+    },
+  },
+}
+
+/**
+ * `switch` at `glance`, where it is omitted anyway: a 1×1 tile has no room for
+ * a 44px control beside an icon, a name and a state line, so the card behaves
+ * as `tile` and the tap still toggles.
+ */
+export const ControlStyleSwitchGlance: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createInputBooleanEntity({ state: 'on' })],
+      itemConfig: { controlStyle: 'switch' },
+    },
+  },
+}
