@@ -2,7 +2,7 @@
 
 ## Overview
 
-The entity card system renders every Home Assistant entity and dashboard widget as a self-contained, touch-first card on a grid screen. A domain-to-component registry (`cardRegistry.ts`) MUST map each entity domain (`light`, `climate`, `sensor`, …) to a React card component, and MUST fall back to a generic `ButtonCard` for unmapped domains. Every entity card SHALL share a common presentation shell (`GridCard`), be wrapped in an error boundary, honor three size variants (`small` / `medium` / `large`), and expose consistent edit-mode affordances (select, delete, and — where supported — a per-card configuration modal). Non-entity widgets (text, separator) render directly without the entity shell or error boundary (see [`../grid-layout/`](../grid-layout/)). Cards that control an entity MUST call the corresponding Home Assistant service; read-only cards (sensors, weather) SHALL display state without side effects.
+The entity card system renders every Home Assistant entity and dashboard widget as a self-contained, touch-first card on a grid screen. A domain-to-component registry (`cardRegistry.ts`) MUST map each entity domain (`light`, `climate`, `sensor`, …) to a React card component, and MUST fall back to a generic `ButtonCard` for unmapped domains. Every entity card SHALL share a common presentation shell (`GridCard`), be wrapped in an error boundary, adapt its content to the [layout tier](../design-system/index.md#size-adaptive-layouts) the renderer derives from its effective grid span (`glance` / `row` / `tall` / `full`), and expose consistent edit-mode affordances (select, delete, and — where supported — a per-card configuration modal). Non-entity widgets (text, separator) render directly without the entity shell or error boundary (see [`../grid-layout/`](../grid-layout/)). Cards that control an entity MUST call the corresponding Home Assistant service; read-only cards (sensors, weather) SHALL display state without side effects.
 
 This spec is the living baseline of the card system as implemented. It EXCLUDES the camera card and WebRTC streaming (see [`../camera-streaming/`](../camera-streaming/)), grid placement and drag/resize mechanics (see [`../grid-layout/`](../grid-layout/)), and the entity state pipeline / hooks (see [`../entity-state/`](../entity-state/)). Exhaustive per-card details — service payloads, dimension tables, and every derived test scenario — live in the companion [card reference](./card-reference.md).
 
@@ -19,7 +19,7 @@ The registry pattern lets new domains be supported by adding one map entry plus 
 - The registry `domainToCard` MUST map entity domains to card components, and `getCardForEntity(entityId)` MUST resolve a component by splitting the domain off the entity id.
 - The renderer MUST prefer a registered variant (`getCardVariant(domain, variant)`) when the grid item's `config.variant` is set, THEN fall back to the domain's default card, THEN fall back to `ButtonCard`.
 - Each card component MAY declare static `defaultDimensions`; `getDefaultCardDimensions(entityId)` MUST return them, or `{ width: 2, height: 2 }` when none are declared.
-- Cards MUST all accept the shared `CardProps` contract (`entityId`, `size`, `onDelete`, `isSelected`, `onSelect`, `config`, `item`, `onConfigure`).
+- Cards MUST all accept the shared `CardProps` contract (`entityId`, `tier`, `span`, `onDelete`, `isSelected`, `onSelect`, `config`, `item`, `onConfigure`). A card MUST NOT derive its own tier or measure the DOM to infer its size — both arrive as props from the renderer ([design-system — size-adaptive layouts](../design-system/index.md#size-adaptive-layouts)).
 
 #### Scenario: Unmapped domain falls back to ButtonCard
 
@@ -35,8 +35,8 @@ The registry pattern lets new domains be supported by adding one map entry plus 
 
 ### Common card shell, sizing, and lifecycle states
 
-- Every entity card MUST render through `GridCard`, which SHALL apply size-based `minHeight` (small 60px / medium 80px / large 100px) and padding, and expose compound `Icon`, `Title`, `Controls`, and `Status` slots.
-- While initial entity data is loading (`isLoading || (!entity && isConnected)`), an entity card MUST render a `SkeletonCard` of the matching size.
+- Every entity card MUST render through `GridCard`, which SHALL stamp the tier as `data-tier`, apply the tier's height floor from the geometry tokens (`--liebe-card-min-height-row` for `glance`/`row`, `--liebe-card-min-height-tall` for `tall`/`full`), and expose compound `Icon`, `Meta`, `Title`, `Controls`, and `Status` slots.
+- While initial entity data is loading (`isLoading || (!entity && isConnected)`), an entity card MUST render a `SkeletonCard` at the card's own tier — a placeholder is a tile like any other.
 - When disconnected or the entity is missing (`!entity || !isConnected`), an entity card MUST render an `ErrorDisplay` card titled "Disconnected" (with a reload retry) or "Entity Not Found".
 - When a service call is in flight, the card MUST reflect loading (dimmed icon, `grid-card-loading` pulse) and, on failure, MUST show an error border (`var(--red-6)`, 2px), a status of `ERROR`, and the error text as the card `title` tooltip.
 - An `unavailable` entity MUST render a dotted-gray, dimmed card that still shows the friendly name and an `UNAVAILABLE` status.
@@ -47,7 +47,7 @@ The registry pattern lets new domains be supported by adding one map entry plus 
 
 - **GIVEN** an entity card whose entity has not yet arrived but the connection is up
 - **WHEN** it renders
-- **THEN** it shows a `SkeletonCard` sized to the card and no controls (e.g. `SensorCard.tsx:130-132`, `LightCard.tsx:124-126`).
+- **THEN** it shows a `SkeletonCard` at the card's tier and no controls (e.g. `SensorCard.tsx:130-132`, `LightCard.tsx:124-126`).
 
 #### Scenario: Service failure surfaces an error border
 
@@ -254,7 +254,8 @@ The shared props contract every card implements (`cardRegistry.ts:21-36`):
 ```ts
 export interface CardProps {
   entityId: string
-  size?: 'small' | 'medium' | 'large'
+  tier?: CardTier
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -279,7 +280,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 
 ### UI Components
 
-`GridCard` (`GridCard.tsx`) is the shell for all cards. Size maps to `minHeight` (60/80/100px) and padding (2/3/4); the compound `GridCard.Icon` scales the icon (20/28/36px) and swaps in a `Spinner` while loading; `GridCard.Title`/`GridCard.Status` scale font size. Edit-mode action buttons (settings + delete) render in a fixed cluster and stop propagation. A fullscreen portal (used by the camera card) escapes the shadow DOM and closes on click or ESC. Transparent mode strips card chrome for `hideBackground` widgets.
+`GridCard` (`GridCard.tsx`) is the shell for all cards. The tier is stamped as `data-tier` and maps to a height floor through the geometry tokens; padding, radius and typography come from the token contract rather than from the card's size. The compound `GridCard.Icon` renders the anatomy's icon circle and swaps in a `Spinner` while loading; `GridCard.Title`/`GridCard.Status` render the name and state lines. Edit-mode action buttons (settings + delete) render in a fixed cluster and stop propagation. A fullscreen portal (used by the camera card) escapes the shadow DOM and closes on click or ESC. Transparent mode strips card chrome for `hideBackground` widgets.
 
 `EntityErrorBoundary` (`ErrorBoundary.tsx:183-201`) wraps each card, rendering an `ErrorDisplay` card with a retry that resets the boundary; the base `ErrorBoundary` supports a custom fallback and collapsible stack details.
 
@@ -303,7 +304,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 - **ClimateCard size (~962 lines).** `ClimateCard.tsx` is by far the largest card and mixes arc geometry, drag math, and service logic in one file. No decomposition is specified; whether it should be split (as WeatherCard was) is open. The camera card (`CameraCard.tsx`, ~852 lines) is comparably large but out of scope here.
 - **LightCard color picker is unimplemented.** `showColorPicker` config and the color/color-temp feature checks are stubbed out as comments (`LightCard.tsx:104-111`, `171`); the card supports brightness only. The intended color-control behavior is undefined.
 - **InputDateTimeCard service mapping is missing.** `useServiceCall.setValue` has no `input_datetime` branch, so at runtime `InputDateTimeCard`'s save returns `{ success: false, error: 'setValue not supported for domain: input_datetime' }` and never calls `input_datetime.set_datetime`. Tests pass only because `setValue` is mocked. This is a real gap, not just a spec ambiguity — see [card reference](./card-reference.md#input-helper-cards).
-- **CoverCard size styling discrepancy.** The component sets `minHeight` 160/180/200px (`CoverCard.tsx:264`) but `CoverCard.test.tsx:493-513` asserts 60/80/100px; the assertion's enforcement should be verified.
+- ~~**CoverCard size styling discrepancy.**~~ Moot since change [0011](../../changes/0011-layout-tiers.md): the card sets no `minHeight` of its own and the shell owns the floor, keyed on the tier and resolved from the geometry tokens.
 - **Weather background feature is mostly untested.** `WeatherCard.test.tsx` covers only `getWeatherBackground`'s `__LIEBE_ASSET_BASE_URL__` resolution (PR #140) — two cases, prefixing with a published base URL and falling back to `/` when none is published, both for the `rain` condition. The rest of the condition-to-image mapping (the other nine PNGs, the partial-match fallbacks, and the `null` no-match result) and the text treatment from `getWeatherTextStyles`/`getWeatherTextColor` still have no coverage.
 - **Two export idioms coexist.** Most cards use `Object.assign(memo(...), { defaultDimensions })`; `Separator` is a plain function with a static property and no memo. Whether to standardize is open.
 
@@ -319,8 +320,9 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 
 ## Changelog
 
-| Date       | Change                                                                                                                 | Document                                                                    |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                             | —                                                                           |
-| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented)     | —                                                                           |
-| 2026-07-27 | Common option contract implemented: universal options, action system, detail dialog, shared non-scalar config controls | [0014-universal-card-options](../../changes/0014-universal-card-options.md) |
+| Date       | Change                                                                                                                                                                                                                           | Document                                                                    |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                       | —                                                                           |
+| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented)                                                                                                               | —                                                                           |
+| 2026-07-27 | Common option contract implemented: universal options, action system, detail dialog, shared non-scalar config controls                                                                                                           | [0014-universal-card-options](../../changes/0014-universal-card-options.md) |
+| 2026-07-27 | Layout tiers replace the legacy `size` variants across the card contract: cards take `tier` and `span` as props, never derive them, and each family's per-tier content follows its option doc (the camera is stamped but exempt) | [0011-layout-tiers.md](../../changes/0011-layout-tiers.md)                  |

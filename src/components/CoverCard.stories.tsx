@@ -140,3 +140,29 @@ export const EditMode: Story = {
   args: { onDelete: () => {}, gridHeight: 2 },
   parameters: { liebe: { entities: [createCoverEntity()], mode: 'edit' } },
 }
+
+/*
+ * Layout tiers (docs/specs/entity-cards/options/cover.md — "Tier layouts").
+ * The absence half of each tier is asserted in
+ * `__tests__/cardTierLayouts.test.tsx`.
+ */
+
+/** 1×1: name and position, no controls at all. */
+export const TierGlance: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/** 2×1: the position slider only — buttons and tilt are `full` content. */
+export const TierRow: Story = {
+  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+}
+
+/** 1×3: the position slider vertical, top of the track fully open. */
+export const TierTall: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/** 3×3: slider, the open/stop/close row, then the tilt controls. */
+export const TierFull: Story = {
+  args: { tier: 'full', gridWidth: 3, gridHeight: 3 },
+}

@@ -11,6 +11,9 @@ interface WeatherAttributes extends EntityAttributes {
   temperature?: number
   temperature_unit?: string
   humidity?: number
+  wind_speed?: number
+  wind_speed_unit?: string
+  apparent_temperature?: number
 }
 
 interface WeatherEntity extends HassEntity {
@@ -105,7 +108,33 @@ function WeatherCardModernContent(props: CardProps) {
   )
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
 
-  // One glyph size at every tier; the per-tier layout is 0011 PR 3's.
+  /*
+   * Tier layout (docs/specs/entity-cards/options/weather.md — "Tier layouts").
+   * `modern` keeps its identity — a large glyph with the temperature and
+   * humidity emphasised — and the tier decides the arrangement and how much of
+   * it fits; what does not fit is omitted, never clipped:
+   *
+   *   glance  glyph + name + temperature in the state slot; no condition text,
+   *           no secondary line.
+   *   row     glyph and meta side by side, condition text in the state slot,
+   *           temperature and humidity beside them.
+   *   tall    the same content stacked, which is the variant's resting shape.
+   *   full    plus the rest of the detail line (feels-like, wind) where the
+   *           entity reports it; the forecast strips are change 0020's.
+   */
+  const isGlance = tier === 'glance'
+  const isRow = tier === 'row'
+  const isFull = tier === 'full'
+  const feelsLike = getTemperatureDisplay(
+    weatherEntity.attributes?.apparent_temperature,
+    tempUnit,
+    weatherConfig?.temperatureUnit || 'auto'
+  )
+  const windSpeed = weatherEntity.attributes?.wind_speed
+  const windUnit = weatherEntity.attributes?.wind_speed_unit
+
+  // One glyph size at every tier; a smaller tile omits content rather than
+  // scaling it down (docs/specs/design-system — "Size-adaptive layouts").
   const iconSize = 48
 
   // Get background image for the current weather condition
@@ -163,7 +192,7 @@ function WeatherCardModernContent(props: CardProps) {
       }}
     >
       <Flex
-        direction="column"
+        direction={isRow ? 'row' : 'column'}
         align="center"
         justify="center"
         gap="3"
@@ -186,18 +215,24 @@ function WeatherCardModernContent(props: CardProps) {
         </Box>
 
         <Flex direction="column" align="center" gap="1">
-          <Text size="2" color={getWeatherTextColor(!!backgroundImage, 'gray')} style={styles.text}>
-            {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-          </Text>
+          <GridCard.Title>
+            <Text
+              size="2"
+              color={getWeatherTextColor(!!backgroundImage, 'gray')}
+              style={styles.text}
+            >
+              {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
+            </Text>
+          </GridCard.Title>
 
-          {tempDisplay && (
+          {!isGlance && tempDisplay && (
             <Text size="5" weight="bold" style={emphasisStyles.text}>
               {Math.round(tempDisplay.value)}
               {tempDisplay.unit}
             </Text>
           )}
 
-          {humidity !== undefined && (
+          {!isGlance && humidity !== undefined && (
             <Text
               size="2"
               color={getWeatherTextColor(!!backgroundImage, 'gray')}
@@ -206,19 +241,51 @@ function WeatherCardModernContent(props: CardProps) {
               {humidity}% humidity
             </Text>
           )}
+
+          {isFull && feelsLike !== undefined && (
+            <Text
+              size="2"
+              color={getWeatherTextColor(!!backgroundImage, 'gray')}
+              style={styles.text}
+            >
+              Feels like {Math.round(feelsLike.value)}
+              {feelsLike.unit}
+            </Text>
+          )}
+
+          {isFull && windSpeed !== undefined && (
+            <Text
+              size="2"
+              color={getWeatherTextColor(!!backgroundImage, 'gray')}
+              style={styles.text}
+            >
+              Wind {Math.round(windSpeed)}
+              {windUnit ? ` ${windUnit}` : ''}
+            </Text>
+          )}
         </Flex>
 
-        <Text
-          size="3"
-          weight="medium"
-          style={{
-            ...styles.text,
-            textTransform: 'capitalize',
-            marginTop: 'auto',
-          }}
-        >
-          {entity.state}
-        </Text>
+        {/*
+         * The state slot: the condition, or the temperature itself at `glance`
+         * where the condition text is the first thing to go. Routed through the
+         * shell's slot rather than a bare `Text` so `hideState` reaches it, as
+         * the common contract requires of every card.
+         */}
+        <GridCard.Status>
+          <Text
+            size="3"
+            weight="medium"
+            style={{
+              ...styles.text,
+              textTransform: 'capitalize',
+              marginTop: isRow ? undefined : 'auto',
+            }}
+          >
+            {isGlance && tempDisplay
+              ? `${Math.round(tempDisplay.value)}${tempDisplay.unit}`
+              : entity.state}
+          </Text>
+        </GridCard.Status>
       </Flex>
     </GridCard>
   )

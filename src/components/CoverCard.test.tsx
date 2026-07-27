@@ -16,6 +16,12 @@ vi.mock('~/store', () => ({
   useDashboardStore: vi.fn(),
 }))
 
+/*
+ * These render at `full` — the tier a cover's own default dimensions (2×3) put
+ * it at — because that is where the open/stop/close row and the tilt controls
+ * live under change 0011's tier layouts. What each tier keeps and drops is pinned
+ * in `__tests__/cardTierLayouts.test.tsx`.
+ */
 describe('CoverCard', () => {
   const mockCallService = vi.fn()
   const mockClearError = vi.fn()
@@ -54,7 +60,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('Test Cover')).toBeInTheDocument()
       expect(screen.getByText('CLOSED')).toBeInTheDocument()
@@ -71,7 +77,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('75% OPEN')).toBeInTheDocument()
     })
@@ -84,7 +90,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('OPENING')).toBeInTheDocument()
     })
@@ -97,7 +103,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
       expect(screen.getByText('Test Cover')).toBeInTheDocument()
@@ -114,7 +120,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
       expect(screen.getByText('cover.test_cover')).toBeInTheDocument()
@@ -127,7 +133,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('Disconnected')).toBeInTheDocument()
     })
@@ -146,7 +152,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByLabelText('Open cover')).toBeInTheDocument()
       expect(screen.getByLabelText('Stop cover')).toBeInTheDocument()
@@ -163,7 +169,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       const openButton = screen.getByLabelText('Open cover')
       await userEvent.click(openButton)
@@ -186,7 +192,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       const closeButton = screen.getByLabelText('Close cover')
       await userEvent.click(closeButton)
@@ -209,7 +215,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       const stopButton = screen.getByLabelText('Stop cover')
       await userEvent.click(stopButton)
@@ -232,7 +238,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByLabelText('Open cover')).not.toBeDisabled()
       expect(screen.getByLabelText('Close cover')).toBeDisabled() // Already closed
@@ -254,7 +260,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByLabelText('Position')).toBeInTheDocument()
       expect(screen.getByText('50%')).toBeInTheDocument()
@@ -274,7 +280,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      const { container } = render(<CoverCard entityId="cover.test_cover" />)
+      const { container } = render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       // Find the slider thumb
       const slider = container.querySelector('[role="slider"]')!
@@ -299,7 +305,7 @@ describe('CoverCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.queryByLabelText('Position')).not.toBeInTheDocument()
     })
@@ -319,7 +325,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('Tilt')).toBeInTheDocument()
       expect(screen.getByLabelText('Tilt position')).toBeInTheDocument()
@@ -336,7 +342,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       // Find all buttons and look for the one in the tilt section
       // Since we show tilt controls, there should be buttons after the "Tilt" text
@@ -368,7 +374,7 @@ describe('CoverCard', () => {
         isStale: false,
       })
 
-      const { container } = render(<CoverCard entityId="cover.test_cover" />)
+      const { container } = render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       // Find all slider thumbs - the tilt slider should be the second one
       const sliders = container.querySelectorAll('[role="slider"]')
@@ -417,7 +423,14 @@ describe('CoverCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
-      render(<CoverCard entityId="cover.test_cover" isSelected={false} onSelect={mockOnSelect} />)
+      render(
+        <CoverCard
+          entityId="cover.test_cover"
+          tier="full"
+          isSelected={false}
+          onSelect={mockOnSelect}
+        />
+      )
 
       const card = screen.getByText('Test Cover').closest('.cover-card')
       await userEvent.click(card!)
@@ -434,7 +447,7 @@ describe('CoverCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
-      render(<CoverCard entityId="cover.test_cover" onDelete={mockOnDelete} />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" onDelete={mockOnDelete} />)
 
       const deleteButton = screen.getByLabelText('Delete entity')
       await userEvent.click(deleteButton)
@@ -458,7 +471,7 @@ describe('CoverCard', () => {
         clearError: mockClearError,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       expect(screen.getByText('ERROR')).toBeInTheDocument()
 
@@ -482,7 +495,7 @@ describe('CoverCard', () => {
         clearError: mockClearError,
       })
 
-      const { container } = render(<CoverCard entityId="cover.test_cover" />)
+      const { container } = render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       // Check for loading class
       const card = container.querySelector('.cover-card')
@@ -497,7 +510,7 @@ describe('CoverCard', () => {
         isStale: true,
       })
 
-      render(<CoverCard entityId="cover.test_cover" />)
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
       const card = screen.getByText('Test Cover').closest('.cover-card')
       // Stale state no longer shows visual indication

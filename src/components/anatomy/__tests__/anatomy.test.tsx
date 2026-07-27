@@ -222,6 +222,34 @@ describe('Pill', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
+  it('carries its axis as an attribute, horizontal unless asked otherwise', () => {
+    // The `tall` tier stacks a group that is a row everywhere else, and it does
+    // so through the sheet rather than through a second component — the same
+    // way the slider carries its orientation (docs/specs/design-system —
+    // "Size-adaptive layouts").
+    const { container, rerender } = render(
+      <PillGroup label="Fan speed">
+        <Pill label="Boost" domain="fan" onClick={() => {}} />
+      </PillGroup>
+    )
+
+    expect(container.querySelector('.liebe-pill-group')).toHaveAttribute(
+      'data-orientation',
+      'horizontal'
+    )
+
+    rerender(
+      <PillGroup label="Fan speed" orientation="vertical">
+        <Pill label="Boost" domain="fan" onClick={() => {}} />
+      </PillGroup>
+    )
+
+    expect(container.querySelector('.liebe-pill-group')).toHaveAttribute(
+      'data-orientation',
+      'vertical'
+    )
+  })
+
   it('keeps the label as the accessible name when it is hidden', () => {
     const { container } = render(
       <PillGroup label="Fan speed" className="row">

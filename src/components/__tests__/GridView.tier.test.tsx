@@ -119,6 +119,43 @@ describe('GridView — layout tiers', () => {
     expect(tier()).toBe('row')
   })
 
+  it.each([
+    [1, 1, 'glance'],
+    [2, 1, 'row'],
+    [1, 2, 'tall'],
+    [4, 2, 'full'],
+  ])('derives a camera’s tier from its %i×%i span too', (width, height, expected) => {
+    /*
+     * The camera consumes no tier — its degradation below 2×2 is behavioural
+     * (stream unmount, still thumbnail, lazy fullscreen) and belongs to change
+     * 0021 — but it is still stamped like every other card, because the stable
+     * selector contract promises `data-tier` on every tile
+     * (docs/changes/0011-layout-tiers.md, functional requirements). This is the
+     * derivation half of that: the stamp follows the span the grid lays the
+     * camera out at, so 0021 has a correct tier to start consuming.
+     */
+    entityStore.setState((state) => ({
+      ...state,
+      entities: {
+        ...state.entities,
+        'camera.front_door': {
+          entity_id: 'camera.front_door',
+          state: 'idle',
+          attributes: {
+            friendly_name: 'Front Door',
+            entity_picture: '/api/camera_proxy/camera.front_door?token=abc',
+          },
+          last_changed: '2024-01-01T00:00:00Z',
+          last_updated: '2024-01-01T00:00:00Z',
+          context: { id: 'ctx', parent_id: null, user_id: null },
+        },
+      },
+    }))
+    renderGrid([{ ...itemOf(width, height), entityId: 'camera.front_door' }])
+
+    expect(tier()).toBe(expected)
+  })
+
   it('gives every card a tier, so a theme can rely on the attribute', () => {
     // The presence guarantee the stable selector contract makes
     // (docs/specs/theming — "Stable selector contract").

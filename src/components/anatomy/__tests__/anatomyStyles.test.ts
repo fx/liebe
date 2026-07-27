@@ -119,6 +119,22 @@ describe('domain colour', () => {
   })
 })
 
+describe('pill group', () => {
+  it('turns the equal-share rule through ninety degrees when it is vertical', () => {
+    // The horizontal group shares a row between equal columns; the vertical one
+    // a column between equal rows. Same rule, other axis — which is what lets a
+    // `tall` tile stack the pills instead of squeezing them (docs/specs/
+    // design-system — "Size-adaptive layouts").
+    const horizontal = ruleBody('.liebe-pill-group')
+    expect(horizontal).toContain('grid-auto-columns: 1fr;')
+    expect(horizontal).toContain('grid-auto-flow: column;')
+
+    const vertical = ruleBody(".liebe-pill-group[data-orientation='vertical']")
+    expect(vertical).toContain('grid-auto-flow: row;')
+    expect(vertical).toContain('grid-auto-rows: 1fr;')
+  })
+})
+
 describe('embedded slider', () => {
   it('gives the track, the fill and the leading edge the three tint roles', () => {
     // The slider is the tint pattern laid along an axis: neutral ground, 20%

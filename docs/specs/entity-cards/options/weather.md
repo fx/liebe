@@ -2,7 +2,7 @@
 
 Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
 
-**Status: specified, not yet implemented.** The current weather card family already ships four visual variants (`default`, `modern`, `detailed`, `minimal`), the `temperatureUnit` option, condition-based background images, and the legacy `preset` → `variant` config migration (see [entity-cards — Weather](../index.md#weather)). Tier-adaptive layouts, forecast options, `secondaryInfo`, and `showConditionBackground` are new.
+**Status: specified, not yet implemented.** The current weather card family already ships four visual variants (`default`, `modern`, `detailed`, `minimal`), the `temperatureUnit` option, condition-based background images, and the legacy `preset` → `variant` config migration (see [entity-cards — Weather](../index.md#weather)). Forecast options, `secondaryInfo`, and `showConditionBackground` are new. **Tier layouts below are implemented** by change [0011](../../../changes/0011-layout-tiers.md) PR 3, with the controls that do not exist yet simply absent from their slots.
 
 ## Primary action
 

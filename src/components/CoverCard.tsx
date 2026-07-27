@@ -1,4 +1,4 @@
-import { Flex, Text, Button } from '@radix-ui/themes'
+import { Box, Flex, Text, Button } from '@radix-ui/themes'
 import {
   CaretUpIcon,
   CaretDownIcon,
@@ -6,6 +6,7 @@ import {
   ChevronRightIcon,
   ChevronLeftIcon,
 } from '@radix-ui/react-icons'
+import { Blinds } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
@@ -245,6 +246,152 @@ function CoverCardComponent({
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
 
+  /*
+   * What each tier carries (docs/specs/entity-cards/options/cover.md — "Tier
+   * layouts"). Omission, never clipping or scrolling
+   * (docs/specs/design-system — "Size-adaptive layouts"):
+   *
+   *   glance  icon + name + state; no embedded controls — the tile's own action
+   *           and the detail dialog behind a hold carry operability here.
+   *   row     icon + meta + horizontal position slider. A binary cover has no
+   *           position to set, so it renders the glance content in the row
+   *           arrangement, exactly as the option doc states.
+   *   tall    icon on top, vertical position slider filling the middle (top =
+   *           open, so the control is a miniature of the blind), meta below.
+   *   full    row content plus the open/stop/close row, then the tilt controls
+   *           when the cover supports tilt.
+   */
+  const isGlance = tier === 'glance'
+  const isTall = tier === 'tall'
+  const isFull = tier === 'full'
+  const showPositionSlider = !isGlance && !isEditMode && Boolean(supportsSetPosition)
+  const showButtons = isFull && !isEditMode
+  const showTilt = isFull && !isEditMode && Boolean(supportsTilt)
+
+  const icon = (
+    <GridCard.Icon>
+      <Blinds size={20} />
+    </GridCard.Icon>
+  )
+
+  const meta = (
+    <GridCard.Meta>
+      <GridCard.Title>{friendlyName}</GridCard.Title>
+      <GridCard.Status>
+        {error
+          ? 'ERROR'
+          : isMoving
+            ? coverState.toUpperCase()
+            : currentPosition > 0 && currentPosition < 100
+              ? `${currentPosition}% OPEN`
+              : coverState.toUpperCase()}
+      </GridCard.Status>
+    </GridCard.Meta>
+  )
+
+  const positionSlider = (orientation: 'horizontal' | 'vertical') => (
+    <GridCard.Controls>
+      <Slider
+        domain="cover"
+        color={stateColor}
+        active={displayPosition > 0}
+        label="Position"
+        orientation={orientation}
+        value={displayPosition}
+        readout={`${displayPosition}%`}
+        onValueChange={handlePositionChange}
+        onValueCommit={handlePositionCommit}
+      />
+    </GridCard.Controls>
+  )
+
+  const buttons = (
+    <GridCard.Controls>
+      {/*
+       * Open / stop / close are anatomy pills rather than Radix
+       * `IconButton`s: the buttons were coloured by a Radix `color` prop,
+       * which keeps its hue when a theme remaps the cover's triplet — the
+       * exact breakage the token contract exists to prevent. `hideLabel`
+       * keeps the icon-only look while the label stays as the accessible
+       * name.
+       */}
+      <PillGroup label="Cover controls">
+        {supportsOpen && (
+          <Pill
+            domain="cover"
+            color={stateColor}
+            active={coverState === 'open' || currentPosition === 100}
+            label="Open cover"
+            hideLabel
+            icon={<CaretUpIcon />}
+            onClick={handleOpen}
+            disabled={isLoading || coverState === 'open' || currentPosition === 100}
+          />
+        )}
+        {supportsStop && (
+          <Pill
+            domain="cover"
+            color={isMoving ? 'alert' : stateColor}
+            active={isMoving}
+            label="Stop cover"
+            hideLabel
+            icon={<PauseIcon />}
+            onClick={handleStop}
+            disabled={isLoading || !isMoving}
+          />
+        )}
+        {supportsClose && (
+          <Pill
+            domain="cover"
+            color={stateColor}
+            active={coverState === 'closed' || currentPosition === 0}
+            label="Close cover"
+            hideLabel
+            icon={<CaretDownIcon />}
+            onClick={handleClose}
+            disabled={isLoading || coverState === 'closed' || currentPosition === 0}
+          />
+        )}
+      </PillGroup>
+    </GridCard.Controls>
+  )
+
+  const tilt = (
+    <Flex direction="column" gap="2" width="100%">
+      <Text size="1" color="gray">
+        Tilt
+      </Text>
+      {/* Tilt buttons */}
+      <Flex gap="2" justify="center">
+        {supportsOpenTilt && (
+          <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
+            <ChevronRightIcon />
+          </Button>
+        )}
+        {supportsCloseTilt && (
+          <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
+            <ChevronLeftIcon />
+          </Button>
+        )}
+      </Flex>
+      {/* Tilt position slider */}
+      {supportsSetTiltPosition && (
+        <GridCard.Controls>
+          <Slider
+            domain="cover"
+            color={stateColor}
+            active={displayTiltPosition > 0}
+            label="Tilt position"
+            value={displayTiltPosition}
+            readout={`${displayTiltPosition}%`}
+            onValueChange={handleTiltChange}
+            onValueCommit={handleTiltCommit}
+          />
+        </GridCard.Controls>
+      )}
+    </Flex>
+  )
+
   return (
     <GridCard
       domain="cover"
@@ -270,134 +417,34 @@ function CoverCardComponent({
       title={error || undefined}
       className="cover-card"
     >
-      <Flex
-        direction="column"
-        align="center"
-        justify="center"
-        gap="3"
-        // No inner height floor: the shell owns it now, keyed on the tier
-        // (`GridCard.css`), so a `glance` tile can actually be one cell tall
-        // instead of being propped open from the inside.
-      >
-        {/* Name */}
-        <GridCard.Title>{friendlyName}</GridCard.Title>
-
-        {/* Control buttons */}
-        {!isEditMode && (
-          <GridCard.Controls>
-            {/*
-             * Open / stop / close are anatomy pills rather than Radix
-             * `IconButton`s: the buttons were coloured by a Radix `color` prop,
-             * which keeps its hue when a theme remaps the cover's triplet — the
-             * exact breakage the token contract exists to prevent. `hideLabel`
-             * keeps the icon-only look while the label stays as the accessible
-             * name.
-             */}
-            <PillGroup label="Cover controls">
-              {supportsOpen && (
-                <Pill
-                  domain="cover"
-                  color={stateColor}
-                  active={coverState === 'open' || currentPosition === 100}
-                  label="Open cover"
-                  hideLabel
-                  icon={<CaretUpIcon />}
-                  onClick={handleOpen}
-                  disabled={isLoading || coverState === 'open' || currentPosition === 100}
-                />
-              )}
-              {supportsStop && (
-                <Pill
-                  domain="cover"
-                  color={isMoving ? 'alert' : stateColor}
-                  active={isMoving}
-                  label="Stop cover"
-                  hideLabel
-                  icon={<PauseIcon />}
-                  onClick={handleStop}
-                  disabled={isLoading || !isMoving}
-                />
-              )}
-              {supportsClose && (
-                <Pill
-                  domain="cover"
-                  color={stateColor}
-                  active={coverState === 'closed' || currentPosition === 0}
-                  label="Close cover"
-                  hideLabel
-                  icon={<CaretDownIcon />}
-                  onClick={handleClose}
-                  disabled={isLoading || coverState === 'closed' || currentPosition === 0}
-                />
-              )}
-            </PillGroup>
-          </GridCard.Controls>
-        )}
-
-        {/* Position slider */}
-        {!isEditMode && supportsSetPosition && (
-          <GridCard.Controls>
-            <Slider
-              domain="cover"
-              color={stateColor}
-              active={displayPosition > 0}
-              label="Position"
-              value={displayPosition}
-              readout={`${displayPosition}%`}
-              onValueChange={handlePositionChange}
-              onValueCommit={handlePositionCommit}
-            />
-          </GridCard.Controls>
-        )}
-
-        {/* Tilt controls */}
-        {!isEditMode && supportsTilt && (
-          <Flex direction="column" gap="2" width="100%">
-            <Text size="1" color="gray">
-              Tilt
-            </Text>
-            {/* Tilt buttons */}
-            <Flex gap="2" justify="center">
-              {supportsOpenTilt && (
-                <Button size="1" variant="soft" onClick={handleOpenTilt} disabled={isLoading}>
-                  <ChevronRightIcon />
-                </Button>
-              )}
-              {supportsCloseTilt && (
-                <Button size="1" variant="soft" onClick={handleCloseTilt} disabled={isLoading}>
-                  <ChevronLeftIcon />
-                </Button>
-              )}
-            </Flex>
-            {/* Tilt position slider */}
-            {supportsSetTiltPosition && (
-              <GridCard.Controls>
-                <Slider
-                  domain="cover"
-                  color={stateColor}
-                  active={displayTiltPosition > 0}
-                  label="Tilt position"
-                  value={displayTiltPosition}
-                  readout={`${displayTiltPosition}%`}
-                  onValueChange={handleTiltChange}
-                  onValueCommit={handleTiltCommit}
-                />
-              </GridCard.Controls>
-            )}
+      {isGlance ? (
+        <Flex direction="column" align="center" justify="center" gap="2">
+          {icon}
+          {meta}
+        </Flex>
+      ) : isTall ? (
+        <Flex direction="column" align="center" gap="2" height="100%">
+          {icon}
+          {/* Top of the track is fully open, so the control reads as a
+              miniature of the blind it drives. */}
+          {showPositionSlider && (
+            <Box flexGrow="1" style={{ display: 'flex', minHeight: 0 }}>
+              {positionSlider('vertical')}
+            </Box>
+          )}
+          {meta}
+        </Flex>
+      ) : (
+        <Flex direction="column" gap="3">
+          <Flex align="center" gap="3">
+            {icon}
+            {meta}
+            {showPositionSlider && <Box flexGrow="1">{positionSlider('horizontal')}</Box>}
           </Flex>
-        )}
-
-        {/* Status */}
-        <GridCard.Status>
-          {error
-            ? 'ERROR'
-            : isMoving
-              ? coverState.toUpperCase()
-              : currentPosition > 0 && currentPosition < 100
-                ? `${currentPosition}% OPEN`
-                : coverState.toUpperCase()}
-        </GridCard.Status>
-      </Flex>
+          {showButtons && buttons}
+          {showTilt && tilt}
+        </Flex>
+      )}
     </GridCard>
   )
 }

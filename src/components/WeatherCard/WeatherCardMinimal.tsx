@@ -88,6 +88,7 @@ function WeatherCardMinimalContent(props: CardProps) {
     weatherConfig?.temperatureUnit || 'auto'
   )
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
+  const isGlance = tier === 'glance'
 
   // Handle unavailable state
   if (isUnavailable) {
@@ -130,14 +131,26 @@ function WeatherCardMinimalContent(props: CardProps) {
         <GridCard.Title>
           {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
         </GridCard.Title>
-        {tempDisplay && (
+        {/*
+         * At `glance` the temperature takes the state slot and the big readout
+         * goes with the condition text: one cell holds a name and one value,
+         * and the variant that exists to show only the temperature shows only
+         * the temperature (docs/specs/entity-cards/options/weather.md — "Tier
+         * layouts"; `minimal` omits the secondary line and the forecasts at
+         * every tier, which is why nothing else appears at the larger ones).
+         */}
+        {!isGlance && tempDisplay && (
           <CardValue
             domain="weather"
             value={Math.round(tempDisplay.value)}
             unit={tempDisplay.unit}
           />
         )}
-        <GridCard.Status>{entity.state}</GridCard.Status>
+        <GridCard.Status>
+          {isGlance && tempDisplay
+            ? `${Math.round(tempDisplay.value)}${tempDisplay.unit}`
+            : entity.state}
+        </GridCard.Status>
       </Flex>
     </GridCard>
   )

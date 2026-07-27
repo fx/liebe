@@ -12,6 +12,9 @@ interface WeatherAttributes extends EntityAttributes {
   temperature_unit?: string
   humidity?: number
   pressure?: number
+  wind_speed?: number
+  wind_speed_unit?: string
+  apparent_temperature?: number
 }
 
 interface WeatherEntity extends HassEntity {
@@ -112,6 +115,33 @@ function WeatherCardDefaultContent(props: CardProps) {
     tempUnit,
     weatherConfig?.temperatureUnit || 'auto'
   )
+  /*
+   * Tier layout (docs/specs/entity-cards/options/weather.md — "Tier layouts").
+   * The variant chooses the information density, the tier chooses the
+   * arrangement and how much of it fits; content that does not fit is omitted,
+   * never clipped (docs/specs/design-system — "Size-adaptive layouts"):
+   *
+   *   glance  condition icon + name + the temperature in the state slot. No
+   *           condition text, no secondary line.
+   *   row     icon and meta side by side, condition text back in the state
+   *           slot, temperature and the secondary (humidity) line beside them.
+   *   tall    the same content stacked, so the height is used rather than
+   *           filled with air.
+   *   full    row content plus the rest of the detail line — feels-like and
+   *           wind where the entity reports them. The forecast strips the doc
+   *           puts here need `weather.get_forecasts`, which this card does not
+   *           consume yet (change 0020).
+   */
+  const isGlance = tier === 'glance'
+  const isRow = tier === 'row'
+  const isFull = tier === 'full'
+  const feelsLike = getTemperatureDisplay(
+    weatherEntity.attributes?.apparent_temperature,
+    tempUnit,
+    weatherConfig?.temperatureUnit || 'auto'
+  )
+  const windSpeed = weatherEntity.attributes?.wind_speed
+  const windUnit = weatherEntity.attributes?.wind_speed_unit
 
   // One glyph scale at every tier; the weather card's per-tier layout is
   // 0011 PR 3's.
@@ -182,8 +212,9 @@ function WeatherCardDefaultContent(props: CardProps) {
       }}
     >
       <Flex
-        direction="column"
-        gap="2"
+        direction={isRow ? 'row' : 'column'}
+        align={isRow ? 'center' : undefined}
+        gap={isRow ? '3' : '2'}
         style={{
           position: 'relative',
         }}
@@ -208,67 +239,107 @@ function WeatherCardDefaultContent(props: CardProps) {
           </span>
         </GridCard.Icon>
 
-        <GridCard.Title>
-          <Text weight="medium" style={backgroundImage ? textStyles.text : {}}>
-            {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-          </Text>
-        </GridCard.Title>
+        <GridCard.Meta>
+          <GridCard.Title>
+            <Text weight="medium" style={backgroundImage ? textStyles.text : {}}>
+              {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
+            </Text>
+          </GridCard.Title>
 
-        <GridCard.Controls>
-          <Flex gap="3" align="center">
-            {tempDisplay && (
-              <Flex align="center" gap="1">
-                <Thermometer
-                  size={18}
-                  style={{
-                    color: backgroundImage
-                      ? iconStyles.color
-                      : isStale
-                        ? 'var(--orange-9)'
-                        : 'var(--gray-9)',
-                    filter: backgroundImage ? iconStyles.filter : undefined,
-                  }}
-                />
-                <Text size="3" weight="bold" style={backgroundImage ? textStyles.text : {}}>
-                  {Math.round(tempDisplay.value)}
-                  {tempDisplay.unit}
-                </Text>
-              </Flex>
-            )}
+          {/*
+           * `glance` puts the temperature in the state slot and drops the
+           * condition text with it, so `hideState` still hides exactly one line
+           * (docs/specs/entity-cards/options/weather.md — "Tier layouts").
+           */}
+          <GridCard.Status>
+            <Text
+              size="2"
+              color={backgroundImage ? undefined : 'gray'}
+              style={{
+                textTransform: 'capitalize',
+                ...(backgroundImage ? textStyles.text : {}),
+              }}
+            >
+              {isGlance && tempDisplay
+                ? `${Math.round(tempDisplay.value)}${tempDisplay.unit}`
+                : entity.state}
+            </Text>
+          </GridCard.Status>
+        </GridCard.Meta>
 
-            {humidity !== undefined && (
-              <Flex align="center" gap="1">
-                <Droplets
-                  size={18}
-                  style={{
-                    color: backgroundImage ? iconStyles.color : 'var(--gray-9)',
-                    filter: backgroundImage ? iconStyles.filter : undefined,
-                  }}
-                />
+        {!isGlance && (
+          <GridCard.Controls>
+            <Flex gap="3" align="center" wrap="wrap">
+              {tempDisplay && (
+                <Flex align="center" gap="1">
+                  <Thermometer
+                    size={18}
+                    style={{
+                      color: backgroundImage
+                        ? iconStyles.color
+                        : isStale
+                          ? 'var(--orange-9)'
+                          : 'var(--gray-9)',
+                      filter: backgroundImage ? iconStyles.filter : undefined,
+                    }}
+                  />
+                  <Text
+                    size={isFull ? '6' : '3'}
+                    weight="bold"
+                    style={backgroundImage ? textStyles.text : {}}
+                  >
+                    {Math.round(tempDisplay.value)}
+                    {tempDisplay.unit}
+                  </Text>
+                </Flex>
+              )}
+
+              {/* The secondary line: `secondaryInfo` defaults to humidity, and
+                  the option that lets it be anything else arrives with 0020. */}
+              {humidity !== undefined && (
+                <Flex align="center" gap="1">
+                  <Droplets
+                    size={18}
+                    style={{
+                      color: backgroundImage ? iconStyles.color : 'var(--gray-9)',
+                      filter: backgroundImage ? iconStyles.filter : undefined,
+                    }}
+                  />
+                  <Text
+                    size="2"
+                    color={backgroundImage ? undefined : 'gray'}
+                    style={backgroundImage ? textStyles.text : {}}
+                  >
+                    {humidity}%
+                  </Text>
+                </Flex>
+              )}
+
+              {/* `full` continues the detail line past the featured value —
+                  feels-like and wind, each only when the entity has it. */}
+              {isFull && feelsLike !== undefined && (
                 <Text
                   size="2"
                   color={backgroundImage ? undefined : 'gray'}
                   style={backgroundImage ? textStyles.text : {}}
                 >
-                  {humidity}%
+                  Feels like {Math.round(feelsLike.value)}
+                  {feelsLike.unit}
                 </Text>
-              </Flex>
-            )}
-          </Flex>
-        </GridCard.Controls>
-
-        <GridCard.Status>
-          <Text
-            size="2"
-            color={backgroundImage ? undefined : 'gray'}
-            style={{
-              textTransform: 'capitalize',
-              ...(backgroundImage ? textStyles.text : {}),
-            }}
-          >
-            {entity.state}
-          </Text>
-        </GridCard.Status>
+              )}
+              {isFull && windSpeed !== undefined && (
+                <Text
+                  size="2"
+                  color={backgroundImage ? undefined : 'gray'}
+                  style={backgroundImage ? textStyles.text : {}}
+                >
+                  Wind {Math.round(windSpeed)}
+                  {windUnit ? ` ${windUnit}` : ''}
+                </Text>
+              )}
+            </Flex>
+          </GridCard.Controls>
+        )}
       </Flex>
     </GridCard>
   )

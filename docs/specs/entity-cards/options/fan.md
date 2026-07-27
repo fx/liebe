@@ -2,7 +2,7 @@
 
 Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
 
-**Status: specified, not yet implemented.** The current `FanCard` implements toggle, a hardcoded four-step speed control (25/50/75/100), and a preset-mode select, with no per-card configuration modal. Everything below — the option surface, `percentage_step`-derived steps, oscillate/direction controls, the speed slider, tier layouts, and the speed-proportional icon animation contract — is new. See [entity-cards — Covers and fans](../index.md#covers-and-fans) for the implementation baseline.
+**Status: specified, not yet implemented.** The current `FanCard` implements toggle, a hardcoded four-step speed control (25/50/75/100), and a preset-mode select, with no per-card configuration modal. Everything below — the option surface, `percentage_step`-derived steps, oscillate/direction controls, the speed slider, and the speed-proportional icon animation contract — is new. **Tier layouts below are implemented** by change [0011](../../../changes/0011-layout-tiers.md) PR 3, with the controls that do not exist yet simply absent from their slots. See [entity-cards — Covers and fans](../index.md#covers-and-fans) for the implementation baseline.
 
 ## Primary action
 

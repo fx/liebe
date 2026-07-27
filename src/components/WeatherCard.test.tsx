@@ -78,7 +78,9 @@ describe('WeatherCard', () => {
     })
 
     it('should render detailed preset with available data points', () => {
-      render(<WeatherCard entityId="weather.home" config={{ preset: 'detailed' }} />)
+      // `full`: pressure is `detailed`'s third data point, and the first thing
+      // the narrower tiers drop (docs/specs/entity-cards/options/weather.md).
+      render(<WeatherCard entityId="weather.home" tier="full" config={{ preset: 'detailed' }} />)
       expect(screen.getByText('Temperature')).toBeInTheDocument()
       expect(screen.getByText('22°C')).toBeInTheDocument()
       expect(screen.getByText('Humidity')).toBeInTheDocument()
@@ -106,7 +108,7 @@ describe('WeatherCard', () => {
     })
 
     it('should show pressure in detailed variant', () => {
-      render(<WeatherCard entityId="weather.home" config={{ variant: 'detailed' }} />)
+      render(<WeatherCard entityId="weather.home" tier="full" config={{ variant: 'detailed' }} />)
       expect(screen.getByText('1013 hPa')).toBeInTheDocument()
     })
   })
@@ -174,7 +176,9 @@ describe('WeatherCard', () => {
         isLoading: false,
       })
 
-      render(<WeatherCard entityId="weather.home" config={{ preset: 'detailed' }} />)
+      // `full`: pressure is `detailed`'s third data point, and the first thing
+      // the narrower tiers drop (docs/specs/entity-cards/options/weather.md).
+      render(<WeatherCard entityId="weather.home" tier="full" config={{ preset: 'detailed' }} />)
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
       expect(screen.getByText('Home Weather')).toBeInTheDocument()
     })
@@ -191,7 +195,9 @@ describe('WeatherCard', () => {
         isLoading: false,
       })
 
-      render(<WeatherCard entityId="weather.home" config={{ preset: 'detailed' }} />)
+      // `full`: pressure is `detailed`'s third data point, and the first thing
+      // the narrower tiers drop (docs/specs/entity-cards/options/weather.md).
+      render(<WeatherCard entityId="weather.home" tier="full" config={{ preset: 'detailed' }} />)
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
       expect(screen.getByText('weather.home')).toBeInTheDocument()
     })

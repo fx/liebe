@@ -22,6 +22,14 @@ const renderWithTheme = (ui: React.ReactElement) => {
   return render(<Theme>{ui}</Theme>)
 }
 
+/*
+ * These render at `full` — the tier a thermostat's own default dimensions
+ * (3×3) put it at — because that is where the arc dial, the mode pills and the
+ * heat/cool drag handles they assert against live under change 0011's tier
+ * layouts. The compact tiers are pinned in
+ * `__tests__/cardTierLayouts.test.tsx`, which is also where the rule that the
+ * thermostat KEEPS a control at `glance` lives.
+ */
 describe('ClimateCard', () => {
   const mockCallService = vi.fn()
   const mockClearError = vi.fn()
@@ -67,7 +75,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('Test Thermostat')).toBeInTheDocument()
       // Temperature is now rounded in the display
@@ -91,7 +99,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       // Target temperature is shown with decimal in the blue indicator
       expect(screen.getByText('23.0°C')).toBeInTheDocument()
@@ -105,7 +113,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
     })
@@ -117,7 +125,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('Disconnected')).toBeInTheDocument()
     })
@@ -140,7 +148,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       const upButton = screen.getByRole('button', { name: /increase temperature/i })
       await userEvent.click(upButton)
@@ -171,7 +179,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       const downButton = screen.getByRole('button', { name: /decrease temperature/i })
       await userEvent.click(downButton)
@@ -203,7 +211,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       const downButton = screen.getByRole('button', { name: /decrease temperature/i })
       expect(downButton).toBeDisabled()
@@ -226,7 +234,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('20.0 - 24.0°C')).toBeInTheDocument()
 
@@ -252,7 +260,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       // Find all mode buttons - there should be 3 (off, heat, cool). They are
       // anatomy pills now, so they are found by the contract class rather than
@@ -294,7 +302,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       const modeButtons = screen
         .getAllByRole('button')
@@ -334,7 +342,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('heating')).toBeInTheDocument()
       // Border color is not explicitly set for normal states
@@ -357,7 +365,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('cooling')).toBeInTheDocument()
       // Border color is not explicitly set for normal states
@@ -380,7 +388,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('drying')).toBeInTheDocument()
       expect(screen.getByText('Test Thermostat').closest('.climate-card')).toHaveAttribute(
@@ -404,7 +412,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('fan')).toBeInTheDocument()
       expect(screen.getByText('Test Thermostat').closest('.climate-card')).toHaveAttribute(
@@ -432,7 +440,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      return renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      return renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
     }
 
     const dotFor = (container: HTMLElement, triplet: 'heat' | 'cool') =>
@@ -480,7 +488,9 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" onDelete={mockOnDelete} />)
+      renderWithTheme(
+        <ClimateCard entityId="climate.test_thermostat" tier="full" onDelete={mockOnDelete} />
+      )
 
       expect(screen.getByLabelText('Delete entity')).toBeInTheDocument()
     })
@@ -494,7 +504,9 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" onDelete={mockOnDelete} />)
+      renderWithTheme(
+        <ClimateCard entityId="climate.test_thermostat" tier="full" onDelete={mockOnDelete} />
+      )
 
       await userEvent.click(screen.getByLabelText('Delete entity'))
 
@@ -517,7 +529,7 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       // Temperature controls should not be visible
       expect(
@@ -537,7 +549,9 @@ describe('ClimateCard', () => {
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" onSelect={mockOnSelect} />)
+      renderWithTheme(
+        <ClimateCard entityId="climate.test_thermostat" tier="full" onSelect={mockOnSelect} />
+      )
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       await userEvent.click(card!)
@@ -561,7 +575,9 @@ describe('ClimateCard', () => {
         clearError: mockClearError,
       })
 
-      const { container } = renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      const { container } = renderWithTheme(
+        <ClimateCard entityId="climate.test_thermostat" tier="full" />
+      )
 
       // Check for loading class
       const card = container.querySelector('.climate-card')
@@ -582,7 +598,7 @@ describe('ClimateCard', () => {
         clearError: mockClearError,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       // The error outline and its one-shot pulse are `.liebe-card[data-error]`
@@ -600,7 +616,7 @@ describe('ClimateCard', () => {
         isStale: true,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       const card = screen.getByText('Test Thermostat').closest('.climate-card')
       // Stale state no longer shows visual indication
@@ -628,7 +644,7 @@ describe('ClimateCard', () => {
         isStale: false,
       })
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" />)
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       // Current temp is rounded, target temp shown with decimal
       expect(screen.getByText('73')).toBeInTheDocument()

@@ -1,4 +1,4 @@
-import { Flex } from '@radix-ui/themes'
+import { Box, Flex } from '@radix-ui/themes'
 import { SunIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
@@ -184,6 +184,61 @@ function LightCardComponent({
   const enableBrightness = config.enableBrightness !== false
   // const showColorPicker = config.showColorPicker !== false // TODO: implement color picker
 
+  /*
+   * What each tier carries (docs/specs/entity-cards/options/light.md — "Tier
+   * layouts"). Content that does not fit a tier is omitted, never clipped or
+   * scaled down (docs/specs/design-system — "Size-adaptive layouts"):
+   *
+   *   glance  icon over name/state; no embedded control — the whole tile
+   *           toggles, and hold opens the detail dialog (change 0014), which is
+   *           what makes dropping the slider here not an operability regression.
+   *   row     icon + meta in a row, plus the horizontal brightness slider.
+   *   tall    icon on top, vertical slider filling the middle, meta at the
+   *           bottom.
+   *   full    row content plus colour temperature, colour and brightness-preset
+   *           controls — none of which exist yet, so `full` renders the row
+   *           content and those slots arrive with change 0016.
+   */
+  const isGlance = tier === 'glance'
+  const isTall = tier === 'tall'
+  const showBrightness =
+    !isGlance && !isEditMode && isOn && Boolean(supportsBrightness) && enableBrightness
+
+  const icon = (
+    <GridCard.Icon>
+      <SunIcon width={20} height={20} />
+    </GridCard.Icon>
+  )
+
+  const meta = (
+    <GridCard.Meta>
+      <GridCard.Title>{friendlyName}</GridCard.Title>
+      <GridCard.Status>
+        {error
+          ? 'ERROR'
+          : isOn && displayBrightness < 100 && supportsBrightness
+            ? `${displayBrightness}%`
+            : entity.state.toUpperCase()}
+      </GridCard.Status>
+    </GridCard.Meta>
+  )
+
+  const brightnessSlider = (orientation: 'horizontal' | 'vertical') => (
+    <GridCard.Controls>
+      <Slider
+        domain="light"
+        color="light"
+        active={isOn}
+        label="Brightness"
+        orientation={orientation}
+        value={displayBrightness}
+        readout={`${displayBrightness}%`}
+        onValueChange={handleBrightnessChange}
+        onValueCommit={handleBrightnessCommit}
+      />
+    </GridCard.Controls>
+  )
+
   return (
     <>
       <GridCard
@@ -211,36 +266,31 @@ function LightCardComponent({
         title={error || undefined}
         className="light-card"
       >
-        <Flex direction="column" align="center" justify="center" gap="3">
-          <GridCard.Icon>
-            <SunIcon width={20} height={20} />
-          </GridCard.Icon>
-
-          <GridCard.Title>{friendlyName}</GridCard.Title>
-
-          {!isEditMode && isOn && supportsBrightness && enableBrightness && (
-            <GridCard.Controls>
-              <Slider
-                domain="light"
-                color="light"
-                active={isOn}
-                label="Brightness"
-                value={displayBrightness}
-                readout={`${displayBrightness}%`}
-                onValueChange={handleBrightnessChange}
-                onValueCommit={handleBrightnessCommit}
-              />
-            </GridCard.Controls>
-          )}
-
-          <GridCard.Status>
-            {error
-              ? 'ERROR'
-              : isOn && displayBrightness < 100 && supportsBrightness
-                ? `${displayBrightness}%`
-                : entity.state.toUpperCase()}
-          </GridCard.Status>
-        </Flex>
+        {isGlance ? (
+          <Flex direction="column" align="center" justify="center" gap="2">
+            {icon}
+            {meta}
+          </Flex>
+        ) : isTall ? (
+          <Flex direction="column" align="center" gap="2" height="100%">
+            {icon}
+            {/* The slider fills whatever is left between the icon and the meta
+                block — the tier's whole point is that a taller tile gives the
+                control more travel rather than more whitespace. */}
+            {showBrightness && (
+              <Box flexGrow="1" style={{ display: 'flex', minHeight: 0 }}>
+                {brightnessSlider('vertical')}
+              </Box>
+            )}
+            {meta}
+          </Flex>
+        ) : (
+          <Flex align="center" gap="3">
+            {icon}
+            {meta}
+            {showBrightness && <Box flexGrow="1">{brightnessSlider('horizontal')}</Box>}
+          </Flex>
+        )}
       </GridCard>
 
       {item && (

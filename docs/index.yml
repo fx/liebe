@@ -16,11 +16,11 @@ specs:
     status: active
   - name: design-system
     path: specs/design-system/
-    description: Target visual language — token contract, domain color discipline, card anatomy, size-adaptive layout tiers, typography, and motion (tokens, anatomy and card shell implemented; layout tiers pending 0011)
+    description: Target visual language — token contract, domain color discipline, card anatomy, size-adaptive layout tiers, typography, and motion (implemented; the camera consumes no tier by design)
     status: active
   - name: entity-cards
     path: specs/entity-cards/
-    description: Entity card system — domain-to-card registry, all card components and variants, size variants, config modal, and entity browser
+    description: Entity card system — domain-to-card registry, all card components and variants, layout tiers, config modal, and entity browser
     status: active
   - name: entity-state
     path: specs/entity-state/
@@ -123,7 +123,7 @@ changes:
     path: changes/0011-layout-tiers.md
     description: Grid-span-derived glance/row/tall/full layout tiers across all existing cards, retiring the legacy size prop
     spec: design-system
-    status: draft
+    status: complete
     depends_on: ['0010', '0014']
   - id: '0012'
     name: theming-engine
