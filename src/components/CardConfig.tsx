@@ -18,6 +18,9 @@ import { actionConfigOptions, displayConfigOptions } from './configurations/univ
 import type { GridItem } from '~/store/types'
 import type { CardAction } from '~/store/cardActions'
 import { ActionEditor } from './ActionEditor'
+import { EntityPicker } from './EntityPicker'
+import { NumberArrayEditor } from './NumberArrayEditor'
+import { OrderedMultiSelect } from './OrderedMultiSelect'
 import { CardItemProvider } from './cardItemContext'
 import { IconSelect } from './IconSelect'
 import { WeatherCard } from './WeatherCard'
@@ -44,15 +47,29 @@ interface ContentProps {
 
 // Configuration option types
 export interface ConfigOption {
-  type: 'boolean' | 'string' | 'number' | 'select' | 'textarea' | 'icon' | 'action'
+  type:
+    | 'boolean'
+    | 'string'
+    | 'number'
+    | 'select'
+    | 'textarea'
+    | 'icon'
+    | 'action'
+    | 'entity'
+    | 'number-array'
+    | 'ordered-multi-select'
   default: unknown
   label: string
   description?: string
   placeholder?: string
-  options?: Array<{ value: string; label: string }> // For select type
-  min?: number // For number type
-  max?: number // For number type
-  step?: number // For number type
+  options?: Array<{ value: string; label: string }> // For select and ordered-multi-select types
+  min?: number // For number and number-array types
+  max?: number // For number and number-array types
+  step?: number // For number and number-array types
+  integer?: boolean // For number-array type: whole numbers only
+  unit?: string // For number-array type: suffix shown after each value
+  domains?: string[] // For entity type: narrows what the picker offers
+  deviceClasses?: string[] // For entity type: narrows it further
 }
 
 export interface ConfigDefinition {
@@ -236,6 +253,56 @@ function Component({ title, description, configDefinition, config, onChange }: C
             value={config[key]}
             defaultValue={option.default as CardAction}
             onChange={(action) => handleChange(key, action)}
+          />
+        )
+
+      /*
+       * The three shared non-scalar controls. Each takes the stored value raw
+       * and resolves it itself, because "what this build does with a value it
+       * does not recognise" is part of each control's contract rather than
+       * something the form can decide for them
+       * (docs/specs/entity-cards/options/common.md).
+       */
+      case 'entity':
+        return (
+          <EntityPicker
+            key={key}
+            label={option.label}
+            description={option.description}
+            value={currentValue}
+            domains={option.domains}
+            deviceClasses={option.deviceClasses}
+            placeholder={option.placeholder}
+            onChange={(entityId) => handleChange(key, entityId)}
+          />
+        )
+
+      case 'number-array':
+        return (
+          <NumberArrayEditor
+            key={key}
+            label={option.label}
+            description={option.description}
+            value={currentValue}
+            min={option.min}
+            max={option.max}
+            step={option.step}
+            integer={option.integer}
+            unit={option.unit}
+            placeholder={option.placeholder}
+            onChange={(values) => handleChange(key, values)}
+          />
+        )
+
+      case 'ordered-multi-select':
+        return (
+          <OrderedMultiSelect
+            key={key}
+            label={option.label}
+            description={option.description}
+            value={currentValue}
+            options={option.options ?? []}
+            onChange={(values) => handleChange(key, values)}
           />
         )
 

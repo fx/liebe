@@ -1,6 +1,6 @@
 # Card Options — Common Contract
 
-Part of the [entity-cards spec](../index.md). **Status: specified, not yet implemented** — this defines the target per-card option surface; current per-card config is sparse (see [card-reference](../card-reference.md)).
+Part of the [entity-cards spec](../index.md). **Status: implemented** by change [0014](../../../changes/0014-universal-card-options.md) — the universal option keys, the action system, the entity detail dialog `more-info` opens, and the shared configuration controls the per-card docs build on (action editor, entity picker, number array, ordered multi-select). The per-card documents in this folder remain **specified, not yet implemented**: each domain's own options land with its own change (0016–0027), so current per-card config is still sparse (see [card-reference](../card-reference.md)). The tier-composition rule below is stated here and verified by [0011](../../../changes/0011-layout-tiers.md).
 
 Options are stored under `item.config`, are editable from the card's own configuration UI in edit mode, and MUST round-trip through YAML export/import ([dashboard-config](../../dashboard-config/)). Per-card docs in this folder specify domain-specific options; this file specifies what **every** entity card MUST support.
 

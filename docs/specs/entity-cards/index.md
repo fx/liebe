@@ -168,9 +168,9 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 - **WHEN** the user focuses it and types
 - **THEN** the content persists via `dashboardActions.updateGridItem` under the item id (`TextCard.tsx:80-116`).
 
-### Card options (target surface — specified, not yet implemented)
+### Card options
 
-The per-card option surface is specified in [options/](./options/common.md): a universal contract every entity card MUST adopt (name/icon overrides, hide toggles, accent color, tap/hold/double-tap actions) plus one document per card family defining domain options, defaults, and how content maps to the [design-system layout tiers](../design-system/index.md#size-adaptive-layouts). These documents describe the desired state; the requirements elsewhere in this spec remain the implemented baseline until implementing changes land. Per-card docs: [light](./options/light.md) · [switch](./options/switch.md) · [climate](./options/climate.md) · [sensor](./options/sensor.md) · [media-player](./options/media-player.md) · [camera](./options/camera.md) · [cover](./options/cover.md) · [fan](./options/fan.md) · [weather](./options/weather.md) · [security](./options/security.md) · [vacuum](./options/vacuum.md) · [person](./options/person.md) · [scene](./options/scene.md) · [input-helpers](./options/input-helpers.md)
+The per-card option surface is specified in [options/](./options/common.md): a universal contract every entity card MUST adopt (name/icon overrides, hide toggles, accent color, tap/hold/double-tap actions) plus one document per card family defining domain options, defaults, and how content maps to the [design-system layout tiers](../design-system/index.md#size-adaptive-layouts). Each of those documents carries its own status line — the universal contract is implemented, the per-card surfaces are not — and for a family whose options have not landed, the requirements elsewhere in this spec remain the implemented baseline. Per-card docs: [light](./options/light.md) · [switch](./options/switch.md) · [climate](./options/climate.md) · [sensor](./options/sensor.md) · [media-player](./options/media-player.md) · [camera](./options/camera.md) · [cover](./options/cover.md) · [fan](./options/fan.md) · [weather](./options/weather.md) · [security](./options/security.md) · [vacuum](./options/vacuum.md) · [person](./options/person.md) · [scene](./options/scene.md) · [input-helpers](./options/input-helpers.md)
 
 New card families introduced there (media player, lock/alarm, vacuum, person, scene/script/button) MUST register through the existing `domainToCard` registry and `CardProps` contract when implemented.
 
@@ -311,7 +311,7 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 
 - Registry & dispatch: `src/components/cardRegistry.ts`, `src/components/GridView.tsx:22-67`, `src/utils/cardDimensions.ts`
 - Shell & boundary: `src/components/GridCard.tsx`, `src/components/ErrorBoundary.tsx`
-- Configuration: `src/components/CardConfig.tsx`, `src/components/configurations/cardConfigurations.ts`
+- Configuration: `src/components/CardConfig.tsx`, `src/components/configurations/cardConfigurations.ts`; non-scalar option controls in `ActionEditor.tsx`, `EntityPicker.tsx`, `NumberArrayEditor.tsx`, `OrderedMultiSelect.tsx`, with their value contracts in `src/store/configControls.ts`
 - Discovery: `src/components/EntityBrowser.tsx`, `src/components/EntitiesBrowserTab.tsx`, `src/components/CardsBrowserTab.tsx`
 - Cards: `LightCard.tsx`, `ClimateCard.tsx`, `CoverCard.tsx`, `FanCard.tsx`, `SensorCard.tsx`, `BinarySensorCard.tsx`, `ButtonCard.tsx`, `TextCard.tsx`, `Separator.tsx`, `WeatherCard/`, `Input{Boolean,Number,Select,Text,DateTime}Card.tsx`
 - Companion: [card-reference.md](./card-reference.md)
@@ -319,7 +319,8 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 
 ## Changelog
 
-| Date       | Change                                                                                                             | Document |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ | -------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                         | —        |
-| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented) | —        |
+| Date       | Change                                                                                                                 | Document                                                                    |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                             | —                                                                           |
+| 2026-07-25 | Added target per-card option surface under `options/` (common contract + 14 card-family docs, not yet implemented)     | —                                                                           |
+| 2026-07-27 | Common option contract implemented: universal options, action system, detail dialog, shared non-scalar config controls | [0014-universal-card-options](../../changes/0014-universal-card-options.md) |
