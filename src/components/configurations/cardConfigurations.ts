@@ -4,7 +4,9 @@ import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOption
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
+import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOptions'
+import { COVER_OPTION_DEFAULTS, COVER_STATE_LABELS_AUTO } from '~/store/coverOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -240,6 +242,85 @@ export const cardConfigurations: Record<
     },
   },
   /*
+   * The cover card's options (docs/specs/entity-cards/options/cover.md).
+   *
+   * Three of them are `requires`-gated rather than always offered, per common
+   * convention 3: a cover with no set-position bit cannot use a slider option, a
+   * cover with no tilt bits cannot use a tilt one, and `confirmOpen` is offered
+   * only for the perimeter openings it gates. A control that writes a key
+   * nothing will read looks like a setting that did nothing.
+   */
+  cover: {
+    title: 'Cover Card',
+    description: 'Which controls the card shows, and how it reads its position.',
+    definition: {
+      showPositionSlider: {
+        type: 'boolean',
+        default: COVER_OPTION_DEFAULTS.showPositionSlider,
+        label: 'Show position slider',
+        description:
+          'The slider that sets how far open the cover is. Horizontal on wide cards, vertical on tall ones; never on a 1×1 card.',
+        requires: 'cover-position',
+      },
+      showButtons: {
+        type: 'boolean',
+        default: COVER_OPTION_DEFAULTS.showButtons,
+        label: 'Show open / stop / close buttons',
+        description:
+          'The button row, on cards at least 2×2. Each button still needs the matching capability from the entity.',
+      },
+      showTiltControls: {
+        type: 'boolean',
+        default: COVER_OPTION_DEFAULTS.showTiltControls,
+        label: 'Show tilt controls',
+        description: 'Tilt buttons and the tilt slider, on cards at least 2×2.',
+        requires: 'cover-tilt',
+      },
+      stateLabels: {
+        type: 'select',
+        /*
+         * The default is the *absence* of a value, so the form's default has to
+         * be the choice that writes absence rather than one of the two concrete
+         * styles — otherwise opening the form would pin a card that was deriving
+         * its style, and nothing would ever get it back (docs/changes/0022).
+         */
+        default: COVER_STATE_LABELS_AUTO,
+        clearValue: COVER_STATE_LABELS_AUTO,
+        label: 'Position display',
+        description:
+          'Automatic shows a percentage for covers that report a position and Open / Closed for the rest.',
+        options: [
+          { value: COVER_STATE_LABELS_AUTO, label: 'Automatic' },
+          { value: 'percent', label: 'Percentage' },
+          { value: 'open-closed', label: 'Open / Closed' },
+        ],
+      },
+      invertPosition: {
+        type: 'boolean',
+        default: COVER_OPTION_DEFAULTS.invertPosition,
+        label: 'Reversed position scale',
+        description:
+          'For integrations that report 0 as fully open and take position commands on that same reversed scale. If yours reports reversed but takes normal position commands, fix it in the integration — no card setting can be right for that.',
+        requires: 'cover-position',
+      },
+      deviceClassIcon: {
+        type: 'boolean',
+        default: COVER_OPTION_DEFAULTS.deviceClassIcon,
+        label: 'Icon from device class',
+        description:
+          'Shows a garage door as a garage and a curtain as a curtain, with separate open and closed glyphs. An icon set below replaces it either way.',
+      },
+      confirmOpen: {
+        type: 'boolean',
+        default: COVER_OPTION_DEFAULTS.confirmOpen,
+        label: 'Confirm before opening',
+        description:
+          'Asks before anything that would open this further — the Open button, an opening tap, a drag to a wider position. Closing is never held up.',
+        requires: 'security-cover',
+      },
+    },
+  },
+  /*
    * The climate card's options (docs/specs/entity-cards/options/climate.md).
    *
    * `variant` writes the same key the loader's pinning migration writes, so a
@@ -394,6 +475,41 @@ export const cardConfigurations: Record<
     title: 'Camera Card',
     description: 'Configure how the camera feed is displayed.',
     definition: {
+      showNameOverlay: {
+        type: 'boolean',
+        default: CAMERA_OPTION_DEFAULTS.showNameOverlay,
+        label: 'Name on the feed',
+        description:
+          'Puts the camera’s name and state in a gradient along the bottom of the picture. Hiding both the name and the state removes the gradient too.',
+      },
+      showLiveBadge: {
+        type: 'boolean',
+        default: CAMERA_OPTION_DEFAULTS.showLiveBadge,
+        label: 'Live badge',
+        description:
+          'A LIVE pill while frames are actually flowing. Never shown over the still snapshot a camera falls back to, which is not live.',
+      },
+      showLastMotion: {
+        type: 'boolean',
+        default: CAMERA_OPTION_DEFAULTS.showLastMotion,
+        label: 'Show motion',
+        description:
+          'Adds “Motion detected” or “Clear for 12 min” to the feed, from the sensor below. Needs a sensor linked, and a card big enough to show the overlay.',
+      },
+      motionEntity: {
+        type: 'entity',
+        default: CAMERA_OPTION_DEFAULTS.motionEntity,
+        label: 'Motion sensor',
+        /*
+         * Narrowed to the domain and no further. A device class would make the
+         * picker shorter, but plenty of real motion sensors — template ones
+         * especially — carry none at all, and a picker that cannot offer the
+         * sensor a user actually has is worse than a long one.
+         */
+        domains: ['binary_sensor'],
+        description:
+          'The sensor that watches this camera. Liebe only reads it — nothing is created, and a sensor that goes missing or unavailable just drops the line.',
+      },
       fit: {
         type: 'select',
         default: 'cover',

@@ -1,5 +1,13 @@
-import { test, expect, type Locator, type Page } from '@playwright/test'
-import { buildSeedConfig, callService, DEMO_LIGHT, E2E_FLAG, openPanel } from './helpers'
+import { test, expect, type Page } from '@playwright/test'
+import {
+  buildSeedConfig,
+  callService,
+  DEMO_LIGHT,
+  dragResizeHandle,
+  E2E_FLAG,
+  gridItemFor,
+  openPanel,
+} from './helpers'
 
 /**
  * Resizing a card in edit mode re-renders it across layout tiers.
@@ -102,29 +110,6 @@ async function hasBrightnessSlider(page: Page, name: string): Promise<boolean> {
     )
     return Boolean(card?.querySelector('[role="slider"][aria-label="Brightness"]'))
   }, name)
-}
-
-/** The grid item holding that entity's card — the thing this spec drags. */
-function gridItemFor(page: Page, name: string): Locator {
-  return page.locator('.grid-item').filter({ hasText: name })
-}
-
-/**
- * Drags a grid item's south-east resize handle to a point, in two moves:
- * react-grid-layout starts the drag on the first and follows on the second, and
- * a single jump can be swallowed as the start event.
- */
-async function dragResizeHandle(page: Page, item: Locator, to: { x: number; y: number }) {
-  await expect(item, 'the card should be laid out').toHaveCount(1)
-  const handle = item.locator('.react-resizable-handle-se')
-  await expect(handle, 'edit mode should expose a resize handle').toHaveCount(1)
-
-  const handleBox = (await handle.boundingBox())!
-  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
-  await page.mouse.down()
-  await page.mouse.move((handleBox.x + to.x) / 2, (handleBox.y + to.y) / 2, { steps: 5 })
-  await page.mouse.move(to.x, to.y, { steps: 10 })
-  await page.mouse.up()
 }
 
 test('resizing a card in edit mode re-renders it across tiers', async ({ page }) => {

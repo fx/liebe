@@ -14,6 +14,12 @@ import {
 } from '@radix-ui/themes'
 import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
+import {
+  coverSupportsPosition,
+  coverSupportsTilt,
+  readCoverDeviceClass,
+} from './CoverCard/presentation'
+import { isSecurityCover } from '~/store/coverOptions'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
@@ -69,6 +75,12 @@ interface ContentProps {
  *   history a graph or a trend can be drawn from.
  * - `counter` — its `state_class` is cumulative, the only case bar rendering is
  *   defined for.
+ * - `cover-position` — the cover advertises set-position, so a position slider
+ *   (and the reversed-scale declaration that only a position can express) has
+ *   something to drive.
+ * - `cover-tilt` — the cover advertises at least one tilt bit.
+ * - `security-cover` — the cover's `device_class` is one of the perimeter
+ *   openings, the only ones `confirmOpen` is offered for.
  * - `climate-presets` / `climate-fan-modes` — the thermostat advertises the
  *   feature bit *and* publishes a non-empty list, so there is a pill row to
  *   show or hide.
@@ -77,6 +89,9 @@ interface ContentProps {
 export type ConfigOptionRequirement =
   | 'numeric'
   | 'counter'
+  | 'cover-position'
+  | 'cover-tilt'
+  | 'security-cover'
   | 'climate-presets'
   | 'climate-fan-modes'
   | 'climate-humidity'
@@ -425,15 +440,31 @@ function meetsRequirement(
 ): boolean {
   if (requires === undefined) return true
 
-  if (requires === 'numeric' || requires === 'counter') {
-    if (!isNumericSensorEntity(entity)) return false
-    return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
+  // The cover requirements read capabilities off the entity through the card's
+  // own predicates, so the form and the card can never disagree about whether a
+  // control is possible.
+  if (requires === 'cover-position') return coverSupportsPosition(entity?.attributes)
+  if (requires === 'cover-tilt') return coverSupportsTilt(entity?.attributes)
+  if (requires === 'security-cover') {
+    return isSecurityCover(readCoverDeviceClass(entity?.attributes))
   }
 
-  const climate = readClimateCapabilities(entity)
-  if (requires === 'climate-presets') return climate.presets
-  if (requires === 'climate-fan-modes') return climate.fanModes
-  return climate.humidity
+  // Climate reads its three the same way, through the card's own reader — and
+  // reads them once, because all three are answers from one pass over the
+  // entity.
+  if (
+    requires === 'climate-presets' ||
+    requires === 'climate-fan-modes' ||
+    requires === 'climate-humidity'
+  ) {
+    const climate = readClimateCapabilities(entity)
+    if (requires === 'climate-presets') return climate.presets
+    if (requires === 'climate-fan-modes') return climate.fanModes
+    return climate.humidity
+  }
+
+  if (!isNumericSensorEntity(entity)) return false
+  return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
 }
 
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {

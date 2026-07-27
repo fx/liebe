@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CoverCard } from './CoverCard'
+import { CoverCard } from '..'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore } from '~/store'
 
@@ -151,16 +151,27 @@ describe('CoverCard', () => {
       expect(screen.getByText('cover.test_cover')).toBeInTheDocument()
     })
 
-    it('renders disconnected state', () => {
+    it('renders disconnected state, with a retry that reloads the panel', async () => {
       ;(useEntity as any).mockReturnValue({
         entity: null,
         isConnected: false,
         isStale: false,
       })
 
-      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+      const reload = vi.fn()
+      const original = window.location
+      Object.defineProperty(window, 'location', { value: { reload }, writable: true })
 
-      expect(screen.getByText('Disconnected')).toBeInTheDocument()
+      try {
+        render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+        expect(screen.getByText('Disconnected')).toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+        expect(reload).toHaveBeenCalled()
+      } finally {
+        Object.defineProperty(window, 'location', { value: original, writable: true })
+      }
     })
   })
 
@@ -402,7 +413,7 @@ describe('CoverCard', () => {
 
       render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
-      const stop = screen.getByRole('button', { name: /stop/i })
+      const stop = screen.getByRole('button', { name: 'Stop cover' })
       expect(stop).not.toBeDisabled()
 
       await userEvent.click(stop)
@@ -464,7 +475,7 @@ describe('CoverCard', () => {
       const entity = createMockCoverEntity({
         attributes: {
           current_tilt_position: 30,
-          supported_features: 112, // OPEN_TILT + CLOSE_TILT + SET_TILT_POSITION
+          supported_features: 176, // OPEN_TILT + CLOSE_TILT + SET_TILT_POSITION
         },
       })
       ;(useEntity as any).mockReturnValue({
@@ -540,7 +551,7 @@ describe('CoverCard', () => {
       const entity = createMockCoverEntity({
         attributes: {
           current_tilt_position: 50,
-          supported_features: 64, // SET_TILT_POSITION
+          supported_features: 128, // SET_TILT_POSITION
         },
       })
       ;(useEntity as any).mockReturnValue({
@@ -682,6 +693,64 @@ describe('CoverCard', () => {
       await userEvent.click(openButton)
 
       expect(mockClearError).toHaveBeenCalled()
+    })
+
+    it('clears a standing error from every control that dispatches', async () => {
+      // Every handler drops the stale error before issuing its own command, so
+      // the card cannot sit reporting a failure that a later action superseded.
+      // One control clearing it and the next not would show exactly that.
+      const entity = createMockCoverEntity({
+        state: 'opening',
+        attributes: { current_position: 40, supported_features: 255 },
+      })
+      ;(useEntity as any).mockReturnValue({ entity, isConnected: true, isStale: false })
+      ;(useServiceCall as any).mockReturnValue({
+        loading: false,
+        error: 'Service call failed',
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
+        clearError: mockClearError,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      for (const label of [
+        'Close cover',
+        'Stop cover',
+        'Open cover tilt',
+        'Stop cover tilt',
+        'Close cover tilt',
+      ]) {
+        mockClearError.mockClear()
+        await userEvent.click(screen.getByLabelText(label))
+        expect(mockClearError, label).toHaveBeenCalled()
+      }
+    })
+
+    it('clears a standing error when the tile’s own toggle fires', async () => {
+      const entity = createMockCoverEntity({
+        state: 'open',
+        attributes: { current_position: 40, supported_features: 3 },
+      })
+      ;(useEntity as any).mockReturnValue({ entity, isConnected: true, isStale: false })
+      ;(useServiceCall as any).mockReturnValue({
+        loading: false,
+        error: 'Service call failed',
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
+        clearError: mockClearError,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="row" />)
+
+      await userEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(mockClearError).toHaveBeenCalled()
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'cover',
+        service: 'toggle',
+        entityId: 'cover.test_cover',
+      })
     })
 
     it('shows loading state during service calls', () => {
