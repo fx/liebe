@@ -160,6 +160,44 @@ gh issue view <issue-number>
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
 
+5. **The e2e stack when Docker is not running**
+
+   `npm run e2e:ha:up` needs the Docker daemon, which is not always up in a fresh workspace — `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. Unlike the dev server, this one you may start yourself:
+
+   ```bash
+   sudo service docker start
+   ```
+
+   If the daemon then answers only under `sudo` (`permission denied` on the socket), the invoking user is not in the `docker` group:
+
+   ```bash
+   sudo usermod -aG docker "$USER"
+   ```
+
+   That takes effect on the next login, so it does **not** fix shells already running — and each tool-invoked command is a fresh shell that still inherits the old group set. Until the session is re-established, wrap the command instead of re-running the `usermod`:
+
+   ```bash
+   sg docker -c 'npm run e2e:ha:up'
+   sg docker -c 'npm run e2e'
+   ```
+
+   Do not `chmod` the socket to work around this: `/var/run/docker.sock` is root-equivalent, and widening it trades a two-word prefix for a real privilege change.
+
+   The stack is **shared across worktrees** — one Home Assistant container serving whichever `dist/` was last mounted. Before running Playwright, rebuild and bring it up from your own worktree, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before.
+
+6. **Playwright's own two prerequisites**
+
+   A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
+
+   ```bash
+   npx playwright install chromium                        # Executable doesn't exist at …
+   sudo env "PATH=$PATH" npx playwright install-deps chromium
+   ```
+
+   The second is worth knowing by its symptom rather than its cause. Without the system libraries, Chromium dies on `libnspr4.so` and Playwright reports `browserType.launch: Target page, context or browser has been closed` — which names neither a missing package nor the command that installs it, and reads like a bug in the test.
+
+   `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
+
 ### Completing a Task
 
 1. **Pre-commit Checklist**
