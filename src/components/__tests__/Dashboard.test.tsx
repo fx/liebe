@@ -201,4 +201,28 @@ describe('Dashboard', () => {
       expect(screen.getByText(/No items added yet/)).toBeInTheDocument()
     })
   })
+
+  describe('Stable selector contract', () => {
+    // `liebe-screen` is public API: themes frame the console against it, and
+    // renaming it is a breaking change (docs/specs/theming — "Stable selector
+    // contract"). It marks the surface a screen renders into, which is one
+    // element whatever state the dashboard is in — so it is asserted with a
+    // screen and without one.
+    it('stamps liebe-screen on the surface a screen renders into', () => {
+      dashboardActions.addScreen(createTestScreen({ id: 'contract-1', name: 'Hall' }))
+      dashboardActions.setCurrentScreen('contract-1')
+
+      const { container } = renderWithTheme(<Dashboard />)
+
+      const surface = container.querySelectorAll('.liebe-screen')
+      expect(surface).toHaveLength(1)
+      expect(surface[0]).toContainElement(screen.getByText(/No items added yet/))
+    })
+
+    it('stamps liebe-screen before any screen exists', () => {
+      const { container } = renderWithTheme(<Dashboard />)
+
+      expect(container.querySelectorAll('.liebe-screen')).toHaveLength(1)
+    })
+  })
 })

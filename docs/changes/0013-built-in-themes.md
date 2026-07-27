@@ -53,7 +53,7 @@ The [theming spec](../specs/theming/index.md) owns both themes' token values, pa
 ## Tasks
 
 - [x] **PR 1 — Liquid Glass**: theme asset + registry entry (`both` appearances incl. light variant), gallery + stories, a11y pass, picker perf note
-- [ ] **PR 2 — LCARS**: Antonio asset + OFL license + document-level registration; theme CSS (tokens + scoped rules within contract); gallery + stories; unit tests for dark-forcing and font registration
+- [x] **PR 2 — LCARS**: Antonio asset + OFL license + document-level registration; theme CSS (tokens + scoped rules within contract); gallery + stories; unit tests for dark-forcing and font registration
 - [ ] **PR 3 — E2E + cleanup**: per-theme e2e smoke; update design-system/theming spec statuses + changelogs
 
 ## Out of Scope

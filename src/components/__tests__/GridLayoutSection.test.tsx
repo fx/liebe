@@ -142,6 +142,18 @@ describe('GridLayoutSection', () => {
     expect((positionStrategyCapture.current as { type?: string }).type).not.toBe('transform')
   })
 
+  it('stamps liebe-section on the measured container', () => {
+    // Public API: themes frame a section against this class, and renaming it is
+    // a breaking change (docs/specs/theming — "Stable selector contract"). It
+    // belongs on the element that holds the grid, which is also the element
+    // whose width the grid is laid out against — so the two cannot drift apart.
+    const { container } = render(<GridLayoutSection {...defaultProps} />)
+
+    const section = container.querySelector('.liebe-section')
+    expect(section).toBeInTheDocument()
+    expect(section).toContainElement(screen.getByTestId('grid-layout'))
+  })
+
   it('renders grid items with correct layout', () => {
     render(<GridLayoutSection {...defaultProps} />)
 
