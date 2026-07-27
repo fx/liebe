@@ -37,7 +37,7 @@
 | 0015 | [History & Forecast Data Pipeline](changes/0015-history-and-forecast-data.md)        | [Entity State](specs/entity-state/)         | complete | 0014             |
 | 0016 | [Light Card to Spec](changes/0016-light-card-to-spec.md)                             | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
 | 0017 | [Climate Card to Spec](changes/0017-climate-card-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
-| 0018 | [Sensor Cards to Spec](changes/0018-sensor-cards-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014, 0015 |
+| 0018 | [Sensor Cards to Spec](changes/0018-sensor-cards-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014, 0015 |
 | 0019 | [Cover & Fan Cards to Spec](changes/0019-cover-fan-cards-to-spec.md)                 | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
 | 0020 | [Weather Card to Spec](changes/0020-weather-card-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014, 0015 |
 | 0021 | [Camera Presentation Options](changes/0021-camera-presentation-options.md)           | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |

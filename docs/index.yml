@@ -172,7 +172,7 @@ changes:
     path: changes/0018-sensor-cards-to-spec.md
     description: Sensor and binary sensor domain options — precision/unit overrides, history-backed sparklines and graphs, trend indicator, binary label/invert and alert-class coloring
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014', '0015']
   - id: '0019'
     name: cover-fan-cards-to-spec
