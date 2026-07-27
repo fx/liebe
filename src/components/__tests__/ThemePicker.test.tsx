@@ -87,8 +87,10 @@ describe('theme picker', () => {
   })
 
   describe('a stored theme this build does not have', () => {
-    // The id a newer Liebe wrote, or one dropped between versions.
-    const UNKNOWN_ID = 'lcars'
+    // The id a newer Liebe wrote, or one dropped between versions. Not an id
+    // this project plans to ship: when this was `lcars`, the whole describe
+    // stopped testing anything the day LCARS was registered.
+    const UNKNOWN_ID = 'from-a-newer-liebe'
 
     beforeEach(() => {
       dashboardStore.setState((state) => ({ ...state, theme: { ...state.theme, id: UNKNOWN_ID } }))
@@ -117,8 +119,8 @@ describe('theme picker', () => {
       await screen.findByRole('menuitemradio', { name: 'Default' })
 
       // Displaying the fallback must not write it: the same configuration
-      // opened on the build that has `lcars` has to get `lcars` back, which is
-      // the whole point of exporting it.
+      // opened on the build that does have this theme has to get its id back,
+      // which is the whole point of exporting it.
       expect(dashboardStore.state.theme.id).toBe(UNKNOWN_ID)
     })
 

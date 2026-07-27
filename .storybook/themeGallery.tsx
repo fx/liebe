@@ -121,6 +121,46 @@ export interface ThemeGalleryProps {
    * once use it to name each pane.
    */
   title?: string
+  /**
+   * How many `liebe-section` blocks to spread the cards across. One by default,
+   * which is what a screen renders today.
+   *
+   * More than one exists for the themes that style sections as a series — LCARS
+   * alternates its bar colours and numbers each section from a CSS counter, and
+   * neither is reviewable against a single section.
+   */
+  sections?: number
+}
+
+/**
+ * The tiles split into `count` roughly equal, contiguous groups.
+ *
+ * The count is normalised rather than trusted: it reaches here from a story
+ * arg, and a zero or a fraction would divide the tile list into no sections at
+ * all — a gallery that renders nothing, which reads as a broken theme rather
+ * than as a bad argument. It is clamped at the top end for the mirror-image
+ * reason: a Storybook control can be dragged to any number, and more sections
+ * than there are tiles would stamp empty `.liebe-section` blocks — a frame
+ * around nothing, and arbitrarily much of it.
+ *
+ * The remainder is spread across the leading sections rather than piled into
+ * the last one, so no section comes out empty at any count within the clamp.
+ * Eleven tiles across three sections is 4/4/3, which is what the LCARS
+ * section-frame story has always rendered.
+ */
+function tileSections(count: number): GalleryTile[][] {
+  const tiles = galleryTiles()
+  const requested = Number.isFinite(count) ? Math.floor(count) : 1
+  // `|| 1` keeps the floor at one section if the tile list is ever empty:
+  // one empty frame, rather than no render and a division by zero.
+  const sections = Math.max(1, Math.min(requested, tiles.length || 1))
+  const perSection = Math.floor(tiles.length / sections)
+  const remainder = tiles.length % sections
+
+  return Array.from({ length: sections }, (_, index) => {
+    const start = index * perSection + Math.min(index, remainder)
+    return tiles.slice(start, start + perSection + (index < remainder ? 1 : 0))
+  })
 }
 
 /**
@@ -131,40 +171,59 @@ export interface ThemeGalleryProps {
  * allowed to make the wallpaper a gradient and Liquid Glass does. Without this
  * the cards would float on the preview's flat backdrop and the whole point of a
  * glass theme (what is behind the glass) would be invisible.
+ *
+ * The two structural hooks of the stable selector contract are stamped here the
+ * way the panel stamps them — `liebe-screen` on the surface a screen renders
+ * into (`Dashboard`), `liebe-section` on the container of its cards
+ * (`GridLayoutSection`) — so a theme that frames the console (LCARS) is
+ * reviewable in the workshop rather than only in a running panel. Themes that
+ * write no rule against them, which is Default and Liquid Glass, render exactly
+ * as they did before the hooks existed.
+ *
+ * The gallery's own padding sits on the inner stack rather than on the screen,
+ * because an inline declaration outranks every cascade layer: on the screen
+ * element it would silently eat the gutter a theme reserves for its frame. It is
+ * a literal rather than `--liebe-card-padding` for the same reason — the inset
+ * is the gallery's own chrome, and a theme that pads its cards generously (LCARS
+ * pads a card's left edge to clear its colour cap) should not have that inset
+ * repeated around the whole screenful. 14px is what the token resolves to under
+ * both `both`-appearance themes, so the existing galleries are unchanged.
  */
-export function ThemeGallery({ title }: ThemeGalleryProps) {
+export function ThemeGallery({ title, sections = 1 }: ThemeGalleryProps) {
   const { gapX } = gridCellSize(1, 1)
 
   return (
-    <Flex
-      direction="column"
-      gap="3"
-      style={{
-        background: 'var(--liebe-bg)',
-        borderRadius: 'var(--liebe-card-radius)',
-        color: 'var(--liebe-fg)',
-        padding: 'var(--liebe-card-padding)',
-      }}
+    <div
+      className="liebe-screen"
+      style={{ background: 'var(--liebe-bg)', borderRadius: 'var(--liebe-card-radius)' }}
     >
-      {title ? (
-        <Heading as="h2" size="4">
-          {title}
-        </Heading>
-      ) : null}
-      <Flex
-        wrap="wrap"
-        align="start"
-        style={{ '--liebe-grid-gap': `${gapX}px`, gap: gapX } as CSSProperties}
-      >
-        {galleryTiles().map((tile) => (
-          <GalleryCell key={tile.entity.entity_id} {...tile} />
+      <Flex direction="column" gap="3" style={{ color: 'var(--liebe-fg)', padding: '14px' }}>
+        {title ? (
+          <Heading as="h2" size="4">
+            {title}
+          </Heading>
+        ) : null}
+        {tileSections(sections).map((tiles, index) => (
+          <Flex
+            // Sections have no identity of their own — they are a slice of one
+            // fixed list, in a fixed order, and never reorder.
+            key={index}
+            className="liebe-section"
+            wrap="wrap"
+            align="start"
+            style={{ '--liebe-grid-gap': `${gapX}px`, gap: gapX } as CSSProperties}
+          >
+            {tiles.map((tile) => (
+              <GalleryCell key={tile.entity.entity_id} {...tile} />
+            ))}
+          </Flex>
         ))}
+        <Text size="1" style={{ color: 'var(--liebe-muted)' }}>
+          Cards are dispatched through the real card registry and read the entity store, so this is
+          the panel&rsquo;s own rendering under the theme selected in the toolbar.
+        </Text>
       </Flex>
-      <Text size="1" style={{ color: 'var(--liebe-muted)' }}>
-        Cards are dispatched through the real card registry and read the entity store, so this is
-        the panel&rsquo;s own rendering under the theme selected in the toolbar.
-      </Text>
-    </Flex>
+    </div>
   )
 }
 

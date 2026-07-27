@@ -168,11 +168,25 @@ describe('baseline stylesheets', () => {
   // `liebe-base` is one component a theme and user CSS cannot restyle
   // (docs/specs/theming — "Application mechanism"). The vendored sheets cannot
   // be authored, and are wrapped at build time by vite/baselineCssPlugin.ts.
-  const sheets = globSync('src/**/*.css', { cwd: process.cwd() }).sort()
+  //
+  // Document-level font registrations are the one exception, and not an
+  // exemption: they are never injected into a layered root at all. A theme's
+  // `@font-face` rules go into the OWNING document (a shadow root does not load
+  // a face declared inside it), where there is no `liebe-base` to belong to and
+  // nothing for a layer to order them against — see
+  // `src/theme/fontRegistration.ts`.
+  const FONT_SHEETS = ['src/theme/themes/lcars.fonts.css']
+  const allSheets = globSync('src/**/*.css', { cwd: process.cwd() }).sort()
+  const sheets = allSheets.filter((sheet) => !FONT_SHEETS.includes(sheet))
 
   it('finds the sheets to check', () => {
     // Guards the assertion below against a glob that silently matches nothing.
     expect(sheets.length).toBeGreaterThan(5)
+    // And against the exclusion list drifting: every name on it has to be a
+    // sheet that actually exists, or it is quietly exempting nothing — or, if
+    // one is deleted and the entry stays, quietly exempting the wrong thing
+    // later.
+    expect(allSheets).toEqual(expect.arrayContaining(FONT_SHEETS))
   })
 
   it.each(sheets)('%s puts all of its CSS inside a cascade layer', (sheet) => {

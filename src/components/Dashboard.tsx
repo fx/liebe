@@ -80,8 +80,16 @@ export function Dashboard() {
         <SidebarWidgets />
       </Sidebar>
 
-      {/* Content Area */}
+      {/*
+        Content Area — the screen surface, and the `liebe-screen` structural
+        hook of the stable selector contract (docs/specs/theming —
+        "Stable selector contract"). This is the element one screen renders
+        into: it scrolls the screen's grid, and it is the same element whether
+        the screen has items, has none, or has not been created yet. A theme
+        that frames the console draws that frame here (LCARS does).
+      */}
       <Box
+        className="liebe-screen"
         style={{
           flex: 1,
           overflow: 'auto',

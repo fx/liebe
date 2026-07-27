@@ -6,11 +6,13 @@ import {
   enterCameraFullscreen,
   exitCameraFullscreen,
 } from '~/store/cameraFullscreenStore'
+import { FONT_STYLE_SLOT } from '~/theme/fontRegistration'
 import { THEME_STYLE_SLOT, USER_STYLE_SLOT } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getTheme } from '~/theme/themeRegistry'
 
 const THEME_STYLE_SELECTOR = `style[data-liebe="${THEME_STYLE_SLOT}"]`
 const USER_STYLE_SELECTOR = `style[data-liebe="${USER_STYLE_SLOT}"]`
+const FONT_STYLE_SELECTOR = `style[data-liebe="${FONT_STYLE_SLOT}"]`
 
 function getRootTheme(container: HTMLElement): HTMLElement {
   return container.querySelector('[data-is-root-theme="true"]') as HTMLElement
@@ -23,7 +25,7 @@ describe('LiebeThemeProvider', () => {
 
   afterEach(() => {
     document.head
-      .querySelectorAll(`${THEME_STYLE_SELECTOR}, ${USER_STYLE_SELECTOR}`)
+      .querySelectorAll(`${THEME_STYLE_SELECTOR}, ${USER_STYLE_SELECTOR}, ${FONT_STYLE_SELECTOR}`)
       .forEach((style) => style.remove())
   })
 
@@ -116,6 +118,41 @@ describe('LiebeThemeProvider', () => {
     const style = document.head.querySelector(THEME_STYLE_SELECTOR)
     expect(style?.textContent).toBe(getTheme(DEFAULT_THEME_ID)!.css)
     expect(getRootTheme(container).getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
+  })
+
+  it('registers a bundled typeface at the document level', () => {
+    // The theme layer goes into the tree's own root — a shadow root in the
+    // panel — and a shadow root does not load `@font-face` declared inside it.
+    // So the face has to be registered in the owning document instead, which is
+    // the provider's job because it is the only place that knows both which
+    // theme is active and which document the tree is in.
+    const { rerender } = render(
+      <LiebeThemeProvider themeId={DEFAULT_THEME_ID}>
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    // The Default theme bundles nothing, so nothing is registered for it.
+    expect(document.head.querySelector(FONT_STYLE_SELECTOR)).toBeNull()
+
+    rerender(
+      <LiebeThemeProvider themeId="lcars">
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const registration = document.head.querySelector(FONT_STYLE_SELECTOR)
+    expect(registration?.getAttribute('data-liebe-theme')).toBe('lcars')
+    expect(registration?.textContent).toContain('Antonio')
+
+    // Switching away leaves it: an unused face costs nothing, while removing
+    // and re-adding one would drop the loaded font and fetch it again.
+    rerender(
+      <LiebeThemeProvider themeId={DEFAULT_THEME_ID}>
+        <span />
+      </LiebeThemeProvider>
+    )
+    expect(document.head.querySelectorAll(FONT_STYLE_SELECTOR)).toHaveLength(1)
   })
 
   it('injects sanitized custom CSS as the user layer', () => {

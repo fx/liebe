@@ -1,0 +1,71 @@
+/*
+ * Antonio — the bundled typeface LCARS renders in.
+ *
+ * WHY THIS IS A SEPARATE SHEET FROM `lcars.css`
+ * ---------------------------------------------
+ * `@font-face` does not work inside a shadow root: a font declared in a sheet
+ * that lives in the shadow tree is never loaded, so the panel's whole theme
+ * layer — which is injected there — is the one place these rules may NOT go
+ * (docs/specs/theming/index.md, "Application mechanism"). This sheet is
+ * therefore registered at the DOCUMENT level instead, by
+ * `src/theme/fontRegistration.ts`, while `lcars.css` keeps doing what every
+ * theme payload does and merely *names* the family in `--liebe-font-family`.
+ *
+ * It is still data rather than code, like the rest of a theme record: the
+ * registrar substitutes the asset base and injects the text, and knows nothing
+ * about Antonio.
+ *
+ * `__LIEBE_ASSET_BASE_URL__` is a placeholder, replaced at registration time
+ * with the directory the panel was served from (`src/panel.ts` publishes it on
+ * `window`). It cannot be a relative URL: a `url()` in an injected `<style>`
+ * resolves against the *document*, not against this file, and the panel's
+ * document is Home Assistant's — so `./fonts/…` would resolve against the HA
+ * frontend's root and 404.
+ *
+ * OFFLINE
+ * -------
+ * The files are bundled, not fetched from a webfont CDN: Home Assistant
+ * installs are frequently LAN-only, so a `fonts.gstatic.com` reference would
+ * simply fail for a large share of users (docs/changes/0013-built-in-themes.md,
+ * "Both themes MUST work offline with no external fetches").
+ *
+ * PROVENANCE AND LICENCE
+ * ----------------------
+ * Antonio (v22) by The Antonio Project Authors, under the SIL Open Font
+ * License 1.1 — which permits redistribution and requires the licence to travel
+ * with the font. It does: `public/fonts/antonio/OFL.txt`, alongside the two
+ * woff2 subsets, exactly as the change document requires.
+ *
+ * The two subsets and their `unicode-range`s are Google Fonts' own split, kept
+ * as-is: a browser downloads `latin-ext` only when a dashboard actually renders
+ * a character from it, so the common case pays for one 26kB file.
+ *
+ * `font-display: swap` renders the fallback immediately and swaps Antonio in
+ * when it arrives — a dashboard is glanceable furniture, and blank text on a
+ * wall tablet is worse than text in the wrong face for one frame.
+ */
+
+/* latin-ext */
+@font-face {
+  font-family: 'Antonio';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url('__LIEBE_ASSET_BASE_URL__fonts/antonio/antonio-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+  font-family: 'Antonio';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url('__LIEBE_ASSET_BASE_URL__fonts/antonio/antonio-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

@@ -9,9 +9,13 @@ import {
   type ThemeDefinition,
 } from '../themeRegistry'
 
+// Stand-ins for the two single-appearance shapes, deliberately NOT the
+// registered LCARS record: these exercise the resolution functions against the
+// type, and reusing a real theme would make them assert the registry twice
+// instead.
 const darkOnly: ThemeDefinition = {
-  id: 'lcars',
-  label: 'LCARS',
+  id: 'midnight',
+  label: 'Midnight',
   appearances: 'dark-only',
   css: '',
 }
@@ -34,6 +38,16 @@ describe('themeRegistry', () => {
         // The picker's `backdrop-filter` warning for low-end tablets, which the
         // theming spec requires to be surfaced at the point of choice.
         note: expect.stringMatching(/blur/i),
+      },
+      {
+        id: 'lcars',
+        label: 'LCARS',
+        // The only single-appearance theme, and the only one that bundles a
+        // typeface — the two facts the picker and the font registrar read off
+        // the record rather than off the theme's id.
+        appearances: 'dark-only',
+        css: expect.any(String),
+        fontFaces: expect.stringContaining('@font-face'),
       },
     ])
   })
@@ -94,13 +108,15 @@ describe('themeRegistry', () => {
     })
 
     it('falls back to Default for an id this build does not have', () => {
-      // A configuration imported from a newer Liebe still has to render.
-      expect(getThemeOrDefault('lcars')).toBe(getTheme(DEFAULT_THEME_ID))
+      // A configuration imported from a newer Liebe still has to render. The id
+      // is deliberately not a theme this project plans to ship — using a
+      // planned one here made the assertion evaporate the day it shipped.
+      expect(getThemeOrDefault('from-a-newer-liebe')).toBe(getTheme(DEFAULT_THEME_ID))
     })
   })
 
   it('returns undefined for an unregistered id', () => {
-    expect(getTheme('lcars')).toBeUndefined()
+    expect(getTheme('from-a-newer-liebe')).toBeUndefined()
   })
 
   describe('resolveAppearance', () => {

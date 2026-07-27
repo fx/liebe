@@ -6,8 +6,12 @@ const config: StorybookConfig = {
   // (spec: "the a11y addon MUST run on all stories").
   addons: ['@storybook/addon-a11y'],
   // Mock assets the stories serve to themselves (camera frames), so no story
-  // depends on network access.
-  staticDirs: ['./public'],
+  // depends on network access — plus the panel's own `public/`, which is where
+  // bundled assets resolved through `__LIEBE_ASSET_BASE_URL__` live (LCARS's
+  // Antonio woff2, the weather backgrounds). The workshop publishes them at the
+  // same paths the built panel does, so a theme that loads a bundled font
+  // renders in the workshop exactly as it will in Home Assistant.
+  staticDirs: ['./public', '../public'],
   framework: {
     name: '@storybook/react-vite',
     options: {

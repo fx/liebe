@@ -14,6 +14,8 @@
  */
 
 import defaultThemeCss from './themes/default.css?raw'
+import lcarsFontFaces from './themes/lcars.fonts.css?raw'
+import lcarsThemeCss from './themes/lcars.css?raw'
 import liquidGlassThemeCss from './themes/liquidGlass.css?raw'
 
 /** Appearances a theme is able to render in. */
@@ -47,6 +49,17 @@ export interface ThemeDefinition {
    * change. Absent when a theme has nothing to warn about.
    */
   note?: string
+  /**
+   * `@font-face` rules for a typeface this theme bundles, registered at the
+   * DOCUMENT level rather than injected with `css`.
+   *
+   * Separate from the payload because a shadow root does not load `@font-face`
+   * declared inside it, and the payload goes into the shadow root — see
+   * `src/theme/fontRegistration.ts`, which is what turns this text into a
+   * registration and substitutes the asset base into its `url()`s. Absent when
+   * a theme uses whatever the system provides.
+   */
+  fontFaces?: string
 }
 
 export const DEFAULT_THEME_ID = 'default'
@@ -68,6 +81,16 @@ const builtInThemes: readonly ThemeDefinition[] = Object.freeze([
     appearances: 'both',
     css: liquidGlassThemeCss,
     note: 'Frosted blur is GPU-heavy on low-end tablets',
+  }),
+  Object.freeze<ThemeDefinition>({
+    id: 'lcars',
+    label: 'LCARS',
+    // Black ground, black card, black glyphs on colour blocks: there is no
+    // light variant of an okudagram console, so the appearance control shows
+    // dark as forced rather than offering a choice the theme cannot honour.
+    appearances: 'dark-only',
+    css: lcarsThemeCss,
+    fontFaces: lcarsFontFaces,
   }),
 ])
 

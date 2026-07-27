@@ -1,0 +1,460 @@
+/*
+ * LCARS — a dark-only okudagram console.
+ *
+ * The theming system's stress test. Where Liquid Glass proves a theme can be
+ * nothing but tokens, LCARS proves the other end: a total reskin — different
+ * palette, different typeface, different card silhouette, a framed console
+ * shell — expressed as token overrides plus rules that touch ONLY the
+ * documented stable selectors (docs/specs/theming/index.md, "Stable selector
+ * contract" and "Built-in theme: LCARS"). Every rule below is keyed off one of
+ * `liebe-screen`, `liebe-section`, `liebe-card`, `liebe-icon`, `liebe-pill`,
+ * `liebe-chip`, `liebe-slider`, `liebe-value`, or the `data-color` /
+ * `data-active` attributes. Nothing here names an internal class, and if a card
+ * refactor ever breaks this theme, that is a contract violation rather than a
+ * theme bug.
+ *
+ * WHERE IT DECLARES
+ * -----------------
+ * Tokens on `.radix-themes`, the root the base layer declares them on — a
+ * derived companion (`-tint`) only re-derives where its base is overridden on
+ * the SAME element (src/styles/tokens.css). Deliberately NOT under the dark
+ * selector: LCARS is `dark-only` and the engine forces the appearance, but a
+ * nested `<Theme appearance="light">` inside the panel would otherwise put the
+ * base layer's light surfaces back under LCARS's palette. On black, in every
+ * subtree, always.
+ *
+ * THE PALETTE
+ * -----------
+ * The classic okudagram set, from the spec's reference table, kept as
+ * theme-private `--lcars-*` properties so a hue is named once and the domain
+ * mapping below reads as a mapping. They are not contract: nothing outside this
+ * file may rely on them.
+ *
+ * Domain mapping is the spec's: light→barley, heat→orange, cool→bluey,
+ * ok→african-violet, alert→mars, media→true-mauve, vacuum→lilac. The spec's
+ * table stops there, but this theme also remaps `water`, `default` and `brand`,
+ * which is a deliberate extension for a measured reason: LCARS renders active
+ * parts as solid blocks of the domain hue, and the base layer's leftover Radix
+ * step 9s do not survive that treatment — `--blue-9` (the `default` triplet,
+ * i.e. every switch, outlet and input helper) measures 4.08:1 against black,
+ * under the 4.5:1 a label on it needs. Three Radix hues adrift in an okudagram
+ * palette would also simply look like a bug.
+ *
+ * EVERY `-text` COMPANION IS PINNED
+ * ---------------------------------
+ * Required of every theme: the base layer derives `-text` from the base hue,
+ * which carries no text contrast on any ground, so a theme that leaves it
+ * derived ships unreadable state text (docs/specs/design-system/index.md —
+ * "every theme MUST pin all ten"). Here each `-text` is pinned to its own hue,
+ * which is both the authentic okudagram look and safe: measured against the
+ * black card, the whole palette runs 5.05:1 (lilac) to 13.27:1 (almond-creme),
+ * so the tightest domain still clears the 4.5:1 floor. The tints stay derived,
+ * as under Liquid Glass, so user CSS remapping a base still recolours its
+ * surface with it.
+ *
+ * TYPEFACE
+ * --------
+ * Antonio, bundled and registered at the DOCUMENT level — a shadow root does
+ * not load `@font-face` declared inside it, so the rules live in
+ * `lcars.fonts.css` and are injected by `src/theme/fontRegistration.ts`. All
+ * this sheet does is name the family in the typography tokens, which is enough
+ * to reach every text surface including portalled overlays.
+ *
+ * WHAT IS NOT HERE, AND WHY
+ * -------------------------
+ * The spec's section frames call for per-section title bars — a title bar with
+ * a concave inner fillet, alternating bar colours, counter-generated code
+ * labels. Two of the three arrive below on `liebe-section`; the fillet and the
+ * title itself need `liebe-section-title`, which is still stamped nowhere in
+ * the markup (see the selector contract's "Outstanding" note). The frame this
+ * theme draws is therefore the screen's — a rail and an elbow — plus a bar per
+ * section, and it gains its title the day a section renders one.
+ *
+ * The ten-way `data-color` → hue mapping below is a restatement of one the base
+ * layer already does. It has to be: the anatomy resolves the attribute onto
+ * `--part-color` / `--part-tint` / `--part-text`, and those are internal
+ * plumbing the anatomy sheet reserves the right to rename, so a theme that read
+ * them would be relying on something outside the contract.
+ *
+ * Controls are solid blocks with a black glyph on the icon circle, but pill and
+ * chip LABELS keep the neutral foreground rather than going black with the
+ * glyph as the spec describes. That is not a choice: the base layer pins those
+ * labels to `--liebe-fg` / `--liebe-muted` through `liebe-pill-label` /
+ * `liebe-chip-label`, which are internal class names a theme may not target, so
+ * a solid saturated fill under them would be pale-on-pale. The pills and chips
+ * below therefore take a dark block of their hue, which the neutral label
+ * clears. It is a contract gap, reported with the change rather than worked
+ * around here.
+ *
+ * OFFLINE
+ * -------
+ * The only `url()` in the theme is in the font sheet, and it resolves to a
+ * bundled asset. Nothing here fetches from a third-party host, so LCARS works
+ * on a LAN-only Home Assistant install.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-theme {
+  :where(.radix-themes) {
+    /* --- The okudagram palette (theme-private, not contract) ---------- */
+    --lcars-black: #000;
+    --lcars-butterscotch: #ea9c72;
+    --lcars-almond: #d29b7f;
+    --lcars-almond-creme: #fcc19f;
+    --lcars-barley: #edb378;
+    --lcars-african-violet: #baa4e5;
+    --lcars-lilac: #8a72a7;
+    --lcars-bluey: #8899ff;
+    --lcars-orange: #eb943a;
+    --lcars-mars: #ff2200;
+    --lcars-true-mauve: #c082a9;
+
+    /* --- Geometry ------------------------------------------------------
+     *
+     * The card silhouette is the spec's: a deep left radius squared off on the
+     * right, so a row of cards reads as a row of okudagram blocks. The padding
+     * is a four-value shorthand — the token accepts one — whose left inset is
+     * what clears the 18px colour cap the card rule paints below.
+     */
+    --liebe-card-radius: 24px 4px 4px 24px;
+    --liebe-card-padding: 12px 12px 12px 32px;
+    --liebe-control-radius: 4px;
+    /* Icon "circles" are blocks here, like every other LCARS surface. The
+       token also rounds the chip's leading dot and the sparkline endpoint,
+       which follow it into the same softened square. */
+    --liebe-circle-radius: 8px;
+
+    /* --- Surfaces ------------------------------------------------------
+     *
+     * Ground and card are both pure black: an LCARS console has no elevation
+     * steps, the frame and the colour blocks do all the separating. Which is
+     * also why the border, blur and shadow tokens are all off.
+     */
+    --liebe-bg: var(--lcars-black);
+    --liebe-card-bg: var(--lcars-black);
+    --liebe-card-border: none;
+    --liebe-card-blur: none;
+    --liebe-card-shadow: none;
+
+    /* Text runs the almond ramp: creme for primary, almond for supporting,
+       and a dimmed almond for the faint tier. */
+    --liebe-fg: var(--lcars-almond-creme);
+    --liebe-muted: var(--lcars-almond);
+    --liebe-faint: color-mix(in srgb, var(--lcars-almond) 66%, var(--lcars-black));
+    --liebe-hairline: color-mix(in srgb, var(--lcars-butterscotch) 40%, var(--lcars-black));
+    /*
+     * Transparent, because the slider rule below paints the tick-marked gauge
+     * on the slider itself and the track sits over it. The one thing that reads
+     * this token is that track (src/components/anatomy/anatomy.css).
+     */
+    --liebe-track: transparent;
+
+    /* --- Typography ----------------------------------------------------
+     *
+     * Antonio with a condensed system fallback, so a dashboard rendered before
+     * the woff2 arrives (or on an install whose assets are missing) is still
+     * narrow and still uppercase rather than reflowing twice.
+     */
+    --liebe-font-family: 'Antonio', 'Arial Narrow', 'Helvetica Neue Condensed', sans-serif;
+    --liebe-font-numeric: var(--liebe-font-family);
+    --liebe-text-transform: uppercase;
+    --liebe-letter-spacing: 0.08em;
+
+    /* --- Domain colours ------------------------------------------------
+     *
+     * Base and text pinned per triplet; tints left derived. See the header for
+     * why `water` / `default` / `brand` are remapped beyond the spec's table.
+     */
+    --liebe-c-light: var(--lcars-barley);
+    --liebe-c-light-text: var(--lcars-barley);
+
+    --liebe-c-heat: var(--lcars-orange);
+    --liebe-c-heat-text: var(--lcars-orange);
+
+    --liebe-c-cool: var(--lcars-bluey);
+    --liebe-c-cool-text: var(--lcars-bluey);
+
+    --liebe-c-ok: var(--lcars-african-violet);
+    --liebe-c-ok-text: var(--lcars-african-violet);
+
+    --liebe-c-alert: var(--lcars-mars);
+    --liebe-c-alert-text: var(--lcars-mars);
+
+    --liebe-c-media: var(--lcars-true-mauve);
+    --liebe-c-media-text: var(--lcars-true-mauve);
+
+    --liebe-c-vacuum: var(--lcars-lilac);
+    --liebe-c-vacuum-text: var(--lcars-lilac);
+
+    --liebe-c-water: var(--lcars-bluey);
+    --liebe-c-water-text: var(--lcars-bluey);
+
+    --liebe-c-default: var(--lcars-butterscotch);
+    --liebe-c-default-text: var(--lcars-butterscotch);
+
+    --liebe-c-brand: var(--lcars-almond);
+    --liebe-c-brand-text: var(--lcars-almond);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The domain hue, re-derived for the theme's own rules
+   *
+   * The anatomy resolves `data-color` onto `--part-color` / `--part-tint` /
+   * `--part-text` and styles itself from those — but those three are internal
+   * plumbing the anatomy sheet is explicit about being free to change, so a
+   * theme may not read them. The contract a theme gets is the attribute itself
+   * plus the `--liebe-c-*` tokens, so the mapping is restated here under a
+   * theme-private name. Ten rules, one per triplet, mirroring the base layer's.
+   *
+   * It inherits like `--part-color` does, which is what lets a rule below use
+   * the hue of whichever part it matched without knowing which one that is.
+   * ------------------------------------------------------------------ */
+
+  [data-color='light'] {
+    --lcars-hue: var(--liebe-c-light);
+  }
+
+  [data-color='heat'] {
+    --lcars-hue: var(--liebe-c-heat);
+  }
+
+  [data-color='cool'] {
+    --lcars-hue: var(--liebe-c-cool);
+  }
+
+  [data-color='ok'] {
+    --lcars-hue: var(--liebe-c-ok);
+  }
+
+  [data-color='alert'] {
+    --lcars-hue: var(--liebe-c-alert);
+  }
+
+  [data-color='media'] {
+    --lcars-hue: var(--liebe-c-media);
+  }
+
+  [data-color='vacuum'] {
+    --lcars-hue: var(--liebe-c-vacuum);
+  }
+
+  [data-color='water'] {
+    --lcars-hue: var(--liebe-c-water);
+  }
+
+  [data-color='default'] {
+    --lcars-hue: var(--liebe-c-default);
+  }
+
+  [data-color='brand'] {
+    --lcars-hue: var(--liebe-c-brand);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The console frame — `liebe-screen`
+   *
+   * The screen is the panel's scroll surface, so the frame belongs to it: an
+   * elbow across the top and a segmented rail down the left, both drawn into
+   * padding the screen reserves for them. Nothing inside the screen moves
+   * relative to anything else — the grid measures its own box, which is a
+   * child of this one — so the frame costs the layout only its own gutter.
+   * ------------------------------------------------------------------ */
+
+  .liebe-screen {
+    counter-reset: liebe-section;
+    padding-block-start: 34px;
+    padding-inline-start: 26px;
+    position: relative;
+    /* An LCARS console colours its own chrome. */
+    scrollbar-color: var(--lcars-butterscotch) var(--lcars-black);
+    scrollbar-width: thin;
+  }
+
+  /*
+   * The rail: colour blocks separated by 4px of black, ending in a pill cap.
+   * The block sizes are deliberately uneven — an okudagram rail is a rhythm,
+   * not a stripe pattern — and the sequence repeats down however tall the
+   * screen is.
+   */
+  .liebe-screen::before {
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--lcars-butterscotch) 0 76px,
+      var(--lcars-black) 76px 80px,
+      var(--lcars-lilac) 80px 132px,
+      var(--lcars-black) 132px 136px,
+      var(--lcars-african-violet) 136px 172px,
+      var(--lcars-black) 172px 176px,
+      var(--lcars-almond) 176px 260px,
+      var(--lcars-black) 260px 264px
+    );
+    border-end-end-radius: 7px;
+    border-end-start-radius: 7px;
+    content: '';
+    inline-size: 14px;
+    inset-block: 34px 0;
+    inset-inline-start: 6px;
+    position: absolute;
+  }
+
+  /*
+   * The elbow: the top bar, curved into the head of the rail on the outside
+   * and capped as a pill at the far end. The 40px outer radius the spec asks
+   * for is the corner where bar meets rail; the bar is 22px tall, so the
+   * browser scales that radius to the box, which is what produces the
+   * quarter-round elbow rather than a circle.
+   */
+  .liebe-screen::after {
+    background: var(--lcars-butterscotch);
+    block-size: 22px;
+    border-end-end-radius: 11px;
+    border-end-start-radius: 0;
+    border-start-end-radius: 11px;
+    border-start-start-radius: 40px;
+    content: '';
+    inset-block-start: 6px;
+    inset-inline: 6px 0;
+    position: absolute;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Section bars — `liebe-section`
+   *
+   * One bar per section, in alternating palette colours, carrying the
+   * counter-generated code label the spec asks for. A screen renders a single
+   * section today, so the alternation and the counter are mostly latent; both
+   * are written against the hook rather than against that fact.
+   * ------------------------------------------------------------------ */
+
+  .liebe-section {
+    counter-increment: liebe-section;
+    padding-block-start: 30px;
+    position: relative;
+  }
+
+  .liebe-section::before {
+    background: var(--lcars-almond);
+    block-size: 20px;
+    border-end-end-radius: 10px;
+    border-end-start-radius: 4px;
+    border-start-end-radius: 10px;
+    border-start-start-radius: 4px;
+    content: '';
+    inset-block-start: 0;
+    inset-inline: 0;
+    position: absolute;
+  }
+
+  .liebe-section:nth-of-type(even)::before {
+    background: var(--lcars-african-violet);
+  }
+
+  /*
+   * The code label, in black on the bar. Decorative: it numbers the section
+   * the way an okudagram panel numbers itself, and carries no information the
+   * dashboard does not already show.
+   */
+  .liebe-section::after {
+    color: var(--lcars-black);
+    content: counter(liebe-section, decimal-leading-zero) '-4077';
+    font-family: var(--liebe-font-family);
+    font-size: 13px;
+    inset-block-start: 2px;
+    inset-inline-end: 14px;
+    letter-spacing: 0.12em;
+    line-height: 18px;
+    position: absolute;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Cards — `liebe-card`
+   *
+   * A black block with a domain-coloured pill cap down its left edge. The cap
+   * is clipped by the card's own radius (the tile sets `overflow: hidden`), so
+   * it takes the 24px left curve without restating it.
+   *
+   * `padding` is redeclared rather than left to the token because the base
+   * layer zeroes it for transparent cards (text cards, the weather variants
+   * that paint their own artwork) — and a later layer wins over an earlier one
+   * whatever the specificity, so this is what keeps their content clear of the
+   * cap.
+   * ------------------------------------------------------------------ */
+
+  .liebe-card {
+    padding: var(--liebe-card-padding);
+  }
+
+  .liebe-card::before {
+    background: var(--lcars-hue, var(--liebe-c-default));
+    content: '';
+    inline-size: 18px;
+    inset-block: 0;
+    inset-inline-start: 0;
+    position: absolute;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Controls
+   *
+   * The icon circle becomes a solid block of the domain hue with a black
+   * glyph, which is the okudagram treatment and clears 5:1 on every hue in the
+   * palette. Pills and chips take a dark block of the same hue instead — see
+   * the header: their labels are pinned to the neutral foreground by the base
+   * layer through internal class names, so a saturated fill under them would
+   * be unreadable and unreachable.
+   * ------------------------------------------------------------------ */
+
+  .liebe-icon,
+  .liebe-pill,
+  .liebe-chip {
+    background: color-mix(in srgb, var(--lcars-almond) 16%, var(--lcars-black));
+    color: var(--liebe-muted);
+  }
+
+  .liebe-icon[data-active] {
+    background: var(--lcars-hue);
+    color: var(--lcars-black);
+  }
+
+  .liebe-pill[data-active],
+  .liebe-chip[data-active] {
+    background: color-mix(in srgb, var(--lcars-hue) 38%, var(--lcars-black));
+    color: var(--lcars-hue);
+  }
+
+  /*
+   * The slider as a tick-marked gauge: the segments are painted on the slider
+   * itself, the track above them is transparent (the `--liebe-track` token),
+   * and the translucent domain fill tints the segments it covers. The leading
+   * edge stays the saturated hue.
+   *
+   * One gradient serves both orientations — `data-orientation` is Radix's
+   * attribute rather than one the selector contract promises, so the theme does
+   * not key off it. On a vertical dimmer the segments run along the bar instead
+   * of across it, which still reads as a segmented gauge.
+   */
+  .liebe-slider {
+    background: repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--lcars-almond) 24%, var(--lcars-black)) 0 14px,
+      var(--lcars-black) 14px 18px
+    );
+    border-radius: var(--liebe-control-radius);
+    overflow: hidden;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Readouts
+   *
+   * Antonio is a condensed display face: at the value's 300 weight it reads as
+   * thin scaffolding rather than as the console's headline number, so the big
+   * readout goes up a weight and loses the tracking the rest of the dashboard
+   * carries (a 30px figure does not need it).
+   * ------------------------------------------------------------------ */
+
+  .liebe-value {
+    font-weight: 500;
+    letter-spacing: normal;
+  }
+}

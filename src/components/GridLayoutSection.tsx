@@ -118,7 +118,20 @@ export function GridLayoutSection({
   }, [])
 
   return (
-    <Box ref={containerRef} style={{ width: '100%' }}>
+    /*
+     * `liebe-section` is the structural hook of the stable selector contract
+     * (docs/specs/theming — "Stable selector contract"): a section of a screen,
+     * which today is the screen's one grid. It goes on the measured container
+     * rather than on a wrapper because that element IS the section — themes
+     * frame it, and `containerRef` proves nothing else stands between it and
+     * the grid.
+     *
+     * A theme framing this element must not give it inline-axis padding or a
+     * border: the `offsetWidth` measured above is the width handed to
+     * react-grid-layout, and it counts both, so either would lay the grid out
+     * wider than the box that holds it. Block-axis space is free.
+     */
+    <Box ref={containerRef} className="liebe-section" style={{ width: '100%' }}>
       <GridLayout
         className="layout"
         layout={layouts}

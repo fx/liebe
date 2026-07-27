@@ -2,6 +2,7 @@ import { Theme } from '@radix-ui/themes'
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useCameraFullscreenActive, CAMERA_FULLSCREEN_Z_INDEX } from '~/store/cameraFullscreenStore'
 import { sanitizeCustomCss } from '~/theme/customCss'
+import { registerThemeFonts } from '~/theme/fontRegistration'
 import { applyThemeCssToRootOf, applyUserCssToRootOf } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from '~/theme/themeRegistry'
 
@@ -75,7 +76,8 @@ export function LiebeThemeProvider({
   // for: an unregistered id falls back to Default, and a stamp naming the
   // missing theme would leave that theme's scoped rules addressing a palette
   // nothing here renders.
-  const { id: activeThemeId, css: themeCss } = getThemeOrDefault(themeId)
+  const activeTheme = getThemeOrDefault(themeId)
+  const { id: activeThemeId, css: themeCss } = activeTheme
 
   // A layout effect, so the theme layer is in the root before the browser
   // paints the tree it styles. The `<style>` is keyed to the root rather than
@@ -85,6 +87,17 @@ export function LiebeThemeProvider({
   useLayoutEffect(() => {
     applyThemeCssToRootOf(themeRoot.current, themeCss)
   }, [themeCss])
+
+  // A theme's bundled typeface goes into the OWNING DOCUMENT, not into the root
+  // the theme layer lands in: a shadow root does not load `@font-face` declared
+  // inside it (docs/specs/theming — "Application mechanism"). `ownerDocument` is
+  // the Home Assistant document in the panel and the preview document in the
+  // workshop, which is the one place both can see. Registration is idempotent
+  // and outlives the switch away, so remounting the panel neither stacks sheets
+  // nor re-fetches the font.
+  useLayoutEffect(() => {
+    registerThemeFonts(activeTheme, themeRoot.current?.ownerDocument)
+  }, [activeTheme])
 
   // Parsing is not free, and the same CSS arrives on every render of every
   // consumer of the store.
