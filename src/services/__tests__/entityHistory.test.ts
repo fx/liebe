@@ -361,8 +361,14 @@ describe('EntityHistoryService', () => {
       const cached = entry()!.samples
       release()
 
+      // A refetch that never resolves: what a consumer sees meanwhile is the
+      // whole point — the cached series, unblanked, with loading alongside it.
+      callWS.mockReturnValueOnce(new Promise<HistoryResponse>(() => {}))
       service.subscribe(ENTITY, 24)
-      expect(entry()?.samples).toEqual(cached)
+      await flush()
+
+      expect(entry()?.samples).toBe(cached)
+      expect(entry()?.isLoading).toBe(true)
     })
 
     it('prunes aged-out samples on resubscribe, keeping one sentinel', async () => {

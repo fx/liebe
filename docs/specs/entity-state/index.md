@@ -244,6 +244,8 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 - **WHEN** the hook resubscribes
 - **THEN** the cached window renders immediately, aged-out samples are pruned to one sentinel, and a refetch closes the unwatched gap (`src/services/__tests__/entityHistory.test.ts:346`, `src/services/__tests__/historyData.test.ts:178`).
 
+A refetch never blanks what is already on screen: while one is in flight the hook keeps reporting the cached series and reports loading alongside it, so a consumer that wants to show progress can, and one that does not simply keeps drawing. The result only changes when the refetch lands.
+
 #### Scenario: Non-numeric entity degrades silently
 
 - **GIVEN** a `device_tracker` whose states are `home`/`not_home`
