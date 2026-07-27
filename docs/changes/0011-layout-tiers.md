@@ -42,7 +42,7 @@ The [design-system size-adaptive layouts section](../specs/design-system/index.m
 
 - **Renderer-computed tier, effective span exposed by the layout layer** — the responsive effective dimensions exist only inside `GridLayoutSection` (stored width scaled to the breakpoint's column count), so its child render callback MUST expose the effective `{width, height}` alongside the item; `GridView` derives the tier there — one derivation site, passed as a prop — and forwards **both** the tier and the effective span to cards. The span matters because some card contracts key on width beyond the tier boundary (e.g. wider `row` variants at ≥3 or ≥4 effective columns); tier alone is lossy. Cards stay pure and the boundary table stays unit-testable in isolation.
 - **Layout-first, options-later** — per-card changes (0016+) add controls into already-existing tier slots, keeping each of those PRs small.
-- **`SkeletonCard`/error/unavailable states** MUST also respect tiers (a 1×1 skeleton is a small tile, not a truncated large one).
+- **`SkeletonCard`/error/unavailable states** MUST also respect tiers (a 1×1 skeleton is a small tile, not a truncated large one). What a tier omits from an error tile's _layout_ is not omitted from the product: at `glance` the message becomes the tile's accessible name and the tile becomes a button onto the detail dialog carrying the message and the `Retry`/`Dismiss` actions. A `title` tooltip is not an acceptable mechanism — Liebe's primary surface is a wall tablet with no hover, and `title` reaches assistive technology inconsistently anyway — and dropping `Retry` outright would break the no-operability-regression invariant on the one tile whose only way out is that button.
 
 ## Tasks
 

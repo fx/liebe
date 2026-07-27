@@ -91,6 +91,17 @@ export const Disconnected: Story = {
 }
 
 /**
+ * The same failure in one grid cell. There is no room for the message or the
+ * Retry button, so the tile becomes a button named with the message — that name
+ * is what a screen reader announces — and pressing it opens a dialog carrying
+ * both. Liebe runs on wall tablets, so a hover tooltip would reach neither user.
+ */
+export const DisconnectedGlance: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  parameters: { liebe: { entities: [createSwitchEntity()], connected: false } },
+}
+
+/**
  * An entity id that is not in the store. `useEntity` cannot tell "not loaded
  * yet" from "does not exist", so the card holds its skeleton indefinitely
  * rather than reporting the entity as missing.

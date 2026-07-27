@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
 import { SkeletonCard } from './SkeletonCard'
 import { ErrorDisplay } from './ErrorDisplay'
@@ -115,18 +116,69 @@ describe('ErrorDisplay card tiers', () => {
     expect(queryByText('Dismiss')).not.toBeInTheDocument()
   })
 
-  it('keeps the omitted message reachable as the tile’s tooltip', () => {
-    // Omitted from the layout, not thrown away: the detail is what tells the
-    // user which failure this is.
-    const { container } = renderInTheme(<ErrorDisplay {...props} tier="glance" />)
+  it('names the glance tile with the message, so AT announces the detail', () => {
+    // Omitted from the layout, not thrown away. The assertion is deliberately
+    // about the ACCESSIBLE NAME and not about a `title` attribute: a tooltip
+    // needs hover, which a wall tablet does not have, and is exposed to
+    // assistive technology inconsistently even where hover exists.
+    renderInTheme(<ErrorDisplay {...props} tier="glance" />)
 
-    expect(container.querySelector('.rt-Card')).toHaveAttribute(
-      'title',
-      'Disconnected from Home Assistant'
-    )
+    expect(
+      screen.getByRole('button', { name: 'Disconnected: Disconnected from Home Assistant' })
+    ).toBeInTheDocument()
   })
 
-  it('shows the message and the actions at every tier with room for them', () => {
+  it('does not fall back to a tooltip at glance', () => {
+    const { container } = renderInTheme(<ErrorDisplay {...props} tier="glance" />)
+
+    expect(container.querySelector('.rt-Card')).not.toHaveAttribute('title')
+  })
+
+  it('opens the detail dialog with the message a sighted touch user cannot see', async () => {
+    const user = userEvent.setup()
+    renderInTheme(<ErrorDisplay {...props} tier="glance" />)
+
+    await user.click(screen.getByRole('button', { name: /Disconnected/ }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Disconnected from Home Assistant')
+  })
+
+  it('carries the actions the tile had no room for into that dialog', async () => {
+    const user = userEvent.setup()
+    const onRetry = vi.fn()
+    const onDismiss = vi.fn()
+    renderInTheme(<ErrorDisplay {...props} tier="glance" onRetry={onRetry} onDismiss={onDismiss} />)
+
+    await user.click(screen.getByRole('button', { name: /Disconnected/ }))
+    await screen.findByRole('dialog')
+
+    // Retry is the only way out of a disconnected tile, so `glance` may not be
+    // the one tier that drops it — see the no-operability-regression invariant.
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Disconnected/ }))
+    await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(onDismiss).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('offers only Close when the caller gave it nothing to act on', async () => {
+    const user = userEvent.setup()
+    renderInTheme(<ErrorDisplay {...props} tier="glance" />)
+
+    await user.click(screen.getByRole('button', { name: /Disconnected/ }))
+    await screen.findByRole('dialog')
+
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
+  })
+
+  it('shows the message and the actions inline at every tier with room for them', () => {
     const { queryByText, container } = renderInTheme(
       <ErrorDisplay {...props} tier="row" onRetry={() => {}} onDismiss={() => {}} />
     )
@@ -134,8 +186,10 @@ describe('ErrorDisplay card tiers', () => {
     expect(queryByText('Disconnected from Home Assistant')).toBeInTheDocument()
     expect(queryByText('Retry')).toBeInTheDocument()
     expect(queryByText('Dismiss')).toBeInTheDocument()
-    // No tooltip: nothing was omitted, so there is nothing to recover.
+    // Nothing was omitted, so the tile is a surface and not a button into a
+    // dialog that would only repeat what is already on it.
     expect(container.querySelector('.rt-Card')).not.toHaveAttribute('title')
+    expect(container.querySelector('button.rt-Card')).toBeNull()
   })
 
   it('renders the full card by default', () => {
