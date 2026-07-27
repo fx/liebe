@@ -109,6 +109,35 @@ function CoverCardComponent({
    */
   const [confirmRequest, setConfirmRequest] = useState<CardConfirmRequest | null>(null)
 
+  /*
+   * Dropped on the same two keys the shell drops its own on, and it has to be
+   * the same rule rather than a second one: both surfaces now present this
+   * dialog, so a difference between them is a difference the user would meet by
+   * accident.
+   *
+   * Hiding it in the render was not enough. `!isEditMode && confirmRequest`
+   * takes the dialog off screen while the request stands, so leaving edit mode
+   * *resurrected* it — and so did the card instance being recycled onto another
+   * entity. A confirmation that reappears detached from the gesture that raised
+   * it is worse than none: it asks about an action the user has lost the
+   * context for, and the answer that looks safe is to accept. On a garage door,
+   * which is the only kind of cover this gate is offered for, that is the exact
+   * failure `confirmOpen` exists to prevent.
+   *
+   * Reset during render with previous-value guards rather than in an effect,
+   * which is this repo's pattern for the same job (`InputNumberCard`,
+   * `InputDateTimeCard`) and what `react-hooks/set-state-in-effect` requires.
+   * It also drops the request a render *earlier* than an effect would, so there
+   * is no commit in which the stale dialog could be reachable at all.
+   */
+  const [prevIsEditMode, setPrevIsEditMode] = useState(isEditMode)
+  const [prevEntityId, setPrevEntityId] = useState(entityId)
+  if (isEditMode !== prevIsEditMode || entityId !== prevEntityId) {
+    setPrevIsEditMode(isEditMode)
+    setPrevEntityId(entityId)
+    setConfirmRequest(null)
+  }
+
   const coverAttributes = entity?.attributes as CoverAttributes | undefined
   const supportedFeatures = readSupportedFeatures(coverAttributes)
 
@@ -298,6 +327,12 @@ function CoverCardComponent({
   const handlePositionCommit = useCallback(
     (value: number) => {
       setIsDraggingPosition(false)
+      /*
+       * Clear first, like every other dispatching control here. A tile still
+       * reading ERROR after the user has moved the slider says "this failed
+       * too" about a command that has not been reported on yet.
+       */
+      if (error) clearError()
 
       /*
        * The effective target converted back into the entity's own scale, so a
@@ -320,7 +355,15 @@ function CoverCardComponent({
         }
       )
     },
-    [dispatchGuarded, effectivePosition, entityId, guardOpening, options.invertPosition]
+    [
+      clearError,
+      dispatchGuarded,
+      effectivePosition,
+      entityId,
+      error,
+      guardOpening,
+      options.invertPosition,
+    ]
   )
 
   const handleTiltChange = useCallback((value: number) => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
@@ -624,6 +624,94 @@ describe('confirmOpen', () => {
 
     expect(screen.queryByText('Open Garage Door?')).not.toBeInTheDocument()
     expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('does not resurrect it on the way back to view mode', () => {
+    /*
+     * Hiding the dialog is not dropping the request. The render guards on
+     * `!isEditMode`, so a request left standing came back the moment edit mode
+     * ended — asking the user to confirm an opening whose gesture is long gone,
+     * where the answer that looks safe is to accept. On a garage door that is
+     * the failure the gate exists to prevent.
+     */
+    seed(garage('closed', { current_position: 0 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />)
+
+    fireEvent.click(screen.getByLabelText('Open cover'))
+    expect(screen.getByText('Open Garage Door?')).toBeInTheDocument()
+
+    act(() => dashboardActions.setMode('edit'))
+    act(() => dashboardActions.setMode('view'))
+
+    expect(screen.queryByText('Open Garage Door?')).not.toBeInTheDocument()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('drops it when the card is recycled onto another entity', () => {
+    // The grid reuses card instances, so a pending confirmation raised for one
+    // garage door must not be standing over the next one.
+    seed(garage('closed', { current_position: 0 }))
+    const other = makeCover('closed', {
+      friendly_name: 'Side Gate',
+      device_class: 'gate',
+      supported_features: 15,
+      current_position: 0,
+    })
+
+    const { rerender } = renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />)
+
+    fireEvent.click(screen.getByLabelText('Open cover'))
+    expect(screen.getByText('Open Garage Door?')).toBeInTheDocument()
+
+    act(() => {
+      entityStore.setState((state) => ({
+        ...state,
+        entities: {
+          ...state.entities,
+          'cover.side_gate': { ...other, entity_id: 'cover.side_gate' },
+        },
+      }))
+    })
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId="cover.side_gate">
+            <CoverCard entityId="cover.side_gate" tier="full" />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    expect(screen.queryByText('Open Garage Door?')).not.toBeInTheDocument()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('clears a standing error when the slider commits, as its siblings do', async () => {
+    /*
+     * The gesture that proves it: a gated slider commit dispatches *nothing*
+     * until the user confirms, so `useServiceCall`'s own reset never runs and
+     * a stale ERROR would still be on the tile behind the dialog — reading as
+     * "this failed too" about a command that has not been sent, let alone
+     * reported on. Every other control here clears before dispatching; this one
+     * did not.
+     */
+    seed(garage('open', { current_position: 40 }))
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('nope'))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />)
+
+    fireEvent.click(screen.getByLabelText('Close cover'))
+    await waitFor(() => {
+      expect(document.querySelector('.liebe-state')?.textContent).toBe('ERROR')
+    })
+
+    stepPositionSlider('ArrowRight')
+
+    // Held behind the gate, so nothing has been sent…
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Open Garage Door?')).toBeInTheDocument()
+    // …and the tile is no longer reporting the previous command's failure.
+    expect(document.querySelector('.liebe-state')?.textContent).not.toBe('ERROR')
   })
 })
 
