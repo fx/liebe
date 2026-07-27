@@ -29,6 +29,18 @@ export const inputHelperOptionsConfigSchema = z.object({
     .optional(),
 })
 
+/**
+ * The configuration form's stand-in for "no explicit choice".
+ *
+ * Form-only, deliberately: the stored contract has exactly one spelling for
+ * following the entity, and that is the key being absent. Selecting this in the
+ * form removes the key rather than storing this string, so it never reaches
+ * `item.config`, the import schema, or a YAML export — and a hand-written
+ * document carrying it resolves through the same path as any other
+ * unrecognised value, which is the entity-derived default it was asking for.
+ */
+export const FOLLOW_ENTITY_MODE = 'auto'
+
 const readStyle = <T extends string>(
   config: Record<string, unknown> | undefined,
   allowed: readonly T[],

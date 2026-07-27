@@ -1,6 +1,6 @@
 import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
-import { CONTROL_STYLE_KEY } from '~/store/inputHelperOptions'
+import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 
@@ -109,11 +109,21 @@ export const cardConfigurations: Record<
     definition: {
       [CONTROL_STYLE_KEY]: {
         type: 'select',
-        default: 'stepper',
+        /*
+         * The default is the *absence* of a value, which is what "follow the
+         * helper" means — so the form's default has to be the choice that
+         * writes absence, not one of the two concrete styles. Declaring
+         * `stepper` here would show a card that was following its helper as
+         * though it had been set to a stepper, and pin it to one on the next
+         * save (docs/changes/0022).
+         */
+        default: FOLLOW_ENTITY_MODE,
+        clearValue: FOLLOW_ENTITY_MODE,
         label: 'Control style',
         description:
-          'Unset, this follows the helper’s own display mode in Home Assistant. Setting it overrides that in either direction.',
+          'Follows the helper’s own display mode in Home Assistant unless you choose one. Choosing overrides it in either direction.',
         options: [
+          { value: FOLLOW_ENTITY_MODE, label: 'Follow the helper' },
           { value: 'stepper', label: 'Stepper (+ / −)' },
           { value: 'slider', label: 'Slider' },
         ],
