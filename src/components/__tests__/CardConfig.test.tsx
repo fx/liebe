@@ -5,7 +5,8 @@ import { CardConfig, type ConfigDefinition } from '../CardConfig'
 import { Theme } from '@radix-ui/themes'
 import { entityStore } from '~/store/entityStore'
 import type { GridItem } from '~/store/types'
-import { createBinarySensorEntity } from '~/test/fixtures'
+import type { HassEntity } from '~/store/entityTypes'
+import { createBinarySensorEntity, createSensorEntity } from '~/test/fixtures'
 
 // Mock the store
 vi.mock('~/store', () => ({
@@ -428,12 +429,14 @@ describe('CardConfig', () => {
     }
 
     it('offers the action surface even for a card with no options of its own', () => {
+      // A cover card, which has none until change 0019 — the sensor this used
+      // to use grew its own option surface in change 0018.
       render(
         <Theme>
           <CardConfig.Modal
             open={true}
             onOpenChange={mockOnOpenChange}
-            item={sensorItem}
+            item={{ ...sensorItem, id: 'cover-1', entityId: 'cover.hallway_blind' }}
             onSave={mockOnSave}
           />
         </Theme>
@@ -721,6 +724,105 @@ describe('CardConfig', () => {
       expect(
         screen.getByText('Nothing selected — the card shows none of these.')
       ).toBeInTheDocument()
+    })
+  })
+
+  /*
+   * Controls whose option depends on something the entity does.
+   *
+   * Whether a control CAN appear is derived from the entity, never from config
+   * (docs/specs/entity-cards/options/common.md, convention 3), so these
+   * assertions are about the form changing shape with the entity behind it —
+   * and every "hidden" case renders an entity that shows the control first, so
+   * a form that had stopped rendering options entirely cannot pass by looking
+   * absent.
+   */
+  describe('Entity-gated options', () => {
+    const sensorItem: GridItem = {
+      id: 'sensor-1',
+      type: 'entity',
+      entityId: 'sensor.living_room_temperature',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+    }
+
+    function seedSensor(entity: HassEntity) {
+      entityStore.setState((state) => ({
+        ...state,
+        entities: { [entity.entity_id]: entity },
+        isConnected: true,
+        isInitialLoading: false,
+      }))
+    }
+
+    function renderModal() {
+      return render(
+        <Theme>
+          <CardConfig.Modal
+            open={true}
+            onOpenChange={mockOnOpenChange}
+            item={{ ...sensorItem, entityId: 'sensor.living_room_temperature' }}
+            onSave={mockOnSave}
+          />
+        </Theme>
+      )
+    }
+
+    it('offers the history options for a sensor that reports readings', () => {
+      seedSensor(createSensorEntity())
+      renderModal()
+
+      expect(screen.getByText('Show history graph')).toBeInTheDocument()
+      expect(screen.getByText('History window (hours)')).toBeInTheDocument()
+      expect(screen.getByText('Show trend on 1×1 cards')).toBeInTheDocument()
+      // Formatting applies to any sensor, so it is never gated.
+      expect(screen.getByText('Decimal places')).toBeInTheDocument()
+    })
+
+    it('hides them for a sensor whose state is text', () => {
+      seedSensor(createSensorEntity({ state: 'charging' }))
+      renderModal()
+
+      // The card would ignore them, and a control that writes a key nothing
+      // reads looks like a setting that did nothing.
+      expect(screen.queryByText('Show history graph')).toBeNull()
+      expect(screen.queryByText('History window (hours)')).toBeNull()
+      expect(screen.queryByText('Show trend on 1×1 cards')).toBeNull()
+      expect(screen.getByText('Decimal places')).toBeInTheDocument()
+    })
+
+    it('keeps them while a numeric sensor is unavailable', () => {
+      // A thermometer whose integration is down is still a thermometer; a form
+      // that changed shape as the entity dropped out would be worse than one
+      // that offered a graph for a window that is briefly empty.
+      seedSensor(createSensorEntity({ state: 'unavailable' }))
+      renderModal()
+
+      expect(screen.getByText('Show history graph')).toBeInTheDocument()
+    })
+
+    it('offers the graph style only for a cumulative counter', () => {
+      seedSensor(createSensorEntity())
+      const measurement = renderModal()
+      // `measurement`: bars would be differences of a level, which mean nothing.
+      expect(screen.queryByText('Graph style')).toBeNull()
+      measurement.unmount()
+
+      seedSensor(
+        createSensorEntity({
+          attributes: {
+            friendly_name: 'Energy Used',
+            device_class: 'energy',
+            state_class: 'total_increasing',
+            unit_of_measurement: 'kWh',
+          },
+        })
+      )
+      renderModal()
+
+      expect(screen.getByText('Graph style')).toBeInTheDocument()
     })
   })
 
