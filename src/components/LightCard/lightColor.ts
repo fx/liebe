@@ -19,11 +19,18 @@ type HsColor = [number, number]
 type RgbColor = [number, number, number]
 type XyColor = [number, number]
 
+/**
+ * The attributes this reads, named individually so the file says what it
+ * depends on — over a real `entity.attributes` bag, which carries far more.
+ * The index signature is what makes it accept one; it is not an invitation to
+ * read anything else.
+ */
 export interface LightColorAttributes {
   rgb_color?: unknown
   hs_color?: unknown
   xy_color?: unknown
   color_temp_kelvin?: unknown
+  [attribute: string]: unknown
 }
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -166,11 +173,20 @@ function kelvinToRgb(kelvin: number): RgbColor {
 /**
  * The bulb's colour as a CSS value, or `undefined` when there is none to show.
  *
- * Precedence follows how directly each attribute states the colour: `rgb_color`
- * is the colour, `hs_color` and `xy_color` are the colour in other coordinates,
- * and colour temperature is the weakest — a colour-capable bulb currently in
- * `color_temp` mode reports both, and the temperature is what it is actually
- * emitting only when nothing more direct is present.
+ * Precedence is the option doc's own: "a resolvable RGB color (`rgb_color`, or
+ * derivable from `hs_color` / `xy_color` / color temperature)" — the reported
+ * value first, the derivations after, in that order.
+ *
+ * **Why `color_mode` is not consulted, though it exists and names the active
+ * mode.** It cannot change the answer. Every mode that has a colour at all
+ * publishes an attribute this chain already tries, and the chain tries all of
+ * them, so `color_mode` could only ever select something already reachable —
+ * it is redundant by construction rather than by luck. The modes it would name
+ * that this chain declines (`white`, `brightness`, `onoff`) are exactly the
+ * ones that publish no colour attributes, so they resolve to nothing here for
+ * the same reason `color_mode` would have excluded them. A future reader who
+ * knows the attribute exists should read this rather than assume it was
+ * overlooked.
  *
  * `off` resolves to nothing: the option doc requires the inactive treatment to
  * be the domain token, and a light that is off has no colour to show whatever

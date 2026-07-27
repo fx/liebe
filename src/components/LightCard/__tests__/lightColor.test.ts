@@ -75,6 +75,36 @@ describe('resolveLightHue', () => {
       )
     })
 
+    it('needs no help from color_mode, whichever mode is active', () => {
+      /*
+       * `color_mode` names the active mode, and consulting it cannot change the
+       * answer: every mode carrying a colour publishes an attribute this chain
+       * already tries, and the modes it would exclude publish none. Both
+       * directions, with the attribute set a real bulb sends in each mode.
+       */
+      // Colour-temperature mode: Home Assistant publishes the converted RGB
+      // alongside the Kelvin, and the converted value is what the bulb looks
+      // like.
+      expect(
+        resolveLightHue('on', {
+          color_mode: 'color_temp',
+          rgb_color: [255, 180, 107],
+          color_temp_kelvin: 2700,
+        })
+      ).toBe('rgb(255, 180, 107)')
+
+      // The same mode without the conversion still resolves, through the
+      // Kelvin the mode is named for.
+      expect(
+        resolveLightHue('on', { color_mode: 'color_temp', color_temp_kelvin: 2700 })
+      ).toBeDefined()
+
+      // The modes with no colour to show resolve to nothing, which is what
+      // consulting `color_mode` would also have concluded.
+      expect(resolveLightHue('on', { color_mode: 'white' })).toBeUndefined()
+      expect(resolveLightHue('on', { color_mode: 'onoff' })).toBeUndefined()
+    })
+
     it('ignores a zero-saturation hs_color, which is white rather than a hue', () => {
       // What a colour bulb reports while running in white mode — there is no
       // hue in it worth tinting with, so the domain token stays.
