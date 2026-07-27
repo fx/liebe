@@ -63,20 +63,24 @@ function CoverCardComponent({
   const coverAttributes = entity?.attributes as CoverAttributes | undefined
   const supportedFeatures = coverAttributes?.supported_features ?? 0
 
-  // Feature support checks
-  const supportsOpen = supportedFeatures & SUPPORT_OPEN
-  const supportsClose = supportedFeatures & SUPPORT_CLOSE
-  const supportsSetPosition = supportedFeatures & SUPPORT_SET_POSITION
-  const supportsStop = supportedFeatures & SUPPORT_STOP
-  const supportsOpenTilt = supportedFeatures & SUPPORT_OPEN_TILT
-  const supportsCloseTilt = supportedFeatures & SUPPORT_CLOSE_TILT
-  const supportsSetTiltPosition = supportedFeatures & SUPPORT_SET_TILT_POSITION
+  /*
+   * Feature support checks. Each one is a *boolean*, not the masked bits: these
+   * gate JSX with `&&`, and React renders a numeric `0` as the text "0" — an
+   * unsupported bit would print a stray zero into the button row.
+   */
+  const supportsOpen = (supportedFeatures & SUPPORT_OPEN) !== 0
+  const supportsClose = (supportedFeatures & SUPPORT_CLOSE) !== 0
+  const supportsSetPosition = (supportedFeatures & SUPPORT_SET_POSITION) !== 0
+  const supportsStop = (supportedFeatures & SUPPORT_STOP) !== 0
+  const supportsOpenTilt = (supportedFeatures & SUPPORT_OPEN_TILT) !== 0
+  const supportsCloseTilt = (supportedFeatures & SUPPORT_CLOSE_TILT) !== 0
+  const supportsSetTiltPosition = (supportedFeatures & SUPPORT_SET_TILT_POSITION) !== 0
   const supportsTilt = supportsOpenTilt || supportsCloseTilt || supportsSetTiltPosition
 
   // Get current position (0-100 scale from HA)
-  const currentPosition = useMemo(() => {
-    return coverAttributes?.current_position ?? coverAttributes?.position ?? 0
-  }, [coverAttributes?.current_position, coverAttributes?.position])
+  const rawPosition = coverAttributes?.current_position ?? coverAttributes?.position
+  const hasPosition = rawPosition !== undefined
+  const currentPosition = rawPosition ?? 0
 
   const currentTiltPosition = useMemo(() => {
     return coverAttributes?.current_tilt_position ?? coverAttributes?.tilt_position ?? 0
@@ -92,12 +96,29 @@ function CoverCardComponent({
     if (!entity) return 'unknown'
     if (entity.state === 'opening') return 'opening'
     if (entity.state === 'closing') return 'closing'
+    // Before the position branches: a cover whose state nobody knows has no
+    // position either, and the `currentPosition === 0` default below would
+    // otherwise report it — on the state line and to the close button — as a
+    // cover that is definitely closed.
+    if (entity.state === 'unknown') return 'unknown'
     if (entity.state === 'open' || currentPosition > 0) return 'open'
     if (entity.state === 'closed' || currentPosition === 0) return 'closed'
     return entity.state
   }, [entity, currentPosition])
 
   const isMoving = coverState === 'opening' || coverState === 'closing'
+
+  /*
+   * What "fully open" and "fully closed" mean for the button row
+   * (docs/specs/entity-cards/options/cover.md — "Open / stop / close buttons").
+   * When the entity reports a position, only that position decides: `coverState`
+   * reads `open` at any position above zero, so gating on it left a cover at 60%
+   * unable to be driven the rest of the way open from the button row. State-based
+   * disabling applies only to covers with no position at all, where the state is
+   * genuinely binary.
+   */
+  const isFullyOpen = hasPosition ? currentPosition === 100 : coverState === 'open'
+  const isFullyClosed = hasPosition ? currentPosition === 0 : coverState === 'closed'
 
   /**
    * Which `--liebe-c-*` triplet the cover's rendered state resolves to.
@@ -320,12 +341,12 @@ function CoverCardComponent({
           <Pill
             domain="cover"
             color={stateColor}
-            active={coverState === 'open' || currentPosition === 100}
+            active={isFullyOpen}
             label="Open cover"
             hideLabel
             icon={<CaretUpIcon />}
             onClick={handleOpen}
-            disabled={isLoading || coverState === 'open' || currentPosition === 100}
+            disabled={isLoading || isFullyOpen}
           />
         )}
         {supportsStop && (
@@ -344,12 +365,12 @@ function CoverCardComponent({
           <Pill
             domain="cover"
             color={stateColor}
-            active={coverState === 'closed' || currentPosition === 0}
+            active={isFullyClosed}
             label="Close cover"
             hideLabel
             icon={<CaretDownIcon />}
             onClick={handleClose}
-            disabled={isLoading || coverState === 'closed' || currentPosition === 0}
+            disabled={isLoading || isFullyClosed}
           />
         )}
       </PillGroup>
@@ -369,10 +390,14 @@ function CoverCardComponent({
          * issue #191 and the same defect the simple set shipped at `glance`.
          * Named for what they do to the slats, not to the cover: "Open cover"
          * is already the pill above them.
+         *
+         * `size="3"` to match the other controls on this card rather than the
+         * `size="1"` they shipped with; the project's 44px touch-target
+         * minimum is a separate, card-wide question tracked by issue #204.
          */}
         {supportsOpenTilt && (
           <Button
-            size="1"
+            size="3"
             variant="soft"
             onClick={handleOpenTilt}
             disabled={isLoading}
@@ -383,7 +408,7 @@ function CoverCardComponent({
         )}
         {supportsCloseTilt && (
           <Button
-            size="1"
+            size="3"
             variant="soft"
             onClick={handleCloseTilt}
             disabled={isLoading}

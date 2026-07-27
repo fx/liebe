@@ -95,6 +95,30 @@ describe('CoverCard', () => {
       expect(screen.getByText('OPENING')).toBeInTheDocument()
     })
 
+    it('reports an unknown cover as unknown rather than closed', () => {
+      // `current_position` defaults to 0 when the entity reports none, and the
+      // closed branch keyed on that — so a cover whose state nobody knows read
+      // as one that is definitely shut.
+      const entity = createMockCoverEntity({
+        state: 'unknown',
+        attributes: { current_position: undefined, supported_features: 3 },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      expect(screen.getByText('UNKNOWN')).toBeInTheDocument()
+      expect(screen.queryByText('CLOSED')).not.toBeInTheDocument()
+      // Nothing is known to be at either end of the travel, so neither
+      // direction is held back.
+      expect(screen.getByLabelText('Open cover')).not.toBeDisabled()
+      expect(screen.getByLabelText('Close cover')).not.toBeDisabled()
+    })
+
     it('renders unavailable state', () => {
       const entity = createMockCoverEntity({ state: 'unavailable' })
       ;(useEntity as any).mockReturnValue({
@@ -242,6 +266,96 @@ describe('CoverCard', () => {
 
       expect(screen.getByLabelText('Open cover')).not.toBeDisabled()
       expect(screen.getByLabelText('Close cover')).toBeDisabled() // Already closed
+    })
+
+    it('keeps open and close operable while a positional cover sits partway open', () => {
+      // The regression: `coverState` reads `open` at any position above zero,
+      // so gating the open button on it left a cover at 60% marked active AND
+      // disabled — no way to drive it the rest of the way open from the button
+      // row. Only the position decides for a positional cover
+      // (docs/specs/entity-cards/options/cover.md — "Open / stop / close
+      // buttons").
+      const entity = createMockCoverEntity({
+        state: 'open',
+        attributes: { current_position: 60, supported_features: 11 }, // OPEN + CLOSE + STOP
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      expect(screen.getByLabelText('Open cover')).not.toBeDisabled()
+      expect(screen.getByLabelText('Close cover')).not.toBeDisabled()
+      // Neither end of the travel is reached, so neither pill is lit either.
+      expect(screen.getByLabelText('Open cover')).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByLabelText('Close cover')).toHaveAttribute('aria-pressed', 'false')
+      // Stop stays disabled unless the cover is actually moving.
+      expect(screen.getByLabelText('Stop cover')).toBeDisabled()
+    })
+
+    it('disables open only at the fully open position', () => {
+      const entity = createMockCoverEntity({
+        state: 'open',
+        attributes: { current_position: 100, supported_features: 3 }, // OPEN + CLOSE
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      expect(screen.getByLabelText('Open cover')).toBeDisabled()
+      expect(screen.getByLabelText('Close cover')).not.toBeDisabled()
+    })
+
+    it('disables by state for a cover that reports no position at all', () => {
+      // A binary cover (a garage door, say) has no position to compare, so the
+      // state is what "fully open" means for it.
+      const entity = createMockCoverEntity({
+        state: 'open',
+        attributes: {
+          current_position: undefined,
+          position: undefined,
+          supported_features: 3, // OPEN + CLOSE
+        },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      expect(screen.getByLabelText('Open cover')).toBeDisabled()
+      expect(screen.getByLabelText('Close cover')).not.toBeDisabled()
+    })
+
+    it('renders no stray zero for the features a cover does not advertise', () => {
+      // The feature checks are masked bits, and React prints a numeric `0` as
+      // the text "0". With OPEN_TILT as the only advertised feature, five of
+      // the six capability-gated slots are unset — every one of them would put
+      // a visible zero on the card if the checks were not booleans.
+      const entity = createMockCoverEntity({
+        state: 'open',
+        attributes: { current_position: 60, supported_features: 16 }, // OPEN_TILT only
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      expect(screen.getByLabelText('Open cover tilt')).toBeInTheDocument()
+      expect(screen.getByRole('group', { name: 'Cover controls' }).textContent).toBe('')
+      expect(screen.queryByText('0')).not.toBeInTheDocument()
     })
   })
 
@@ -436,6 +550,33 @@ describe('CoverCard', () => {
       await userEvent.click(card!)
 
       expect(mockOnSelect).toHaveBeenCalledWith(true)
+    })
+
+    it('selects an unavailable cover instead of acting on it', async () => {
+      // The unavailable tile is a tile like any other in edit mode: it has to
+      // be selectable, or a cover that went offline could not be moved or
+      // removed from the screen.
+      const entity = createMockCoverEntity({ state: 'unavailable' })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+
+      render(
+        <CoverCard
+          entityId="cover.test_cover"
+          tier="full"
+          isSelected={false}
+          onSelect={mockOnSelect}
+        />
+      )
+
+      await userEvent.click(screen.getByText('Test Cover').closest('.liebe-card')!)
+
+      expect(mockOnSelect).toHaveBeenCalledWith(true)
+      expect(mockCallService).not.toHaveBeenCalled()
     })
 
     it('calls onDelete when delete button clicked', async () => {

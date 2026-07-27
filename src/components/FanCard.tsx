@@ -223,7 +223,10 @@ function FanCardComponent({
           ? 'ERROR'
           : isOn
             ? currentPresetMode || (displayPercentage > 0 ? `${displayPercentage}%` : 'ON')
-            : 'OFF'}
+            : // The state itself, not a hardcoded "OFF": `isOn` is false for
+              // `unknown` too, and a fan whose state nobody knows must not be
+              // reported as one that is definitely off.
+              entity.state.toUpperCase()}
       </GridCard.Status>
     </GridCard.Meta>
   )

@@ -220,9 +220,13 @@ function ClimateCardComponent({
   const climateAttributes = entity?.attributes as ClimateAttributes | undefined
   const supportedFeatures = climateAttributes?.supported_features ?? 0
 
-  // Check supported features
-  const supportsTargetTemp = supportedFeatures & SUPPORT_TARGET_TEMPERATURE
-  const supportsTargetTempRange = supportedFeatures & SUPPORT_TARGET_TEMPERATURE_RANGE
+  /*
+   * Check supported features. Booleans, not the masked bits: these gate JSX
+   * with `&&`, and React renders a numeric `0` as the text "0" — an entity
+   * without the bit would print a stray zero into the dial layout.
+   */
+  const supportsTargetTemp = (supportedFeatures & SUPPORT_TARGET_TEMPERATURE) !== 0
+  const supportsTargetTempRange = (supportedFeatures & SUPPORT_TARGET_TEMPERATURE_RANGE) !== 0
   // const supportsFanMode = supportedFeatures & SUPPORT_FAN_MODE
   // const supportsPresetMode = supportedFeatures & SUPPORT_PRESET_MODE
   // const supportsSwingMode = supportedFeatures & SUPPORT_SWING_MODE
@@ -564,9 +568,18 @@ function ClimateCardComponent({
     )
   }
 
-  // Handle unavailable state
-  const isUnavailable = entity.state === 'unavailable'
-  if (isUnavailable) {
+  /*
+   * Handle the two states that carry no HVAC mode. `unknown` sits here with
+   * `unavailable` rather than falling through: `hvacMode` would become
+   * "unknown", which is not `off`, so the card would read as running and hand
+   * the user a live stepper that dispatches `climate.set_temperature` against
+   * an entity whose state — and whose setpoint — nobody knows. Both resolve to
+   * the shell's neutral, inert treatment with every control gone
+   * (docs/specs/entity-cards/options/climate.md — "showModePills and state
+   * colors").
+   */
+  const isInoperable = entity.state === 'unavailable' || entity.state === 'unknown'
+  if (isInoperable) {
     return (
       <GridCard
         domain="climate"
@@ -578,7 +591,7 @@ function ClimateCardComponent({
       >
         <Flex direction="column" align="center" justify="center" gap="2">
           <GridCard.Title>{entity.attributes.friendly_name || entity.entity_id}</GridCard.Title>
-          <GridCard.Status>UNAVAILABLE</GridCard.Status>
+          <GridCard.Status>{entity.state.toUpperCase()}</GridCard.Status>
         </Flex>
       </GridCard>
     )
@@ -614,7 +627,7 @@ function ClimateCardComponent({
    */
   const isFull = tier === 'full'
   const isTall = tier === 'tall'
-  const isRangeMode = Boolean(supportsTargetTempRange) && hvacMode === 'heat_cool'
+  const isRangeMode = supportsTargetTempRange && hvacMode === 'heat_cool'
   const hasRangeSetpoints =
     isRangeMode && targetTempLow !== undefined && targetTempHigh !== undefined
   /*
@@ -653,9 +666,16 @@ function ClimateCardComponent({
     increaseDisabled: boolean
     readout: ReactNode
   }) => {
+    /*
+     * `size="3"`, the same as the dial layout's steppers below: at `glance`,
+     * `row` and `tall` this pair is the tile's only control, so it is the last
+     * place to shrink a target. It stops at Radix's size 3 rather than the 48px
+     * box the dial's buttons carry — the card-wide 44px minimum is issue #204's
+     * to settle, not this change's.
+     */
     const decrease = (
       <IconButton
-        size="2"
+        size="3"
         variant="outline"
         radius="full"
         onClick={onDecrease}
@@ -667,7 +687,7 @@ function ClimateCardComponent({
     )
     const increase = (
       <IconButton
-        size="2"
+        size="3"
         variant="outline"
         radius="full"
         onClick={onIncrease}

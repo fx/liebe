@@ -57,7 +57,7 @@ The registry pattern lets new domains be supported by adding one map entry plus 
 
 ### Lights
 
-- `LightCard` MUST toggle the light on card click via `light.turn_on` / `light.turn_off`, and MUST show a brightness slider only in view mode when the light is on, supports brightness, and `config.enableBrightness !== false`.
+- `LightCard` MUST toggle the light on card click via `light.turn_on` / `light.turn_off`, and MUST show a brightness slider only in view mode when the light is on, supports brightness, `config.enableBrightness !== false`, **and the tier is not `glance`** — a 1×1 tile carries no embedded control, and its operability comes from the whole-tile toggle and the hold action ([options/light.md — tier layouts](./options/light.md#tier-layouts)). The slider is horizontal at `row` and `full`, vertical at `tall`.
 - Brightness MUST be presented on a 0–100 scale, converted to/from Home Assistant's 0–255 `brightness` attribute; committing 0 MUST turn the light off.
 - Brightness support MUST be detected from modern `supported_color_modes` (brightness / color_temp / hs / xy / rgb / rgbw / rgbww) with a fallback to the legacy `SUPPORT_BRIGHTNESS` (bit 1) feature flag.
 - `LightCard` MUST expose a per-card configuration modal (`CardConfig.Modal`) via `onConfigure`.
@@ -72,10 +72,11 @@ See [card reference — Lights](./card-reference.md#lights) for the three bright
 
 ### Climate
 
-- `ClimateCard` MUST render an arc-style thermostat that toggles HVAC mode via `climate.set_hvac_mode`, and adjusts the target temperature via `climate.set_temperature`.
+- `ClimateCard` MUST toggle HVAC mode via `climate.set_hvac_mode` and adjust the target temperature via `climate.set_temperature`. It MUST render the arc-style thermostat **at the `full` tier only**; at `glance`, `row` and `tall` it MUST render the compact +/- stepper instead. The thermostat is the one card that KEEPS an embedded control at `glance`, because its replacement path — the detail dialog's domain controls — is registered by change [0017](../../changes/0017-climate-card-to-spec.md) ([options/climate.md — tier layouts](./options/climate.md#tier-layouts)).
+- An `unavailable` **or `unknown`** climate entity MUST render the shell's neutral unavailable treatment with every control absent: neither state carries an HVAC mode, so a stepper built from its attributes would command a setpoint nobody knows.
 - In single-setpoint modes the +/- controls MUST send `{ temperature }`, clamped to `[min_temp, max_temp]` and stepped by `target_temp_step`; the decrease/increase buttons MUST be disabled at the respective bound.
 - When the entity supports `SUPPORT_TARGET_TEMPERATURE_RANGE` (bit 2) and is in `heat_cool`, the card MUST show a dual-setpoint range (`target_temp_low` / `target_temp_high`), send `{ target_temp_low, target_temp_high }`, and reject inverted ranges (`low >= high`).
-- HVAC mode buttons MUST be built from the entity's `hvac_modes`, and all controls MUST be hidden in edit mode.
+- HVAC mode buttons MUST be built from the entity's `hvac_modes` and render in the `full` tier only, and all controls MUST be hidden in edit mode at every tier.
 
 #### Scenario: Increase raises the setpoint by one step
 
@@ -87,9 +88,9 @@ See [card reference — Climate](./card-reference.md#climate) for range mode, mi
 
 ### Covers and fans
 
-- `CoverCard` MUST expose open / close / stop actions (`cover.open_cover`, `cover.close_cover`, `cover.stop_cover`), a position slider (`cover.set_cover_position` with `{ position }`), and — when tilt is supported — tilt controls (`set_cover_tilt_position`, `open_cover_tilt`, `close_cover_tilt`).
-- `CoverCard` MUST enable/disable open and close based on current position (fully open disables open; fully closed disables close), reading `current_position` with a `position` fallback.
-- `FanCard` MUST toggle the fan on card click, set speed via `fan.set_percentage` (`{ entity_id, percentage }`, with 0% turning the fan off), and set preset via `fan.set_preset_mode`; speed support is gated by `SUPPORT_SET_SPEED` (bit 1) and presets by `SUPPORT_PRESET_MODE` (bit 8).
+- `CoverCard` MUST expose open / close / stop actions (`cover.open_cover`, `cover.close_cover`, `cover.stop_cover`), a position slider (`cover.set_cover_position` with `{ position }`), and — when tilt is supported — tilt controls (`set_cover_tilt_position`, `open_cover_tilt`, `close_cover_tilt`), each gated by its own `supported_features` bit **and by the tier**: the position slider renders at `row` (horizontal), `tall` (vertical) and `full`, the open/stop/close row and the tilt block at `full` only, and `glance` carries no embedded control at all ([options/cover.md — tier layouts](./options/cover.md#tier-layouts)).
+- `CoverCard` MUST enable/disable open and close by **position alone whenever the entity reports one** — open disabled at `100`, close disabled at `0`, so a stationary partially open cover keeps both enabled — reading `current_position` with a `position` fallback; state-based disabling (`open` disables open, `closed` disables close) applies only to covers that report no position. Stop MUST be disabled unless the cover is `opening` or `closing`.
+- `FanCard` MUST toggle the fan on card click, set speed via `fan.set_percentage` (`{ entity_id, percentage }`, with 0% turning the fan off), and set preset via `fan.set_preset_mode`; speed support is gated by `SUPPORT_SET_SPEED` (bit 1) and presets by `SUPPORT_PRESET_MODE` (bit 8). Its controls render only while the fan is on and never at `glance`: the speed pills at `row` (horizontal), `tall` (vertical) and `full`, and the preset select at `full` — or at any of those tiers as the primary control of a fan that supports presets but no percentage ([options/fan.md — tier layouts](./options/fan.md#tier-layouts)).
 - Both cards MUST hide their controls in edit mode and MUST NOT expose a configuration modal.
 
 #### Scenario: Open button opens the cover
@@ -117,7 +118,7 @@ See [card reference — Sensors](./card-reference.md#sensors-and-binary-sensors)
 ### Weather
 
 - The weather card MUST select a visual variant from `config.variant`, falling back to the legacy `config.preset`, then `default`; variants are `default`, `modern`, `detailed`, `minimal`.
-- Each variant MUST read `temperature` + `temperature_unit` and MUST honor `config.temperatureUnit` (`auto` shows the entity's native unit; `celsius` / `fahrenheit` convert). `detailed` MUST additionally show pressure; `default`/`modern` show humidity; `minimal` shows only temperature.
+- Each variant MUST read `temperature` + `temperature_unit` and MUST honor `config.temperatureUnit` (`auto` shows the entity's native unit; `celsius` / `fahrenheit` convert). Secondary readings are tier-gated: at `glance` every variant is reduced to the icon, the name, and the temperature in the state slot; `default`/`modern` add the condition and humidity from `row` up and the feels-like/wind detail line at `full`; `detailed` shows its data block from `row` up and holds pressure back until `full`; `minimal` shows only temperature, as a plain state line at `glance` and the big readout from `row` up.
 - When `getWeatherBackground(entity.state)` resolves a condition image, variants (except `minimal`) MUST render it as a cover background and MUST switch text/icons to white with shadows for legibility; background image URLs MUST be prefixed by `window.__LIEBE_ASSET_BASE_URL__` (falling back to `/`).
 - Saving the weather config MUST migrate a legacy `preset` key to `variant`.
 

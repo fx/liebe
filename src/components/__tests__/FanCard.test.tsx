@@ -169,6 +169,18 @@ describe('FanCard speed controls', () => {
       expect(screen.getByText('OFF')).toBeInTheDocument()
     })
 
+    it('reads UNKNOWN rather than OFF when the fan reports no state', () => {
+      // `isOn` is false for `unknown` as much as for `off`, and the line used
+      // to hardcode "OFF" on that branch — reporting a fan nobody knows the
+      // state of as one that is definitely stopped.
+      withEntity({ state: 'unknown' })
+
+      render(<FanCard entityId="fan.living_room" />)
+
+      expect(screen.getByText('UNKNOWN')).toBeInTheDocument()
+      expect(screen.queryByText('OFF')).not.toBeInTheDocument()
+    })
+
     it('reads ON when the fan runs without a reported percentage', () => {
       withEntity({
         state: 'on',

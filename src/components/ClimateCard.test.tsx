@@ -118,6 +118,65 @@ describe('ClimateCard', () => {
       expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
     })
 
+    it('renders an unknown thermostat inert, exactly like an unavailable one', () => {
+      // The regression: only `unavailable` short-circuited, so `unknown` fell
+      // through as an HVAC mode of its own — not `off`, therefore "running" —
+      // and the card handed the user a live stepper dispatching
+      // `climate.set_temperature` against a state nobody knows.
+      const entity = createMockClimateEntity({ state: 'unknown' })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      expect(screen.getByText('UNKNOWN')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Increase temperature')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Decrease temperature')).not.toBeInTheDocument()
+      // The mode pills would command the entity just as readily.
+      expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+    })
+
+    it('drops the compact stepper for an unknown thermostat at glance', () => {
+      // `glance` is where it matters most: the compact stepper is the whole
+      // tile's only control there, so an unhandled `unknown` state leaves a
+      // one-cell tile whose sole affordance commands a mystery.
+      const entity = createMockClimateEntity({ state: 'unknown' })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="glance" />)
+
+      expect(screen.getByText('UNKNOWN')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Increase temperature')).not.toBeInTheDocument()
+    })
+
+    it('renders no stray zero for a thermostat with no setpoint support', () => {
+      // The feature checks are masked bits, and React prints a numeric `0` as
+      // the text "0" — an entity without `TARGET_TEMPERATURE` would stamp one
+      // into the dial layout wherever the check gates JSX.
+      const entity = createMockClimateEntity({
+        state: 'heat',
+        attributes: { supported_features: 0, current_temperature: 22.5 },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      // Nothing this thermostat legitimately renders contains a zero (the
+      // current temperature rounds to 23), so any zero on the card is a stray.
+      expect(document.querySelector('.liebe-card')!.textContent).not.toContain('0')
+    })
+
     it('renders disconnected state', () => {
       ;(useEntity as any).mockReturnValue({
         entity: null,
@@ -557,6 +616,31 @@ describe('ClimateCard', () => {
       await userEvent.click(card!)
 
       expect(mockOnSelect).toHaveBeenCalledWith(true)
+    })
+
+    it('selects an unavailable thermostat, named by its entity id when it has none', async () => {
+      // The inert tile still has to be selectable, or a thermostat that went
+      // offline could not be moved or removed from the screen — and with no
+      // friendly name it is the entity id that identifies it.
+      const entity = createMockClimateEntity({
+        state: 'unavailable',
+        attributes: { friendly_name: undefined },
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+
+      renderWithTheme(
+        <ClimateCard entityId="climate.test_thermostat" tier="full" onSelect={mockOnSelect} />
+      )
+
+      await userEvent.click(screen.getByText('climate.test_thermostat').closest('.liebe-card')!)
+
+      expect(mockOnSelect).toHaveBeenCalledWith(true)
+      expect(mockCallService).not.toHaveBeenCalled()
     })
   })
 

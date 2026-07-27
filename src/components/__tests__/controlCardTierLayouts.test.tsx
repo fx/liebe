@@ -191,6 +191,10 @@ describe('CoverCard tiers', () => {
     // (`controlCardAccessibleNames.test.tsx` sweeps for the general case).
     expect(screen.getByLabelText('Open cover tilt')).toBeInTheDocument()
     expect(screen.getByLabelText('Close cover tilt')).toBeInTheDocument()
+    // And sized like the rest of the card's controls rather than the `size="1"`
+    // they shipped with (the 44px minimum itself is issue #204's).
+    expect(screen.getByLabelText('Open cover tilt').className).toContain('rt-r-size-3')
+    expect(screen.getByLabelText('Close cover tilt').className).toContain('rt-r-size-3')
   })
 
   it('renders a binary cover’s glance content in the row arrangement', () => {
@@ -361,6 +365,23 @@ describe('ClimateCard tiers', () => {
     expect(screen.getByLabelText('Decrease temperature')).toBeInTheDocument()
     // The dial and the mode pills are what a 1×1 tile cannot hold.
     expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+  })
+
+  it('gives the compact stepper the same button size as the dial layout', () => {
+    /*
+     * The compact stepper shipped two Radix sizes smaller than the dial's own
+     * +/- pair. It is the only control on the tile at `glance`, `row` and
+     * `tall`, which makes it the last place on the card to shrink a touch
+     * target — so it matches its `full`-tier counterpart. (The card-wide 44px
+     * minimum is a separate question, tracked by issue #204.)
+     */
+    seed(thermostat)
+    renderCard(
+      <ClimateCard entityId="climate.hallway" tier="glance" span={{ width: 1, height: 1 }} />
+    )
+
+    expect(screen.getByLabelText('Increase temperature').className).toContain('rt-r-size-3')
+    expect(screen.getByLabelText('Decrease temperature').className).toContain('rt-r-size-3')
   })
 
   it('shows the stepper with a large readout at row, without the mode pills', () => {
