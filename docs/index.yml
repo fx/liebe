@@ -144,7 +144,7 @@ changes:
     path: changes/0014-universal-card-options.md
     description: Universal option surface for all entity cards — name/icon overrides, hide toggles, color, tap/hold/double-tap action system, and the entity detail dialog
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0010']
   - id: '0015'
     name: history-and-forecast-data

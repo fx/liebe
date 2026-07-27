@@ -4,7 +4,7 @@
 
 Implement the [common option contract](../specs/entity-cards/options/common.md) across all existing entity cards: `name`, `icon`, `hideName`, `hideState`, `color`, and the `tapAction`/`holdAction`/`doubleTapAction` action system (default / toggle / more-info / navigate / call-service / none), including the entity detail dialog that `more-info` opens and the config-form controls for editing these options. Per-card domain options build on this in 0016+.
 
-**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/common](../specs/entity-cards/options/common.md) · **Status:** draft · **Depends on:** 0010 (this change precedes 0011's card layouts — the action system must exist before glance tiers remove embedded controls; tier-composition rules like icon-only glance are stated here but verified by 0011, which lands after)
+**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/common](../specs/entity-cards/options/common.md) · **Status:** complete · **Depends on:** 0010 (this change precedes 0011's card layouts — the action system must exist before glance tiers remove embedded controls; tier-composition rules like icon-only glance are stated here but verified by 0011, which lands after)
 
 ## Motivation
 
@@ -45,7 +45,7 @@ The [common option contract](../specs/entity-cards/options/common.md) owns the u
 - [x] **PR 1 — Action system**: gesture controller in the shell; action resolution + per-card `default` declarations; edit-mode suppression; config schema + validation; the **action editor** form control (parameterized `navigate` targets and `call-service` service+data); unit tests
 - [x] **PR 2 — Detail dialog**: entity detail dialog (portalled), `more-info` wiring, hold default across cards; **password-helper redaction in the state display and attribute list, with a regression test** (the dialog must not ship able to reveal a secret the card masks); component tests + story; e2e hold flow
 - [x] **PR 3 — Display options**: `name`/`icon`/`hideName`/`hideState`/`color` in shell + shared ConfigDefinition fragment merged into all existing cards' config modals; icon-only glance layout; stories; YAML round-trip test
-- [ ] **PR 4 — Shared non-scalar form controls**: the remaining `ConfigDefinition` extensions this change's functional requirements mandate — **entity picker** (consumed later by `motionEntity`/`doorEntity`/`batteryEntity` in [0021](./0021-camera-presentation-options.md)/[0024](./0024-security-cards.md)/[0026](./0026-person-card.md)), **number array** (`brightnessPresets`, [0016](./0016-light-card-to-spec.md)), and **ordered multi-select** (`armModes`, [0024](./0024-security-cards.md)) — each schema-validated, unit-tested, and given a story. This change MUST NOT be marked complete without them: the later card changes assume these controls already exist rather than inventing one apiece.
+- [x] **PR 4 — Shared non-scalar form controls**: the remaining `ConfigDefinition` extensions this change's functional requirements mandate — **entity picker** (consumed later by `motionEntity`/`doorEntity`/`batteryEntity` in [0021](./0021-camera-presentation-options.md)/[0024](./0024-security-cards.md)/[0026](./0026-person-card.md)), **number array** (`brightnessPresets`, [0016](./0016-light-card-to-spec.md)), and **ordered multi-select** (`armModes`, [0024](./0024-security-cards.md)) — each schema-validated, unit-tested, and given a story. This change MUST NOT be marked complete without them: the later card changes assume these controls already exist rather than inventing one apiece.
 
 ## Out of Scope
 

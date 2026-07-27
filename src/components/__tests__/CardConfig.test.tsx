@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CardConfig } from '../CardConfig'
+import { CardConfig, type ConfigDefinition } from '../CardConfig'
 import { Theme } from '@radix-ui/themes'
+import { entityStore } from '~/store/entityStore'
 import type { GridItem } from '~/store/types'
+import { createBinarySensorEntity } from '~/test/fixtures'
 
 // Mock the store
 vi.mock('~/store', () => ({
@@ -591,6 +593,134 @@ describe('CardConfig', () => {
       await user.click(screen.getByRole('button', { name: /save changes/i }))
 
       expect(mockOnSave).toHaveBeenCalledWith({ config: { icon: '' } })
+    })
+  })
+
+  /**
+   * The three shared non-scalar controls, reached the way a card reaches them:
+   * through its `ConfigDefinition`. No card declares one yet — they exist so the
+   * per-card changes that need them (`motionEntity`, `brightnessPresets`,
+   * `armModes`) consume a control rather than invent one — so what is asserted
+   * here is the form wiring: the right control for the type, seeded with the
+   * option's default, writing back under the option's key.
+   */
+  describe('Non-scalar option types', () => {
+    const definition: ConfigDefinition = {
+      motionEntity: {
+        type: 'entity',
+        default: '',
+        label: 'Motion sensor',
+        domains: ['binary_sensor'],
+        deviceClasses: ['motion'],
+        placeholder: 'No motion sensor',
+      },
+      brightnessPresets: {
+        type: 'number-array',
+        default: [],
+        label: 'Brightness presets',
+        min: 1,
+        max: 100,
+        step: 1,
+        integer: true,
+        unit: '%',
+      },
+      armModes: {
+        type: 'ordered-multi-select',
+        default: ['away', 'home'],
+        label: 'Arm modes',
+        options: [
+          { value: 'away', label: 'Away' },
+          { value: 'home', label: 'Home' },
+        ],
+      },
+    }
+
+    function renderForm(config: Record<string, unknown> = {}) {
+      const onChange = vi.fn()
+      render(
+        <Theme>
+          <CardConfig.Component
+            title="Card"
+            configDefinition={definition}
+            config={config}
+            onChange={onChange}
+          />
+        </Theme>
+      )
+      return onChange
+    }
+
+    beforeEach(() => {
+      entityStore.setState((state) => ({
+        ...state,
+        entities: {
+          'binary_sensor.driveway_motion': createBinarySensorEntity({
+            entity_id: 'binary_sensor.driveway_motion',
+            attributes: { friendly_name: 'Driveway Motion', device_class: 'motion' },
+          }),
+        },
+        isConnected: true,
+        isInitialLoading: false,
+      }))
+    })
+
+    it('renders each control against its option’s default', () => {
+      renderForm()
+
+      expect(screen.getByRole('button', { name: 'Motion sensor' })).toHaveTextContent(
+        'No motion sensor'
+      )
+      expect(screen.getByText('Nothing set — the card renders no values.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Move Away up' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Move Home down' })).toBeInTheDocument()
+    })
+
+    it('writes the entity picker’s choice back under its key', async () => {
+      const user = userEvent.setup()
+      const onChange = renderForm()
+
+      await user.click(screen.getByRole('button', { name: 'Motion sensor' }))
+      await user.click(await screen.findByText('Driveway Motion'))
+
+      expect(onChange).toHaveBeenCalledWith({ motionEntity: 'binary_sensor.driveway_motion' })
+    })
+
+    it('writes an added number back under its key', async () => {
+      const user = userEvent.setup()
+      const onChange = renderForm()
+
+      await user.type(screen.getByLabelText('Brightness presets to add'), '50')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+
+      expect(onChange).toHaveBeenCalledWith({ brightnessPresets: [50] })
+    })
+
+    it('writes a reordered selection back under its key', async () => {
+      const user = userEvent.setup()
+      const onChange = renderForm({ armModes: ['away', 'home'] })
+
+      await user.click(screen.getByRole('button', { name: 'Move Home up' }))
+
+      expect(onChange).toHaveBeenCalledWith({ armModes: ['home', 'away'] })
+    })
+
+    it('renders an ordered multi-select that was given no choices at all', () => {
+      render(
+        <Theme>
+          <CardConfig.Component
+            title="Card"
+            configDefinition={{
+              armModes: { type: 'ordered-multi-select', default: [], label: 'Arm modes' },
+            }}
+            config={{}}
+            onChange={vi.fn()}
+          />
+        </Theme>
+      )
+
+      expect(
+        screen.getByText('Nothing selected — the card shows none of these.')
+      ).toBeInTheDocument()
     })
   })
 })
