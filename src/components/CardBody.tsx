@@ -28,8 +28,27 @@ export const DEFAULT_TIER_ARRANGEMENT: Readonly<Record<CardTier, CardArrangement
   full: 'row',
 }
 
+/**
+ * How the control slot is sized.
+ *
+ * `content` — the default — leaves the slot as wide (or as tall) as what is in
+ * it: a switch, a stepper, a select trigger. `fill` gives it the room the tier
+ * has left over instead — the width the icon and the meta do not use on a row,
+ * the height they do not use in `tall`.
+ *
+ * The distinction is not cosmetic. A slider has no intrinsic length: sized by
+ * its content it collapses to nothing, and the whole point of a `tall` tile is
+ * that a taller tile gives the control more travel rather than more whitespace
+ * (docs/specs/entity-cards/options/light.md, cover.md — "Tier layouts"). A
+ * stepper is the opposite case — grown to the tile's height it would float its
+ * buttons apart — which is why this is the card's call and not the tier's.
+ */
+export type CardControlSize = 'content' | 'fill'
+
 export interface CardBodyProps {
   arrangement: CardArrangement
+  /** How much of the tier's room the control slot takes. */
+  controlSize?: CardControlSize
   /**
    * The tile's anchor — the icon circle for most cards, or whatever replaces it
    * where a card's option doc says so (a sensor's big value in `glance`).
@@ -73,15 +92,23 @@ export interface CardBodyProps {
  * tier decided does not fit, which one `display: revert` in the themable
  * cascade (docs/specs/theming) could otherwise do.
  *
- * `data-arrangement` is internal, not part of the stable selector contract:
- * `data-tier` on the shell is the public signal. It is stamped because the
- * shape is otherwise only observable through CSS, and a test that cannot see
- * the shape can only prove a tier rendered, not that it rendered as its tier.
+ * `data-arrangement` and `data-control-size` are internal, not part of the
+ * stable selector contract: `data-tier` on the shell is the public signal. They
+ * are stamped because the shape is otherwise only observable through CSS, and a
+ * test that cannot see the shape can only prove a tier rendered, not that it
+ * rendered as its tier.
  */
-export function CardBody({ arrangement, lead, meta, control, extra }: CardBodyProps) {
+export function CardBody({
+  arrangement,
+  controlSize = 'content',
+  lead,
+  meta,
+  control,
+  extra,
+}: CardBodyProps) {
   if (arrangement === 'row') {
     return (
-      <div className="liebe-card-body" data-arrangement="row">
+      <div className="liebe-card-body" data-arrangement="row" data-control-size={controlSize}>
         <div className="liebe-card-body-line">
           {lead}
           {meta}
@@ -92,12 +119,30 @@ export function CardBody({ arrangement, lead, meta, control, extra }: CardBodyPr
     )
   }
 
+  /*
+   * A filling control in `tall` gets a wrapper of its own rather than growing
+   * in place. The slot's content is the card's — a `GridCard.Controls`, a
+   * stepper, a select — and giving it `flex: 1` here would mean reaching into
+   * whatever the card passed. The wrapper is the one element this component
+   * owns, so it is the one that can be told to take the height.
+   *
+   * Only when there is something to put in it: an empty growing box would eat
+   * the `space-between` that centres a tall tile whose card has no control.
+   */
+  const filling = arrangement === 'tall' && controlSize === 'fill' && Boolean(control)
+
   return (
-    <div className="liebe-card-body" data-arrangement={arrangement}>
+    <div className="liebe-card-body" data-arrangement={arrangement} data-control-size={controlSize}>
       {lead}
       {/* `tall` runs icon → control → meta down the tile; `stack` has no room
           beside the meta, so whatever control it keeps goes underneath. */}
-      {arrangement === 'tall' ? control : null}
+      {arrangement === 'tall' ? (
+        filling ? (
+          <div className="liebe-card-body-fill">{control}</div>
+        ) : (
+          control
+        )
+      ) : null}
       {meta}
       {arrangement === 'stack' ? control : null}
       {extra}

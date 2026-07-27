@@ -1,9 +1,9 @@
-import { Box, Flex } from '@radix-ui/themes'
 import { SunIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { Slider } from './anatomy'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { CardConfig } from './CardConfig'
@@ -201,9 +201,9 @@ function LightCardComponent({
    *           controls — none of which exist yet, so `full` renders the row
    *           content and those slots arrive with change 0016.
    */
-  const isGlance = tier === 'glance'
   const isTall = tier === 'tall'
-  const showBrightness = !isGlance && !isEditMode && isOn && supportsBrightness && enableBrightness
+  const showBrightness =
+    tier !== 'glance' && !isEditMode && isOn && supportsBrightness && enableBrightness
 
   const icon = (
     <GridCard.Icon>
@@ -224,21 +224,23 @@ function LightCardComponent({
     </GridCard.Meta>
   )
 
-  const brightnessSlider = (orientation: 'horizontal' | 'vertical') => (
+  const brightnessSlider = showBrightness ? (
     <GridCard.Controls>
       <Slider
         domain="light"
         color="light"
         active={isOn}
         label="Brightness"
-        orientation={orientation}
+        // `tall` is the tier that gives a control its own axis; every other one
+        // runs it along the row.
+        orientation={isTall ? 'vertical' : 'horizontal'}
         value={displayBrightness}
         readout={`${displayBrightness}%`}
         onValueChange={handleBrightnessChange}
         onValueCommit={handleBrightnessCommit}
       />
     </GridCard.Controls>
-  )
+  ) : undefined
 
   return (
     <>
@@ -267,31 +269,18 @@ function LightCardComponent({
         title={error || undefined}
         className="light-card"
       >
-        {isGlance ? (
-          <Flex direction="column" align="center" justify="center" gap="2">
-            {icon}
-            {meta}
-          </Flex>
-        ) : isTall ? (
-          <Flex direction="column" align="center" gap="2" height="100%">
-            {icon}
-            {/* The slider fills whatever is left between the icon and the meta
-                block — the tier's whole point is that a taller tile gives the
-                control more travel rather than more whitespace. */}
-            {showBrightness && (
-              <Box flexGrow="1" style={{ display: 'flex', minHeight: 0 }}>
-                {brightnessSlider('vertical')}
-              </Box>
-            )}
-            {meta}
-          </Flex>
-        ) : (
-          <Flex align="center" gap="3">
-            {icon}
-            {meta}
-            {showBrightness && <Box flexGrow="1">{brightnessSlider('horizontal')}</Box>}
-          </Flex>
-        )}
+        {/* The slider takes the room its tier leaves over rather than being
+            sized by its content — the width the icon and the meta do not use
+            on a row, the height they do not use in `tall`. That is the tier's
+            whole point: a taller tile gives the control more travel rather
+            than more whitespace. */}
+        <CardBody
+          arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+          controlSize="fill"
+          lead={icon}
+          meta={meta}
+          control={brightnessSlider}
+        />
       </GridCard>
 
       {item && (

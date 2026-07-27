@@ -4,6 +4,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import React, { memo, useCallback } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { Pill, PillGroup } from './anatomy'
 import { useDashboardStore } from '~/store'
 import type { CardTier } from '~/utils/cardTier'
@@ -203,11 +204,10 @@ function FanCardComponent({
    * percentage; a preset-only fan keeps the preset select as its primary,
    * because dropping it would leave that fan with no speed control at all.
    */
-  const isGlance = tier === 'glance'
   const isTall = tier === 'tall'
   const isFull = tier === 'full'
   const hasPresets = supportsPresetMode && (fanAttributes.preset_modes?.length ?? 0) > 0
-  const controlsVisible = !isEditMode && !isGlance && isOn
+  const controlsVisible = !isEditMode && tier !== 'glance' && isOn
   const showSpeedPills = controlsVisible && supportsSpeed
   const showPresetSelect = controlsVisible && hasPresets && (isFull || !supportsSpeed)
 
@@ -235,35 +235,38 @@ function FanCardComponent({
     </GridCard.Meta>
   )
 
-  const speedPills = (
-    <PillGroup label="Fan speed" orientation={isTall ? 'vertical' : 'horizontal'}>
-      {(
-        [
-          { value: '25', label: 'Low speed (25%)', glyph: 12 },
-          { value: '50', label: 'Medium-low speed (50%)', glyph: 14 },
-          { value: '75', label: 'Medium-high speed (75%)', glyph: 16 },
-          { value: '100', label: 'High speed (100%)', glyph: 18 },
-        ] as const
-      ).map(({ value, label, glyph }) => (
-        <Pill
-          key={value}
-          domain="fan"
-          color="ok"
-          active={selectedButton === value}
-          label={label}
-          hideLabel
-          icon={<Wind size={glyph} />}
-          disabled={isLoading}
-          onClick={() => handleSpeedChange(value)}
-        />
-      ))}
-    </PillGroup>
-  )
+  const speedControl = showSpeedPills ? (
+    <GridCard.Controls>
+      <PillGroup label="Fan speed" orientation={isTall ? 'vertical' : 'horizontal'}>
+        {(
+          [
+            { value: '25', label: 'Low speed (25%)', glyph: 12 },
+            { value: '50', label: 'Medium-low speed (50%)', glyph: 14 },
+            { value: '75', label: 'Medium-high speed (75%)', glyph: 16 },
+            { value: '100', label: 'High speed (100%)', glyph: 18 },
+          ] as const
+        ).map(({ value, label, glyph }) => (
+          <Pill
+            key={value}
+            domain="fan"
+            color="ok"
+            active={selectedButton === value}
+            label={label}
+            hideLabel
+            icon={<Wind size={glyph} />}
+            disabled={isLoading}
+            onClick={() => handleSpeedChange(value)}
+          />
+        ))}
+      </PillGroup>
+    </GridCard.Controls>
+  ) : undefined
 
-  // Built only where there is something to build it from: `hasPresets` is what
-  // makes the modes list non-empty, and a fan without one renders no select at
+  // Built only where it is going to be rendered. `showPresetSelect` carries
+  // `hasPresets`, which is what makes the modes list non-empty and what the
+  // non-null assertions below stand on — a fan without one renders no select at
   // any tier.
-  const presetSelect = hasPresets ? (
+  const presetSelect = showPresetSelect ? (
     <Box style={{ width: '100%', maxWidth: '200px' }} onClick={(e) => e.stopPropagation()}>
       <Select.Root
         value={currentPresetMode || fanAttributes.preset_modes![0]}
@@ -280,7 +283,7 @@ function FanCardComponent({
         </Select.Content>
       </Select.Root>
     </Box>
-  ) : null
+  ) : undefined
 
   return (
     <GridCard
@@ -299,36 +302,21 @@ function FanCardComponent({
       onClick={handleToggle}
       title={error || undefined}
     >
-      {isGlance ? (
-        <Flex direction="column" align="center" justify="center" gap="2">
-          {icon}
-          {meta}
-        </Flex>
-      ) : isTall ? (
-        <Flex direction="column" align="center" gap="2" height="100%">
-          {icon}
-          {showSpeedPills && (
-            <Box flexGrow="1" style={{ display: 'flex', alignItems: 'center', minHeight: 0 }}>
-              <GridCard.Controls>{speedPills}</GridCard.Controls>
-            </Box>
-          )}
-          {showPresetSelect && presetSelect}
-          {meta}
-        </Flex>
-      ) : (
-        <Flex direction="column" gap="2">
-          <Flex align="center" gap="3">
-            {icon}
-            {meta}
-            {showSpeedPills && (
-              <Box flexGrow="1">
-                <GridCard.Controls>{speedPills}</GridCard.Controls>
-              </Box>
-            )}
-          </Flex>
-          {showPresetSelect && presetSelect}
-        </Flex>
-      )}
+      {/*
+       * `tall` has one control band between the icon and the meta, so whatever
+       * the fan's primary control is goes in it — the step pills, or the preset
+       * select for a fan that has no percentage to set. The row shapes give the
+       * preset select a line of its own underneath instead, which is where
+       * `full` puts it when the pills are already on the row.
+       */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        controlSize="fill"
+        lead={icon}
+        meta={meta}
+        control={isTall ? (speedControl ?? presetSelect) : speedControl}
+        extra={isTall ? undefined : presetSelect}
+      />
     </GridCard>
   )
 }
