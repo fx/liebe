@@ -4,12 +4,19 @@ import { Archive, Calendar, Check, Clock, Edit2, X } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
-import type { CardTier } from '~/utils/cardTier'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputDateTimeCardProps {
   entityId: string
   tier?: CardTier
+  /**
+   * The effective grid span behind `tier`. Accepted so any renderer can hand a
+   * card the pair `CardProps` defines; no datetime-helper layout keys on width
+   * past the tier boundary, so nothing here reads it.
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -147,15 +154,22 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
-        <Flex direction="column" align="center" gap="2">
-          <GridCard.Icon>
-            <Archive size={20} />
-          </GridCard.Icon>
-          <GridCard.Title>
-            {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
-          </GridCard.Title>
-          <GridCard.Status>Unavailable</GridCard.Status>
-        </Flex>
+        <CardBody
+          arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+          lead={
+            <GridCard.Icon>
+              <Archive size={20} />
+            </GridCard.Icon>
+          }
+          meta={
+            <GridCard.Meta>
+              <GridCard.Title>
+                {entity.attributes.friendly_name || entity.entity_id.split('.')[1]}
+              </GridCard.Title>
+              <GridCard.Status>Unavailable</GridCard.Status>
+            </GridCard.Meta>
+          }
+        />
       </GridCard>
     )
   }
@@ -168,6 +182,19 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
 
   const displayValue = formatDisplayValue(entity.state, attributes)
   const inputType = getInputType(attributes)
+  /*
+   * Which halves of a datetime the helper actually carries. Secondary text, so
+   * only `full` renders it — see the layout note below. A helper with neither
+   * half is nonsense Home Assistant does not produce, but it has always
+   * rendered no line at all rather than a wrong one, and that stays true.
+   */
+  const modeLabel = hasDate
+    ? hasTime
+      ? 'Date & Time'
+      : 'Date Only'
+    : hasTime
+      ? 'Time Only'
+      : undefined
 
   return (
     <GridCard
@@ -188,69 +215,97 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
       onClick={handleClick}
       title={error || undefined}
     >
-      <Flex direction="column" align="center" gap="2">
-        <GridCard.Icon>
-          <Icon size={24} style={{ color: 'var(--gray-9)' }} />
-        </GridCard.Icon>
-        <GridCard.Title>
-          {attributes.friendly_name || entity.entity_id.split('.')[1]}
-        </GridCard.Title>
-        <GridCard.Controls>
-          {isEditing ? (
-            <form onSubmit={handleSubmit} onClick={handleFieldClick}>
+      {/*
+       * The picker renders at every tier, `glance` included.
+       *
+       * The option doc's `glance` row is control-free ("Icon + name + formatted
+       * value; tap → more-info"), but the `input_datetime` control it defers to
+       * is registered into the detail dialog by 0022. Dropping the picker here
+       * would leave a 1×1 datetime helper with no way to set it at all — the
+       * regression docs/changes/0011 forbids at a merge point. The field
+       * doubles as the state the doc asks for: it reads out the formatted
+       * value, or `(not set)`.
+       *
+       * The has-date/has-time line is what the smaller tiers omit: it describes
+       * the helper rather than reporting its state, so it renders only in
+       * `full`, the one tier with a line past the meta.
+       */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        lead={
+          <GridCard.Icon>
+            <Icon size={24} style={{ color: 'var(--gray-9)' }} />
+          </GridCard.Icon>
+        }
+        meta={
+          <GridCard.Meta>
+            <GridCard.Title>
+              {attributes.friendly_name || entity.entity_id.split('.')[1]}
+            </GridCard.Title>
+            {tier === 'full' && modeLabel ? <GridCard.Status>{modeLabel}</GridCard.Status> : null}
+          </GridCard.Meta>
+        }
+        control={
+          <GridCard.Controls>
+            {isEditing ? (
+              <form onSubmit={handleSubmit} onClick={handleFieldClick}>
+                <Flex align="center" gap="2">
+                  <TextField.Root
+                    size="3"
+                    type={inputType}
+                    value={localValue}
+                    onChange={(e) => setLocalValue(e.target.value)}
+                    autoFocus
+                    style={{ minWidth: '200px' }}
+                  />
+                  <IconButton
+                    size="3"
+                    type="submit"
+                    variant="soft"
+                    color="green"
+                    disabled={loading}
+                  >
+                    <Check size={16} />
+                  </IconButton>
+                  <IconButton
+                    size="3"
+                    type="button"
+                    variant="soft"
+                    color="red"
+                    onClick={handleCancel}
+                  >
+                    <X size={16} />
+                  </IconButton>
+                </Flex>
+              </form>
+            ) : (
               <Flex align="center" gap="2">
-                <TextField.Root
-                  size="3"
-                  type={inputType}
-                  value={localValue}
-                  onChange={(e) => setLocalValue(e.target.value)}
-                  autoFocus
-                  style={{ minWidth: '200px' }}
-                />
-                <IconButton size="3" type="submit" variant="soft" color="green" disabled={loading}>
-                  <Check size={16} />
-                </IconButton>
+                <Box
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 'var(--radius-2)',
+                    backgroundColor: 'var(--gray-2)',
+                    minWidth: '120px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Text size="2">{displayValue}</Text>
+                </Box>
                 <IconButton
                   size="3"
-                  type="button"
-                  variant="soft"
-                  color="red"
-                  onClick={handleCancel}
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsEditing(true)
+                  }}
                 >
-                  <X size={16} />
+                  <Edit2 size={16} />
                 </IconButton>
               </Flex>
-            </form>
-          ) : (
-            <Flex align="center" gap="2">
-              <Box
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: 'var(--radius-2)',
-                  backgroundColor: 'var(--gray-2)',
-                  minWidth: '120px',
-                  textAlign: 'center',
-                }}
-              >
-                <Text size="2">{displayValue}</Text>
-              </Box>
-              <IconButton
-                size="3"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsEditing(true)
-                }}
-              >
-                <Edit2 size={16} />
-              </IconButton>
-            </Flex>
-          )}
-        </GridCard.Controls>
-        {hasDate && hasTime && <GridCard.Status>Date & Time</GridCard.Status>}
-        {hasDate && !hasTime && <GridCard.Status>Date Only</GridCard.Status>}
-        {!hasDate && hasTime && <GridCard.Status>Time Only</GridCard.Status>}
-      </Flex>
+            )}
+          </GridCard.Controls>
+        }
+      />
     </GridCard>
   )
 })

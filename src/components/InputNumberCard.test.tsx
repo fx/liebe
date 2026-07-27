@@ -84,7 +84,11 @@ describe('InputNumberCard', () => {
   })
 
   it('shows min and max range', () => {
-    render(<InputNumberCard entityId="input_number.test_number" />)
+    // `full` is the only tier that carries the range line — the tier table
+    // gives it "`row` control plus the `min – max` range line", and the
+    // smaller tiers omit it rather than squeeze it in
+    // (docs/specs/entity-cards/options/input-helpers.md).
+    render(<InputNumberCard entityId="input_number.test_number" tier="full" />)
     expect(screen.getByText('0 - 100')).toBeInTheDocument()
   })
 

@@ -1,10 +1,10 @@
-import { Flex } from '@radix-ui/themes'
 import { LightningBoltIcon, SunIcon, CheckIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import type { HassEntity } from '~/store/entityTypes'
 import { memo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 
 interface ButtonCardProps {
@@ -98,13 +98,27 @@ function ButtonCardComponent({
       onClick={handleClick}
       title={error || undefined}
     >
-      <Flex direction="column" align="center" justify="center" gap="2">
-        <GridCard.Icon>{getEntityIcon(entity)}</GridCard.Icon>
-
-        <GridCard.Title>{friendlyName}</GridCard.Title>
-
-        <GridCard.Status>{error ? 'ERROR' : entity.state.toUpperCase()}</GridCard.Status>
-      </Flex>
+      {/*
+       * The switch card (and the generic fallback it doubles as) embeds no
+       * control at any tier — the whole tile is the touch target, so the tiers
+       * differ only in arrangement (docs/specs/entity-cards/options/switch.md,
+       * "Tier layouts"). `full` gets the row shape with the extra area as
+       * breathing room; the card declares no secondary content for it.
+       *
+       * `showLastChanged` is the one thing the option doc would add to
+       * `row`/`tall`/`full`, and it renders nowhere yet: the option does not
+       * exist until 0022, and this change is content placement only.
+       */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        lead={<GridCard.Icon>{getEntityIcon(entity)}</GridCard.Icon>}
+        meta={
+          <GridCard.Meta>
+            <GridCard.Title>{friendlyName}</GridCard.Title>
+            <GridCard.Status>{error ? 'ERROR' : entity.state.toUpperCase()}</GridCard.Status>
+          </GridCard.Meta>
+        }
+      />
     </GridCard>
   )
 }

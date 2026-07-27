@@ -93,3 +93,44 @@ export const EditMode: Story = {
   args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createInputSelectEntity()], mode: 'edit' } },
 }
+
+/* ------------------------------------------------------------------ *
+ * Layout tiers
+ *
+ * One story per tier the card implements, each sized through the
+ * grid-cell decorator so the span the tier is derived from is the span
+ * the story is rendered at (docs/specs/storybook/index.md). The `grid
+ * width` / `grid height` controls resize any of them interactively.
+ * ------------------------------------------------------------------ */
+
+/**
+ * The dropdown is kept even at one cell: its replacement is a dialog control
+ * 0022 registers, and dropping it here would leave the tile unable to change
+ * the option. The trigger doubles as the state line, which is why the option
+ * count is omitted.
+ */
+export const TierGlance: Story = {
+  name: 'Tier — glance (1×1)',
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+}
+
+/** Icon, meta and dropdown in a row. */
+export const TierRow: Story = {
+  name: 'Tier — row (3×1)',
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+}
+
+/** Icon on top, dropdown between, meta at the bottom. */
+export const TierTall: Story = {
+  name: 'Tier — tall (1×3)',
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+}
+
+/**
+ * The row arrangement plus the option-count line, which is `full`-only. Pills
+ * wait for the `controlStyle` option in 0022.
+ */
+export const TierFull: Story = {
+  name: 'Tier — full (3×2)',
+  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+}
