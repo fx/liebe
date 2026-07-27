@@ -6,6 +6,12 @@ import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { DetailControlSection } from './EntityDetailDialog/DetailControlSection'
+import {
+  registerDetailControls,
+  type EntityDetailControlsProps,
+} from './EntityDetailDialog/detailControls'
+import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputTextCardProps {
@@ -31,6 +37,206 @@ interface InputTextAttributes {
   _stale?: boolean
 }
 
+/**
+ * The mask a password helper's value is shown as. Not configurable, on any
+ * surface: "a presentation option MUST NOT be able to unmask a password
+ * helper", and the guarantee is per *value*, so it binds the detail dialog's
+ * control exactly as it binds the card's
+ * (docs/specs/entity-cards/options/input-helpers.md).
+ */
+const PASSWORD_MASK = '••••••••'
+
+/** What the helper's value reads as where it is displayed rather than edited. */
+export function displayTextHelperValue(entity: HassEntity): string {
+  const { mode } = entity.attributes as InputTextAttributes
+  return mode === 'password' ? PASSWORD_MASK : entity.state
+}
+
+interface TextHelperControlProps {
+  entity: HassEntity
+  /** Whether the inline editor is open. Owned by the caller, so a tap on the
+   *  tile can enter the edit state the same way the edit button does. */
+  editing: boolean
+  onEditingChange: (editing: boolean) => void
+  /** A dispatch is in flight, so the save route is held shut. */
+  loading?: boolean
+  /** Commit a value that already satisfies the helper's own constraints. */
+  onCommit: (value: string) => void
+}
+
+/**
+ * The text helper's embedded control — the readout with its edit affordance,
+ * and the inline editor behind it.
+ *
+ * Rendered bare so the card can wrap it in `GridCard.Controls` and the detail
+ * dialog in `DetailControlSection`; that is what lets the dialog mount the same
+ * control the card's `full` tier renders rather than a second one that drifts
+ * from it (docs/specs/entity-cards/options/input-helpers.md).
+ */
+export function TextHelperControl({
+  entity,
+  editing,
+  onEditingChange,
+  loading = false,
+  onCommit,
+}: TextHelperControlProps) {
+  const attributes = entity.attributes as InputTextAttributes
+  const isPassword = attributes.mode === 'password'
+
+  const [localValue, setLocalValue] = useState<string>(entity.state)
+  // Seed the editor from the entity each time it opens, during render rather
+  // than in an effect (react-hooks/set-state-in-effect).
+  const [prevEditing, setPrevEditing] = useState(editing)
+  if (editing !== prevEditing) {
+    setPrevEditing(editing)
+    if (editing) setLocalValue(entity.state)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate length constraints
+    if (attributes.min && localValue.length < attributes.min) {
+      // Invalid — leave the edit state, and the readout reverts to the entity
+      onEditingChange(false)
+      return
+    }
+
+    if (attributes.max && localValue.length > attributes.max) {
+      // Truncate value
+      setLocalValue(localValue.substring(0, attributes.max))
+      return
+    }
+
+    // Validate pattern if provided
+    if (attributes.pattern) {
+      const regex = new RegExp(attributes.pattern)
+      if (!regex.test(localValue)) {
+        onEditingChange(false)
+        return
+      }
+    }
+
+    onCommit(localValue)
+    onEditingChange(false)
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
+        <Flex align="center" gap="2">
+          <TextField.Root
+            size="3"
+            aria-label="Value"
+            /*
+             * A password helper is masked while it is edited too. The card's
+             * readout and the dialog's are the same component, so this is the
+             * one place the guarantee has to hold — and `type="password"` is
+             * what keeps the secret out of the field the user is typing into.
+             */
+            type={isPassword ? 'password' : 'text'}
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            autoFocus
+            style={{ minWidth: '150px' }}
+            maxLength={attributes.max}
+          />
+          <IconButton
+            size="3"
+            type="submit"
+            variant="soft"
+            color="green"
+            aria-label="Save value"
+            disabled={loading}
+          >
+            <Check size={16} />
+          </IconButton>
+          <IconButton
+            size="3"
+            type="button"
+            variant="soft"
+            color="red"
+            aria-label="Cancel editing"
+            onClick={() => onEditingChange(false)}
+          >
+            <X size={16} />
+          </IconButton>
+        </Flex>
+      </form>
+    )
+  }
+
+  return (
+    <Flex align="center" gap="2">
+      <Box
+        style={{
+          padding: '4px 12px',
+          borderRadius: 'var(--radius-2)',
+          backgroundColor: 'var(--gray-2)',
+          minWidth: '100px',
+          textAlign: 'center',
+        }}
+      >
+        <Text size="2" style={{ fontFamily: isPassword ? 'monospace' : undefined }}>
+          {displayTextHelperValue(entity) || '(empty)'}
+        </Text>
+      </Box>
+      {/*
+       * The readout beside it is a plain `Box`, and stays one: it reports the
+       * value, it does not operate the helper. The edit affordance is this
+       * button — a real `<button>`, focusable and Enter/Space-operable — so the
+       * control is reachable without a pointer, which is what "operable" means
+       * for the keyboard, switch and screen-reader users the no-operability
+       * -regression invariant most exists for. An icon-only button has no text
+       * to name it, so the name is spelled out here rather than left to an
+       * `<svg>`.
+       */}
+      <IconButton
+        size="3"
+        variant="ghost"
+        aria-label="Edit value"
+        onClick={(e) => {
+          e.stopPropagation()
+          onEditingChange(true)
+        }}
+      >
+        <Edit2 size={16} />
+      </IconButton>
+    </Flex>
+  )
+}
+
+/**
+ * The `input_text` control the detail dialog mounts — what a control-free
+ * `glance` tile defers to through its `more-info` tap
+ * (docs/specs/entity-cards/options/input-helpers.md — the tier table).
+ *
+ * It is the card's own control, which is what keeps the password guarantee
+ * whole: the dialog now offers a *field over the helper's value*, and a second,
+ * dialog-only implementation would be exactly the surface that forgets to mask.
+ */
+export function InputTextDetailControls({ entity }: EntityDetailControlsProps) {
+  const { setValue, loading, error } = useServiceCall()
+  const [isEditing, setIsEditing] = useState(false)
+
+  return (
+    <DetailControlSection error={error}>
+      <TextHelperControl
+        entity={entity}
+        editing={isEditing}
+        onEditingChange={setIsEditing}
+        loading={loading}
+        onCommit={(value) => setValue(entity.entity_id, value)}
+      />
+    </DetailControlSection>
+  )
+}
+
+// Registered by the card family that owns the control; see the note on
+// `registerDetailControls` in `InputNumberCard.tsx` for why the edge runs this
+// way round and why it is safe.
+registerDetailControls('input_text', InputTextDetailControls)
+
 export const InputTextCard = memo(function InputTextCard({
   entityId,
   tier = 'row',
@@ -42,70 +248,29 @@ export const InputTextCard = memo(function InputTextCard({
   const { setValue, loading, error } = useServiceCall()
 
   const [isEditing, setIsEditing] = useState(false)
-  // Local value for editing - initialized when entering edit mode
-  const [localValue, setLocalValue] = useState<string>('')
 
-  // Computed display value - entity state when not editing, local value when editing
-  const displayValue = isEditing ? localValue : (entity?.state ?? '')
+  const isGlance = tier === 'glance'
 
-  const enterEditMode = useCallback(() => {
-    if (entity) {
-      setLocalValue(entity.state)
-      setIsEditing(true)
-    }
-  }, [entity])
-
+  /*
+   * The tile tap is the card's primary action: it focuses the text field,
+   * entering the inline edit state (the option doc's "Primary action"). At
+   * `glance` there is no field to focus, so the tap resolves to `more-info`
+   * instead and this declines — it is still passed, because an absent handler
+   * would tell the shell the card has no toggle of its own and route a
+   * configured `toggle` to `homeassistant.toggle` on an `input_text`.
+   */
   const handleClick = useCallback(() => {
-    if (!isEditing) {
-      enterEditMode()
-    }
-  }, [isEditing, enterEditMode])
+    if (!isGlance) setIsEditing(true)
+  }, [isGlance])
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault()
-      if (!entity) return
-
-      const attributes = entity.attributes as InputTextAttributes
-
-      // Validate length constraints
-      if (attributes.min && localValue.length < attributes.min) {
-        // Invalid - exit edit mode, displayValue reverts to entity.state
-        setIsEditing(false)
-        return
-      }
-
-      if (attributes.max && localValue.length > attributes.max) {
-        // Truncate value
-        const truncated = localValue.substring(0, attributes.max)
-        setLocalValue(truncated)
-        return
-      }
-
-      // Validate pattern if provided
-      if (attributes.pattern) {
-        const regex = new RegExp(attributes.pattern)
-        if (!regex.test(localValue)) {
-          // Invalid - exit edit mode, displayValue reverts to entity.state
-          setIsEditing(false)
-          return
-        }
-      }
-
-      setValue(entity.entity_id, localValue)
-      setIsEditing(false)
-    },
-    [entity, localValue, setValue]
+  // Keyed on the prop rather than on the resolved entity: the control that
+  // calls this only renders past the early returns below, so the entity exists
+  // by construction and `entity.entity_id` is this id. Reading the prop keeps
+  // the callback free of a guard for a state it cannot be called in.
+  const handleCommit = useCallback(
+    (value: string) => setValue(entityId, value),
+    [entityId, setValue]
   )
-
-  const handleCancel = useCallback(() => {
-    // Just exit editing mode - displayValue will show entity.state again
-    setIsEditing(false)
-  }, [])
-
-  const handleFieldClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-  }, [])
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -158,10 +323,6 @@ export const InputTextCard = memo(function InputTextCard({
 
   const attributes = entity.attributes as InputTextAttributes
   const isStale = attributes._stale === true
-  const isPassword = attributes.mode === 'password'
-
-  // For display: mask if password and not editing, otherwise show displayValue (computed at top)
-  const shownValue = isPassword && !isEditing ? '••••••••' : displayValue
 
   return (
     <GridCard
@@ -176,26 +337,26 @@ export const InputTextCard = memo(function InputTextCard({
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
-      // Unconditional, with `handleClick` declining while the field is open: an
-      // absent handler tells the shell the card has no toggle of its own, which
-      // would route `toggle` to `homeassistant.toggle` on an `input_text`.
       onClick={handleClick}
+      /*
+       * At one cell there is no field to focus, so `default` resolves to
+       * `more-info` and the dialog's `input_text` control is what sets the
+       * value (docs/specs/entity-cards/options/input-helpers.md — "In `glance`,
+       * fall back to `more-info`").
+       */
+      defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
     >
       {/*
-       * The value field renders at every tier, `glance` included.
+       * `glance` reads the value out as the tile's state line — masked when the
+       * helper's `mode` is `password`, on this surface as on every other — and
+       * carries no control, which is what the option doc's tier table asks for
+       * ("Icon + name + value as state (masked if password); tap → more-info").
        *
-       * The option doc's `glance` row is control-free ("Icon + name + value as
-       * state; tap → more-info"), but the `input_text` control it defers to is
-       * registered into the detail dialog by 0022. Dropping the field here
-       * would leave a 1×1 text helper with no way to set its value at all —
-       * the regression docs/changes/0011 forbids at a merge point. The field
-       * doubles as the state the doc asks for: it reads the value out, masked
-       * when the helper's `mode` is `password`.
-       *
-       * The length-constraint line is what the smaller tiers omit: it describes
-       * the helper rather than reporting its state, so it renders only in
-       * `full`, the one tier with a line past the meta.
+       * The length-constraint line is what the middle tiers omit instead: it
+       * describes the helper rather than reporting its state, so it renders only
+       * in `full`, the one tier with a line past the meta — and at `glance` the
+       * state line is already spoken for by the value.
        */}
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
@@ -209,6 +370,9 @@ export const InputTextCard = memo(function InputTextCard({
             <GridCard.Title>
               {attributes.friendly_name || entity.entity_id.split('.')[1]}
             </GridCard.Title>
+            {isGlance ? (
+              <GridCard.Status>{displayTextHelperValue(entity) || '(empty)'}</GridCard.Status>
+            ) : null}
             {tier === 'full' && attributes.min !== undefined && attributes.max !== undefined ? (
               <GridCard.Status>
                 {attributes.min} - {attributes.max} chars
@@ -217,81 +381,17 @@ export const InputTextCard = memo(function InputTextCard({
           </GridCard.Meta>
         }
         control={
-          <GridCard.Controls>
-            {isEditing ? (
-              <form onSubmit={handleSubmit} onClick={handleFieldClick}>
-                <Flex align="center" gap="2">
-                  <TextField.Root
-                    size="3"
-                    aria-label="Value"
-                    type={isPassword ? 'password' : 'text'}
-                    value={localValue}
-                    onChange={(e) => setLocalValue(e.target.value)}
-                    autoFocus
-                    style={{ minWidth: '150px' }}
-                    maxLength={attributes.max}
-                  />
-                  <IconButton
-                    size="3"
-                    type="submit"
-                    variant="soft"
-                    color="green"
-                    aria-label="Save value"
-                    disabled={loading}
-                  >
-                    <Check size={16} />
-                  </IconButton>
-                  <IconButton
-                    size="3"
-                    type="button"
-                    variant="soft"
-                    color="red"
-                    aria-label="Cancel editing"
-                    onClick={handleCancel}
-                  >
-                    <X size={16} />
-                  </IconButton>
-                </Flex>
-              </form>
-            ) : (
-              <Flex align="center" gap="2">
-                <Box
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: 'var(--radius-2)',
-                    backgroundColor: 'var(--gray-2)',
-                    minWidth: '100px',
-                    textAlign: 'center',
-                  }}
-                >
-                  <Text size="2" style={{ fontFamily: isPassword ? 'monospace' : undefined }}>
-                    {shownValue || '(empty)'}
-                  </Text>
-                </Box>
-                {/*
-                 * The readout beside it is a plain `Box`, and stays one: it
-                 * reports the value, it does not operate the helper. The edit
-                 * affordance is this button — a real `<button>`, focusable and
-                 * Enter/Space-operable — so the control `glance` retains is
-                 * reachable without a pointer (docs/changes/0011 — "no
-                 * operability regression"). An icon-only button has no text to
-                 * name it, so the name is spelled out here rather than left to
-                 * an `<svg>`.
-                 */}
-                <IconButton
-                  size="3"
-                  variant="ghost"
-                  aria-label="Edit value"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    enterEditMode()
-                  }}
-                >
-                  <Edit2 size={16} />
-                </IconButton>
-              </Flex>
-            )}
-          </GridCard.Controls>
+          isGlance ? undefined : (
+            <GridCard.Controls>
+              <TextHelperControl
+                entity={entity}
+                editing={isEditing}
+                onEditingChange={setIsEditing}
+                loading={loading}
+                onCommit={handleCommit}
+              />
+            </GridCard.Controls>
+          )
         }
       />
     </GridCard>

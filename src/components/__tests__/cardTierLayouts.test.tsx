@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
+import { entityHistoryService } from '~/services/entityHistory'
 import { dashboardActions } from '~/store'
 import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { CardItemProvider } from '../cardItemContext'
@@ -68,10 +69,22 @@ function seed(...entities: HassEntity[]) {
 }
 
 function renderCard(ui: ReactElement, config?: Record<string, unknown>) {
+  /*
+   * The grid publishes the placed item's entity to the shell through this
+   * provider rather than through the card (`cardItemContext`), and the shell
+   * needs it to open anything: `more-info` is not actionable without an entity.
+   * Taking it off the element under test keeps every call site below unchanged
+   * while making the `glance` tiles' `more-info` tap reachable — which is now
+   * the only way those tiles are operated at all.
+   */
+  const entityId = (ui.props as { entityId?: string }).entityId
+
   return render(
     <Theme>
       <HomeAssistantProvider hass={hass}>
-        <CardItemProvider config={config}>{ui}</CardItemProvider>
+        <CardItemProvider entityId={entityId} config={config}>
+          {ui}
+        </CardItemProvider>
       </HomeAssistantProvider>
     </Theme>
   )
@@ -315,26 +328,35 @@ describe('InputBooleanCard tiers', () => {
 describe('InputNumberCard tiers', () => {
   beforeEach(() => seed(createInputNumberEntity()))
 
-  it('keeps the click-to-edit readout in glance and drops the stepper buttons', async () => {
-    const user = userEvent.setup()
+  it('anchors glance on the big value and carries no control at all', () => {
     renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
 
     expect(arrangement()).toBe('stack')
-    // The value anchors the tile, so the icon circle goes; the two step buttons
-    // go with it, because two 40px targets plus a readout plus a name do not
-    // fit one cell.
+    // "**Value big** — the current value as the large numeric readout with unit
+    // muted; no control" (the option doc's tier table). The reading is the
+    // state, so it takes the icon circle's place and the state line with it.
+    expect(part('.liebe-value')).toHaveTextContent('45%')
     expect(part('.liebe-icon')).toBeNull()
+    expect(part('.liebe-state')).toBeNull()
+
+    // Every control is gone now, not just the two step buttons: the readout the
+    // tile kept until 0022 is replaced by the dialog control the `more-info`
+    // tap reaches (see "operability of the control-free glance tiles" below).
+    expect(part('.liebe-card-controls')).toBeNull()
     expect(screen.queryByLabelText('Decrease value')).toBeNull()
     expect(screen.queryByLabelText('Increase value')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Set value/ })).toBeNull()
+  })
 
-    /*
-     * What stays is the control, not a label. An `input_number` has no
-     * whole-tile action to fall back on and no dialog control until 0022, so a
-     * control-free glance would leave the tile unable to set the helper at all
-     * — the regression docs/changes/0011 forbids at a merge point.
-     */
-    await user.click(screen.getByText('45 %'))
-    expect(screen.getByRole('textbox')).toHaveValue('45')
+  it('shows a dash for a helper publishing no number', () => {
+    seed(createInputNumberEntity({ state: 'unknown' }))
+    renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
+
+    // `parseFloat('unknown')` is `NaN`, and `toFixed` spells that out. Harmless
+    // while the value sat inside a button among other controls; at `glance` it
+    // is the only thing the tile shows.
+    expect(part('.liebe-value')).toHaveTextContent('—')
+    expect(part('.liebe-value')).not.toHaveTextContent('NaN')
   })
 
   it.each([
@@ -375,7 +397,6 @@ describe('InputSelectCard tiers', () => {
   beforeEach(() => seed(createInputSelectEntity()))
 
   it.each([
-    ['glance', 'stack'],
     ['row', 'row'],
     ['tall', 'tall'],
     ['full', 'row'],
@@ -383,13 +404,19 @@ describe('InputSelectCard tiers', () => {
     renderCard(<InputSelectCard entityId="input_select.house_mode" tier={tier} />)
 
     expect(arrangement()).toBe(shape)
-    /*
-     * Retained at every tier, `glance` included: the option doc's control-free
-     * glance defers to a dialog control that 0022 registers, and removing the
-     * dropdown before then would leave a 1×1 select helper with no way to
-     * change its option.
-     */
     expect(screen.getByRole('combobox')).toBeInTheDocument()
+  })
+
+  it('reads the current option out as the state at glance, with no dropdown', () => {
+    renderCard(<InputSelectCard entityId="input_select.house_mode" tier="glance" />)
+
+    // "Icon + name + **current option as state**; tap → more-info" — the
+    // dropdown is what the dialog control replaces.
+    expect(arrangement()).toBe('stack')
+    expect(part('.liebe-icon')).not.toBeNull()
+    expect(part('.liebe-state')).toHaveTextContent('Home')
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(part('.liebe-card-controls')).toBeNull()
   })
 
   it.each(['glance', 'row', 'tall'] as const)('omits the option count at %s', (tier) => {
@@ -409,7 +436,6 @@ describe('InputTextCard tiers', () => {
   beforeEach(() => seed(createInputTextEntity()))
 
   it.each([
-    ['glance', 'stack'],
     ['row', 'row'],
     ['tall', 'tall'],
     ['full', 'row'],
@@ -417,10 +443,55 @@ describe('InputTextCard tiers', () => {
     renderCard(<InputTextCard entityId="input_text.doorbell_message" tier={tier} />)
 
     expect(arrangement()).toBe(shape)
-    // Retained for the same reason as the select's dropdown: the dialog control
-    // it would defer to is 0022's.
     expect(part('.liebe-card-controls')).not.toBeNull()
     expect(screen.getByText('Please leave parcels at the side door')).toBeInTheDocument()
+  })
+
+  it('reads the value out as the state at glance, with no field', () => {
+    renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+
+    // "Icon + name + value as state (masked if password); tap → more-info".
+    expect(arrangement()).toBe('stack')
+    expect(part('.liebe-state')).toHaveTextContent('Please leave parcels at the side door')
+    expect(part('.liebe-card-controls')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edit value' })).toBeNull()
+  })
+
+  it('says the value is empty at glance rather than showing an empty line', () => {
+    seed(createInputTextEntity({ state: '' }))
+    renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+
+    expect(part('.liebe-state')).toHaveTextContent('(empty)')
+  })
+
+  it('declines a configured toggle at glance, where there is no field to open', async () => {
+    const user = userEvent.setup()
+    renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />, {
+      tapAction: 'toggle',
+    })
+
+    await user.click(card())
+
+    /*
+     * The card keeps passing `onClick` at every tier, because an absent handler
+     * tells the shell the card has no toggle of its own and routes `toggle` to
+     * `homeassistant.toggle` on an `input_text`. At `glance` the handler has
+     * nothing to do — no field is rendered — so it declines rather than setting
+     * an edit state nothing would show.
+     */
+    expect(hass.callService).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('Value')).toBeNull()
+  })
+
+  it('masks a password helper in the glance state line', () => {
+    seed(createInputTextEntity({ state: 'hunter2', attributes: { mode: 'password' } }))
+    renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+
+    // The value moved from a readout inside the control to the state line, and
+    // the mask MUST have moved with it: the guarantee is per value, not per
+    // surface (docs/specs/entity-cards/options/input-helpers.md).
+    expect(part('.liebe-state')).toHaveTextContent('••••••••')
+    expect(card()).not.toHaveTextContent('hunter2')
   })
 
   it.each(['glance', 'row', 'tall'] as const)('omits the length line at %s', (tier) => {
@@ -440,7 +511,6 @@ describe('InputDateTimeCard tiers', () => {
   beforeEach(() => seed(createInputDateTimeEntity()))
 
   it.each([
-    ['glance', 'stack'],
     ['row', 'row'],
     ['tall', 'tall'],
     ['full', 'row'],
@@ -449,6 +519,63 @@ describe('InputDateTimeCard tiers', () => {
 
     expect(arrangement()).toBe(shape)
     expect(part('.liebe-card-controls')).not.toBeNull()
+  })
+
+  it('reads the formatted value out as the state at glance, with no picker', () => {
+    renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+
+    // "Icon + name + formatted value / `(not set)`; tap → more-info".
+    expect(arrangement()).toBe('stack')
+    expect(part('.liebe-state')).toHaveTextContent(new Date('2026-07-26 06:30:00').toLocaleString())
+    expect(part('.liebe-card-controls')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edit value' })).toBeNull()
+  })
+
+  it('reads (not set) out at glance for a helper with no value', () => {
+    seed(createInputDateTimeEntity({ state: 'unknown' }))
+    renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+
+    expect(part('.liebe-state')).toHaveTextContent('(not set)')
+  })
+
+  it('reads a date-only helper out as a date at glance', () => {
+    seed(createInputDateTimeEntity({ attributes: { has_time: false } }))
+    renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+
+    expect(part('.liebe-state')).toHaveTextContent(
+      new Date('2026-07-26 06:30:00').toLocaleDateString()
+    )
+  })
+
+  it('reads a time-only helper out as a time at glance', () => {
+    /*
+     * The state still carries a date here, which is the transitional shape a
+     * helper is in for as long as it takes Home Assistant to rewrite the state
+     * after `has_date` is turned off in the helper's settings. It is also the
+     * only shape that reaches this half of the formatter at all: a settled
+     * time-only helper publishes `06:30:00`, which `new Date` rejects and the
+     * formatter passes through verbatim.
+     */
+    seed(createInputDateTimeEntity({ attributes: { has_date: false } }))
+    renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+
+    expect(part('.liebe-state')).toHaveTextContent(
+      new Date('2026-07-26 06:30:00').toLocaleTimeString()
+    )
+  })
+
+  it('declines a configured toggle at glance, where there is no picker to open', async () => {
+    const user = userEvent.setup()
+    renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />, {
+      tapAction: 'toggle',
+    })
+
+    await user.click(card())
+
+    // As for `input_text`: the handler stays passed so the shell knows the card
+    // owns its toggle, and declines where there is nothing to open.
+    expect(hass.callService).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('Value')).toBeNull()
   })
 
   it.each(['glance', 'row', 'tall'] as const)('omits the date/time mode line at %s', (tier) => {
@@ -510,194 +637,150 @@ describe('the unavailable tile', () => {
 })
 
 /*
- * That the control each helper keeps in `glance` can actually be operated.
+ * That a control-free `glance` tile can still operate its helper.
  *
- * The four non-boolean helpers keep a minimal control at one cell because
- * removing it would leave the tile with no way to operate the entity at all
- * until 0022 registers their dialog controls (the note under the tier table in
- * docs/specs/entity-cards/options/input-helpers.md). The invariant it serves is
- * *operability*, and a control that answers only to a pointer does not satisfy
- * it: to a keyboard, a switch device or a screen reader, a `div` carrying an
- * `onClick` is indistinguishable from the control-free tile the retention
- * exists to prevent — and those are the users with the fewest ways around it.
+ * This is the invariant change 0011 deferred on. The four non-boolean helpers
+ * kept a minimal control at one cell because removing it would have left the
+ * tile with no way to operate the entity at all; 0022 registers their controls
+ * into the detail dialog, so the tile's `default` tap resolves to `more-info`
+ * and the control is one tap away instead of gone
+ * (docs/specs/entity-cards/options/input-helpers.md — the tier table).
  *
- * So every retained control is driven here from the keyboard only, never with
- * `user.click()`: reached with Tab, checked for an accessible name, and
- * activated with Enter *and* with Space. A pointer-driven test passes on a
- * plain `div` and therefore cannot tell "clickable" from "operable", which is
- * the whole distinction these assertions exist to hold.
+ * These drive the *whole* path, from the 1×1 tile to the service call, because
+ * that is the only thing the invariant is a statement about. A test that
+ * rendered the dialog control directly would prove the control works and say
+ * nothing about whether anything reaches it — and "nothing reaches it" is
+ * precisely the regression a merge point can introduce here.
  *
- * Enter and Space are asserted separately because an element that fakes button
- * semantics with a keydown handler typically honours one and drops the other;
- * a real `<button>` gets both from the element.
+ * The controls are driven from the keyboard: to a keyboard, a switch device or
+ * a screen reader, a control that answers only to a pointer is as unoperable as
+ * no control at all, and those are the users with the fewest ways around a tile
+ * they cannot reach. So each one is focused as an element (a `div` with an
+ * `onClick` cannot take focus, and the assertion fails on it) and then operated
+ * with keys alone.
  */
-describe('keyboard operability of the retained glance controls', () => {
-  /** Enter, then Space — the two keys a native button activates on. */
-  const activationKeys = [
-    ['Enter', '{Enter}'],
-    ['Space', ' '],
-  ] as const
-
-  describe('input_number — the click-to-edit readout', () => {
-    beforeEach(() => seed(createInputNumberEntity()))
-
-    it('reaches the readout with Tab, under a name that says what it does', async () => {
-      const user = userEvent.setup()
-      renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
-
-      await user.tab()
-
-      // Named, not just labelled by its value: "45 %" alone announces a
-      // reading, with nothing to say it can be pressed. The visible text stays
-      // inside the accessible name (WCAG "Label in Name").
-      expect(screen.getByRole('button', { name: 'Set value, currently 45 %' })).toHaveFocus()
-    })
-
-    it.each(activationKeys)('enters the edit state on %s', async (_name, key) => {
-      const user = userEvent.setup()
-      renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
-
-      await user.tab()
-      await user.keyboard(key)
-
-      expect(screen.getByLabelText('Value')).toHaveValue('45')
-    })
-
-    it.each(activationKeys)(
-      'commits a typed value from the keyboard alone on %s',
-      async (_name, key) => {
-        const user = userEvent.setup()
-        renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
-
-        // The end of the invariant: not just "the editor opened" but "the helper
-        // was set", with the pointer never used.
-        await user.tab()
-        await user.keyboard(key)
-        await user.clear(screen.getByLabelText('Value'))
-        await user.keyboard('60{Enter}')
-
-        expect(hass.callService).toHaveBeenCalledWith('input_number', 'set_value', {
-          entity_id: 'input_number.target_humidity',
-          value: 60,
-        })
-      }
-    )
+describe('operability of the control-free glance tiles', () => {
+  beforeEach(() => {
+    // The dialog's history section subscribes a cached window and starts a
+    // maintenance timer; without this they outlive the test that created them.
+    entityHistoryService.reset()
   })
 
-  describe('input_text — the edit affordance beside the readout', () => {
-    beforeEach(() => seed(createInputTextEntity()))
+  afterEach(() => {
+    entityHistoryService.reset()
+  })
 
-    it('reaches the edit button with Tab, under a name of its own', async () => {
-      const user = userEvent.setup()
-      renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+  /** Tap the tile — the whole of what a control-free `glance` offers. */
+  async function tapTile(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(card())
+    return screen.findByTestId('detail-controls')
+  }
 
-      await user.tab()
+  it('reaches an operable input_number control from the tile', async () => {
+    const user = userEvent.setup()
+    seed(createInputNumberEntity())
+    renderCard(<InputNumberCard entityId="input_number.target_humidity" tier="glance" />)
 
-      // Icon-only, so without the explicit name it would announce as an
-      // unlabelled button — focusable but not identifiable.
-      expect(screen.getByRole('button', { name: 'Edit value' })).toHaveFocus()
-    })
+    const controls = await tapTile(user)
 
-    it.each(activationKeys)('enters the edit state on %s', async (_name, key) => {
-      const user = userEvent.setup()
-      renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
+    // The fixture helper publishes `mode: slider`, and the dialog follows the
+    // helper's own preference exactly as an unconfigured card's `full` tier
+    // does — the same control, not a second one.
+    const slider = within(controls).getByRole('slider')
+    slider.focus()
+    expect(slider).toHaveFocus()
 
-      await user.tab()
-      await user.keyboard(key)
+    await user.keyboard('{ArrowRight}')
 
-      expect(screen.getByLabelText('Value')).toHaveValue('Please leave parcels at the side door')
-    })
-
-    it('saves and cancels from named controls', async () => {
-      const user = userEvent.setup()
-      renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
-
-      await user.tab()
-      await user.keyboard('{Enter}')
-      await user.clear(screen.getByLabelText('Value'))
-      await user.type(screen.getByLabelText('Value'), 'Ring twice')
-      await user.click(screen.getByRole('button', { name: 'Save value' }))
-
-      expect(hass.callService).toHaveBeenCalledWith('input_text', 'set_value', {
-        entity_id: 'input_text.doorbell_message',
-        value: 'Ring twice',
-      })
-
-      await user.click(screen.getByRole('button', { name: 'Edit value' }))
-      await user.click(screen.getByRole('button', { name: 'Cancel editing' }))
-
-      expect(screen.queryByLabelText('Value')).toBeNull()
+    expect(hass.callService).toHaveBeenCalledWith('input_number', 'set_value', {
+      entity_id: 'input_number.target_humidity',
+      value: 46,
     })
   })
 
-  describe('input_datetime — the edit affordance beside the readout', () => {
-    beforeEach(() => seed(createInputDateTimeEntity()))
+  it('reaches an operable input_select control from the tile', async () => {
+    const user = userEvent.setup()
+    seed(createInputSelectEntity())
+    renderCard(<InputSelectCard entityId="input_select.house_mode" tier="glance" />)
 
-    it('reaches the edit button with Tab, under a name of its own', async () => {
-      const user = userEvent.setup()
-      renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
+    const controls = await tapTile(user)
 
-      await user.tab()
+    const trigger = within(controls).getByRole('combobox')
+    trigger.focus()
+    expect(trigger).toHaveFocus()
 
-      expect(screen.getByRole('button', { name: 'Edit value' })).toHaveFocus()
-    })
+    await user.keyboard('{Enter}')
+    const listbox = await screen.findByRole('listbox')
+    await user.click(within(listbox).getByText('Away'))
 
-    it.each(activationKeys)('enters the edit state on %s', async (_name, key) => {
-      const user = userEvent.setup()
-      renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
-
-      await user.tab()
-      await user.keyboard(key)
-
-      // A `datetime-local` field has no implicit ARIA role, so the label is
-      // what makes it findable — which is the same reason a user needs it.
-      expect(screen.getByLabelText('Value')).toBeInTheDocument()
-    })
-
-    it('names its save and cancel controls, and leaves the edit state on cancel', async () => {
-      const user = userEvent.setup()
-      renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
-
-      await user.tab()
-      await user.keyboard('{Enter}')
-
-      // Both are icon-only buttons; without names they are two unlabelled
-      // buttons in a row, which is unusable without sight of the glyphs.
-      expect(screen.getByRole('button', { name: 'Save value' })).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Cancel editing' }))
-
-      expect(screen.queryByLabelText('Value')).toBeNull()
+    expect(hass.callService).toHaveBeenCalledWith('input_select', 'select_option', {
+      entity_id: 'input_select.house_mode',
+      option: 'Away',
     })
   })
 
-  describe('input_select — the dropdown trigger', () => {
-    beforeEach(() => seed(createInputSelectEntity()))
+  it('reaches an operable input_text control from the tile', async () => {
+    const user = userEvent.setup()
+    seed(createInputTextEntity())
+    renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="glance" />)
 
-    it('reaches the trigger with Tab', async () => {
-      const user = userEvent.setup()
-      renderCard(<InputSelectCard entityId="input_select.house_mode" tier="glance" />)
+    const controls = await tapTile(user)
 
-      await user.tab()
+    // Icon-only, so without the explicit name it would announce as an
+    // unlabelled button — focusable but not identifiable.
+    const edit = within(controls).getByRole('button', { name: 'Edit value' })
+    edit.focus()
+    expect(edit).toHaveFocus()
 
-      // Radix renders the trigger as a real button; its name is the current
-      // option, which is also what the tier table asks it to read out.
-      expect(screen.getByRole('combobox')).toHaveFocus()
+    await user.keyboard('{Enter}')
+    const field = screen.getByLabelText('Value')
+    await user.clear(field)
+    await user.type(field, 'Ring twice{Enter}')
+
+    expect(hass.callService).toHaveBeenCalledWith('input_text', 'set_value', {
+      entity_id: 'input_text.doorbell_message',
+      value: 'Ring twice',
     })
+  })
 
-    it.each(activationKeys)('opens the option list on %s', async (_name, key) => {
-      const user = userEvent.setup()
-      renderCard(<InputSelectCard entityId="input_select.house_mode" tier="glance" />)
+  it('reaches an operable input_datetime control from the tile', async () => {
+    const user = userEvent.setup()
+    seed(createInputDateTimeEntity())
+    renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="glance" />)
 
-      // Captured before the key: an open Radix select marks the rest of the
-      // document `aria-hidden`, so the trigger is no longer reachable by role
-      // once the list is up.
-      const trigger = screen.getByRole('combobox')
+    const controls = await tapTile(user)
 
-      await user.tab()
-      await user.keyboard(key)
+    const edit = within(controls).getByRole('button', { name: 'Edit value' })
+    edit.focus()
+    expect(edit).toHaveFocus()
 
-      expect(await screen.findByRole('listbox')).toBeInTheDocument()
-      expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await user.keyboard('{Enter}')
+    // A `datetime-local` field has no implicit ARIA role, so the label is what
+    // makes it findable — which is the same reason a user needs it. It is also
+    // not something `user.type` can drive, so the value is set the way the
+    // native picker sets it.
+    fireEvent.change(screen.getByLabelText('Value'), { target: { value: '2026-07-27T07:15' } })
+    await user.click(screen.getByRole('button', { name: 'Save value' }))
+
+    expect(hass.callService).toHaveBeenCalledWith('input_datetime', 'set_datetime', {
+      entity_id: 'input_datetime.wake_up',
+      datetime: '2026-07-27 07:15:00',
     })
+  })
+
+  it('leaves the boolean tile toggling itself rather than opening the dialog', async () => {
+    const user = userEvent.setup()
+    seed(createInputBooleanEntity())
+    renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier="glance" />)
+
+    await user.click(card())
+
+    // `input_boolean` is the helper this invariant never applied to: its
+    // whole-tile toggle carries the operability, so `default` stays `toggle`
+    // and the tap actuates rather than opening details.
+    expect(hass.callService).toHaveBeenCalledWith('input_boolean', 'toggle', {
+      entity_id: 'input_boolean.guest_mode',
+    })
+    expect(screen.queryByTestId('detail-controls')).toBeNull()
   })
 })

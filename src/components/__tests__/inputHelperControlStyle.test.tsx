@@ -200,13 +200,17 @@ describe('input helper controlStyle', () => {
       expect(slider).toHaveAttribute('aria-valuenow', '0')
     })
 
-    it('keeps the readout and drops both controls at glance', () => {
+    it('renders neither control style at glance', () => {
       seed(helper('slider'))
       renderCard(<InputNumberCard entityId="input_number.volume" tier="glance" />)
 
+      // `controlStyle` picks between two embedded controls, and one cell has
+      // room for neither: the tier is the value and the name, with the control
+      // reached through the detail dialog instead
+      // (docs/specs/entity-cards/options/input-helpers.md — the tier table).
       expect(screen.queryByRole('slider')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('Increase value')).not.toBeInTheDocument()
-      expect(screen.getByLabelText(/Set value, currently/)).toBeInTheDocument()
+      expect(screen.queryByLabelText(/Set value, currently/)).not.toBeInTheDocument()
     })
   })
 
@@ -227,6 +231,17 @@ describe('input helper controlStyle', () => {
         entity_id: 'input_select.house_mode',
         option: 'Away',
       })
+    })
+
+    it('names the pill group from the entity id when the helper has no friendly name', () => {
+      seed(entity('input_select.house_mode', 'Home', { options: ['Home', 'Away'] }))
+      renderCard(<InputSelectCard entityId="input_select.house_mode" tier="full" />, {
+        controlStyle: 'pills',
+      })
+
+      // The group's label is what tells a screen reader which helper these
+      // pills belong to; an entity with no friendly name must still get one.
+      expect(screen.getByRole('group', { name: 'house_mode' })).toBeInTheDocument()
     })
 
     it('marks the current option selected and refuses to re-send it', () => {

@@ -204,6 +204,50 @@ describe('InputTextCard', () => {
     })
   })
 
+  it('commits a value that satisfies the pattern', async () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: {
+        ...defaultEntity,
+        attributes: { ...defaultEntity.attributes, pattern: '^[A-Z]+$' },
+      },
+      isConnected: true,
+      isLoading: false,
+      isStale: false,
+    })
+
+    render(<InputTextCard entityId="input_text.test_text" />)
+    fireEvent.click(screen.getByText('Test Text').closest('.liebe-card')!)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'UPPERCASE' } })
+    fireEvent.submit(input.closest('form')!)
+
+    // The other half of "fires only for valid input": the invalid case above
+    // proves nothing is sent, and this proves something is.
+    await waitFor(() => {
+      expect(mockSetValue).toHaveBeenCalledWith('input_text.test_text', 'UPPERCASE')
+    })
+  })
+
+  it('truncates an over-long value instead of sending it', async () => {
+    render(<InputTextCard entityId="input_text.test_text" />)
+    fireEvent.click(screen.getByText('Test Text').closest('.liebe-card')!)
+
+    const input = screen.getByRole('textbox')
+    // `maxLength` stops a *typed* overrun; a paste, an autofill or a
+    // programmatic set goes straight past it, which is why the submit handler
+    // checks the helper's own `max` as well.
+    fireEvent.change(input, { target: { value: 'x'.repeat(25) } })
+    fireEvent.submit(input.closest('form')!)
+
+    await waitFor(() => {
+      expect(input).toHaveValue('x'.repeat(20))
+    })
+    // Truncating is not committing: the user is left with the shortened value
+    // in an open editor to submit or abandon.
+    expect(mockSetValue).not.toHaveBeenCalled()
+  })
+
   it('shows password field for password mode', async () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: {
