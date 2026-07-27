@@ -102,6 +102,22 @@ describe('climate variant legacy pinning', () => {
     expect(reloaded[1].config).not.toHaveProperty('variant')
   })
 
+  it('pins a document stamped by the build whose marker sits just below this one', () => {
+    /*
+     * The collision this marker is numbered to avoid. Change 0019's
+     * `speedControl` migration stamps `1.2.0`, and it lands first — so a
+     * dashboard upgraded by that build carries `1.2.0` when this one loads it.
+     * Its climate cards still predate the `variant` option and must still be
+     * pinned; had both migrations claimed the same number, this document would
+     * have read as current and its thermostats would have silently become
+     * compact.
+     */
+    store('1.2.0', [item('climate.hallway')])
+
+    expect(loadedItems()[0].config).toMatchObject({ variant: 'dial' })
+    expect(loadDashboardConfig()?.version).toBe(CLIMATE_VARIANT_VERSION)
+  })
+
   it('pins a document old enough to predate the input helpers’ option too', () => {
     // Both cutoffs at once: the two migrations are points on the same line, and
     // a document from before either of them gets both.

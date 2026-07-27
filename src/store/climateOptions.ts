@@ -26,13 +26,21 @@ export type ClimateVariant = (typeof CLIMATE_VARIANTS)[number]
 /**
  * The version documents carrying pinned climate variants are stamped with.
  *
- * Bumped from `CONTROL_STYLE_VERSION` because that is the discriminator
- * convention 7 requires: **never key absence**. An absent `variant` is exactly
- * what a climate card added after this build carries when it means "take the
- * compact default", so pinning on absence would rewrite new cards on their
- * first reload — the failure the convention exists to prevent.
+ * A version marker rather than key absence, because that is the discriminator
+ * convention 7 requires: an absent `variant` is exactly what a climate card
+ * added after this build carries when it means "take the compact default", so
+ * pinning on absence would rewrite new cards on their first reload — the
+ * failure the convention exists to prevent.
+ *
+ * `1.3.0` rather than the next free minor: change 0019's `speedControl` marker
+ * claims `1.2.0` and merges first. Two migrations sharing one number is not a
+ * merge conflict, it is a silent one — a document stamped `1.2.0` by whichever
+ * build ran first would no longer *predate* the other's marker, so it would
+ * skip that migration entirely, and the cards it was meant to pin would take
+ * the new default with nothing in the config to explain it. Markers are
+ * therefore allocated in merge order, and each one only ever moves up.
  */
-export const CLIMATE_VARIANT_VERSION = '1.2.0'
+export const CLIMATE_VARIANT_VERSION = '1.3.0'
 
 /** Whether a stored document was written before the climate `variant` existed. */
 export function configPredatesClimateVariant(version: unknown): boolean {
