@@ -111,17 +111,49 @@ describe('normalizeSensorGraphHours', () => {
     expect(normalizeSensorGraphHours(value)).toBe(DEFAULT_SENSOR_GRAPH_HOURS)
   })
 
+  it('enforces the range the option doc states', () => {
+    /*
+     * Written out rather than read from the constants. Every case below is
+     * about a boundary, and a test that expected `MIN_SENSOR_GRAPH_HOURS` would
+     * agree with the code whatever that constant became — including a change to
+     * `0.5`, which would make the sub-hour case below pass while silently
+     * widening the option's contract.
+     */
+    expect(MIN_SENSOR_GRAPH_HOURS).toBe(1)
+    expect(MAX_SENSOR_GRAPH_HOURS).toBe(168)
+    expect(DEFAULT_SENSOR_GRAPH_HOURS).toBe(24)
+  })
+
   it.each([
-    ['below the minimum', 0.5, MIN_SENSOR_GRAPH_HOURS],
     ['at the minimum', 1, 1],
-    ['a fractional window inside the range', 1.5, 1.5],
     ['at the maximum', 168, 168],
-    ['above the maximum', 5000, MAX_SENSOR_GRAPH_HOURS],
+    ['above the maximum', 5000, 168],
     // A window described badly clamps, rather than reverting to the default:
     // the document did ask for "as much history as possible".
-    ['far above the maximum', Number.MAX_SAFE_INTEGER, MAX_SENSOR_GRAPH_HOURS],
+    ['far above the maximum', Number.MAX_SAFE_INTEGER, 168],
   ])('clamps %s', (_name, value, expected) => {
     expect(normalizeSensorGraphHours(value)).toBe(expected)
+  })
+
+  it.each([
+    ['a half-hour window', 0.5],
+    ['a quarter-hour window', 0.25],
+    ['just under the minimum', 0.999],
+  ])('clamps %s up to a whole hour', (_name, value) => {
+    // Sub-hour windows are NOT expressible through this option, whatever the
+    // pipeline underneath would accept: the option doc's minimum is one hour,
+    // so half an hour becomes one rather than being honoured.
+    expect(normalizeSensorGraphHours(value)).toBe(1)
+  })
+
+  it.each([
+    ['two and a half hours', 2.5],
+    ['a fraction just above the minimum', 1.5],
+    ['a fraction just below the maximum', 167.5],
+  ])('honours %s exactly', (_name, value) => {
+    // Above the minimum a fraction is a real window and is kept as given —
+    // nothing floors it to whole hours or rounds it.
+    expect(normalizeSensorGraphHours(value)).toBe(value)
   })
 
   it('is what readSensorOptions returns, so consumers need not repeat it', () => {

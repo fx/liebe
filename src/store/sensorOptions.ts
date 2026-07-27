@@ -115,15 +115,27 @@ export const sensorOptionsConfigSchema = z.object({
  * `graphHours` arrives from card configuration, so a junk value gets read
  * rather than rejected, and every junk shape means the same thing: the document
  * does not describe a window, so the default one applies. `NaN`, `Infinity`,
- * `0`, a negative number and a non-number all land there; a real number outside
+ * `0`, a negative number and a non-number all land there. A real number outside
  * the option doc's bounds is a window that was described badly rather than not
- * at all, and clamps. Fractions survive the clamp — the pipeline's own
- * normaliser keeps them, and half an hour is a legitimate ask.
+ * at all, and clamps to the nearer bound.
  *
- * This is the same defence `normalizeHistoryHours` applies one layer down; the
- * two are not redundant, because this one enforces the *option doc's* bounds
- * (1–168) rather than the pipeline's (up to a year), and it is what keeps a
- * junk value out of the cache key the card subscribes with.
+ * **Fractions are kept, but only above the minimum.** A window of `2.5` is two
+ * and a half hours and is honoured exactly — nothing floors or rounds it. A
+ * window below `1` is not: `0.5` clamps to `1`, so a sub-hour window cannot be
+ * expressed through this option at all.
+ *
+ * That makes this stricter than `normalizeHistoryHours` one layer down, which
+ * keeps any positive fraction because "half an hour is a legitimate ask" of the
+ * pipeline — and it is, of the pipeline, which serves the detail dialog and the
+ * weather card as well as this option. The bound here is narrower for one
+ * reason and it is not a technical one: the sensor option doc states the range
+ * as min 1, max 168, and this is the option's own contract
+ * (docs/specs/entity-cards/options/sensor.md — `graphHours`). Widening it is a
+ * spec change, not an implementation detail.
+ *
+ * The two normalisers are therefore not redundant: this one enforces the option
+ * doc's range and keeps a junk value out of the cache key the card subscribes
+ * with; the one below it defends every other consumer of the same pipeline.
  */
 export function normalizeSensorGraphHours(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
