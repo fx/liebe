@@ -5,6 +5,8 @@ import { entityHistoryService } from '../services/entityHistory'
 import {
   DEFAULT_HISTORY_HOURS,
   DEFAULT_HISTORY_POINTS,
+  normalizeHistoryHours,
+  normalizeHistoryPoints,
   type HistoryMode,
   type HistoryPoint,
 } from '../services/historyData'
@@ -44,10 +46,16 @@ export function useEntityHistory(
   options: UseEntityHistoryOptions = {}
 ): EntityHistoryResult {
   const {
-    hours = DEFAULT_HISTORY_HOURS,
-    points = DEFAULT_HISTORY_POINTS,
+    hours: requestedHours = DEFAULT_HISTORY_HOURS,
+    points: requestedPoints = DEFAULT_HISTORY_POINTS,
     mode = 'sample',
   } = options
+  // These arrive from card configuration, and a document this build cannot
+  // fully interpret still reaches the render path, so the value is read rather
+  // than rejected. Normalising at the boundary keeps a junk number out of the
+  // cache key as well as out of the arithmetic behind it.
+  const hours = normalizeHistoryHours(requestedHours)
+  const points = normalizeHistoryPoints(requestedPoints)
   const hass = useHomeAssistantOptional()
 
   // Per-window slice: an unrelated entity's history landing in the store leaves

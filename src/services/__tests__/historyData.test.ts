@@ -4,8 +4,14 @@ import {
   downsampleHistory,
   historyWindowMs,
   isNonNumericState,
+  normalizeHistoryHours,
+  normalizeHistoryPoints,
   parseHistoryResponse,
   pruneSamples,
+  DEFAULT_HISTORY_HOURS,
+  DEFAULT_HISTORY_POINTS,
+  MAX_HISTORY_HOURS,
+  MAX_HISTORY_POINTS,
   type HistorySample,
 } from '../historyData'
 
@@ -19,6 +25,56 @@ function samplesAt(...pairs: Array<[hours: number, value: number]>): HistorySamp
 describe('historyWindowMs', () => {
   it('converts hours to milliseconds', () => {
     expect(historyWindowMs(24)).toBe(86_400_000)
+  })
+
+  it('produces a usable window for a junk window length', () => {
+    // The window start has to survive `new Date(...).toISOString()` — the
+    // request builder throws on an unrepresentable date, and a NaN window would
+    // otherwise reach the prune cutoff and the downsample bucket width too.
+    for (const hours of [NaN, Infinity, Number.MAX_VALUE, -1, 0]) {
+      const end = T0
+      const start = end - historyWindowMs(hours)
+      expect(Number.isFinite(start)).toBe(true)
+      expect(() => buildHistoryRequest('sensor.power', start, end)).not.toThrow()
+    }
+  })
+})
+
+describe('normalizeHistoryHours', () => {
+  it.each([NaN, Infinity, -Infinity, 0, -1])(
+    'falls back to the default window for %s, which describes no window',
+    (hours) => {
+      expect(normalizeHistoryHours(hours)).toBe(DEFAULT_HISTORY_HOURS)
+    }
+  )
+
+  it('keeps a fractional window as asked', () => {
+    expect(normalizeHistoryHours(0.5)).toBe(0.5)
+  })
+
+  it('caps a window nothing could render', () => {
+    expect(normalizeHistoryHours(1e9)).toBe(MAX_HISTORY_HOURS)
+  })
+})
+
+describe('normalizeHistoryPoints', () => {
+  it.each([NaN, Infinity, -Infinity])(
+    'reads the non-finite count %s as no request at all',
+    (points) => {
+      expect(normalizeHistoryPoints(points)).toBe(DEFAULT_HISTORY_POINTS)
+    }
+  )
+
+  it.each([0, -1])('reads the non-positive count %s as an empty series', (points) => {
+    expect(normalizeHistoryPoints(points)).toBe(0)
+  })
+
+  it('floors a fractional count to whole buckets', () => {
+    expect(normalizeHistoryPoints(10.7)).toBe(10)
+  })
+
+  it('caps a count no card could draw', () => {
+    expect(normalizeHistoryPoints(1e9)).toBe(MAX_HISTORY_POINTS)
   })
 })
 
@@ -248,11 +304,44 @@ describe('downsampleHistory', () => {
     expect(result).toEqual([{ t: T0 + 4 * HOUR, value: 3, min: 3, max: 3 }])
   })
 
-  it('always produces at least one bucket', () => {
+  it('returns an empty series when no points were asked for', () => {
+    // `points` is a maximum, so a request for none is honoured rather than
+    // rounded up to a bucket the consumer never asked to draw.
     const samples = samplesAt([1, 4], [2, 6])
-    expect(downsampleHistory(samples, { ...window, points: 0, mode: 'sample' })).toEqual([
-      { t: T0 + 4 * HOUR, value: 6, min: 4, max: 6 },
-    ])
+    expect(downsampleHistory(samples, { ...window, points: 0, mode: 'sample' })).toEqual([])
+    expect(downsampleHistory(samples, { ...window, points: -1, mode: 'sample' })).toEqual([])
+  })
+
+  it.each([NaN, Infinity, -Infinity, 2.5])(
+    'produces a defined series for the junk point count %s',
+    (points) => {
+      // A junk `points` reaches here from card configuration; it must not make
+      // `Array.from` allocate nonsense or throw on an invalid length.
+      const samples = samplesAt([1, 4], [2, 6])
+      const result = downsampleHistory(samples, { ...window, points, mode: 'sample' })
+
+      expect(result.length).toBeGreaterThan(0)
+      expect(result.length).toBeLessThanOrEqual(DEFAULT_HISTORY_POINTS)
+      expect(
+        result.every((point) => Number.isFinite(point.t) && Number.isFinite(point.value))
+      ).toBe(true)
+    }
+  )
+
+  it('produces a defined series for a junk window length', () => {
+    const samples = samplesAt([1, 4], [2, 6])
+    const end = T0 + 4 * HOUR
+    const result = downsampleHistory(samples, {
+      start: end - historyWindowMs(NaN),
+      end,
+      points: 4,
+      mode: 'sample',
+    })
+
+    // Without a normalised window the bucket width is NaN, every sample indexes
+    // an undefined bucket, and the reduction throws.
+    expect(result.length).toBeGreaterThan(0)
+    expect(result.every((point) => Number.isFinite(point.t))).toBe(true)
   })
 
   it('survives a zero-length window without producing NaN coordinates', () => {

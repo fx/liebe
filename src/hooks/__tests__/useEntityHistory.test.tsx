@@ -193,6 +193,29 @@ describe('useEntityHistory', () => {
     expect(callWS).toHaveBeenCalledTimes(1)
   })
 
+  it('normalises junk window and point counts out of card configuration', async () => {
+    // A dashboard document this build cannot fully interpret still renders, so
+    // these values are read rather than rejected: the hook must resolve them to
+    // the default window and point count instead of keying its cache on NaN.
+    const { result } = renderHook(
+      () => useEntityHistory(ENTITY, { hours: Number.NaN, points: Number.POSITIVE_INFINITY }),
+      { wrapper }
+    )
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(historyStore.state.entries[`${ENTITY}|24`]).toBeDefined()
+    expect(result.current.error).toBeNull()
+    expect(result.current.values.at(-1)).toBe(3)
+  })
+
+  it('returns an empty series when no points were asked for', async () => {
+    const { result } = renderHook(() => useEntityHistory(ENTITY, { points: 0 }), { wrapper })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.points).toEqual([])
+    expect(result.current.values).toEqual([])
+  })
+
   it('ignores history written for another entity', async () => {
     const { result } = renderHook(() => useEntityHistory(ENTITY), { wrapper })
     await waitFor(() => expect(result.current.isLoading).toBe(false))

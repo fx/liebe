@@ -215,6 +215,8 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 - **`delta` mode MUST compute per-bucket values from raw samples before downsampling** — a reset inside a bucket is invisible after min/max reduction (`0→10→0→5` must yield 15, not 10). `total_increasing` applies reset-aware summation (a decrease starts a new counter run); `total` uses signed differences (decreases are legitimate).
 - **Live appends MUST consume raw `state_changed` ingress before debouncing**, or refetch from the recorder. The debounced store slices intentionally keep only the latest update in a window, which would silently drop intermediate counter resets and measurement spikes before delta/min-max processing.
 - **Freshness MUST survive unmounting.** Live appends only keep an entry fresh while a subscriber is mounted, so cache entries MUST carry a fetched/last-appended timestamp. On (re)subscription the hook MUST prune points aged out of the rolling window — always retaining **one sentinel sample immediately before the window cutoff**, so `delta`'s first bucket keeps a predecessor as the window advances — and MUST refetch when the entry is stale (no active subscriber since its last append, or beyond a freshness TTL; SHOULD: 5 minutes). A remounting card MUST NOT render a series with a gap. While subscribers stay mounted the same maintenance MUST run periodically (SHOULD: each downsample-bucket interval), so a long-mounted card on a quiet entity never shows an indefinitely stale window.
+- **A failed fetch MUST count as an attempt for freshness purposes**, so a window whose fetch failed is retried no more often than the TTL rather than on every maintenance tick. A dashboard that has lost Home Assistant must go quieter, not busier: each retry is a store write, and each store write re-renders the cards watching it. Regaining a connection still refetches immediately, so the case that actually resolves the failure never waits on the TTL.
+- **Junk numeric options MUST resolve to a defined series rather than a throw.** `hours` and `points` arrive from card configuration, and a document this build cannot fully interpret still reaches the render path (dashboard-config, Forward Compatibility), so a `NaN`, an `Infinity` or a negative value gets read, not rejected. Non-finite and non-positive windows fall back to the default window; non-finite point counts fall back to the default count, non-positive ones mean an empty series (`points` is a maximum), and both are capped so no configuration can ask for an unrepresentable date or an unallocatable array.
 - **A restarted event stream MUST invalidate every watched window.** Whatever changed while the socket was down cannot be recovered by appending, so those windows are refetched from the recorder on reconnect.
 - Non-numeric entities MUST resolve to an explicit `unsupported` result rather than an error. States that merely carry no reading (`unavailable`, `unknown`) MUST NOT resolve `unsupported` — every numeric entity passes through them.
 - The hook MUST follow the existing store/subscription patterns (per-entity slices, change [0001](../../changes/0001-per-entity-store-selectors.md)) so graph updates do not re-render unrelated cards.
@@ -245,6 +247,18 @@ Domain defaults (`src/store/entityDebouncer.ts:14`): `sensor` 1000, `binary_sens
 - **THEN** the cached window renders immediately, aged-out samples are pruned to one sentinel, and a refetch closes the unwatched gap (`src/services/__tests__/entityHistory.test.ts:346`, `src/services/__tests__/historyData.test.ts:178`).
 
 A refetch never blanks what is already on screen: while one is in flight the hook keeps reporting the cached series and reports loading alongside it, so a consumer that wants to show progress can, and one that does not simply keeps drawing. The result only changes when the refetch lands.
+
+#### Scenario: A disconnected dashboard stops asking
+
+- **GIVEN** a subscribed window on a panel with no Home Assistant connection
+- **WHEN** several maintenance ticks pass
+- **THEN** the fetch is attempted once, not once per tick, and the store is not written again (`src/services/__tests__/entityHistory.test.ts:511`, `src/services/__tests__/entityHistory.test.ts:529`).
+
+#### Scenario: A junk point count still renders
+
+- **GIVEN** a card configured with `points: Infinity` (or `NaN`, `-1`, `0`, `2.5`)
+- **WHEN** the series is projected
+- **THEN** the result is a defined series — the default count, or empty for a non-positive request — rather than a thrown `RangeError` (`src/services/__tests__/historyData.test.ts:307`, `src/hooks/__tests__/useEntityHistory.test.tsx:196`).
 
 #### Scenario: Non-numeric entity degrades silently
 

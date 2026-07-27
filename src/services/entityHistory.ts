@@ -285,9 +285,15 @@ export class EntityHistoryService {
   private async runFetch(entityId: string, hours: number, generation: number): Promise<void> {
     const { hass } = this
     if (!hass) {
+      // `updatedAt` advances on the failure too, or maintenance would judge the
+      // entry stale on every tick and retry for as long as the connection is
+      // down. A dashboard that has lost Home Assistant must go quiet, not busy.
+      // `setHass` retries the moment a connection returns, so nothing waits on
+      // the TTL for the case that actually resolves this.
       historyStoreActions.patchEntry(entityId, hours, {
         isLoading: false,
         error: 'Home Assistant not connected',
+        updatedAt: Date.now(),
       })
       return
     }
@@ -331,10 +337,13 @@ export class EntityHistoryService {
     } catch (error) {
       if (generation !== this.generation) return
       // Non-fatal by contract: the consumer renders without a graph. Samples
-      // already held are left in place rather than blanked.
+      // already held are left in place rather than blanked, and `updatedAt`
+      // advances for the same reason as above — a recorder that answered with
+      // an error must be asked again at the TTL, not at every tick.
       historyStoreActions.patchEntry(entityId, hours, {
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to load history',
+        updatedAt: Date.now(),
       })
     }
   }

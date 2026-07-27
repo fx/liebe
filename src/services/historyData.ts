@@ -48,11 +48,53 @@ export const DEFAULT_HISTORY_HOURS = 24
  */
 export const DEFAULT_HISTORY_POINTS = 100
 
+/**
+ * Upper bound on the requested bucket count. A card is a few hundred CSS pixels
+ * wide, so this is already an order of magnitude past what any graph can
+ * resolve; it exists so a junk `points` cannot ask for an array the browser has
+ * to allocate.
+ */
+export const MAX_HISTORY_POINTS = 5_000
+
+/**
+ * Upper bound on the window, in hours — one year. Far enough past any card's
+ * use, and close enough to keep the window start a representable `Date`:
+ * `buildHistoryRequest` throws on `toISOString()` once the start overflows.
+ */
+export const MAX_HISTORY_HOURS = 24 * 365
+
 const MS_PER_HOUR = 3_600_000
 
-/** Window length in milliseconds. */
+/**
+ * Clamp a requested window to something that can be turned into a time range.
+ *
+ * `hours` reaches here from card configuration, and a dashboard document this
+ * build cannot fully interpret still renders (docs/specs/dashboard-config —
+ * Forward Compatibility), so a junk value gets read rather than rejected. A
+ * non-finite or non-positive request describes no window at all and falls back
+ * to the default; anything else is capped. Fractions are kept — a half-hour
+ * window is a legitimate ask.
+ */
+export function normalizeHistoryHours(hours: number): number {
+  if (!Number.isFinite(hours) || hours <= 0) return DEFAULT_HISTORY_HOURS
+  return Math.min(hours, MAX_HISTORY_HOURS)
+}
+
+/**
+ * Clamp a requested point count to a whole number of buckets.
+ *
+ * `points` is a maximum, so zero or fewer is a request for an empty series
+ * rather than an error. A non-finite count is not a request at all and falls
+ * back to the default.
+ */
+export function normalizeHistoryPoints(points: number): number {
+  if (!Number.isFinite(points)) return DEFAULT_HISTORY_POINTS
+  return Math.min(Math.max(Math.floor(points), 0), MAX_HISTORY_POINTS)
+}
+
+/** Window length in milliseconds, for a window length that may be junk. */
 export function historyWindowMs(hours: number): number {
-  return hours * MS_PER_HOUR
+  return normalizeHistoryHours(hours) * MS_PER_HOUR
 }
 
 /**
@@ -192,7 +234,7 @@ export interface DownsampleOptions {
   start: number
   /** Window end, epoch milliseconds. */
   end: number
-  /** Maximum number of buckets returned. */
+  /** Maximum number of buckets returned; normalised by `normalizeHistoryPoints`. */
   points: number
   mode: HistoryMode
   /** The entity's `state_class`; decides how `delta` treats a decrease. */
@@ -240,7 +282,11 @@ export function downsampleHistory(
 ): HistoryPoint[] {
   if (samples.length === 0) return []
 
-  const bucketCount = Math.max(1, Math.floor(points))
+  // `points` is a maximum, and it arrives from card configuration: a junk value
+  // would otherwise make `bucketCount` non-finite, and `Array.from` either
+  // allocates nonsense or throws on an invalid length.
+  const bucketCount = normalizeHistoryPoints(points)
+  if (bucketCount === 0) return []
   const width = Math.max(end - start, 1) / bucketCount
   const buckets: HistorySample[][] = Array.from({ length: bucketCount }, () => [])
   let carried: HistorySample | undefined

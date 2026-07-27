@@ -23,9 +23,11 @@ export interface HistoryEntry {
   /** The entity's states are not numeric, so there is nothing to graph. */
   unsupported: boolean
   /**
-   * When the entry last received data — a fetch or a live append. Freshness is
-   * judged against this, and it must outlive the subscriber that produced it:
-   * a card that unmounts and remounts has to know its window went unwatched.
+   * When the entry last received data — a fetch or a live append — or last had
+   * a fetch fail. Freshness is judged against this, so a failure advancing it is
+   * what rate-limits retries to the TTL instead of one per maintenance tick.
+   * It must outlive the subscriber that produced it: a card that unmounts and
+   * remounts has to know its window went unwatched.
    */
   updatedAt: number
 }

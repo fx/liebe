@@ -507,6 +507,56 @@ describe('EntityHistoryService', () => {
     })
   })
 
+  describe('retry rate limiting', () => {
+    it('attempts the fetch once while disconnected, not once per tick', async () => {
+      service.setHass(null)
+      service.subscribe(ENTITY, SHORT_HOURS)
+      await flush()
+      expect(entry(ENTITY, SHORT_HOURS)?.error).toBe('Home Assistant not connected')
+
+      let writes = 0
+      const subscription = historyStore.subscribe(() => {
+        writes += 1
+      })
+      await vi.advanceTimersByTimeAsync(MAINTENANCE_TICK_MS * 3)
+      subscription.unsubscribe()
+
+      // A dashboard that has lost Home Assistant must go quiet: each retry is a
+      // store write, and every store write re-renders the cards watching it.
+      expect(writes).toBe(0)
+    })
+
+    it('refetches at the freshness TTL after a failure, not at every tick', async () => {
+      callWS.mockRejectedValue(new Error('recorder unavailable'))
+      service.subscribe(ENTITY, SHORT_HOURS)
+      await flush()
+      expect(callWS).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(MAINTENANCE_TICK_MS * 3)
+      expect(callWS).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(HISTORY_FRESHNESS_TTL_MS)
+      expect(callWS).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps maintenance on a real interval for a junk window length', async () => {
+      service.subscribe(ENTITY, Number.NaN)
+      await flush()
+
+      // A NaN window would reach `setInterval`, which reads it as zero delay and
+      // maintains the window as fast as the event loop allows — and would reach
+      // `new Date(NaN).toISOString()` on the way to the recorder.
+      expect(callWS).toHaveBeenCalledTimes(1)
+      expect(callWS.mock.calls[0][0]).toMatchObject({
+        start_time: new Date(NOW - 24 * HOUR).toISOString(),
+      })
+
+      await vi.advanceTimersByTimeAsync(MAINTENANCE_TICK_MS)
+      expect(callWS).toHaveBeenCalledTimes(1)
+      expect(entry(ENTITY, Number.NaN)?.samples).toHaveLength(3)
+    })
+  })
+
   describe('projection', () => {
     beforeEach(async () => {
       service.subscribe(ENTITY, 24)
