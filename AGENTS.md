@@ -185,6 +185,19 @@ gh issue view <issue-number>
 
    The stack is **shared across worktrees** — one Home Assistant container serving whichever `dist/` was last mounted. Before running Playwright, rebuild and bring it up from your own worktree, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before.
 
+6. **Playwright's own two prerequisites**
+
+   A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
+
+   ```bash
+   npx playwright install chromium                        # Executable doesn't exist at …
+   sudo env "PATH=$PATH" npx playwright install-deps chromium
+   ```
+
+   The second is worth knowing by its symptom rather than its cause. Without the system libraries, Chromium dies on `libnspr4.so` and Playwright reports `browserType.launch: Target page, context or browser has been closed` — which names neither a missing package nor the command that installs it, and reads like a bug in the test.
+
+   `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
+
 ### Completing a Task
 
 1. **Pre-commit Checklist**
