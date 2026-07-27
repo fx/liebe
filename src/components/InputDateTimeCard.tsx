@@ -6,6 +6,7 @@ import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { toDatetimeInputValue } from '~/utils/inputDatetime'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputDateTimeCardProps {
@@ -39,7 +40,15 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
 
-  const [localValue, setLocalValue] = useState<string>(entity?.state ?? '')
+  /*
+   * The state Home Assistant publishes is not what the native inputs accept —
+   * `2024-01-15 06:30:00` leaves a `datetime-local` field blank, and its seconds
+   * leave a `time` field blank (docs/changes/0022-switch-input-helpers-to-spec.md).
+   * Every seed of the field goes through the translation, so what the user edits
+   * is always the value the card is showing.
+   */
+  const inputValue = toDatetimeInputValue(entity?.state ?? '', entity?.attributes)
+  const [localValue, setLocalValue] = useState<string>(inputValue)
   const [isEditing, setIsEditing] = useState(false)
 
   // Sync the local value from the entity while the user is not editing. Done
@@ -51,7 +60,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
     setPrevEntity(entity)
     setPrevIsEditing(isEditing)
     if (entity && !isEditing) {
-      setLocalValue(entity.state)
+      setLocalValue(inputValue)
     }
   }
 
@@ -68,7 +77,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
 
       // Validate the datetime format
       if (!localValue) {
-        setLocalValue(entity.state)
+        setLocalValue(inputValue)
         setIsEditing(false)
         return
       }
@@ -76,15 +85,15 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
       setValue(entity.entity_id, localValue)
       setIsEditing(false)
     },
-    [entity, localValue, setValue]
+    [entity, inputValue, localValue, setValue]
   )
 
   const handleCancel = useCallback(() => {
     if (entity) {
-      setLocalValue(entity.state)
+      setLocalValue(inputValue)
       setIsEditing(false)
     }
-  }, [entity])
+  }, [entity, inputValue])
 
   const handleFieldClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()

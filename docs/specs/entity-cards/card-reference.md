@@ -147,7 +147,7 @@ Variant selection: `config.variant || config.preset || 'default'` (`src/componen
 
 ## Input helper cards
 
-Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name || entity_id.split('.')[1]`; uniform skeleton / ErrorDisplay / unavailable states; error state = `grid-card-error`, red 2px border, error string as `title`. `useServiceCall.setValue` maps `input_number`/`input_text` → `set_value { value }` and `input_select` → `select_option { option }` (`src/hooks/useServiceCall.ts:150-179`); there is **no** `input_datetime` branch.
+Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name || entity_id.split('.')[1]`; uniform skeleton / ErrorDisplay / unavailable states; error state = `grid-card-error`, red 2px border, error string as `title`. `useServiceCall.setValue` maps `input_number`/`input_text` → `set_value { value }`, `input_select` → `select_option { option }`, and `input_datetime` → `set_datetime` ([entity-state](../entity-state/index.md#consumer-hooks) owns the payload rules).
 
 ### InputBooleanCard
 
@@ -173,8 +173,8 @@ Shared plumbing: `useEntity` + `useServiceCall`; title fallback `friendly_name |
 ### InputDateTimeCard
 
 - Native `date`/`time`/`datetime-local` input chosen by `has_date`/`has_time` (default true); empty/`unknown` → `(not set)`; status `Date & Time` / `Date Only` / `Time Only`.
-- **Runtime gap**: save calls `setValue` (`62`) which has no `input_datetime` mapping, so it returns `{ success: false, error: 'setValue not supported for domain: input_datetime' }` and never issues `input_datetime.set_datetime`. Tests pass only because `setValue` is mocked.
-- Scenarios: click → prefilled `datetime-local` (`136-155`); change to `2024-02-20T16:45:00` and submit → `setValue('input_datetime.test_datetime', /^2024-02-20T16:45/)` (mocked) (`213-240`); state `unknown` → `(not set)` (`279-291`).
+- Save calls `setValue`, which issues `input_datetime.set_datetime` since change [0022](../../changes/0022-switch-input-helpers-to-spec.md) — the runtime gap that made the card's primary action a no-op is closed. Payload rules, the format translation and the error the card surfaces are specified in [entity-state](../entity-state/index.md#consumer-hooks).
+- Scenarios: click → prefilled `datetime-local` (`136-155`); change to `2024-02-20T16:45:00` and submit → `setValue('input_datetime.test_datetime', /^2024-02-20T16:45/)` (mocked) (`213-240`); state `unknown` → `(not set)` (`279-291`); a space-separated state fills the picker and `06:30:00` fills a time input as `06:30` (`src/components/__tests__/InputDateTimeCard.test.tsx`); the mapping itself is proven unmocked in `src/hooks/__tests__/useServiceCall.inputDatetime.test.tsx`.
 
 ## Button and fallback card
 
