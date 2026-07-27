@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect, userEvent, within } from 'storybook/test'
 import { EntityDetailDialog, type EntityDetailDialogProps } from './index'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardItemProvider } from '../cardItemContext'
@@ -11,11 +12,27 @@ import type { HassEntity } from '~/store/entityTypes'
 import {
   asUnavailable,
   createHistoryResponse,
+  createInputBooleanEntity,
+  createInputDateTimeEntity,
+  createInputNumberEntity,
+  createInputSelectEntity,
   createInputTextEntity,
   createLightEntity,
   createSensorEntity,
   createTemperatureHistory,
 } from '~/test/fixtures'
+/*
+ * Imported for the registration each module performs at its own scope: the
+ * dialog's domain control slot is filled by the card families, never by the
+ * dialog reaching for them (docs/changes/0022-switch-input-helpers-to-spec.md).
+ * In the panel these imports come from the card registry; a story file that
+ * renders only the dialog has to name them itself.
+ */
+import '../InputBooleanCard'
+import '../InputDateTimeCard'
+import '../InputNumberCard'
+import '../InputSelectCard'
+import '../InputTextCard'
 
 /**
  * The entity detail dialog — what `more-info` opens, and therefore what a
@@ -237,3 +254,107 @@ export const HoldACardToOpen: StoryObj<EntityDetailDialogProps & GridCellArgs> =
     </CardItemProvider>
   ),
 }
+
+/* ------------------------------------------------------------------------- *
+ * The domain control slot
+ * ------------------------------------------------------------------------- */
+
+/**
+ * One helper-control story. The control is not wired up here — the card family
+ * registers it at its own module scope, and importing the card module above is
+ * what puts it in the registry, exactly as the card registry does in the panel
+ * (docs/changes/0022-switch-input-helpers-to-spec.md — PR 4).
+ *
+ * The dialog is portalled, so every assertion below queries `document.body`
+ * rather than the story canvas.
+ */
+function helperControlStory(
+  entity: HassEntity,
+  assert: (controls: HTMLElement) => Promise<void>
+): Story {
+  return {
+    args: { entityId: entity.entity_id },
+    parameters: { liebe: { entities: [entity] } },
+    play: async () => {
+      const body = within(document.body)
+      const controls = await body.findByTestId('detail-controls')
+      await assert(controls)
+    },
+  }
+}
+
+/**
+ * `input_boolean` — the discrete switch, the same control the
+ * `controlStyle: switch` tiers render. The boolean helper is the one whose
+ * card never needed this (its whole tile toggles); the dialog has no tile, so
+ * without a control here it would be the only helper whose details cannot
+ * operate it.
+ */
+export const BooleanControl = helperControlStory(createInputBooleanEntity(), async (controls) => {
+  const toggle = within(controls).getByRole('switch')
+  await expect(toggle).not.toBeChecked()
+  await userEvent.click(toggle)
+  await expect(toggle).toBeChecked()
+})
+
+/**
+ * `input_number` — the control a 1×1 number tile defers to. Which one renders
+ * follows the helper's own `mode`, so this `slider` helper gets the slider an
+ * unconfigured card's `full` tier would show.
+ */
+export const NumberControl = helperControlStory(createInputNumberEntity(), async (controls) => {
+  const slider = within(controls).getByRole('slider')
+  await expect(slider).toHaveAttribute('aria-valuenow', '45')
+  await expect(slider).toHaveAttribute('aria-valuemax', '100')
+})
+
+/** `input_number` again, for a helper preferring the box: the stepper. */
+export const NumberControlStepper = helperControlStory(
+  createInputNumberEntity({ entity_id: 'input_number.oven_target', attributes: { mode: 'box' } }),
+  async (controls) => {
+    await expect(within(controls).getByLabelText('Increase value')).toBeInTheDocument()
+    await expect(within(controls).getByRole('button', { name: /Set value/ })).toBeInTheDocument()
+  }
+)
+
+/**
+ * `input_select` — the dropdown, never the pills: pills are a `full`-tier
+ * presentation a *card* opts into, and the dialog is opened for an entity.
+ */
+export const SelectControl = helperControlStory(createInputSelectEntity(), async (controls) => {
+  await expect(within(controls).getByRole('combobox')).toHaveTextContent('Home')
+})
+
+/** `input_text` — the readout and its edit affordance. */
+export const TextControl = helperControlStory(createInputTextEntity(), async (controls) => {
+  await expect(
+    within(controls).getByText('Please leave parcels at the side door')
+  ).toBeInTheDocument()
+  await expect(within(controls).getByRole('button', { name: 'Edit value' })).toBeInTheDocument()
+})
+
+/**
+ * `input_text` in `mode: password` — the control the dialog mounts is masked
+ * too. Redaction covers the state display and the attribute list; it would not
+ * have covered a field rendered over the same value, and the guarantee is per
+ * value rather than per surface.
+ */
+export const TextControlPassword = helperControlStory(
+  createInputTextEntity({
+    entity_id: 'input_text.wifi_key',
+    state: 'hunter2-correct-horse',
+    attributes: { friendly_name: 'Wifi Key', mode: 'password' },
+  }),
+  async (controls) => {
+    await expect(document.body).not.toHaveTextContent('hunter2-correct-horse')
+    await userEvent.click(within(controls).getByRole('button', { name: 'Edit value' }))
+    await expect(within(controls).getByLabelText('Value')).toHaveAttribute('type', 'password')
+    await expect(document.body).not.toHaveTextContent('hunter2-correct-horse')
+  }
+)
+
+/** `input_datetime` — the formatted readout, with the native picker behind it. */
+export const DateTimeControl = helperControlStory(createInputDateTimeEntity(), async (controls) => {
+  await userEvent.click(within(controls).getByRole('button', { name: 'Edit value' }))
+  await expect(within(controls).getByLabelText('Value')).toHaveValue('2026-07-26T06:30')
+})

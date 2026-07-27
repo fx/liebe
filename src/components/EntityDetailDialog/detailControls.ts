@@ -11,13 +11,20 @@ import type { HassEntity } from '~/store/entityTypes'
  * a branch per domain (docs/changes/0014 — "The detail dialog and its pluggable
  * domain control slot").
  *
- * This change ships the slot **empty**: the dialog is read-only until the
- * per-card changes (0016+) register into it.
+ * A registry that card modules push into, rather than a static map this module
+ * fills in. The map is what the *card* registry does, and it can only work
+ * there because nothing a card imports leads back to it. Here the reverse edge
+ * already exists: `GridCard` imports the dialog, and every card imports
+ * `GridCard`, so a map that named the card modules would close the
+ * temporal-dead-zone cycle AGENTS.md documents. Pushed the other way it closes
+ * nothing — this module imports two types and nothing else, so it is a leaf at
+ * runtime — and a registration at card-module scope has always run by the time
+ * the dialog reads it, because the dialog is only reachable from a rendered
+ * card (AGENTS.md — "Entity Card Registration").
  *
- * A registry rather than a static map for the reason the card registry is not
- * one: a card module importing this to register itself would close an import
- * cycle back through the dialog, and the registration happens at module load
- * anyway (AGENTS.md — "Entity Card Registration").
+ * The five input helpers are the first consumers
+ * (docs/changes/0022-switch-input-helpers-to-spec.md); the slot shipped empty
+ * with 0014 and is what lets those cards drop their `glance` controls.
  */
 
 export interface EntityDetailControlsProps {

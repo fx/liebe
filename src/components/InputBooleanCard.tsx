@@ -7,6 +7,11 @@ import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { useDashboardStore } from '../store'
+import { DetailControlSection } from './EntityDetailDialog/DetailControlSection'
+import {
+  registerDetailControls,
+  type EntityDetailControlsProps,
+} from './EntityDetailDialog/detailControls'
 import { readBooleanControlStyle } from '~/store/inputHelperOptions'
 import { useCardItem } from './cardItemContext'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
@@ -26,6 +31,47 @@ interface InputBooleanCardProps {
   /** The placed item's stored options, when the renderer passes them directly. */
   config?: Record<string, unknown>
 }
+
+/**
+ * States that make a toggle inert. The direction is indeterminate — a helper
+ * Home Assistant has not restored yet is neither on nor off — and a card must
+ * never actuate what it cannot read (docs/specs/entity-cards/options/
+ * input-helpers.md — "suppress it when `unavailable` or `unknown`").
+ */
+const INDETERMINATE_STATES = new Set(['unavailable', 'unknown'])
+
+/**
+ * The `input_boolean` control the detail dialog mounts.
+ *
+ * The card's own operability at `glance` comes from the whole-tile toggle, so
+ * unlike the other four helpers this one is not what makes a control-free tier
+ * legal. It is registered for the surface's sake instead: the dialog has no
+ * tile to tap, so without a control here a boolean helper would be the one
+ * helper whose detail dialog cannot operate it. The control is the discrete
+ * `Switch` the `controlStyle: switch` tiers render.
+ */
+export function InputBooleanDetailControls({ entity }: EntityDetailControlsProps) {
+  const { toggle, loading, error } = useServiceCall()
+  const indeterminate = INDETERMINATE_STATES.has(entity.state)
+
+  return (
+    <DetailControlSection error={error}>
+      <Switch
+        size="3"
+        checked={entity.state === 'on'}
+        onCheckedChange={() => toggle(entity.entity_id)}
+        disabled={loading || indeterminate}
+        aria-label={`Toggle ${entity.attributes.friendly_name || entity.entity_id}`}
+        style={{ cursor: 'pointer' }}
+      />
+    </DetailControlSection>
+  )
+}
+
+// Registered by the card family that owns the control; see the note on
+// `registerDetailControls` in `InputNumberCard.tsx` for why the edge runs this
+// way round and why it is safe.
+registerDetailControls('input_boolean', InputBooleanDetailControls)
 
 function InputBooleanCardComponent({
   entityId,
