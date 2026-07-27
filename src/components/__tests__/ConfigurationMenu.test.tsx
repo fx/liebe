@@ -241,6 +241,12 @@ describe('ConfigurationMenu', () => {
   })
 
   describe('theme picker', () => {
+    // Registry labels and notes are prose, so they may legitimately contain
+    // regex metacharacters ("Glass (beta)", "GPU-costly."). They are matched as
+    // substrings of a larger accessible name, so an exact-string matcher will
+    // not do — escape them before they go into a pattern.
+    const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
     it('lists every registered theme', async () => {
       const user = userEvent.setup()
       renderWithTheme(<ConfigurationMenu />)
@@ -248,7 +254,9 @@ describe('ConfigurationMenu', () => {
       await user.click(screen.getByRole('button', { name: /configuration/i }))
 
       for (const { label } of listThemes()) {
-        expect(screen.getByRole('menuitemradio', { name: new RegExp(label) })).toBeInTheDocument()
+        expect(
+          screen.getByRole('menuitemradio', { name: new RegExp(escapeRegExp(label)) })
+        ).toBeInTheDocument()
       }
     })
 
@@ -263,7 +271,9 @@ describe('ConfigurationMenu', () => {
       // they choose it (docs/specs/theming — the backdrop-filter constraint).
       const { label, note } = listThemes().find((theme) => theme.note)!
       expect(
-        screen.getByRole('menuitemradio', { name: new RegExp(`${label}.*${note}`) })
+        screen.getByRole('menuitemradio', {
+          name: new RegExp(`${escapeRegExp(label)}.*${escapeRegExp(note!)}`),
+        })
       ).toBeInTheDocument()
     })
 
