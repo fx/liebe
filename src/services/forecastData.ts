@@ -53,9 +53,13 @@ export interface ForecastEntry {
   /** `datetime` as epoch milliseconds — what grouping and rendering sort on. */
   timestamp: number
   condition?: string
-  /** The period's temperature; for a daily entry, its high. */
+  /**
+   * The entry's temperature. On a daily or twice-daily entry that is the
+   * period's high, paired with `templow`; on an hourly entry it is simply that
+   * hour's reading and there is no high to speak of.
+   */
   temperature?: number
-  /** The period's low, where the integration reports one. */
+  /** The lower value, on daily and twice-daily entries that report one. */
   templow?: number
   /** Twice-daily only: whether this half is the day or the night. */
   is_daytime?: boolean

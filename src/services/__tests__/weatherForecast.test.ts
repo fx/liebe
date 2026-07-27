@@ -155,11 +155,27 @@ describe('WeatherForecastService', () => {
       expect(callWS).toHaveBeenCalledTimes(1)
     })
 
-    it('refreshes a mounted forecast on its own interval', async () => {
+    it('refreshes a mounted forecast on the first tick of its interval', async () => {
+      // A round trip that costs real time, which is what makes this test able to
+      // see the bug: the entry's timestamp is written when the fetch RESOLVES,
+      // so it trails the tick that started it. A tick that re-derived freshness
+      // from that timestamp would find the entry one latency short of stale and
+      // defer the refresh to the NEXT tick — an effective interval of twice the
+      // documented one. Under a zero-latency mock the entry lands exactly on the
+      // threshold and the bug is invisible.
+      const LATENCY = 500
+      callWS.mockImplementation(
+        () =>
+          new Promise<Record<string, unknown>>((resolve) => {
+            setTimeout(() => resolve(response(DAILY_FORECAST)), LATENCY)
+          })
+      )
       service.subscribe(ENTITY, 'daily')
-      await flush()
+      await vi.advanceTimersByTimeAsync(LATENCY)
+      expect(callWS).toHaveBeenCalledTimes(1)
+      expect(entry()?.updatedAt).toBe(NOW + LATENCY)
 
-      await vi.advanceTimersByTimeAsync(DAILY_REFRESH)
+      await vi.advanceTimersByTimeAsync(DAILY_REFRESH - LATENCY)
 
       expect(callWS).toHaveBeenCalledTimes(2)
     })
@@ -201,6 +217,21 @@ describe('WeatherForecastService', () => {
       await flush()
 
       expect(entry()).toMatchObject({ unsupported: true, error: null })
+    })
+
+    it('does not re-ask for an unsupported forecast on a remount', async () => {
+      callWS.mockRejectedValue({ code: 'not_found' })
+      service.subscribe(ENTITY, 'daily')()
+      await flush()
+      callWS.mockClear()
+
+      // Past the refresh interval, so the resolution itself is the only thing
+      // that can hold the request back.
+      vi.setSystemTime(NOW + DAILY_REFRESH)
+      service.subscribe(ENTITY, 'daily')
+      await flush()
+
+      expect(callWS).not.toHaveBeenCalled()
     })
 
     it('does not retry an unsupported forecast on the refresh interval', async () => {
@@ -347,6 +378,22 @@ describe('WeatherForecastService', () => {
       service.setHass(hass)
       await flush()
 
+      expect(callWS).not.toHaveBeenCalled()
+    })
+
+    it('does not refetch a forecast already resolved unsupported', async () => {
+      callWS.mockRejectedValue({ code: 'not_found' })
+      service.subscribe(ENTITY, 'daily')
+      await flush()
+      expect(entry()?.unsupported).toBe(true)
+
+      service.setHass(null)
+      callWS.mockClear()
+      service.setHass(hass)
+      await flush()
+
+      // Regaining the socket says nothing new about an integration that has no
+      // such forecast, and the resolution holds for the session.
       expect(callWS).not.toHaveBeenCalled()
     })
 

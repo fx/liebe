@@ -91,6 +91,12 @@ export class WeatherForecastService {
     for (const key of this.subscribers.keys()) {
       const entry = forecastStore.state.entries[key]
       if (!entry) continue
+      // Regaining the socket is not new information about an entity that has
+      // already answered "no such forecast": the same once-per-session rule the
+      // refresh tick follows applies here, and a dashboard that reconnects often
+      // would otherwise spend a call per reconnect on every forecast that will
+      // never answer.
+      if (entry.unsupported) continue
       void this.fetch(entry.entityId, entry.type)
     }
   }
@@ -106,7 +112,12 @@ export class WeatherForecastService {
     forecastStoreActions.reset()
   }
 
-  /** Fetch if there is nothing cached, or if what is cached has aged out. */
+  /**
+   * The subscribe path: fetch if there is nothing cached, or if what is cached
+   * has aged out. A subscriber arrives at an arbitrary point inside the refresh
+   * interval — a remount, a second card on the same entity — so here the entry's
+   * own timestamp is the only thing that can decide.
+   */
   private maintain(entityId: string, type: ForecastType): void {
     const entry = forecastStore.state.entries[forecastCacheKey(entityId, type)]
     if (!entry) {
@@ -119,12 +130,29 @@ export class WeatherForecastService {
     if (isForecastStale(entry.updatedAt, type, Date.now())) void this.fetch(entityId, type)
   }
 
+  /**
+   * The refresh tick, which IS the freshness decision: the timer's period is the
+   * type's refresh interval, so an entry that survives to a tick is due by
+   * construction.
+   *
+   * Re-checking `updatedAt` here would defeat that. The tick fires at T0 +
+   * interval while the entry records the moment the previous fetch RESOLVED, T0
+   * + latency, so `now - updatedAt` is always one round trip short of the
+   * interval, the entry never reads stale on its own tick, and every refresh
+   * slips to the following one — a real interval of twice what is documented.
+   */
+  private refresh(entityId: string, type: ForecastType): void {
+    // Same once-per-session resolution as `maintain`.
+    if (forecastStore.state.entries[forecastCacheKey(entityId, type)]?.unsupported) return
+    void this.fetch(entityId, type)
+  }
+
   private startRefresh(entityId: string, type: ForecastType): void {
     const key = forecastCacheKey(entityId, type)
     this.stopRefresh(key)
     this.refreshTimers.set(
       key,
-      setInterval(() => this.maintain(entityId, type), FORECAST_REFRESH_MS[type])
+      setInterval(() => this.refresh(entityId, type), FORECAST_REFRESH_MS[type])
     )
   }
 
