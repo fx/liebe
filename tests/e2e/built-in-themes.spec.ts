@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
+  documentFontFamilies,
   documentFontLoaded,
   fontRegistrationCss,
   openConfigurationMenu,
@@ -109,10 +110,27 @@ test('LCARS applies live, forces dark, and paints its console frame', async ({ p
   // on a white ground (docs/specs/theming — "LCARS declares dark-only").
   await openOnDefaultTheme(page, 'light')
 
-  // Baseline for the font assertion below. Only the ACTIVE theme's faces are
-  // registered, so on Default there is nothing named Antonio in the document —
-  // which is what makes the same call after the switch mean something.
-  expect(await documentFontLoaded(page, '16px Antonio'), 'no face before the theme').toBe(false)
+  // Baseline for the font assertions below, taken against the REGISTRATION
+  // rather than against availability. Asking whether Antonio can be loaded here
+  // would be a question about the host as much as about the panel — an image
+  // that ships the typeface would answer it the same way a working baseline
+  // does — whereas a document that carries no `@font-face` for the family, and
+  // no font `<style>` for `lcars`, can only mean the registrar has not run.
+  // That is exactly the mechanism under test: shadow roots do not load
+  // `@font-face` declared inside them, so document-level registration is the
+  // only route by which the face below can arrive.
+  expect(await documentFontFamilies(page), 'no face registered before the theme').not.toContain(
+    'Antonio'
+  )
+  expect(await fontRegistrationCss(page, 'lcars'), 'no lcars font sheet before the theme').toBe('')
+
+  // And the probe itself discriminates: a family nothing could plausibly
+  // provide comes back false, so the positive answer it gives after the switch
+  // is a finding rather than this helper's constant.
+  expect(
+    await documentFontLoaded(page, '16px "Liebe No Such Family"'),
+    'the probe answers false for an unregistered family'
+  ).toBe(false)
 
   await selectTheme(page, 'LCARS')
   await expect.poll(() => themeStamp(page)).toEqual({ themeId: 'lcars', appearance: 'dark' })
@@ -135,6 +153,7 @@ test('LCARS applies live, forces dark, and paints its console frame', async ({ p
     '__LIEBE_ASSET_BASE_URL__'
   )
   expect(registration).toContain('/fonts/antonio/antonio-latin.woff2')
+  expect(await documentFontFamilies(page), 'the switch registered the face').toContain('Antonio')
   expect(await documentFontLoaded(page, '16px Antonio'), 'the bundled woff2 loaded').toBe(true)
 
   const meta = await shadowComputedStyle(page, '.liebe-name', ['font-family', 'text-transform'])
@@ -142,10 +161,13 @@ test('LCARS applies live, forces dark, and paints its console frame', async ({ p
   expect(meta?.['text-transform']).toBe('uppercase')
 
   // The console frame, drawn entirely on the structural hooks of the stable
-  // selector contract. The change document's scenario names a section TITLE bar
-  // here; `liebe-section-title` is stamped nowhere (the contract records it as
-  // outstanding — nothing in the markup means "the title of a section"), so what
-  // renders is the screen's butterscotch elbow plus a bar per `liebe-section`.
+  // selector contract: the screen's butterscotch rail and elbow, plus a bar per
+  // `liebe-section`. There is deliberately no section TITLE bar to assert —
+  // `liebe-section-title` is stamped nowhere, because nothing in the markup
+  // means "the title of a section", so LCARS ships without the title, the
+  // concave inner fillet and the per-title code label. Recorded as outstanding
+  // in the contract and tracked as #218; the change document's acceptance
+  // scenario names the frame below rather than the one that is not built.
   expect(await shadowComputedStyle(page, '.liebe-screen', ['background-color'], '::after')).toEqual(
     {
       'background-color': LCARS_BUTTERSCOTCH,

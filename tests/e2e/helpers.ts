@@ -593,6 +593,21 @@ export async function fontRegistrationCss(page: Page, themeId: string): Promise<
   )
 }
 
+// The families the document has REGISTERED a face for, from `@font-face` rules
+// in any of its stylesheets plus anything added to the set programmatically.
+//
+// `document.fonts` is the registration set, not the availability set: a family
+// merely installed on the host is resolved by the font matcher and never
+// appears here. That is what makes this usable as a baseline — it cannot be
+// satisfied by a machine that happens to ship the typeface under test — and it
+// reads the mechanism directly, since document-level registration is the whole
+// reason a shadow-root theme can render in a bundled face at all.
+export async function documentFontFamilies(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    Array.from(document.fonts).map((face) => face.family.replace(/^['"]|['"]$/g, ''))
+  )
+}
+
 // Whether the document has actually LOADED a face, rather than merely been
 // handed a rule declaring it: `load()` fetches, so this comes back false if the
 // bundled woff2 is missing or its URL resolved somewhere that 404s.
