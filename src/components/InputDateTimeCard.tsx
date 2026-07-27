@@ -200,18 +200,18 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
             <form onSubmit={handleSubmit} onClick={handleFieldClick}>
               <Flex align="center" gap="2">
                 <TextField.Root
-                  size="2"
+                  size="3"
                   type={inputType}
                   value={localValue}
                   onChange={(e) => setLocalValue(e.target.value)}
                   autoFocus
                   style={{ minWidth: '200px' }}
                 />
-                <IconButton size="2" type="submit" variant="soft" color="green" disabled={loading}>
+                <IconButton size="3" type="submit" variant="soft" color="green" disabled={loading}>
                   <Check size={16} />
                 </IconButton>
                 <IconButton
-                  size="2"
+                  size="3"
                   type="button"
                   variant="soft"
                   color="red"
@@ -235,7 +235,7 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
                 <Text size="2">{displayValue}</Text>
               </Box>
               <IconButton
-                size="2"
+                size="3"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation()

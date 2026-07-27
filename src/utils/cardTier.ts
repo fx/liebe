@@ -48,6 +48,27 @@ export function deriveCardTier({ width, height }: CardSpan): CardTier {
 }
 
 /**
+ * Whether two spans describe the same rectangle, `undefined` included.
+ *
+ * By value, never by identity: the grid builds a fresh `{width, height}` for
+ * every item on every render (`GridLayoutSection`), so an identity check would
+ * report a change on each pass and defeat the memo it was written into.
+ *
+ * It exists because a card's `memo` comparator has to consult the span as well
+ * as the tier, and the tier is lossy: a breakpoint change can move an item from
+ * `row` 3×1 to `row` 4×1 — same tier, different span. A comparator that
+ * compared only the tier would hold the card at its last render, and any
+ * surface fed from the span (a card's own `CardConfig.Modal` preview, which
+ * derives the previewed tier from it) would go on showing the old one.
+ */
+export function isSameSpan(a: CardSpan | undefined, b: CardSpan | undefined): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+
+  return a.width === b.width && a.height === b.height
+}
+
+/**
  * A stored span scaled to the column count the grid is actually using.
  *
  * This is the mapping `GridLayoutSection` applies when it builds the layout, and

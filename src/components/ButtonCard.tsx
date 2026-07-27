@@ -5,7 +5,7 @@ import type { HassEntity } from '~/store/entityTypes'
 import { memo } from 'react'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 
 interface ButtonCardProps {
   entityId: string
@@ -115,6 +115,10 @@ const MemoizedButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.tier === nextProps.tier &&
+    // The span as well as the tier: the tier is lossy — a `row` 3×1 and a
+    // `row` 4×1 are the same tier — and this card accepts the span, so its
+    // comparator may not be the thing that pins it to a stale one.
+    isSameSpan(prevProps.span, nextProps.span) &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

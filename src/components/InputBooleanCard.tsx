@@ -117,7 +117,7 @@ const MemoizedInputBooleanCard = memo(function InputBooleanCard({
         {!isEditMode && (
           <GridCard.Controls>
             <Switch
-              size="2"
+              size="3"
               checked={isOn}
               onCheckedChange={handleSwitchChange}
               disabled={loading}

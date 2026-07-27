@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveCardTier, scaleSpanToColumns, type CardTier } from '../cardTier'
+import { deriveCardTier, isSameSpan, scaleSpanToColumns, type CardTier } from '../cardTier'
 import { getEffectiveColumns } from '../../../app/utils/responsive'
 
 /**
@@ -92,5 +92,30 @@ describe('getEffectiveColumns', () => {
   it("overrides it with the breakpoint's own count at the narrow ones", () => {
     expect(getEffectiveColumns('mobile', 12)).toBe(4)
     expect(getEffectiveColumns('tablet', 12)).toBe(8)
+  })
+})
+
+describe('isSameSpan', () => {
+  it('holds for two spans with the same numbers in different objects', () => {
+    // The grid builds a fresh object for every item on every render, so an
+    // identity check here would report a change on each pass and defeat the
+    // memo comparators this exists for.
+    expect(isSameSpan({ width: 3, height: 1 }, { width: 3, height: 1 })).toBe(true)
+  })
+
+  it('separates spans the tier cannot tell apart', () => {
+    // Both are `row`. This is the whole reason a comparator has to consult the
+    // span as well as the tier.
+    expect(deriveCardTier({ width: 3, height: 1 })).toBe(deriveCardTier({ width: 4, height: 1 }))
+    expect(isSameSpan({ width: 3, height: 1 }, { width: 4, height: 1 })).toBe(false)
+    expect(isSameSpan({ width: 2, height: 1 }, { width: 2, height: 2 })).toBe(false)
+  })
+
+  it('treats two absent spans as unchanged, and one as a change', () => {
+    // A renderer that passes no span at all — a story, the sidebar widget —
+    // must not re-render on every pass either.
+    expect(isSameSpan(undefined, undefined)).toBe(true)
+    expect(isSameSpan(undefined, { width: 1, height: 1 })).toBe(false)
+    expect(isSameSpan({ width: 1, height: 1 }, undefined)).toBe(false)
   })
 })

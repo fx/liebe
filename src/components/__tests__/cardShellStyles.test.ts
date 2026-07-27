@@ -130,6 +130,19 @@ describe('card shell stylesheet', () => {
     }
   })
 
+  it('floors each tier through a token rather than a literal', () => {
+    // The floor is geometry like the radius and the padding, so it belongs to
+    // the token contract: a theme that enlarges the icon circle and the inset
+    // has to be able to raise the box they sit in, and a literal here would be
+    // the one dimension of the tile it could not reach.
+    expect(ruleBody(".liebe-card[data-tier='row']")).toContain(
+      'min-block-size: var(--liebe-card-min-height-row);'
+    )
+    expect(ruleBody(".liebe-card[data-tier='full']")).toContain(
+      'min-block-size: var(--liebe-card-min-height-tall);'
+    )
+  })
+
   it('strips the surface entirely for a transparent card', () => {
     const transparent = ruleBody('.liebe-card[data-transparent]')
     expect(transparent).toContain('background: none;')

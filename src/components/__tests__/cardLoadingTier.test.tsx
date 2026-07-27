@@ -87,14 +87,15 @@ const cards: CardCase[] = [
 ]
 
 /**
- * The placeholder's floor, which is the one thing every tier of every skeleton
+ * The tier the placeholder stamped, which is the one thing every skeleton
  * carries regardless of whether that card's placeholder shows an icon, a
- * control, or one line rather than two.
+ * control, or one line rather than two — the selector contract guarantees
+ * `data-tier` on every rendered card, a loading one included.
  */
-function skeletonFloor(container: HTMLElement): string {
-  const card = container.querySelector<HTMLElement>('.rt-Card')
+function skeletonTier(container: HTMLElement): string | null {
+  const card = container.querySelector('.liebe-card')
   expect(card, 'no skeleton rendered').not.toBeNull()
-  return card!.style.minHeight
+  return card!.getAttribute('data-tier')
 }
 
 function renderLoading({ Card, entityId, config }: CardCase, tier: CardTier) {
@@ -107,9 +108,9 @@ function renderLoading({ Card, entityId, config }: CardCase, tier: CardTier) {
 
 describe('a card waiting for its entity', () => {
   it.each(cards)('$name hands its tier to the placeholder', (card) => {
-    // Two tiers with different floors, so the assertion cannot pass by
-    // accident on a card that ignores the prop and falls back to `row`.
-    expect(skeletonFloor(renderLoading(card, 'glance').container)).toBe('60px')
-    expect(skeletonFloor(renderLoading(card, 'full').container)).toBe('120px')
+    // Two tiers, neither of them the shell's `row` default, so the assertion
+    // cannot pass by accident on a card that ignores the prop.
+    expect(skeletonTier(renderLoading(card, 'glance').container)).toBe('glance')
+    expect(skeletonTier(renderLoading(card, 'full').container)).toBe('full')
   })
 })

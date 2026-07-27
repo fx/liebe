@@ -58,6 +58,16 @@
     --liebe-icon-circle: 40px;
     --liebe-control-height: 42px;
     --liebe-chip-height: 34px;
+    /*
+     * The height a tile keeps when nothing else gives it one. Two stops,
+     * because height is the only thing a floor can express and only the row
+     * axis moves it: `glance` and `row` are one grid row tall, `tall` and
+     * `full` are two or more. Inside the grid neither binds — the cell's row
+     * height is the card's height — so these are what a shell rendered outside
+     * a grid stands on (see `GridCard.css`).
+     */
+    --liebe-card-min-height-row: 60px;
+    --liebe-card-min-height-tall: 120px;
 
     /*
      * --- Surfaces (light appearance) ---------------------------------

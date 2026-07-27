@@ -1,6 +1,7 @@
-import { Flex, Card, Skeleton } from '@radix-ui/themes'
+import { Flex, Skeleton } from '@radix-ui/themes'
 import { memo } from 'react'
 import type { CardTier } from '~/utils/cardTier'
+import '../GridCard.css'
 
 interface SkeletonCardProps {
   lines?: number
@@ -10,7 +11,7 @@ interface SkeletonCardProps {
    * The tier the card being waited for will render at. A skeleton is a
    * placeholder for a specific tile, so it takes the same tier the card does:
    * a 1×1 skeleton is a small tile, not a truncated large one
-   * (docs/changes/0011-layout-tiers.md).
+   * (docs/specs/design-system/index.md — "Size-adaptive layouts").
    */
   tier?: CardTier
 }
@@ -27,16 +28,15 @@ interface SkeletonCardProps {
  * squeezed, which is the spec's omit-never-clip rule applied to the loading
  * state.
  *
- * The dimensions are here as well as the composition because `minHeight` is a
- * floor and not a ceiling: a tile whose padding, gaps and glyph were sized for
- * a two-row card cannot be a one-cell placeholder however low its floor is set,
- * so `glance` gets a smaller inset, a tighter stack and a smaller glyph rather
- * than the same tile with a shorter minimum.
+ * The glyph and the stack's gap are here as well as the composition because a
+ * floor is not a ceiling: a tile whose gaps and glyph were sized for a two-row
+ * card cannot be a one-cell placeholder however low its minimum is set. The
+ * tile's own geometry — inset, radius, surface, height floor — is not here at
+ * all; it comes from `liebe-card` like every other card's, so a theme reshapes
+ * the loading tile with the loaded one.
  */
 interface SkeletonTierLayout {
-  minHeight: string
-  /** Radix space steps for the tile's inset and the stack's gap. */
-  padding: '2' | '3'
+  /** Radix space step for the stack's gap. */
   gap: '2' | '3'
   icon: string
   line: string
@@ -46,8 +46,6 @@ interface SkeletonTierLayout {
 
 const tierLayout: Record<CardTier, SkeletonTierLayout> = {
   glance: {
-    minHeight: '60px',
-    padding: '2',
     gap: '2',
     icon: '24px',
     line: '12px',
@@ -55,8 +53,6 @@ const tierLayout: Record<CardTier, SkeletonTierLayout> = {
     control: false,
   },
   row: {
-    minHeight: '60px',
-    padding: '3',
     gap: '3',
     icon: '32px',
     line: '16px',
@@ -64,8 +60,6 @@ const tierLayout: Record<CardTier, SkeletonTierLayout> = {
     control: true,
   },
   tall: {
-    minHeight: '120px',
-    padding: '3',
     gap: '3',
     icon: '32px',
     line: '16px',
@@ -73,8 +67,6 @@ const tierLayout: Record<CardTier, SkeletonTierLayout> = {
     control: true,
   },
   full: {
-    minHeight: '120px',
-    padding: '3',
     gap: '3',
     icon: '32px',
     line: '16px',
@@ -83,20 +75,42 @@ const tierLayout: Record<CardTier, SkeletonTierLayout> = {
   },
 }
 
+/**
+ * The tile a card renders while it waits for its entity.
+ *
+ * It is a `liebe-card` carrying `data-tier`, not a Radix `Card`, for the same
+ * reason the shell stopped being one: the selector contract guarantees both are
+ * present on **every** rendered card (docs/specs/theming/index.md — "Stable
+ * selector contract"), and a loading tile that opted out would be a hole in the
+ * guarantee that this change is what makes true — a theme could style a card by
+ * tier everywhere except while it is arriving, which is exactly when a tile is
+ * most conspicuous.
+ *
+ * It stamps the class itself rather than rendering through `GridCard`. The
+ * shell is not a surface, it is a card's behaviour: it requires a `domain` on
+ * purpose (a defaulted one would trade a missing attribute for a wrong one, and
+ * a placeholder has no truthful one to give), and it carries the gesture
+ * controller, the more-info dialog and the edit-mode delete and configure
+ * buttons — a placeholder for a card that does not exist yet must not be
+ * operable, deletable or configurable. What the contract asks for is the class
+ * and the attribute, and both are stamped here; the floor that used to be an
+ * inline `minHeight` is now the sheet's `--liebe-card-min-height-*`, so it
+ * participates in the layered overrides an inline declaration outranked.
+ */
 export const SkeletonCard = memo(function SkeletonCard({
   lines = 2,
   showIcon = true,
   showButton = false,
   tier = 'row',
 }: SkeletonCardProps) {
-  const { minHeight, padding, gap, icon, line, maxLines, control } = tierLayout[tier]
+  const { gap, icon, line, maxLines, control } = tierLayout[tier]
   // The card asks for the lines it would render; the tier caps how many of them
   // there is room for.
   const renderedLines = Math.min(lines, maxLines)
 
   return (
-    <Card variant="classic" style={{ minHeight }}>
-      <Flex p={padding} direction="column" align="center" justify="center" gap={gap}>
+    <div className="liebe-card" data-tier={tier}>
+      <Flex direction="column" align="center" justify="center" gap={gap}>
         {showIcon && <Skeleton width={icon} height={icon} style={{ borderRadius: '50%' }} />}
 
         <Flex direction="column" align="center" gap="2" style={{ width: '100%' }}>
@@ -109,6 +123,6 @@ export const SkeletonCard = memo(function SkeletonCard({
           <Skeleton width="60%" height="32px" style={{ borderRadius: '6px' }} />
         )}
       </Flex>
-    </Card>
+    </div>
   )
 })

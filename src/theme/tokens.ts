@@ -57,6 +57,14 @@ export const tokenGroups: readonly TokenGroup[] = [
       { name: '--liebe-icon-circle', purpose: 'Icon circle diameter (glyph ≈ 22px)' },
       { name: '--liebe-control-height', purpose: 'Embedded slider height' },
       { name: '--liebe-chip-height', purpose: 'Chip height' },
+      {
+        name: '--liebe-card-min-height-row',
+        purpose: 'Height floor for the single-row tiers (glance, row)',
+      },
+      {
+        name: '--liebe-card-min-height-tall',
+        purpose: 'Height floor for the multi-row tiers (tall, full)',
+      },
     ],
   },
   {

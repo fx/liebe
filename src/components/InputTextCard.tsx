@@ -180,7 +180,7 @@ export const InputTextCard = memo(function InputTextCard({
             <form onSubmit={handleSubmit} onClick={handleFieldClick}>
               <Flex align="center" gap="2">
                 <TextField.Root
-                  size="2"
+                  size="3"
                   type={isPassword ? 'password' : 'text'}
                   value={localValue}
                   onChange={(e) => setLocalValue(e.target.value)}
@@ -188,11 +188,11 @@ export const InputTextCard = memo(function InputTextCard({
                   style={{ minWidth: '150px' }}
                   maxLength={attributes.max}
                 />
-                <IconButton size="2" type="submit" variant="soft" color="green" disabled={loading}>
+                <IconButton size="3" type="submit" variant="soft" color="green" disabled={loading}>
                   <Check size={16} />
                 </IconButton>
                 <IconButton
-                  size="2"
+                  size="3"
                   type="button"
                   variant="soft"
                   color="red"
@@ -218,7 +218,7 @@ export const InputTextCard = memo(function InputTextCard({
                 </Text>
               </Box>
               <IconButton
-                size="2"
+                size="3"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation()

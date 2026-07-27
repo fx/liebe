@@ -78,7 +78,8 @@ export const ErrorDisplay = memo(function ErrorDisplay({
      * leaves the icon and the short title; the message and the actions come
      * back at every tier with room for them.
      *
-     * Omitted from the LAYOUT is not omitted from the product. The message says
+     * Omitted from the LAYOUT is not omitted from the product — the rule that
+     * owns what follows lives in the same spec section. The message says
      * which failure this is and `onRetry` is the only way out of it, so at
      * `glance` both move somewhere a one-cell tile can hold them instead of
      * being dropped:

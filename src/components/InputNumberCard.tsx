@@ -206,7 +206,7 @@ export const InputNumberCard = memo(function InputNumberCard({
         </GridCard.Title>
         <GridCard.Controls>
           <IconButton
-            size="2"
+            size="3"
             variant="soft"
             onClick={handleDecrement}
             disabled={
@@ -221,7 +221,7 @@ export const InputNumberCard = memo(function InputNumberCard({
           {isEditing ? (
             <form onSubmit={handleValueSubmit}>
               <TextField.Root
-                size="2"
+                size="3"
                 value={localValue}
                 onChange={(e) => setLocalValue(e.target.value)}
                 onBlur={handleFieldBlur}
@@ -249,7 +249,7 @@ export const InputNumberCard = memo(function InputNumberCard({
           )}
 
           <IconButton
-            size="2"
+            size="3"
             variant="soft"
             onClick={handleIncrement}
             disabled={

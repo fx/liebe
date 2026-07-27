@@ -72,8 +72,8 @@ describe('SkeletonCard tiers', () => {
   })
 
   it('sizes the tile itself down at glance, not only its floor', () => {
-    // A floor is not a ceiling: a placeholder whose inset, stack gap and glyph
-    // were sized for a two-row card cannot be a one-cell tile however low its
+    // A floor is not a ceiling: a placeholder whose stack gap and glyph were
+    // sized for a two-row card cannot be a one-cell tile however low its
     // `min-height` is set.
     const { container: glance } = renderInTheme(<SkeletonCard tier="glance" />)
     const { container: row } = renderInTheme(<SkeletonCard tier="row" />)
@@ -86,14 +86,40 @@ describe('SkeletonCard tiers', () => {
     expect(iconWidth(row)).toBe('32px')
   })
 
-  it('floors a multi-row skeleton taller than a single-row one', () => {
-    // Outside a grid there is no cell to fill, and a `tall` placeholder that
-    // collapsed to a glance tile's height would misreport what is loading.
-    const { container: glance } = renderInTheme(<SkeletonCard tier="glance" />)
-    const { container: tall } = renderInTheme(<SkeletonCard tier="tall" />)
+  it('is a contract tile like every other card, tier and all', () => {
+    // The selector contract guarantees `liebe-card` and `data-tier` on every
+    // rendered card (docs/specs/theming — "Stable selector contract"). A
+    // loading tile that opted out would be a hole in the guarantee at the one
+    // moment a tile is most conspicuous — a theme could style cards by tier
+    // everywhere except while they arrive.
+    for (const tier of ['glance', 'row', 'tall', 'full'] as const) {
+      const { container } = renderInTheme(<SkeletonCard tier={tier} />)
+      const tile = container.querySelector('.liebe-card')
 
-    expect(glance.querySelector<HTMLElement>('.rt-Card')!.style.minHeight).toBe('60px')
-    expect(tall.querySelector<HTMLElement>('.rt-Card')!.style.minHeight).toBe('120px')
+      expect(tile, tier).toBeInTheDocument()
+      expect(tile, tier).toHaveAttribute('data-tier', tier)
+    }
+  })
+
+  it('leaves its height floor to the sheet, so a theme can raise it', () => {
+    // The floor used to be an inline `minHeight`, which outranks every cascade
+    // layer and so was the one dimension of the tile no theme could reach. It
+    // is now `--liebe-card-min-height-*`, resolved by `.liebe-card[data-tier]`.
+    for (const tier of ['glance', 'row', 'tall', 'full'] as const) {
+      const { container } = renderInTheme(<SkeletonCard tier={tier} />)
+
+      expect(container.querySelector<HTMLElement>('.liebe-card')!.style.minHeight, tier).toBe('')
+    }
+  })
+
+  it('is not operable, because there is no card behind it yet', () => {
+    // The reason it stamps the contract itself rather than rendering through
+    // `GridCard`: the shell carries the gesture controller and the edit-mode
+    // delete and configure buttons, and a placeholder for a card that has not
+    // arrived must not be pressable, deletable or configurable.
+    renderInTheme(<SkeletonCard showButton />)
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })
 

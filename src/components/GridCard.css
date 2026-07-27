@@ -85,18 +85,22 @@
    *
    * Two stops rather than four, because height is the only thing a floor can
    * express and only one of the two span axes moves it: `glance` and `row` are
-   * one grid row tall, `tall` and `full` are two or more. That is also why
-   * these stay plain lengths — a token minted here would be contract to keep,
-   * and the tiers are meant to be laid out by the grid, not by this rule.
+   * one grid row tall, `tall` and `full` are two or more.
+   *
+   * Both stops are tokens, like every other piece of the tile's geometry. A
+   * literal here would be a number a theme cannot reach: a theme that enlarges
+   * the icon circle and the padding to suit a wall tablet at arm's length has
+   * to be able to raise the floor those now sit in, and the token contract is
+   * the only channel it has (docs/specs/design-system — "Token contract").
    */
   .liebe-card[data-tier='glance'],
   .liebe-card[data-tier='row'] {
-    min-block-size: 60px;
+    min-block-size: var(--liebe-card-min-height-row);
   }
 
   .liebe-card[data-tier='tall'],
   .liebe-card[data-tier='full'] {
-    min-block-size: 120px;
+    min-block-size: var(--liebe-card-min-height-tall);
   }
 
   /*

@@ -8,7 +8,7 @@ import { Slider } from './anatomy'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
-import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 
 interface LightCardProps {
   entityId: string
@@ -262,6 +262,10 @@ const MemoizedLightCard = memo(LightCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.tier === nextProps.tier &&
+    // The span as well as the tier: the tier is lossy, so a `row` 3×1 becoming
+    // a `row` 4×1 changes nothing here — and this card's own configuration
+    // modal previews at the span it was handed, so it would open stale.
+    isSameSpan(prevProps.span, nextProps.span) &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect &&
