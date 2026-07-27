@@ -50,6 +50,51 @@ function matchesSearch(entity: HassEntity, search: string): boolean {
 }
 
 /**
+ * Names the kind of entity the list is restricted to, so an empty list can say
+ * what it was looking for — `motion binary_sensor`, `battery sensor`. Only
+ * called when at least one filter is set, because with no filters an empty
+ * list is the "no entities at all" case instead.
+ */
+function describeFilters(domains: string[] | undefined, deviceClasses: string[] | undefined) {
+  return [deviceClasses?.join('/'), domains?.join('/')].filter(Boolean).join(' ')
+}
+
+interface EmptyListState {
+  isLoading: boolean
+  isConnected: boolean
+  /** Whether Home Assistant has any entities at all, before any filtering. */
+  hasEntities: boolean
+  /** Whether any entity survived `domains`/`deviceClasses`, before the search. */
+  hasAvailable: boolean
+  domains?: string[]
+  deviceClasses?: string[]
+}
+
+/**
+ * Why the list is empty, in the user's terms. Four causes reach this, and only
+ * the last one is the search: the panel may still be loading, may not be
+ * talking to Home Assistant at all, or may have had nothing to offer before a
+ * key was pressed. Blaming a search the user never typed sends them to fix a
+ * config that is not the problem.
+ */
+function emptyListMessage({
+  isLoading,
+  isConnected,
+  hasEntities,
+  hasAvailable,
+  domains,
+  deviceClasses,
+}: EmptyListState): string {
+  if (isLoading) return 'Still loading entities from Home Assistant…'
+  if (!isConnected) return 'Not connected to Home Assistant — no entities to choose from.'
+  if (!hasEntities) return 'This Home Assistant has no entities to choose from.'
+  if (!hasAvailable) {
+    return `This Home Assistant has no ${describeFilters(domains, deviceClasses)} entities to link.`
+  }
+  return 'No entity matches that search.'
+}
+
+/**
  * The entity picker — the config control behind every option that links a
  * second entity to a card (`motionEntity`, `doorEntity`, `batteryEntity`).
  *
@@ -90,26 +135,33 @@ export function EntityPicker({
   const selectedId = parsed.success ? parsed.data : ENTITY_LINK_DEFAULT
   const selectedEntity = selectedId ? entities[selectedId] : undefined
 
-  const matches = React.useMemo(() => {
+  /*
+   * The filters and the search are applied in two steps so the empty list can
+   * tell them apart: an option that asks for `motion binary_sensor` on an
+   * instance with none of them is empty before the user types anything, and
+   * that is a different sentence from a search that found nothing.
+   */
+  const available = React.useMemo(() => {
     return Object.values(entities)
       .filter((entity) => matchesFilters(entity, domains, deviceClasses))
-      .filter((entity) => matchesSearch(entity, search))
       .sort((a, b) => friendlyNameOf(a).localeCompare(friendlyNameOf(b)))
-  }, [entities, domains, deviceClasses, search])
+  }, [entities, domains, deviceClasses])
+
+  const matches = React.useMemo(
+    () => available.filter((entity) => matchesSearch(entity, search)),
+    [available, search]
+  )
 
   const shown = matches.slice(0, MAX_RESULTS)
 
-  /*
-   * An empty list has three causes and only one of them is the user's search.
-   * Saying "no match" while the panel is still loading, or while it is not
-   * talking to Home Assistant at all, describes the config as the problem when
-   * the connection is.
-   */
-  const emptyMessage = isLoading
-    ? 'Still loading entities from Home Assistant…'
-    : !isConnected
-      ? 'Not connected to Home Assistant — no entities to choose from.'
-      : 'No entity matches that search.'
+  const emptyMessage = emptyListMessage({
+    isLoading,
+    isConnected,
+    hasEntities: Object.keys(entities).length > 0,
+    hasAvailable: available.length > 0,
+    domains,
+    deviceClasses,
+  })
 
   /*
    * Closing is the only place the search resets, and every way of closing goes

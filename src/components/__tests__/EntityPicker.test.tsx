@@ -164,6 +164,67 @@ describe('EntityPicker', () => {
     }
   )
 
+  it('says the instance is empty when there is nothing to choose from at all', async () => {
+    // Connected, done loading, and no entities: the user has not searched, and
+    // no filter is in the way. Nothing about their config is wrong.
+    seed([])
+    renderPicker()
+    await openPicker()
+
+    expect(
+      screen.getByText('This Home Assistant has no entities to choose from.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('No entity matches that search.')).not.toBeInTheDocument()
+  })
+
+  it('names the kind of entity it wanted when the filters leave nothing', async () => {
+    // The instance has entities, just none of the kind this option links. The
+    // next action is to add such an entity in Home Assistant, not to search.
+    seed([battery])
+    renderPicker({ domains: ['binary_sensor'], deviceClasses: ['motion'] })
+    await openPicker()
+
+    expect(
+      screen.getByText('This Home Assistant has no motion binary_sensor entities to link.')
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Motion sensor search')).toHaveValue('')
+  })
+
+  it('names only the filter it was given', async () => {
+    seed([battery])
+    renderPicker({ domains: ['light'] })
+    await openPicker()
+
+    expect(
+      screen.getByText('This Home Assistant has no light entities to link.')
+    ).toBeInTheDocument()
+  })
+
+  it('blames the filters, not the search, when both would come up empty', async () => {
+    // A search typed into a list that was already empty must not change the
+    // diagnosis: the filters emptied it, and clearing the search fixes nothing.
+    seed([battery])
+    renderPicker({ domains: ['light'] })
+    await openPicker()
+    fireEvent.change(screen.getByLabelText('Motion sensor search'), {
+      target: { value: 'kitchen' },
+    })
+
+    expect(
+      screen.getByText('This Home Assistant has no light entities to link.')
+    ).toBeInTheDocument()
+  })
+
+  it('blames the search only when there was something to search', async () => {
+    renderPicker()
+    await openPicker()
+    fireEvent.change(screen.getByLabelText('Motion sensor search'), {
+      target: { value: 'nothing like this' },
+    })
+
+    expect(screen.getByText('No entity matches that search.')).toBeInTheDocument()
+  })
+
   it('falls back to the entity id for an entity with no friendly name', async () => {
     seed([createSensorEntity({ entity_id: 'sensor.unnamed', attributes: { friendly_name: '' } })])
     renderPicker()
