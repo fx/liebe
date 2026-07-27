@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   configPredatesControlStyle,
+  quantizeHelperValue,
   CONTROL_STYLE_VERSION,
   pinLegacyControlStyle,
   readBooleanControlStyle,
@@ -136,5 +137,31 @@ describe('pinLegacyControlStyle', () => {
       futureKey: 1,
       controlStyle: 'stepper',
     })
+  })
+})
+
+describe('quantizeHelperValue', () => {
+  it('snaps to the helper’s step, measured from its minimum', () => {
+    expect(quantizeHelperValue(62, { min: 0, max: 100, step: 5 })).toBe(60)
+    // The grid starts at `min`, so an offset minimum shifts every landing point.
+    expect(quantizeHelperValue(62, { min: 1, max: 100, step: 5 })).toBe(61)
+  })
+
+  it('keeps a fractional step free of binary-float tails', () => {
+    expect(quantizeHelperValue(20.3, { min: 0, max: 30, step: 0.1 })).toBe(20.3)
+    expect(quantizeHelperValue(0.30000000000000004, { min: 0, max: 1, step: 0.1 })).toBe(0.3)
+  })
+
+  it('clamps to each bound', () => {
+    expect(quantizeHelperValue(140, { min: 0, max: 100, step: 5 })).toBe(100)
+    expect(quantizeHelperValue(-20, { min: 0, max: 100, step: 5 })).toBe(0)
+  })
+
+  it('constrains nothing a helper does not publish', () => {
+    // A hand-edited helper may carry no bounds at all.
+    expect(quantizeHelperValue(62.5, {})).toBe(62.5)
+    expect(quantizeHelperValue(62.5, { step: 0 })).toBe(62.5)
+    expect(quantizeHelperValue(140, { min: 0 })).toBe(140)
+    expect(quantizeHelperValue(-20, { max: 100 })).toBe(-20)
   })
 })

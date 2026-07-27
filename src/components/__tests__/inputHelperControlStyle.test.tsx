@@ -185,6 +185,21 @@ describe('input helper controlStyle', () => {
       expect(hass.callService).not.toHaveBeenCalled()
     })
 
+    it('renders a slider for a helper that publishes no bounds at all', () => {
+      // A hand-made helper with nothing but a mode: the card falls back to a
+      // 0-100 track with a step of 1, and names the slider from the entity id
+      // because there is no friendly name to use.
+      seed(entity('input_number.volume', 'unknown', { mode: 'slider' }))
+      renderCard(<InputNumberCard entityId="input_number.volume" tier="row" />)
+
+      const slider = screen.getByRole('slider', { name: 'Set volume' })
+      expect(slider).toHaveAttribute('aria-valuemin', '0')
+      expect(slider).toHaveAttribute('aria-valuemax', '100')
+      // An unparseable state has no position, so the track sits at its floor
+      // rather than at `NaN`, which Radix would refuse to render.
+      expect(slider).toHaveAttribute('aria-valuenow', '0')
+    })
+
     it('keeps the readout and drops both controls at glance', () => {
       seed(helper('slider'))
       renderCard(<InputNumberCard entityId="input_number.volume" tier="glance" />)

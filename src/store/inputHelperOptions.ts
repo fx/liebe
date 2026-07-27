@@ -109,6 +109,36 @@ export function resolveSelectPresentation(
   return tier === 'full' && optionCount <= MAX_PILL_OPTIONS ? 'pills' : 'dropdown'
 }
 
+/** The bounds a helper publishes, all optional on a hand-edited one. */
+export interface NumberHelperBounds {
+  min?: number
+  max?: number
+  step?: number
+}
+
+/**
+ * A slider position turned into a value the helper will accept: quantized to
+ * `step` from `min`, then clamped to `[min, max]`.
+ *
+ * The helper's rules, not the control's, which is why this is shared rather
+ * than living in the slider's handler — the stepper and the typed field apply
+ * the same ones. A helper that publishes no bounds constrains nothing, and the
+ * value passes through.
+ */
+export function quantizeHelperValue(value: number, { min, max, step }: NumberHelperBounds): number {
+  const base = min ?? 0
+  let quantized = step ? base + Math.round((value - base) / step) * step : value
+
+  // `step` is routinely fractional (0.1, 0.5), and the arithmetic above
+  // reintroduces the binary-float tail it exists to remove.
+  quantized = Number.parseFloat(quantized.toFixed(4))
+
+  if (min !== undefined) quantized = Math.max(quantized, min)
+  if (max !== undefined) quantized = Math.min(quantized, max)
+
+  return quantized
+}
+
 /**
  * The configuration version that introduced `controlStyle`.
  *

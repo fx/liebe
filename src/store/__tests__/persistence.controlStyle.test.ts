@@ -99,6 +99,14 @@ describe('controlStyle legacy pinning', () => {
     expect(reloaded[1].config).not.toHaveProperty('controlStyle')
   })
 
+  it('declines a stored document that is not an object at all', () => {
+    // `localStorage` is hand-editable, so the version read has to survive a
+    // document that has no version to read.
+    storage.set('liebe-config', JSON.stringify('not a dashboard'))
+
+    expect(() => loadDashboardConfig()).not.toThrow()
+  })
+
   it('leaves a document from a newer build alone', () => {
     store('2.0.0', [item('input_boolean.guest_mode')])
 

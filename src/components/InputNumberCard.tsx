@@ -7,7 +7,7 @@ import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { Slider } from './anatomy'
-import { readNumberControlStyle } from '~/store/inputHelperOptions'
+import { quantizeHelperValue, readNumberControlStyle } from '~/store/inputHelperOptions'
 import { useCardItem } from './cardItemContext'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
@@ -149,34 +149,6 @@ export const InputNumberCard = memo(function InputNumberCard({
       setIsEditing(false)
     }
   }, [entity])
-
-  /**
-   * The slider's release, quantized to the helper's `step` and clamped to its
-   * range before it is sent — the same rules the stepper and the typed field
-   * already obey, because they are the helper's rules and not the control's.
-   *
-   * Local state is dropped in the same breath: the entity is the value from
-   * here on, and holding the released position would leave the card showing a
-   * number Home Assistant may have adjusted.
-   */
-  const handleSliderCommit = useCallback(
-    (value: number) => {
-      setDragValue(null)
-      if (!entity) return
-
-      const { min, max, step } = entity.attributes as InputNumberAttributes
-      const base = min ?? 0
-      let committed = step ? base + Math.round((value - base) / step) * step : value
-      // `step` is routinely fractional (0.1, 0.5), and the arithmetic above
-      // reintroduces the binary-float tail it exists to remove.
-      committed = Number.parseFloat(committed.toFixed(4))
-      if (min !== undefined) committed = Math.max(committed, min)
-      if (max !== undefined) committed = Math.min(committed, max)
-
-      setValue(entity.entity_id, committed)
-    },
-    [entity, setValue]
-  )
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -352,6 +324,22 @@ export const InputNumberCard = memo(function InputNumberCard({
    * everywhere else. `glance` gets no slider at all — it keeps the readout that
    * is its only way to operate the helper.
    */
+  /**
+   * The slider's release. Quantized and clamped by the helper's own rules
+   * before it is sent, and the local drag position is dropped in the same
+   * breath — the entity is the value from here on, and holding the released
+   * position would leave the card showing a number Home Assistant may have
+   * adjusted.
+   *
+   * A plain function rather than a `useCallback`: it is defined past the
+   * card's early returns, where `entity` is known to exist, so it carries no
+   * guard for a case that cannot reach it.
+   */
+  const handleSliderCommit = (value: number) => {
+    setDragValue(null)
+    setValue(entity.entity_id, quantizeHelperValue(value, attributes))
+  }
+
   const sliderValue = dragValue ?? parseFloat(entity.state)
   const slider = (
     <GridCard.Controls>
