@@ -144,7 +144,15 @@ gh issue view <issue-number>
    npm run lint
    ```
 
-3. **Home Assistant Integration Testing**
+3. **Probing a test (mutation testing)**
+
+   The way to know a test pins the behavior it claims is to break the behavior and watch that test fail. Two rules make the probe trustworthy, both learned from probe runs that looked perfect and proved nothing:
+   - **Commit or stage the fix before probing.** Probes restore with `git checkout -- <file>`, which reverts to the index — so with the work uncommitted, the first restore silently throws the fix away. Every later probe then mutates a file whose patterns no longer match and the tests fail because the fix is missing, not because the mutation landed.
+   - **Verify the mutation actually applied before reading the test result** — `git diff --quiet -- <file>` after mutating, and treat "no change" as an invalid probe. A mutation that silently failed to apply produces a red test for the wrong reason, and red is exactly what a working probe looks like. The test result alone cannot tell the two apart.
+
+   Never `git stash` to set work aside: the stash stack is shared across worktrees and other sessions can pop it. Use a temporary commit.
+
+4. **Home Assistant Integration Testing**
    - Confirm the user's dev server is running (never start it yourself)
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test

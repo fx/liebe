@@ -6,9 +6,15 @@ import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { Slider } from './anatomy'
 import { useDashboardStore, dashboardActions } from '~/store'
+import { readShowBrightnessSlider } from '~/store/lightOptions'
 import { CardConfig } from './CardConfig'
 import type { GridItem } from '~/store/types'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
+import {
+  HA_BRIGHTNESS_MAX,
+  haBrightnessToPercent,
+  percentToHaBrightness,
+} from '~/utils/lightBrightness'
 
 interface LightCardProps {
   entityId: string
@@ -28,6 +34,18 @@ interface LightCardProps {
 
 // Light supported features bit flags from Home Assistant
 const SUPPORT_BRIGHTNESS = 1
+
+/** The `supported_color_modes` values Home Assistant treats as dimmable. */
+const BRIGHTNESS_COLOR_MODES = [
+  'brightness',
+  'white',
+  'color_temp',
+  'hs',
+  'xy',
+  'rgb',
+  'rgbw',
+  'rgbww',
+]
 // const SUPPORT_COLOR_TEMP = 2
 // const SUPPORT_COLOR = 16
 
@@ -79,9 +97,11 @@ function LightCardComponent({
   const handleBrightnessCommit = useCallback(
     async (value: number) => {
       setIsDragging(false)
-      const brightness = Math.round((value / 100) * 255)
+      // Only a slider dropped at 0 turns the light off; the conversion never
+      // rounds a nonzero position down into that (docs/specs/entity-cards/
+      // options/light.md — "Brightness").
+      const brightness = percentToHaBrightness(value)
 
-      // If setting to 0, turn off the light
       if (brightness === 0) {
         await turnOff(entityId)
       } else {
@@ -98,17 +118,12 @@ function LightCardComponent({
   const supportedColorModes = lightAttributes?.supported_color_modes
   const supportedFeatures = lightAttributes?.supported_features ?? 0
   const supportsBrightness = useMemo(() => {
-    // Modern Home Assistant uses supported_color_modes
+    // Modern Home Assistant uses supported_color_modes. Every mode HA itself
+    // treats as brightness-capable counts — `white` included, whose entities
+    // may carry no legacy feature flag at all, so omitting it leaves them with
+    // no way to be dimmed (docs/specs/entity-cards/options/light.md).
     if (supportedColorModes) {
-      return (
-        supportedColorModes.includes('brightness') ||
-        supportedColorModes.includes('color_temp') ||
-        supportedColorModes.includes('hs') ||
-        supportedColorModes.includes('xy') ||
-        supportedColorModes.includes('rgb') ||
-        supportedColorModes.includes('rgbw') ||
-        supportedColorModes.includes('rgbww')
-      )
+      return supportedColorModes.some((mode) => BRIGHTNESS_COLOR_MODES.includes(mode))
     }
     // Fallback to old supported_features check. Coerced here, not where it is
     // read: the masked bits are a number, and React prints a `0` as the text
@@ -128,8 +143,7 @@ function LightCardComponent({
   // Get current brightness (0-255 scale from HA, convert to 0-100 for UI)
   const currentBrightness = useMemo(() => {
     if (!entity || entity.state === 'off') return 0
-    const brightness = lightAttributes?.brightness ?? 255
-    return Math.round((brightness / 255) * 100)
+    return haBrightnessToPercent(lightAttributes?.brightness ?? HA_BRIGHTNESS_MAX)
   }, [entity, lightAttributes?.brightness])
 
   const displayBrightness =
@@ -182,9 +196,9 @@ function LightCardComponent({
     }
   }
 
-  // Apply configuration
-  const enableBrightness = config.enableBrightness !== false
-  // const showColorPicker = config.showColorPicker !== false // TODO: implement color picker
+  // Apply configuration. The loader has already rewritten the legacy
+  // `enableBrightness` key, so only the current one is ever read here.
+  const showBrightnessSlider = readShowBrightnessSlider(config)
 
   /*
    * What each tier carries (docs/specs/entity-cards/options/light.md — "Tier
@@ -203,7 +217,7 @@ function LightCardComponent({
    */
   const isTall = tier === 'tall'
   const showBrightness =
-    tier !== 'glance' && !isEditMode && isOn && supportsBrightness && enableBrightness
+    tier !== 'glance' && !isEditMode && isOn && supportsBrightness && showBrightnessSlider
 
   const icon = (
     <GridCard.Icon>
