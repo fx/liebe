@@ -20,6 +20,7 @@ import {
   readCoverDeviceClass,
 } from './CoverCard/presentation'
 import { isSecurityCover } from '~/store/coverOptions'
+import { fanHasPresets, readFanFeatures } from './FanCard/features'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
@@ -70,6 +71,16 @@ interface ContentProps {
  * (docs/specs/entity-cards/options/common.md, convention 3), and a control that
  * writes a key nothing will read looks like a setting that did nothing.
  *
+ * **Every requirement below MUST be answered by the same predicate its render
+ * path uses — never by a second one shaped like it.** A gate and a renderer
+ * asking different questions about one attribute is how a user is offered an
+ * option, turns it on, and nothing happens, with no error and nothing to say
+ * why. `fan-presets` shipped that way: the form asked whether `preset_modes`
+ * had entries while the card asked whether it had *strings*, so a fan
+ * publishing `[1, null]` was offered a control it could never render. So a new
+ * requirement imports the card's predicate; if the card has none to import,
+ * that is the thing to write first.
+ *
  * - `numeric` — the entity reports readings rather than text, so it has a
  *   history a graph or a trend can be drawn from.
  * - `counter` — its `state_class` is cumulative, the only case bar rendering is
@@ -80,6 +91,10 @@ interface ContentProps {
  * - `cover-tilt` — the cover advertises at least one tilt bit.
  * - `security-cover` — the cover's `device_class` is one of the perimeter
  *   openings, the only ones `confirmOpen` is offered for.
+ * - `fan-speed` / `fan-oscillate` / `fan-direction` — the fan advertises the
+ *   matching capability bit.
+ * - `fan-presets` — the fan advertises `PRESET_MODE` **and** lists modes; the
+ *   bit without a list is a control with nothing in it.
  */
 export type ConfigOptionRequirement =
   | 'numeric'
@@ -87,6 +102,10 @@ export type ConfigOptionRequirement =
   | 'cover-position'
   | 'cover-tilt'
   | 'security-cover'
+  | 'fan-speed'
+  | 'fan-oscillate'
+  | 'fan-direction'
+  | 'fan-presets'
 
 // Configuration option types
 export interface ConfigOption {
@@ -301,7 +320,16 @@ function Component({ title, description, configDefinition, config, onChange }: C
               value={String(currentValue || option.default || '')}
               onValueChange={(value) => handleChange(key, value, option)}
             >
-              <Select.Trigger />
+              {/*
+               * The trigger carries the option's label as its accessible name.
+               * Without it the control announces as nothing: the `<Text>` above
+               * is a sibling, not a `<label>`, so nothing associates the two —
+               * a screen-reader user meets an unnamed combobox, and the only
+               * way a test could reach it was by walking the DOM from the label
+               * beside it, which is a test routing around the defect rather
+               * than reporting it.
+               */}
+              <Select.Trigger aria-label={option.label} />
               <Select.Content position="popper">
                 {option.options?.map((opt) => (
                   <Select.Item key={opt.value} value={opt.value}>
@@ -439,6 +467,20 @@ function meetsRequirement(
   if (requires === 'cover-tilt') return coverSupportsTilt(entity?.attributes)
   if (requires === 'security-cover') {
     return isSecurityCover(readCoverDeviceClass(entity?.attributes))
+  }
+
+  if (requires.startsWith('fan-')) {
+    const features = readFanFeatures(entity?.attributes)
+    if (requires === 'fan-speed') return features.speed
+    if (requires === 'fan-oscillate') return features.oscillate
+    if (requires === 'fan-direction') return features.direction
+    /*
+     * The card's own predicate, not a second one shaped like it. Reading only
+     * `preset_modes.length` offered the option to a fan publishing `[1, null]`
+     * — modes the renderers filter out — so enabling it produced a card that
+     * could never show a preset control, with nothing to say why.
+     */
+    return fanHasPresets(entity?.attributes)
   }
 
   if (!isNumericSensorEntity(entity)) return false

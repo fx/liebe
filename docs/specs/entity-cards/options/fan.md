@@ -2,7 +2,7 @@
 
 Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
 
-**Status: specified, not yet implemented.** The current `FanCard` implements toggle, a hardcoded four-step speed control (25/50/75/100), and a preset-mode select, with no per-card configuration modal. Everything below — the option surface, `percentage_step`-derived steps, oscillate/direction controls, the speed slider, and the speed-proportional icon animation contract — is new. **Tier layouts below are implemented** by change [0011](../../../changes/0011-layout-tiers.md) PR 3, with the controls that do not exist yet simply absent from their slots. See [entity-cards — Covers and fans](../index.md#covers-and-fans) for the implementation baseline.
+**Status: implemented** by change [0019](../../../changes/0019-cover-fan-cards-to-spec.md) PR 2, on the tier layouts change [0011](../../../changes/0011-layout-tiers.md) PR 3 laid down. Every option key below is live, edited from the shared configuration form and capability-gated from the entity. Two consequences of the new defaults are worth stating here: existing fan cards keep their step buttons through a **version-marker loader migration** (common convention 7 — the slider default replaces how a placed card is operated, so only newly created cards get it), and the preset row moved to `full`, with the detail dialog's domain control slot carrying speed and presets for every tier that shows neither. The hardcoded quartile buttons are gone: pills now derive from the fan's own speed count. See [entity-cards — Covers and fans](../index.md#covers-and-fans) for the card-level requirements.
 
 ## Primary action
 
@@ -111,4 +111,4 @@ Content that does not fit MUST be omitted, never clipped or scrolled. The active
 - [Common contract](./common.md) — universal options, action types, conventions
 - [Entity cards — Covers and fans](../index.md#covers-and-fans) — implementation baseline (toggle, `set_percentage`, `set_preset_mode`, feature bits)
 - [Design system](../../design-system/index.md) — tiers, card anatomy, domain color tokens, motion rules
-- `src/components/FanCard.tsx` — current implementation (hardcoded quartile buttons, percentage bucketing, spin-speed classes, preset select)
+- `src/components/FanCard/` — the card (`index.tsx`), the step arithmetic (`speedSteps.ts`), the capability reads (`features.ts`) and its detail-dialog controls (`FanDetailControls.tsx`); the stored option contract and the pinning migration are `src/store/fanOptions.ts`

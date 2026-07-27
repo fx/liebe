@@ -10,6 +10,7 @@ import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { ClimateCard } from '../ClimateCard'
 import { CoverCard } from '../CoverCard'
 import { FanCard } from '../FanCard'
+import { CardItemProvider } from '../cardItemContext'
 import { LightCard } from '../LightCard'
 import { WeatherCard } from '../WeatherCard'
 import type { HassEntity } from '~/store/entityTypes'
@@ -240,7 +241,7 @@ describe('CoverCard tiers', () => {
 })
 
 describe('FanCard tiers', () => {
-  const speedLabel = 'Medium-low speed (50%)'
+  const speedLabel = 'Set speed to 50%'
   const fan = makeEntity('fan.living_room', 'on', {
     friendly_name: 'Living Room Fan',
     percentage: 50,
@@ -248,38 +249,66 @@ describe('FanCard tiers', () => {
     supported_features: 1,
   })
 
+  /**
+   * Renders inside the placed-item context, because the fan's speed style is a
+   * stored option now. `steps` is passed wherever the pills are the subject:
+   * the shipped default is the slider, and an existing card keeps its pills
+   * through the loader's pinning migration rather than through the card
+   * (docs/specs/entity-cards/options/fan.md — "Speed control").
+   */
+  const renderFan = (card: ReactElement, config: Record<string, unknown> = {}) =>
+    renderCard(
+      <CardItemProvider entityId={(card.props as { entityId: string }).entityId} config={config}>
+        {card}
+      </CardItemProvider>
+    )
+
   beforeEach(() => seed(fan))
 
   it('drops the speed control at glance', () => {
-    renderCard(<FanCard entityId="fan.living_room" tier="glance" />)
+    renderFan(<FanCard entityId="fan.living_room" tier="glance" />, { speedControl: 'steps' })
 
     expect(stampedTier()).toBe('glance')
     expect(screen.getByText('Living Room Fan')).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Fan speed' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Fan speed')).not.toBeInTheDocument()
   })
 
-  it('lays the step pills out horizontally at row', () => {
-    renderCard(<FanCard entityId="fan.living_room" tier="row" />)
+  it('lays the speed control out horizontally at row', () => {
+    const { unmount } = renderFan(<FanCard entityId="fan.living_room" tier="row" />, {
+      speedControl: 'steps',
+    })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toHaveAttribute(
       'data-orientation',
       'horizontal'
     )
     expect(screen.getByRole('button', { name: speedLabel })).toBeInTheDocument()
+    unmount()
+
+    // The slider default takes the same axis.
+    renderFan(<FanCard entityId="fan.living_room" tier="row" />)
+    expect(sliderOrientation('Fan speed')).toBe('horizontal')
   })
 
-  it('stacks the step pills at tall', () => {
-    renderCard(<FanCard entityId="fan.living_room" tier="tall" />)
+  it('stands the speed control up at tall', () => {
+    const { unmount } = renderFan(<FanCard entityId="fan.living_room" tier="tall" />, {
+      speedControl: 'steps',
+    })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toHaveAttribute(
       'data-orientation',
       'vertical'
     )
+    unmount()
+
+    renderFan(<FanCard entityId="fan.living_room" tier="tall" />)
+    expect(sliderOrientation('Fan speed')).toBe('vertical')
   })
 
-  it('keeps the preset control for the tiers that have room for it', () => {
-    // A fan with both: the step pills are the primary control at `row`, and the
-    // preset select is the secondary row `full` adds.
+  it('holds the preset row back until full', () => {
+    // A fan with both: the speed control is the primary at `row`, and the
+    // preset pills are the secondary row `full` adds.
     seed(
       makeEntity('fan.study', 'on', {
         friendly_name: 'Study Fan',
@@ -290,41 +319,49 @@ describe('FanCard tiers', () => {
         supported_features: 9,
       })
     )
-    const { unmount } = renderCard(<FanCard entityId="fan.study" tier="row" />)
+    const { unmount } = renderFan(<FanCard entityId="fan.study" tier="row" />, {
+      speedControl: 'steps',
+    })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Select fan preset mode')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fan preset' })).not.toBeInTheDocument()
     unmount()
 
-    renderCard(<FanCard entityId="fan.study" tier="full" />)
+    renderFan(<FanCard entityId="fan.study" tier="full" />, { speedControl: 'steps' })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Select fan preset mode')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Fan preset' })).toBeInTheDocument()
   })
 
-  it('keeps a preset-only fan operable at tall, and picks a mode when none is set', async () => {
-    // No `preset_mode` on the entity: the select shows the first available mode
-    // rather than rendering empty. The wrapper also swallows the click so
-    // choosing a preset does not toggle the fan underneath it.
+  it('adds oscillate and direction only at full, and only when opted into', () => {
     seed(
-      makeEntity('fan.attic', 'on', {
-        friendly_name: 'Attic Fan',
-        preset_modes: ['auto', 'sleep'],
-        supported_features: 8,
+      makeEntity('fan.study', 'on', {
+        friendly_name: 'Study Fan',
+        percentage: 50,
+        oscillating: false,
+        direction: 'forward',
+        // SET_SPEED + OSCILLATE + DIRECTION
+        supported_features: 7,
       })
     )
-    renderCard(<FanCard entityId="fan.attic" tier="tall" />)
+    const { unmount } = renderFan(<FanCard entityId="fan.study" tier="row" />, {
+      showDirection: true,
+    })
 
-    const trigger = screen.getByLabelText('Select fan preset mode')
-    expect(trigger).toHaveTextContent('auto')
+    expect(screen.queryByRole('button', { name: 'Oscillate' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fan direction' })).not.toBeInTheDocument()
+    unmount()
 
-    fireEvent.click(trigger)
-    expect(hass.callService).not.toHaveBeenCalled()
+    renderFan(<FanCard entityId="fan.study" tier="full" />, { showDirection: true })
+
+    expect(screen.getByRole('button', { name: 'Oscillate' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Fan direction' })).toBeInTheDocument()
   })
 
-  it('keeps a preset-only fan’s select as its primary control at row', () => {
-    // Nothing else can drive this fan, so dropping the select would leave the
-    // row tier with no speed control at all.
+  it('leaves a preset-only fan its dialog, since the card row is full-only', () => {
+    // Nothing drives this fan below `full` any more: the option doc puts the
+    // preset row at `full`, and the detail dialog behind a hold is what keeps
+    // it operable at the narrower tiers (docs/changes/0019 — PR 2).
     seed(
       makeEntity('fan.attic', 'on', {
         friendly_name: 'Attic Fan',
@@ -334,10 +371,15 @@ describe('FanCard tiers', () => {
         supported_features: 8,
       })
     )
-    renderCard(<FanCard entityId="fan.attic" tier="row" />)
+    const { unmount } = renderFan(<FanCard entityId="fan.attic" tier="row" />)
 
-    expect(screen.getByLabelText('Select fan preset mode')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fan preset' })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Fan speed' })).not.toBeInTheDocument()
+    unmount()
+
+    renderFan(<FanCard entityId="fan.attic" tier="full" />)
+
+    expect(screen.getByRole('group', { name: 'Fan preset' })).toBeInTheDocument()
   })
 })
 
@@ -939,7 +981,9 @@ describe('control-set cards — the shared body', () => {
     )
     const fan = renderCard(<FanCard entityId="fan.living_room" tier="tall" />)
 
-    expect(fillBand()).toContainElement(screen.getByRole('group', { name: 'Fan speed' }))
+    // The fan's default control is the slider now, which is exactly the shape
+    // this band exists for — it has no intrinsic length of its own.
+    expect(fillBand()).toContainElement(screen.getByLabelText('Fan speed'))
     fan.unmount()
 
     seed(

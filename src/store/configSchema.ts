@@ -3,6 +3,7 @@ import { cardActionsConfigSchema } from './cardActions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cameraOptionsConfigSchema } from './cameraOptions'
 import { coverOptionsConfigSchema } from './coverOptions'
+import { fanOptionsConfigSchema } from './fanOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -77,6 +78,11 @@ const gridItemSchema = z
     // would flip which way a garage door is driven, and `stateLabels: pct` is a
     // style no build has. Both are documents whose author needs telling
     // (docs/specs/entity-cards/options/cover.md).
+    // The fan keys join them because `speedControl` is a closed enum whose
+    // legacy value the loader pins by version: `speedControl: "pills"` is a
+    // style no build has, and swallowing it would leave a card silently on the
+    // slider while its document says otherwise
+    // (docs/specs/entity-cards/options/fan.md).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
@@ -85,6 +91,7 @@ const gridItemSchema = z
       .merge(binarySensorOptionsConfigSchema)
       .merge(cameraOptionsConfigSchema)
       .merge(coverOptionsConfigSchema)
+      .merge(fanOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

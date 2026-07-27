@@ -11,6 +11,7 @@ import {
   configPredatesClimateVariant,
   pinLegacyClimateVariant,
 } from './climateOptions'
+import { configPredatesSpeedControl, pinLegacyFanSpeedControl } from './fanOptions'
 import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
@@ -77,6 +78,19 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
+ * Which legacy pinnings a stored document is old enough to need.
+ *
+ * One flag per introducing change rather than a single "is old" boolean: a
+ * document written between two of them has already been pinned by the earlier
+ * rule and stamped past it, so re-running that rule would rewrite cards the
+ * user has since configured (common contract, convention 7).
+ */
+interface MigrationCutoffs {
+  predatesControlStyle: boolean
+  predatesSpeedControl: boolean
+}
+
+/**
  * The per-card option renames, applied to one stored grid item.
  *
  * Renaming a shipped option key is a loader job (common contract, convention 1),
@@ -103,8 +117,13 @@ const migrateItemConfig = (item: unknown, cutoffs: VersionCutoffs): unknown => {
    * default would replace, so those cards keep what they were built with. A
    * document written since is left alone — including its cards carrying none of
    * these keys, which is how a newly added card says "take the default".
+   *
+   * Each pinning has its own cutoff, because each was introduced by a different
+   * change: a document written between two of them has been pinned once already
+   * and must not be pinned again by the older rule.
    */
   if (cutoffs.predatesControlStyle) migrated = pinLegacyControlStyle(domain, migrated)
+  if (cutoffs.predatesSpeedControl) migrated = pinLegacyFanSpeedControl(domain, migrated)
   if (cutoffs.predatesClimateVariant) migrated = pinLegacyClimateVariant(domain, migrated)
 
   return migrated === config ? item : { ...item, config: migrated }
@@ -120,6 +139,7 @@ const migrateItemConfig = (item: unknown, cutoffs: VersionCutoffs): unknown => {
  */
 interface VersionCutoffs {
   predatesControlStyle: boolean
+  predatesSpeedControl: boolean
   predatesClimateVariant: boolean
 }
 
@@ -136,7 +156,7 @@ interface VersionCutoffs {
  */
 const migrateConfig = (config: unknown): DashboardConfig => {
   /*
-   * Read once, here, and used for both decisions below: which options the cards
+   * Read once, here, and used for every decision below: which options the cards
    * this document carries were placed before, and therefore whether this build
    * is the one migrating it. Deriving them twice would let the pinning and the
    * stamp disagree about the same document.
@@ -144,6 +164,7 @@ const migrateConfig = (config: unknown): DashboardConfig => {
   const version = isPlainObject(config) ? config.version : undefined
   const cutoffs: VersionCutoffs = {
     predatesControlStyle: configPredatesControlStyle(version),
+    predatesSpeedControl: configPredatesSpeedControl(version),
     predatesClimateVariant: configPredatesClimateVariant(version),
   }
 
@@ -165,7 +186,11 @@ const migrateConfig = (config: unknown): DashboardConfig => {
    * "Forward Compatibility"). Same predicates as the pinning decisions, so the
    * two can never disagree about what counts as old.
    */
-  if (cutoffs.predatesControlStyle || cutoffs.predatesClimateVariant) {
+  if (
+    cutoffs.predatesControlStyle ||
+    cutoffs.predatesSpeedControl ||
+    cutoffs.predatesClimateVariant
+  ) {
     migrated.version = CURRENT_VERSION
   }
   return migrated

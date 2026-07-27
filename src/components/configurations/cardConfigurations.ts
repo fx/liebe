@@ -6,6 +6,7 @@ import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
 import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import { COVER_OPTION_DEFAULTS, COVER_STATE_LABELS_AUTO } from '~/store/coverOptions'
+import { FAN_OPTION_DEFAULTS } from '~/store/fanOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -316,6 +317,70 @@ export const cardConfigurations: Record<
         description:
           'Asks before anything that would open this further — the Open button, an opening tap, a drag to a wider position. Closing is never held up.',
         requires: 'security-cover',
+      },
+    },
+  },
+  /*
+   * The fan card's options (docs/specs/entity-cards/options/fan.md).
+   *
+   * Capability-gated per common convention 3: the speed style is offered only
+   * to a fan that advertises `SET_SPEED`, the preset toggle only to one that
+   * both advertises `PRESET_MODE` and lists modes, and oscillate/direction only
+   * to fans that have them. `showPercentage` rides on the speed capability for
+   * the same reason — a fan with no percentage has none to show.
+   */
+  fan: {
+    title: 'Fan Card',
+    description: 'Which controls the card shows, and how the fan presents.',
+    definition: {
+      speedControl: {
+        type: 'select',
+        default: FAN_OPTION_DEFAULTS.speedControl,
+        label: 'Speed control',
+        description:
+          'Step buttons come from the fan’s own speed count. Choosing “None” leaves speed adjustable from the detail dialog, reached by holding the card.',
+        options: [
+          { value: 'slider', label: 'Slider' },
+          { value: 'steps', label: 'Step buttons' },
+          { value: 'none', label: 'None' },
+        ],
+        requires: 'fan-speed',
+      },
+      showPresets: {
+        type: 'boolean',
+        default: FAN_OPTION_DEFAULTS.showPresets,
+        label: 'Show preset modes',
+        description: 'The fan’s preset buttons, on cards at least 2×2.',
+        requires: 'fan-presets',
+      },
+      showOscillate: {
+        type: 'boolean',
+        default: FAN_OPTION_DEFAULTS.showOscillate,
+        label: 'Show oscillation toggle',
+        description: 'On cards at least 2×2.',
+        requires: 'fan-oscillate',
+      },
+      showDirection: {
+        type: 'boolean',
+        default: FAN_OPTION_DEFAULTS.showDirection,
+        label: 'Show direction control',
+        description:
+          'Forward and reverse, on cards at least 2×2. Off by default — ceiling-fan direction is a seasonal setting.',
+        requires: 'fan-direction',
+      },
+      animateIcon: {
+        type: 'boolean',
+        default: FAN_OPTION_DEFAULTS.animateIcon,
+        label: 'Spin the icon',
+        description:
+          'Turns the fan glyph while the fan runs, faster at higher speeds. Always still if the system asks for reduced motion.',
+      },
+      showPercentage: {
+        type: 'boolean',
+        default: FAN_OPTION_DEFAULTS.showPercentage,
+        label: 'Show speed in state',
+        description: 'Adds the current percentage to the state line — “On · 75%”.',
+        requires: 'fan-speed',
       },
     },
   },

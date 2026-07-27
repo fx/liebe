@@ -177,9 +177,9 @@ changes:
   - id: '0019'
     name: cover-fan-cards-to-spec
     path: changes/0019-cover-fan-cards-to-spec.md
-    description: Cover and fan domain options — position/tilt visibility, reversed-scale position inversion (boundary mapping on reads and commits), device-class icons, speed slider/steps, presets, oscillate/direction, animated icon
+    description: Cover and fan domain options — position/tilt visibility, reversed-scale position inversion (boundary mapping on reads and commits), device-class icons, the confirm-open gate on security openings, speed slider/steps derived from the fan's speed count, presets, oscillate/direction, animated icon
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0020'
     name: weather-card-to-spec
