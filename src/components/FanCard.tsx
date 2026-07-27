@@ -133,9 +133,15 @@ function FanCardComponent({
   const isOn = entity.state === 'on'
   const fanAttributes = entity.attributes as FanAttributes
 
-  // Check supported features
-  const supportsSpeed = (fanAttributes.supported_features ?? 0) & SUPPORT_SET_SPEED
-  const supportsPresetMode = (fanAttributes.supported_features ?? 0) & SUPPORT_PRESET_MODE
+  /*
+   * Check supported features. Booleans at the point they are derived, not the
+   * masked bits: React prints a numeric `0` as the text "0", so the moment one
+   * of these gates JSX with `&&` it stamps a stray zero on the card. Coercing
+   * here rather than at each use site is what keeps that from coming back the
+   * next time one of them is read.
+   */
+  const supportsSpeed = ((fanAttributes.supported_features ?? 0) & SUPPORT_SET_SPEED) !== 0
+  const supportsPresetMode = ((fanAttributes.supported_features ?? 0) & SUPPORT_PRESET_MODE) !== 0
 
   // Get current speed/percentage info
   const currentPercentage = fanAttributes.percentage ?? 0
@@ -200,11 +206,9 @@ function FanCardComponent({
   const isGlance = tier === 'glance'
   const isTall = tier === 'tall'
   const isFull = tier === 'full'
-  const hasPresets = Boolean(
-    supportsPresetMode && fanAttributes.preset_modes && fanAttributes.preset_modes.length > 0
-  )
+  const hasPresets = supportsPresetMode && (fanAttributes.preset_modes?.length ?? 0) > 0
   const controlsVisible = !isEditMode && !isGlance && isOn
-  const showSpeedPills = controlsVisible && Boolean(supportsSpeed)
+  const showSpeedPills = controlsVisible && supportsSpeed
   const showPresetSelect = controlsVisible && hasPresets && (isFull || !supportsSpeed)
 
   const icon = (

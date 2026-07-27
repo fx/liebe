@@ -110,8 +110,10 @@ function LightCardComponent({
         supportedColorModes.includes('rgbww')
       )
     }
-    // Fallback to old supported_features check
-    return supportedFeatures & SUPPORT_BRIGHTNESS
+    // Fallback to old supported_features check. Coerced here, not where it is
+    // read: the masked bits are a number, and React prints a `0` as the text
+    // "0" the moment one gates JSX with `&&`.
+    return (supportedFeatures & SUPPORT_BRIGHTNESS) !== 0
   }, [supportedColorModes, supportedFeatures])
 
   // These will be used for color picker implementation
@@ -201,8 +203,7 @@ function LightCardComponent({
    */
   const isGlance = tier === 'glance'
   const isTall = tier === 'tall'
-  const showBrightness =
-    !isGlance && !isEditMode && isOn && Boolean(supportsBrightness) && enableBrightness
+  const showBrightness = !isGlance && !isEditMode && isOn && supportsBrightness && enableBrightness
 
   const icon = (
     <GridCard.Icon>

@@ -285,9 +285,9 @@ function CoverCardComponent({
   const isGlance = tier === 'glance'
   const isTall = tier === 'tall'
   const isFull = tier === 'full'
-  const showPositionSlider = !isGlance && !isEditMode && Boolean(supportsSetPosition)
+  const showPositionSlider = !isGlance && !isEditMode && supportsSetPosition
   const showButtons = isFull && !isEditMode
-  const showTilt = isFull && !isEditMode && Boolean(supportsTilt)
+  const showTilt = isFull && !isEditMode && supportsTilt
 
   const icon = (
     <GridCard.Icon>
