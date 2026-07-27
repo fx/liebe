@@ -123,8 +123,18 @@ const migrateConfig = (config: unknown): DashboardConfig => {
    * leaving the key absent — would be pinned on the following load. The store
    * carries this version back out through `exportConfiguration`, so the stamp
    * survives the save.
+   *
+   * Only *upward*, and only for documents this build has actually migrated. A
+   * marker written by a later build is how that build knows how to read the
+   * rest of its own document, so rewriting it downward tells the next Liebe
+   * the document is older than it is — the one field whose loss is not
+   * recoverable by resolving at render (docs/specs/dashboard-config —
+   * "Forward Compatibility"). Same predicate as the pinning decision, so the
+   * two can never disagree about what counts as old.
    */
-  migrated.version = CURRENT_VERSION
+  if (configPredatesControlStyle(isPlainObject(config) ? config.version : undefined)) {
+    migrated.version = CURRENT_VERSION
+  }
   return migrated
 }
 
@@ -345,11 +355,12 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
         // Backup current configuration before import
         backupCurrentConfiguration()
 
-        // Apply migration if needed
+        // Apply migration if needed, which stamps the version when — and only
+        // when — this build was the one that migrated the document. A file
+        // written by a newer minor version passes the compatibility check above
+        // (that gate is major-only) and must keep its own marker, for the same
+        // reason the load path leaves it alone.
         const migratedConfig = migrateConfig(config)
-
-        // Update version to current
-        migratedConfig.version = CURRENT_VERSION
 
         // Load the configuration
         dashboardActions.loadConfiguration(migratedConfig)

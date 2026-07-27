@@ -113,6 +113,33 @@ describe('controlStyle legacy pinning', () => {
     expect(loadedItems()[0].config).not.toHaveProperty('controlStyle')
   })
 
+  /**
+   * The marker only ever moves *forward*. A version written by a later build is
+   * how that build knows how to read the rest of its own document, so stamping
+   * it down to this build's version tells the next Liebe the document is older
+   * than it is — and unlike every other field, that loss cannot be recovered by
+   * resolving at render (docs/specs/dashboard-config — "Forward Compatibility").
+   */
+  it('never rewrites a newer document’s version, through a load and a save', () => {
+    store('2.0.0', [item('input_boolean.guest_mode')])
+
+    const loaded = loadDashboardConfig()!
+    expect(loaded.version).toBe('2.0.0')
+
+    // What the dashboard writes back after loading carries the same marker, so
+    // the downgrade cannot arrive one save later either.
+    store(loaded.version, loaded.screens[0].grid!.items)
+    expect(loadDashboardConfig()?.version).toBe('2.0.0')
+  })
+
+  it('leaves a newer *minor* version alone too', () => {
+    // The compatibility gate is major-only, so this document is accepted — and
+    // is exactly the case an unconditional stamp would silently downgrade.
+    store('1.2.0', [item('input_number.volume')])
+
+    expect(loadDashboardConfig()?.version).toBe('1.2.0')
+  })
+
   it('survives the shapes a hand-edited document can carry', () => {
     store('1.0.0', [
       item('input_boolean.guest_mode'),

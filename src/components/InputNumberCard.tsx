@@ -204,6 +204,13 @@ export const InputNumberCard = memo(function InputNumberCard({
   const unit = attributes.unit_of_measurement || ''
 
   // Format display value
+  /**
+   * One formatter for every place the value is shown, so the readout the
+   * slider carries and the readout the stepper carries cannot drift apart.
+   */
+  const formatValue = (value: number) =>
+    `${value.toFixed(attributes.step && attributes.step < 1 ? 1 : 0)}${unit ? ` ${unit}` : ''}`
+
   const displayValue = parseFloat(entity.state).toFixed(
     attributes.step && attributes.step < 1 ? 1 : 0
   )
@@ -341,17 +348,28 @@ export const InputNumberCard = memo(function InputNumberCard({
   }
 
   const sliderValue = dragValue ?? parseFloat(entity.state)
+  // An unparseable state has no position; the track sits at its floor rather
+  // than at `NaN`, which Radix refuses to render and `toFixed` would spell out.
+  const sliderPosition = Number.isFinite(sliderValue) ? sliderValue : (attributes.min ?? 0)
   const slider = (
     <GridCard.Controls>
       <Slider
         label={`Set ${attributes.friendly_name || entity.entity_id.split('.')[1]}`}
-        value={Number.isFinite(sliderValue) ? sliderValue : (attributes.min ?? 0)}
+        value={sliderPosition}
         min={attributes.min ?? 0}
         max={attributes.max ?? 100}
         step={attributes.step || 1}
         orientation={tier === 'tall' ? 'vertical' : 'horizontal'}
         disabled={loading}
-        readout={valueLabel}
+        /*
+         * The value under the thumb, not the last committed one. A readout
+         * fed from `entity.state` reports what the helper *was* for the whole
+         * duration of a drag, which is a usability problem for everyone and an
+         * accessibility one in particular: the anatomy hands this same string
+         * to `aria-valuetext`, so a screen-reader user has nothing else to go
+         * on and would hear no feedback at all until release.
+         */
+        readout={formatValue(sliderPosition)}
         onValueChange={setDragValue}
         onValueCommit={handleSliderCommit}
         domain="input_number"
