@@ -19,6 +19,7 @@ import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardAction } from '~/store/cardActions'
 import { isCounterStateClass, isNumericSensorEntity } from '~/store/sensorOptions'
+import { readClimateCapabilities } from './ClimateCard/climateModel'
 import { useEntity } from '~/hooks'
 import { ActionEditor } from './ActionEditor'
 import { EntityPicker } from './EntityPicker'
@@ -68,8 +69,17 @@ interface ContentProps {
  *   history a graph or a trend can be drawn from.
  * - `counter` — its `state_class` is cumulative, the only case bar rendering is
  *   defined for.
+ * - `climate-presets` / `climate-fan-modes` — the thermostat advertises the
+ *   feature bit *and* publishes a non-empty list, so there is a pill row to
+ *   show or hide.
+ * - `climate-humidity` — it reports a `current_humidity` to display.
  */
-export type ConfigOptionRequirement = 'numeric' | 'counter'
+export type ConfigOptionRequirement =
+  | 'numeric'
+  | 'counter'
+  | 'climate-presets'
+  | 'climate-fan-modes'
+  | 'climate-humidity'
 
 // Configuration option types
 export interface ConfigOption {
@@ -414,8 +424,16 @@ function meetsRequirement(
   entity: HassEntity | undefined
 ): boolean {
   if (requires === undefined) return true
-  if (!isNumericSensorEntity(entity)) return false
-  return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
+
+  if (requires === 'numeric' || requires === 'counter') {
+    if (!isNumericSensorEntity(entity)) return false
+    return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
+  }
+
+  const climate = readClimateCapabilities(entity)
+  if (requires === 'climate-presets') return climate.presets
+  if (requires === 'climate-fan-modes') return climate.fanModes
+  return climate.humidity
 }
 
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {

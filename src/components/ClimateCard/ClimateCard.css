@@ -27,6 +27,19 @@
     color: var(--liebe-c-cool-text);
   }
 
+  /*
+   * The humidity fragment's droplet. The number beside it stays muted like the
+   * rest of the state line — only the glyph takes an accent, and it takes the
+   * `water` triplet rather than a Radix scale so a theme remapping that hue
+   * moves the droplet with everything else water-coloured
+   * (docs/specs/entity-cards/options/climate.md — `showHumidity`).
+   */
+  .climate-card-humidity-glyph {
+    color: var(--liebe-c-water-text);
+    vertical-align: -1px;
+    margin-inline-end: 2px;
+  }
+
   .climate-card-name {
     margin-block-end: 8px;
     max-inline-size: 100%;

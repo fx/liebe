@@ -1,17 +1,37 @@
-import { Flex, IconButton } from '@radix-ui/themes'
-import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { Thermometer } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { readClimateOptions } from '~/store/climateOptions'
 import { useDashboardStore } from '~/store'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
-import { CardValue } from '../anatomy'
+import { useCardItem } from '../cardItemContext'
 import type { CardProps } from '../cardRegistry'
-import { ClimateModePills } from './ClimateModePills'
+import { registerDetailControls } from '../EntityDetailDialog/detailControls'
+import { ClimateDetailControls } from './ClimateDetailControls'
+import { ClimateSecondaryRows } from './ClimateSecondaryRows'
+import { ClimateSetpointControls } from './ClimateSetpointControls'
+import { ClimateStateLine, glanceStateText } from './ClimateStateLine'
 import { climateCardFallback } from './ClimateCardStates'
-import { FALLBACK_SETPOINT, useClimateModel } from './climateModel'
+import { useClimateModel } from './climateModel'
+import { temperatureDisplay } from './temperatureDisplay'
 import { useClimateControl } from './useClimateControl'
 import './ClimateCard.css'
+
+/*
+ * The domain controls the detail dialog mounts, registered by the card family
+ * that owns them — the dialog is imported *by* `GridCard` and every card
+ * imports `GridCard`, so a dialog that imported cards to find their controls
+ * would close the temporal-dead-zone cycle AGENTS.md documents. Reaching the
+ * registry from a card closes nothing: `detailControls` imports two types and
+ * nothing else, so it is a leaf at runtime.
+ *
+ * It lives in *this* module rather than beside the component because the
+ * package declares `"sideEffects": false`: a module imported only for its side
+ * effect may be dropped from a production bundle, and this one is the module
+ * the card registry imports, so it is always retained. The registration has
+ * therefore always run by the time the dialog reads it — the tile whose
+ * `more-info` opens it is this card.
+ */
+registerDetailControls('climate', ClimateDetailControls)
 
 /**
  * The `compact` variant: the stepper/pills presentation, at every tier.
@@ -28,23 +48,21 @@ import './ClimateCard.css'
  * layouts"):
  *
  *   glance  icon in the HVAC state colour, name, and the target temperature in
- *           the state slot — plus the compact stepper. The thermostat is the one
- *           card that KEEPS an embedded control at `glance`: its replacement
- *           path is the detail dialog's domain controls, which are registered by
- *           change 0017 PR 2, and dropping the stepper before they exist would
- *           leave the tile unoperable (docs/changes/0011-layout-tiers.md — no
- *           operability regression).
+ *           the state slot. **No controls**: the whole tile is the primary
+ *           action, which for a thermostat is the detail dialog — and the
+ *           dialog carries this same stepper, registered in
+ *           `ClimateDetailControls.tsx`. The two are one change on purpose;
+ *           dropping the stepper before the dialog had it would have left a 1×1
+ *           thermostat nobody could turn up (docs/changes/0011-layout-tiers.md
+ *           — no operability regression).
  *   row     icon + meta + the stepper with a large readout between the buttons.
  *           Range mode gets independent low/high steppers at width ≥3 and a
  *           lockstep pair at width 2 — which is why this card takes the span and
  *           not only the tier.
  *   tall    icon on top, readout with the stepper turned vertical (+ above, −
  *           below), meta at the bottom.
- *   full    the row layout plus the HVAC mode pills. The option doc's `full`
- *           also carries preset pills, fan-mode pills and current humidity,
- *           behind `showPresets` / `showFanModes` / `showHumidity` — those
- *           options, and the state line's `showCurrentTemp` composition, are
- *           change 0017 PR 2's.
+ *   full    the row layout plus the secondary rows in order — mode pills, preset
+ *           pills, fan-mode pills — and the humidity fragment in the state area.
  */
 export function ClimateCompactContent({
   entityId,
@@ -56,6 +74,7 @@ export function ClimateCompactContent({
 }: CardProps) {
   const model = useClimateModel(entityId)
   const control = useClimateControl(entityId)
+  const { config } = useCardItem()
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
@@ -65,27 +84,15 @@ export function ClimateCompactContent({
   // Established by the fallback above: it returns an element for every state in
   // which there is no entity to read, so anything past it has a reading.
   const reading = model.reading!
-  const {
-    friendlyName,
-    hvacMode,
-    hvacAction,
-    hvacModes,
-    currentTemp,
-    targetTemp,
-    targetTempLow,
-    targetTempHigh,
-    minTemp,
-    maxTemp,
-    tempStep,
-    tempUnit,
-    supportsTargetTemp,
-    isRangeMode,
-    hasRangeSetpoints,
-    statusColor,
-  } = reading
+  const { friendlyName, hvacMode, statusColor } = reading
 
+  const options = readClimateOptions(config)
+  const display = temperatureDisplay(reading.tempUnit, options.displayUnit)
+
+  const isGlance = tier === 'glance'
+  const isFull = tier === 'full'
   const isTall = tier === 'tall'
-  const bounds = { minTemp, maxTemp }
+
   /*
    * Independent low/high needs the width for two steppers side by side; below
    * that the pair moves the whole band. Read off the effective span rather than
@@ -93,198 +100,22 @@ export function ClimateCompactContent({
    */
   const hasWidthForBothSetpoints = (span?.width ?? 0) >= 3
 
-  const setpointText = hasRangeSetpoints
-    ? `${targetTempLow!.toFixed(1)}–${targetTempHigh!.toFixed(1)}${tempUnit}`
-    : supportsTargetTemp && targetTemp !== undefined
-      ? `${targetTemp.toFixed(1)}${tempUnit}`
-      : currentTemp !== undefined
-        ? `${Math.round(currentTemp)}${tempUnit}`
-        : (hvacAction ?? hvacMode).replace(/_/g, ' ').toUpperCase()
-
-  const stepper = ({
-    decreaseLabel,
-    increaseLabel,
-    onDecrease,
-    onIncrease,
-    decreaseDisabled,
-    increaseDisabled,
-    readout,
-  }: {
-    decreaseLabel: string
-    increaseLabel: string
-    onDecrease: () => void
-    onIncrease: () => void
-    decreaseDisabled: boolean
-    increaseDisabled: boolean
-    readout: ReactNode
-  }) => {
-    /*
-     * `size="3"`, the same as the dial layout's steppers: at `glance`, `row`
-     * and `tall` this pair is the tile's only control, so it is the last place
-     * to shrink a target. It stops at Radix's size 3 rather than the 48px box
-     * the dial's buttons carry — the card-wide 44px minimum is issue #204's to
-     * settle, not this change's.
-     */
-    const decrease = (
-      <IconButton
-        size="3"
-        variant="outline"
-        radius="full"
-        onClick={onDecrease}
-        disabled={control.isLoading || decreaseDisabled}
-        aria-label={decreaseLabel}
-      >
-        <MinusIcon />
-      </IconButton>
-    )
-    const increase = (
-      <IconButton
-        size="3"
-        variant="outline"
-        radius="full"
-        onClick={onIncrease}
-        disabled={control.isLoading || increaseDisabled}
-        aria-label={increaseLabel}
-      >
-        <PlusIcon />
-      </IconButton>
-    )
-
-    // `tall` stacks the pair — plus on top, minus below — around the readout,
-    // which is the axis the tier gives the card room on.
-    return isTall ? (
-      <Flex direction="column" align="center" gap="2">
-        {increase}
-        {readout}
-        {decrease}
-      </Flex>
-    ) : (
-      <Flex align="center" gap="2">
-        {decrease}
-        {readout}
-        {increase}
-      </Flex>
-    )
-  }
-
-  /** Both setpoints by one step, keeping the band width — the compact range control. */
-  const shiftRange = (delta: number) =>
-    control.setRange({
-      low: targetTempLow! + delta,
-      high: targetTempHigh! + delta,
-      ...bounds,
-    })
-
-  const compactControls =
-    isEditMode || hvacMode === 'off' ? null : hasRangeSetpoints ? (
-      hasWidthForBothSetpoints ? (
-        <Flex align="center" gap="3">
-          {stepper({
-            decreaseLabel: 'Decrease low temperature',
-            increaseLabel: 'Increase low temperature',
-            onDecrease: () =>
-              control.setRange({
-                low: targetTempLow! - tempStep,
-                high: targetTempHigh!,
-                ...bounds,
-              }),
-            onIncrease: () =>
-              control.setRange({
-                low: targetTempLow! + tempStep,
-                high: targetTempHigh!,
-                ...bounds,
-              }),
-            decreaseDisabled: targetTempLow! - tempStep < minTemp,
-            increaseDisabled: targetTempLow! + tempStep >= targetTempHigh!,
-            readout: (
-              <CardValue
-                domain="climate"
-                color="heat"
-                active
-                value={targetTempLow!.toFixed(1)}
-                unit={tempUnit}
-              />
-            ),
-          })}
-          {stepper({
-            decreaseLabel: 'Decrease high temperature',
-            increaseLabel: 'Increase high temperature',
-            onDecrease: () =>
-              control.setRange({
-                low: targetTempLow!,
-                high: targetTempHigh! - tempStep,
-                ...bounds,
-              }),
-            onIncrease: () =>
-              control.setRange({
-                low: targetTempLow!,
-                high: targetTempHigh! + tempStep,
-                ...bounds,
-              }),
-            decreaseDisabled: targetTempHigh! - tempStep <= targetTempLow!,
-            increaseDisabled: targetTempHigh! + tempStep > maxTemp,
-            readout: (
-              <CardValue
-                domain="climate"
-                color="cool"
-                active
-                value={targetTempHigh!.toFixed(1)}
-                unit={tempUnit}
-              />
-            ),
-          })}
-        </Flex>
-      ) : (
-        stepper({
-          decreaseLabel: 'Decrease temperature range',
-          increaseLabel: 'Increase temperature range',
-          onDecrease: () => shiftRange(-tempStep),
-          onIncrease: () => shiftRange(tempStep),
-          decreaseDisabled: targetTempLow! - tempStep < minTemp,
-          increaseDisabled: targetTempHigh! + tempStep > maxTemp,
-          readout: (
-            <CardValue
-              domain="climate"
-              color={statusColor}
-              active
-              value={`${targetTempLow!.toFixed(1)}–${targetTempHigh!.toFixed(1)}`}
-              unit={tempUnit}
-            />
-          ),
-        })
-      )
-    ) : supportsTargetTemp && !isRangeMode ? (
-      stepper({
-        decreaseLabel: 'Decrease temperature',
-        increaseLabel: 'Increase temperature',
-        onDecrease: () =>
-          control.setTemperature((targetTemp ?? FALLBACK_SETPOINT) - tempStep, bounds),
-        onIncrease: () =>
-          control.setTemperature((targetTemp ?? FALLBACK_SETPOINT) + tempStep, bounds),
-        decreaseDisabled: (targetTemp ?? FALLBACK_SETPOINT) <= minTemp,
-        increaseDisabled: (targetTemp ?? FALLBACK_SETPOINT) >= maxTemp,
-        readout: (
-          <CardValue
-            domain="climate"
-            color={statusColor}
-            active
-            value={(targetTemp ?? FALLBACK_SETPOINT).toFixed(1)}
-            unit={tempUnit}
-          />
-        ),
-      })
-    ) : null
-
-  // The mode row is the one thing `full` adds to the row layout in this
-  // variant; every smaller tier omits it rather than wrapping it.
-  const modePills =
-    tier === 'full' && !isEditMode ? (
-      <ClimateModePills
-        modes={hvacModes}
-        activeMode={hvacMode}
-        disabled={control.isLoading}
-        onSelect={control.setHvacMode}
+  // `glance` is control-free — the tile is the action — and edit mode hides
+  // every control at every tier, because a tap there selects the card.
+  const controls =
+    isEditMode || isGlance ? null : (
+      <ClimateSetpointControls
+        reading={reading}
+        control={control}
+        display={display}
+        vertical={isTall}
+        independentSetpoints={hasWidthForBothSetpoints}
       />
+    )
+
+  const secondaryRows =
+    isFull && !isEditMode ? (
+      <ClimateSecondaryRows reading={reading} options={options} control={control} />
     ) : null
 
   return (
@@ -300,7 +131,8 @@ export function ClimateCompactContent({
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       // A thermostat's tap default is the detail dialog, never a power toggle
-      // (docs/specs/entity-cards/options/climate.md — "Primary action").
+      // (docs/specs/entity-cards/options/climate.md — "Primary action") — and at
+      // `glance` that dialog is the whole of the tile's operability.
       defaultAction="more-info"
       title={control.error || undefined}
       className="climate-card"
@@ -322,11 +154,22 @@ export function ClimateCompactContent({
         meta={
           <GridCard.Meta>
             <GridCard.Title>{friendlyName}</GridCard.Title>
-            <GridCard.Status>{setpointText}</GridCard.Status>
+            <GridCard.Status>
+              {isGlance ? (
+                glanceStateText(reading, display)
+              ) : (
+                <ClimateStateLine
+                  reading={reading}
+                  options={options}
+                  display={display}
+                  showHumidity={isFull}
+                />
+              )}
+            </GridCard.Status>
           </GridCard.Meta>
         }
-        control={compactControls}
-        extra={modePills}
+        control={controls}
+        extra={secondaryRows}
       />
     </GridCard>
   )

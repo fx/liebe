@@ -129,17 +129,23 @@ export const EditMode: Story = {
 
 /*
  * Layout tiers (docs/specs/entity-cards/options/climate.md — "Tier layouts"),
- * in the default `compact` variant. The thermostat is the one card that KEEPS
- * an embedded control at `glance`: the dialog-registered controls that replace
- * it arrive with change 0017 PR 2, and until then a control-free tile would be
- * a thermostat nobody can turn up (docs/changes/0011-layout-tiers.md — no
- * operability regression). The full tier tables are asserted in
+ * in the default `compact` variant. The full tier tables are asserted in
  * `../__tests__/controlCardTierLayouts.test.tsx`.
  */
 
-/** 1×1: icon, name, setpoint — and the compact stepper that stays. */
+/**
+ * 1×1: icon, name and the target — no controls at all. The tile itself is the
+ * action, and the stepper it does not carry lives in the detail dialog its tap
+ * opens (`ClimateDetailControls.tsx`).
+ */
 export const TierGlance: Story = {
   args: { tier: 'glance', gridWidth: 1, gridHeight: 1, span: { width: 1, height: 1 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.queryByLabelText('Increase temperature')).not.toBeInTheDocument()
+    await expect(canvas.getByText('21.0°C')).toBeInTheDocument()
+  },
 }
 
 /** 2×1: icon and meta with the stepper and its readout on the right. */
@@ -265,5 +271,164 @@ export const VariantDialFallsBackBelowFull: Story = {
 
     await expect(canvas.getByLabelText('Increase temperature')).toBeInTheDocument()
     await expect(canvasElement.querySelector('.climate-card-name')).not.toBeInTheDocument()
+  },
+}
+
+/*
+ * The per-card options (option doc — "Options"). Each renders at `full`, the
+ * only tier the secondary rows and the humidity fragment appear in.
+ */
+
+const thermostatWithEverything = () =>
+  createClimateEntity({
+    attributes: {
+      // TARGET_TEMPERATURE | FAN_MODE | PRESET_MODE
+      supported_features: 25,
+      preset_modes: ['home', 'away', 'eco'],
+      preset_mode: 'home',
+      fan_modes: ['auto', 'low', 'high'],
+      fan_mode: 'auto',
+      current_humidity: 44,
+    },
+  })
+
+const fullTier = {
+  tier: 'full' as const,
+  gridWidth: 4,
+  gridHeight: 5,
+  span: { width: 4, height: 5 },
+}
+
+/** `showModePills: false` — the state line still says what the unit is doing. */
+export const OptionModePillsHidden: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { showModePills: false } },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+    await expect(canvas.getByLabelText('Increase temperature')).toBeInTheDocument()
+  },
+}
+
+/** `showPresets: true` — opt-in, and only on a thermostat that offers presets. */
+export const OptionPresets: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { showPresets: true } },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole('group', { name: 'Preset mode' })).toBeInTheDocument()
+    await expect(canvas.queryByRole('group', { name: 'Fan mode' })).not.toBeInTheDocument()
+  },
+}
+
+/** `showFanModes: true`, the same way round. */
+export const OptionFanModes: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { showFanModes: true } },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole('group', { name: 'Fan mode' })).toBeInTheDocument()
+  },
+}
+
+/**
+ * Both secondary rows at once, which is the densest the `full` tier gets — and
+ * the reason both default to off.
+ */
+export const OptionPresetsAndFanModes: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: {
+      entities: [thermostatWithEverything()],
+      itemConfig: { showPresets: true, showFanModes: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole('group', { name: 'Preset mode' })).toBeInTheDocument()
+    await expect(canvas.getByRole('group', { name: 'Fan mode' })).toBeInTheDocument()
+  },
+}
+
+/** `showCurrentTemp: false` — the state line keeps the mode and drops the room. */
+export const OptionCurrentTempHidden: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { showCurrentTemp: false } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.grid-card-status')!.textContent).not.toContain(
+      'currently'
+    )
+  },
+}
+
+/** The default: what the unit is doing, what the room reads, and the humidity. */
+export const OptionCurrentTempAndHumidity: Story = {
+  args: fullTier,
+  parameters: { liebe: { entities: [thermostatWithEverything()] } },
+  play: async ({ canvasElement }) => {
+    const status = canvasElement.querySelector('.grid-card-status')!.textContent
+
+    await expect(status).toContain('currently')
+    await expect(status).toContain('44%')
+  },
+}
+
+/** `showHumidity: false` — the droplet goes, the rest of the line stays. */
+export const OptionHumidityHidden: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { showHumidity: false } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.grid-card-status')!.textContent).not.toContain('44%')
+  },
+}
+
+/**
+ * `displayUnit: fahrenheit` over a Celsius unit system. Display only: the card
+ * still steps and sends in Celsius, which is what the option doc's scenario
+ * pins — 21°C reads as 69.8°F.
+ */
+export const OptionDisplayUnitFahrenheit: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { displayUnit: 'fahrenheit' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-value')!.textContent).toBe('69.8°F')
+  },
+}
+
+/** `displayUnit: celsius`, which for a Celsius unit system changes nothing. */
+export const OptionDisplayUnitCelsius: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { displayUnit: 'celsius' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-value')!.textContent).toBe('21.0°C')
+  },
+}
+
+/** `displayUnit: auto` — whatever Home Assistant's unit system says. */
+export const OptionDisplayUnitAuto: Story = {
+  args: fullTier,
+  parameters: {
+    liebe: { entities: [thermostatWithEverything()], itemConfig: { displayUnit: 'auto' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-value')!.textContent).toBe('21.0°C')
   },
 }

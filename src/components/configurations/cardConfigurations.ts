@@ -4,6 +4,7 @@ import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOption
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
+import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -238,10 +239,77 @@ export const cardConfigurations: Record<
       },
     },
   },
+  /*
+   * The climate card's options (docs/specs/entity-cards/options/climate.md).
+   *
+   * `variant` writes the same key the loader's pinning migration writes, so a
+   * dashboard upgraded onto the dial can be moved to the compact layout here —
+   * and back. The three capability-gated toggles are hidden for thermostats
+   * that cannot use them: a control writing a key nothing reads looks like a
+   * setting that did nothing (common contract, convention 3).
+   */
   climate: {
     title: 'Climate Card',
-    placeholder:
-      'This card displays climate/thermostat controls. Additional configuration options will be added in future updates.',
+    description: 'Presentation, secondary controls and the unit temperatures are shown in.',
+    definition: {
+      [CLIMATE_VARIANT_KEY]: {
+        type: 'select',
+        default: CLIMATE_OPTION_DEFAULTS.variant,
+        label: 'Temperature control',
+        description:
+          'The arc dial needs a 2×2 card or larger; at smaller sizes it falls back to the stepper either way.',
+        options: [
+          { value: 'compact', label: 'Stepper' },
+          { value: 'dial', label: 'Arc dial' },
+        ],
+      },
+      showModePills: {
+        type: 'boolean',
+        default: CLIMATE_OPTION_DEFAULTS.showModePills,
+        label: 'Show mode pills',
+        description: 'The heat/cool/off row, on cards 2×2 and larger.',
+      },
+      showPresets: {
+        type: 'boolean',
+        default: CLIMATE_OPTION_DEFAULTS.showPresets,
+        label: 'Show preset pills',
+        description: 'Eco, away and the rest, where the thermostat offers them.',
+        requires: 'climate-presets',
+      },
+      showFanModes: {
+        type: 'boolean',
+        default: CLIMATE_OPTION_DEFAULTS.showFanModes,
+        label: 'Show fan-mode pills',
+        description: 'The fan speeds the thermostat offers.',
+        requires: 'climate-fan-modes',
+      },
+      showCurrentTemp: {
+        type: 'boolean',
+        default: CLIMATE_OPTION_DEFAULTS.showCurrentTemp,
+        label: 'Show current temperature',
+        description:
+          'Appends what the room actually reads to the state line. The smallest cards always show the target instead.',
+      },
+      showHumidity: {
+        type: 'boolean',
+        default: CLIMATE_OPTION_DEFAULTS.showHumidity,
+        label: 'Show humidity',
+        description: 'The thermostat’s humidity reading, on cards 2×2 and larger.',
+        requires: 'climate-humidity',
+      },
+      displayUnit: {
+        type: 'select',
+        default: CLIMATE_OPTION_DEFAULTS.displayUnit,
+        label: 'Temperature Unit',
+        description:
+          'Display only — the thermostat is always set in the unit Home Assistant reports.',
+        options: [
+          { value: 'auto', label: 'Auto (from Home Assistant)' },
+          { value: 'celsius', label: 'Celsius (°C)' },
+          { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
+        ],
+      },
+    },
   },
   weather: {
     title: 'Weather Card',

@@ -113,16 +113,21 @@ describe('ClimateCard dial variant', () => {
       expect(document.querySelector('.climate-card-name')).toBeInTheDocument()
     })
 
-    it('falls back at glance and tall as well', () => {
+    it('falls back at tall, and to the control-free glance at glance', () => {
       seed(createMockClimateEntity())
 
-      for (const tier of ['glance', 'tall'] as const) {
-        const { unmount } = renderDial({ tier })
+      const { unmount } = renderDial({ tier: 'tall' })
+      expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
+      expect(document.querySelector('.climate-card-name')).not.toBeInTheDocument()
+      unmount()
 
-        expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
-        expect(document.querySelector('.climate-card-name')).not.toBeInTheDocument()
-        unmount()
-      }
+      renderDial({ tier: 'glance' })
+
+      // `glance` is control-free for both variants: the tile is the action, and
+      // the stepper lives in the dialog it opens.
+      expect(screen.queryByLabelText('Increase temperature')).not.toBeInTheDocument()
+      expect(document.querySelector('.climate-card-name')).not.toBeInTheDocument()
+      expect(document.querySelector('.liebe-card')).toBeInTheDocument()
     })
 
     it('falls back when it is handed no tier at all', () => {

@@ -57,6 +57,12 @@ describe('ClimateCard', () => {
     ...overrides,
   })
 
+  /**
+   * A pill's own label, not its whole text: the `auto` glyph draws a literal
+   * "A" inside its SVG, which `textContent` would fold into the label.
+   */
+  const pillLabel = (pill: HTMLElement) => pill.querySelector('.liebe-pill-label')!.textContent
+
   const seed = (entity: unknown) =>
     (useEntity as any).mockReturnValue({ entity, isConnected: true, isStale: false })
 
@@ -79,8 +85,10 @@ describe('ClimateCard', () => {
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
       expect(screen.getByText('Test Thermostat')).toBeInTheDocument()
-      // The state slot carries the setpoint — the headline of a thermostat.
-      expect(screen.getByText('21.0°C')).toBeInTheDocument()
+      // Above `glance` the state line carries what the thermostat is doing and
+      // what the room reads; the setpoint has its own readout beside the
+      // stepper (option doc — `showCurrentTemp`).
+      expect(document.querySelector('.grid-card-status')!.textContent).toBe('Off · currently 22.5°')
     })
 
     it('shows target temperature when not off', () => {
@@ -96,9 +104,11 @@ describe('ClimateCard', () => {
         })
       )
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+      const { container } = renderWithTheme(
+        <ClimateCard entityId="climate.test_thermostat" tier="full" />
+      )
 
-      expect(screen.getByText('23.0°C')).toBeInTheDocument()
+      expect(container.querySelector('.liebe-value')).toHaveTextContent('23.0°C')
     })
 
     it('renders unavailable state', () => {
@@ -427,10 +437,9 @@ describe('ClimateCard', () => {
         .getAllByRole('button')
         .filter((btn) => btn.classList.contains('liebe-pill'))
       expect(modeButtons).toHaveLength(3)
-
-      expect(screen.getByText('Off')).toBeInTheDocument()
-      expect(screen.getByText('Heat')).toBeInTheDocument()
-      expect(screen.getByText('Cool')).toBeInTheDocument()
+      // Scoped to the row: the state line names the mode too, so an unscoped
+      // text query matches the label twice.
+      expect(modeButtons.map(pillLabel)).toEqual(['Off', 'Heat', 'Cool'])
 
       // Click the heat button (second button)
       await userEvent.click(modeButtons[1])
@@ -465,9 +474,15 @@ describe('ClimateCard', () => {
 
       // The two modes the default fixture never reports still get their own
       // glyph rather than the two-letter label fallback.
-      for (const label of ['Off', 'Heat', 'Cool', 'Auto', 'Heat/Cool', 'Dry', 'Fan']) {
-        expect(screen.getByText(label)).toBeInTheDocument()
-      }
+      expect(modeButtons.map(pillLabel)).toEqual([
+        'Off',
+        'Heat',
+        'Cool',
+        'Auto',
+        'Heat/Cool',
+        'Dry',
+        'Fan',
+      ])
       for (const pill of modeButtons) {
         expect(pill.querySelector('svg')).toBeTruthy()
       }
@@ -563,7 +578,7 @@ describe('ClimateCard', () => {
       ['heat', 'heating', 'heat'],
       ['cool', 'cooling', 'cool'],
       ['dry', 'drying', 'water'],
-      ['fan_only', 'fan', 'ok'],
+      ['fan_only', 'fan', 'default'],
     ])('resolves a thermostat in %s (action %s) to the %s triplet', (state, action, triplet) => {
       seed(
         createMockClimateEntity({
@@ -806,9 +821,11 @@ describe('ClimateCard', () => {
         })
       )
 
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+      const { container } = renderWithTheme(
+        <ClimateCard entityId="climate.test_thermostat" tier="full" />
+      )
 
-      expect(screen.getByText('70.0°F')).toBeInTheDocument()
+      expect(container.querySelector('.liebe-value')).toHaveTextContent('70.0°F')
     })
   })
 })

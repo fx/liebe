@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
+import { climateOptionsConfigSchema } from './climateOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -70,6 +71,7 @@ const gridItemSchema = z
       .merge(inputHelperOptionsConfigSchema)
       .merge(sensorOptionsConfigSchema)
       .merge(binarySensorOptionsConfigSchema)
+      .merge(climateOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

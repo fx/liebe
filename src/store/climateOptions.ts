@@ -1,14 +1,22 @@
+import { z } from 'zod'
 import { configPredatesVersion } from './configVersion'
 
 /**
- * The climate card's `variant` option — which temperature control the card
- * renders — and the loader migration that pins the presentation existing
+ * The climate card's option contract — the persisted shape of `variant`, the
+ * `show*` toggles and `displayUnit` under `item.config`, the rules for reading
+ * them back, and the loader migration that pins the presentation existing
  * thermostats were placed with.
  *
  * Spec: docs/specs/entity-cards/options/climate.md. Lives beside
  * `inputHelperOptions.ts` for the same reasons: `persistence.ts` is the
  * migration's caller, and a pure module keeps the card graph free of another
  * import edge (AGENTS.md — "Entity Card Registration").
+ *
+ * Every reader here follows the same rule as `readCardDisplay`: a value this
+ * build cannot interpret resolves to the key's default rather than being
+ * rejected, and nothing is written back. Imports are gated upstream by
+ * `dashboardConfigSchema`; the render path's job is to render
+ * (docs/specs/dashboard-config/index.md — "Forward Compatibility").
  */
 
 /** The key the pinning migration writes, and the registry dispatches on. */
@@ -22,6 +30,85 @@ export const CLIMATE_VARIANT_KEY = 'variant'
  */
 export const CLIMATE_VARIANTS = ['compact', 'dial'] as const
 export type ClimateVariant = (typeof CLIMATE_VARIANTS)[number]
+
+/**
+ * Display conversion only. Climate entities carry no per-entity
+ * `temperature_unit`: Home Assistant normalises their values to
+ * `hass.config.unit_system.temperature`, which is the native unit here. `auto`
+ * shows that unit; the other two convert every temperature the card *displays*.
+ * Service calls always send the native unit (option doc — `displayUnit`).
+ */
+export const CLIMATE_DISPLAY_UNITS = ['auto', 'celsius', 'fahrenheit'] as const
+export type ClimateDisplayUnit = (typeof CLIMATE_DISPLAY_UNITS)[number]
+
+export interface ClimateCardOptions {
+  variant: ClimateVariant
+  showModePills: boolean
+  showPresets: boolean
+  showFanModes: boolean
+  showCurrentTemp: boolean
+  showHumidity: boolean
+  displayUnit: ClimateDisplayUnit
+}
+
+/**
+ * The stored defaults.
+ *
+ * `showPresets`/`showFanModes` are off because presets and fan modes are
+ * secondary controls most thermostat users touch rarely, and on by default they
+ * crowd the `full` tier. The rest are on: the mode row is how a thermostat is
+ * turned off, and the current temperature and humidity are readings rather than
+ * controls — additive content, which convention 7 exempts from pinning.
+ */
+export const CLIMATE_OPTION_DEFAULTS: Readonly<ClimateCardOptions> = {
+  variant: 'compact',
+  showModePills: true,
+  showPresets: false,
+  showFanModes: false,
+  showCurrentTemp: true,
+  showHumidity: true,
+  displayUnit: 'auto',
+}
+
+/**
+ * The climate-key fragment of `item.config`, merged into the item schema.
+ *
+ * `variant` is deliberately **not** in it. The item config schema is one shape
+ * shared by every domain, and `variant` is also the weather card's key with an
+ * entirely different value set (`minimal`/`modern`/`detailed`) — an enum here
+ * would reject every stored weather card. Whose variants are legal is the card
+ * registry's question, and `getCardVariant` already answers it by resolving an
+ * unknown name to nothing and falling back to the default card.
+ */
+export const climateOptionsConfigSchema = z.object({
+  showModePills: z.boolean().optional(),
+  showPresets: z.boolean().optional(),
+  showFanModes: z.boolean().optional(),
+  showCurrentTemp: z.boolean().optional(),
+  showHumidity: z.boolean().optional(),
+  displayUnit: z.enum(CLIMATE_DISPLAY_UNITS).optional(),
+})
+
+const readBoolean = (raw: unknown, fallback: boolean): boolean =>
+  typeof raw === 'boolean' ? raw : fallback
+
+/** Read the climate options out of a card's stored config. */
+export function readClimateOptions(
+  config: Record<string, unknown> | undefined
+): ClimateCardOptions {
+  const variant = z.enum(CLIMATE_VARIANTS).safeParse(config?.[CLIMATE_VARIANT_KEY])
+  const displayUnit = z.enum(CLIMATE_DISPLAY_UNITS).safeParse(config?.displayUnit)
+
+  return {
+    variant: variant.success ? variant.data : CLIMATE_OPTION_DEFAULTS.variant,
+    showModePills: readBoolean(config?.showModePills, CLIMATE_OPTION_DEFAULTS.showModePills),
+    showPresets: readBoolean(config?.showPresets, CLIMATE_OPTION_DEFAULTS.showPresets),
+    showFanModes: readBoolean(config?.showFanModes, CLIMATE_OPTION_DEFAULTS.showFanModes),
+    showCurrentTemp: readBoolean(config?.showCurrentTemp, CLIMATE_OPTION_DEFAULTS.showCurrentTemp),
+    showHumidity: readBoolean(config?.showHumidity, CLIMATE_OPTION_DEFAULTS.showHumidity),
+    displayUnit: displayUnit.success ? displayUnit.data : CLIMATE_OPTION_DEFAULTS.displayUnit,
+  }
+}
 
 /**
  * The version documents carrying pinned climate variants are stamped with.
