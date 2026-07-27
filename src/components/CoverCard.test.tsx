@@ -476,6 +476,33 @@ describe('CoverCard', () => {
       })
     })
 
+    it('calls close_cover_tilt service when tilt close clicked', async () => {
+      // The inverse of the tilt-open control, and the one whose dispatch had no
+      // test at all — a guarded path nothing exercises is a guarded path
+      // nothing pins.
+      const entity = createMockCoverEntity({
+        attributes: { supported_features: 32 }, // CLOSE_TILT
+      })
+      ;(useEntity as any).mockReturnValue({
+        entity,
+        isConnected: true,
+        isStale: false,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="full" />)
+
+      const tiltSection = screen.getByText('Tilt').parentElement!
+      const tiltButtons = tiltSection.querySelectorAll('button')
+
+      await userEvent.click(tiltButtons[tiltButtons.length - 1])
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'cover',
+        service: 'close_cover_tilt',
+        entityId: 'cover.test_cover',
+      })
+    })
+
     it('calls set_cover_tilt_position service on tilt slider change', async () => {
       const entity = createMockCoverEntity({
         attributes: {
