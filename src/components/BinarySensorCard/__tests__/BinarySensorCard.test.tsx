@@ -367,7 +367,7 @@ describe('BinarySensorCard configuration modal', () => {
     const user = userEvent.setup()
     const updateGridItem = vi.spyOn(dashboardActions, 'updateGridItem').mockImplementation(() => {})
     dashboardActions.setMode('edit')
-    dashboardStore.setState((state) => ({ ...state, currentScreenId: undefined }))
+    dashboardStore.setState((state) => ({ ...state, currentScreenId: null }))
 
     seed(createBinarySensorEntity({ state: 'on' }))
     renderCard(<BinarySensorCard entityId={ENTITY} item={item} />)

@@ -44,7 +44,7 @@ The [sensor option doc](../specs/entity-cards/options/sensor.md) owns the option
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
 - [ ] **PR 1 — Sensor card**: formatting pipeline (`displayPrecision`/`valueScale`/`unitOverride`) preserving the existing matrix; `showGraph`/`graphHours`/`graphMode` via `useEntityHistory` + `liebe-spark` across `row`/`tall`/`full` with min/max footer; `glance` big value + `showTrend`; numeric gating; config-form controls; unit tests + stories (incl. loading/empty/unsupported)
-- [ ] **PR 2 — Binary sensor card**: `onLabel`/`offLabel` device-class defaults; `invert`; `color: auto` device-class active-tint mapping (alert/water/light/default); `full`-tier "since" line; config-form controls; unit tests + stories
+- [x] **PR 2 — Binary sensor card**: `onLabel`/`offLabel` device-class defaults; `invert`; `color: auto` device-class active-tint mapping (alert/water/light/default); `full`-tier "since" line; config-form controls; unit tests + stories
 - [ ] **PR 3 — Spec sync**: entity-cards spec sensors section updated to implemented status; sensor option doc's history-dependent caveats resolved; changelog entries
 
 ## Out of Scope
