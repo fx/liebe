@@ -13,6 +13,7 @@ import { hassService } from '~/services/hassService'
 import { logger } from '~/utils/logger'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import type { ScreenConfig } from '~/store/types'
+import { resetDispatchGuard } from '../../services/guardedDispatch'
 
 /**
  * The gesture controller's own edges — the ones the card shell cannot reach
@@ -58,6 +59,9 @@ describe('findScreenByIdOrSlug', () => {
 
 describe('useCardActions', () => {
   beforeEach(() => {
+    // The dispatch guard is process-wide, so one case's pending window would
+    // otherwise carry into the next.
+    resetDispatchGuard()
     vi.useFakeTimers()
     dashboardActions.resetState()
   })

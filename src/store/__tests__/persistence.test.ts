@@ -9,6 +9,7 @@ import {
   getStorageInfo,
   parseConfigurationFromFile,
   restoreConfigurationFromBackup,
+  CURRENT_VERSION,
 } from '../persistence'
 import { dashboardStore, dashboardActions } from '../dashboardStore'
 import { DEFAULT_THEME_CONFIG } from '../themeConfig'
@@ -32,7 +33,7 @@ const clickSpy = vi.fn()
 
 describe('persistence', () => {
   const mockConfig: DashboardConfig = {
-    version: '1.0.0',
+    version: CURRENT_VERSION,
     screens: [
       {
         id: 'screen-1',
@@ -254,7 +255,7 @@ describe('persistence', () => {
 
       // js-yaml output format differs from manual format
       expect(yaml).toContain('Liebe Dashboard Configuration')
-      expect(yaml).toContain('version: 1.0.0') // js-yaml doesn't quote numbers
+      expect(yaml).toContain(`version: ${CURRENT_VERSION}`) // js-yaml doesn't quote numbers
       // The theme is an object now, so YAML nests it.
       expect(yaml).toContain('theme:')
       expect(yaml).toContain('id: default')

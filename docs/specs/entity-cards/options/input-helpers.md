@@ -35,6 +35,7 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 | `controlStyle` | select | entity `mode` | row/tall/full | `stepper` \| `slider` — which embedded control renders |
 
 - The default MUST follow the helper's own `mode` attribute: `box` → `stepper`, `slider` → `slider`. Setting the option overrides the entity's preference in either direction.
+- **Following the helper is stored as the key's absence, and the configuration form MUST be able to write it.** A form offering only the two concrete styles can express "stepper" and "slider" but never "follow", so opening it would pin a card that was following its helper — and nothing would return it. The form therefore offers a third choice ("Follow the helper") that **removes** the key rather than storing a third value: the stored contract keeps exactly one spelling for following the entity, and it round-trips through YAML as a card with no `controlStyle` at all.
 - `stepper`: the current +/- buttons around a click-to-edit value field (`InputNumberCard.tsx`). Increment/decrement MUST step by `step` and clamp to `[min, max]`, with the buttons disabled at the respective bound; typed input MUST be validated, clamped to `[min, max]`, and invalid input MUST revert without calling the service (current behavior — these clamp/validation rules remain MUST regardless of `controlStyle`).
 - `slider`: the [design-system embedded slider](../../design-system/index.md#card-anatomy) (`liebe-slider`, 42px track, domain-tint fill, value readout in-track), horizontal in `row`/`full` and vertical in `tall`. Drag MUST hold local state and commit `input_number.set_value` only on release; the committed value MUST be quantized to `step` and clamped to `[min, max]`.
 - Both styles send `input_number.set_value` with `{ value }`.
@@ -46,7 +47,7 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 | `controlStyle` | select | `dropdown` | row/tall/full | `dropdown` \| `pills` — how options present |
 
 - `dropdown` (default): the current Radix `Select` of the entity's `options` (`InputSelectCard.tsx`); MUST be disabled when the helper has no options.
-- `pills`: an equal-width [pill group](../../design-system/index.md#card-anatomy) (`liebe-pill`), one pill per option, the current state's pill selected via the active tint pattern. Pills render only in the `full` tier **and** only when the option count is ≤ 5; in other tiers, or with more than 5 options, the card MUST fall back to `dropdown` presentation (an oversized pill row would clip — degrade, never scroll).
+- `pills`: an equal-width [pill group](../../design-system/index.md#card-anatomy) (`liebe-pill`), one pill per option, the current state's pill selected via the active tint pattern and disabled (selecting the current option would send a `select_option` that changes nothing). Pills render only in the `full` tier **and** only when the option count is between 1 and 5; in other tiers, with more than 5 options, or with no options at all, the card MUST fall back to `dropdown` presentation — an oversized pill row would clip, and an empty one would leave the card with nothing to operate (degrade, never scroll).
 - Both styles send `input_select.select_option` with `{ option }`.
 
 ### `input_text`

@@ -6,6 +6,9 @@ import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { Slider } from './anatomy'
+import { quantizeHelperValue, readNumberControlStyle } from '~/store/inputHelperOptions'
+import { useCardItem } from './cardItemContext'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputNumberCardProps {
@@ -20,6 +23,8 @@ interface InputNumberCardProps {
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
+  /** The placed item's stored options, when the renderer passes them directly. */
+  config?: Record<string, unknown>
 }
 
 interface InputNumberAttributes {
@@ -38,12 +43,20 @@ export const InputNumberCard = memo(function InputNumberCard({
   onDelete,
   isSelected = false,
   onSelect,
+  config,
 }: InputNumberCardProps) {
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
+  const publishedItem = useCardItem()
 
   const [localValue, setLocalValue] = useState<string>(entity?.state ?? '')
   const [isEditing, setIsEditing] = useState(false)
+  /**
+   * Where the slider sits while a finger is on it. `null` means "not dragging",
+   * so the released control goes straight back to reporting the entity — the
+   * card must not hold a stale local value after the service call lands.
+   */
+  const [dragValue, setDragValue] = useState<number | null>(null)
 
   // Sync the local value from the entity while the user is not editing. Done
   // during render (not in an effect) per react-hooks/set-state-in-effect; the
@@ -191,6 +204,13 @@ export const InputNumberCard = memo(function InputNumberCard({
   const unit = attributes.unit_of_measurement || ''
 
   // Format display value
+  /**
+   * One formatter for every place the value is shown, so the readout the
+   * slider carries and the readout the stepper carries cannot drift apart.
+   */
+  const formatValue = (value: number) =>
+    `${value.toFixed(attributes.step && attributes.step < 1 ? 1 : 0)}${unit ? ` ${unit}` : ''}`
+
   const displayValue = parseFloat(entity.state).toFixed(
     attributes.step && attributes.step < 1 ? 1 : 0
   )
@@ -290,6 +310,74 @@ export const InputNumberCard = memo(function InputNumberCard({
     </GridCard.Controls>
   )
 
+  /*
+   * Which embedded control renders (`controlStyle`), defaulting to the helper's
+   * own `mode` attribute — `box` steps, `slider` slides — so a helper
+   * reconfigured in Home Assistant keeps steering cards nobody has configured
+   * (docs/specs/entity-cards/options/input-helpers.md). Existing cards were
+   * built with the stepper, so the loader pins them to it; the attribute
+   * default reaches new cards only (common contract, convention 7).
+   */
+  const controlStyle = readNumberControlStyle(config ?? publishedItem.config, attributes.mode)
+
+  /*
+   * The slider commits on release, never while dragging: the value under the
+   * finger is a position, not an intent, and dispatching per pixel would send a
+   * service call per frame. `dragValue` is what the card shows meanwhile — the
+   * readout in the track follows the thumb, so what is committed is what was
+   * visibly chosen.
+   *
+   * Vertical in `tall`, where the tile's height is the travel; horizontal
+   * everywhere else. `glance` gets no slider at all — it keeps the readout that
+   * is its only way to operate the helper.
+   */
+  /**
+   * The slider's release. Quantized and clamped by the helper's own rules
+   * before it is sent, and the local drag position is dropped in the same
+   * breath — the entity is the value from here on, and holding the released
+   * position would leave the card showing a number Home Assistant may have
+   * adjusted.
+   *
+   * A plain function rather than a `useCallback`: it is defined past the
+   * card's early returns, where `entity` is known to exist, so it carries no
+   * guard for a case that cannot reach it.
+   */
+  const handleSliderCommit = (value: number) => {
+    setDragValue(null)
+    setValue(entity.entity_id, quantizeHelperValue(value, attributes))
+  }
+
+  const sliderValue = dragValue ?? parseFloat(entity.state)
+  // An unparseable state has no position; the track sits at its floor rather
+  // than at `NaN`, which Radix refuses to render and `toFixed` would spell out.
+  const sliderPosition = Number.isFinite(sliderValue) ? sliderValue : (attributes.min ?? 0)
+  const slider = (
+    <GridCard.Controls>
+      <Slider
+        label={`Set ${attributes.friendly_name || entity.entity_id.split('.')[1]}`}
+        value={sliderPosition}
+        min={attributes.min ?? 0}
+        max={attributes.max ?? 100}
+        step={attributes.step || 1}
+        orientation={tier === 'tall' ? 'vertical' : 'horizontal'}
+        disabled={loading}
+        /*
+         * The value under the thumb, not the last committed one. A readout
+         * fed from `entity.state` reports what the helper *was* for the whole
+         * duration of a drag, which is a usability problem for everyone and an
+         * accessibility one in particular: the anatomy hands this same string
+         * to `aria-valuetext`, so a screen-reader user has nothing else to go
+         * on and would hear no feedback at all until release.
+         */
+        readout={formatValue(sliderPosition)}
+        onValueChange={setDragValue}
+        onValueCommit={handleSliderCommit}
+        domain="input_number"
+        color="default"
+      />
+    </GridCard.Controls>
+  )
+
   return (
     <GridCard
       // Input helpers have no domain row of their own; `default` is the
@@ -337,7 +425,7 @@ export const InputNumberCard = memo(function InputNumberCard({
             ) : null}
           </GridCard.Meta>
         }
-        control={isGlance ? undefined : stepper}
+        control={isGlance ? undefined : controlStyle === 'slider' ? slider : stepper}
       />
     </GridCard>
   )

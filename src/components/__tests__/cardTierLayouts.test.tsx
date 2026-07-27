@@ -147,13 +147,16 @@ describe('SensorCard tiers', () => {
     expect(part('.liebe-state')).toBeNull()
   })
 
-  it.each(['glance', 'row', 'tall', 'full'] as const)('renders no graph at %s', (tier) => {
-    renderCard(<SensorCard entityId="sensor.living_room_temperature" tier={tier} />)
+  it('renders no graph in glance', () => {
+    renderCard(<SensorCard entityId="sensor.living_room_temperature" tier="glance" />)
 
-    // `showGraph` and the sparkline are fed by entity history and arrive with
-    // 0018. A control with no data source renders nothing rather than an empty
-    // frame (docs/specs/entity-cards/options/sensor.md).
+    // "Never renders in `glance`" — one cell has room for a figure and a name
+    // (docs/specs/entity-cards/options/sensor.md — `showGraph`). Where the
+    // graph DOES render, and what it does while its window is loading, empty or
+    // unsupported, is `SensorCard/__tests__/SensorCard.test.tsx`: those need a
+    // recorder answer behind them, which is not what this file is about.
     expect(part('.liebe-spark')).toBeNull()
+    expect(part('[data-testid="sensor-graph"]')).toBeNull()
   })
 
   it('falls back to the icon tile in glance when the state is hidden', () => {
@@ -260,15 +263,27 @@ describe('InputBooleanCard tiers', () => {
     ['row', 'row'],
     ['tall', 'tall'],
     ['full', 'row'],
-  ] as const)('keeps the switch at %s', (tier, shape) => {
-    renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier={tier} />)
+  ] as const)('keeps the switch at %s when the card asks for one', (tier, shape) => {
+    renderCard(
+      <InputBooleanCard
+        entityId="input_boolean.guest_mode"
+        tier={tier}
+        config={{ controlStyle: 'switch' }}
+      />
+    )
 
     expect(arrangement()).toBe(shape)
     expect(screen.getByRole('switch')).toBeInTheDocument()
   })
 
   it('puts the switch between the icon and the meta in tall', () => {
-    renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier="tall" />)
+    renderCard(
+      <InputBooleanCard
+        entityId="input_boolean.guest_mode"
+        tier="tall"
+        config={{ controlStyle: 'switch' }}
+      />
+    )
 
     // "Icon on top, vertical control, meta at bottom" — a tall tile that stacked
     // its control under the meta would just be a taller `glance`
@@ -278,7 +293,13 @@ describe('InputBooleanCard tiers', () => {
   })
 
   it('puts the switch after the meta in row', () => {
-    renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier="row" />)
+    renderCard(
+      <InputBooleanCard
+        entityId="input_boolean.guest_mode"
+        tier="row"
+        config={{ controlStyle: 'switch' }}
+      />
+    )
 
     // "Icon + meta in a row, plus the primary embedded control" — the control is
     // the trailing edge of the line, not something between icon and name.
@@ -316,8 +337,16 @@ describe('InputNumberCard tiers', () => {
     ['row', 'row'],
     ['tall', 'tall'],
     ['full', 'row'],
-  ] as const)('gives %s the whole stepper', (tier, shape) => {
-    renderCard(<InputNumberCard entityId="input_number.target_humidity" tier={tier} />)
+  ] as const)('gives %s the whole stepper when the card asks for one', (tier, shape) => {
+    // The fixture helper is `mode: slider`, which is now the default this card
+    // follows; the stepper is what an explicit `controlStyle` selects.
+    renderCard(
+      <InputNumberCard
+        entityId="input_number.target_humidity"
+        tier={tier}
+        config={{ controlStyle: 'stepper' }}
+      />
+    )
 
     expect(arrangement()).toBe(shape)
     expect(part('.liebe-icon')).not.toBeNull()

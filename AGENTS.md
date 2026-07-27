@@ -146,9 +146,12 @@ gh issue view <issue-number>
 
 3. **Probing a test (mutation testing)**
 
-   The way to know a test pins the behavior it claims is to break the behavior and watch that test fail. Two rules make the probe trustworthy, both learned from probe runs that looked perfect and proved nothing:
+   The way to know a test pins the behavior it claims is to break the behavior and watch that test fail. Three rules make the probe trustworthy, all learned from probe runs that looked perfect and proved nothing:
    - **Commit or stage the fix before probing.** Probes restore with `git checkout -- <file>`, which reverts to the index — so with the work uncommitted, the first restore silently throws the fix away. Every later probe then mutates a file whose patterns no longer match and the tests fail because the fix is missing, not because the mutation landed.
    - **Verify the mutation actually applied before reading the test result** — `git diff --quiet -- <file>` after mutating, and treat "no change" as an invalid probe. A mutation that silently failed to apply produces a red test for the wrong reason, and red is exactly what a working probe looks like. The test result alone cannot tell the two apart.
+   - **Verify it changed the behavior the named test depends on, not merely the file.** A diff is necessary and not sufficient: a mutation in a file the test's path never reaches, or one that edits a token without changing the semantics the test relies on (`const x` → `let x` leaves the scope that made it pass), cannot fail however different the file looks. Ask what the mutated line does for _this_ test before believing its result.
+
+   The asymmetry underneath all three: **a probe that fails tells you something; a probe that passes tells you nothing until you have established it could have failed.** A passing probe reads as "the code is fine" when it usually means the probe was useless, so it is the outcome to distrust — the reverse of how a test suite is normally read.
 
    Never `git stash` to set work aside: the stash stack is shared across worktrees and other sessions can pop it. Use a temporary commit.
 
@@ -156,6 +159,44 @@ gh issue view <issue-number>
    - Confirm the user's dev server is running (never start it yourself)
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
+
+5. **The e2e stack when Docker is not running**
+
+   `npm run e2e:ha:up` needs the Docker daemon, which is not always up in a fresh workspace — `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. Unlike the dev server, this one you may start yourself:
+
+   ```bash
+   sudo service docker start
+   ```
+
+   If the daemon then answers only under `sudo` (`permission denied` on the socket), the invoking user is not in the `docker` group:
+
+   ```bash
+   sudo usermod -aG docker "$USER"
+   ```
+
+   That takes effect on the next login, so it does **not** fix shells already running — and each tool-invoked command is a fresh shell that still inherits the old group set. Until the session is re-established, wrap the command instead of re-running the `usermod`:
+
+   ```bash
+   sg docker -c 'npm run e2e:ha:up'
+   sg docker -c 'npm run e2e'
+   ```
+
+   Do not `chmod` the socket to work around this: `/var/run/docker.sock` is root-equivalent, and widening it trades a two-word prefix for a real privilege change.
+
+   The stack is **shared across worktrees** — one Home Assistant container serving whichever `dist/` was last mounted. Before running Playwright, rebuild and bring it up from your own worktree, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before.
+
+6. **Playwright's own two prerequisites**
+
+   A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
+
+   ```bash
+   npx playwright install chromium                        # Executable doesn't exist at …
+   sudo env "PATH=$PATH" npx playwright install-deps chromium
+   ```
+
+   The second is worth knowing by its symptom rather than its cause. Without the system libraries, Chromium dies on `libnspr4.so` and Playwright reports `browserType.launch: Target page, context or browser has been closed` — which names neither a missing package nor the command that installs it, and reads like a bug in the test.
+
+   `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
 
 ### Completing a Task
 

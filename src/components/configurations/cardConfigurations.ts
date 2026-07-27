@@ -1,8 +1,14 @@
 import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
+import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
 import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
+import {
+  MAX_SENSOR_GRAPH_HOURS,
+  MIN_SENSOR_GRAPH_HOURS,
+  SENSOR_OPTION_DEFAULTS,
+} from '~/store/sensorOptions'
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<
@@ -77,6 +83,158 @@ export const cardConfigurations: Record<
         label: 'Show time in state',
         description:
           'Adds how long the entity has been in its current state to the state line. Omitted on 1×1 cards, which have no room for it.',
+      },
+    },
+  },
+  /*
+   * The input helpers' one option each (docs/specs/entity-cards/options/input-helpers.md).
+   * `input_text` and `input_datetime` stay universal-only, so they have no
+   * entry here at all — the universal fragment renders for every entity card
+   * regardless.
+   */
+  input_boolean: {
+    title: 'Toggle Helper Card',
+    description: 'How the toggle presents.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        default: 'tile',
+        label: 'Control style',
+        description:
+          'The whole tile toggles either way. A discrete switch renders beside it in tiers with room — never on a 1×1 card.',
+        options: [
+          { value: 'tile', label: 'Tile only' },
+          { value: 'switch', label: 'Tile with a switch' },
+        ],
+      },
+    },
+  },
+  input_number: {
+    title: 'Number Helper Card',
+    description: 'Which control sets the value.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        /*
+         * The default is the *absence* of a value, which is what "follow the
+         * helper" means — so the form's default has to be the choice that
+         * writes absence, not one of the two concrete styles. Declaring
+         * `stepper` here would show a card that was following its helper as
+         * though it had been set to a stepper, and pin it to one on the next
+         * save (docs/changes/0022).
+         */
+        default: FOLLOW_ENTITY_MODE,
+        clearValue: FOLLOW_ENTITY_MODE,
+        label: 'Control style',
+        description:
+          'Follows the helper’s own display mode in Home Assistant unless you choose one. Choosing overrides it in either direction.',
+        options: [
+          { value: FOLLOW_ENTITY_MODE, label: 'Follow the helper' },
+          { value: 'stepper', label: 'Stepper (+ / −)' },
+          { value: 'slider', label: 'Slider' },
+        ],
+      },
+    },
+  },
+  input_select: {
+    title: 'Dropdown Helper Card',
+    description: 'How the options present.',
+    definition: {
+      [CONTROL_STYLE_KEY]: {
+        type: 'select',
+        default: 'dropdown',
+        label: 'Control style',
+        description:
+          'Pills need a 2×2 card and at most five options; anywhere else the card shows the dropdown instead.',
+        options: [
+          { value: 'dropdown', label: 'Dropdown' },
+          { value: 'pills', label: 'Pills' },
+        ],
+      },
+    },
+  },
+  /*
+   * The sensor card's options (docs/specs/entity-cards/options/sensor.md).
+   *
+   * The four history options declare `requires: 'numeric'`, so the form drops
+   * them for a sensor whose state is text — numeric-ness is derived from the
+   * entity, never from config, and an option that cannot take effect is worse
+   * than absent because it looks like it did nothing. `graphMode` narrows
+   * further to counters, the only state classes bar rendering is defined for.
+   */
+  sensor: {
+    title: 'Sensor Card',
+    description: 'Value formatting and the history graph.',
+    definition: {
+      displayPrecision: {
+        type: 'select',
+        default: SENSOR_OPTION_DEFAULTS.displayPrecision,
+        label: 'Decimal places',
+        description:
+          'Automatic uses the rules for the sensor’s device class — one decimal for temperature, whole numbers for humidity and battery.',
+        options: [
+          { value: 'auto', label: 'Automatic' },
+          { value: '0', label: 'None (12)' },
+          { value: '1', label: 'One (12.3)' },
+          { value: '2', label: 'Two (12.34)' },
+        ],
+      },
+      valueScale: {
+        type: 'select',
+        default: SENSOR_OPTION_DEFAULTS.valueScale,
+        label: 'Large values',
+        description:
+          'Automatic shows power and energy of 1000 or more in thousands: 1250 W becomes 1.3 kW.',
+        options: [
+          { value: 'auto', label: 'Scale to k' },
+          { value: 'none', label: 'Show in full' },
+        ],
+      },
+      unitOverride: {
+        type: 'string',
+        default: SENSOR_OPTION_DEFAULTS.unitOverride,
+        label: 'Unit',
+        placeholder: 'From the entity',
+        description:
+          'Replaces the unit label only — the value itself is not converted. Leave empty to use the entity’s own unit.',
+      },
+      showGraph: {
+        type: 'boolean',
+        default: SENSOR_OPTION_DEFAULTS.showGraph,
+        label: 'Show history graph',
+        description:
+          'A sparkline on wider and taller cards, a full graph on the largest. Never on 1×1 cards, which have no room for it.',
+        requires: 'numeric',
+      },
+      graphHours: {
+        type: 'number',
+        default: SENSOR_OPTION_DEFAULTS.graphHours,
+        label: 'History window (hours)',
+        description: 'The window the graph, the trend arrow and the min/max footer all cover.',
+        min: MIN_SENSOR_GRAPH_HOURS,
+        max: MAX_SENSOR_GRAPH_HOURS,
+        step: 1,
+        requires: 'numeric',
+      },
+      graphMode: {
+        type: 'select',
+        default: SENSOR_OPTION_DEFAULTS.graphMode,
+        label: 'Graph style',
+        description:
+          'Bars show how much was used in each interval. Counters only — a measurement always draws as a line.',
+        options: [
+          { value: 'line', label: 'Line' },
+          { value: 'bar', label: 'Bars' },
+        ],
+        requires: 'counter',
+      },
+      showTrend: {
+        type: 'boolean',
+        default: SENSOR_OPTION_DEFAULTS.showTrend,
+        label: 'Show trend on 1×1 cards',
+        description:
+          'An arrow and the change over the history window, beside the value on the smallest cards.',
+        requires: 'numeric',
       },
     },
   },

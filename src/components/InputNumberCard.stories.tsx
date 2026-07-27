@@ -146,3 +146,49 @@ export const TierFull: Story = {
   name: 'Tier — full (3×2)',
   args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
 }
+
+/* ------------------------------------------------------------------ *
+ * controlStyle (docs/specs/entity-cards/options/input-helpers.md)
+ * ------------------------------------------------------------------ */
+
+/**
+ * No option set: the card follows the helper's own `mode`. The fixture helper is
+ * `mode: slider`, so the slider is what an unconfigured card shows.
+ */
+export const ControlStyleFromEntityMode: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: { liebe: { entities: [createInputNumberEntity()] } },
+}
+
+/** `stepper` overrides that: the +/- buttons around the click-to-edit readout. */
+export const ControlStyleStepper: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createInputNumberEntity()],
+      itemConfig: { controlStyle: 'stepper' },
+    },
+  },
+}
+
+/** `slider` on a `mode: box` helper — the override works in both directions. */
+export const ControlStyleSlider: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createInputNumberEntity({ attributes: { mode: 'box' } })],
+      itemConfig: { controlStyle: 'slider' },
+    },
+  },
+}
+
+/** The slider goes vertical at `tall`, where the tile's height is the travel. */
+export const ControlStyleSliderTall: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  parameters: {
+    liebe: {
+      entities: [createInputNumberEntity()],
+      itemConfig: { controlStyle: 'slider' },
+    },
+  },
+}

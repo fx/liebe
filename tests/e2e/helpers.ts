@@ -428,11 +428,33 @@ export async function gridItemCount(page: Page): Promise<number> {
 }
 
 // Read the aria-checked value of the input_boolean card's switch.
-export async function flagSwitchChecked(page: Page): Promise<string | null> {
+/**
+ * Whether the boolean helper's card is showing its `on` state.
+ *
+ * Reads the tile, not a discrete switch: `controlStyle` defaults to `tile`, so
+ * an unconfigured `input_boolean` card renders no switch at all and the whole
+ * tile is the toggle (docs/specs/entity-cards/options/input-helpers.md). The
+ * shell stamps `data-active` on the card either way, which is the affordance
+ * every style shares.
+ *
+ * `null` when the card is not on screen yet, so a poll for `false` cannot pass
+ * against a dashboard that has not rendered.
+ */
+export async function flagCardActive(page: Page): Promise<boolean | null> {
   return page.evaluate(() => {
     const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
-    const sw = panel?.shadowRoot?.querySelector('[role="switch"]')
-    return sw?.getAttribute('aria-checked') ?? null
+    const card = panel?.shadowRoot?.querySelector('[data-domain="input_boolean"]')
+    if (!card) return null
+    // Absent rather than `false` when inactive — the shell omits the attribute.
+    return card.getAttribute('data-active') === 'true'
+  })
+}
+
+/** Whether a discrete switch control is rendered anywhere in the panel. */
+export async function flagSwitchPresent(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+    return Boolean(panel?.shadowRoot?.querySelector('[role="switch"]'))
   })
 }
 

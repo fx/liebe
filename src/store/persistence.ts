@@ -5,12 +5,22 @@ import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 import { validateDashboardConfig } from './configSchema'
 import { migrateThemeConfig } from './themeConfig'
 import { migrateLightCardConfig } from './lightOptions'
+import {
+  configPredatesControlStyle,
+  CONTROL_STYLE_VERSION,
+  pinLegacyControlStyle,
+} from './inputHelperOptions'
 import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
 const MODE_STORAGE_KEY = 'liebe-mode'
 const BACKUP_STORAGE_KEY = 'liebe-config-backup'
-const CURRENT_VERSION = '1.0.0'
+/**
+ * The version stamped onto every document this build migrates. Exported so the
+ * suite asserts against the current marker rather than a literal that has to be
+ * chased down on every bump.
+ */
+export const CURRENT_VERSION = CONTROL_STYLE_VERSION
 
 export const saveDashboardConfig = (config: DashboardConfig): void => {
   try {
@@ -71,13 +81,23 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
  *
  * Returns the item unchanged, by reference, when no migration applies.
  */
-const migrateItemConfig = (item: unknown): unknown => {
+const migrateItemConfig = (item: unknown, predatesControlStyle: boolean): unknown => {
   if (!isPlainObject(item)) return item
 
   const { entityId, config } = item
   if (typeof entityId !== 'string' || !isPlainObject(config)) return item
 
-  const migrated = entityId.split('.')[0] === 'light' ? migrateLightCardConfig(config) : config
+  const domain = entityId.split('.')[0]
+
+  let migrated = domain === 'light' ? migrateLightCardConfig(config) : config
+  /*
+   * The legacy-pinning half (common contract, convention 7): a document written
+   * before `controlStyle` existed has helper cards whose control surface the
+   * new defaults would replace, so those cards keep what they were built with.
+   * A document written since is left alone — including its cards with no
+   * `controlStyle` at all, which is how a new card says "follow the entity".
+   */
+  if (predatesControlStyle) migrated = pinLegacyControlStyle(domain, migrated)
 
   return migrated === config ? item : { ...item, config: migrated }
 }
@@ -94,13 +114,47 @@ const migrateItemConfig = (item: unknown): unknown => {
  * this function, notably restoring from backup.
  */
 const migrateConfig = (config: unknown): DashboardConfig => {
-  const migrated = migrateScreenConfig(config)
+  /*
+   * Read once, here, and used for both decisions below: whether the cards this
+   * document carries were placed before `controlStyle` existed, and therefore
+   * whether this build is the one migrating it. Deriving it twice would let the
+   * pinning and the stamp disagree about the same document.
+   */
+  const predatesControlStyle = configPredatesControlStyle(
+    isPlainObject(config) ? config.version : undefined
+  )
+
+  const migrated = migrateScreenConfig(config, predatesControlStyle)
   migrated.theme = migrateThemeConfig(migrated.theme)
+  /*
+   * Stamping the version is what makes a version-keyed migration idempotent: a
+   * document that has been through the pinning above must not be treated as
+   * pre-`controlStyle` again, or a card added to it afterwards — legitimately
+   * leaving the key absent — would be pinned on the following load. The store
+   * carries this version back out through `exportConfiguration`, so the stamp
+   * survives the save.
+   *
+   * Only *upward*, and only for documents this build has actually migrated. A
+   * marker written by a later build is how that build knows how to read the
+   * rest of its own document, so rewriting it downward tells the next Liebe
+   * the document is older than it is — the one field whose loss is not
+   * recoverable by resolving at render (docs/specs/dashboard-config —
+   * "Forward Compatibility"). Same predicate as the pinning decision, so the
+   * two can never disagree about what counts as old.
+   */
+  if (predatesControlStyle) migrated.version = CURRENT_VERSION
   return migrated
 }
 
 // Migrate old screen format to new format with items and slugs
-const migrateScreenConfig = (config: unknown): DashboardConfig => {
+const migrateScreenConfig = (
+  config: unknown,
+  /*
+   * A property of the document that wrote these cards rather than of any one
+   * item, so it is decided by the caller and handed down — see `migrateConfig`.
+   */
+  predatesControlStyle: boolean
+): DashboardConfig => {
   const allSlugs: string[] = []
 
   interface ScreenToMigrate {
@@ -144,7 +198,8 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
       // non-array `items` is left exactly as found: there is nothing to migrate
       // in it, and replacing it with `[]` would be the truncation forward
       // compatibility forbids.
-      if (Array.isArray(grid.items)) grid.items = grid.items.map(migrateItemConfig)
+      if (Array.isArray(grid.items))
+        grid.items = grid.items.map((item) => migrateItemConfig(item, predatesControlStyle))
       else if (grid.items === undefined) grid.items = []
     }
 
@@ -307,11 +362,12 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
         // Backup current configuration before import
         backupCurrentConfiguration()
 
-        // Apply migration if needed
+        // Apply migration if needed, which stamps the version when — and only
+        // when — this build was the one that migrated the document. A file
+        // written by a newer minor version passes the compatibility check above
+        // (that gate is major-only) and must keep its own marker, for the same
+        // reason the load path leaves it alone.
         const migratedConfig = migrateConfig(config)
-
-        // Update version to current
-        migratedConfig.version = CURRENT_VERSION
 
         // Load the configuration
         dashboardActions.loadConfiguration(migratedConfig)

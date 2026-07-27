@@ -4,6 +4,7 @@ import {
   exportConfigurationAsYAML,
   importConfigurationFromFile,
   saveDashboardConfig,
+  CURRENT_VERSION,
 } from '../persistence'
 import { DEFAULT_THEME_CONFIG } from '../themeConfig'
 import { readCardDisplay } from '../cardDisplay'
@@ -54,7 +55,7 @@ const richState: DashboardState = {
     },
   ],
   currentScreenId: 'screen-1',
-  configuration: { version: '1.0.0', screens: [], theme: DEFAULT_THEME_CONFIG },
+  configuration: { version: CURRENT_VERSION, screens: [], theme: DEFAULT_THEME_CONFIG },
   gridResolution: { columns: 12, rows: 8 },
   // Every theming field non-default, custom CSS included, so a round-trip that
   // dropped one shows up as a mismatch.
