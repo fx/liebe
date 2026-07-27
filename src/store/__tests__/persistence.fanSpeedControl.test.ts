@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { CURRENT_VERSION, loadDashboardConfig } from '../persistence'
 import { CONTROL_STYLE_VERSION } from '../inputHelperOptions'
-import { SPEED_CONTROL_VERSION } from '../fanOptions'
+import { configPredatesSpeedControl } from '../fanOptions'
 import type { GridItem, ScreenConfig } from '../types'
 
 /**
@@ -101,8 +101,18 @@ describe('speedControl legacy pinning', () => {
   it('stamps the version, so a second load is not a second migration', () => {
     store('1.0.0', [item('fan.bedroom')])
 
-    expect(loadDashboardConfig()?.version).toBe(CURRENT_VERSION)
-    expect(CURRENT_VERSION).toBe(SPEED_CONTROL_VERSION)
+    const stamped = loadDashboardConfig()?.version
+    expect(stamped).toBe(CURRENT_VERSION)
+
+    /*
+     * The property, not the literal. This used to assert `CURRENT_VERSION ===
+     * SPEED_CONTROL_VERSION`, which was only true while this migration happened
+     * to hold the newest marker — the next one to land (climate's `1.3.0`) broke
+     * it without breaking anything real. What has to hold is that the stamp
+     * carries the document *past this migration's own cutoff*, so a second load
+     * does not pin its fans again.
+     */
+    expect(configPredatesSpeedControl(stamped)).toBe(false)
   })
 
   /**

@@ -6,6 +6,7 @@ import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
 import { dashboardActions } from '~/store'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { ClimateCard } from '../ClimateCard'
 import { CoverCard } from '../CoverCard'
 import { FanCard } from '../FanCard'
@@ -108,6 +109,14 @@ const fillBand = () => document.querySelector('.liebe-card-body-fill')
 beforeEach(() => {
   hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
   dashboardActions.resetState()
+  /*
+   * The at-most-once guard's pending set is module state, shared by every test
+   * in the process (`services/guardedDispatch.ts`). Two cases issuing the same
+   * command inside one acknowledgement window would see the second refused —
+   * and a refusal looks exactly like a control that never fired, with no error
+   * to point at it.
+   */
+  resetDispatchGuard()
 })
 
 afterEach(() => {
@@ -452,14 +461,41 @@ describe('ClimateCard tiers', () => {
     expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
   })
 
-  it('restores the dial and the mode pills at full', () => {
+  it('adds the mode pills to the row layout at full', () => {
+    // `compact` is the default variant (docs/specs/entity-cards/options/
+    // climate.md — "variant"), so `full` is the row layout plus the mode row.
+    // The arc dial is `variant: dial`'s, and is asserted in
+    // `../ClimateCard/__tests__/ClimateDial.test.tsx`.
     seed(thermostat)
-    const { container } = renderCard(
+    renderCard(
       <ClimateCard entityId="climate.hallway" tier="full" span={{ width: 3, height: 3 }} />
     )
 
     expect(screen.getByRole('group', { name: 'HVAC mode' })).toBeInTheDocument()
-    expect(container.querySelector('svg')).toBeInTheDocument()
+    expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
+    expect(document.querySelector('.climate-card-name')).not.toBeInTheDocument()
+  })
+
+  it('renders the dial at full, and this same compact row below it, under variant: dial', () => {
+    // The variant's fallback, from the tier table's point of view: a `dial` card
+    // resized below `full` renders the compact layout for the tier it lands in,
+    // with identical service behaviour, rather than a shrunken arc.
+    const ClimateDialCard = ClimateCard.variants.dial
+    seed(thermostat)
+
+    const { unmount } = renderCard(
+      <ClimateDialCard entityId="climate.hallway" tier="full" span={{ width: 3, height: 3 }} />
+    )
+    expect(document.querySelector('.climate-card-name')).toBeInTheDocument()
+    unmount()
+
+    renderCard(
+      <ClimateDialCard entityId="climate.hallway" tier="row" span={{ width: 2, height: 1 }} />
+    )
+
+    expect(stampedTier()).toBe('row')
+    expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
+    expect(document.querySelector('.climate-card-name')).not.toBeInTheDocument()
   })
 
   it('gives a narrow row the lockstep range control and a wide one both setpoints', () => {

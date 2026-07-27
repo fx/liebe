@@ -1,26 +1,27 @@
 /**
- * Whether a stored document predates a migration marker.
+ * The version-marker comparison every loader migration keyed on a config
+ * version shares.
  *
- * Legacy pinning discriminates by a **configuration version cutoff, never by
- * key absence** (docs/specs/entity-cards/options/common.md, convention 7): a
- * newly added card legitimately leaves an option key absent, so an
- * absence-triggered rewrite would pin new cards on their first reload — the
- * failure the convention exists to prevent.
- *
- * There is one comparison rather than one per migration because two copies of
- * it would have to agree forever: the loader decides *both* whether to pin and
- * whether to stamp the version from these answers, and a drift between two
- * hand-written parsers shows up as a document that is pinned and then pinned
- * again, or stamped and never pinned at all.
+ * Convention 7 of the common option contract (docs/specs/entity-cards/options/
+ * common.md) requires a *version marker* rather than key absence to decide
+ * whether a stored card predates an option: an absent key is exactly what a
+ * newly added card carries, so pinning on absence rewrites new cards on their
+ * first reload. Each option owns its own marker constant; the comparison is the
+ * same one every time, so it lives here rather than being re-derived per
+ * migration and drifting.
  */
 
 /**
- * `true` when `version` is older than `marker`, compared on major then minor.
+ * Whether a document's stored `version` is older than `marker`.
  *
- * A missing or unparseable version reads as older. Documents predating the
- * field are old by definition, and pinning an old card to the control it
- * already had is harmless — while failing to pin one silently changes how a
- * placed card is operated, which is the asymmetry the whole convention turns on.
+ * Major and minor only — the patch component never gates a migration, and
+ * comparing it would make a bugfix release look like a format change.
+ *
+ * A missing or unparseable version reads as *older*: documents predating any
+ * marker are old by definition, and a hand-edited `version: "beta"` is a
+ * document Liebe cannot date, where pinning an existing card to the control it
+ * already renders is the harmless answer and skipping the pin silently changes
+ * how a placed card is operated.
  */
 export function configPredatesVersion(version: unknown, marker: string): boolean {
   if (typeof version !== 'string') return true

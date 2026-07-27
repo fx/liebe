@@ -1,8 +1,12 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ClimateCard } from './ClimateCard'
+import { expect, within } from 'storybook/test'
+import { ClimateCard } from '.'
 import { asUnavailable, createClimateEntity } from '~/test/fixtures'
-import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../.storybook/decorators'
+import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
+
+/** The registered `dial` variant, rendered the way the grid dispatches it. */
+const ClimateDialCard = ClimateCard.variants.dial
 
 const entityId = 'climate.hallway'
 
@@ -31,9 +35,9 @@ export default meta
 type Story = StoryObj<ClimateCardStoryProps>
 
 /**
- * Resting state for a thermostat: mode `off`, no target arc, no temperature
- * controls — climate never publishes a literal `on`/`off` pair the way a light
- * does, so this is the domain's inactive equivalent.
+ * Resting state for a thermostat: mode `off`, no temperature controls — climate
+ * never publishes a literal `on`/`off` pair the way a light does, so this is the
+ * domain's inactive equivalent.
  */
 export const Idle: Story = {
   parameters: {
@@ -45,7 +49,7 @@ export const Idle: Story = {
   },
 }
 
-/** Actively heating: orange target arc, `heating` action, ± controls live. */
+/** Actively heating: the `heating` action colours the tile, ± controls live. */
 export const Heating: Story = {
   parameters: { liebe: { entities: [createClimateEntity()] } },
 }
@@ -68,7 +72,7 @@ export const Cooling: Story = {
   },
 }
 
-/** Heat/cool range mode — two draggable set points on one arc. */
+/** Heat/cool range mode — the band, with the stepper that shifts it. */
 export const HeatCoolRange: Story = {
   parameters: {
     liebe: {
@@ -124,12 +128,13 @@ export const EditMode: Story = {
 }
 
 /*
- * Layout tiers (docs/specs/entity-cards/options/climate.md — "Tier layouts").
- * The thermostat is the one card that KEEPS an embedded control at `glance`:
- * the dialog-registered controls that replace it arrive with change 0017, and
- * until then a control-free tile would be a thermostat nobody can turn up
- * (docs/changes/0011-layout-tiers.md — no operability regression). Assertions
- * live in `__tests__/controlCardTierLayouts.test.tsx`.
+ * Layout tiers (docs/specs/entity-cards/options/climate.md — "Tier layouts"),
+ * in the default `compact` variant. The thermostat is the one card that KEEPS
+ * an embedded control at `glance`: the dialog-registered controls that replace
+ * it arrive with change 0017 PR 2, and until then a control-free tile would be
+ * a thermostat nobody can turn up (docs/changes/0011-layout-tiers.md — no
+ * operability regression). The full tier tables are asserted in
+ * `../__tests__/controlCardTierLayouts.test.tsx`.
  */
 
 /** 1×1: icon, name, setpoint — and the compact stepper that stays. */
@@ -147,9 +152,17 @@ export const TierTall: Story = {
   args: { tier: 'tall', gridWidth: 1, gridHeight: 3, span: { width: 1, height: 3 } },
 }
 
-/** 4×5: the arc thermostat, unchanged — `variant: dial` is change 0017's. */
+/** 4×5: the row layout plus the HVAC mode pills — no dial, this is `compact`. */
 export const TierFull: Story = {
   args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole('group', { name: 'HVAC mode' })).toBeInTheDocument()
+    await expect(canvas.getByLabelText('Increase temperature')).toBeInTheDocument()
+    // The arc is the other variant's; the centred name it draws is absent here.
+    await expect(canvasElement.querySelector('.climate-card-name')).not.toBeInTheDocument()
+  },
 }
 
 /**
@@ -181,4 +194,76 @@ export const TierRowRangeNarrow: Story = {
 export const TierRowRangeWide: Story = {
   args: { tier: 'row', gridWidth: 3, gridHeight: 1, span: { width: 3, height: 1 } },
   parameters: TierRowRangeNarrow.parameters,
+}
+
+/*
+ * The `dial` variant (option doc — "variant"). It is not the default, but it is
+ * what every climate card placed before change 0017 is pinned to by the loader
+ * migration, so it is the presentation most existing dashboards show.
+ */
+
+/** The arc thermostat at `full`, where it is the only tier it renders in. */
+export const VariantDial: Story = {
+  render: (args) => <ClimateDialCard {...args} />,
+  args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvasElement.querySelector('.climate-card-name')).toBeInTheDocument()
+    await expect(canvas.getByRole('group', { name: 'HVAC mode' })).toBeInTheDocument()
+  },
+}
+
+/**
+ * Range mode on the dial: two setpoint handles on one arc. Each is a `slider` —
+ * draggable, and adjustable with the arrow keys once focused, so the band can be
+ * set without a pointer (issue #225).
+ */
+export const VariantDialRange: Story = {
+  render: (args) => <ClimateDialCard {...args} />,
+  args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  parameters: {
+    liebe: {
+      entities: [
+        createClimateEntity({
+          state: 'heat_cool',
+          attributes: {
+            hvac_action: 'idle',
+            target_temp_low: 19,
+            target_temp_high: 24,
+            temperature: undefined,
+          },
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole('slider', { name: 'Heat setpoint' })).toHaveAttribute(
+      'aria-valuenow',
+      '19'
+    )
+    await expect(canvas.getByRole('slider', { name: 'Cool setpoint' })).toHaveAttribute(
+      'aria-valuenow',
+      '24'
+    )
+  },
+}
+
+/**
+ * The same `dial` card at 2×1. The arc needs the room to be draggable at all, so
+ * below `full` it renders the compact layout for that tier rather than shrinking
+ * — the option doc's fallback, and the reason resizing a dial card never leaves
+ * it unoperable.
+ */
+export const VariantDialFallsBackBelowFull: Story = {
+  render: (args) => <ClimateDialCard {...args} />,
+  args: { tier: 'row', gridWidth: 2, gridHeight: 1, span: { width: 2, height: 1 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByLabelText('Increase temperature')).toBeInTheDocument()
+    await expect(canvasElement.querySelector('.climate-card-name')).not.toBeInTheDocument()
+  },
 }
