@@ -99,7 +99,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
    * the modal is rendered outside the grid's child callback, where the
    * effective span is no longer in scope.
    */
-  const [itemToConfig, setItemToConfig] = useState<{ item: GridItem; span?: CardSpan } | null>(null)
+  const [itemToConfig, setItemToConfig] = useState<{ item: GridItem; span: CardSpan } | null>(null)
 
   const handleDeleteItem = (itemId: string) => {
     setItemToDelete(itemId)
@@ -139,11 +139,14 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
   }
 
   /*
-   * `span` is optional because the two non-entity item types — text and
-   * separator — render components that do not take one; the preview falls back
-   * to the item's stored dimensions there, which is what that fallback is for.
+   * `span` is required, for every item type. Text and separator render
+   * components that take no tier of their own, but the preview wraps both in
+   * the card shell (`CardConfig`), and the shell stamps `data-tier` from
+   * whatever span reaches it — so an omitted span there is not a no-op, it
+   * silently previews the item at its stored dimensions instead of the ones it
+   * is laid out at.
    */
-  const handleConfigureItem = (item: GridItem, span?: CardSpan) => {
+  const handleConfigureItem = (item: GridItem, span: CardSpan) => {
     setItemToConfig({ item, span })
     setConfigModalOpen(true)
   }
@@ -208,7 +211,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                 onDelete={() => handleDeleteItem(item.id)}
                 isSelected={isSelected}
                 onSelect={(selected) => handleSelectItem(item.id, selected)}
-                onConfigure={() => handleConfigureItem(item)}
+                onConfigure={() => handleConfigureItem(item, span)}
               />
             )
           }
@@ -251,7 +254,7 @@ export function GridView({ screenId, items, resolution }: GridViewProps) {
                     | 'sky'
                     | undefined
                 }
-                onConfigure={() => handleConfigureItem(item)}
+                onConfigure={() => handleConfigureItem(item, span)}
               />
             )
           }
