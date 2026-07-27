@@ -26,7 +26,7 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 
 - `tile` (default): the card renders no discrete control; the **whole tile is the toggle**, and the `on` state renders with the active tint pattern (domain-colored glyph on a ~20%-alpha tint per the [design-system active-state pattern](../../design-system/index.md#domain-color-discipline)).
 - `switch`: the card additionally renders the discrete `Switch` control (current behavior, `InputBooleanCard.tsx`) in tiers with room for it (`row`, `tall`, `full`); the tile tap still toggles. In `glance` the switch is omitted and the card behaves as `tile` — degrade by omission, never clipping.
-- Either style MUST call `input_boolean.toggle`, keep the toggle blocked from dispatch until the expected state transition or an acknowledgement timeout (per change 0022 — a promise-scoped guard lets a second tap toggle the helper straight back after early acknowledgement), suppress it when `unavailable` or `unknown` (indeterminate direction — never actuate), and hide interactive controls in edit mode.
+- Either style MUST call `input_boolean.toggle`, with both surfaces — tile and switch — sharing **one** guard so a second toggle is refused whichever surface it arrives on (the guard's semantics are the [common dispatch guarantees](./common.md#action-type), landing with change [0022](../../../changes/0022-switch-input-helpers-to-spec.md)). The toggle MUST be suppressed when the entity is `unavailable` or `unknown` (indeterminate direction — never actuate), and interactive controls are hidden in edit mode.
 
 ### `input_number`
 
