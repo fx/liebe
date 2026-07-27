@@ -160,6 +160,31 @@ gh issue view <issue-number>
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
 
+5. **The e2e stack when Docker is not running**
+
+   `npm run e2e:ha:up` needs the Docker daemon, which is not always up in a fresh workspace — `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. Unlike the dev server, this one you may start yourself:
+
+   ```bash
+   sudo service docker start
+   ```
+
+   If the daemon then answers only under `sudo` (`permission denied` on the socket), the invoking user is not in the `docker` group:
+
+   ```bash
+   sudo usermod -aG docker "$USER"
+   ```
+
+   That takes effect on the next login, so it does **not** fix shells already running — and each tool-invoked command is a fresh shell that still inherits the old group set. Until the session is re-established, wrap the command instead of re-running the `usermod`:
+
+   ```bash
+   sg docker -c 'npm run e2e:ha:up'
+   sg docker -c 'npm run e2e'
+   ```
+
+   Do not `chmod` the socket to work around this: `/var/run/docker.sock` is root-equivalent, and widening it trades a two-word prefix for a real privilege change.
+
+   The stack is **shared across worktrees** — one Home Assistant container serving whichever `dist/` was last mounted. Before running Playwright, rebuild and bring it up from your own worktree, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before.
+
 ### Completing a Task
 
 1. **Pre-commit Checklist**
