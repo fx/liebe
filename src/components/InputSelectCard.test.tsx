@@ -42,6 +42,7 @@ describe('InputSelectCard', () => {
 
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: vi.fn(),
@@ -184,6 +185,7 @@ describe('InputSelectCard', () => {
   it('shows loading state', () => {
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: vi.fn(),
@@ -206,6 +208,7 @@ describe('InputSelectCard', () => {
   it('shows error state', () => {
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: vi.fn(),

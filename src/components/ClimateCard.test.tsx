@@ -61,6 +61,7 @@ describe('ClimateCard', () => {
       loading: false,
       error: null,
       callService: mockCallService,
+      dispatchGuarded: vi.fn(),
       clearError: mockClearError,
     })
     ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
@@ -656,6 +657,7 @@ describe('ClimateCard', () => {
         loading: true,
         error: null,
         callService: mockCallService,
+        dispatchGuarded: vi.fn(),
         clearError: mockClearError,
       })
 
@@ -679,6 +681,7 @@ describe('ClimateCard', () => {
         loading: false,
         error: 'Service call failed',
         callService: mockCallService,
+        dispatchGuarded: vi.fn(),
         clearError: mockClearError,
       })
 

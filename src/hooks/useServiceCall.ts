@@ -7,11 +7,22 @@ import {
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
 import { entityStore } from '../store/entityStore'
 import { buildSetDatetimePayload, describeInputDatetimeShape } from '../utils/inputDatetime'
+import { admitCommand } from '../services/guardedDispatch'
 
 export interface UseServiceCallResult {
   loading: boolean
   error: string | null
   callService: (options: ServiceCallOptions) => Promise<ServiceCallResult>
+  /**
+   * The path every consequential embedded control takes: non-retrying, and
+   * guarded so an identical command cannot be issued twice before the first is
+   * known to have landed (docs/specs/entity-cards/options/common.md — "Dispatch
+   * guarantees"). Cards migrate their controls from `callService` onto this.
+   *
+   * A command the guard refuses resolves as a success: the first one is still in
+   * flight, which is not an error state to show the user.
+   */
+  dispatchGuarded: (options: ServiceCallOptions) => Promise<ServiceCallResult>
   turnOn: (entityId: string, data?: Record<string, unknown>) => Promise<ServiceCallResult>
   turnOff: (entityId: string, data?: Record<string, unknown>) => Promise<ServiceCallResult>
   toggle: (entityId: string, data?: Record<string, unknown>) => Promise<ServiceCallResult>
@@ -143,6 +154,32 @@ export function useServiceCall(): UseServiceCallResult {
     [runCall]
   )
 
+  /**
+   * `dispatchOnce` with the at-most-once guard in front of it, which is what the
+   * contract actually requires of a control: not retrying is half of it, and not
+   * re-issuing the same command while the first is still travelling is the
+   * other half.
+   *
+   * The guard is shared with the shell's gestures (`useGuardedDispatch`), so a
+   * card's control and its whole-tile tap are governed by the same rule — and
+   * because the key includes the payload, they do not block each other unless
+   * they really are the same command.
+   */
+  const dispatchGuarded = useCallback(
+    async (options: ServiceCallOptions): Promise<ServiceCallResult> => {
+      /*
+       * Asked *before* `runCall`, deliberately. `runCall` aborts the previous
+       * call and resets loading/error on entry, so consulting the guard from
+       * inside it would let a refused repeat tear down the state of the first
+       * dispatch that is still in flight — clearing its spinner, and swallowing
+       * the failure it was about to report while the repeat returned success.
+       */
+      if (!admitCommand(options)) return { success: true }
+      return runCall(options, hassService.callServiceOnce.bind(hassService))
+    },
+    [runCall]
+  )
+
   const turnOn = useCallback(
     async (entityId: string, data?: Record<string, unknown>) => {
       return callService({
@@ -245,6 +282,7 @@ export function useServiceCall(): UseServiceCallResult {
     loading,
     error,
     callService,
+    dispatchGuarded,
     turnOn,
     turnOff,
     toggle,

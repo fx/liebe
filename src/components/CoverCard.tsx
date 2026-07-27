@@ -51,7 +51,15 @@ function CoverCardComponent({
   onSelect,
 }: CoverCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-  const { loading: isLoading, error, callService, clearError } = useServiceCall()
+  /*
+   * Every control here dispatches through the guarded, non-retrying path. A
+   * cover is the case the rule is written for: a retried or repeated
+   * `cover.open_cover` moves a physical object twice
+   * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees"). The
+   * guard keys on the payload, so the inverse command — stopping a cover that
+   * is travelling too far — is a different command and is never held back.
+   */
+  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
@@ -142,32 +150,40 @@ function CoverCardComponent({
   const handleOpen = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService({
+    await dispatchGuarded({
       domain: 'cover',
       service: 'open_cover',
       entityId,
     })
-  }, [callService, entityId, error, isLoading, clearError])
+  }, [dispatchGuarded, entityId, error, isLoading, clearError])
 
   const handleClose = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService({
+    await dispatchGuarded({
       domain: 'cover',
       service: 'close_cover',
       entityId,
     })
-  }, [callService, entityId, error, isLoading, clearError])
+  }, [dispatchGuarded, entityId, error, isLoading, clearError])
 
+  /*
+   * No `isLoading` guard, unlike its siblings: stop is the inverse action, and
+   * inverse or cancel actions must stay available during a transitional state
+   * (REVIEW.md — blanket disabling of transitional states is prohibited). Stop
+   * is exactly what someone reaches for while a physical object is moving, and
+   * the window the dispatch guard opens on `open_cover` is precisely when they
+   * reach for it. The guard keys per command, so a pending `open_cover` does
+   * not hold `stop_cover` back.
+   */
   const handleStop = useCallback(async () => {
-    if (isLoading) return
     if (error) clearError()
-    await callService({
+    await dispatchGuarded({
       domain: 'cover',
       service: 'stop_cover',
       entityId,
     })
-  }, [callService, entityId, error, isLoading, clearError])
+  }, [dispatchGuarded, entityId, error, clearError])
 
   const handlePositionChange = useCallback((value: number) => {
     // The anatomy slider reports every value the drag passes through, which is
@@ -179,7 +195,7 @@ function CoverCardComponent({
   const handlePositionCommit = useCallback(
     async (value: number) => {
       setIsDraggingPosition(false)
-      await callService({
+      await dispatchGuarded({
         domain: 'cover',
         service: 'set_cover_position',
         entityId,
@@ -187,7 +203,7 @@ function CoverCardComponent({
       })
       setLocalPosition(null)
     },
-    [callService, entityId]
+    [dispatchGuarded, entityId]
   )
 
   const handleTiltChange = useCallback((value: number) => {
@@ -198,7 +214,7 @@ function CoverCardComponent({
   const handleTiltCommit = useCallback(
     async (value: number) => {
       setIsDraggingTilt(false)
-      await callService({
+      await dispatchGuarded({
         domain: 'cover',
         service: 'set_cover_tilt_position',
         entityId,
@@ -206,28 +222,28 @@ function CoverCardComponent({
       })
       setLocalTiltPosition(null)
     },
-    [callService, entityId]
+    [dispatchGuarded, entityId]
   )
 
   const handleOpenTilt = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService({
+    await dispatchGuarded({
       domain: 'cover',
       service: 'open_cover_tilt',
       entityId,
     })
-  }, [callService, entityId, error, isLoading, clearError])
+  }, [dispatchGuarded, entityId, error, isLoading, clearError])
 
   const handleCloseTilt = useCallback(async () => {
     if (isLoading) return
     if (error) clearError()
-    await callService({
+    await dispatchGuarded({
       domain: 'cover',
       service: 'close_cover_tilt',
       entityId,
     })
-  }, [callService, entityId, error, isLoading, clearError])
+  }, [dispatchGuarded, entityId, error, isLoading, clearError])
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -360,7 +376,7 @@ function CoverCardComponent({
             hideLabel
             icon={<PauseIcon />}
             onClick={handleStop}
-            disabled={isLoading || !isMoving}
+            disabled={!isMoving}
           />
         )}
         {supportsClose && (

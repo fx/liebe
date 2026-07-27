@@ -34,6 +34,7 @@ describe('ButtonCard options', () => {
       loading: false,
       error: null,
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: vi.fn(),

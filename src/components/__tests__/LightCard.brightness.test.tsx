@@ -43,6 +43,7 @@ describe('LightCard Brightness Slider', () => {
     turnOff: vi.fn(),
     toggle: vi.fn(),
     callService: vi.fn(),
+    dispatchGuarded: vi.fn(),
     setValue: vi.fn(),
     clearError: vi.fn(),
   }

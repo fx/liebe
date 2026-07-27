@@ -136,6 +136,7 @@ describe('a card whose span changes without its tier', () => {
       turnOff: vi.fn(),
       toggle: vi.fn(),
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       setValue: vi.fn(),
       clearError: vi.fn(),
     })
@@ -188,6 +189,7 @@ describe('the configuration preview behind a card that owns its modal', () => {
       turnOff: vi.fn(),
       toggle: vi.fn(),
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       setValue: vi.fn(),
       clearError: vi.fn(),
     })

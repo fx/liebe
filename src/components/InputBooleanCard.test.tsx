@@ -41,6 +41,7 @@ describe('InputBooleanCard', () => {
 
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: mockToggle,
@@ -185,6 +186,7 @@ describe('InputBooleanCard', () => {
   it('shows loading state', () => {
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: mockToggle,
@@ -205,6 +207,7 @@ describe('InputBooleanCard', () => {
   it('shows error state', () => {
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: mockToggle,
