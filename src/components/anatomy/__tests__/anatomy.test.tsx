@@ -586,15 +586,26 @@ describe('Sparkline', () => {
     // has height here, and they are in proportion to the values.
     const { container } = render(<Sparkline values={[4, 5, 6]} domain="sensor" mode="bar" />)
 
-    const heights = Array.from(container.querySelectorAll('.liebe-spark-bar')).map((bar) =>
-      Number(bar.getAttribute('height'))
-    )
-    expect(heights.every((height) => height > 0)).toBe(true)
-    // 4:5:6 — the ratios survive, which is what a zero baseline buys. Loosely
-    // compared, because the coordinates are rounded to two decimals on the way
-    // into the DOM.
-    expect(heights[1] / heights[0]).toBeCloseTo(5 / 4, 2)
-    expect(heights[2] / heights[0]).toBeCloseTo(6 / 4, 2)
+    const bars = Array.from(container.querySelectorAll('.liebe-spark-bar')).map((bar) => ({
+      y: Number(bar.getAttribute('y')),
+      height: Number(bar.getAttribute('height')),
+    }))
+
+    // Every bar has length — the first hour did use something — and the ratios
+    // are the values' (4:5:6). Loosely compared: coordinates round to two
+    // decimals on the way into the DOM.
+    expect(bars.every(({ height }) => height > 0)).toBe(true)
+    expect(bars[1].height / bars[0].height).toBeCloseTo(5 / 4, 2)
+    expect(bars[2].height / bars[0].height).toBeCloseTo(6 / 4, 2)
+
+    // And they FIT. The ratios alone cannot tell the two baselines apart —
+    // height is affine in the value either way — but a baseline taken from the
+    // data sits below the box (`y(0)` is off-canvas at 81 in a 32-unit
+    // viewBox), so the columns run out of the bottom of the graph.
+    for (const { y, height } of bars) {
+      expect(y).toBeGreaterThanOrEqual(0)
+      expect(y + height).toBeLessThanOrEqual(32)
+    }
   })
 
   it('hangs a negative bucket below the baseline', () => {
