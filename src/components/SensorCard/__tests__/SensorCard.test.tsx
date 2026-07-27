@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HomeAssistantProvider, type HomeAssistant } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityHistoryService } from '~/services/entityHistory'
@@ -504,5 +505,151 @@ describe('SensorCard formatting options', () => {
     // naming the requested window would describe history the card never asked
     // the recorder for.
     expect(screen.getByRole('img', { name: /168-hour history/ })).toBeInTheDocument()
+  })
+})
+
+describe('SensorCard states without a card', () => {
+  it('holds a skeleton for an entity the store has not got', () => {
+    seed(createSensorEntity())
+    renderCard(<SensorCard entityId="sensor.not_here" tier="row" />)
+
+    // `useEntity` cannot tell "not loaded yet" from "does not exist", so the
+    // card waits rather than reporting a missing entity — which is why the
+    // error branch below has only one case to render.
+    expect(document.querySelector('.rt-Skeleton')).not.toBeNull()
+    expect(screen.queryByText('Disconnected')).toBeNull()
+  })
+
+  it('offers a reload when the connection is down', async () => {
+    const user = userEvent.setup()
+    const reload = vi.fn()
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload },
+    })
+
+    seed(createSensorEntity())
+    entityStore.setState((state) => ({ ...state, isConnected: false }))
+    renderCard(<SensorCard entityId={ENTITY} tier="row" />)
+
+    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /retry/i }))
+    expect(reload).toHaveBeenCalledOnce()
+  })
+})
+
+describe('SensorCard graph-less fallbacks', () => {
+  beforeEach(() => seed(createSensorEntity()))
+
+  it('names an entity that has no friendly name after its id', () => {
+    seed(
+      createSensorEntity({
+        entity_id: 'sensor.no_name',
+        attributes: { friendly_name: undefined, device_class: 'temperature' },
+      })
+    )
+    renderCard(<SensorCard entityId="sensor.no_name" tier="row" />, { showGraph: false })
+
+    expect(screen.getByText('sensor.no_name')).toBeInTheDocument()
+  })
+
+  it('ignores attributes that are not text, whatever the type says', () => {
+    // An attribute map is `Record<string, unknown>` on the wire, and a template
+    // sensor can publish a numeric unit. Rendering it would give `21.4 5`.
+    // Cast, because the shape under test is one the type forbids and the wire
+    // permits — which is the whole reason the card does not trust the type.
+    seed({
+      ...createSensorEntity({ entity_id: 'sensor.odd_attributes' }),
+      attributes: {
+        friendly_name: 42,
+        device_class: ['temperature'],
+        unit_of_measurement: 5,
+        state_class: 7,
+      },
+    } as unknown as HassEntity)
+    renderCard(<SensorCard entityId="sensor.odd_attributes" tier="row" />, { showGraph: false })
+
+    expect(document.querySelector('.liebe-state')).toHaveTextContent('21.4')
+    expect(document.querySelector('.liebe-state')?.textContent).not.toContain('5')
+    expect(screen.getByText('sensor.odd_attributes')).toBeInTheDocument()
+  })
+
+  it('renders an entity carrying no attributes at all', () => {
+    seed({
+      ...createSensorEntity({ entity_id: 'sensor.bare' }),
+      attributes: undefined,
+    } as unknown as HassEntity)
+    renderCard(<SensorCard entityId="sensor.bare" tier="row" />, { showGraph: false })
+
+    // No unit, no device class, no name — the id, the number, and no throw.
+    expect(document.querySelector('.liebe-state')).toHaveTextContent('21.4')
+    expect(screen.getByText('sensor.bare')).toBeInTheDocument()
+  })
+
+  it('keeps the row meta-plus-value layout with the graph switched off', () => {
+    renderCard(<SensorCard entityId={ENTITY} tier="row" />, { showGraph: false })
+
+    expect(graphRegion()).toBeNull()
+    expect(document.querySelector('.liebe-state')).toHaveTextContent('21.4 °C')
+    expect(document.querySelector('.liebe-icon')).not.toBeNull()
+  })
+
+  it('drops the big value from the tall band under hideState', async () => {
+    renderCard(<SensorCard entityId={ENTITY} tier="tall" />, { hideState: true })
+    await drawn()
+
+    // The graph is not the state line, so it stays: `hideState` hides the
+    // reading, not the window it came from.
+    const band = document.querySelector('.liebe-card-body-fill')!
+    expect(band.querySelector('.liebe-value')).toBeNull()
+    expect(band.querySelector('.liebe-spark')).not.toBeNull()
+  })
+})
+
+describe('SensorCard re-render guard', () => {
+  beforeEach(() => seed(createSensorEntity()))
+
+  /**
+   * The card is memoized on entity id, tier, span and the three grid callbacks.
+   * A comparator that ignored one of them would pin a placed card to a stale
+   * prop — which is invisible until an editor selects a card and nothing
+   * happens.
+   */
+  it('re-renders for a changed selection and not for an identical render', () => {
+    // Selection is an edit-mode affordance, so that is where the flag is
+    // observable on the shell.
+    dashboardActions.setMode('edit')
+    const onSelect = vi.fn()
+    const { rerender } = renderCard(
+      <SensorCard entityId={ENTITY} tier="row" isSelected={false} onSelect={onSelect} />
+    )
+    const card = () => document.querySelector('.liebe-card')
+
+    // Identical props: every comparison in the chain is evaluated and holds.
+    rerender(
+      <Theme>
+        <HomeAssistantProvider
+          hass={createMockHomeAssistant({ callWS: callWS as HomeAssistant['callWS'] })}
+        >
+          <CardItemProvider>
+            <SensorCard entityId={ENTITY} tier="row" isSelected={false} onSelect={onSelect} />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(card()).not.toHaveAttribute('data-selected', 'true')
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider
+          hass={createMockHomeAssistant({ callWS: callWS as HomeAssistant['callWS'] })}
+        >
+          <CardItemProvider>
+            <SensorCard entityId={ENTITY} tier="row" isSelected onSelect={onSelect} />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(card()).toHaveAttribute('data-selected', 'true')
   })
 })

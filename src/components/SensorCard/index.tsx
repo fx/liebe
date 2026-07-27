@@ -68,9 +68,7 @@ const BAR_GRAPH_POINTS = 24
 const TREND_POINTS = 1
 
 // Get appropriate icon based on device class or entity domain
-const getSensorIcon = (entity: HassEntity) => {
-  const attributes = entity.attributes as SensorAttributes
-  const deviceClass = attributes.device_class
+const getSensorIcon = (deviceClass: string | undefined) => {
   // One glyph size at every tier. Tiers adapt what they contain, not how large
   // they draw it (docs/specs/design-system — "Size-adaptive layouts").
   const iconSize = '20'
@@ -102,7 +100,17 @@ const getSensorIcon = (entity: HassEntity) => {
   }
 }
 
-/** A string attribute, or nothing — attribute values are `unknown` by contract. */
+/**
+ * A string attribute, or nothing.
+ *
+ * Every attribute this card reads goes through here, and none of them is read
+ * off the cast `SensorAttributes` directly. The interface describes what Home
+ * Assistant normally sends, not what arrives: an attribute map is
+ * `Record<string, unknown>` on the wire, a custom template sensor can publish
+ * `unit_of_measurement: 5`, and an entity can carry no attributes at all. A
+ * card that trusted the cast would render `21.4 5` for the first and throw on
+ * the second.
+ */
 function readStringAttribute(entity: HassEntity | undefined, key: string): string | undefined {
   const value = (entity?.attributes as SensorAttributes | undefined)?.[key]
   return typeof value === 'string' ? value : undefined
@@ -177,29 +185,39 @@ function SensorCardComponent({
     return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
-  // Show error state when disconnected or entity not found
+  /*
+   * The one error state this read-only card can reach.
+   *
+   * The three-way version this replaces — "Entity Not Found" when the entity is
+   * missing but the connection is up — was unreachable, and had been since the
+   * skeleton above it: a missing entity on a live connection returns there, so
+   * every path that gets this far has `isConnected === false`. `useEntity`
+   * cannot tell "not loaded yet" from "does not exist" either way, which is why
+   * a card pointed at an entity this Home Assistant does not have holds its
+   * skeleton (the `UnknownEntity` story says so).
+   */
   if (!entity || !isConnected) {
     return (
       <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        error="Disconnected from Home Assistant"
         variant="card"
         tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
+        title="Disconnected"
+        onRetry={() => window.location.reload()}
       />
     )
   }
 
-  const attributes = entity.attributes as SensorAttributes
-  const friendlyName = attributes.friendly_name || entity.entity_id
-  const format = { deviceClass: attributes.device_class, unit: attributes.unit_of_measurement }
+  const deviceClass = readStringAttribute(entity, 'device_class')
+  const friendlyName = readStringAttribute(entity, 'friendly_name') || entity.entity_id
+  const format = { deviceClass, unit: readStringAttribute(entity, 'unit_of_measurement') }
   const formattedValue = formatSensorState(entity.state, format, options)
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
   // Sensors have no domain row of their own, so they take the generic colour
   // unless the user pinned one (options/common.md — `color`).
   const color = resolveCardColor(storedColor, 'default')
 
-  const icon = <GridCard.Icon>{getSensorIcon(entity)}</GridCard.Icon>
+  const icon = <GridCard.Icon>{getSensorIcon(deviceClass)}</GridCard.Icon>
   /*
    * The anatomy's big readout, so the figure is `tabular-nums` and does not
    * jitter as its digits change. The unit stays part of the formatted string

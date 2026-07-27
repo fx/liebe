@@ -167,6 +167,12 @@ describe('formatSensorState', () => {
     ['2026-07-27T10:00:00+00:00', '2026-07-27T10:00:00+00:00'],
     ['', ''],
     ['   ', ''],
+    // `Number('Infinity')` is a number, and it is not a reading. The shipped
+    // formatter reached `Math.round(Infinity).toString()` and printed
+    // `Infinity °C`.
+    ['Infinity', 'INFINITY'],
+    ['-Infinity', '-INFINITY'],
+    ['NaN', 'NAN'],
   ])('passes the non-numeric state %s through untouched', (state, expected) => {
     // Every option is set to something that would be visible if it applied: a
     // precision has nothing to round, and `°C` after `UNAVAILABLE` would read
