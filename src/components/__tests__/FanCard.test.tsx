@@ -226,6 +226,34 @@ describe('FanCard speed controls', () => {
     expect(screen.queryByLabelText('Select fan preset mode')).not.toBeInTheDocument()
   })
 
+  it.each(['row', 'tall', 'full'] as const)(
+    'renders no control at %s for a fan that reports no supported features',
+    (tier) => {
+      // Plenty of integrations omit `supported_features` altogether rather than
+      // publishing a zero. That fan supports neither speed nor presets, so no
+      // control belongs on it at any tier — not even the preset select, whose
+      // modes list is present here precisely to show the feature bit is what
+      // gates it.
+      vi.mocked(useEntity).mockReturnValue({
+        entity: {
+          ...entity,
+          attributes: {
+            friendly_name: 'Living Room Fan',
+            preset_modes: ['auto', 'sleep'],
+          },
+        } as HassEntity,
+        isConnected: true,
+        isLoading: false,
+        isStale: false,
+      })
+
+      render(<FanCard entityId="fan.living_room" tier={tier} />)
+
+      expect(screen.queryByRole('group', { name: 'Fan speed' })).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Select fan preset mode')).not.toBeInTheDocument()
+    }
+  )
+
   describe('status line', () => {
     const withEntity = (overrides: Partial<HassEntity>) => {
       vi.mocked(useEntity).mockReturnValue({
