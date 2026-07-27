@@ -4,6 +4,7 @@ import { Thermometer } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useCallback, useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
 import { GridCardWithComponents as GridCard } from './GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { CardState, CardValue, Pill, PillGroup } from './anatomy'
 import { SkeletonCard, ErrorDisplay } from './ui'
 import { useDashboardStore } from '~/store'
@@ -825,29 +826,19 @@ function ClimateCardComponent({
         title={error || undefined}
         className="climate-card"
       >
-        {isTall ? (
-          <Flex direction="column" align="center" gap="2" height="100%">
-            {compactIcon}
-            <Box flexGrow="1" style={{ display: 'flex', alignItems: 'center', minHeight: 0 }}>
-              {compactControls}
-            </Box>
-            {compactMeta}
-          </Flex>
-        ) : tier === 'glance' ? (
-          <Flex direction="column" align="center" justify="center" gap="2">
-            {compactIcon}
-            {compactMeta}
-            {compactControls}
-          </Flex>
-        ) : (
-          <Flex align="center" gap="3">
-            {compactIcon}
-            {compactMeta}
-            <Box flexGrow="1">
-              <Flex justify="end">{compactControls}</Flex>
-            </Box>
-          </Flex>
-        )}
+        {/*
+         * The stepper fills the band between icon and meta in `tall`, which is
+         * the axis that tier gives the card room on; everywhere else it stays
+         * the size of its two buttons and their readout — grown to a row's
+         * width it would float them apart.
+         */}
+        <CardBody
+          arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+          controlSize={isTall ? 'fill' : 'content'}
+          lead={compactIcon}
+          meta={compactMeta}
+          control={compactControls}
+        />
       </GridCard>
     )
   }
@@ -870,9 +861,22 @@ function ClimateCardComponent({
       title={error || undefined}
       className="climate-card"
     >
-      {/* No inner height floor: the shell owns it now, keyed on the tier
-          (`GridCard.css`), so a `glance` tile can actually be one cell tall
-          instead of being propped open from the inside. */}
+      {/*
+       * No inner height floor: the shell owns it now, keyed on the tier
+       * (`GridCard.css`), so a `glance` tile can actually be one cell tall
+       * instead of being propped open from the inside.
+       *
+       * And no `CardBody`, unlike the three compact tiers above. The dial is
+       * not the four-slot shape wearing a different arrangement: it replaces
+       * lead, meta and control with one composite surface that draws the name,
+       * the reading, the setpoint and the touch target as a single dial. There
+       * is nothing here for the slots to hold, so putting it behind `CardBody`
+       * would name a shape it does not have. Change 0017 replaces this layout
+       * outright — `full` becomes the compact stepper plus mode pills, with the
+       * dial behind `variant: dial` — and that is the change that decides which
+       * of the two shapes it ends up in
+       * (docs/specs/entity-cards/options/climate.md — "Tier layouts").
+       */}
       <Flex direction="column" align="center" gap="2">
         {/* Name */}
         <GridCard.Title className="climate-card-name">{friendlyName}</GridCard.Title>
