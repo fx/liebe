@@ -44,6 +44,7 @@ describe('InputNumberCard', () => {
 
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: vi.fn(),
@@ -253,6 +254,7 @@ describe('InputNumberCard', () => {
   it('shows loading state', () => {
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: vi.fn(),
@@ -278,6 +280,7 @@ describe('InputNumberCard', () => {
   it('shows error state', () => {
     vi.mocked(useServiceCall).mockReturnValue({
       callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
       toggle: vi.fn(),

@@ -53,7 +53,7 @@ function ButtonCardComponent({
   config,
 }: ButtonCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-  const { loading: isLoading, error, toggle, clearError } = useServiceCall()
+  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
   const { screens, currentScreenId } = useDashboardStore()
   const [configOpen, setConfigOpen] = useState(false)
 
@@ -122,7 +122,17 @@ function ButtonCardComponent({
       clearError()
     }
 
-    await toggle(entity.entity_id)
+    /*
+     * Guarded rather than the plain toggle: this card fronts `button`, `scene`
+     * and `script` as well as switches, and a retried or repeated
+     * `button.press` fires whatever the button is wired to twice
+     * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
+     */
+    await dispatchGuarded({
+      domain: entity.entity_id.split('.')[0],
+      service: 'toggle',
+      entityId: entity.entity_id,
+    })
   }
 
   return (

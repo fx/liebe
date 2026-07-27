@@ -23,7 +23,7 @@ vi.mock('~/store', () => ({
  * in `__tests__/controlCardTierLayouts.test.tsx`.
  */
 describe('CoverCard', () => {
-  const mockCallService = vi.fn()
+  const mockDispatchGuarded = vi.fn()
   const mockClearError = vi.fn()
   const mockOnDelete = vi.fn()
   const mockOnSelect = vi.fn()
@@ -45,7 +45,8 @@ describe('CoverCard', () => {
     ;(useServiceCall as any).mockReturnValue({
       loading: false,
       error: null,
-      callService: mockCallService,
+      callService: vi.fn(),
+      dispatchGuarded: mockDispatchGuarded,
       clearError: mockClearError,
     })
     ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
@@ -198,7 +199,7 @@ describe('CoverCard', () => {
       const openButton = screen.getByLabelText('Open cover')
       await userEvent.click(openButton)
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'open_cover',
         entityId: 'cover.test_cover',
@@ -221,7 +222,7 @@ describe('CoverCard', () => {
       const closeButton = screen.getByLabelText('Close cover')
       await userEvent.click(closeButton)
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'close_cover',
         entityId: 'cover.test_cover',
@@ -244,7 +245,7 @@ describe('CoverCard', () => {
       const stopButton = screen.getByLabelText('Stop cover')
       await userEvent.click(stopButton)
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'stop_cover',
         entityId: 'cover.test_cover',
@@ -404,7 +405,7 @@ describe('CoverCard', () => {
       fireEvent.keyUp(slider, { key: 'ArrowRight' })
 
       await waitFor(() => {
-        expect(mockCallService).toHaveBeenCalled()
+        expect(mockDispatchGuarded).toHaveBeenCalled()
       })
     })
 
@@ -468,7 +469,7 @@ describe('CoverCard', () => {
       expect(tiltButtons.length).toBeGreaterThan(0)
       await userEvent.click(tiltButtons[0])
 
-      expect(mockCallService).toHaveBeenCalledWith({
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
         domain: 'cover',
         service: 'open_cover_tilt',
         entityId: 'cover.test_cover',
@@ -499,7 +500,7 @@ describe('CoverCard', () => {
       fireEvent.keyUp(tiltSlider, { key: 'ArrowLeft' })
 
       await waitFor(() => {
-        expect(mockCallService).toHaveBeenCalled()
+        expect(mockDispatchGuarded).toHaveBeenCalled()
       })
     })
   })
@@ -576,7 +577,7 @@ describe('CoverCard', () => {
       await userEvent.click(screen.getByText('Test Cover').closest('.liebe-card')!)
 
       expect(mockOnSelect).toHaveBeenCalledWith(true)
-      expect(mockCallService).not.toHaveBeenCalled()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
     it('calls onDelete when delete button clicked', async () => {
@@ -608,7 +609,8 @@ describe('CoverCard', () => {
       ;(useServiceCall as any).mockReturnValue({
         loading: false,
         error: 'Service call failed',
-        callService: mockCallService,
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
         clearError: mockClearError,
       })
 
@@ -632,7 +634,8 @@ describe('CoverCard', () => {
       ;(useServiceCall as any).mockReturnValue({
         loading: true,
         error: null,
-        callService: mockCallService,
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
         clearError: mockClearError,
       })
 

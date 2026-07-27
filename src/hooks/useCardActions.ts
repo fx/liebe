@@ -4,15 +4,19 @@ import { hassService } from '../services/hassService'
 import { logger } from '../utils/logger'
 import { useHomeAssistantOptional } from '../contexts/HomeAssistantContext'
 import { dashboardActions, dashboardStore } from '../store/dashboardStore'
-import { entityStore } from '../store/entityStore'
 import {
-  ACKNOWLEDGEMENT_TIMEOUT_MS,
   DOUBLE_TAP_WINDOW_MS,
   HOLD_DURATION_MS,
   readCardAction,
   resolveCardAction,
   type ResolvedCardAction,
 } from '../store/cardActions'
+import {
+  ENTITY_MATCH_ALL,
+  ENTITY_MATCH_NONE,
+  resolveCommandTarget,
+  useGuardedDispatch,
+} from './useGuardedDispatch'
 import { readCardConfirm } from '../store/switchOptions'
 import type { ScreenConfig } from '../store/types'
 
@@ -80,10 +84,6 @@ export interface CardConfirmRequest {
 }
 
 const CONFIRMABLE_SERVICES: readonly string[] = ['toggle', 'turn_on', 'turn_off']
-
-/** Home Assistant's wildcard targets, which a payload may name instead of ids. */
-const ENTITY_MATCH_ALL = 'all'
-const ENTITY_MATCH_NONE = 'none'
 
 /**
  * Whether a `call-service` payload reaches this entity.
@@ -223,25 +223,16 @@ export function useCardActions({
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdFiredRef = useRef(false)
-  const pendingRef = useRef<{ command: string; until: number; lastUpdated?: string } | null>(null)
+  const guardedDispatch = useGuardedDispatch()
 
   /**
-   * Dispatch a consequential command, at most once until it is known to have
-   * landed.
+   * Dispatch a gesture's command through the shared at-most-once guard.
    *
-   * The gesture controller already fires once per gesture; this is the guard for
-   * the gesture *after* it. Home Assistant acknowledges before a slow
-   * integration updates state, so a card that reopened on promise resolution
-   * would let a second press through while the first was still in flight —
-   * which for `button.press`, a script, or a motor is the command running
-   * twice. The window reopens on whichever comes first: the entity's
-   * `last_updated` moving (it landed) or `ACKNOWLEDGEMENT_TIMEOUT_MS` elapsing
-   * (it may never move, and the card must not be stuck).
-   *
-   * Keyed by service *and* entity, not by entity alone: a different command on
-   * the same device is a different intent, and the one most likely to arrive
-   * while the first is still in flight is the inverse — stopping a cover that is
-   * moving too far. Blocking that would be the exact opposite of safe.
+   * The guard itself lives in `useGuardedDispatch` so that embedded controls can
+   * hold the same one — the dispatch guarantees are normative for controls as
+   * well as gestures, and keeping the guard private here is what left every
+   * card's sliders and pills on the retrying path. What remains here is the
+   * shell's own concern: what it owes a failed *action*.
    */
   const dispatchService = useCallback(
     (options: {
@@ -250,53 +241,25 @@ export function useCardActions({
       entityId?: string
       data?: Record<string, unknown>
     }) => {
-      // The effective target, not the card's: explicit `data.entity_id` wins at
-      // dispatch (`buildServiceData`), so watching the card's entity would watch
-      // the wrong thing move — a lively sensor would keep reopening the window
-      // on a `button.press` aimed elsewhere.
-      const explicit = options.data?.entity_id
-      const target = typeof explicit === 'string' ? explicit : options.entityId
-      const lastUpdatedOf = (id: string) => entityStore.state.entities[id]?.last_updated
-
-      if (target) {
-        // The payload is part of the command's identity: `set_cover_position` to
-        // 100 and to 0 are the same service and opposite intents, and the second
-        // is the reversal that must not be swallowed.
-        const command = `${options.domain}.${options.service}:${target}:${JSON.stringify(options.data ?? null)}`
-        const pending = pendingRef.current
-        if (
-          pending &&
-          pending.command === command &&
-          Date.now() < pending.until &&
-          lastUpdatedOf(target) === pending.lastUpdated
-        ) {
-          return
-        }
-        pendingRef.current = {
-          command,
-          until: Date.now() + ACKNOWLEDGEMENT_TIMEOUT_MS,
-          lastUpdated: lastUpdatedOf(target),
-        }
-      }
-
-      void hassService.callServiceOnce(options).then((result) => {
-        if (!result.success) {
+      void guardedDispatch(options).then((result) => {
+        // `null` is the guard refusing a repeat, which is not a failure.
+        if (result && !result.success) {
           // The card's own error surface belongs to whatever issued the command
           // — a control knows it is loading, the shell does not. What the shell
           // owes a failed *action* is that it not vanish silently.
           //
-          // The resolved target, for the same reason the pending window keys off
-          // it: a `call-service` action may aim at another entity entirely, and a
+          // The watched target, for the same reason the guard keys off it: a
+          // `call-service` action may aim at another entity entirely, and a
           // failure report naming the card's own entity points the person
           // diagnosing it at the wrong device.
           logger.error(
             `Card action ${options.domain}.${options.service} failed: ${result.error}`,
-            target
+            resolveCommandTarget(options.entityId, options.data).watch ?? options.entityId
           )
         }
       })
     },
-    []
+    [guardedDispatch]
   )
 
   /*

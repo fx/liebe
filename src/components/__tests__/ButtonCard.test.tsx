@@ -19,7 +19,7 @@ vi.mock('~/contexts/HomeAssistantContext', () => ({
 
 describe('ButtonCard', () => {
   const mockCallService = vi.fn()
-  const mockToggle = vi.fn()
+  const mockDispatchGuarded = vi.fn()
   const mockClearError = vi.fn()
   const mockEntity = {
     entity_id: 'light.living_room',
@@ -50,7 +50,8 @@ describe('ButtonCard', () => {
       callService: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
-      toggle: mockToggle,
+      toggle: vi.fn(),
+      dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
     })
@@ -123,18 +124,22 @@ describe('ButtonCard', () => {
       isLoading: false,
       isStale: false,
     })
-    mockToggle.mockResolvedValue({ success: true })
+    mockDispatchGuarded.mockResolvedValue({ success: true })
 
     render(<ButtonCard entityId="light.living_room" />)
 
     const card = screen.getByText('Living Room Light').closest('.liebe-card')
     await user.click(card!)
 
-    expect(mockToggle).toHaveBeenCalledWith('light.living_room')
+    expect(mockDispatchGuarded).toHaveBeenCalledWith({
+      domain: 'light',
+      service: 'toggle',
+      entityId: 'light.living_room',
+    })
     // Exactly once: the tile is the primary action and its handler
     // accepts any descendant target, so an anatomy part that forgot to
     // stop propagation would dispatch the service twice.
-    expect(mockToggle).toHaveBeenCalledTimes(1)
+    expect(mockDispatchGuarded).toHaveBeenCalledTimes(1)
   })
 
   it('should handle switch entities', async () => {
@@ -158,11 +163,15 @@ describe('ButtonCard', () => {
     const card = screen.getByText('Garage Door').closest('.liebe-card')
     await user.click(card!)
 
-    expect(mockToggle).toHaveBeenCalledWith('switch.garage_door')
+    expect(mockDispatchGuarded).toHaveBeenCalledWith({
+      domain: 'switch',
+      service: 'toggle',
+      entityId: 'switch.garage_door',
+    })
     // Exactly once: the tile is the primary action and its handler
     // accepts any descendant target, so an anatomy part that forgot to
     // stop propagation would dispatch the service twice.
-    expect(mockToggle).toHaveBeenCalledTimes(1)
+    expect(mockDispatchGuarded).toHaveBeenCalledTimes(1)
   })
 
   it('should handle input_boolean entities', async () => {
@@ -186,11 +195,15 @@ describe('ButtonCard', () => {
     const card = screen.getByText('Vacation Mode').closest('.liebe-card')
     await user.click(card!)
 
-    expect(mockToggle).toHaveBeenCalledWith('input_boolean.vacation_mode')
+    expect(mockDispatchGuarded).toHaveBeenCalledWith({
+      domain: 'input_boolean',
+      service: 'toggle',
+      entityId: 'input_boolean.vacation_mode',
+    })
     // Exactly once: the tile is the primary action and its handler
     // accepts any descendant target, so an anatomy part that forgot to
     // stop propagation would dispatch the service twice.
-    expect(mockToggle).toHaveBeenCalledTimes(1)
+    expect(mockDispatchGuarded).toHaveBeenCalledTimes(1)
   })
 
   it('should show loading state during service call', async () => {
@@ -208,7 +221,8 @@ describe('ButtonCard', () => {
       callService: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
-      toggle: mockToggle,
+      toggle: vi.fn(),
+      dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
     })
@@ -243,7 +257,8 @@ describe('ButtonCard', () => {
       callService: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
-      toggle: mockToggle,
+      toggle: vi.fn(),
+      dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
     })
@@ -277,7 +292,8 @@ describe('ButtonCard', () => {
       callService: vi.fn(),
       turnOn: vi.fn(),
       turnOff: vi.fn(),
-      toggle: mockToggle,
+      toggle: vi.fn(),
+      dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
     })
@@ -287,7 +303,7 @@ describe('ButtonCard', () => {
     const card = screen.getByText('Living Room Light').closest('.liebe-card')
     await user.click(card!)
 
-    expect(mockToggle).not.toHaveBeenCalled()
+    expect(mockDispatchGuarded).not.toHaveBeenCalled()
   })
 
   it('should render the entity name', () => {
