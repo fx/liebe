@@ -1,16 +1,20 @@
 # Card Options — Input Helpers
 
-Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here). **Status: implemented** by change [0022](../../../changes/0022-switch-input-helpers-to-spec.md) — the `controlStyle` options, the tier layouts below including the control-free `glance`, and the five helpers' controls in the detail dialog's domain control slot.
+Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here). **Status: implemented, except the `input_number` and `input_select` tap-to-focus primary actions.** Change [0022](../../../changes/0022-switch-input-helpers-to-spec.md) delivered the `controlStyle` options, the tier layouts below including the control-free `glance`, and the five helpers' controls in the detail dialog's domain control slot.
 
-This document covers the five input helper cards: `InputBooleanCard`, `InputNumberCard`, `InputSelectCard`, `InputTextCard`, and `InputDateTimeCard` (`src/components/Input{Boolean,Number,Select,Text,DateTime}Card.tsx`), registered for the `input_boolean`, `input_number`, `input_select`, `input_text`, and `input_datetime` domains respectively. All five exist today with no per-card configuration surface; this spec defines their target option surface. Input helpers are user-defined entities, so the cards MUST derive everything they can from the helper's own attributes (`min`/`max`/`step`/`mode`, `options`, `min`/`max`/`pattern`/`mode`, `has_date`/`has_time`) — options exist only to tune presentation, never to override what the helper allows (see [common conventions](./common.md#conventions-for-per-card-options), rule 3).
+**Implemented is not the same as met.** One rule this status calls shipped is not held, and the flip does not close it:
+
+- [#240](https://github.com/fx/liebe/issues/240) — [Primary action](#primary-action) specifies that `default` on an `input_number` tile focuses its value control and on an `input_select` tile opens the dropdown. At `row`, `tall` and `full` neither card does anything on tap. What IS held is the rest of that section: the `glance` fallback to `more-info` for all four non-boolean helpers, and `input_text`/`input_datetime` entering their inline edit state. So the section reads as met where two of its five rows are not.
+
+This document covers the five input helper cards: `InputBooleanCard`, `InputNumberCard`, `InputSelectCard`, `InputTextCard`, and `InputDateTimeCard` (`src/components/Input{Boolean,Number,Select,Text,DateTime}Card.tsx`), registered for the `input_boolean`, `input_number`, `input_select`, `input_text`, and `input_datetime` domains respectively. Three of the five carry a `controlStyle` option and all five carry the universal set; this document is the contract for both. Input helpers are user-defined entities, so the cards MUST derive everything they can from the helper's own attributes (`min`/`max`/`step`/`mode`, `options`, `min`/`max`/`pattern`/`mode`, `has_date`/`has_time`) — options exist only to tune presentation, never to override what the helper allows (see [common conventions](./common.md#conventions-for-per-card-options), rule 3).
 
 ## Primary action
 
 `tapAction: default` means, per domain:
 
 - **`input_boolean`** — **toggle** (`input_boolean.toggle` on the entity). The whole tile is the touch target, like a switch.
-- **`input_number`** — **focus the value control**: in tiers showing the stepper, focus the click-to-edit value field (entering edit state); in tiers showing the slider, focus the slider thumb. In `glance` (no embedded control), `default` MUST fall back to `more-info`, where the detail dialog exposes the full control.
-- **`input_select`** — **open the control**: open the dropdown (or, in pill presentation, focus the pill group). In `glance`, fall back to `more-info`.
+- **`input_number`** — **focus the value control**: in tiers showing the stepper, focus the click-to-edit value field (entering edit state); in tiers showing the slider, focus the slider thumb. In `glance` (no embedded control), `default` MUST fall back to `more-info`, where the detail dialog exposes the full control. **Not the build past `glance`** — the tap does nothing there ([#240](https://github.com/fx/liebe/issues/240)).
+- **`input_select`** — **open the control**: open the dropdown (or, in pill presentation, focus the pill group). In `glance`, fall back to `more-info`. **Not the build past `glance`**, as above ([#240](https://github.com/fx/liebe/issues/240)).
 - **`input_text`** — **focus the text field**, entering inline edit state. In `glance`, fall back to `more-info`.
 - **`input_datetime`** — **open the native date/time picker** on the embedded input. In `glance`, fall back to `more-info`.
 
@@ -126,7 +130,7 @@ Per the [design-system layout tiers](../../design-system/index.md#size-adaptive-
 
 ## References
 
-- Current implementations: `src/components/InputBooleanCard.tsx`, `src/components/InputNumberCard.tsx`, `src/components/InputSelectCard.tsx`, `src/components/InputTextCard.tsx`, `src/components/InputDateTimeCard.tsx` (no config surface today)
+- Current implementations: `src/components/InputBooleanCard.tsx`, `src/components/InputNumberCard.tsx`, `src/components/InputSelectCard.tsx`, `src/components/InputTextCard.tsx`, `src/components/InputDateTimeCard.tsx` — each also exporting the control it shares with the detail dialog, and registering it there
 - Baseline behavior: [entity-cards — Input helper cards](../index.md#input-helper-cards) · [card reference — Input helpers](../card-reference.md#input-helper-cards)
 - Shared contract and conventions: [common.md](./common.md)
 - Layout tiers, slider/pill anatomy, colors: [design-system](../../design-system/)
