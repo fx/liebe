@@ -20,6 +20,7 @@ import {
   readCoverDeviceClass,
 } from './CoverCard/presentation'
 import { isSecurityCover } from '~/store/coverOptions'
+import { readFanFeatures } from './FanCard/features'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
@@ -80,6 +81,10 @@ interface ContentProps {
  * - `cover-tilt` — the cover advertises at least one tilt bit.
  * - `security-cover` — the cover's `device_class` is one of the perimeter
  *   openings, the only ones `confirmOpen` is offered for.
+ * - `fan-speed` / `fan-oscillate` / `fan-direction` — the fan advertises the
+ *   matching capability bit.
+ * - `fan-presets` — the fan advertises `PRESET_MODE` **and** lists modes; the
+ *   bit without a list is a control with nothing in it.
  */
 export type ConfigOptionRequirement =
   | 'numeric'
@@ -87,6 +92,10 @@ export type ConfigOptionRequirement =
   | 'cover-position'
   | 'cover-tilt'
   | 'security-cover'
+  | 'fan-speed'
+  | 'fan-oscillate'
+  | 'fan-direction'
+  | 'fan-presets'
 
 // Configuration option types
 export interface ConfigOption {
@@ -439,6 +448,16 @@ function meetsRequirement(
   if (requires === 'cover-tilt') return coverSupportsTilt(entity?.attributes)
   if (requires === 'security-cover') {
     return isSecurityCover(readCoverDeviceClass(entity?.attributes))
+  }
+
+  if (requires.startsWith('fan-')) {
+    const features = readFanFeatures(entity?.attributes)
+    if (requires === 'fan-speed') return features.speed
+    if (requires === 'fan-oscillate') return features.oscillate
+    if (requires === 'fan-direction') return features.direction
+    return features.preset && Array.isArray(entity?.attributes?.preset_modes)
+      ? entity.attributes.preset_modes.length > 0
+      : false
   }
 
   if (!isNumericSensorEntity(entity)) return false

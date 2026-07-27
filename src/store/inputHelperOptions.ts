@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { configPredatesVersion } from './configVersion'
 
 /**
  * The input helpers' `controlStyle` option — which embedded control each helper
@@ -226,13 +227,7 @@ const LEGACY_CONTROL_STYLES: Readonly<Record<string, string>> = {
  * placed card is operated.
  */
 export function configPredatesControlStyle(version: unknown): boolean {
-  if (typeof version !== 'string') return true
-
-  const [major, minor] = version.split('.').map((part) => Number.parseInt(part, 10))
-  if (!Number.isFinite(major) || !Number.isFinite(minor)) return true
-
-  const [currentMajor, currentMinor] = CONTROL_STYLE_VERSION.split('.').map(Number)
-  return major < currentMajor || (major === currentMajor && minor < currentMinor)
+  return configPredatesVersion(version, CONTROL_STYLE_VERSION)
 }
 
 /**

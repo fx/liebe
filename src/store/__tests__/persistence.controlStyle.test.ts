@@ -135,9 +135,11 @@ describe('controlStyle legacy pinning', () => {
   it('leaves a newer *minor* version alone too', () => {
     // The compatibility gate is major-only, so this document is accepted — and
     // is exactly the case an unconditional stamp would silently downgrade.
-    store('1.2.0', [item('input_number.volume')])
+    // Comfortably past every marker this build knows: `1.2.0` is the fan
+    // migration's own, so it would no longer be testing a *newer* document.
+    store('1.5.0', [item('input_number.volume')])
 
-    expect(loadDashboardConfig()?.version).toBe('1.2.0')
+    expect(loadDashboardConfig()?.version).toBe('1.5.0')
   })
 
   it('survives the shapes a hand-edited document can carry', () => {
