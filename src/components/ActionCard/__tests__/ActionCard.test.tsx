@@ -220,6 +220,16 @@ describe('the unknown-versus-unavailable rule', () => {
  * only evidence that anything happened — correctness, not decoration.
  */
 describe('activation feedback', () => {
+  it('holds the check for the ~1.5s the spec names', () => {
+    /*
+     * The literal, pinned separately from the sequencing cases below. Those read
+     * the hold out of the same constant they are checking, so on its own a
+     * shortened hold would move the code and the expectation together and no
+     * assertion would notice.
+     */
+    expect(ACTIVATION_CHECK_HOLD_MS).toBe(1500)
+  })
+
   it('runs icon → spinner → check → icon, holding the check ~1.5s', async () => {
     /*
      * Driven by explicit timer advances rather than `waitFor`. `waitFor` under
