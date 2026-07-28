@@ -165,7 +165,7 @@ changes:
     path: changes/0017-climate-card-to-spec.md
     description: Climate card domain options — dial/compact variants, mode/preset/fan pills, humidity display, display-unit conversion, and the arc-thermostat file split
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0018'
     name: sensor-cards-to-spec
