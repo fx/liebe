@@ -11,12 +11,12 @@ import { weatherForecastService } from '~/services/weatherForecast'
 import { WEATHER_VARIANTS } from '~/store/weatherOptions'
 import {
   createDailyForecast,
+  createForecastResponse,
   createHourlyForecast,
   createTwiceDailyForecast,
   seedWeatherForecast,
 } from '~/test/fixtures'
 import { deriveDailyFromTwiceDaily, parseForecastResponse } from '~/services/forecastData'
-import { createForecastResponse } from '~/test/fixtures'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan } from '~/utils/cardTier'
 import { WeatherCard } from '..'

@@ -1,6 +1,15 @@
 import { createElement } from 'react'
 import { Flex, Text } from '@radix-ui/themes'
-import { useWeatherForecast } from '~/hooks'
+/*
+ * The same specifier the rest of this folder uses for `src/hooks`, not the
+ * `~/hooks` alias. One module reached two ways is two module ids: a test that
+ * mocks one path leaves the other live, and a bundler can end up instantiating
+ * both. That last part is not hypothetical here — `useWeatherForecast` fronts a
+ * per-entity cache with its own refresh timers, so a second instance would mean
+ * a second cache, a second timer, and a strip disagreeing with everything else
+ * reading the same forecast.
+ */
+import { useWeatherForecast } from '../../hooks'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { WeatherOptions } from '~/store/weatherOptions'
 import { formatTemperature, getConditionGlyph, getWeatherTextStyles } from './presentation'

@@ -8,9 +8,8 @@ import {
   toForecastColumn,
 } from '../forecastPresentation'
 import { WEATHER_OPTION_DEFAULTS, type WeatherOptions } from '~/store/weatherOptions'
-import { parseForecastResponse } from '~/services/forecastData'
+import { parseForecastResponse, type ForecastEntry } from '~/services/forecastData'
 import { createDailyForecast, createForecastResponse, createHourlyForecast } from '~/test/fixtures'
-import type { ForecastEntry } from '~/services/forecastData'
 
 /**
  * The forecast layout rules, as pure functions.
@@ -203,19 +202,52 @@ describe('toForecastColumn', () => {
 })
 
 describe('forecastColumnLabel', () => {
-  it('names an hour and a weekday from the entry’s own instant', () => {
-    // Built in local time so the assertion holds wherever the suite runs; the
-    // rendering itself is the viewer's locale, which is either clock.
-    const at = new Date(2026, 6, 25, 14, 0).getTime()
+  /*
+   * A label is rendered in the VIEWER's locale, so no assertion here may name
+   * the glyphs it comes out as: `2 PM` and `Sat` are one locale's answer, and a
+   * test asserting them passes on this machine and fails on a runner whose ICU
+   * default is not English — or is not Latin at all.
+   *
+   * What can be asserted in any locale is the PROPERTY the formatting choice
+   * gives the label, which is also the thing worth pinning. Both are periodic:
+   * an hour label repeats every 24 hours and changes every hour, a weekday
+   * label repeats every 7 days and changes every day. That distinguishes
+   * `hour: 'numeric'` from a full timestamp and `weekday: 'short'` from a
+   * calendar date — which "looks like two to five Latin letters" never did.
+   *
+   * Dates are built with the local calendar constructor rather than by adding
+   * milliseconds, so a DST transition inside the window cannot shift the local
+   * hour out from under the claim.
+   */
+  const at = (year: number, month: number, day: number, hour: number) =>
+    new Date(year, month, day, hour, 0).getTime()
 
-    expect(forecastColumnLabel(at, 'hourly')).toMatch(/^(14|2\s?PM)$/i)
-    expect(forecastColumnLabel(at, 'daily')).toMatch(/^[A-Za-z.]{2,5}$/)
+  it('labels an hour by its hour, so it repeats daily and changes hourly', () => {
+    const twoPm = forecastColumnLabel(at(2026, 6, 25, 14), 'hourly')
+
+    expect(twoPm).toBeDefined()
+    // The same hour on another day is the same label…
+    expect(forecastColumnLabel(at(2026, 6, 26, 14), 'hourly')).toBe(twoPm)
+    // …the next hour is not…
+    expect(forecastColumnLabel(at(2026, 6, 25, 15), 'hourly')).not.toBe(twoPm)
+    // …and minutes are below the granularity the strip labels.
+    expect(forecastColumnLabel(at(2026, 6, 25, 14) + 59 * 60_000, 'hourly')).toBe(twoPm)
+  })
+
+  it('labels a day by its weekday, so it repeats weekly and changes daily', () => {
+    const saturday = forecastColumnLabel(at(2026, 6, 25, 12), 'daily')
+
+    expect(saturday).toBeDefined()
+    // Seven days on is the same weekday and therefore the same label, which a
+    // date-based label would fail.
+    expect(forecastColumnLabel(at(2026, 6, 25 + 7, 12), 'daily')).toBe(saturday)
+    // The hour is below the granularity a day column labels.
+    expect(forecastColumnLabel(at(2026, 6, 25, 23), 'daily')).toBe(saturday)
   })
 
   it('gives consecutive periods distinct labels', () => {
-    const day = new Date(2026, 6, 25, 12, 0).getTime()
     const labels = [0, 1, 2].map((offset) =>
-      forecastColumnLabel(day + offset * 86_400_000, 'daily')
+      forecastColumnLabel(at(2026, 6, 25 + offset, 12), 'daily')
     )
 
     expect(new Set(labels).size).toBe(3)
