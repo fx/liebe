@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
+import { actionOptionsConfigSchema } from './actionOptions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cameraOptionsConfigSchema } from './cameraOptions'
 import { climateOptionsConfigSchema } from './climateOptions'
@@ -91,8 +92,23 @@ const gridItemSchema = z
     // (docs/specs/entity-cards/options/weather.md). Its `variant` stays out for
     // the same reason the climate card's does — one shared item shape, two
     // domains, two different sets of legal values.
+    // The action-family keys join them because `confirm` is the only thing
+    // standing between an accidental tap and a script that resets every device
+    // in the house: `confirm: "true"` is a string, so a reader that fell back to
+    // the default would leave a card its author asked to gate dispatching
+    // unguarded (docs/specs/entity-cards/options/scene.md — "`confirm`").
+    //
+    // NOTE on overlapping keys: `.merge()` is LAST-ONE-WINS, so a key declared
+    // by two fragments is governed by whichever is merged later here — for both
+    // families, silently. `confirm` is offered by the switch and action families
+    // alike and is therefore declared once, in `./confirmOption`, which both
+    // fragments merge; the duplicate below is the same object, so the order of
+    // these lines cannot change what `confirm` accepts. Any future key added to
+    // two fragments needs the same treatment or an explicit decision recorded
+    // here — `stateLabels` is what happens without one (see `./confirmOption`).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
+      .merge(actionOptionsConfigSchema)
       .merge(switchOptionsConfigSchema)
       .merge(inputHelperOptionsConfigSchema)
       .merge(sensorOptionsConfigSchema)

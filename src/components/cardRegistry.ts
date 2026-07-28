@@ -18,6 +18,7 @@ import { InputNumberCard } from './InputNumberCard'
 import { InputSelectCard } from './InputSelectCard'
 import { InputTextCard } from './InputTextCard'
 import { InputDateTimeCard } from './InputDateTimeCard'
+import { ActionCard } from './ActionCard'
 
 // Card props interface that all cards must implement
 export interface CardProps {
@@ -77,6 +78,17 @@ const registeredCards = {
   input_select: InputSelectCard,
   input_text: InputTextCard,
   input_datetime: InputDateTimeCard,
+  /*
+   * Four entries, one component. The action family's domains differ only in
+   * which service a tap calls, so splitting them into three near-identical cards
+   * would split the option surface, the stories and the tests with them
+   * (docs/specs/entity-cards/options/scene.md — "One family card, not three").
+   * This mirrors how `switch` and the fallback already share `ButtonCard`.
+   */
+  scene: ActionCard,
+  script: ActionCard,
+  button: ActionCard,
+  input_button: ActionCard,
 } satisfies Record<MappedCardDomain, CardComponent>
 
 // Global domain-to-card mapping

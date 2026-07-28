@@ -1,0 +1,60 @@
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  @keyframes action-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /*
+   * The in-flight spinner (docs/specs/entity-cards/options/scene.md —
+   * "Activation feedback").
+   */
+  .liebe-action-spin {
+    display: inline-flex;
+    animation: action-spin 1s linear infinite;
+  }
+
+  /*
+   * The icon → spinner → check → icon swaps, at the design system's ~280ms
+   * ease-out for a state-driven change (docs/specs/design-system — "Motion").
+   * The circle's own tint transition is the anatomy's; this is the glyph's.
+   */
+  .action-card .liebe-icon > * {
+    transition: opacity 280ms ease-out;
+  }
+
+  /*
+   * The reduced-motion gate lives here, in the sheet, and not in the component
+   * that decides what to render. That placement is the guarantee: no option and
+   * no regression in the card's logic can switch the animation back on.
+   *
+   * What is dropped is the spinner's rotation and the swap transition — both
+   * decoration. What survives is the sequence itself: the spinner glyph still
+   * stands in while the call is in flight, and the success check still appears
+   * and still holds its ~1.5s, because for an entity with no observable state
+   * change the check is the tap's only evidence that anything happened. It is
+   * essential feedback, not decoration, which is why reduced motion shortens
+   * nothing here (scene.md — "Activation feedback").
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .liebe-action-spin {
+      animation: none;
+    }
+
+    .action-card .liebe-icon > * {
+      transition: none;
+    }
+  }
+}

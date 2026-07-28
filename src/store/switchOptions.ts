@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CONFIRM_DEFAULT, confirmOptionSchema, confirmOptionsConfigSchema } from './confirmOption'
 
 /**
  * The switch/fallback card's option contract — the persisted shape of
@@ -45,7 +46,7 @@ export type SwitchOptionKey = (typeof SWITCH_OPTION_KEYS)[number]
  * defaults to "leave the card as it was before the option existed".
  */
 export const SWITCH_OPTION_DEFAULTS: Readonly<SwitchCardOptions> = {
-  confirm: false,
+  confirm: CONFIRM_DEFAULT,
   deviceClassIcon: true,
   stateLabels: { onLabel: '', offLabel: '' },
   showLastChanged: false,
@@ -58,17 +59,26 @@ const stateLabelsSchema = z
   })
   .strict()
 
-/** The switch-key fragment of `item.config`, merged into the item schema. */
-export const switchOptionsConfigSchema = z.object({
-  confirm: z.boolean().optional(),
-  deviceClassIcon: z.boolean().optional(),
-  stateLabels: stateLabelsSchema.optional(),
-  showLastChanged: z.boolean().optional(),
-})
+/**
+ * The switch-key fragment of `item.config`, merged into the item schema.
+ *
+ * `confirm` comes from the shared gate fragment rather than being declared here:
+ * the action family offers the same option, and `configSchema.ts` merges both
+ * fragments into one schema where `zod.merge()` is last-one-wins. Merging the
+ * same object is what stops the two from ever governing each other
+ * (see `./confirmOption`).
+ */
+export const switchOptionsConfigSchema = z
+  .object({
+    deviceClassIcon: z.boolean().optional(),
+    stateLabels: stateLabelsSchema.optional(),
+    showLastChanged: z.boolean().optional(),
+  })
+  .merge(confirmOptionsConfigSchema)
 
 /** Per-key schemas, so one bad value costs only its own key. */
 const switchKeySchemas: Readonly<Record<SwitchOptionKey, z.ZodTypeAny>> = {
-  confirm: z.boolean(),
+  confirm: confirmOptionSchema,
   deviceClassIcon: z.boolean(),
   stateLabels: stateLabelsSchema,
   showLastChanged: z.boolean(),
@@ -106,18 +116,6 @@ export function readSwitchOptions(config: Record<string, unknown> | undefined): 
     },
     showLastChanged: read('showLastChanged'),
   }
-}
-
-/**
- * Whether this card's actions are confirmation-gated.
- *
- * Its own reader because the gate lives in the shell's gesture controller — the
- * only place that sees an action *after* resolution, and therefore the only
- * place a re-routed toggle cannot slip past (switch.md — "`confirm`"). The shell
- * has no business reading the rest of a card's options.
- */
-export function readCardConfirm(config: Record<string, unknown> | undefined): boolean {
-  return readSwitchOptions(config).confirm
 }
 
 /**

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  readCardConfirm,
   readSwitchOptions,
   resolveSwitchStateLabel,
   SWITCH_OPTION_DEFAULTS,
@@ -61,14 +60,6 @@ describe('readSwitchOptions', () => {
     expect(readSwitchOptions({ stateLabels: { onLabel: 'On', extra: 'x' } }).stateLabels).toEqual(
       SWITCH_OPTION_DEFAULTS.stateLabels
     )
-  })
-})
-
-describe('readCardConfirm', () => {
-  it('answers the shell without it reading the rest of the card’s options', () => {
-    expect(readCardConfirm({ confirm: true })).toBe(true)
-    expect(readCardConfirm({ confirm: false })).toBe(false)
-    expect(readCardConfirm(undefined)).toBe(false)
   })
 })
 

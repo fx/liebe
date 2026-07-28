@@ -41,7 +41,7 @@ export interface LiebeStoryParameters {
    * which is how control cards reach their error state through their normal
    * hooks. Default `'success'`.
    */
-  serviceCall?: 'success' | 'error'
+  serviceCall?: 'success' | 'error' | 'pending'
   /** Message the rejected service call fails with. */
   serviceCallError?: string
   /**
