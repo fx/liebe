@@ -2,7 +2,7 @@
 
 Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) (universal options are not repeated here).
 
-**Status: implemented** by change [0027](../../../changes/0027-scene-cards.md) PR 1, on the tier layouts change [0011](../../../changes/0011-layout-tiers.md) laid down and the universal option surface [0014](../../../changes/0014-universal-card-options.md) provides. Both option keys below are live, edited from the shared configuration form. Implementing it fixed a defect these four domains had shipped with: they resolved through the registry fallback, which dispatches `<domain>.toggle` — and `scene.toggle`, `button.toggle` and `input_button.toggle` are not registered services, so Home Assistant answered HTTP 400 and every tap on one of those cards did nothing. Only `script.toggle` exists, so three of the four were hard-failing rather than all four. The replacement map was established by querying a running instance's service registry, not by transcribing this document. See [entity-cards — Scene, script and button](../index.md#scene-script-and-button) for the card-level requirements.
+**Status: implemented** by change [0027](../../../changes/0027-scene-cards.md) PR 1. Both option keys below are live, edited from the shared configuration form. See [entity-cards — Scene, script and button](../index.md#scene-script-and-button) for the card-level requirements.
 
 This document specifies one **action card family** covering four domains: `scene`, `script`, `button`, and `input_button`.
 
