@@ -5,7 +5,8 @@ import { z } from 'zod'
 import { confirmOptionsConfigSchema } from '../confirmOption'
 
 /**
- * No two card families may declare the same key in the item config schema.
+ * No two card families may declare the same key in the item config schema with
+ * DIFFERENT schemas.
  *
  * `configSchema.ts` merges one fragment per card family into a single
  * `item.config` shape, and `zod.merge()` is **last-one-wins**: a key declared by
@@ -24,12 +25,19 @@ import { confirmOptionsConfigSchema } from '../confirmOption'
  * card families to this same flat namespace; it is worth most in the window
  * before they land.
  *
- * **What counts as a collision.** Two per-family fragments declaring one key
- * with DIFFERENT schemas. Where both declare it identically the merge is a
- * no-op and nothing is silently governed — `deviceClassIcon` (switch/cover) and
- * `showPresets` (climate/fan) are in that position today, and are left passing
- * deliberately. They are one type change away from being #254, and that change
- * is the moment this test fires.
+ * **Where this guard stops, stated plainly**, because a guard believed to cover
+ * more than it does is worse than none. Two families declaring one key
+ * IDENTICALLY pass. The merge is then a no-op and no family's validation is
+ * quietly replaced by another's, which is the defect being guarded — but it is
+ * NOT a claim that the key is well named or that the two families mean the same
+ * thing by it. `showPresets` is the live illustration: climate means HVAC preset
+ * modes, fan means `preset_modes`, the key is already semantically overloaded,
+ * and only the accident of both being an optional boolean keeps it green here.
+ * `deviceClassIcon` (switch/cover) is the same. Both are one type change from
+ * being #254, and that change is the moment this test fires.
+ *
+ * So: this catches a family's schema being silently overridden. It does not
+ * catch two families sharing a name. Nothing here does.
  */
 
 /**
@@ -96,11 +104,28 @@ function readMergedFragments(): { name: string; module: string }[] {
   })
 }
 
-/** One store module, through the glob above. */
-async function loadModule(module: string): Promise<Record<string, z.AnyZodObject>> {
-  const loader = storeModules[`../${module}.ts`]
-  if (!loader) throw new Error(`no store module found for ./${module}`)
-  return loader()
+/**
+ * Every merged fragment, loaded and checked.
+ *
+ * One function rather than a loader each test drives itself: the point of this
+ * file is failures that name what broke and where, so a fragment that stops
+ * exporting its schema has to say which module and which export — not die of a
+ * bare `TypeError` in the test whose job is naming things.
+ */
+async function loadFragments(): Promise<{ name: string; shape: z.ZodRawShape }[]> {
+  return Promise.all(
+    readMergedFragments().map(async ({ name, module }) => {
+      const loader = storeModules[`../${module}.ts`]
+      if (!loader) throw new Error(`configSchema.ts imports ./${module}, which does not exist`)
+
+      const schema = (await loader())[name]
+      if (!schema?.shape) {
+        throw new Error(`${module}.ts does not export a zod object named ${name}`)
+      }
+
+      return { name, shape: schema.shape }
+    })
+  )
 }
 
 /**
@@ -196,14 +221,7 @@ function report(collisions: Collision[]): string {
 
 describe('the item config schema', () => {
   it('declares every per-family key in exactly one family', async () => {
-    const fragments = await Promise.all(
-      readMergedFragments().map(async ({ name, module }) => {
-        const schema = (await loadModule(module))[name]
-        if (!schema?.shape)
-          throw new Error(`${module}.ts does not export a zod object named ${name}`)
-        return { name, shape: schema.shape }
-      })
-    )
+    const fragments = await loadFragments()
 
     /*
      * The parse is the part of this guard most likely to rot silently: a merge
@@ -234,12 +252,7 @@ describe('the item config schema', () => {
      * report a NEW collision here as well as in the real check, so one defect
      * would fail two tests and neither name would mean what it says.
      */
-    const fragments = await Promise.all(
-      readMergedFragments().map(async ({ name, module }) => ({
-        name,
-        shape: (await loadModule(module))[name].shape,
-      }))
-    )
+    const fragments = await loadFragments()
 
     const found = new Set(findCollisions(fragments).map((collision) => collision.key))
 
