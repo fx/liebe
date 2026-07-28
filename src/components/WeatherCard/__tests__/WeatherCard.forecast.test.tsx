@@ -426,6 +426,24 @@ describe('what a column says', () => {
     expect(nightOnly.textContent?.match(/°C/g)).toHaveLength(1)
   })
 
+  it('takes the theme’s colours when the card paints no artwork', () => {
+    // The strip sits over condition artwork on most cards, where its text goes
+    // white; on a flat card it must NOT, or a light theme would render it
+    // white-on-white. Both halves of that treatment ship together.
+    seedBothForecasts()
+    renderWeather({
+      span: { width: 4, height: 3 },
+      config: { showConditionBackground: false },
+    })
+
+    const white = Array.from(strip('hourly')!.querySelectorAll<HTMLElement>('[style]')).filter(
+      (node) => node.style.color === 'white'
+    )
+
+    expect(columns('hourly')).toHaveLength(4)
+    expect(white).toHaveLength(0)
+  })
+
   it('carries no interactive control, so a tap falls through to the card', () => {
     seedBothForecasts()
     renderWeather({ span: { width: 4, height: 3 } })
