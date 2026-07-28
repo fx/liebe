@@ -86,6 +86,13 @@ describe('migrateWeatherCardConfig', () => {
     expect(migrateWeatherCardConfig(config)).toBe(config)
   })
 
+  it('turns an absent config into an empty one', () => {
+    // Both callers always have an object; taking `undefined` here is what keeps
+    // the guard out of each of them, where it would be a branch no route
+    // reaches.
+    expect(migrateWeatherCardConfig(undefined)).toEqual({})
+  })
+
   it('carries a value it does not recognise through the rename', () => {
     // Resolving what a variant name MEANS is the card's job at render; the
     // loader's job is only that the value ends up under the current key.

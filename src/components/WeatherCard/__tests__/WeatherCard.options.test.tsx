@@ -267,6 +267,98 @@ describe('secondaryInfo', () => {
   })
 })
 
+describe('entities that report less than a weather card expects', () => {
+  /*
+   * Every case here is a real Home Assistant shape rather than a hypothetical:
+   * an integration that publishes a condition and nothing else, one whose
+   * entity has no friendly name, and one that has gone unavailable. All four
+   * variants have to survive each of them, because the variant is the user's
+   * choice and the entity's shape is not.
+   */
+
+  it('renders with neither a temperature nor a secondary reading', () => {
+    seed(makeEntity('rainy', { friendly_name: 'Home Weather' }))
+
+    for (const variant of WEATHER_VARIANTS) {
+      const { unmount } = renderCard(
+        <WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />
+      )
+
+      // The name and the condition are all that is left, and nothing invented
+      // stands in for the rest.
+      expect(screen.getByText('Home Weather')).toBeInTheDocument()
+      expect(card().textContent).not.toMatch(/undefined|NaN|°C/)
+      unmount()
+    }
+  })
+
+  it('names a card by its entity id when the entity has no friendly name', () => {
+    seed(makeEntity('rainy', { ...ATTRIBUTES, friendly_name: undefined }))
+
+    for (const variant of WEATHER_VARIANTS) {
+      const { unmount } = renderCard(
+        <WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />
+      )
+
+      expect(screen.getByText(ENTITY)).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('reports an unavailable entity, named or not', () => {
+    for (const state of ['unavailable', 'unknown']) {
+      for (const variant of WEATHER_VARIANTS) {
+        seed(makeEntity(state))
+        const { unmount } = renderCard(
+          <WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />
+        )
+
+        expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+        expect(screen.getByText('Home Weather')).toBeInTheDocument()
+        unmount()
+
+        seed(makeEntity(state, { ...ATTRIBUTES, friendly_name: undefined }))
+        const second = renderCard(<WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />)
+
+        expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+        expect(screen.getByText(ENTITY)).toBeInTheDocument()
+        second.unmount()
+      }
+    }
+  })
+
+  it('keeps the token colours at row when the condition maps to no artwork', () => {
+    // The other side of the treatment branch at a tier that is not `full`: the
+    // compact readout takes theme colours rather than the white-over-artwork
+    // ones.
+    seed(makeEntity('exceptional'))
+
+    for (const variant of WEATHER_VARIANTS) {
+      const { unmount } = renderCard(
+        <WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />
+      )
+
+      expect(card().style.backgroundImage).toBe('')
+      expect(hasWhiteTextTreatment()).toBe(false)
+      unmount()
+    }
+  })
+
+  it('does not list the detailed variant’s pressure twice when it is featured', () => {
+    renderCard(
+      <WeatherCard
+        entityId={ENTITY}
+        tier="full"
+        config={{ variant: 'detailed', secondaryInfo: 'pressure' }}
+      />
+    )
+
+    // `detailed` appends pressure to the `full` detail line as its own third
+    // data point, so featuring it has to deduplicate rather than repeat it.
+    expect(screen.getAllByText('1013 hPa')).toHaveLength(1)
+  })
+})
+
 describe('every variant at every tier', () => {
   /*
    * The composition rule the option doc states: variant and tier are

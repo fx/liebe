@@ -116,9 +116,17 @@ const WEATHER_VARIANT_KEY = 'variant'
  * `enableBrightness` rename: a rename has no default to pin, so there is no new
  * card for an absence to wrongly rewrite.
  *
- * Returns the config unchanged, by reference, when nothing applies.
+ * Returns the config unchanged, by reference, when nothing applies. An absent
+ * config becomes an empty one rather than a second `undefined` for callers to
+ * branch on: this runs on both the load path (where a stored item always has a
+ * config object) and the save path (where the modal always sends one), and a
+ * guard in each caller would be two untestable branches instead of one tested
+ * here.
  */
-export function migrateWeatherCardConfig(config: Record<string, unknown>): Record<string, unknown> {
+export function migrateWeatherCardConfig(
+  config: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (config === undefined) return {}
   if (!Object.prototype.hasOwnProperty.call(config, LEGACY_WEATHER_PRESET_KEY)) return config
 
   const { [LEGACY_WEATHER_PRESET_KEY]: legacy, ...rest } = config

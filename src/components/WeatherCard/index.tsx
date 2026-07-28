@@ -54,10 +54,10 @@ export function WeatherCard(props: CardProps) {
         // Saving is the other half of the rename the loader performs on the way
         // in: a card edited here is written back under the current key, so the
         // legacy one leaves the document the first time it is configured.
-        if (updates.config) {
-          updates = { ...updates, config: migrateWeatherCardConfig(updates.config) }
-        }
-        dashboardActions.updateGridItem(currentScreenId, props.item.id, updates)
+        dashboardActions.updateGridItem(currentScreenId, props.item.id, {
+          ...updates,
+          config: migrateWeatherCardConfig(updates.config),
+        })
       }
     }
   }
