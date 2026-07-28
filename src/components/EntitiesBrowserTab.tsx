@@ -58,6 +58,8 @@ const getFriendlyDomain = (domain: string): string => {
     input_select: 'Input Select',
     input_datetime: 'Input DateTime',
     weather: 'Weather',
+    button: 'Buttons',
+    input_button: 'Input Buttons',
   }
   return domainMap[domain] || domain.charAt(0).toUpperCase() + domain.slice(1)
 }
@@ -89,6 +91,11 @@ const SUPPORTED_DOMAINS = [
   'input_select',
   'input_text',
   'input_datetime',
+  // The action family (change 0027).
+  'scene',
+  'script',
+  'button',
+  'input_button',
 ]
 
 export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProps) {

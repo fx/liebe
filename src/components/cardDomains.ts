@@ -27,6 +27,14 @@ export const MAPPED_CARD_DOMAINS = [
   'input_select',
   'input_text',
   'input_datetime',
+  // The action family (change 0027): four domains, one card. They were the
+  // fallback's worst case — `ButtonCard` dispatches `<domain>.toggle`, which
+  // exists on none of `scene`, `button` or `input_button` — so mapping them is a
+  // bugfix, not a new control surface.
+  'scene',
+  'script',
+  'button',
+  'input_button',
 ] as const
 
 export type MappedCardDomain = (typeof MAPPED_CARD_DOMAINS)[number]

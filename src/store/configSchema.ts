@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
+import { actionOptionsConfigSchema } from './actionOptions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cameraOptionsConfigSchema } from './cameraOptions'
 import { climateOptionsConfigSchema } from './climateOptions'
@@ -84,8 +85,14 @@ const gridItemSchema = z
     // style no build has, and swallowing it would leave a card silently on the
     // slider while its document says otherwise
     // (docs/specs/entity-cards/options/fan.md).
+    // The action-family keys join them because `confirm` is the only thing
+    // standing between an accidental tap and a script that resets every device
+    // in the house: `confirm: "true"` is a string, so a reader that fell back to
+    // the default would leave a card its author asked to gate dispatching
+    // unguarded (docs/specs/entity-cards/options/scene.md — "`confirm`").
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
+      .merge(actionOptionsConfigSchema)
       .merge(switchOptionsConfigSchema)
       .merge(inputHelperOptionsConfigSchema)
       .merge(sensorOptionsConfigSchema)
