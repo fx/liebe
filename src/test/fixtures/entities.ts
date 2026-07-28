@@ -277,6 +277,54 @@ export function createInputDateTimeEntity(overrides: EntityOverrides = {}): Hass
   )
 }
 
+/*
+ * The action family (change 0027). Three of the four carry their last activation
+ * as the *state* — an ISO timestamp, or `unknown` until the first activation —
+ * which is why these default to a real timestamp rather than to `on`/`off`.
+ * `script` is the odd one: it reports `on`/`off` and carries `last_triggered` as
+ * an attribute.
+ */
+export function createSceneEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'scene.movie_night',
+    '2026-07-25T11:00:00.000Z',
+    { friendly_name: 'Movie Night', entity_id: ['light.living_room'] },
+    overrides
+  )
+}
+
+export function createScriptEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'script.water_garden',
+    'off',
+    {
+      friendly_name: 'Water Garden',
+      last_triggered: '2026-07-25T10:00:00.000Z',
+      mode: 'single',
+      current: 0,
+    },
+    overrides
+  )
+}
+
+export function createButtonEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'button.restart_bridge',
+    '2026-07-25T11:30:00.000Z',
+    { friendly_name: 'Restart Bridge' },
+    overrides
+  )
+}
+
+export function createInputButtonEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'input_button.doorbell_test',
+    '2026-07-25T09:00:00.000Z',
+    { friendly_name: 'Doorbell Test' },
+    overrides
+  )
+}
+
 /** Every domain factory, keyed by the domain it serves. */
 export const entityFactories = {
   light: createLightEntity,
@@ -293,6 +341,10 @@ export const entityFactories = {
   input_select: createInputSelectEntity,
   input_text: createInputTextEntity,
   input_datetime: createInputDateTimeEntity,
+  scene: createSceneEntity,
+  script: createScriptEntity,
+  button: createButtonEntity,
+  input_button: createInputButtonEntity,
 } as const satisfies Record<string, (overrides?: EntityOverrides) => HassEntity>
 
 export type FixtureDomain = keyof typeof entityFactories

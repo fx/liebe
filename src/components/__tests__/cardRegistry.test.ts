@@ -8,6 +8,8 @@ import {
   registerCardVariant,
 } from '../cardRegistry'
 import { WeatherCard } from '../WeatherCard'
+import { ActionCard } from '../ActionCard'
+import { ACTION_CARD_DOMAINS } from '../ActionCard/actions'
 import { WeatherCardMinimal } from '../WeatherCard/WeatherCardMinimal'
 import { WeatherCardModern } from '../WeatherCard/WeatherCardModern'
 import { WeatherCardDetailed } from '../WeatherCard/WeatherCardDetailed'
@@ -17,6 +19,30 @@ describe('cardRegistry', () => {
     expect(getCardForDomain('weather')).toBe(WeatherCard)
     expect(getCardForEntity('weather.home')).toBe(WeatherCard)
     expect(getCardForEntity('media_player.tv')).toBeUndefined()
+  })
+
+  /**
+   * The action family is four registry entries pointing at one component
+   * (docs/changes/0027). Asserted here because the registry is what actually
+   * fixes the live defect: these domains fall through to `ButtonCard` without
+   * these entries, and `ButtonCard` dispatches `<domain>.toggle` — a service
+   * Home Assistant does not have for three of the four.
+   */
+  it.each(['scene', 'script', 'button', 'input_button'])(
+    'routes %s to the action card rather than the fallback',
+    (domain) => {
+      expect(getCardForDomain(domain)).toBe(ActionCard)
+      expect(getCardForEntity(`${domain}.thing`)).toBe(ActionCard)
+    }
+  )
+
+  it('registers every domain the action family claims to serve', () => {
+    // The map in `ActionCard/actions.ts` and the registry have to agree: a
+    // domain with an action but no entry never reaches the card, and one with an
+    // entry but no action renders a card that cannot dispatch.
+    for (const domain of ACTION_CARD_DOMAINS) {
+      expect(getCardForDomain(domain)).toBe(ActionCard)
+    }
   })
 
   describe('weather variants', () => {

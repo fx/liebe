@@ -106,6 +106,7 @@ function ServiceCallHost({
         entities,
         fail: serviceCall === 'error',
         failureMessage: serviceCallError,
+        pending: serviceCall === 'pending',
       }),
     [entities, serviceCall, serviceCallError]
   )

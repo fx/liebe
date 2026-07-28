@@ -7,6 +7,13 @@ import { safeStringify } from './safeStringify'
 // the light; the input_boolean is a deterministic helper from configuration.yaml.
 export const DEMO_LIGHT = 'light.bed_light'
 export const E2E_FLAG = 'input_boolean.e2e_flag'
+/*
+ * Home Assistant's demo button. Its state IS its last-press timestamp, so a
+ * press is observable over REST without any helper to read back — and a press
+ * that never landed is equally observable, which is the point: `button.toggle`,
+ * what the fallback card dispatches, is not a registered service.
+ */
+export const DEMO_BUTTON = 'button.push'
 // A `mode: password` helper from configuration.yaml: its state IS the secret,
 // so it is what proves the detail dialog masks what the card masks.
 export const E2E_SECRET = 'input_text.e2e_secret'
@@ -95,6 +102,33 @@ export function seedConfig(): SeedConfig {
     items: [
       { id: 'item-light', type: 'entity', entityId: DEMO_LIGHT, x: 0, y: 0, width: 2, height: 2 },
       { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 2, y: 0, width: 2, height: 2 },
+    ],
+  })
+}
+
+/*
+ * DEDICATED action-card seed, on its own screen for the same reason the
+ * detail-dialog seed has one: this spec presses a button, and a shared screen
+ * would perturb the deterministic seed the other serial specs assert against.
+ */
+export function seedActionCardConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-action-screen',
+    name: 'E2E Action',
+    slug: 'e2e-action',
+    items: [
+      {
+        id: 'item-button',
+        type: 'entity',
+        entityId: DEMO_BUTTON,
+        x: 0,
+        y: 0,
+        // 2x1 rather than the family's 1x1 default: `clickCardTitle` finds the
+        // card by its visible name, and the name is what a 1x1 glance tile
+        // keeps, but the wider tile keeps the click target away from the edge.
+        width: 2,
+        height: 1,
+      },
     ],
   })
 }

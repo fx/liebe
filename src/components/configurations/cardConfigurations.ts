@@ -14,6 +14,70 @@ import {
   SENSOR_OPTION_DEFAULTS,
 } from '~/store/sensorOptions'
 import { WEATHER_OPTION_DEFAULTS } from '~/store/weatherOptions'
+import { ACTION_OPTION_DEFAULTS } from '~/store/actionOptions'
+import { CARD_DISPLAY_DEFAULTS } from '~/store/cardDisplay'
+
+/**
+ * The action family's form (docs/specs/entity-cards/options/scene.md).
+ *
+ * One definition behind four domain entries, because it is one card. The two
+ * per-card keys are the same for all four; only the wording below names what a
+ * tap actually does, and it stays domain-neutral because one form serves scenes,
+ * scripts and buttons alike.
+ *
+ * `icon` leads it, and that is deliberate rather than decorative. It is a
+ * universal option, already rendered in the Display section every entity card
+ * gets — but for this family the spec makes `icon` "the primary customization,
+ * not an afterthought": scenes are personal ("Movie night", "Good morning") and
+ * the domain glyph is generic, so setting a distinct icon per card is the normal
+ * configuration path rather than an override. Surfacing it at the top of the
+ * card's own section is what "the config modal SHOULD surface `icon`
+ * prominently" asks for. Both controls address the same `config.icon` key and
+ * therefore cannot disagree.
+ */
+const actionCardDefinition: ConfigDefinition = {
+  icon: {
+    type: 'icon',
+    default: CARD_DISPLAY_DEFAULTS.icon,
+    label: 'Icon',
+    placeholder: 'Card icon',
+    description:
+      'The tile’s glyph. Worth setting per card here — “Movie night” and “Good morning” are the same generic icon otherwise.',
+  },
+  confirm: {
+    type: 'boolean',
+    default: ACTION_OPTION_DEFAULTS.confirm,
+    label: 'Confirm before running',
+    description:
+      'Asks before any tap, hold or double tap that would fire this. For anything an accidental touch must not start — “Reset all devices”, “Water the garden”.',
+  },
+  showLastActivated: {
+    type: 'boolean',
+    default: ACTION_OPTION_DEFAULTS.showLastActivated,
+    label: 'Show last activated',
+    description:
+      'Adds a relative time (“2 h ago”, “Never”) as the card’s state line. Omitted on 1×1 cards, which have no room for it.',
+  },
+}
+
+/** The four domains the action family serves, and how each names itself. */
+const actionCardTitles: Readonly<Record<string, string>> = {
+  scene: 'Scene Card',
+  script: 'Script Card',
+  button: 'Button Card',
+  input_button: 'Button Helper Card',
+}
+
+const actionCardConfigurations = Object.fromEntries(
+  Object.entries(actionCardTitles).map(([domain, title]) => [
+    domain,
+    {
+      title,
+      description: 'The icon, a confirmation gate, and when it last ran.',
+      definition: actionCardDefinition,
+    },
+  ])
+)
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<
@@ -25,6 +89,7 @@ export const cardConfigurations: Record<
     placeholder?: string
   }
 > = {
+  ...actionCardConfigurations,
   light: {
     title: 'Light Card',
     description: 'Configure how this light card displays and behaves.',

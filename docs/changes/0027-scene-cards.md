@@ -43,7 +43,7 @@ The [scene option doc](../specs/entity-cards/options/scene.md) owns the per-doma
 
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
-- [ ] **PR 1 — Action card family**: family card component with per-domain action map, activation feedback (fake-timer tested, reduced-motion path), script running/tap-to-stop state, `confirm` dialog, `showLastActivated`, tier layouts, 1×1 `defaultDimensions`; registry entries for the four domains + `SUPPORTED_DOMAINS`; `ConfigDefinition` with prominent `icon`; unit tests and the full story matrix
+- [x] **PR 1 — Action card family**: family card component with per-domain action map, activation feedback (fake-timer tested, reduced-motion path), script running/tap-to-stop state, `confirm` dialog, `showLastActivated`, tier layouts, 1×1 `defaultDimensions`; registry entries for the four domains + `SUPPORTED_DOMAINS`; `ConfigDefinition` with prominent `icon`; unit tests and the full story matrix
 - [ ] **PR 2 — Spec update**: entity-cards spec gains a Scene/Script/Button section (registry entries, options, activation feedback, running state) with a note on the changed fallback behavior for pre-existing dashboards; option doc status flipped to implemented; changelog entries in the entity-cards spec
 
 ## Out of Scope
