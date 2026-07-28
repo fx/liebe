@@ -81,7 +81,7 @@ See [card reference — Lights](./card-reference.md#lights) for the three bright
 - An `unavailable` **or `unknown`** climate entity MUST render the shell's neutral unavailable treatment with every control absent: neither state carries an HVAC mode, so a control built from its attributes would command a setpoint nobody knows.
 - `glance` MUST carry no embedded control — the tile is the primary action, which for a thermostat is more-info — and the card MUST register its setpoint stepper and mode row in the detail dialog's domain slot, which is what keeps a 1×1 thermostat operable. All controls MUST be hidden in edit mode at every tier.
 - Every draggable setpoint MUST also be operable without a pointer: the dial's heat and cool handles carry `role="slider"`, their accessible name and value on the element with that role, and arrow-key adjustment under the same band-preserving rule as the drag.
-- `displayUnit` MUST convert only what is displayed. Service calls MUST always carry the unit Home Assistant normalises the entity to (`hass.config.unit_system.temperature`), so a Fahrenheit display over a Celsius thermostat still sends `{ temperature: 21.5 }`.
+- `displayUnit` MUST convert only what is displayed. Service calls MUST always carry the entity's native unit — `hass.config.unit_system.temperature`, which is what Home Assistant core normalises climate values to and publishes them in, with a `temperature_unit` attribute honoured as a fallback for integrations that publish one — so a Fahrenheit display over a Celsius thermostat still sends `{ temperature: 21.5 }`.
 
 #### Scenario: Increase raises the setpoint by one step
 
