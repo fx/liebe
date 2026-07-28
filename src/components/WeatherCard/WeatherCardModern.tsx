@@ -1,70 +1,23 @@
+import { createElement } from 'react'
 import { Flex, Text, Box } from '@radix-ui/themes'
-import { Cloud, CloudRain, CloudSnow, Sun, CloudDrizzle, Zap } from 'lucide-react'
 import { useEntity } from '../../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
+import { CardValue } from '../anatomy'
+import { readWeatherOptions } from '~/store/weatherOptions'
 import type { CardProps } from '../cardRegistry'
-import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
-import { getWeatherBackground, getWeatherTextStyles, getWeatherTextColor } from './index'
-
-interface WeatherAttributes extends EntityAttributes {
-  temperature?: number
-  temperature_unit?: string
-  humidity?: number
-  wind_speed?: number
-  wind_speed_unit?: string
-  apparent_temperature?: number
-}
-
-interface WeatherEntity extends HassEntity {
-  attributes: WeatherAttributes
-}
-
-interface WeatherCardConfig {
-  temperatureUnit?: 'auto' | 'celsius' | 'fahrenheit'
-}
-
-function getWeatherIcon(condition: string, size: number = 24) {
-  const lowerCondition = condition.toLowerCase()
-  const IconComponent = (() => {
-    if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return Sun
-    if (lowerCondition.includes('rain')) return CloudRain
-    if (lowerCondition.includes('drizzle')) return CloudDrizzle
-    if (lowerCondition.includes('snow')) return CloudSnow
-    if (lowerCondition.includes('thunder') || lowerCondition.includes('lightning')) return Zap
-    return Cloud
-  })()
-  return <IconComponent size={size} />
-}
-
-function convertTemperature(
-  temp: number,
-  fromUnit: 'celsius' | 'fahrenheit',
-  toUnit: 'celsius' | 'fahrenheit'
-): number {
-  if (fromUnit === toUnit) return temp
-  if (fromUnit === 'celsius' && toUnit === 'fahrenheit') {
-    return (temp * 9) / 5 + 32
-  }
-  return ((temp - 32) * 5) / 9
-}
-
-function getTemperatureDisplay(
-  temp: number | undefined,
-  entityUnit: string | undefined,
-  configUnit: 'auto' | 'celsius' | 'fahrenheit'
-): { value: number; unit: string } | undefined {
-  if (temp === undefined) return undefined
-
-  const currentUnit = entityUnit?.toLowerCase().includes('f') ? 'fahrenheit' : 'celsius'
-
-  if (configUnit === 'auto') {
-    return { value: temp, unit: currentUnit === 'fahrenheit' ? '°F' : '°C' }
-  }
-
-  const convertedTemp = convertTemperature(temp, currentUnit, configUnit)
-  return { value: convertedTemp, unit: configUnit === 'fahrenheit' ? '°F' : '°C' }
-}
+import {
+  formatTemperature,
+  getConditionGlyph,
+  getTemperatureDisplay,
+  getWeatherTextColor,
+  getWeatherTextStyles,
+  getWeatherValueStyles,
+  resolveConditionBackground,
+  resolveSecondaryReading,
+  supplementalReadings,
+} from './presentation'
 
 function WeatherCardModernContent(props: CardProps) {
   const {
@@ -76,7 +29,7 @@ function WeatherCardModernContent(props: CardProps) {
     config,
     onConfigure,
   } = props
-  const weatherConfig = config as WeatherCardConfig
+  const options = readWeatherOptions(config)
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
 
   // Show skeleton while loading initial data
@@ -97,48 +50,49 @@ function WeatherCardModernContent(props: CardProps) {
     )
   }
 
-  const weatherEntity = entity as WeatherEntity
-  const temp = weatherEntity.attributes?.temperature
-  const humidity = weatherEntity.attributes?.humidity
-  const tempUnit = weatherEntity.attributes?.temperature_unit
+  const attributes = entity.attributes as Record<string, unknown> | undefined
   const tempDisplay = getTemperatureDisplay(
-    temp,
-    tempUnit,
-    weatherConfig?.temperatureUnit || 'auto'
+    attributes?.temperature,
+    attributes?.temperature_unit,
+    options.temperatureUnit
   )
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
 
   /*
    * Tier layout (docs/specs/entity-cards/options/weather.md — "Tier layouts").
-   * `modern` keeps its identity — a large glyph with the temperature and
-   * humidity emphasised — and the tier decides the arrangement and how much of
-   * it fits; what does not fit is omitted, never clipped:
+   * `modern` keeps its identity — a large line-art glyph with the temperature
+   * emphasised — and the tier decides the arrangement and how much of it fits;
+   * what does not fit is omitted, never clipped:
    *
    *   glance  glyph + name + temperature in the state slot; no condition text,
    *           no secondary line.
    *   row     glyph and meta side by side, condition text in the state slot,
-   *           temperature and humidity beside them.
-   *   tall    the same content stacked, which is the variant's resting shape.
-   *   full    plus the rest of the detail line (feels-like, wind) where the
-   *           entity reports it; the forecast strips are change 0020's.
+   *           the temperature and the secondary reading beside them.
+   *   tall    glyph on top, temperature between it and the meta, secondary
+   *           line at the bottom — the variant's resting shape.
+   *   full    the big `liebe-value` readout plus a detail line that leads with
+   *           the secondary reading; the forecast strips are 0020 PR 2's.
    */
   const isGlance = tier === 'glance'
-  const isRow = tier === 'row'
+  const isTall = tier === 'tall'
   const isFull = tier === 'full'
-  const feelsLike = getTemperatureDisplay(
-    weatherEntity.attributes?.apparent_temperature,
-    tempUnit,
-    weatherConfig?.temperatureUnit || 'auto'
-  )
-  const windSpeed = weatherEntity.attributes?.wind_speed
-  const windUnit = weatherEntity.attributes?.wind_speed_unit
+
+  const secondaryInput = { attributes, temperatureUnit: options.temperatureUnit }
+  const secondary = isGlance
+    ? undefined
+    : resolveSecondaryReading(options.secondaryInfo, secondaryInput)
+  const supplemental = isFull ? supplementalReadings(secondary, secondaryInput) : []
 
   // One glyph size at every tier; a smaller tile omits content rather than
   // scaling it down (docs/specs/design-system — "Size-adaptive layouts").
   const iconSize = 48
+  const ConditionGlyph = getConditionGlyph(entity.state)
 
-  // Get background image for the current weather condition
-  const backgroundImage = getWeatherBackground(entity.state)
+  // The condition artwork, once the option and the variant have had their say.
+  const backgroundImage = resolveConditionBackground({
+    condition: entity.state,
+    showConditionBackground: options.showConditionBackground,
+  })
   const styles = getWeatherTextStyles(!!backgroundImage)
   const emphasisStyles = getWeatherTextStyles(!!backgroundImage, 'emphasis')
 
@@ -157,16 +111,64 @@ function WeatherCardModernContent(props: CardProps) {
       >
         <Flex direction="column" align="center" justify="center" gap="3" height="100%">
           <Box style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
-            {getWeatherIcon(entity.state, iconSize)}
+            {createElement(ConditionGlyph, { size: iconSize })}
           </Box>
-          <GridCard.Title>
-            {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-          </GridCard.Title>
+          <GridCard.Title>{entity.attributes?.friendly_name || entity.entity_id}</GridCard.Title>
           <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
     )
   }
+
+  const temperature = tempDisplay ? (
+    isFull ? (
+      <div style={getWeatherValueStyles(!!backgroundImage)}>
+        <CardValue domain="weather" value={Math.round(tempDisplay.value)} unit={tempDisplay.unit} />
+      </div>
+    ) : (
+      <Text size="5" weight="bold" style={emphasisStyles.text}>
+        {formatTemperature(tempDisplay)}
+      </Text>
+    )
+  ) : undefined
+
+  const secondaryLine = secondary ? (
+    <Text size="2" color={getWeatherTextColor(!!backgroundImage, 'gray')} style={styles.text}>
+      {secondary.value}
+    </Text>
+  ) : undefined
+
+  /*
+   * `row` has one line, so the temperature and the secondary reading share the
+   * control slot; the taller tiers put the secondary line underneath, which is
+   * where the option doc places it.
+   */
+  const control =
+    isGlance || (!temperature && !secondaryLine) ? undefined : (
+      <GridCard.Controls>
+        <Flex direction="column" align="center" gap="1">
+          {temperature}
+          {!isTall && !isFull && secondaryLine}
+        </Flex>
+      </GridCard.Controls>
+    )
+
+  const extra =
+    (isTall || isFull) && (secondaryLine || supplemental.length > 0) ? (
+      <Flex direction="column" align="center" gap="1">
+        {secondaryLine}
+        {supplemental.map((reading) => (
+          <Text
+            key={reading.kind}
+            size="2"
+            color={getWeatherTextColor(!!backgroundImage, 'gray')}
+            style={styles.text}
+          >
+            {reading.text}
+          </Text>
+        ))}
+      </Flex>
+    ) : undefined
 
   return (
     <GridCard
@@ -191,102 +193,54 @@ function WeatherCardModernContent(props: CardProps) {
         position: 'relative',
       }}
     >
-      <Flex
-        direction={isRow ? 'row' : 'column'}
-        align="center"
-        justify="center"
-        gap="3"
-        style={{
-          height: '100%',
-          position: 'relative',
-        }}
-      >
-        <Box
-          style={{
-            ...styles.icon,
-            color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--accent-9)',
-            opacity: isStale ? 0.6 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {getWeatherIcon(entity.state, iconSize)}
-        </Box>
-
-        <Flex direction="column" align="center" gap="1">
-          <GridCard.Title>
-            <Text
-              size="2"
-              color={getWeatherTextColor(!!backgroundImage, 'gray')}
-              style={styles.text}
-            >
-              {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-            </Text>
-          </GridCard.Title>
-
-          {!isGlance && tempDisplay && (
-            <Text size="5" weight="bold" style={emphasisStyles.text}>
-              {Math.round(tempDisplay.value)}
-              {tempDisplay.unit}
-            </Text>
-          )}
-
-          {!isGlance && humidity !== undefined && (
-            <Text
-              size="2"
-              color={getWeatherTextColor(!!backgroundImage, 'gray')}
-              style={styles.text}
-            >
-              {humidity}% humidity
-            </Text>
-          )}
-
-          {isFull && feelsLike !== undefined && (
-            <Text
-              size="2"
-              color={getWeatherTextColor(!!backgroundImage, 'gray')}
-              style={styles.text}
-            >
-              Feels like {Math.round(feelsLike.value)}
-              {feelsLike.unit}
-            </Text>
-          )}
-
-          {isFull && windSpeed !== undefined && (
-            <Text
-              size="2"
-              color={getWeatherTextColor(!!backgroundImage, 'gray')}
-              style={styles.text}
-            >
-              Wind {Math.round(windSpeed)}
-              {windUnit ? ` ${windUnit}` : ''}
-            </Text>
-          )}
-        </Flex>
-
-        {/*
-         * The state slot: the condition, or the temperature itself at `glance`
-         * where the condition text is the first thing to go. Routed through the
-         * shell's slot rather than a bare `Text` so `hideState` reaches it, as
-         * the common contract requires of every card.
-         */}
-        <GridCard.Status>
-          <Text
-            size="3"
-            weight="medium"
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        lead={
+          <Box
             style={{
-              ...styles.text,
-              textTransform: 'capitalize',
-              marginTop: isRow ? undefined : 'auto',
+              ...styles.icon,
+              color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+              opacity: isStale ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {isGlance && tempDisplay
-              ? `${Math.round(tempDisplay.value)}${tempDisplay.unit}`
-              : entity.state}
-          </Text>
-        </GridCard.Status>
-      </Flex>
+            {createElement(ConditionGlyph, { size: iconSize })}
+          </Box>
+        }
+        meta={
+          <GridCard.Meta>
+            <GridCard.Title>
+              <Text
+                size="2"
+                color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                style={styles.text}
+              >
+                {entity.attributes?.friendly_name || entity.entity_id}
+              </Text>
+            </GridCard.Title>
+
+            {/*
+             * The state slot: the condition, or the temperature itself at
+             * `glance` where the condition text is the first thing to go.
+             * Routed through the shell's slot rather than a bare `Text` so
+             * `hideState` reaches it, as the common contract requires.
+             */}
+            <GridCard.Status>
+              <Text
+                size="3"
+                weight="medium"
+                style={{ ...styles.text, textTransform: 'capitalize' }}
+              >
+                {isGlance && tempDisplay ? formatTemperature(tempDisplay) : entity.state}
+              </Text>
+            </GridCard.Status>
+          </GridCard.Meta>
+        }
+        control={control}
+        extra={extra}
+      />
     </GridCard>
   )
 }

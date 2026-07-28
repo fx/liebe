@@ -2,51 +2,11 @@ import { Flex } from '@radix-ui/themes'
 import { useEntity } from '../../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
+import { readWeatherOptions } from '~/store/weatherOptions'
 import type { CardProps } from '../cardRegistry'
-import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
-
-interface WeatherAttributes extends EntityAttributes {
-  temperature?: number
-  temperature_unit?: string
-}
-
-interface WeatherEntity extends HassEntity {
-  attributes: WeatherAttributes
-}
-
-interface WeatherCardConfig {
-  temperatureUnit?: 'auto' | 'celsius' | 'fahrenheit'
-}
-
-function convertTemperature(
-  temp: number,
-  fromUnit: 'celsius' | 'fahrenheit',
-  toUnit: 'celsius' | 'fahrenheit'
-): number {
-  if (fromUnit === toUnit) return temp
-  if (fromUnit === 'celsius' && toUnit === 'fahrenheit') {
-    return (temp * 9) / 5 + 32
-  }
-  return ((temp - 32) * 5) / 9
-}
-
-function getTemperatureDisplay(
-  temp: number | undefined,
-  entityUnit: string | undefined,
-  configUnit: 'auto' | 'celsius' | 'fahrenheit'
-): { value: number; unit: string } | undefined {
-  if (temp === undefined) return undefined
-
-  const currentUnit = entityUnit?.toLowerCase().includes('f') ? 'fahrenheit' : 'celsius'
-
-  if (configUnit === 'auto') {
-    return { value: temp, unit: currentUnit === 'fahrenheit' ? '°F' : '°C' }
-  }
-
-  const convertedTemp = convertTemperature(temp, currentUnit, configUnit)
-  return { value: convertedTemp, unit: configUnit === 'fahrenheit' ? '°F' : '°C' }
-}
+import { formatTemperature, getTemperatureDisplay } from './presentation'
 
 function WeatherCardMinimalContent(props: CardProps) {
   const {
@@ -58,7 +18,7 @@ function WeatherCardMinimalContent(props: CardProps) {
     config,
     onConfigure,
   } = props
-  const weatherConfig = config as WeatherCardConfig
+  const options = readWeatherOptions(config)
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
 
   // Show skeleton while loading initial data
@@ -79,13 +39,11 @@ function WeatherCardMinimalContent(props: CardProps) {
     )
   }
 
-  const weatherEntity = entity as WeatherEntity
-  const temp = weatherEntity.attributes?.temperature
-  const tempUnit = weatherEntity.attributes?.temperature_unit
+  const attributes = entity.attributes as Record<string, unknown> | undefined
   const tempDisplay = getTemperatureDisplay(
-    temp,
-    tempUnit,
-    weatherConfig?.temperatureUnit || 'auto'
+    attributes?.temperature,
+    attributes?.temperature_unit,
+    options.temperatureUnit
   )
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
   const isGlance = tier === 'glance'
@@ -104,9 +62,7 @@ function WeatherCardMinimalContent(props: CardProps) {
         backdrop={false}
       >
         <Flex direction="column" align="center" justify="center" gap="2" height="100%">
-          <GridCard.Title>
-            {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-          </GridCard.Title>
+          <GridCard.Title>{entity.attributes?.friendly_name || entity.entity_id}</GridCard.Title>
           <GridCard.Status>UNAVAILABLE</GridCard.Status>
         </Flex>
       </GridCard>
@@ -127,31 +83,35 @@ function WeatherCardMinimalContent(props: CardProps) {
       hasConfiguration={!!onConfigure}
       transparent={true}
     >
-      <Flex direction="column" align="center" justify="center" gap="2" height="100%">
-        <GridCard.Title>
-          {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-        </GridCard.Title>
-        {/*
-         * At `glance` the temperature takes the state slot and the big readout
-         * goes with the condition text: one cell holds a name and one value,
-         * and the variant that exists to show only the temperature shows only
-         * the temperature (docs/specs/entity-cards/options/weather.md — "Tier
-         * layouts"; `minimal` omits the secondary line and the forecasts at
-         * every tier, which is why nothing else appears at the larger ones).
-         */}
-        {!isGlance && tempDisplay && (
-          <CardValue
-            domain="weather"
-            value={Math.round(tempDisplay.value)}
-            unit={tempDisplay.unit}
-          />
-        )}
-        <GridCard.Status>
-          {isGlance && tempDisplay
-            ? `${Math.round(tempDisplay.value)}${tempDisplay.unit}`
-            : entity.state}
-        </GridCard.Status>
-      </Flex>
+      {/*
+       * `minimal` is the variant that renders LESS than its tier allows, which
+       * the option doc explicitly permits: no condition artwork at any tier
+       * whatever `showConditionBackground` says, no secondary line, no
+       * forecasts. What is left is a name and one number, so the tier only
+       * decides where the number goes — the state slot at `glance`, where one
+       * cell holds a name and one value, and the big `liebe-value` readout
+       * everywhere else.
+       */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        meta={
+          <GridCard.Meta>
+            <GridCard.Title>{entity.attributes?.friendly_name || entity.entity_id}</GridCard.Title>
+            <GridCard.Status>
+              {isGlance && tempDisplay ? formatTemperature(tempDisplay) : entity.state}
+            </GridCard.Status>
+          </GridCard.Meta>
+        }
+        control={
+          !isGlance && tempDisplay ? (
+            <CardValue
+              domain="weather"
+              value={Math.round(tempDisplay.value)}
+              unit={tempDisplay.unit}
+            />
+          ) : undefined
+        }
+      />
     </GridCard>
   )
 }

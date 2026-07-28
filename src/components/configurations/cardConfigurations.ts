@@ -13,6 +13,7 @@ import {
   MIN_SENSOR_GRAPH_HOURS,
   SENSOR_OPTION_DEFAULTS,
 } from '~/store/sensorOptions'
+import { WEATHER_OPTION_DEFAULTS } from '~/store/weatherOptions'
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<
@@ -457,15 +458,25 @@ export const cardConfigurations: Record<
       },
     },
   },
+  /*
+   * The weather card's options (docs/specs/entity-cards/options/weather.md).
+   *
+   * None of them is entity-gated: every weather entity has a condition and a
+   * temperature, and the one option that depends on what the entity publishes —
+   * `secondaryInfo` — resolves that at render through its fallback chain rather
+   * than by withholding the control. Hiding the select for an entity missing
+   * `uv_index` today would hide it for one whose integration starts publishing
+   * it tomorrow.
+   */
   weather: {
     title: 'Weather Card',
     description: 'Configure how weather information is displayed.',
     definition: {
       variant: {
         type: 'select',
-        default: 'default',
+        default: WEATHER_OPTION_DEFAULTS.variant,
         label: 'Card Variant',
-        description: 'Choose a visual variant for the weather card',
+        description: 'Information density and style. The tile’s size still picks the layout.',
         options: [
           { value: 'default', label: 'Default' },
           { value: 'detailed', label: 'Detailed' },
@@ -475,7 +486,7 @@ export const cardConfigurations: Record<
       },
       temperatureUnit: {
         type: 'select',
-        default: 'auto',
+        default: WEATHER_OPTION_DEFAULTS.temperatureUnit,
         label: 'Temperature Unit',
         description: 'Override the temperature unit display',
         options: [
@@ -483,6 +494,26 @@ export const cardConfigurations: Record<
           { value: 'celsius', label: 'Celsius (°C)' },
           { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
         ],
+      },
+      secondaryInfo: {
+        type: 'select',
+        default: WEATHER_OPTION_DEFAULTS.secondaryInfo,
+        label: 'Secondary Info',
+        description:
+          'Which reading the secondary line features. Falls back to the first one this entity publishes.',
+        options: [
+          { value: 'humidity', label: 'Humidity' },
+          { value: 'wind', label: 'Wind' },
+          { value: 'feels-like', label: 'Feels like' },
+          { value: 'uv', label: 'UV index' },
+          { value: 'pressure', label: 'Pressure' },
+        ],
+      },
+      showConditionBackground: {
+        type: 'boolean',
+        default: WEATHER_OPTION_DEFAULTS.showConditionBackground,
+        label: 'Condition Background',
+        description: 'Paint the condition artwork behind the card. The minimal variant never does.',
       },
     },
   },

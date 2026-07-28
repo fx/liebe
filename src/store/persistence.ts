@@ -12,6 +12,7 @@ import {
   pinLegacyClimateVariant,
 } from './climateOptions'
 import { configPredatesSpeedControl, pinLegacyFanSpeedControl } from './fanOptions'
+import { migrateWeatherCardConfig } from './weatherOptions'
 import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
@@ -111,6 +112,11 @@ const migrateItemConfig = (item: unknown, cutoffs: VersionCutoffs): unknown => {
   const domain = entityId.split('.')[0]
 
   let migrated = domain === 'light' ? migrateLightCardConfig(config) : config
+  // The weather card's `preset` → `variant` rename, which convention 1 names as
+  // its own example. Unconditional, like the light card's: a rename has no
+  // default to pin, so there is no newly added card an absent key could be
+  // mistaken for.
+  if (domain === 'weather') migrated = migrateWeatherCardConfig(migrated)
   /*
    * The legacy-pinning half (common contract, convention 7): a document written
    * before an option existed has cards whose control surface that option's new

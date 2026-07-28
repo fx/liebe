@@ -9,6 +9,7 @@ import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
 import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
+import { weatherOptionsConfigSchema } from './weatherOptions'
 import type { DashboardConfig } from './types'
 
 /**
@@ -84,6 +85,12 @@ const gridItemSchema = z
     // style no build has, and swallowing it would leave a card silently on the
     // slider while its document says otherwise
     // (docs/specs/entity-cards/options/fan.md).
+    // The weather keys join them because `secondaryInfo` is a closed enum whose
+    // wrong value looks like a working card: `secondaryInfo: windspeed` would
+    // quietly feature humidity instead of the wind the document asked for
+    // (docs/specs/entity-cards/options/weather.md). Its `variant` stays out for
+    // the same reason the climate card's does — one shared item shape, two
+    // domains, two different sets of legal values.
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(switchOptionsConfigSchema)
@@ -94,6 +101,7 @@ const gridItemSchema = z
       .merge(climateOptionsConfigSchema)
       .merge(coverOptionsConfigSchema)
       .merge(fanOptionsConfigSchema)
+      .merge(weatherOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative
