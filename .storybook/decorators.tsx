@@ -12,7 +12,12 @@ import {
   resolveAppearance,
   type ThemeAppearance,
 } from '~/theme/themeRegistry'
-import type { LiebeStoryParameters } from '~/test/fixtures'
+import { weatherForecastService } from '~/services/weatherForecast'
+import {
+  seedUnsupportedForecast,
+  seedWeatherForecast,
+  type LiebeStoryParameters,
+} from '~/test/fixtures'
 import { gridConfig } from '../app/utils/responsive'
 import { createMockHass } from './mockHass'
 
@@ -30,7 +35,24 @@ function readLiebeParameters(parameters: Record<string, unknown>): LiebeStoryPar
  * ------------------------------------------------------------------ */
 
 function seedStores(liebe: LiebeStoryParameters) {
-  const { entities = [], connected = true, initialLoading = false, mode = 'view' } = liebe
+  const {
+    entities = [],
+    connected = true,
+    initialLoading = false,
+    mode = 'view',
+    forecasts = [],
+  } = liebe
+
+  /*
+   * Forecasts go into the cache the pipeline fills, not into a stubbed hook, so
+   * a card story reads them through the same `useWeatherForecast` the panel
+   * uses. A seeded entry is fresh, so the service finds nothing to fetch and the
+   * workshop needs no connection behind it.
+   */
+  for (const { entityId, type = 'daily', forecast = [], unsupported } of forecasts) {
+    if (unsupported) seedUnsupportedForecast(entityId, type)
+    else seedWeatherForecast(entityId, forecast, type)
+  }
 
   // Written straight to the store rather than through `entityStoreActions`:
   // `setConnected` debounces disconnects by 500ms, which would make a
@@ -53,6 +75,9 @@ function seedStores(liebe: LiebeStoryParameters) {
 }
 
 function resetStores() {
+  // Timers, subscribers and cache together: the forecast service is a
+  // module-level singleton, so a story's forecast would otherwise outlive it.
+  weatherForecastService.reset()
   entityStore.setState((state) => ({
     ...state,
     entities: {},

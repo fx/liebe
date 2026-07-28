@@ -95,8 +95,16 @@ describe('a weather card that predates change 0020', () => {
 
     const config = loadedItems()[0].config
 
-    expect(config).not.toHaveProperty('secondaryInfo')
-    expect(config).not.toHaveProperty('showConditionBackground')
+    for (const key of [
+      'secondaryInfo',
+      'showConditionBackground',
+      'showHourlyForecast',
+      'forecastHours',
+      'showDailyForecast',
+      'forecastDays',
+    ]) {
+      expect(config).not.toHaveProperty(key)
+    }
   })
 
   it('renders on the defaults, which are what it already did', () => {
@@ -105,10 +113,9 @@ describe('a weather card that predates change 0020', () => {
     // The option doc's first scenario: a config stored before this spec renders
     // its variant and its unit with no migration and no new keys.
     expect(readWeatherOptions(loadedItems()[0].config)).toEqual({
+      ...WEATHER_OPTION_DEFAULTS,
       variant: 'detailed',
       temperatureUnit: 'fahrenheit',
-      secondaryInfo: WEATHER_OPTION_DEFAULTS.secondaryInfo,
-      showConditionBackground: WEATHER_OPTION_DEFAULTS.showConditionBackground,
     })
   })
 

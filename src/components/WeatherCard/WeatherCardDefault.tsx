@@ -7,6 +7,7 @@ import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
+import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
 import {
   formatTemperature,
@@ -32,6 +33,20 @@ function WeatherCardDefaultContent(props: CardProps) {
   } = props
   const options = readWeatherOptions(config)
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+
+  /*
+   * Before the early returns, because a hook cannot be called after one — and
+   * harmlessly so: a section this tier or these options switch off subscribes
+   * to nothing, so a card sitting in its skeleton asks for exactly what a card
+   * showing a forecast would.
+   */
+  const forecast = useWeatherForecastSections({
+    entityId,
+    tier,
+    span: props.span,
+    options,
+    entityUnit: entity?.attributes?.temperature_unit,
+  })
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -72,7 +87,11 @@ function WeatherCardDefaultContent(props: CardProps) {
    *           filled with air.
    *   full    the big `liebe-value` readout, and a detail line that leads with
    *           the secondary reading and continues with what it did not use.
-   *           The forecast strips the doc puts here are change 0020 PR 2's.
+   *
+   * The forecast sections sit under all of it, at the tiers with room for them:
+   * the hourly strip from `row` up, the multi-day row at `full` only. What is
+   * available comes from the entity, never from the options
+   * (`useWeatherForecastSections`).
    */
   const isGlance = tier === 'glance'
   const isTall = tier === 'tall'
@@ -188,7 +207,7 @@ function WeatherCardDefaultContent(props: CardProps) {
       </GridCard.Controls>
     )
 
-  const extra =
+  const detailLine =
     (isTall || isFull) && (secondary || supplemental.length > 0) ? (
       <Flex gap="3" align="center" wrap="wrap">
         {secondary && readingChip(secondary)}
@@ -205,6 +224,21 @@ function WeatherCardDefaultContent(props: CardProps) {
             {reading.text}
           </Text>
         ))}
+      </Flex>
+    ) : undefined
+
+  /*
+   * The slot is `undefined` — not an empty wrapper — when there is neither a
+   * detail line nor a forecast to draw. That is what makes an unavailable
+   * forecast lay the card out "as if the options were `false`" rather than
+   * leaving a gap where a strip would have gone (option doc — "Forecast options
+   * degrade gracefully without the service").
+   */
+  const extra =
+    detailLine || forecast.hasContent ? (
+      <Flex direction="column" gap="2" width="100%">
+        {detailLine}
+        <WeatherForecastSections sections={forecast} hasBackground={!!backgroundImage} />
       </Flex>
     ) : undefined
 

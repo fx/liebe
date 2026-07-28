@@ -122,3 +122,23 @@ export function seedWeatherForecast(
     updatedAt: Date.now(),
   })
 }
+
+/**
+ * Seed the answer the pipeline resolves for an entity whose integration cannot
+ * forecast this type at all.
+ *
+ * A separate helper rather than an argument, because `unsupported` is not an
+ * empty forecast and the two render for different reasons: an empty one may
+ * fill on the next refresh, an unsupported one never will and is not asked for
+ * again (`WeatherForecastService.maintain`). A story that wants "this card has
+ * no forecast" wants this one.
+ */
+export function seedUnsupportedForecast(entityId: string, type: ForecastType = 'daily'): void {
+  forecastStoreActions.patchEntry(entityId, type, {
+    forecast: [],
+    isLoading: false,
+    error: null,
+    unsupported: true,
+    updatedAt: Date.now(),
+  })
+}
