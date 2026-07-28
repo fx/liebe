@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CONFIRM_DEFAULT, confirmOptionSchema, confirmOptionsConfigSchema } from './confirmOption'
 
 /**
  * The action card family's option contract — the persisted shape of `confirm`
@@ -33,27 +34,29 @@ export type ActionOptionKey = (typeof ACTION_OPTION_KEYS)[number]
  * dismiss the one that matters (scene.md — "`confirm`").
  */
 export const ACTION_OPTION_DEFAULTS: Readonly<ActionCardOptions> = {
-  confirm: false,
+  confirm: CONFIRM_DEFAULT,
   showLastActivated: false,
 }
 
 /**
  * The action-key fragment of `item.config`, merged into the item schema.
  *
- * `confirm` is declared here as well as in `switchOptionsConfigSchema` — same
- * key, same type, same default — rather than leaned on from there. The two
- * families name the option independently, so this schema has to stand on its own:
- * a later change to the switch card's surface must not be able to silently take
- * the validation out from under this one.
+ * `confirm` comes from the shared gate fragment rather than being declared again
+ * here. Both this family and the switch family offer the option, and
+ * `configSchema.ts` merges both fragments into one item schema where
+ * `zod.merge()` is last-one-wins — so two separate declarations would mean
+ * whichever merged last silently governed the key for both. Merging the same
+ * object makes that a no-op by construction (see `./confirmOption`).
  */
-export const actionOptionsConfigSchema = z.object({
-  confirm: z.boolean().optional(),
-  showLastActivated: z.boolean().optional(),
-})
+export const actionOptionsConfigSchema = z
+  .object({
+    showLastActivated: z.boolean().optional(),
+  })
+  .merge(confirmOptionsConfigSchema)
 
 /** Per-key schemas, so one bad value costs only its own key. */
 const actionKeySchemas: Readonly<Record<ActionOptionKey, z.ZodTypeAny>> = {
-  confirm: z.boolean(),
+  confirm: confirmOptionSchema,
   showLastActivated: z.boolean(),
 }
 

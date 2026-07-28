@@ -17,7 +17,7 @@ import {
   guardedDispatch,
   resolveCommandTarget,
 } from '../services/guardedDispatch'
-import { readCardConfirm } from '../store/switchOptions'
+import { readCardConfirm } from '../store/confirmOption'
 import type { ScreenConfig } from '../store/types'
 
 export interface UseCardActionsOptions {
