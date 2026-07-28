@@ -130,6 +130,9 @@ describe('showConditionBackground', () => {
   })
 
   it('paints nothing for a condition this build has no artwork for', () => {
+    // A real Home Assistant condition that ships no image, rather than an
+    // invented one: the branch under test is "no artwork resolved", and the
+    // commonest way a real card reaches it is a condition like this.
     seed(makeEntity('exceptional'))
 
     for (const variant of painting) {
