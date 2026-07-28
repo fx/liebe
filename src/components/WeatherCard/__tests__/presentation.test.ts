@@ -32,6 +32,19 @@ import { WEATHER_SECONDARY_INFO } from '~/store/weatherOptions'
  * numeric string, a bearing given as a name instead of degrees.
  */
 
+/**
+ * A condition string no vocabulary uses, for the cases about an UNRECOGNISED
+ * one.
+ *
+ * Synthetic on purpose. `exceptional`, `hail`, `lightning` and `pouring` all
+ * read like placeholders but are real Home Assistant conditions
+ * (`homeassistant/components/weather/__init__.py`), and a test that pinned one
+ * of them into the unknown path would assert a true thing about a false
+ * premise: it passes, it survives mutation probing, and it quietly stops
+ * describing anything the moment that condition is mapped properly.
+ */
+const UNKNOWN_CONDITION = 'zorptastic'
+
 const attributes = {
   temperature: 22,
   temperature_unit: '°C',
@@ -258,9 +271,14 @@ describe('condition glyphs', () => {
     expect(getConditionEmoji('partlycloudy')).toBe('☁️')
     expect(getConditionEmoji('heavy-snow')).toBe('❄️')
     expect(getConditionEmoji('thunderstorm')).toBe('⛈️')
-    // Forward compatibility: an unknown or non-string condition must still
-    // produce a glyph rather than throwing inside a card's render.
-    expect(getConditionEmoji('hail')).toBe('🌤️')
+    /*
+     * Forward compatibility: an unknown or non-string condition must still
+     * produce a glyph rather than throwing inside a card's render. The value
+     * has to be one no vocabulary uses — `hail` and `exceptional` are both real
+     * Home Assistant conditions, and pinning a recognised state into the
+     * unknown path would assert the wrong thing is unknown.
+     */
+    expect(getConditionEmoji(UNKNOWN_CONDITION)).toBe('🌤️')
     expect(getConditionEmoji(undefined)).toBe('🌤️')
 
     expect(getConditionGlyph('sunny').displayName).toBe('Sun')
@@ -268,8 +286,20 @@ describe('condition glyphs', () => {
     expect(getConditionGlyph('drizzle').displayName).toBe('CloudDrizzle')
     expect(getConditionGlyph('snowy').displayName).toBe('CloudSnow')
     expect(getConditionGlyph('lightning').displayName).toBe('Zap')
-    expect(getConditionGlyph('exceptional').displayName).toBe('Cloud')
+    expect(getConditionGlyph(UNKNOWN_CONDITION).displayName).toBe('Cloud')
     expect(getConditionGlyph(null).displayName).toBe('Cloud')
+  })
+
+  it('warns rather than showing weather for Home Assistant’s exceptional state', () => {
+    /*
+     * `exceptional` is not a kind of weather. It is
+     * `ATTR_CONDITION_EXCEPTIONAL` in
+     * `homeassistant/components/weather/__init__.py` — severe weather, or an
+     * integration saying it cannot report — so a generic cloud tells the viewer
+     * the opposite of what the entity is saying.
+     */
+    expect(getConditionGlyph('exceptional').displayName).toBe('TriangleAlert')
+    expect(getConditionEmoji('exceptional')).toBe('⚠️')
   })
 })
 
@@ -316,12 +346,39 @@ describe('getWeatherBackground', () => {
   it('resolves nothing for a condition this build has never met', () => {
     // The vocabulary belongs to the integration, so an unmapped condition is a
     // normal state of affairs and not an error: the card stays on its themed
-    // surface.
-    expect(getWeatherBackground('exceptional')).toBeNull()
-    expect(getWeatherBackground('hail')).toBeNull()
+    // surface. The fixture is synthetic on purpose — see `UNKNOWN_CONDITION`.
+    expect(getWeatherBackground(UNKNOWN_CONDITION)).toBeNull()
     expect(getWeatherBackground('')).toBeNull()
     expect(getWeatherBackground(undefined)).toBeNull()
     expect(getWeatherBackground(42)).toBeNull()
+  })
+
+  it('resolves nothing for the real conditions it ships no artwork for', () => {
+    /*
+     * These four ARE Home Assistant conditions
+     * (`homeassistant/components/weather/__init__.py`), and none of them
+     * reaches artwork: `exceptional` and `lightning` have no row and match no
+     * substring rule, and `hail`/`pouring` are spelled nothing like the words
+     * the substring rules look for. A card on any of them renders on the themed
+     * surface, which is correct-but-thin: filling these gaps means new artwork,
+     * which change 0020 puts out of scope.
+     */
+    for (const condition of ['exceptional', 'hail', 'lightning', 'pouring']) {
+      expect(getWeatherBackground(condition)).toBeNull()
+    }
+  })
+
+  it('answers only for the conditions it declares, not for its prototype', () => {
+    /*
+     * The key is the ENTITY's state, so any string reaches this table — and a
+     * plain object literal answers for `Object.prototype`'s members, where
+     * `CONDITION_BACKGROUNDS['constructor']` is a truthy function that would be
+     * interpolated into a URL. This is the second instance of that shape on the
+     * project; the climate card's `hvacModeConfig` is the first.
+     */
+    for (const key of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
+      expect(getWeatherBackground(key)).toBeNull()
+    }
   })
 
   it('prefixes every route with the published asset base URL', () => {

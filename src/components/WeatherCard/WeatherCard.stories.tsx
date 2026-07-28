@@ -402,16 +402,38 @@ export const ConditionBackground: Story = {
 }
 
 /**
- * A condition this build has no artwork for. The card stays on its themed
- * surface rather than breaking — the vocabulary belongs to the integration, so
- * an unmapped condition is a normal state of affairs.
+ * A condition this build has never met — a vocabulary Liebe does not know, or
+ * one a newer Home Assistant adds. The card stays on its themed surface and
+ * takes the neutral glyph rather than breaking.
+ *
+ * The state is deliberately synthetic. `exceptional`, `hail` and `pouring` all
+ * read like stand-ins but are real Home Assistant conditions, and a story that
+ * used one would be asserting the wrong thing is unknown.
  */
 export const UnmappedCondition: Story = {
   args: { tier: 'full', gridWidth: 4, gridHeight: 3 },
-  parameters: { liebe: { entities: [createWeatherEntity({ state: 'exceptional' })] } },
+  parameters: { liebe: { entities: [createWeatherEntity({ state: 'zorptastic' })] } },
   play: async ({ canvasElement }) => {
     await expect(backgroundImage(canvasElement)).toBe('')
-    await expect(cardText(canvasElement)).toContain('exceptional')
+    await expect(cardText(canvasElement)).toContain('zorptastic')
+  },
+}
+
+/**
+ * `exceptional` is Home Assistant's own "something is wrong" condition — severe
+ * weather, or an integration reporting that it cannot say. The card warns
+ * rather than drawing weather for it, since a generic cloud would tell the
+ * viewer the opposite of what the entity is saying.
+ *
+ * It resolves no artwork either, which is a real gap: filling it means new
+ * background images, and change 0020 puts those out of scope.
+ */
+export const ExceptionalCondition: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: { liebe: { entities: [createWeatherEntity({ state: 'exceptional' })] } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('⚠️')
+    await expect(backgroundImage(canvasElement)).toBe('')
   },
 }
 

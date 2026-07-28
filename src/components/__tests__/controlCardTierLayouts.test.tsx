@@ -823,8 +823,9 @@ describe('WeatherCard tiers', () => {
 
   it('renders on the plain card surface when the condition maps to no artwork', () => {
     // Every variant paints its text white over the condition background and in
-    // token colours without one; `exceptional` is a condition with no image, so
-    // this is the other half of that branch on all three of them.
+    // token colours without one. `exceptional` is a REAL Home Assistant
+    // condition that this build ships no artwork for — not an unknown one — so
+    // it reaches the other half of that branch on all three variants.
     for (const variant of ['default', 'modern', 'detailed'] as const) {
       seed(makeEntity('weather.home', 'exceptional', weather.attributes))
       const { unmount } = renderCard(

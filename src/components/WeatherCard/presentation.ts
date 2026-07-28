@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Cloud,
   CloudDrizzle,
   CloudRain,
@@ -321,10 +322,20 @@ export function supplementalReadings(
  * reach the rain glyph without this build having met each spelling. Anything
  * unrecognised — including a condition added by a newer Home Assistant — lands
  * on the neutral cloud rather than on nothing.
+ *
+ * `exceptional` is checked FIRST and by name, because it is not a kind of
+ * weather. It is Home Assistant's own "something is wrong" condition
+ * (`ATTR_CONDITION_EXCEPTIONAL`, `homeassistant/components/weather/__init__.py`)
+ * — severe weather, or an integration reporting that it cannot say — and
+ * rendering it as a generic cloud tells the viewer the opposite of what the
+ * entity is saying. It resolves no background artwork either, which is a real
+ * gap but a separate one: new artwork and condition-map changes are out of
+ * scope for change 0020.
  */
 export function getConditionGlyph(condition: unknown): LucideIcon {
   const lowerCondition = typeof condition === 'string' ? condition.toLowerCase() : ''
 
+  if (lowerCondition.includes('exceptional')) return AlertTriangle
   if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return Sun
   if (lowerCondition.includes('rain')) return CloudRain
   if (lowerCondition.includes('drizzle')) return CloudDrizzle
@@ -337,6 +348,7 @@ export function getConditionGlyph(condition: unknown): LucideIcon {
 export function getConditionEmoji(condition: unknown): string {
   const lowerCondition = typeof condition === 'string' ? condition.toLowerCase() : ''
 
+  if (lowerCondition.includes('exceptional')) return '⚠️'
   if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return '☀️'
   if (lowerCondition.includes('rain')) return '🌧️'
   if (lowerCondition.includes('cloud')) return '☁️'
@@ -430,12 +442,21 @@ const CONDITION_BACKGROUNDS: Readonly<Record<string, string>> = {
  * has no artwork for it.
  *
  * Forward compatibility is the point of the `null`: the condition vocabulary is
- * the integration's, not Liebe's, so a condition nobody has heard of
- * (`exceptional`, `hail`, a Pirate Weather icon added next year) MUST leave the
- * card on its normal surface rather than break it. That is why the direct map
- * is followed by substring rules and then by `null`, and why a non-string
- * condition — which no HA state object produces, but a hand-built fixture or a
- * future state shape might — is declined instead of thrown on.
+ * the integration's, not Liebe's, so a condition nobody has heard of (`hail`,
+ * `pouring`, a Pirate Weather icon added next year) MUST leave the card on its
+ * normal surface rather than break it. That is why the direct map is followed
+ * by substring rules and then by `null`, and why a non-string condition — which
+ * no HA state object produces, but a hand-built fixture or a future state shape
+ * might — is declined instead of thrown on.
+ *
+ * The lookup is an **own-property** check rather than a bare index, for the
+ * reason the climate card's `hvacModeConfig` states: the key is the ENTITY's
+ * state, so any string can reach it, and a plain object literal answers for its
+ * prototype's members. `CONDITION_BACKGROUNDS['constructor']` is a function —
+ * truthy — so a condition named after an inherited member would pass the guard
+ * below and be interpolated into a URL as `[object Function]`. This is the
+ * second instance of that shape on the project, so it is worth naming: a lookup
+ * table keyed on entity-supplied data must answer only for keys it declared.
  */
 export function getWeatherBackground(condition: unknown): string | null {
   if (typeof condition !== 'string') return null
@@ -444,7 +465,9 @@ export function getWeatherBackground(condition: unknown): string | null {
   const baseUrl = getAssetBaseUrl()
   const image = (name: string) => `${baseUrl}weather-backgrounds/${name}.png`
 
-  const mapped = CONDITION_BACKGROUNDS[normalizedCondition]
+  const mapped = Object.prototype.hasOwnProperty.call(CONDITION_BACKGROUNDS, normalizedCondition)
+    ? CONDITION_BACKGROUNDS[normalizedCondition]
+    : undefined
   if (mapped) return image(mapped)
 
   // Partial matches, for the compound names each vocabulary spells its own way
