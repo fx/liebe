@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cameraOptionsConfigSchema } from './cameraOptions'
+import { climateOptionsConfigSchema } from './climateOptions'
 import { coverOptionsConfigSchema } from './coverOptions'
 import { fanOptionsConfigSchema } from './fanOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
@@ -90,6 +91,7 @@ const gridItemSchema = z
       .merge(sensorOptionsConfigSchema)
       .merge(binarySensorOptionsConfigSchema)
       .merge(cameraOptionsConfigSchema)
+      .merge(climateOptionsConfigSchema)
       .merge(coverOptionsConfigSchema)
       .merge(fanOptionsConfigSchema)
       .passthrough()

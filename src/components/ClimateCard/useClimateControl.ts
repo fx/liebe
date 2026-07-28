@@ -36,6 +36,8 @@ export interface ClimateControl {
   isLoading: boolean
   error: string | null
   setHvacMode: (mode: string) => Promise<void>
+  setPresetMode: (preset: string) => Promise<void>
+  setFanMode: (fanMode: string) => Promise<void>
   setTemperature: (temperature: number, bounds: TemperatureBounds) => Promise<void>
   setRange: (setpoints: RangeSetpoints) => Promise<void>
 }
@@ -43,19 +45,34 @@ export interface ClimateControl {
 export function useClimateControl(entityId: string): ClimateControl {
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
 
-  const setHvacMode = useCallback(
-    async (mode: string) => {
+  /**
+   * The three mode services differ only in which key they carry, so they share
+   * one dispatcher — a copy each would be three places for the loading guard
+   * and the error clearing to drift apart.
+   */
+  const setMode = useCallback(
+    async (service: string, data: Record<string, string>) => {
       if (isLoading) return
       if (error) clearError()
 
-      await dispatchGuarded({
-        domain: 'climate',
-        service: 'set_hvac_mode',
-        entityId,
-        data: { hvac_mode: mode },
-      })
+      await dispatchGuarded({ domain: 'climate', service, entityId, data })
     },
     [entityId, dispatchGuarded, isLoading, error, clearError]
+  )
+
+  const setHvacMode = useCallback(
+    (mode: string) => setMode('set_hvac_mode', { hvac_mode: mode }),
+    [setMode]
+  )
+
+  const setPresetMode = useCallback(
+    (preset: string) => setMode('set_preset_mode', { preset_mode: preset }),
+    [setMode]
+  )
+
+  const setFanMode = useCallback(
+    (fanMode: string) => setMode('set_fan_mode', { fan_mode: fanMode }),
+    [setMode]
   )
 
   /**
@@ -110,5 +127,5 @@ export function useClimateControl(entityId: string): ClimateControl {
     [entityId, dispatchGuarded, isLoading, error, clearError]
   )
 
-  return { isLoading, error, setHvacMode, setTemperature, setRange }
+  return { isLoading, error, setHvacMode, setPresetMode, setFanMode, setTemperature, setRange }
 }

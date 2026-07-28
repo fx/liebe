@@ -26,6 +26,7 @@ import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardAction } from '~/store/cardActions'
 import { isCounterStateClass, isNumericSensorEntity } from '~/store/sensorOptions'
+import { readClimateCapabilities } from './ClimateCard/climateModel'
 import { useEntity } from '~/hooks'
 import { ActionEditor } from './ActionEditor'
 import { EntityPicker } from './EntityPicker'
@@ -95,6 +96,10 @@ interface ContentProps {
  *   matching capability bit.
  * - `fan-presets` — the fan advertises `PRESET_MODE` **and** lists modes; the
  *   bit without a list is a control with nothing in it.
+ * - `climate-presets` / `climate-fan-modes` — the thermostat advertises the
+ *   feature bit *and* publishes a non-empty list, so there is a pill row to
+ *   show or hide.
+ * - `climate-humidity` — it reports a `current_humidity` to display.
  */
 export type ConfigOptionRequirement =
   | 'numeric'
@@ -106,6 +111,9 @@ export type ConfigOptionRequirement =
   | 'fan-oscillate'
   | 'fan-direction'
   | 'fan-presets'
+  | 'climate-presets'
+  | 'climate-fan-modes'
+  | 'climate-humidity'
 
 // Configuration option types
 export interface ConfigOption {
@@ -481,6 +489,16 @@ function meetsRequirement(
      * could never show a preset control, with nothing to say why.
      */
     return fanHasPresets(entity?.attributes)
+  }
+
+  // Climate reads its three the same way, through the card's own reader — and
+  // reads them once, because all three are answers from one pass over the
+  // entity.
+  if (requires.startsWith('climate-')) {
+    const climate = readClimateCapabilities(entity)
+    if (requires === 'climate-presets') return climate.presets
+    if (requires === 'climate-fan-modes') return climate.fanModes
+    return climate.humidity
   }
 
   if (!isNumericSensorEntity(entity)) return false

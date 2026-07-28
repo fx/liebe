@@ -1,13 +1,16 @@
 import { Box, Flex, IconButton, Text } from '@radix-ui/themes'
 import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { readClimateOptions } from '~/store/climateOptions'
 import { useDashboardStore } from '~/store'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardState } from '../anatomy'
 import type { CardProps } from '../cardRegistry'
 import { ClimateCompactContent } from './ClimateCompact'
-import { ClimateModePills } from './ClimateModePills'
+import { ClimateSecondaryRows } from './ClimateSecondaryRows'
 import { climateCardFallback } from './ClimateCardStates'
+import { useCardItem } from '../cardItemContext'
+import { temperatureDisplay } from './temperatureDisplay'
 import { FALLBACK_SETPOINT, useClimateModel } from './climateModel'
 import { useClimateControl } from './useClimateControl'
 import './ClimateCard.css'
@@ -112,6 +115,7 @@ export function ClimateDialContent(props: CardProps) {
 function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: CardProps) {
   const model = useClimateModel(entityId)
   const control = useClimateControl(entityId)
+  const { config } = useCardItem()
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
@@ -234,7 +238,6 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
     friendlyName,
     hvacMode,
     hvacAction,
-    hvacModes,
     currentTemp,
     targetTemp,
     targetTempLow,
@@ -243,6 +246,9 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
     supportsTargetTemp,
     statusColor,
   } = reading!
+
+  const options = readClimateOptions(config)
+  const display = temperatureDisplay(tempUnit, options.displayUnit)
 
   const isRangeDial =
     hvacMode === 'heat_cool' && targetTempLow !== undefined && targetTempHigh !== undefined
@@ -311,7 +317,7 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
         aria-valuemin={minTemp}
         aria-valuemax={maxTemp}
         aria-valuenow={value}
-        aria-valuetext={`${value.toFixed(1)}${tempUnit}`}
+        aria-valuetext={`${display.format(value)}${display.unit}`}
         style={{
           cursor: 'grab',
           filter:
@@ -350,7 +356,7 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
         fontSize="12"
         fontWeight="600"
       >
-        {value.toFixed(1)}°
+        {display.format(value)}°
       </text>
     )
   }
@@ -487,9 +493,9 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
 
             {currentTemp !== undefined && (
               <Text size="7" weight="bold" style={{ lineHeight: 1 }}>
-                {Math.round(currentTemp)}
+                {display.whole(currentTemp)}
                 <Text size="4" as="span" style={{ verticalAlign: 'super' }}>
-                  {tempUnit}
+                  {display.unit}
                 </Text>
               </Text>
             )}
@@ -518,8 +524,8 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
                   </svg>
                   <Text size="2" className="climate-card-target">
                     {isRangeDial
-                      ? `${lowSetpoint.toFixed(1)} - ${highSetpoint.toFixed(1)}${tempUnit}`
-                      : `${targetTemp!.toFixed(1)}${tempUnit}`}
+                      ? `${display.format(lowSetpoint)} - ${display.format(highSetpoint)}${display.unit}`
+                      : `${display.format(targetTemp!)}${display.unit}`}
                   </Text>
                 </Flex>
               )}
@@ -582,12 +588,7 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
         )}
 
         {!isEditMode && (
-          <ClimateModePills
-            modes={hvacModes}
-            activeMode={hvacMode}
-            disabled={control.isLoading}
-            onSelect={control.setHvacMode}
-          />
+          <ClimateSecondaryRows reading={reading!} options={options} control={control} />
         )}
       </Flex>
     </GridCard>

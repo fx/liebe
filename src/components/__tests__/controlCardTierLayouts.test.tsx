@@ -7,6 +7,7 @@ import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
 import { dashboardActions } from '~/store'
 import { resetDispatchGuard } from '~/services/guardedDispatch'
+import { getDetailControls } from '../EntityDetailDialog/detailControls'
 import { ClimateCard } from '../ClimateCard'
 import { CoverCard } from '../CoverCard'
 import { FanCard } from '../FanCard'
@@ -413,13 +414,14 @@ describe('ClimateCard tiers', () => {
     supported_features: 2,
   })
 
-  it('KEEPS a setpoint control at glance', () => {
+  it('drops every control at glance, where the tile itself is the action', () => {
     /*
-     * The exception to the glance rule, and the reason it exists: a thermostat's
-     * replacement interaction is the detail dialog's domain controls, which are
-     * registered by change 0017. Until then a control-free glance tile would be
-     * a thermostat nobody can turn up — the operability regression change 0011
-     * forbids at every merge point (docs/changes/0011-layout-tiers.md).
+     * The rule change 0011 deferred for the thermostat, completed here. A 1×1
+     * tile has no room for a control and no longer needs one: the tap resolves
+     * to more-info, and the dialog carries the same stepper
+     * (`ClimateCard/ClimateDetailControls.tsx`), so operability is moved rather
+     * than dropped — the invariant the deviation existed to protect
+     * (docs/changes/0011-layout-tiers.md).
      */
     seed(thermostat)
     renderCard(
@@ -427,24 +429,29 @@ describe('ClimateCard tiers', () => {
     )
 
     expect(stampedTier()).toBe('glance')
-    expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
-    expect(screen.getByLabelText('Decrease temperature')).toBeInTheDocument()
-    // The dial and the mode pills are what a 1×1 tile cannot hold.
+    expect(screen.queryByLabelText('Increase temperature')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Decrease temperature')).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+    // The single slot shows the target: the setpoint is the tile's headline.
+    expect(screen.getByText('21.0°C')).toBeInTheDocument()
+  })
+
+  it('keeps the thermostat operable through the dialog its glance tap opens', () => {
+    // The other half of the rule above, and why the two land together: the
+    // control the tile dropped has to exist where the tap reaches it.
+    expect(getDetailControls('climate')).toBeDefined()
   })
 
   it('gives the compact stepper the same button size as the dial layout', () => {
     /*
      * The compact stepper shipped two Radix sizes smaller than the dial's own
-     * +/- pair. It is the only control on the tile at `glance`, `row` and
-     * `tall`, which makes it the last place on the card to shrink a touch
-     * target — so it matches its `full`-tier counterpart. (The card-wide 44px
-     * minimum is a separate question, tracked by issue #204.)
+     * +/- pair. It is the only control on the tile at `row` and `tall`, which
+     * makes it the last place on the card to shrink a touch target — so it
+     * matches its `full`-tier counterpart. (The card-wide 44px minimum is a
+     * separate question, tracked by issue #204.)
      */
     seed(thermostat)
-    renderCard(
-      <ClimateCard entityId="climate.hallway" tier="glance" span={{ width: 1, height: 1 }} />
-    )
+    renderCard(<ClimateCard entityId="climate.hallway" tier="row" span={{ width: 2, height: 1 }} />)
 
     expect(screen.getByLabelText('Increase temperature').className).toContain('rt-r-size-3')
     expect(screen.getByLabelText('Decrease temperature').className).toContain('rt-r-size-3')

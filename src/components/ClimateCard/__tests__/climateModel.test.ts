@@ -60,7 +60,11 @@ describe('resolveStatusColor', () => {
     ['heating', 'heat'],
     ['cooling', 'cool'],
     ['drying', 'water'],
-    ['fan', 'ok'],
+    ['preheating', 'heat'],
+    ['defrosting', 'heat'],
+    // Moving air changes no temperature, so the one active action that reads
+    // neutral (option doc — "showModePills and state colors").
+    ['fan', 'default'],
   ])('lets the %s action decide, whatever the mode is set to', (action, triplet) => {
     expect(resolveStatusColor('heat_cool', action)).toBe(triplet)
   })
@@ -71,7 +75,7 @@ describe('resolveStatusColor', () => {
     ['heat_cool', 'ok'],
     ['auto', 'ok'],
     ['dry', 'water'],
-    ['fan_only', 'ok'],
+    ['fan_only', 'default'],
   ])('falls back to the %s mode when the thermostat is idle', (mode, triplet) => {
     expect(resolveStatusColor(mode, 'idle')).toBe(triplet)
   })

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useEntity } from '~/hooks'
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
 import type { HassEntity } from '~/store/entityTypes'
 import type { DomainColorName } from '~/theme/tokens'
 
@@ -18,8 +19,8 @@ import type { DomainColorName } from '~/theme/tokens'
 export const SUPPORT_TARGET_TEMPERATURE = 1
 export const SUPPORT_TARGET_TEMPERATURE_RANGE = 2
 // export const SUPPORT_TARGET_HUMIDITY = 4
-// export const SUPPORT_FAN_MODE = 8
-// export const SUPPORT_PRESET_MODE = 16
+export const SUPPORT_FAN_MODE = 8
+export const SUPPORT_PRESET_MODE = 16
 // export const SUPPORT_SWING_MODE = 32
 // export const SUPPORT_AUX_HEAT = 64
 
@@ -29,7 +30,8 @@ export const SUPPORT_TARGET_TEMPERATURE_RANGE = 2
  * rather than by its domain, so the mapping lives on the mode rather than on
  * the card: heating is `heat`, cooling is `cool`, and the modes that merely
  * mean "running normally" take `ok`. Drying moves moisture, so it takes
- * `water`.
+ * `water`, and a unit only moving air is doing nothing to the temperature at
+ * all, so it stays neutral (option doc — "showModePills and state colors").
  */
 export const HVAC_MODES = {
   off: { label: 'Off', color: 'default' },
@@ -38,7 +40,7 @@ export const HVAC_MODES = {
   heat_cool: { label: 'Heat/Cool', color: 'ok' },
   auto: { label: 'Auto', color: 'ok' },
   dry: { label: 'Dry', color: 'water' },
-  fan_only: { label: 'Fan', color: 'ok' },
+  fan_only: { label: 'Fan', color: 'default' },
 } as const satisfies Record<string, { label: string; color: DomainColorName }>
 
 export type HvacModeConfig = (typeof HVAC_MODES)[keyof typeof HVAC_MODES]
@@ -137,27 +139,58 @@ export function readHvacModes(value: unknown): string[] {
 }
 
 /**
+ * What a thermostat can actually do, as opposed to what a card asks it to show.
+ *
+ * Shared by the card and by the configuration form, so the form offers exactly
+ * the options that can take effect: an option that writes a key nothing will
+ * read looks like a setting that did nothing (common contract, convention 3).
+ * Both halves count — the feature bit says the entity understands the service,
+ * the list says there is something to choose.
+ */
+export function readClimateCapabilities(entity: HassEntity | undefined): {
+  presets: boolean
+  fanModes: boolean
+  humidity: boolean
+} {
+  const attributes = entity?.attributes as ClimateAttributes | undefined
+  const supportedFeatures = attributes?.supported_features ?? 0
+
+  return {
+    presets:
+      (supportedFeatures & SUPPORT_PRESET_MODE) !== 0 &&
+      readHvacModes(attributes?.preset_modes).length > 0,
+    fanModes:
+      (supportedFeatures & SUPPORT_FAN_MODE) !== 0 &&
+      readHvacModes(attributes?.fan_modes).length > 0,
+    humidity: readTemperature(attributes?.current_humidity) !== undefined,
+  }
+}
+
+/**
  * Which domain-colour triplet the thermostat's *rendered* state resolves to.
  *
- * `hvac_action` first: what it is currently doing outranks what it is set to,
- * which is why a thermostat in `heat_cool` reads as `cool` while it is actively
- * cooling. `idle`, `off`, an absent action and any action this build does not
- * know fall back to the mode's own colour.
+ * Total, and action-first: what the thermostat is currently *doing* outranks
+ * what it is set to, which is why a unit in `heat_cool` reads as `cool` while
+ * it is actively cooling. Every active action resolves — `preheating` and
+ * `defrosting` are heat-pump stages of heating, and a heat pump spends real
+ * time in them, so reading them as "not heating" would leave the card grey
+ * exactly when the boiler is loudest.
  *
- * Carried over unchanged from the pre-split card, `preheating`/`defrosting`
- * included in "does not know": the option doc's total action-first mapping is
- * change 0017 PR 2's, alongside the rest of the mode-colour discipline, and
- * widening it here would be a behaviour change hiding inside a refactor
+ * `idle`, `off`, an absent attribute and any action this build does not
+ * recognise fall back to the mode's own colour: an idle thermostat still shows
+ * what it is set to, at the inactive treatment. `fan` is the one active action
+ * that is neutral, because moving air changes no temperature
  * (docs/specs/entity-cards/options/climate.md — "showModePills and state
  * colors").
  */
 export function resolveStatusColor(hvacMode: string, hvacAction?: string): DomainColorName {
-  if (hvacAction === 'heating') return 'heat'
+  if (hvacAction === 'heating' || hvacAction === 'preheating' || hvacAction === 'defrosting') {
+    return 'heat'
+  }
   if (hvacAction === 'cooling') return 'cool'
   if (hvacAction === 'drying') return 'water'
-  if (hvacAction === 'fan') return 'ok'
-  if (hvacMode !== 'off') return HVAC_MODES[hvacMode as keyof typeof HVAC_MODES]?.color ?? 'default'
-  return 'default'
+  if (hvacAction === 'fan') return 'default'
+  return HVAC_MODES[hvacMode as keyof typeof HVAC_MODES]?.color ?? 'default'
 }
 
 /** A temperature held inside the entity's own bounds. */
@@ -171,15 +204,33 @@ export interface ClimateReading {
   hvacAction?: string
   hvacModes: string[]
   currentTemp?: number
+  currentHumidity?: number
   targetTemp?: number
   targetTempLow?: number
   targetTempHigh?: number
   minTemp: number
   maxTemp: number
   tempStep: number
+  /**
+   * The unit the entity's own numbers are in, and the unit every service call
+   * carries. What the card *displays* may differ — that is `displayUnit`, and
+   * it never reaches this side (option doc — `displayUnit`).
+   */
   tempUnit: string
   supportsTargetTemp: boolean
   supportsTargetTempRange: boolean
+  /**
+   * Capability, not preference: whether the pill row *can* exist at all. The
+   * `show*` options only hide what the entity supports, and can never conjure a
+   * control it does not (common contract, convention 3), so both halves — the
+   * feature bit and a non-empty list — are settled here.
+   */
+  supportsPresets: boolean
+  presetModes: string[]
+  presetMode?: string
+  supportsFanModes: boolean
+  fanModes: string[]
+  fanMode?: string
   /** In `heat_cool` on an entity that advertises the range bit. */
   isRangeMode: boolean
   /** …and has actually published both ends of the band. */
@@ -204,13 +255,34 @@ export interface ClimateModel {
   reading?: ClimateReading
 }
 
-/** Reads one climate entity into the shape both presentations render from. */
-export function useClimateModel(entityId: string): ClimateModel {
-  const { entity, isConnected, isStale, isLoading } = useEntity(entityId)
+/**
+ * The unit the thermostat's own numbers are in.
+ *
+ * Home Assistant normalises every climate value to the unit system, and climate
+ * entities publish no `temperature_unit` of their own, so the unit system is
+ * the answer — read through the optional accessor because a card also renders
+ * in the workshop and in tests, where there is no Home Assistant to ask. The
+ * entity attribute is kept as a fallback for the integrations that do publish
+ * one, ahead of Celsius as the last resort (option doc — `displayUnit`).
+ */
+export function useNativeTemperatureUnit(entity: HassEntity | undefined): string {
+  const hass = useHomeAssistantOptional()
+  const attributeUnit = (entity?.attributes as ClimateAttributes | undefined)?.temperature_unit
 
-  const reading = useMemo<ClimateReading | undefined>(() => {
-    if (!entity) return undefined
+  return hass?.config?.unit_system?.temperature || attributeUnit || DEFAULT_TEMP_UNIT
+}
 
+/**
+ * One climate entity, read into the shape every surface renders from.
+ *
+ * A plain function rather than only a hook, because the detail dialog is handed
+ * an `entity` rather than an id and must reach the same reading the card does —
+ * the controls it mounts are the card's own, and two readings would be two
+ * chances to disagree about what a thermostat supports
+ * (docs/changes/0014 — "the pluggable domain control slot").
+ */
+export function readClimateEntity(entity: HassEntity, nativeUnit: string): ClimateReading {
+  {
     const attributes = entity.attributes as ClimateAttributes
     const supportedFeatures = attributes.supported_features ?? 0
 
@@ -221,6 +293,10 @@ export function useClimateModel(entityId: string): ClimateModel {
      */
     const supportsTargetTemp = (supportedFeatures & SUPPORT_TARGET_TEMPERATURE) !== 0
     const supportsTargetTempRange = (supportedFeatures & SUPPORT_TARGET_TEMPERATURE_RANGE) !== 0
+
+    const presetModes = readHvacModes(attributes.preset_modes)
+    const fanModes = readHvacModes(attributes.fan_modes)
+    const capabilities = readClimateCapabilities(entity)
 
     // Home Assistant stores the HVAC mode in `entity.state`.
     const hvacMode = entity.state
@@ -245,20 +321,38 @@ export function useClimateModel(entityId: string): ClimateModel {
       hvacAction,
       hvacModes: readHvacModes(attributes.hvac_modes),
       currentTemp: readTemperature(attributes.current_temperature),
+      currentHumidity: readTemperature(attributes.current_humidity),
       targetTemp: readTemperature(attributes.temperature),
       targetTempLow,
       targetTempHigh,
       minTemp: readTemperature(attributes.min_temp) ?? DEFAULT_MIN_TEMP,
       maxTemp: readTemperature(attributes.max_temp) ?? DEFAULT_MAX_TEMP,
       tempStep,
-      tempUnit: attributes.temperature_unit ?? DEFAULT_TEMP_UNIT,
+      tempUnit: nativeUnit,
       supportsTargetTemp,
       supportsTargetTempRange,
+      supportsPresets: capabilities.presets,
+      presetModes,
+      presetMode: typeof attributes.preset_mode === 'string' ? attributes.preset_mode : undefined,
+      supportsFanModes: capabilities.fanModes,
+      fanModes,
+      fanMode: typeof attributes.fan_mode === 'string' ? attributes.fan_mode : undefined,
       isRangeMode,
       hasRangeSetpoints: isRangeMode && targetTempLow !== undefined && targetTempHigh !== undefined,
       statusColor: resolveStatusColor(hvacMode, hvacAction),
     }
-  }, [entity])
+  }
+}
+
+/** Reads one climate entity into the shape both presentations render from. */
+export function useClimateModel(entityId: string): ClimateModel {
+  const { entity, isConnected, isStale, isLoading } = useEntity(entityId)
+  const nativeUnit = useNativeTemperatureUnit(entity)
+
+  const reading = useMemo<ClimateReading | undefined>(
+    () => (entity ? readClimateEntity(entity, nativeUnit) : undefined),
+    [entity, nativeUnit]
+  )
 
   return {
     isLoading,
