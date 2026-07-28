@@ -204,6 +204,100 @@ describe('InputTextCard', () => {
     })
   })
 
+  it('survives a pattern that is not a valid regular expression', async () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: {
+        ...defaultEntity,
+        // An unbalanced bracket. `pattern` is a hand-edited string on a
+        // user-defined helper, so this is a typo in Home Assistant rather than
+        // an exotic input — and `new RegExp` throws on it.
+        attributes: { ...defaultEntity.attributes, pattern: '[' },
+      },
+      isConnected: true,
+      isLoading: false,
+      isStale: false,
+    })
+
+    render(<InputTextCard entityId="input_text.test_text" />)
+    fireEvent.click(screen.getByText('Test Text').closest('.liebe-card')!)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'anything' } })
+    fireEvent.submit(input.closest('form')!)
+
+    /*
+     * The submit ran to completion, which is the only thing a throw changes
+     * that this environment lets a test observe — and the reason this asserts
+     * on the editor rather than on the card still being in the document.
+     *
+     * An uncaught throw aborts the handler *before* `onEditingChange(false)`,
+     * so the field stays open. React reports the error to the environment
+     * rather than to the caller of `fireEvent`, and jsdom leaves the already
+     * rendered card on screen, so "the card is still there" and "`setValue` was
+     * not called" are both true on either path. A version of this test that
+     * asserted only those two passed against the throwing code — verified by
+     * probe — and proved nothing. Do not simplify it back.
+     *
+     * In the panel the same throw is not survivable: it reaches the nearest
+     * error boundary and replaces the card, and with it the detail dialog,
+     * which is the only way a 1×1 text helper can be operated at all
+     * (docs/specs/entity-cards/options/input-helpers.md — the tier table).
+     */
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
+    expect(screen.getByText('Hello World')).toBeInTheDocument()
+
+    // An unusable validator reads as "nothing matches": refusing loses a
+    // keystroke, while committing would send a value the helper is configured
+    // to reject.
+    expect(mockSetValue).not.toHaveBeenCalled()
+  })
+
+  it('commits a value that satisfies the pattern', async () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: {
+        ...defaultEntity,
+        attributes: { ...defaultEntity.attributes, pattern: '^[A-Z]+$' },
+      },
+      isConnected: true,
+      isLoading: false,
+      isStale: false,
+    })
+
+    render(<InputTextCard entityId="input_text.test_text" />)
+    fireEvent.click(screen.getByText('Test Text').closest('.liebe-card')!)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'UPPERCASE' } })
+    fireEvent.submit(input.closest('form')!)
+
+    // The other half of "fires only for valid input": the invalid case above
+    // proves nothing is sent, and this proves something is.
+    await waitFor(() => {
+      expect(mockSetValue).toHaveBeenCalledWith('input_text.test_text', 'UPPERCASE')
+    })
+  })
+
+  it('truncates an over-long value instead of sending it', async () => {
+    render(<InputTextCard entityId="input_text.test_text" />)
+    fireEvent.click(screen.getByText('Test Text').closest('.liebe-card')!)
+
+    const input = screen.getByRole('textbox')
+    // `maxLength` stops a *typed* overrun; a paste, an autofill or a
+    // programmatic set goes straight past it, which is why the submit handler
+    // checks the helper's own `max` as well.
+    fireEvent.change(input, { target: { value: 'x'.repeat(25) } })
+    fireEvent.submit(input.closest('form')!)
+
+    await waitFor(() => {
+      expect(input).toHaveValue('x'.repeat(20))
+    })
+    // Truncating is not committing: the user is left with the shortened value
+    // in an open editor to submit or abandon.
+    expect(mockSetValue).not.toHaveBeenCalled()
+  })
+
   it('shows password field for password mode', async () => {
     vi.mocked(useEntity).mockReturnValue({
       entity: {

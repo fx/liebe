@@ -159,7 +159,7 @@ describe('useServiceCall', () => {
   })
 
   it('should handle setValue helper for input_number', async () => {
-    vi.mocked(hassService.callService).mockResolvedValue({ success: true })
+    vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
 
     const { result } = renderHook(() => useServiceCall(), { wrapper })
 
@@ -167,12 +167,15 @@ describe('useServiceCall', () => {
       await result.current.setValue('input_number.temperature', 25)
     })
 
-    expect(hassService.callService).toHaveBeenCalledWith({
+    // The guarded, non-retrying path: a helper's value is a consequential
+    // command like any other control's (docs/changes/0022 PR 4).
+    expect(hassService.callServiceOnce).toHaveBeenCalledWith({
       domain: 'input_number',
       service: 'set_value',
       entityId: 'input_number.temperature',
       data: { value: 25 },
     })
+    expect(hassService.callService).not.toHaveBeenCalled()
   })
 
   it('should handle setValue error for unsupported domain', async () => {

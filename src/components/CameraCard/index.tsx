@@ -22,16 +22,29 @@ import { StillImageFallback } from './StillImageFallback'
 import { CameraControls } from './CameraControls'
 import type { CameraStatus } from './CameraControls'
 import { CameraStats } from './CameraStats'
+import { CameraLiveBadge, CameraNameOverlay } from './CameraOverlay'
+import { CameraThumbnailTile } from './CameraThumbnailTile'
+import {
+  cameraStateText,
+  resolveCameraLiveBadge,
+  resolveCameraMotionLine,
+  resolveCameraName,
+  resolveCameraOverlay,
+} from './overlay'
+import { resolveCameraTier } from './tiers'
+import { useRelativeSince } from '../ButtonCard/lastChanged'
+import { readCameraOptions } from '~/store/cameraOptions'
+import { readCardDisplay } from '~/store/cardDisplay'
 import type { CardTier } from '~/utils/cardTier'
 import './CameraCard.css'
 
 interface CameraCardProps {
   entityId: string
   /**
-   * Stamped on the shell and otherwise unused. The camera's degradation below
-   * 2×2 is behavioural rather than a layout — the stream unmounts, a still
-   * stands in — and that belongs to change 0021; here the card renders the
-   * same at every span (docs/changes/0011-layout-tiers.md).
+   * The layout tier, and for this card a behavioural one: below `full` (2×2)
+   * the tile mounts no stream at all and shows a still thumbnail instead
+   * (`resolveCameraTier`, docs/specs/entity-cards/options/camera.md — "Tier
+   * layouts"). Change 0011 stamped it and left the behaviour to change 0021.
    */
   tier?: CardTier
   onDelete?: () => void
@@ -134,11 +147,41 @@ function CameraCardComponent({
   const fit = FIT_MODES.find((mode) => mode === config.fit) ?? 'cover'
   const matting = (config.matting as string) || 'small'
   const showStats = config.showStats === true
+  const { showNameOverlay, showLiveBadge, showLastMotion, motionEntity } = readCameraOptions(
+    item?.config
+  )
+  /*
+   * The universal display options, read here because the camera renders its own
+   * name and state into a gradient over the feed rather than into the shell's
+   * `GridCard.Title`/`Status` slots — the two components that would otherwise
+   * apply `hideName`/`hideState` for it.
+   *
+   * Read WITHOUT a danger flag on purpose: this card passes no `danger` to its
+   * `GridCard` either, so the shell resolves exactly the same values and the two
+   * cannot disagree. A camera that ever gains a danger state must set the flag
+   * in both places at once — the floor takes `hideName`/`hideState` back
+   * (`applyDangerFloor`), which would re-expand an overlay a user had collapsed.
+   */
+  const display = readCardDisplay(item?.config)
 
   const supportsStream = !!(
     ((entity?.attributes as CameraAttributes | undefined)?.supported_features ?? 0) & SUPPORT_STREAM
   )
   const isUnavailable = entity?.state === 'unavailable'
+
+  /*
+   * The tier's behaviour, and the one place the card asks whether a stream may
+   * exist at all.
+   *
+   * Below 2×2 the tile mounts nothing — but fullscreen still opens from it, and
+   * there the stream IS mounted, lazily, on entry. That is the scoped exception
+   * to camera-streaming's persistently-mounted rule: a fresh connection is
+   * correct on this path precisely because no connection existed to preserve
+   * (docs/specs/camera-streaming/index.md — "Fullscreen"). The ≥2×2 case never
+   * takes this branch, so its no-reconnect guarantee is untouched.
+   */
+  const tierLayout = resolveCameraTier(tier)
+  const showStreamSurface = tierLayout.live || isFullscreen
 
   // Bootstrap <ha-camera-stream>: 'ready' renders the element, 'unavailable'
   // falls back to the still image, 'loading' keeps the connecting state.
@@ -154,7 +197,8 @@ function CameraCardComponent({
   // errors during the blip. On recovery the hook resumes with a frame-clock
   // grace, a restored remount budget, and an automatic retry of any surfaced
   // error — no manual Retry click needed.
-  const streamEnabled = !!entity && isConnected && supportsStream && readiness === 'ready'
+  const streamEnabled =
+    !!entity && isConnected && supportsStream && readiness === 'ready' && showStreamSurface
 
   const getInnerVideo = useCallback(() => streamHandleRef.current?.getInnerVideo() ?? null, [])
   const getMjpegImg = useCallback(() => streamHandleRef.current?.getMjpegImg() ?? null, [])
@@ -174,6 +218,41 @@ function CameraCardComponent({
     enabled: streamEnabled,
     entityAvailable: !isUnavailable,
   })
+
+  /*
+   * The presentation layers, resolved before the early returns because the
+   * motion line's timer is one of them: `useRelativeSince` must know whether the
+   * line is actually on screen, and a hook cannot be called after a `return`.
+   *
+   * `hasFeed` is where the tier suppression lands. A degraded tile has no stream
+   * surface, so the band, the badge and the motion line are absent from it by
+   * construction rather than by three separate tier checks — the omit-never-clip
+   * rule the degradation exists to serve, applied once.
+   */
+  const overlay = resolveCameraOverlay({
+    hasFeed: supportsStream && !streamError && showStreamSurface,
+    showNameOverlay,
+    hideName: display.hideName,
+    hideState: display.hideState,
+  })
+
+  /*
+   * The linked motion sensor. `useEntity('')` subscribes to nothing, so an
+   * unconfigured card pays for no subscription — which is what lets this be
+   * called unconditionally beside the camera's own.
+   */
+  const { entity: motionSensor } = useEntity(motionEntity)
+  const motionState = motionSensor?.state
+  /*
+   * `last_changed`, never `last_updated`: the latter moves on unrelated
+   * attribute updates, which would restart the count without the sensor having
+   * changed. The timer runs only while a "Clear for X" is genuinely on screen.
+   */
+  const motionSince = useRelativeSince(
+    motionSensor?.last_changed,
+    showLastMotion && overlay.showState && motionState === 'off'
+  )
+  const motionLine = resolveCameraMotionLine({ showLastMotion, motionState, since: motionSince })
 
   // The in-place overlay only actually renders when the card body shows the
   // stream container. If it cannot — a surfaced error (shown in-card with
@@ -303,7 +382,9 @@ function CameraCardComponent({
     )
   }
 
-  const friendlyName = entity.attributes.friendly_name || entity.entity_id
+  // The universal `name` override wins over the friendly name for every surface
+  // the card names the camera on — overlay, pill, and the surface's aria-label.
+  const friendlyName = resolveCameraName(display.name, entity)
   const isRecording = entity.state === 'recording'
   const isStreamingState = entity.state === 'streaming'
   const activeFit: FitMode = isFullscreen ? 'contain' : fit
@@ -339,17 +420,45 @@ function CameraCardComponent({
         ? 'var(--space-5)'
         : `var(--space-${defaultPadding})`
 
+  /*
+   * `streamMounted: streamEnabled` is what keeps the badge honest, and it now
+   * carries the tier too: a still-image fallback (readiness `unavailable`) whose
+   * entity state is `recording` reaches a live STATUS with nothing but a
+   * snapshot on screen, and so does a degraded tile that mounts no stream at
+   * all. Neither may be labelled LIVE.
+   */
+  const liveBadge = resolveCameraLiveBadge({
+    showLiveBadge,
+    streamMounted: streamEnabled,
+    status,
+  })
+
   // Status pill + controls: a SINGLE instance (replacing the old duplicated
   // in-card/fullscreen pair). It lives inside the stream container so the
   // container's normal→fullscreen position flip carries it with no DOM move;
   // it also renders in the non-stream branch and during the error branch (the
   // ERROR pill). Buttons stopPropagation so they never toggle fullscreen.
+  //
+  // Its two info lines YIELD to the layers above rather than repeating them:
+  // the name moves into the gradient overlay when that draws it, and the live
+  // states move into the badge (change 0021's subsumption — never two live-ness
+  // indicators). Non-live states stay here, unchanged and owned by
+  // camera-streaming — `hideState` hides the overlay's state line, not the
+  // stream-health pill the streaming spec requires the card to show. `hideName`
+  // by contrast hides the name outright: yielding it back to the pill because
+  // the overlay stood down would be the option doing nothing.
+  //
+  // Whenever the band is drawn the block also moves to the opposite corner, so
+  // the buttons never sit on top of the lines in it.
+  const controlsAtEnd = overlay.visible
   const controls = (
     <div
       style={{
         position: 'absolute',
         bottom: isFullscreen ? '2%' : '8px',
-        left: isFullscreen ? '2%' : '8px',
+        ...(controlsAtEnd
+          ? { right: isFullscreen ? '2%' : '8px' }
+          : { left: isFullscreen ? '2%' : '8px' }),
         fontSize: isFullscreen
           ? 'min(3.2vw, 19.2px)' // Scale with viewport width (reduced by 20%)
           : '9.6px',
@@ -360,6 +469,8 @@ function CameraCardComponent({
         status={status}
         rawState={entity.state}
         showControls={showControls}
+        showName={!display.hideName && !overlay.showName}
+        showStatus={liveBadge === null}
         isMuted={isMuted}
         handleToggleMute={handleToggleMute}
         handleVideoFullscreen={handleVideoFullscreen}
@@ -377,6 +488,14 @@ function CameraCardComponent({
         domain="camera"
         color="default"
         tier={tier}
+        /*
+         * The same stored config the card read its own options from, handed to
+         * the shell explicitly rather than left to the placed-item context. The
+         * shell resolves `hideName`/`hideState` for the slots the degraded tiers
+         * render into, and this card resolves them for the overlay — one object,
+         * so the two readings cannot come from different places and disagree.
+         */
+        config={item?.config}
         isLoading={false}
         isError={!!streamError}
         isStale={isStale}
@@ -408,7 +527,51 @@ function CameraCardComponent({
         }}
       >
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-          {supportsStream ? (
+          {!supportsStream ? (
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              style={{ width: '100%', height: '100%' }}
+            >
+              <GridCard.Icon>
+                <VideoIcon
+                  style={{
+                    color: isRecording || isStreamingState ? 'var(--blue-9)' : 'var(--gray-9)',
+                    opacity: 1,
+                    transition: 'opacity 0.2s ease',
+                    width: 20,
+                    height: 20,
+                  }}
+                />
+              </GridCard.Icon>
+              {controls}
+            </Flex>
+          ) : !showStreamSurface ? (
+            /*
+             * Degraded tier: no stream element is mounted at all, so this tile
+             * costs no connection. The tap target stays — `tapAction: default`
+             * still opens the in-place fullscreen, which is where the stream is
+             * then mounted lazily.
+             */
+            <div
+              className="camera-thumb-surface"
+              role={videoClickable ? 'button' : undefined}
+              tabIndex={videoClickable ? 0 : undefined}
+              aria-label={videoClickable ? `Toggle fullscreen for ${friendlyName}` : undefined}
+              onClick={handleVideoClick}
+              onKeyDown={videoClickable ? handleVideoKeyDown : undefined}
+              style={{ cursor: videoClickable ? 'pointer' : 'default' }}
+            >
+              <CameraThumbnailTile
+                entity={entity}
+                name={friendlyName}
+                state={cameraStateText(entity.state)}
+                arrangement={tierLayout.arrangement}
+                showState={tierLayout.showState}
+              />
+            </div>
+          ) : (
             <div
               ref={streamContainerRef}
               className={`camera-stream-surface${isFullscreen ? ' camera-stream-surface-fullscreen' : ''}`}
@@ -521,28 +684,25 @@ function CameraCardComponent({
                   )}
                 </>
               )}
+              {/* Sibling layers over the stationary container — never wrappers
+                  around the stream node (change 0008's no-DOM-move invariant is
+                  what every option here is built under). Ordered before the
+                  controls so the gradient paints behind them; the badge is gated
+                  on a mounted stream inside `resolveCameraLiveBadge`, and the
+                  overlay on an actual feed inside `resolveCameraOverlay`. */}
+              {liveBadge && <CameraLiveBadge variant={liveBadge} isFullscreen={isFullscreen} />}
+              {overlay.visible && (
+                <CameraNameOverlay
+                  name={friendlyName}
+                  state={cameraStateText(entity.state)}
+                  motion={motionLine}
+                  showName={overlay.showName}
+                  showState={overlay.showState}
+                  isFullscreen={isFullscreen}
+                />
+              )}
               {controls}
             </div>
-          ) : (
-            <Flex
-              direction="column"
-              align="center"
-              justify="center"
-              style={{ width: '100%', height: '100%' }}
-            >
-              <GridCard.Icon>
-                <VideoIcon
-                  style={{
-                    color: isRecording || isStreamingState ? 'var(--blue-9)' : 'var(--gray-9)',
-                    opacity: 1,
-                    transition: 'opacity 0.2s ease',
-                    width: 20,
-                    height: 20,
-                  }}
-                />
-              </GridCard.Icon>
-              {controls}
-            </Flex>
           )}
         </div>
       </GridCard>

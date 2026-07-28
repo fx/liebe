@@ -15,6 +15,17 @@ export interface MockHassOptions {
   entities?: HassEntity[]
   fail?: boolean
   failureMessage?: string
+  /**
+   * Never settle the service call, so a story can show what a card looks like
+   * *while* a command is in flight.
+   *
+   * The action family needs it and no card did before: its in-flight spinner is
+   * a specified state of the card (docs/specs/entity-cards/options/scene.md —
+   * "Activation feedback"), and with a call that resolves in a microtask there
+   * is no moment at which a play function could observe it. `fail` wins if both
+   * are set, since a call cannot both hang and reject.
+   */
+  pending?: boolean
 }
 
 const noop = () => {}
@@ -40,6 +51,7 @@ export function createMockHass({
   entities = [],
   fail = false,
   failureMessage = 'Service call failed (Storybook mock)',
+  pending = false,
 }: MockHassOptions = {}): HomeAssistant {
   const logServiceCall = action('callService')
   const logWebSocket = action('callWS')
@@ -53,7 +65,11 @@ export function createMockHass({
     states,
     callService: (domain, service, serviceData) => {
       logServiceCall({ domain, service, serviceData })
-      return fail ? Promise.reject(new Error(failureMessage)) : Promise.resolve()
+      if (fail) return Promise.reject(new Error(failureMessage))
+      // Deliberately never settled, and never rejected either: the story is
+      // showing the in-flight state, so the call has to stay in flight.
+      if (pending) return new Promise<void>(noop)
+      return Promise.resolve()
     },
     callWS: <T>(message: Record<string, unknown>) => {
       logWebSocket(message)

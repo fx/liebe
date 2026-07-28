@@ -36,14 +36,14 @@
 | 0014 | [Universal Card Options](changes/0014-universal-card-options.md)                     | [Entity Cards](specs/entity-cards/)         | complete | 0010             |
 | 0015 | [History & Forecast Data Pipeline](changes/0015-history-and-forecast-data.md)        | [Entity State](specs/entity-state/)         | complete | 0014             |
 | 0016 | [Light Card to Spec](changes/0016-light-card-to-spec.md)                             | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
-| 0017 | [Climate Card to Spec](changes/0017-climate-card-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
-| 0018 | [Sensor Cards to Spec](changes/0018-sensor-cards-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014, 0015 |
-| 0019 | [Cover & Fan Cards to Spec](changes/0019-cover-fan-cards-to-spec.md)                 | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
+| 0017 | [Climate Card to Spec](changes/0017-climate-card-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
+| 0018 | [Sensor Cards to Spec](changes/0018-sensor-cards-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014, 0015 |
+| 0019 | [Cover & Fan Cards to Spec](changes/0019-cover-fan-cards-to-spec.md)                 | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
 | 0020 | [Weather Card to Spec](changes/0020-weather-card-to-spec.md)                         | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014, 0015 |
-| 0021 | [Camera Presentation Options](changes/0021-camera-presentation-options.md)           | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
-| 0022 | [Switch & Input Helper Cards to Spec](changes/0022-switch-input-helpers-to-spec.md)  | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
+| 0021 | [Camera Presentation Options](changes/0021-camera-presentation-options.md)           | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
+| 0022 | [Switch & Input Helper Cards to Spec](changes/0022-switch-input-helpers-to-spec.md)  | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
 | 0023 | [Media Player Card](changes/0023-media-player-card.md)                               | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
 | 0024 | [Security Cards (Lock & Alarm)](changes/0024-security-cards.md)                      | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
 | 0025 | [Vacuum Card](changes/0025-vacuum-card.md)                                           | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
 | 0026 | [Person Card](changes/0026-person-card.md)                                           | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
-| 0027 | [Scene, Script & Button Cards](changes/0027-scene-cards.md)                          | [Entity Cards](specs/entity-cards/)         | draft    | 0011, 0014       |
+| 0027 | [Scene, Script & Button Cards](changes/0027-scene-cards.md)                          | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |

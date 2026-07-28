@@ -5,6 +5,7 @@ import { HomeAssistantProvider } from '../../contexts/HomeAssistantContext'
 import type { HomeAssistant } from '../../contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import type { HassEntity } from '~/store/entityTypes'
 
 /**
@@ -20,13 +21,19 @@ import type { HassEntity } from '~/store/entityTypes'
 
 const ENTITY_ID = 'input_datetime.alarm_time'
 
-function seedHelper(state: string, attributes: Record<string, unknown>) {
+function seedHelper(
+  state: string,
+  attributes: Record<string, unknown>,
+  // The guard watches `last_updated`, not the state string — that is what
+  // distinguishes "Home Assistant acknowledged" from "the entity moved".
+  lastUpdated = '2024-01-15T00:00:00Z'
+) {
   const entity: HassEntity = {
     entity_id: ENTITY_ID,
     state,
     attributes,
-    last_changed: '2024-01-15T00:00:00Z',
-    last_updated: '2024-01-15T00:00:00Z',
+    last_changed: lastUpdated,
+    last_updated: lastUpdated,
     context: { id: 'seed', parent_id: null, user_id: null },
   }
   entityStore.setState((s) => ({ ...s, entities: { ...s.entities, [ENTITY_ID]: entity } }))
@@ -37,6 +44,9 @@ describe('useServiceCall.setValue — input_datetime', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // The at-most-once guard is process-wide by design, so two cases issuing
+    // the same command would otherwise see the second refused as a repeat.
+    resetDispatchGuard()
     mockHass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
   })
 
@@ -158,6 +168,71 @@ describe('useServiceCall.setValue — input_datetime', () => {
 
       expect(result.current.error).toBe(`${ENTITY_ID} has neither a date nor a time to set`)
       expect(mockHass.callService).not.toHaveBeenCalled()
+    })
+  })
+
+  /**
+   * The boundary-level single-call requirement, including the case that makes
+   * it a requirement (docs/specs/entity-cards/options/common.md — "Dispatch
+   * guarantees"). Home Assistant acknowledges before a slow integration moves
+   * the entity, so a control that reopened on promise resolution would let the
+   * second commit through against a state that has not changed yet.
+   */
+  describe('at most once per command', () => {
+    it('refuses a repeat while the first is acknowledged but the entity has not moved', async () => {
+      seedHelper('2024-01-15', { has_date: true, has_time: false })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.setValue(ENTITY_ID, '2024-03-02')
+      })
+      expect(mockHass.callService).toHaveBeenCalledTimes(1)
+
+      // The promise has resolved — the acknowledgement — but `last_updated` is
+      // exactly where it was, which is the ambiguous window.
+      await act(async () => {
+        await result.current.setValue(ENTITY_ID, '2024-03-02')
+      })
+
+      expect(mockHass.callService).toHaveBeenCalledTimes(1)
+      // Refused, not failed: the first command is still travelling, which is
+      // not an error to put in front of the user.
+      expect(result.current.error).toBe(null)
+    })
+
+    it('admits the command again once the entity moves', async () => {
+      seedHelper('2024-01-15', { has_date: true, has_time: false })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.setValue(ENTITY_ID, '2024-03-02')
+      })
+
+      // The transition lands. `last_updated` moving is what "it arrived"
+      // actually looks like — a state string changing under an unchanged
+      // timestamp is not something Home Assistant produces.
+      seedHelper('2024-03-02', { has_date: true, has_time: false }, '2024-03-02T09:00:00Z')
+
+      await act(async () => {
+        await result.current.setValue(ENTITY_ID, '2024-03-02')
+      })
+
+      expect(mockHass.callService).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not block a different value for the same helper', async () => {
+      seedHelper('2024-01-15', { has_date: true, has_time: false })
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current.setValue(ENTITY_ID, '2024-03-02')
+      })
+      await act(async () => {
+        await result.current.setValue(ENTITY_ID, '2024-03-03')
+      })
+
+      // A correction is not a repeat — the key includes the payload.
+      expect(mockHass.callService).toHaveBeenCalledTimes(2)
     })
   })
 

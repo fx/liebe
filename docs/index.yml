@@ -16,7 +16,7 @@ specs:
     status: active
   - name: design-system
     path: specs/design-system/
-    description: Target visual language — token contract, domain color discipline, card anatomy, size-adaptive layout tiers, typography, and motion (implemented; the camera consumes no tier by design)
+    description: Target visual language — token contract, domain color discipline, card anatomy, size-adaptive layout tiers, typography, and motion
     status: active
   - name: entity-cards
     path: specs/entity-cards/
@@ -165,21 +165,21 @@ changes:
     path: changes/0017-climate-card-to-spec.md
     description: Climate card domain options — dial/compact variants, mode/preset/fan pills, humidity display, display-unit conversion, and the arc-thermostat file split
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0018'
     name: sensor-cards-to-spec
     path: changes/0018-sensor-cards-to-spec.md
     description: Sensor and binary sensor domain options — precision/unit overrides, history-backed sparklines and graphs, trend indicator, binary label/invert and alert-class coloring
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014', '0015']
   - id: '0019'
     name: cover-fan-cards-to-spec
     path: changes/0019-cover-fan-cards-to-spec.md
-    description: Cover and fan domain options — position/tilt visibility, reversed-scale position inversion (boundary mapping on reads and commits), device-class icons, speed slider/steps, presets, oscillate/direction, animated icon
+    description: Cover and fan domain options — position/tilt visibility, reversed-scale position inversion (boundary mapping on reads and commits), device-class icons, the confirm-open gate on security openings, speed slider/steps derived from the fan's speed count, presets, oscillate/direction, animated icon
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0020'
     name: weather-card-to-spec
@@ -193,14 +193,14 @@ changes:
     path: changes/0021-camera-presentation-options.md
     description: Camera card presentation options — name overlay, live badge, motion line via linked motion entity, still-thumbnail small tiers with no stream mount below 2×2 and lazy fullscreen mount/unmount (the change's one scoped stream-lifecycle exception)
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0022'
     name: switch-input-helpers-to-spec
     path: changes/0022-switch-input-helpers-to-spec.md
     description: Switch confirm/device-class/label options, input helper control styles, and the input_datetime set_datetime service-mapping bugfix
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0023'
     name: media-player-card
@@ -235,5 +235,5 @@ changes:
     path: changes/0027-scene-cards.md
     description: New scene/script/button action-card family — per-domain activation, spinner-to-check feedback, confirm option, running-script stop
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']

@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test'
 import {
+  callService,
+  clickCardTitle,
   E2E_FLAG,
+  E2E_MODE,
   E2E_SECRET,
   E2E_SECRET_VALUE,
   getRestState,
@@ -71,4 +74,40 @@ test('the detail dialog never reveals a password helper’s value', async ({ pag
   // attribute list renders the same entity and could carry the value too.
   const documentText = await page.evaluate(() => document.documentElement.innerHTML)
   expect(documentText).not.toContain(E2E_SECRET_VALUE)
+})
+
+test('a 1x1 helper tile is operable only through the dialog its tap opens', async ({ page }) => {
+  const { accessToken } = await openPanel(page, seedDetailDialogConfig())
+
+  // Deterministic start: this suite shares one Home Assistant instance, and
+  // `initial:` only applies on a fresh restore, so the option is set here
+  // rather than assumed.
+  await callService(accessToken, 'input_select', 'select_option', {
+    entity_id: E2E_MODE,
+    option: 'alpha',
+  })
+
+  const tile = page.locator('.grid-item').filter({ hasText: 'E2E Mode' })
+  await expect(tile).toHaveCount(1)
+  // The card at one cell: the current option reads out as the state line, and
+  // there is no dropdown to change it with.
+  await expect(tile).toContainText('alpha')
+  await expect(tile.locator('[role="combobox"]')).toHaveCount(0)
+
+  /*
+   * The whole invariant, end to end and in a real browser: a tap — not a hold
+   * — resolves to `more-info` on a control-free tier, the dialog mounts the
+   * `input_select` control the card family registered, and operating it reaches
+   * Home Assistant. jsdom cannot vouch for the middle of that: the tap happens
+   * inside HA's shadow DOM and both the dialog and the Radix select list are
+   * portalled out to the host document.
+   */
+  await clickCardTitle(page, 'E2E Mode')
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('combobox').click()
+  await page.getByRole('option', { name: 'gamma' }).click()
+
+  await expect.poll(() => getRestState(accessToken, E2E_MODE), { timeout: 15_000 }).toBe('gamma')
 })

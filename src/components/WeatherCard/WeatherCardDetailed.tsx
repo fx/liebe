@@ -1,78 +1,27 @@
+import { createElement } from 'react'
 import { Flex, Text, Heading, Box } from '@radix-ui/themes'
-import {
-  Cloud,
-  CloudRain,
-  CloudSnow,
-  Sun,
-  CloudDrizzle,
-  Zap,
-  Thermometer,
-  Droplets,
-  Gauge,
-} from 'lucide-react'
+import { Thermometer } from 'lucide-react'
 import { useEntity } from '../../hooks'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
+import { CardValue } from '../anatomy'
+import { readWeatherOptions } from '~/store/weatherOptions'
+import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
-import type { HassEntity, EntityAttributes } from '~/store/entityTypes'
-import { getWeatherBackground, getWeatherTextStyles, getWeatherTextColor } from './index'
-
-interface WeatherAttributes extends EntityAttributes {
-  temperature?: number
-  temperature_unit?: string
-  humidity?: number
-  pressure?: number
-}
-
-interface WeatherEntity extends HassEntity {
-  attributes: WeatherAttributes
-}
-
-interface WeatherCardConfig {
-  temperatureUnit?: 'auto' | 'celsius' | 'fahrenheit'
-}
-
-function getWeatherIcon(condition: string, size: number = 24) {
-  const lowerCondition = condition.toLowerCase()
-  const IconComponent = (() => {
-    if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return Sun
-    if (lowerCondition.includes('rain')) return CloudRain
-    if (lowerCondition.includes('drizzle')) return CloudDrizzle
-    if (lowerCondition.includes('snow')) return CloudSnow
-    if (lowerCondition.includes('thunder') || lowerCondition.includes('lightning')) return Zap
-    return Cloud
-  })()
-  return <IconComponent size={size} />
-}
-
-function convertTemperature(
-  temp: number,
-  fromUnit: 'celsius' | 'fahrenheit',
-  toUnit: 'celsius' | 'fahrenheit'
-): number {
-  if (fromUnit === toUnit) return temp
-  if (fromUnit === 'celsius' && toUnit === 'fahrenheit') {
-    return (temp * 9) / 5 + 32
-  }
-  return ((temp - 32) * 5) / 9
-}
-
-function getTemperatureDisplay(
-  temp: number | undefined,
-  entityUnit: string | undefined,
-  configUnit: 'auto' | 'celsius' | 'fahrenheit'
-): { value: number; unit: string } | undefined {
-  if (temp === undefined) return undefined
-
-  const currentUnit = entityUnit?.toLowerCase().includes('f') ? 'fahrenheit' : 'celsius'
-
-  if (configUnit === 'auto') {
-    return { value: temp, unit: currentUnit === 'fahrenheit' ? '°F' : '°C' }
-  }
-
-  const convertedTemp = convertTemperature(temp, currentUnit, configUnit)
-  return { value: convertedTemp, unit: configUnit === 'fahrenheit' ? '°F' : '°C' }
-}
+import {
+  formatTemperature,
+  getConditionGlyph,
+  getTemperatureDisplay,
+  getWeatherTextColor,
+  getWeatherTextStyles,
+  getWeatherValueStyles,
+  readWeatherReading,
+  resolveConditionBackground,
+  resolveSecondaryReading,
+  supplementalReadings,
+  type WeatherSecondaryReading,
+} from './presentation'
 
 function WeatherCardDetailedContent(props: CardProps) {
   const {
@@ -84,8 +33,18 @@ function WeatherCardDetailedContent(props: CardProps) {
     config,
     onConfigure,
   } = props
-  const weatherConfig = config as WeatherCardConfig
+  const options = readWeatherOptions(config)
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+
+  // Before the early returns, because a hook cannot be called after one; a
+  // section this tier or these options switch off subscribes to nothing.
+  const forecast = useWeatherForecastSections({
+    entityId,
+    tier,
+    span: props.span,
+    options,
+    entityUnit: entity?.attributes?.temperature_unit,
+  })
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -105,40 +64,57 @@ function WeatherCardDetailedContent(props: CardProps) {
     )
   }
 
-  const weatherEntity = entity as WeatherEntity
-  const temp = weatherEntity.attributes?.temperature
-  const humidity = weatherEntity.attributes?.humidity
-  const pressure = weatherEntity.attributes?.pressure
-  const tempUnit = weatherEntity.attributes?.temperature_unit
+  const attributes = entity.attributes as Record<string, unknown> | undefined
   const tempDisplay = getTemperatureDisplay(
-    temp,
-    tempUnit,
-    weatherConfig?.temperatureUnit || 'auto'
+    attributes?.temperature,
+    attributes?.temperature_unit,
+    options.temperatureUnit
   )
 
-  // One glyph scale at every tier: a smaller tile omits content rather than
-  // scaling it down (docs/specs/design-system — "Size-adaptive layouts").
-  const iconScale = 1
   const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
 
   /*
    * Tier layout (docs/specs/entity-cards/options/weather.md — "Tier layouts").
    * `detailed` is the variant that adds pressure, and the tier decides how much
-   * of its detail block fits:
+   * of its labelled block fits:
    *
-   *   glance  icon + name + the temperature in the state slot; no condition
-   *           text and no detail block at all.
-   *   row     header plus the temperature and the secondary (humidity) line —
-   *           pressure is the first thing that does not fit.
-   *   tall    the same content, stacked.
-   *   full    the whole detail block, pressure included; the forecast strips
-   *           the doc puts here are change 0020's.
+   *   glance  glyph + name + the temperature in the state slot; no condition
+   *           text and no data block at all.
+   *   row     header plus the temperature and the featured secondary row —
+   *           anything further is the first thing that does not fit.
+   *   tall    the same content, stacked down the tile.
+   *   full    the big `liebe-value` readout and the whole block: the featured
+   *           reading, what the detail line continues with, and pressure —
+   *           this variant's own third data point.
    */
   const isGlance = tier === 'glance'
+  const isTall = tier === 'tall'
   const isFull = tier === 'full'
 
-  // Get background image for the current weather condition
-  const backgroundImage = getWeatherBackground(entity.state)
+  const secondaryInput = { attributes, temperatureUnit: options.temperatureUnit }
+  const secondary = isGlance
+    ? undefined
+    : resolveSecondaryReading(options.secondaryInfo, secondaryInput)
+  /*
+   * `detailed`'s identity is the extra data point, so `full` appends pressure
+   * to what the shared detail line already carries — deduplicated, so featuring
+   * pressure through `secondaryInfo` does not list it twice.
+   */
+  const pressure = isFull ? readWeatherReading('pressure', secondaryInput) : undefined
+  const detail = isFull
+    ? [
+        ...supplementalReadings(secondary, secondaryInput),
+        ...(pressure && pressure.kind !== secondary?.kind ? [pressure] : []),
+      ]
+    : []
+
+  const ConditionGlyph = getConditionGlyph(entity.state)
+
+  // The condition artwork, once the option and the variant have had their say.
+  const backgroundImage = resolveConditionBackground({
+    condition: entity.state,
+    showConditionBackground: options.showConditionBackground,
+  })
   const styles = getWeatherTextStyles(!!backgroundImage)
   const emphasisStyles = getWeatherTextStyles(!!backgroundImage, 'emphasis')
 
@@ -157,10 +133,8 @@ function WeatherCardDetailedContent(props: CardProps) {
       >
         <Flex direction="column" gap="3">
           <GridCard.Icon>
-            <span
-              style={{ color: 'var(--gray-9)', opacity: 0.5, transform: `scale(${iconScale})` }}
-            >
-              {getWeatherIcon(entity.state, 24)}
+            <span style={{ color: 'var(--gray-9)', opacity: 0.5 }}>
+              {createElement(ConditionGlyph, { size: 24 })}
             </span>
           </GridCard.Icon>
           <GridCard.Title>{entity.attributes?.friendly_name || entityId}</GridCard.Title>
@@ -169,6 +143,84 @@ function WeatherCardDetailedContent(props: CardProps) {
       </GridCard>
     )
   }
+
+  /** One labelled row — the shape that gives this variant its density. */
+  const labelledRow = (label: string, value: React.ReactNode, icon: React.ReactNode) => (
+    <Flex align="center" gap="2" key={label}>
+      {icon}
+      <Flex direction="column" gap="0">
+        <Text size="1" color={getWeatherTextColor(!!backgroundImage, 'gray')} style={styles.text}>
+          {label}
+        </Text>
+        {value}
+      </Flex>
+    </Flex>
+  )
+
+  const readingRow = (reading: WeatherSecondaryReading) =>
+    labelledRow(
+      reading.label,
+      <Text size="3" weight="bold" style={styles.text}>
+        {reading.value}
+      </Text>,
+      createElement(reading.icon, {
+        size: 18,
+        style: { ...styles.icon, color: backgroundImage ? 'white' : 'var(--gray-9)' },
+      })
+    )
+
+  const temperatureRow = tempDisplay
+    ? labelledRow(
+        'Temperature',
+        isFull ? (
+          <div style={getWeatherValueStyles(!!backgroundImage)}>
+            <CardValue
+              domain="weather"
+              value={Math.round(tempDisplay.value)}
+              unit={tempDisplay.unit}
+            />
+          </div>
+        ) : (
+          <Text size="4" weight="bold" style={styles.text}>
+            {formatTemperature(tempDisplay)}
+          </Text>
+        ),
+        <Thermometer
+          size={20}
+          style={{
+            ...styles.icon,
+            color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--gray-9)',
+          }}
+        />
+      )
+    : undefined
+
+  const control =
+    isGlance || (!temperatureRow && !secondary) ? undefined : (
+      <GridCard.Controls>
+        <Flex direction="column" gap="3">
+          {temperatureRow}
+          {secondary && readingRow(secondary)}
+        </Flex>
+      </GridCard.Controls>
+    )
+
+  const detailRows =
+    detail.length > 0 ? (
+      <Flex direction="column" gap="3">
+        {detail.map(readingRow)}
+      </Flex>
+    ) : undefined
+
+  // `undefined` rather than an empty wrapper when there is nothing to put in
+  // it, so a card with no forecast lays out as if the options were off.
+  const extra =
+    detailRows || forecast.hasContent ? (
+      <Flex direction="column" gap="3" width="100%">
+        {detailRows}
+        <WeatherForecastSections sections={forecast} hasBackground={!!backgroundImage} />
+      </Flex>
+    ) : undefined
 
   return (
     <GridCard
@@ -193,132 +245,45 @@ function WeatherCardDetailedContent(props: CardProps) {
         position: 'relative',
       }}
     >
-      <Flex
-        direction="column"
-        gap="3"
-        style={{
-          position: 'relative',
-        }}
-      >
-        <Flex align="center" justify="between">
-          <Box>
-            <GridCard.Title>
-              <Heading size="3" style={emphasisStyles.text}>
-                {weatherEntity.attributes?.friendly_name || weatherEntity.entity_id}
-              </Heading>
-            </GridCard.Title>
-            <GridCard.Status>
-              <Text
-                size="2"
-                color={getWeatherTextColor(!!backgroundImage, 'gray')}
-                style={{
-                  ...styles.text,
-                  textTransform: 'capitalize',
-                }}
-              >
-                {isGlance && tempDisplay
-                  ? `${Math.round(tempDisplay.value)}${tempDisplay.unit}`
-                  : entity.state}
-              </Text>
-            </GridCard.Status>
-          </Box>
-
+      <CardBody
+        // `tall` runs glyph → data → meta down the tile like every other card;
+        // the other three tiers take the default shapes.
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        lead={
           <GridCard.Icon>
             <span
               style={{
                 color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
                 opacity: isStale ? 0.6 : 1,
-                transform: `scale(${iconScale})`,
               }}
             >
-              {getWeatherIcon(entity.state, 32)}
+              {createElement(ConditionGlyph, { size: isTall ? 24 : 32 })}
             </span>
           </GridCard.Icon>
-        </Flex>
-
-        {!isGlance && (
-          <GridCard.Controls>
+        }
+        meta={
+          <GridCard.Meta>
             <Box>
-              {tempDisplay && (
-                <Flex align="center" gap="2" mb="3">
-                  <Thermometer
-                    size={20}
-                    style={{
-                      ...styles.icon,
-                      color: backgroundImage
-                        ? 'white'
-                        : isStale
-                          ? 'var(--orange-9)'
-                          : 'var(--gray-9)',
-                    }}
-                  />
-                  <Flex direction="column" gap="0">
-                    <Text
-                      size="1"
-                      color={getWeatherTextColor(!!backgroundImage, 'gray')}
-                      style={styles.text}
-                    >
-                      Temperature
-                    </Text>
-                    <Text size="4" weight="bold" style={styles.text}>
-                      {Math.round(tempDisplay.value)}
-                      {tempDisplay.unit}
-                    </Text>
-                  </Flex>
-                </Flex>
-              )}
-
-              {humidity !== undefined && (
-                <Flex align="center" gap="2" mb="3">
-                  <Droplets
-                    size={18}
-                    style={{
-                      ...styles.icon,
-                      color: backgroundImage ? 'white' : 'var(--gray-9)',
-                    }}
-                  />
-                  <Flex direction="column" gap="0">
-                    <Text
-                      size="1"
-                      color={getWeatherTextColor(!!backgroundImage, 'gray')}
-                      style={styles.text}
-                    >
-                      Humidity
-                    </Text>
-                    <Text size="3" weight="bold" style={styles.text}>
-                      {humidity}%
-                    </Text>
-                  </Flex>
-                </Flex>
-              )}
-
-              {isFull && pressure !== undefined && (
-                <Flex align="center" gap="2">
-                  <Gauge
-                    size={18}
-                    style={{
-                      ...styles.icon,
-                      color: backgroundImage ? 'white' : 'var(--gray-9)',
-                    }}
-                  />
-                  <Flex direction="column" gap="0">
-                    <Text
-                      size="1"
-                      color={getWeatherTextColor(!!backgroundImage, 'gray')}
-                      style={styles.text}
-                    >
-                      Pressure
-                    </Text>
-                    <Text size="3" weight="bold" style={styles.text}>
-                      {Math.round(pressure)} hPa
-                    </Text>
-                  </Flex>
-                </Flex>
-              )}
+              <GridCard.Title>
+                <Heading size="3" style={emphasisStyles.text}>
+                  {entity.attributes?.friendly_name || entity.entity_id}
+                </Heading>
+              </GridCard.Title>
+              <GridCard.Status>
+                <Text
+                  size="2"
+                  color={getWeatherTextColor(!!backgroundImage, 'gray')}
+                  style={{ ...styles.text, textTransform: 'capitalize' }}
+                >
+                  {isGlance && tempDisplay ? formatTemperature(tempDisplay) : entity.state}
+                </Text>
+              </GridCard.Status>
             </Box>
-          </GridCard.Controls>
-        )}
-      </Flex>
+          </GridCard.Meta>
+        }
+        control={control}
+        extra={extra}
+      />
     </GridCard>
   )
 }

@@ -1,7 +1,16 @@
 import { z } from 'zod'
 import { cardActionsConfigSchema } from './cardActions'
+import { actionOptionsConfigSchema } from './actionOptions'
+import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
+import { cameraOptionsConfigSchema } from './cameraOptions'
+import { climateOptionsConfigSchema } from './climateOptions'
+import { coverOptionsConfigSchema } from './coverOptions'
+import { fanOptionsConfigSchema } from './fanOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
+import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
+import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
+import { weatherOptionsConfigSchema } from './weatherOptions'
 import type { DashboardConfig } from './types'
 
 /**
@@ -51,9 +60,64 @@ const gridItemSchema = z
     // one every unmapped domain falls back to: `confirm: "yes"` on a well pump
     // is precisely the document whose author must be told, rather than a card
     // that silently actuates unguarded (docs/specs/entity-cards/options/switch.md).
+    // The sensor keys join them because three of them are numbers and enums a
+    // typo turns into nonsense rather than into a default: `graphHours: 2400`
+    // asks for a hundred days of recorder history, and `graphMode: bars` is a
+    // mode no build has — documents whose author needs telling, rather than
+    // cards that quietly render a fallback
+    // (docs/specs/entity-cards/options/sensor.md).
+    // The binary-sensor keys join them because `invert` is a safety-adjacent
+    // presentation flip: `invert: "yes"` on a door sensor is a document whose
+    // author needs telling, rather than a card that silently reads the door
+    // backwards (same doc).
+    // The camera keys join them because the live badge is a truth claim about
+    // the picture: `showLiveBadge: "no"` would fall back to the enabled default
+    // and label a feed live in a document whose author asked for the opposite —
+    // telling them beats quietly disagreeing with them
+    // (docs/specs/entity-cards/options/camera.md).
+    // The cover keys join them for the sharpest version of the same reason:
+    // `confirmOpen: "false"` is a string, so it is truthy, and a gate that
+    // silently stayed shut would at least be safe — but `invertPosition: "yes"`
+    // would flip which way a garage door is driven, and `stateLabels: pct` is a
+    // style no build has. Both are documents whose author needs telling
+    // (docs/specs/entity-cards/options/cover.md).
+    // The fan keys join them because `speedControl` is a closed enum whose
+    // legacy value the loader pins by version: `speedControl: "pills"` is a
+    // style no build has, and swallowing it would leave a card silently on the
+    // slider while its document says otherwise
+    // (docs/specs/entity-cards/options/fan.md).
+    // The weather keys join them because `secondaryInfo` is a closed enum whose
+    // wrong value looks like a working card: `secondaryInfo: windspeed` would
+    // quietly feature humidity instead of the wind the document asked for
+    // (docs/specs/entity-cards/options/weather.md). Its `variant` stays out for
+    // the same reason the climate card's does — one shared item shape, two
+    // domains, two different sets of legal values.
+    // The action-family keys join them because `confirm` is the only thing
+    // standing between an accidental tap and a script that resets every device
+    // in the house: `confirm: "true"` is a string, so a reader that fell back to
+    // the default would leave a card its author asked to gate dispatching
+    // unguarded (docs/specs/entity-cards/options/scene.md — "`confirm`").
+    //
+    // NOTE on overlapping keys: `.merge()` is LAST-ONE-WINS, so a key declared
+    // by two fragments is governed by whichever is merged later here — for both
+    // families, silently. `confirm` is offered by the switch and action families
+    // alike and is therefore declared once, in `./confirmOption`, which both
+    // fragments merge; the duplicate below is the same object, so the order of
+    // these lines cannot change what `confirm` accepts. Any future key added to
+    // two fragments needs the same treatment or an explicit decision recorded
+    // here — `stateLabels` is what happens without one (see `./confirmOption`).
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
+      .merge(actionOptionsConfigSchema)
       .merge(switchOptionsConfigSchema)
+      .merge(inputHelperOptionsConfigSchema)
+      .merge(sensorOptionsConfigSchema)
+      .merge(binarySensorOptionsConfigSchema)
+      .merge(cameraOptionsConfigSchema)
+      .merge(climateOptionsConfigSchema)
+      .merge(coverOptionsConfigSchema)
+      .merge(fanOptionsConfigSchema)
+      .merge(weatherOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

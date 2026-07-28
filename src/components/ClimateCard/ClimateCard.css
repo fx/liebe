@@ -1,0 +1,63 @@
+/*
+ * ClimateCard's two card-specific treatments.
+ *
+ * Layered into `liebe-base` like every other Liebe sheet — an unlayered author
+ * rule outranks all cascade layers, which would make these the one part of the
+ * thermostat a theme could not restyle (docs/specs/theming — "Application
+ * mechanism"). Neither rule names a Radix scale: the target readout reads the
+ * `cool` triplet, so remapping that hue moves the arrow, the arc and the number
+ * together.
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /*
+   * Spacing only. The action line used to be capitalised by a per-component
+   * `text-transform`, which the design system reserves for
+   * `--liebe-text-transform` — a component that declares its own casing is a
+   * component a theme cannot recase (docs/specs/design-system —
+   * "Typography"). It now inherits the token like every other text surface.
+   */
+  .climate-card-action {
+    margin-block-end: 4px;
+  }
+
+  .climate-card-target {
+    color: var(--liebe-c-cool-text);
+  }
+
+  /*
+   * The humidity fragment's droplet. The number beside it stays muted like the
+   * rest of the state line — only the glyph takes an accent, and it takes the
+   * `water` triplet rather than a Radix scale so a theme remapping that hue
+   * moves the droplet with everything else water-coloured
+   * (docs/specs/entity-cards/options/climate.md — `showHumidity`).
+   */
+  .climate-card-humidity-glyph {
+    color: var(--liebe-c-water-text);
+    vertical-align: -1px;
+    margin-inline-end: 2px;
+  }
+
+  .climate-card-name {
+    margin-block-end: 8px;
+    max-inline-size: 100%;
+    text-align: center;
+  }
+
+  /*
+   * The mode row wraps. `PillGroup`'s default is one equal-width column per
+   * pill, which is right for the two-to-four-pill groups it was designed for
+   * but not for a thermostat exposing all seven HVAC modes: seven pills at the
+   * anatomy's 44px minimum need ~344px, and the shell clips (`overflow:
+   * hidden`) anything past the card's width, so the last modes would become
+   * unreachable on a narrow grid. Wrapping keeps them equal-width per row and
+   * reachable at any span. (The pre-anatomy mode row wrapped too.)
+   */
+  .climate-card-modes {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+    inline-size: 100%;
+  }
+}

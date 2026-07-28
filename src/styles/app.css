@@ -263,7 +263,15 @@
     box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.08);
   }
 
-  /* Fan spinning animations */
+  /*
+   * The fan glyph's spin (docs/specs/entity-cards/options/fan.md — "Icon
+   * animation").
+   *
+   * One rule with a custom-property duration rather than three speed-band
+   * classes: the contract asks for a rate proportional to the percentage, and
+   * the card computes the duration from it. The fallback keeps a spin on a fan
+   * whose card forgot to publish one.
+   */
   @keyframes fan-spin {
     from {
       transform: rotate(0deg);
@@ -273,15 +281,22 @@
     }
   }
 
-  .fan-spin-slow {
-    animation: fan-spin 3s linear infinite;
+  .liebe-fan-spin {
+    display: inline-flex;
+    animation: fan-spin var(--liebe-fan-spin-duration, 1.5s) linear infinite;
   }
 
-  .fan-spin-medium {
-    animation: fan-spin 1.5s linear infinite;
-  }
-
-  .fan-spin-fast {
-    animation: fan-spin 0.75s linear infinite;
+  /*
+   * The reduced-motion gate lives here, in the sheet, and not in the component
+   * that decides whether to spin. That placement is the guarantee: the option
+   * cannot switch it back on, and a regression in the card's logic cannot
+   * either. On/off stays fully conveyed by the active tint and the state text,
+   * so nothing is lost when the spin is suppressed — it is decoration, never
+   * the sole state signal (docs/specs/design-system — "Motion").
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .liebe-fan-spin {
+      animation: none;
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { type ConsoleMessage, type Page, expect } from '@playwright/test'
+import { type ConsoleMessage, type Locator, type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
 import { HOLD_DURATION_MS } from '../../src/store/cardActions'
 import { safeStringify } from './safeStringify'
@@ -7,6 +7,13 @@ import { safeStringify } from './safeStringify'
 // the light; the input_boolean is a deterministic helper from configuration.yaml.
 export const DEMO_LIGHT = 'light.bed_light'
 export const E2E_FLAG = 'input_boolean.e2e_flag'
+/*
+ * Home Assistant's demo button. Its state IS its last-press timestamp, so a
+ * press is observable over REST without any helper to read back — and a press
+ * that never landed is equally observable, which is the point: `button.toggle`,
+ * what the fallback card dispatches, is not a registered service.
+ */
+export const DEMO_BUTTON = 'button.push'
 // A `mode: password` helper from configuration.yaml: its state IS the secret,
 // so it is what proves the detail dialog masks what the card masks.
 export const E2E_SECRET = 'input_text.e2e_secret'
@@ -16,6 +23,11 @@ export const E2E_CAMERA = 'camera.e2e_pattern'
 // A numeric helper from configuration.yaml. Its value is settable over REST and
 // recorded, which is what makes it usable as a history fixture.
 export const E2E_LEVEL = 'input_number.e2e_level'
+// A select helper from configuration.yaml. Placed as a 1x1 tile, it is the
+// no-operability-regression case: at `glance` the card renders no control at
+// all, so the only way to change its option is the detail dialog its tap opens
+// (docs/specs/entity-cards/options/input-helpers.md — the tier table).
+export const E2E_MODE = 'input_select.e2e_mode'
 
 // Deterministic dashboard configs seeded into localStorage before the panel
 // boots, so cards render without any UI drag/drop. The panel reads `liebe-config`
@@ -94,6 +106,33 @@ export function seedConfig(): SeedConfig {
   })
 }
 
+/*
+ * DEDICATED action-card seed, on its own screen for the same reason the
+ * detail-dialog seed has one: this spec presses a button, and a shared screen
+ * would perturb the deterministic seed the other serial specs assert against.
+ */
+export function seedActionCardConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-action-screen',
+    name: 'E2E Action',
+    slug: 'e2e-action',
+    items: [
+      {
+        id: 'item-button',
+        type: 'entity',
+        entityId: DEMO_BUTTON,
+        x: 0,
+        y: 0,
+        // 2x1 rather than the family's 1x1 default: `clickCardTitle` finds the
+        // card by its visible name, and the name is what a 1x1 glance tile
+        // keeps, but the wider tile keeps the click target away from the edge.
+        width: 2,
+        height: 1,
+      },
+    ],
+  })
+}
+
 // DEDICATED detail-dialog seed — its own screen, so the hold gestures below
 // cannot perturb the deterministic seed the existing serial specs assert
 // against. Carries the flag (a card whose tap toggles, to prove a hold does
@@ -106,6 +145,8 @@ export function seedDetailDialogConfig(): SeedConfig {
     items: [
       { id: 'item-flag', type: 'entity', entityId: E2E_FLAG, x: 0, y: 0, width: 2, height: 2 },
       { id: 'item-secret', type: 'entity', entityId: E2E_SECRET, x: 2, y: 0, width: 3, height: 2 },
+      // Deliberately 1x1 — the `glance` tier, where the card carries no control.
+      { id: 'item-mode', type: 'entity', entityId: E2E_MODE, x: 0, y: 2, width: 1, height: 1 },
     ],
   })
 }
@@ -428,11 +469,33 @@ export async function gridItemCount(page: Page): Promise<number> {
 }
 
 // Read the aria-checked value of the input_boolean card's switch.
-export async function flagSwitchChecked(page: Page): Promise<string | null> {
+/**
+ * Whether the boolean helper's card is showing its `on` state.
+ *
+ * Reads the tile, not a discrete switch: `controlStyle` defaults to `tile`, so
+ * an unconfigured `input_boolean` card renders no switch at all and the whole
+ * tile is the toggle (docs/specs/entity-cards/options/input-helpers.md). The
+ * shell stamps `data-active` on the card either way, which is the affordance
+ * every style shares.
+ *
+ * `null` when the card is not on screen yet, so a poll for `false` cannot pass
+ * against a dashboard that has not rendered.
+ */
+export async function flagCardActive(page: Page): Promise<boolean | null> {
   return page.evaluate(() => {
     const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
-    const sw = panel?.shadowRoot?.querySelector('[role="switch"]')
-    return sw?.getAttribute('aria-checked') ?? null
+    const card = panel?.shadowRoot?.querySelector('[data-domain="input_boolean"]')
+    if (!card) return null
+    // Absent rather than `false` when inactive — the shell omits the attribute.
+    return card.getAttribute('data-active') === 'true'
+  })
+}
+
+/** Whether a discrete switch control is rendered anywhere in the panel. */
+export async function flagSwitchPresent(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
+    return Boolean(panel?.shadowRoot?.querySelector('[role="switch"]'))
   })
 }
 
@@ -711,4 +774,42 @@ export async function setFlag(token: string, on: boolean): Promise<void> {
 // or it passes without proving anything.
 export async function setSecret(token: string, value: string): Promise<void> {
   await callService(token, 'input_text', 'set_value', { entity_id: E2E_SECRET, value })
+}
+
+/**
+ * The grid item holding that entity's card — the thing a resize drags.
+ *
+ * Shared rather than per-spec: the camera spec resizes a card for a different
+ * reason (proving no stream is mounted below 2×2) and must drag it exactly the
+ * way the tier spec does, or the two would be testing two different gestures.
+ */
+export function gridItemFor(page: Page, name: string): Locator {
+  return page.locator('.grid-item').filter({ hasText: name })
+}
+
+/**
+ * Drags a grid item's south-east resize handle to a point, in two moves:
+ * react-grid-layout starts the drag on the first and follows on the second, and
+ * a single jump can be swallowed as the start event.
+ */
+export async function dragResizeHandle(page: Page, item: Locator, to: { x: number; y: number }) {
+  await expect(item, 'the card should be laid out').toHaveCount(1)
+  const handle = item.locator('.react-resizable-handle-se')
+  await expect(handle, 'edit mode should expose a resize handle').toHaveCount(1)
+
+  const handleBox = (await handle.boundingBox())!
+  /*
+   * ONE origin for the whole gesture: the handle's centre, which is where the
+   * press lands. The midpoint used to be computed from the handle's top-left
+   * instead, so the first move started from a point the cursor was never at —
+   * skewing it by half the handle, and skewing it differently as the handle's
+   * size or position changed. That is the shape of a harness that fails
+   * intermittently and gets blamed on the code under test.
+   */
+  const from = { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 }
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 5 })
+  await page.mouse.move(to.x, to.y, { steps: 10 })
+  await page.mouse.up()
 }

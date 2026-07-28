@@ -6,9 +6,12 @@ import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
 import { dashboardActions } from '~/store'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
+import { getDetailControls } from '../EntityDetailDialog/detailControls'
 import { ClimateCard } from '../ClimateCard'
 import { CoverCard } from '../CoverCard'
 import { FanCard } from '../FanCard'
+import { CardItemProvider } from '../cardItemContext'
 import { LightCard } from '../LightCard'
 import { WeatherCard } from '../WeatherCard'
 import type { HassEntity } from '~/store/entityTypes'
@@ -107,6 +110,14 @@ const fillBand = () => document.querySelector('.liebe-card-body-fill')
 beforeEach(() => {
   hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
   dashboardActions.resetState()
+  /*
+   * The at-most-once guard's pending set is module state, shared by every test
+   * in the process (`services/guardedDispatch.ts`). Two cases issuing the same
+   * command inside one acknowledgement window would see the second refused —
+   * and a refusal looks exactly like a control that never fired, with no error
+   * to point at it.
+   */
+  resetDispatchGuard()
 })
 
 afterEach(() => {
@@ -156,12 +167,14 @@ describe('LightCard tiers', () => {
 })
 
 describe('CoverCard tiers', () => {
-  // OPEN + CLOSE + SET_POSITION + STOP + tilt (open/close/set)
+  // OPEN + CLOSE + SET_POSITION + STOP + tilt (open/close/set-position).
+  // Set-tilt-position is bit 128, not the 64 this used to name — 64 is
+  // stop-tilt (docs/specs/entity-cards/options/cover.md — "Options").
   const cover = makeEntity('cover.living_room', 'open', {
     friendly_name: 'Blinds',
     current_position: 60,
     current_tilt_position: 30,
-    supported_features: 127,
+    supported_features: 191,
   })
 
   beforeEach(() => seed(cover))
@@ -229,7 +242,7 @@ describe('CoverCard tiers', () => {
 })
 
 describe('FanCard tiers', () => {
-  const speedLabel = 'Medium-low speed (50%)'
+  const speedLabel = 'Set speed to 50%'
   const fan = makeEntity('fan.living_room', 'on', {
     friendly_name: 'Living Room Fan',
     percentage: 50,
@@ -237,38 +250,66 @@ describe('FanCard tiers', () => {
     supported_features: 1,
   })
 
+  /**
+   * Renders inside the placed-item context, because the fan's speed style is a
+   * stored option now. `steps` is passed wherever the pills are the subject:
+   * the shipped default is the slider, and an existing card keeps its pills
+   * through the loader's pinning migration rather than through the card
+   * (docs/specs/entity-cards/options/fan.md — "Speed control").
+   */
+  const renderFan = (card: ReactElement, config: Record<string, unknown> = {}) =>
+    renderCard(
+      <CardItemProvider entityId={(card.props as { entityId: string }).entityId} config={config}>
+        {card}
+      </CardItemProvider>
+    )
+
   beforeEach(() => seed(fan))
 
   it('drops the speed control at glance', () => {
-    renderCard(<FanCard entityId="fan.living_room" tier="glance" />)
+    renderFan(<FanCard entityId="fan.living_room" tier="glance" />, { speedControl: 'steps' })
 
     expect(stampedTier()).toBe('glance')
     expect(screen.getByText('Living Room Fan')).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Fan speed' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Fan speed')).not.toBeInTheDocument()
   })
 
-  it('lays the step pills out horizontally at row', () => {
-    renderCard(<FanCard entityId="fan.living_room" tier="row" />)
+  it('lays the speed control out horizontally at row', () => {
+    const { unmount } = renderFan(<FanCard entityId="fan.living_room" tier="row" />, {
+      speedControl: 'steps',
+    })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toHaveAttribute(
       'data-orientation',
       'horizontal'
     )
     expect(screen.getByRole('button', { name: speedLabel })).toBeInTheDocument()
+    unmount()
+
+    // The slider default takes the same axis.
+    renderFan(<FanCard entityId="fan.living_room" tier="row" />)
+    expect(sliderOrientation('Fan speed')).toBe('horizontal')
   })
 
-  it('stacks the step pills at tall', () => {
-    renderCard(<FanCard entityId="fan.living_room" tier="tall" />)
+  it('stands the speed control up at tall', () => {
+    const { unmount } = renderFan(<FanCard entityId="fan.living_room" tier="tall" />, {
+      speedControl: 'steps',
+    })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toHaveAttribute(
       'data-orientation',
       'vertical'
     )
+    unmount()
+
+    renderFan(<FanCard entityId="fan.living_room" tier="tall" />)
+    expect(sliderOrientation('Fan speed')).toBe('vertical')
   })
 
-  it('keeps the preset control for the tiers that have room for it', () => {
-    // A fan with both: the step pills are the primary control at `row`, and the
-    // preset select is the secondary row `full` adds.
+  it('holds the preset row back until full', () => {
+    // A fan with both: the speed control is the primary at `row`, and the
+    // preset pills are the secondary row `full` adds.
     seed(
       makeEntity('fan.study', 'on', {
         friendly_name: 'Study Fan',
@@ -279,41 +320,49 @@ describe('FanCard tiers', () => {
         supported_features: 9,
       })
     )
-    const { unmount } = renderCard(<FanCard entityId="fan.study" tier="row" />)
+    const { unmount } = renderFan(<FanCard entityId="fan.study" tier="row" />, {
+      speedControl: 'steps',
+    })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Select fan preset mode')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fan preset' })).not.toBeInTheDocument()
     unmount()
 
-    renderCard(<FanCard entityId="fan.study" tier="full" />)
+    renderFan(<FanCard entityId="fan.study" tier="full" />, { speedControl: 'steps' })
 
     expect(screen.getByRole('group', { name: 'Fan speed' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Select fan preset mode')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Fan preset' })).toBeInTheDocument()
   })
 
-  it('keeps a preset-only fan operable at tall, and picks a mode when none is set', async () => {
-    // No `preset_mode` on the entity: the select shows the first available mode
-    // rather than rendering empty. The wrapper also swallows the click so
-    // choosing a preset does not toggle the fan underneath it.
+  it('adds oscillate and direction only at full, and only when opted into', () => {
     seed(
-      makeEntity('fan.attic', 'on', {
-        friendly_name: 'Attic Fan',
-        preset_modes: ['auto', 'sleep'],
-        supported_features: 8,
+      makeEntity('fan.study', 'on', {
+        friendly_name: 'Study Fan',
+        percentage: 50,
+        oscillating: false,
+        direction: 'forward',
+        // SET_SPEED + OSCILLATE + DIRECTION
+        supported_features: 7,
       })
     )
-    renderCard(<FanCard entityId="fan.attic" tier="tall" />)
+    const { unmount } = renderFan(<FanCard entityId="fan.study" tier="row" />, {
+      showDirection: true,
+    })
 
-    const trigger = screen.getByLabelText('Select fan preset mode')
-    expect(trigger).toHaveTextContent('auto')
+    expect(screen.queryByRole('button', { name: 'Oscillate' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fan direction' })).not.toBeInTheDocument()
+    unmount()
 
-    fireEvent.click(trigger)
-    expect(hass.callService).not.toHaveBeenCalled()
+    renderFan(<FanCard entityId="fan.study" tier="full" />, { showDirection: true })
+
+    expect(screen.getByRole('button', { name: 'Oscillate' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Fan direction' })).toBeInTheDocument()
   })
 
-  it('keeps a preset-only fan’s select as its primary control at row', () => {
-    // Nothing else can drive this fan, so dropping the select would leave the
-    // row tier with no speed control at all.
+  it('leaves a preset-only fan its dialog, since the card row is full-only', () => {
+    // Nothing drives this fan below `full` any more: the option doc puts the
+    // preset row at `full`, and the detail dialog behind a hold is what keeps
+    // it operable at the narrower tiers (docs/changes/0019 — PR 2).
     seed(
       makeEntity('fan.attic', 'on', {
         friendly_name: 'Attic Fan',
@@ -323,10 +372,15 @@ describe('FanCard tiers', () => {
         supported_features: 8,
       })
     )
-    renderCard(<FanCard entityId="fan.attic" tier="row" />)
+    const { unmount } = renderFan(<FanCard entityId="fan.attic" tier="row" />)
 
-    expect(screen.getByLabelText('Select fan preset mode')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fan preset' })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Fan speed' })).not.toBeInTheDocument()
+    unmount()
+
+    renderFan(<FanCard entityId="fan.attic" tier="full" />)
+
+    expect(screen.getByRole('group', { name: 'Fan preset' })).toBeInTheDocument()
   })
 })
 
@@ -360,13 +414,14 @@ describe('ClimateCard tiers', () => {
     supported_features: 2,
   })
 
-  it('KEEPS a setpoint control at glance', () => {
+  it('drops every control at glance, where the tile itself is the action', () => {
     /*
-     * The exception to the glance rule, and the reason it exists: a thermostat's
-     * replacement interaction is the detail dialog's domain controls, which are
-     * registered by change 0017. Until then a control-free glance tile would be
-     * a thermostat nobody can turn up — the operability regression change 0011
-     * forbids at every merge point (docs/changes/0011-layout-tiers.md).
+     * The rule change 0011 deferred for the thermostat, completed here. A 1×1
+     * tile has no room for a control and no longer needs one: the tap resolves
+     * to more-info, and the dialog carries the same stepper
+     * (`ClimateCard/ClimateDetailControls.tsx`), so operability is moved rather
+     * than dropped — the invariant the deviation existed to protect
+     * (docs/changes/0011-layout-tiers.md).
      */
     seed(thermostat)
     renderCard(
@@ -374,24 +429,29 @@ describe('ClimateCard tiers', () => {
     )
 
     expect(stampedTier()).toBe('glance')
-    expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
-    expect(screen.getByLabelText('Decrease temperature')).toBeInTheDocument()
-    // The dial and the mode pills are what a 1×1 tile cannot hold.
+    expect(screen.queryByLabelText('Increase temperature')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Decrease temperature')).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+    // The single slot shows the target: the setpoint is the tile's headline.
+    expect(screen.getByText('21.0°C')).toBeInTheDocument()
+  })
+
+  it('keeps the thermostat operable through the dialog its glance tap opens', () => {
+    // The other half of the rule above, and why the two land together: the
+    // control the tile dropped has to exist where the tap reaches it.
+    expect(getDetailControls('climate')).toBeDefined()
   })
 
   it('gives the compact stepper the same button size as the dial layout', () => {
     /*
      * The compact stepper shipped two Radix sizes smaller than the dial's own
-     * +/- pair. It is the only control on the tile at `glance`, `row` and
-     * `tall`, which makes it the last place on the card to shrink a touch
-     * target — so it matches its `full`-tier counterpart. (The card-wide 44px
-     * minimum is a separate question, tracked by issue #204.)
+     * +/- pair. It is the only control on the tile at `row` and `tall`, which
+     * makes it the last place on the card to shrink a touch target — so it
+     * matches its `full`-tier counterpart. (The card-wide 44px minimum is a
+     * separate question, tracked by issue #204.)
      */
     seed(thermostat)
-    renderCard(
-      <ClimateCard entityId="climate.hallway" tier="glance" span={{ width: 1, height: 1 }} />
-    )
+    renderCard(<ClimateCard entityId="climate.hallway" tier="row" span={{ width: 2, height: 1 }} />)
 
     expect(screen.getByLabelText('Increase temperature').className).toContain('rt-r-size-3')
     expect(screen.getByLabelText('Decrease temperature').className).toContain('rt-r-size-3')
@@ -408,14 +468,41 @@ describe('ClimateCard tiers', () => {
     expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
   })
 
-  it('restores the dial and the mode pills at full', () => {
+  it('adds the mode pills to the row layout at full', () => {
+    // `compact` is the default variant (docs/specs/entity-cards/options/
+    // climate.md — "variant"), so `full` is the row layout plus the mode row.
+    // The arc dial is `variant: dial`'s, and is asserted in
+    // `../ClimateCard/__tests__/ClimateDial.test.tsx`.
     seed(thermostat)
-    const { container } = renderCard(
+    renderCard(
       <ClimateCard entityId="climate.hallway" tier="full" span={{ width: 3, height: 3 }} />
     )
 
     expect(screen.getByRole('group', { name: 'HVAC mode' })).toBeInTheDocument()
-    expect(container.querySelector('svg')).toBeInTheDocument()
+    expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
+    expect(document.querySelector('.climate-card-name')).not.toBeInTheDocument()
+  })
+
+  it('renders the dial at full, and this same compact row below it, under variant: dial', () => {
+    // The variant's fallback, from the tier table's point of view: a `dial` card
+    // resized below `full` renders the compact layout for the tier it lands in,
+    // with identical service behaviour, rather than a shrunken arc.
+    const ClimateDialCard = ClimateCard.variants.dial
+    seed(thermostat)
+
+    const { unmount } = renderCard(
+      <ClimateDialCard entityId="climate.hallway" tier="full" span={{ width: 3, height: 3 }} />
+    )
+    expect(document.querySelector('.climate-card-name')).toBeInTheDocument()
+    unmount()
+
+    renderCard(
+      <ClimateDialCard entityId="climate.hallway" tier="row" span={{ width: 2, height: 1 }} />
+    )
+
+    expect(stampedTier()).toBe('row')
+    expect(screen.getByLabelText('Increase temperature')).toBeInTheDocument()
+    expect(document.querySelector('.climate-card-name')).not.toBeInTheDocument()
   })
 
   it('gives a narrow row the lockstep range control and a wide one both setpoints', () => {
@@ -705,10 +792,40 @@ describe('WeatherCard tiers', () => {
     expect(screen.queryByText(/Wind/)).not.toBeInTheDocument()
   })
 
+  it('stacks every variant’s content down a tall tile', () => {
+    /*
+     * `tall` is the tier the weather variants had no shape of their own for
+     * until change 0020: glyph on top, the temperature between it and the meta,
+     * and the secondary line at the bottom (option doc — "Tier layouts").
+     * `minimal` renders less, as the doc explicitly permits it to.
+     */
+    for (const variant of ['default', 'modern', 'detailed', 'minimal'] as const) {
+      const { unmount } = renderCard(
+        <WeatherCard entityId="weather.home" tier="tall" config={{ variant }} />
+      )
+
+      expect(arrangement()).toBe('tall')
+      expect(screen.getByText('sunny')).toBeInTheDocument()
+
+      if (variant === 'minimal') {
+        // The variant that shows only the temperature shows only the
+        // temperature, at every tier.
+        expect(screen.queryByText('65%')).not.toBeInTheDocument()
+      } else {
+        expect(screen.getByText('65%')).toBeInTheDocument()
+      }
+      // The daily/hourly continuation belongs to `full`; `tall` never grows
+      // one.
+      expect(screen.queryByText(/Feels like/)).not.toBeInTheDocument()
+      unmount()
+    }
+  })
+
   it('renders on the plain card surface when the condition maps to no artwork', () => {
     // Every variant paints its text white over the condition background and in
-    // token colours without one; `exceptional` is a condition with no image, so
-    // this is the other half of that branch on all three of them.
+    // token colours without one. `exceptional` is a REAL Home Assistant
+    // condition that this build ships no artwork for — not an unknown one — so
+    // it reaches the other half of that branch on all three variants.
     for (const variant of ['default', 'modern', 'detailed'] as const) {
       seed(makeEntity('weather.home', 'exceptional', weather.attributes))
       const { unmount } = renderCard(
@@ -785,18 +902,18 @@ describe('WeatherCard tiers', () => {
     expect(rowContainer.querySelector('.liebe-value')).toHaveTextContent('22°C')
   })
 
-  it('drops the modern variant’s humidity at glance', () => {
+  it('drops the modern variant’s secondary line at glance', () => {
     const { unmount } = renderCard(
       <WeatherCard entityId="weather.home" tier="glance" config={{ variant: 'modern' }} />
     )
 
-    expect(screen.queryByText('65% humidity')).not.toBeInTheDocument()
+    expect(screen.queryByText('65%')).not.toBeInTheDocument()
     expect(screen.getByText('22°C')).toBeInTheDocument()
     unmount()
 
     renderCard(<WeatherCard entityId="weather.home" tier="row" config={{ variant: 'modern' }} />)
 
-    expect(screen.getByText('65% humidity')).toBeInTheDocument()
+    expect(screen.getByText('65%')).toBeInTheDocument()
   })
 
   it('adds the modern variant’s detail line at full', () => {
@@ -901,7 +1018,9 @@ describe('control-set cards — the shared body', () => {
     )
     const fan = renderCard(<FanCard entityId="fan.living_room" tier="tall" />)
 
-    expect(fillBand()).toContainElement(screen.getByRole('group', { name: 'Fan speed' }))
+    // The fan's default control is the slider now, which is exactly the shape
+    // this band exists for — it has no intrinsic length of its own.
+    expect(fillBand()).toContainElement(screen.getByLabelText('Fan speed'))
     fan.unmount()
 
     seed(

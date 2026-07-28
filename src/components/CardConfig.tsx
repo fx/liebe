@@ -14,9 +14,20 @@ import {
 } from '@radix-ui/themes'
 import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
+import {
+  coverSupportsPosition,
+  coverSupportsTilt,
+  readCoverDeviceClass,
+} from './CoverCard/presentation'
+import { isSecurityCover } from '~/store/coverOptions'
+import { fanHasPresets, readFanFeatures } from './FanCard/features'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
+import type { HassEntity } from '~/store/entityTypes'
 import type { CardAction } from '~/store/cardActions'
+import { isCounterStateClass, isNumericSensorEntity } from '~/store/sensorOptions'
+import { readClimateCapabilities } from './ClimateCard/climateModel'
+import { useEntity } from '~/hooks'
 import { ActionEditor } from './ActionEditor'
 import { EntityPicker } from './EntityPicker'
 import { NumberArrayEditor } from './NumberArrayEditor'
@@ -53,6 +64,57 @@ interface ContentProps {
   item?: GridItem
 }
 
+/**
+ * An entity capability a control depends on.
+ *
+ * A control the configured entity cannot use is **not rendered**: options are
+ * feature-gated automatically from the entity, never from config
+ * (docs/specs/entity-cards/options/common.md, convention 3), and a control that
+ * writes a key nothing will read looks like a setting that did nothing.
+ *
+ * **Every requirement below MUST be answered by the same predicate its render
+ * path uses — never by a second one shaped like it.** A gate and a renderer
+ * asking different questions about one attribute is how a user is offered an
+ * option, turns it on, and nothing happens, with no error and nothing to say
+ * why. `fan-presets` shipped that way: the form asked whether `preset_modes`
+ * had entries while the card asked whether it had *strings*, so a fan
+ * publishing `[1, null]` was offered a control it could never render. So a new
+ * requirement imports the card's predicate; if the card has none to import,
+ * that is the thing to write first.
+ *
+ * - `numeric` — the entity reports readings rather than text, so it has a
+ *   history a graph or a trend can be drawn from.
+ * - `counter` — its `state_class` is cumulative, the only case bar rendering is
+ *   defined for.
+ * - `cover-position` — the cover advertises set-position, so a position slider
+ *   (and the reversed-scale declaration that only a position can express) has
+ *   something to drive.
+ * - `cover-tilt` — the cover advertises at least one tilt bit.
+ * - `security-cover` — the cover's `device_class` is one of the perimeter
+ *   openings, the only ones `confirmOpen` is offered for.
+ * - `fan-speed` / `fan-oscillate` / `fan-direction` — the fan advertises the
+ *   matching capability bit.
+ * - `fan-presets` — the fan advertises `PRESET_MODE` **and** lists modes; the
+ *   bit without a list is a control with nothing in it.
+ * - `climate-presets` / `climate-fan-modes` — the thermostat advertises the
+ *   feature bit *and* publishes a non-empty list, so there is a pill row to
+ *   show or hide.
+ * - `climate-humidity` — it reports a `current_humidity` to display.
+ */
+export type ConfigOptionRequirement =
+  | 'numeric'
+  | 'counter'
+  | 'cover-position'
+  | 'cover-tilt'
+  | 'security-cover'
+  | 'fan-speed'
+  | 'fan-oscillate'
+  | 'fan-direction'
+  | 'fan-presets'
+  | 'climate-presets'
+  | 'climate-fan-modes'
+  | 'climate-humidity'
+
 // Configuration option types
 export interface ConfigOption {
   type:
@@ -76,8 +138,21 @@ export interface ConfigOption {
   step?: number // For number and number-array types
   integer?: boolean // For number-array type: whole numbers only
   unit?: string // For number-array type: suffix shown after each value
+  /**
+   * The value of the choice that means "no explicit setting" — selecting it
+   * *removes* the key rather than storing this string.
+   *
+   * For options whose real default is derived from the entity rather than
+   * fixed (`input_number`'s control style follows the helper's own `mode`),
+   * absence is the only way to say "follow it". Without a choice that writes
+   * absence, a form built on `Select` can only ever write a concrete value, so
+   * opening the form would silently pin a card that was following its entity —
+   * and nothing would ever get it back (docs/changes/0022).
+   */
+  clearValue?: string
   domains?: string[] // For entity type: narrows what the picker offers
   deviceClasses?: string[] // For entity type: narrows it further
+  requires?: ConfigOptionRequirement // Hides the control when the entity cannot use it
 }
 
 export interface ConfigDefinition {
@@ -144,8 +219,14 @@ function buildOptionUpdate(
 }
 
 function Component({ title, description, configDefinition, config, onChange }: ComponentProps) {
-  const handleChange = (key: string, value: unknown) => {
-    onChange(buildOptionUpdate(config, key, value))
+  const handleChange = (key: string, value: unknown, option?: ConfigOption) => {
+    // The "follow the entity" choice stores nothing: `undefined` is what the
+    // merge below removes the key on, so the card goes back to resolving its
+    // own default rather than carrying a value that pins it.
+    const stored =
+      option?.clearValue !== undefined && value === option.clearValue ? undefined : value
+
+    onChange(buildOptionUpdate(config, key, stored))
   }
 
   const renderConfigOption = (key: string, option: ConfigOption) => {
@@ -245,9 +326,18 @@ function Component({ title, description, configDefinition, config, onChange }: C
             </Text>
             <Select.Root
               value={String(currentValue || option.default || '')}
-              onValueChange={(value) => handleChange(key, value)}
+              onValueChange={(value) => handleChange(key, value, option)}
             >
-              <Select.Trigger />
+              {/*
+               * The trigger carries the option's label as its accessible name.
+               * Without it the control announces as nothing: the `<Text>` above
+               * is a sibling, not a `<label>`, so nothing associates the two —
+               * a screen-reader user meets an unnamed combobox, and the only
+               * way a test could reach it was by walking the DOM from the label
+               * beside it, which is a test routing around the defect rather
+               * than reporting it.
+               */}
+              <Select.Trigger aria-label={option.label} />
               <Select.Content position="popper">
                 {option.options?.map((opt) => (
                   <Select.Item key={opt.value} value={opt.value}>
@@ -366,7 +456,61 @@ function Component({ title, description, configDefinition, config, onChange }: C
   )
 }
 
+/**
+ * Whether the configured entity can use a control, for the definitions that
+ * declare a requirement. Resolved against the live entity — the same predicate
+ * the history service resolves `unsupported` with — so the form offers exactly
+ * the options that can take effect.
+ */
+function meetsRequirement(
+  requires: ConfigOptionRequirement | undefined,
+  entity: HassEntity | undefined
+): boolean {
+  if (requires === undefined) return true
+
+  // The cover requirements read capabilities off the entity through the card's
+  // own predicates, so the form and the card can never disagree about whether a
+  // control is possible.
+  if (requires === 'cover-position') return coverSupportsPosition(entity?.attributes)
+  if (requires === 'cover-tilt') return coverSupportsTilt(entity?.attributes)
+  if (requires === 'security-cover') {
+    return isSecurityCover(readCoverDeviceClass(entity?.attributes))
+  }
+
+  if (requires.startsWith('fan-')) {
+    const features = readFanFeatures(entity?.attributes)
+    if (requires === 'fan-speed') return features.speed
+    if (requires === 'fan-oscillate') return features.oscillate
+    if (requires === 'fan-direction') return features.direction
+    /*
+     * The card's own predicate, not a second one shaped like it. Reading only
+     * `preset_modes.length` offered the option to a fan publishing `[1, null]`
+     * — modes the renderers filter out — so enabling it produced a card that
+     * could never show a preset control, with nothing to say why.
+     */
+    return fanHasPresets(entity?.attributes)
+  }
+
+  // Climate reads its three the same way, through the card's own reader — and
+  // reads them once, because all three are answers from one pass over the
+  // entity.
+  if (requires.startsWith('climate-')) {
+    const climate = readClimateCapabilities(entity)
+    if (requires === 'climate-presets') return climate.presets
+    if (requires === 'climate-fan-modes') return climate.fanModes
+    return climate.humidity
+  }
+
+  if (!isNumericSensorEntity(entity)) return false
+  return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
+}
+
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
+  // Read before the early returns below, because a hook cannot be called after
+  // one. An item with no entity (a separator, a text card) has no capabilities
+  // to gate on and no definition that declares any.
+  const { entity } = useEntity(item?.entityId ?? '')
+
   const cardType =
     item?.type === 'separator'
       ? 'separator'
@@ -390,11 +534,17 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
 
   // If this card has a configuration definition, use Component
   if (cardConfig.definition) {
+    const definition = Object.fromEntries(
+      Object.entries(cardConfig.definition).filter(([, option]) =>
+        meetsRequirement(option.requires, entity)
+      )
+    )
+
     return (
       <Component
         title={cardConfig.title}
         description={cardConfig.description}
-        configDefinition={cardConfig.definition}
+        configDefinition={definition}
         config={config}
         onChange={onChange}
       />
@@ -631,7 +781,20 @@ function Modal({ open, onOpenChange, item, span, onSave }: ModalProps) {
   }
 
   const handleConfigChange = (updates: Record<string, unknown>) => {
-    setLocalConfig((prev) => ({ ...prev, ...updates }))
+    setLocalConfig((prev) => {
+      const next = { ...prev, ...updates }
+      /*
+       * An `undefined` update removes its key rather than storing it: a config
+       * carrying `controlStyle: undefined` is neither absent nor a value —
+       * `JSON.stringify` would drop it while a YAML dump would write something
+       * for it, so the two halves of the same document would disagree about
+       * whether the card is configured.
+       */
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === undefined) delete next[key]
+      }
+      return next
+    })
   }
 
   return (

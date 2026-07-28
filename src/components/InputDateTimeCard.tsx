@@ -6,7 +6,13 @@ import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { SkeletonCard, ErrorDisplay } from './ui'
+import { DetailControlSection } from './EntityDetailDialog/DetailControlSection'
+import {
+  registerDetailControls,
+  type EntityDetailControlsProps,
+} from './EntityDetailDialog/detailControls'
 import { toDatetimeInputValue } from '~/utils/inputDatetime'
+import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 interface InputDateTimeCardProps {
@@ -30,6 +36,214 @@ interface InputDateTimeAttributes {
   _stale?: boolean
 }
 
+/**
+ * An absent attribute reads as present: Home Assistant always sends both, and
+ * the card has always treated absence that way — the same rule the service
+ * layer's `resolveShape` applies.
+ */
+const shapeOf = (attributes: InputDateTimeAttributes) => ({
+  hasDate: attributes.has_date !== false,
+  hasTime: attributes.has_time !== false,
+})
+
+/** The helper's state as the tile and the readout show it. */
+export function formatDatetimeDisplayValue(
+  value: string,
+  attributes: InputDateTimeAttributes
+): string {
+  if (!value || value === 'unknown') return '(not set)'
+
+  const date = new Date(value)
+  if (isNaN(date.getTime())) return value
+
+  const { hasDate, hasTime } = shapeOf(attributes)
+
+  if (hasDate && hasTime) return date.toLocaleString()
+  if (hasDate) return date.toLocaleDateString()
+  if (hasTime) return date.toLocaleTimeString()
+  return value
+}
+
+/** Which native input the helper's own halves call for. */
+function inputTypeFor(attributes: InputDateTimeAttributes) {
+  const { hasDate, hasTime } = shapeOf(attributes)
+
+  if (hasDate && hasTime) return 'datetime-local'
+  if (hasDate) return 'date'
+  if (hasTime) return 'time'
+  // A helper carrying neither half is not something Home Assistant produces,
+  // and there is no input that means "neither". The combined picker is what has
+  // always rendered for it; the save is refused by the service layer, which
+  // names the shape rather than sending a guess.
+  return 'datetime-local'
+}
+
+interface DateTimeHelperControlProps {
+  entity: HassEntity
+  /** Whether the picker is open. Owned by the caller, so a tap on the tile can
+   *  enter the edit state the same way the edit button does. */
+  editing: boolean
+  onEditingChange: (editing: boolean) => void
+  /** A dispatch is in flight, so the save route is held shut. */
+  loading?: boolean
+  /** Commit a value in the native input's own format. */
+  onCommit: (value: string) => void
+}
+
+/**
+ * The datetime helper's embedded control — the formatted readout with its edit
+ * affordance, and the native picker behind it.
+ *
+ * Rendered bare so the card can wrap it in `GridCard.Controls` and the detail
+ * dialog in `DetailControlSection`; that is what lets the dialog mount the same
+ * control the card's `full` tier renders rather than a second one that drifts
+ * from it (docs/specs/entity-cards/options/input-helpers.md).
+ */
+export function DateTimeHelperControl({
+  entity,
+  editing,
+  onEditingChange,
+  loading = false,
+  onCommit,
+}: DateTimeHelperControlProps) {
+  const attributes = entity.attributes as InputDateTimeAttributes
+
+  /*
+   * The state Home Assistant publishes is not what the native inputs accept —
+   * `2024-01-15 06:30:00` leaves a `datetime-local` field blank, and its seconds
+   * leave a `time` field blank (docs/changes/0022-switch-input-helpers-to-spec.md).
+   * Every seed of the field goes through the translation, so what the user edits
+   * is always the value being shown.
+   */
+  const inputValue = toDatetimeInputValue(entity.state, entity.attributes)
+  const [localValue, setLocalValue] = useState<string>(inputValue)
+
+  // Seed the picker from the entity each time it opens, during render rather
+  // than in an effect (react-hooks/set-state-in-effect).
+  const [prevEditing, setPrevEditing] = useState(editing)
+  if (editing !== prevEditing) {
+    setPrevEditing(editing)
+    if (editing) setLocalValue(inputValue)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // A cleared field is not a value to send: `set_datetime` has no form that
+    // means "unset", so this leaves the edit state instead.
+    if (!localValue) {
+      onEditingChange(false)
+      return
+    }
+
+    onCommit(localValue)
+    onEditingChange(false)
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
+        <Flex align="center" gap="2">
+          <TextField.Root
+            size="3"
+            aria-label="Value"
+            type={inputTypeFor(attributes)}
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            autoFocus
+            style={{ minWidth: '200px' }}
+          />
+          <IconButton
+            size="3"
+            type="submit"
+            variant="soft"
+            color="green"
+            aria-label="Save value"
+            disabled={loading}
+          >
+            <Check size={16} />
+          </IconButton>
+          <IconButton
+            size="3"
+            type="button"
+            variant="soft"
+            color="red"
+            aria-label="Cancel editing"
+            onClick={() => onEditingChange(false)}
+          >
+            <X size={16} />
+          </IconButton>
+        </Flex>
+      </form>
+    )
+  }
+
+  return (
+    <Flex align="center" gap="2">
+      <Box
+        style={{
+          padding: '4px 12px',
+          borderRadius: 'var(--radius-2)',
+          backgroundColor: 'var(--gray-2)',
+          minWidth: '120px',
+          textAlign: 'center',
+        }}
+      >
+        <Text size="2">{formatDatetimeDisplayValue(entity.state, attributes)}</Text>
+      </Box>
+      {/*
+       * As in `InputTextCard`: the `Box` beside it only reports the value, and
+       * this real `<button>` is what operates the helper, so the control is
+       * focusable and Enter/Space-operable rather than pointer-only. Icon-only,
+       * so it carries its name explicitly.
+       */}
+      <IconButton
+        size="3"
+        variant="ghost"
+        aria-label="Edit value"
+        onClick={(e) => {
+          e.stopPropagation()
+          onEditingChange(true)
+        }}
+      >
+        <Edit2 size={16} />
+      </IconButton>
+    </Flex>
+  )
+}
+
+/**
+ * The `input_datetime` control the detail dialog mounts — what a control-free
+ * `glance` tile defers to through its `more-info` tap
+ * (docs/specs/entity-cards/options/input-helpers.md — the tier table).
+ *
+ * The error line `DetailControlSection` adds earns its keep here in particular:
+ * a helper carrying neither a date nor a time refuses the save with a message
+ * naming the shape it wanted, and the dialog is where a 1×1 helper is operated
+ * at all.
+ */
+export function InputDateTimeDetailControls({ entity }: EntityDetailControlsProps) {
+  const { setValue, loading, error } = useServiceCall()
+  const [isEditing, setIsEditing] = useState(false)
+
+  return (
+    <DetailControlSection error={error}>
+      <DateTimeHelperControl
+        entity={entity}
+        editing={isEditing}
+        onEditingChange={setIsEditing}
+        loading={loading}
+        onCommit={(value) => setValue(entity.entity_id, value)}
+      />
+    </DetailControlSection>
+  )
+}
+
+// Registered by the card family that owns the control; see the note on
+// `registerDetailControls` in `InputNumberCard.tsx` for why the edge runs this
+// way round and why it is safe.
+registerDetailControls('input_datetime', InputDateTimeDetailControls)
+
 export const InputDateTimeCard = memo(function InputDateTimeCard({
   entityId,
   tier = 'row',
@@ -40,99 +254,30 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
 
-  /*
-   * The state Home Assistant publishes is not what the native inputs accept —
-   * `2024-01-15 06:30:00` leaves a `datetime-local` field blank, and its seconds
-   * leave a `time` field blank (docs/changes/0022-switch-input-helpers-to-spec.md).
-   * Every seed of the field goes through the translation, so what the user edits
-   * is always the value the card is showing.
-   */
-  const inputValue = toDatetimeInputValue(entity?.state ?? '', entity?.attributes)
-  const [localValue, setLocalValue] = useState<string>(inputValue)
   const [isEditing, setIsEditing] = useState(false)
 
-  // Sync the local value from the entity while the user is not editing. Done
-  // during render (not in an effect) per react-hooks/set-state-in-effect; the
-  // previous-value guards reproduce the old effect's [entity, isEditing] triggers.
-  const [prevEntity, setPrevEntity] = useState(entity)
-  const [prevIsEditing, setPrevIsEditing] = useState(isEditing)
-  if (entity !== prevEntity || isEditing !== prevIsEditing) {
-    setPrevEntity(entity)
-    setPrevIsEditing(isEditing)
-    if (entity && !isEditing) {
-      setLocalValue(inputValue)
-    }
-  }
+  const isGlance = tier === 'glance'
 
+  /*
+   * The tile tap is the card's primary action: it opens the native picker on
+   * the embedded input (the option doc's "Primary action"). At `glance` there
+   * is no input to open, so the tap resolves to `more-info` instead and this
+   * declines — it is still passed, because an absent handler would tell the
+   * shell the card has no toggle of its own and route a configured `toggle` to
+   * `homeassistant.toggle` on an `input_datetime`.
+   */
   const handleClick = useCallback(() => {
-    if (!isEditing) {
-      setIsEditing(true)
-    }
-  }, [isEditing])
+    if (!isGlance) setIsEditing(true)
+  }, [isGlance])
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault()
-      if (!entity) return
-
-      // Validate the datetime format
-      if (!localValue) {
-        setLocalValue(inputValue)
-        setIsEditing(false)
-        return
-      }
-
-      setValue(entity.entity_id, localValue)
-      setIsEditing(false)
-    },
-    [entity, inputValue, localValue, setValue]
+  // Keyed on the prop rather than on the resolved entity: the control that
+  // calls this only renders past the early returns below, so the entity exists
+  // by construction and `entity.entity_id` is this id. Reading the prop keeps
+  // the callback free of a guard for a state it cannot be called in.
+  const handleCommit = useCallback(
+    (value: string) => setValue(entityId, value),
+    [entityId, setValue]
   )
-
-  const handleCancel = useCallback(() => {
-    if (entity) {
-      setLocalValue(inputValue)
-      setIsEditing(false)
-    }
-  }, [entity, inputValue])
-
-  const handleFieldClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-  }, [])
-
-  // Format display value
-  const formatDisplayValue = (value: string, attributes: InputDateTimeAttributes) => {
-    if (!value || value === 'unknown') return '(not set)'
-
-    try {
-      const date = new Date(value)
-      if (isNaN(date.getTime())) return value
-
-      const hasDate = attributes.has_date !== false
-      const hasTime = attributes.has_time !== false
-
-      if (hasDate && hasTime) {
-        return date.toLocaleString()
-      } else if (hasDate) {
-        return date.toLocaleDateString()
-      } else if (hasTime) {
-        return date.toLocaleTimeString()
-      }
-      return value
-    } catch {
-      return value
-    }
-  }
-
-  // Get input type based on entity attributes
-  const getInputType = (attributes: InputDateTimeAttributes) => {
-    const hasDate = attributes.has_date !== false
-    const hasTime = attributes.has_time !== false
-
-    if (hasDate && hasTime) return 'datetime-local'
-    if (hasDate) return 'date'
-    if (hasTime) return 'time'
-    return 'datetime-local'
-  }
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -185,12 +330,9 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
 
   const attributes = entity.attributes as InputDateTimeAttributes
   const isStale = attributes._stale === true
-  const hasDate = attributes.has_date !== false
-  const hasTime = attributes.has_time !== false
+  const { hasDate, hasTime } = shapeOf(attributes)
   const Icon = hasDate ? Calendar : Clock
 
-  const displayValue = formatDisplayValue(entity.state, attributes)
-  const inputType = getInputType(attributes)
   /*
    * Which halves of a datetime the helper actually carries. Secondary text, so
    * only `full` renders it — see the layout note below. A helper with neither
@@ -218,26 +360,26 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
       isSelected={isSelected}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
-      // Unconditional, with `handleClick` declining while the field is open: an
-      // absent handler tells the shell the card has no toggle of its own, which
-      // would route `toggle` to `homeassistant.toggle` on an `input_datetime`.
       onClick={handleClick}
+      /*
+       * At one cell there is no picker to open, so `default` resolves to
+       * `more-info` and the dialog's `input_datetime` control is what sets the
+       * helper (docs/specs/entity-cards/options/input-helpers.md — "In
+       * `glance`, fall back to `more-info`").
+       */
+      defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
     >
       {/*
-       * The picker renders at every tier, `glance` included.
+       * `glance` reads the formatted value out as the tile's state line — or
+       * `(not set)` — and carries no control, which is what the option doc's
+       * tier table asks for ("Icon + name + formatted value / `(not set)`; tap
+       * → more-info").
        *
-       * The option doc's `glance` row is control-free ("Icon + name + formatted
-       * value; tap → more-info"), but the `input_datetime` control it defers to
-       * is registered into the detail dialog by 0022. Dropping the picker here
-       * would leave a 1×1 datetime helper with no way to set it at all — the
-       * regression docs/changes/0011 forbids at a merge point. The field
-       * doubles as the state the doc asks for: it reads out the formatted
-       * value, or `(not set)`.
-       *
-       * The has-date/has-time line is what the smaller tiers omit: it describes
-       * the helper rather than reporting its state, so it renders only in
-       * `full`, the one tier with a line past the meta.
+       * The has-date/has-time line is what the middle tiers omit instead: it
+       * describes the helper rather than reporting its state, so it renders only
+       * in `full`, the one tier with a line past the meta — and at `glance` the
+       * state line is already spoken for by the value.
        */}
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
@@ -251,80 +393,26 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
             <GridCard.Title>
               {attributes.friendly_name || entity.entity_id.split('.')[1]}
             </GridCard.Title>
+            {isGlance ? (
+              <GridCard.Status>
+                {formatDatetimeDisplayValue(entity.state, attributes)}
+              </GridCard.Status>
+            ) : null}
             {tier === 'full' && modeLabel ? <GridCard.Status>{modeLabel}</GridCard.Status> : null}
           </GridCard.Meta>
         }
         control={
-          <GridCard.Controls>
-            {isEditing ? (
-              <form onSubmit={handleSubmit} onClick={handleFieldClick}>
-                <Flex align="center" gap="2">
-                  <TextField.Root
-                    size="3"
-                    aria-label="Value"
-                    type={inputType}
-                    value={localValue}
-                    onChange={(e) => setLocalValue(e.target.value)}
-                    autoFocus
-                    style={{ minWidth: '200px' }}
-                  />
-                  <IconButton
-                    size="3"
-                    type="submit"
-                    variant="soft"
-                    color="green"
-                    aria-label="Save value"
-                    disabled={loading}
-                  >
-                    <Check size={16} />
-                  </IconButton>
-                  <IconButton
-                    size="3"
-                    type="button"
-                    variant="soft"
-                    color="red"
-                    aria-label="Cancel editing"
-                    onClick={handleCancel}
-                  >
-                    <X size={16} />
-                  </IconButton>
-                </Flex>
-              </form>
-            ) : (
-              <Flex align="center" gap="2">
-                <Box
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: 'var(--radius-2)',
-                    backgroundColor: 'var(--gray-2)',
-                    minWidth: '120px',
-                    textAlign: 'center',
-                  }}
-                >
-                  <Text size="2">{displayValue}</Text>
-                </Box>
-                {/*
-                 * As in `InputTextCard`: the `Box` beside it only reports the
-                 * value, and this real `<button>` is what operates the helper,
-                 * so the control `glance` retains is focusable and
-                 * Enter/Space-operable rather than pointer-only
-                 * (docs/changes/0011 — "no operability regression"). Icon-only,
-                 * so it carries its name explicitly.
-                 */}
-                <IconButton
-                  size="3"
-                  variant="ghost"
-                  aria-label="Edit value"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsEditing(true)
-                  }}
-                >
-                  <Edit2 size={16} />
-                </IconButton>
-              </Flex>
-            )}
-          </GridCard.Controls>
+          isGlance ? undefined : (
+            <GridCard.Controls>
+              <DateTimeHelperControl
+                entity={entity}
+                editing={isEditing}
+                onEditingChange={setIsEditing}
+                loading={loading}
+                onCommit={handleCommit}
+              />
+            </GridCard.Controls>
+          )
         }
       />
     </GridCard>

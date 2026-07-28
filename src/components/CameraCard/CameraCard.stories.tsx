@@ -1,12 +1,19 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect, waitFor } from 'storybook/test'
 import { CameraCard } from './index'
-import { asUnavailable, createCameraEntity, type EntityOverrides } from '~/test/fixtures'
+import {
+  asUnavailable,
+  createBinarySensorEntity,
+  createCameraEntity,
+  type EntityOverrides,
+} from '~/test/fixtures'
 import type { GridItem } from '~/store/types'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
 import { MOCK_CAMERA_FRAME } from '../../../.storybook/mockCameraStream'
 
 const entityId = 'camera.driveway'
+const MOTION_ENTITY = 'binary_sensor.driveway_motion'
 
 /**
  * Camera fixture wired to the workshop's stream mocks.
@@ -37,6 +44,22 @@ function camera(
   })
 }
 
+/**
+ * The linked motion sensor for the `showLastMotion` stories.
+ *
+ * `last_changed` is set relative to now and half a minute off the boundary, so
+ * the floored minute the card renders is stable rather than flipping under the
+ * story as the clock crosses a minute.
+ */
+function motionSensor(state: string, minutesAgo = 12.5) {
+  return createBinarySensorEntity({
+    entity_id: MOTION_ENTITY,
+    state,
+    attributes: { friendly_name: 'Driveway Motion', device_class: 'motion' },
+    last_changed: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
+  })
+}
+
 /** A grid item so the card's configuration surface (fit, matting) is reachable. */
 function cameraItem(config: GridItem['config'] = {}): GridItem {
   return {
@@ -63,7 +86,10 @@ const meta: Meta<CameraCardStoryProps> = {
   },
   args: {
     entityId,
-    tier: 'row',
+    // `full`, because it is the only tier that mounts a live feed at all: below
+    // 2×2 the card degrades to a still thumbnail, which the degraded-tier
+    // stories below show on purpose.
+    tier: 'full',
     gridWidth: 4,
     gridHeight: 3,
   },
@@ -74,6 +100,16 @@ const meta: Meta<CameraCardStoryProps> = {
 
 export default meta
 type Story = StoryObj<CameraCardStoryProps>
+
+/** The gradient overlay's two lines, and the badge, as the DOM has them. */
+const overlayName = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-name-overlay .camera-overlay-name')?.textContent ?? null
+const overlayState = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-name-overlay .camera-overlay-state')?.textContent ?? null
+const liveBadge = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-live-badge')?.textContent ?? null
+const overlayMotion = (canvas: HTMLElement) =>
+  canvas.querySelector('.camera-name-overlay .camera-overlay-motion')?.textContent ?? null
 
 /* ------------------------------------------------------------------ *
  * Stream states
@@ -90,6 +126,14 @@ type Story = StoryObj<CameraCardStoryProps>
  */
 export const Streaming: Story = {
   parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    // Defaults: name and state in the gradient, and the live state presented as
+    // the badge rather than as a STREAMING pill (change 0021's subsumption).
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('LIVE'))
+    await expect(overlayName(canvasElement)).toBe('Driveway')
+    await expect(overlayState(canvasElement)).toBe('Idle')
+    await expect(canvasElement.textContent).not.toContain('STREAMING')
+  },
 }
 
 /**
@@ -99,6 +143,11 @@ export const Streaming: Story = {
  */
 export const Recording: Story = {
   parameters: { liebe: { entities: [camera('recording')] } },
+  play: async ({ canvasElement }) => {
+    // The recording variant survives the subsumption as its own badge label.
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('REC'))
+    await expect(overlayState(canvasElement)).toBe('Recording')
+  },
 }
 
 /**
@@ -130,6 +179,26 @@ export const StreamError: Story = {
  */
 export const StillImageFallback: Story = {
   parameters: { liebe: { entities: [camera('idle', { readiness: 'unavailable' })] } },
+  play: async ({ canvasElement }) => {
+    // The name still belongs on the picture; the badge does not.
+    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    await expect(liveBadge(canvasElement)).toBeNull()
+  },
+}
+
+/**
+ * The badge's honesty rule, in the shape that actually bites: the pill resolves
+ * `RECORDING` from the raw entity state alone, so a camera whose element could
+ * not be bootstrapped reports a live state with nothing but a periodically
+ * refreshed snapshot on screen. No badge renders — a snapshot must never be
+ * labelled live — and the pill keeps saying `RECORDING` unsubsumed.
+ */
+export const RecordingStillImage: Story = {
+  parameters: { liebe: { entities: [camera('recording', { readiness: 'unavailable' })] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.textContent).toContain('RECORDING'))
+    await expect(liveBadge(canvasElement)).toBeNull()
+  },
 }
 
 /**
@@ -155,6 +224,193 @@ export const WithoutStreamSupport: Story = {
   args: { gridHeight: 2 },
   parameters: {
     liebe: { entities: [camera('idle', { attributes: { supported_features: 0 } })] },
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Presentation options (change 0021)
+ * ------------------------------------------------------------------ */
+
+/**
+ * `showNameOverlay: false` leaves the feed uninterrupted — and hands the name
+ * back to the status pill, which is the only place left for it.
+ */
+export const WithoutNameOverlay: Story = {
+  args: { item: cameraItem({ showNameOverlay: false }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('LIVE'))
+    await expect(canvasElement.querySelector('.camera-name-overlay')).toBeNull()
+    await expect(canvasElement.textContent).toContain('Driveway')
+  },
+}
+
+/**
+ * `showLiveBadge: false` gives the live state back to the pill it was subsumed
+ * from — the pill's own resolution never changed, only which layer presents it.
+ */
+export const WithoutLiveBadge: Story = {
+  args: { item: cameraItem({ showLiveBadge: false }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.textContent).toContain('STREAMING'))
+    await expect(liveBadge(canvasElement)).toBeNull()
+  },
+}
+
+/**
+ * The universal `hideName` takes the name line out of the gradient — and does
+ * NOT hand it back to the pill, which would be the option doing nothing.
+ */
+export const OverlayWithoutName: Story = {
+  args: { item: cameraItem({ hideName: true }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayState(canvasElement)).toBe('Idle'))
+    await expect(overlayName(canvasElement)).toBeNull()
+    await expect(canvasElement.textContent).not.toContain('Driveway')
+  },
+}
+
+/**
+ * The universal `hideState` takes the state line out. The stream-health pill is
+ * a different thing — camera-streaming's, not the entity's state line — so it
+ * stays; here the live state is on the badge.
+ */
+export const OverlayWithoutState: Story = {
+  args: { item: cameraItem({ hideState: true }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    await expect(overlayState(canvasElement)).toBeNull()
+    await expect(liveBadge(canvasElement)).toBe('LIVE')
+  },
+}
+
+/**
+ * Hiding both lines collapses the band entirely: an empty gradient over a feed
+ * is a smudge, not a layout, so the picture fills the card as if the overlay
+ * were switched off.
+ */
+export const OverlayCollapsed: Story = {
+  args: { item: cameraItem({ hideName: true, hideState: true }) },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(liveBadge(canvasElement)).toBe('LIVE'))
+    await expect(canvasElement.querySelector('.camera-name-overlay')).toBeNull()
+    await expect(canvasElement.textContent).not.toContain('Driveway')
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion line (change 0021)
+ * ------------------------------------------------------------------ */
+
+/** A sensor that is currently seeing something. */
+export const MotionDetected: Story = {
+  args: { item: cameraItem({ showLastMotion: true, motionEntity: MOTION_ENTITY }) },
+  parameters: { liebe: { entities: [camera('idle'), motionSensor('on')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayMotion(canvasElement)).toBe('Motion detected'))
+    // Added to the state area, not in place of the state.
+    await expect(overlayState(canvasElement)).toBe('Idle')
+  },
+}
+
+/**
+ * A clear sensor reads "Clear for X" — never "Motion X ago". `last_changed`
+ * measures the state the sensor is in NOW, so after a Home Assistant restart it
+ * marks that restart rather than a motion event; claiming an event from it would
+ * invent one that never happened.
+ */
+export const MotionClear: Story = {
+  args: { item: cameraItem({ showLastMotion: true, motionEntity: MOTION_ENTITY }) },
+  parameters: { liebe: { entities: [camera('idle'), motionSensor('off')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayMotion(canvasElement)).toBe('Clear for 12 min'))
+  },
+}
+
+/**
+ * A sensor that is unavailable drops the line and nothing else — a camera card
+ * must never take on a linked sensor's error state. Same for a `motionEntity`
+ * naming an entity this Home Assistant does not have.
+ */
+export const MotionSensorUnavailable: Story = {
+  args: { item: cameraItem({ showLastMotion: true, motionEntity: MOTION_ENTITY }) },
+  parameters: {
+    liebe: { entities: [camera('idle'), asUnavailable(motionSensor('off'))] },
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    await expect(overlayMotion(canvasElement)).toBeNull()
+    await expect(canvasElement.querySelector('[data-error]')).toBeNull()
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Degraded tiers (change 0021)
+ * ------------------------------------------------------------------ */
+
+/**
+ * 1×1. Below 2×2 a live feed is illegible, so the card mounts NO stream at all
+ * and stands the `entity_picture` snapshot in its place — the omit-never-clip
+ * rule applied to video. The overlay and the LIVE badge go with it; a gradient
+ * band over a tile this size would be furniture with no room to stand on.
+ * Tapping still opens fullscreen, where the stream is mounted lazily.
+ */
+export const GlanceTier: Story = {
+  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('ha-camera-stream')).toBeNull()
+    await expect(canvasElement.querySelector('.camera-name-overlay')).toBeNull()
+    await expect(liveBadge(canvasElement)).toBeNull()
+    await expect(canvasElement.querySelector('.liebe-name')?.textContent).toBe('Driveway')
+    // One cell wide: the name alone, no state line to clip.
+    await expect(canvasElement.querySelector('.liebe-state')).toBeNull()
+  },
+}
+
+/** ≥2×1 — the one degraded tier with the width for a state line beside the name. */
+export const RowTier: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('ha-camera-stream')).toBeNull()
+    await expect(canvasElement.querySelector('.liebe-name')?.textContent).toBe('Driveway')
+    await expect(canvasElement.querySelector('.liebe-state')?.textContent).toBe('Idle')
+  },
+}
+
+/** 1×≥2 — thumbnail on top, name below; the same degradation as `glance`. */
+export const TallTier: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('ha-camera-stream')).toBeNull()
+    await expect(canvasElement.querySelector('.liebe-state')).toBeNull()
+  },
+}
+
+/**
+ * `hideName` on a degraded tile leaves the picture alone — an image-only tile,
+ * which the tier table requires to stay a valid layout.
+ */
+export const GlanceTierImageOnly: Story = {
+  args: {
+    tier: 'glance',
+    gridWidth: 1,
+    gridHeight: 1,
+    item: cameraItem({ hideName: true }),
+  },
+  parameters: { liebe: { entities: [camera('idle')] } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
+    await expect(canvasElement.querySelector('.liebe-name')).toBeNull()
   },
 }
 

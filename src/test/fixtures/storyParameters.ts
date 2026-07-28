@@ -7,6 +7,25 @@
  * components can import it without reaching across the repo root.
  */
 import type { HassEntity } from '~/store/entityTypes'
+import type { ForecastType } from '~/services/forecastData'
+import type { RawForecastEntry } from './forecast'
+
+/**
+ * One seeded forecast, in the cache the way a fetch would have left it.
+ *
+ * Stories seed the CACHE rather than a hook, so a card story reads its forecast
+ * through the same `useWeatherForecast` the panel does — and a story whose card
+ * started fetching for itself would stop showing what it seeded.
+ */
+export interface LiebeStoryForecast {
+  entityId: string
+  /** The requested granularity this entry answers. Default `daily`. */
+  type?: ForecastType
+  /** Raw entries, put through the real parser. Ignored when `unsupported`. */
+  forecast?: RawForecastEntry[]
+  /** The entity cannot forecast this type at all — not the same as an empty one. */
+  unsupported?: boolean
+}
 
 export interface LiebeStoryParameters {
   /** Entities seeded into the entity store before the story renders. */
@@ -22,7 +41,7 @@ export interface LiebeStoryParameters {
    * which is how control cards reach their error state through their normal
    * hooks. Default `'success'`.
    */
-  serviceCall?: 'success' | 'error'
+  serviceCall?: 'success' | 'error' | 'pending'
   /** Message the rejected service call fails with. */
   serviceCallError?: string
   /**
@@ -33,4 +52,6 @@ export interface LiebeStoryParameters {
    * does not do (docs/specs/entity-cards/options/common.md).
    */
   itemConfig?: Record<string, unknown>
+  /** Forecasts seeded into the forecast cache before the story renders. */
+  forecasts?: LiebeStoryForecast[]
 }

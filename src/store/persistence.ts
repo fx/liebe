@@ -5,12 +5,31 @@ import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 import { validateDashboardConfig } from './configSchema'
 import { migrateThemeConfig } from './themeConfig'
 import { migrateLightCardConfig } from './lightOptions'
+import { configPredatesControlStyle, pinLegacyControlStyle } from './inputHelperOptions'
+import {
+  CLIMATE_VARIANT_VERSION,
+  configPredatesClimateVariant,
+  pinLegacyClimateVariant,
+} from './climateOptions'
+import { configPredatesSpeedControl, pinLegacyFanSpeedControl } from './fanOptions'
+import { migrateWeatherCardConfig } from './weatherOptions'
 import * as yaml from 'js-yaml'
 
 const STORAGE_KEY = 'liebe-config'
 const MODE_STORAGE_KEY = 'liebe-mode'
 const BACKUP_STORAGE_KEY = 'liebe-config-backup'
-const CURRENT_VERSION = '1.0.0'
+/**
+ * The version stamped onto every document this build migrates. Exported so the
+ * suite asserts against the current marker rather than a literal that has to be
+ * chased down on every bump.
+ *
+ * The newest marker, not a marker of its own: every option's cutoff is a point
+ * on the same line, and a document stamped with the latest of them is past all
+ * of the earlier ones — which is what makes a second load a no-op for every
+ * migration at once. So this is always the *newest* marker: a new option adds
+ * its own constant and moves this one onto it.
+ */
+export const CURRENT_VERSION = CLIMATE_VARIANT_VERSION
 
 export const saveDashboardConfig = (config: DashboardConfig): void => {
   try {
@@ -60,6 +79,19 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
+ * Which legacy pinnings a stored document is old enough to need.
+ *
+ * One flag per introducing change rather than a single "is old" boolean: a
+ * document written between two of them has already been pinned by the earlier
+ * rule and stamped past it, so re-running that rule would rewrite cards the
+ * user has since configured (common contract, convention 7).
+ */
+interface MigrationCutoffs {
+  predatesControlStyle: boolean
+  predatesSpeedControl: boolean
+}
+
+/**
  * The per-card option renames, applied to one stored grid item.
  *
  * Renaming a shipped option key is a loader job (common contract, convention 1),
@@ -71,15 +103,50 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
  *
  * Returns the item unchanged, by reference, when no migration applies.
  */
-const migrateItemConfig = (item: unknown): unknown => {
+const migrateItemConfig = (item: unknown, cutoffs: VersionCutoffs): unknown => {
   if (!isPlainObject(item)) return item
 
   const { entityId, config } = item
   if (typeof entityId !== 'string' || !isPlainObject(config)) return item
 
-  const migrated = entityId.split('.')[0] === 'light' ? migrateLightCardConfig(config) : config
+  const domain = entityId.split('.')[0]
+
+  let migrated = domain === 'light' ? migrateLightCardConfig(config) : config
+  // The weather card's `preset` → `variant` rename, which convention 1 names as
+  // its own example. Unconditional, like the light card's: a rename has no
+  // default to pin, so there is no newly added card an absent key could be
+  // mistaken for.
+  if (domain === 'weather') migrated = migrateWeatherCardConfig(migrated)
+  /*
+   * The legacy-pinning half (common contract, convention 7): a document written
+   * before an option existed has cards whose control surface that option's new
+   * default would replace, so those cards keep what they were built with. A
+   * document written since is left alone — including its cards carrying none of
+   * these keys, which is how a newly added card says "take the default".
+   *
+   * Each pinning has its own cutoff, because each was introduced by a different
+   * change: a document written between two of them has been pinned once already
+   * and must not be pinned again by the older rule.
+   */
+  if (cutoffs.predatesControlStyle) migrated = pinLegacyControlStyle(domain, migrated)
+  if (cutoffs.predatesSpeedControl) migrated = pinLegacyFanSpeedControl(domain, migrated)
+  if (cutoffs.predatesClimateVariant) migrated = pinLegacyClimateVariant(domain, migrated)
 
   return migrated === config ? item : { ...item, config: migrated }
+}
+
+/**
+ * Which of this build's option cutoffs a stored document falls before.
+ *
+ * A property of the document that wrote these cards rather than of any one
+ * item, so it is decided once by `migrateConfig` and handed down. One flag per
+ * option rather than a single "is old" boolean: the markers are different
+ * versions, so a document can be past one cutoff and before another.
+ */
+interface VersionCutoffs {
+  predatesControlStyle: boolean
+  predatesSpeedControl: boolean
+  predatesClimateVariant: boolean
 }
 
 /**
@@ -94,13 +161,49 @@ const migrateItemConfig = (item: unknown): unknown => {
  * this function, notably restoring from backup.
  */
 const migrateConfig = (config: unknown): DashboardConfig => {
-  const migrated = migrateScreenConfig(config)
+  /*
+   * Read once, here, and used for every decision below: which options the cards
+   * this document carries were placed before, and therefore whether this build
+   * is the one migrating it. Deriving them twice would let the pinning and the
+   * stamp disagree about the same document.
+   */
+  const version = isPlainObject(config) ? config.version : undefined
+  const cutoffs: VersionCutoffs = {
+    predatesControlStyle: configPredatesControlStyle(version),
+    predatesSpeedControl: configPredatesSpeedControl(version),
+    predatesClimateVariant: configPredatesClimateVariant(version),
+  }
+
+  const migrated = migrateScreenConfig(config, cutoffs)
   migrated.theme = migrateThemeConfig(migrated.theme)
+  /*
+   * Stamping the version is what makes a version-keyed migration idempotent: a
+   * document that has been through the pinning above must not be treated as
+   * pre-`controlStyle` again, or a card added to it afterwards — legitimately
+   * leaving the key absent — would be pinned on the following load. The store
+   * carries this version back out through `exportConfiguration`, so the stamp
+   * survives the save.
+   *
+   * Only *upward*, and only for documents this build has actually migrated. A
+   * marker written by a later build is how that build knows how to read the
+   * rest of its own document, so rewriting it downward tells the next Liebe
+   * the document is older than it is — the one field whose loss is not
+   * recoverable by resolving at render (docs/specs/dashboard-config —
+   * "Forward Compatibility"). Same predicates as the pinning decisions, so the
+   * two can never disagree about what counts as old.
+   */
+  if (
+    cutoffs.predatesControlStyle ||
+    cutoffs.predatesSpeedControl ||
+    cutoffs.predatesClimateVariant
+  ) {
+    migrated.version = CURRENT_VERSION
+  }
   return migrated
 }
 
 // Migrate old screen format to new format with items and slugs
-const migrateScreenConfig = (config: unknown): DashboardConfig => {
+const migrateScreenConfig = (config: unknown, cutoffs: VersionCutoffs): DashboardConfig => {
   const allSlugs: string[] = []
 
   interface ScreenToMigrate {
@@ -144,7 +247,8 @@ const migrateScreenConfig = (config: unknown): DashboardConfig => {
       // non-array `items` is left exactly as found: there is nothing to migrate
       // in it, and replacing it with `[]` would be the truncation forward
       // compatibility forbids.
-      if (Array.isArray(grid.items)) grid.items = grid.items.map(migrateItemConfig)
+      if (Array.isArray(grid.items))
+        grid.items = grid.items.map((item) => migrateItemConfig(item, cutoffs))
       else if (grid.items === undefined) grid.items = []
     }
 
@@ -307,11 +411,12 @@ export const importConfigurationFromFile = (file: File): Promise<void> => {
         // Backup current configuration before import
         backupCurrentConfiguration()
 
-        // Apply migration if needed
+        // Apply migration if needed, which stamps the version when — and only
+        // when — this build was the one that migrated the document. A file
+        // written by a newer minor version passes the compatibility check above
+        // (that gate is major-only) and must keep its own marker, for the same
+        // reason the load path leaves it alone.
         const migratedConfig = migrateConfig(config)
-
-        // Update version to current
-        migratedConfig.version = CURRENT_VERSION
 
         // Load the configuration
         dashboardActions.loadConfiguration(migratedConfig)

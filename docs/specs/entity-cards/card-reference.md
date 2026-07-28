@@ -7,7 +7,7 @@ Companion to [index.md](./index.md). This document is the exhaustive per-card ca
 | Card                | Domain(s)             | `defaultDimensions`                              | Config modal               | Interactive                   | Test file(s)                                                                                                                                                            |
 | ------------------- | --------------------- | ------------------------------------------------ | -------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | LightCard           | `light`               | 2×2 (`src/components/LightCard.tsx:293`)         | Yes (light)                | toggle + brightness           | `src/components/__tests__/LightCard.test.tsx`, `src/components/__tests__/LightCard.brightness.test.tsx`, `src/components/__tests__/LightCard.slider-usability.test.tsx` |
-| ClimateCard         | `climate`             | 3×3 (`src/components/ClimateCard.tsx:960`)       | No                         | mode + setpoints              | `src/components/ClimateCard.test.tsx`                                                                                                                                   |
+| ClimateCard         | `climate`             | 3×3 (`src/components/ClimateCard/index.tsx`)     | Yes (climate)              | mode + setpoints              | `src/components/ClimateCard/__tests__/`                                                                                                                                 |
 | CoverCard           | `cover`               | 2×3 (`src/components/CoverCard.tsx:420`)         | No                         | open/close/stop/position/tilt | `src/components/CoverCard.test.tsx`                                                                                                                                     |
 | FanCard             | `fan`                 | 2×2 (`src/components/FanCard.tsx:384`)           | No                         | toggle + speed + preset       | —                                                                                                                                                                       |
 | SensorCard          | `sensor`              | 2×2 (`src/components/SensorCard.tsx:244`)        | No                         | read-only                     | `src/components/__tests__/SensorCard.test.tsx`                                                                                                                          |
@@ -50,22 +50,26 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 ## Climate
 
-**Services** (all `climate`): `set_hvac_mode` `{ hvac_mode }` (`134-141`); `set_temperature` single `{ temperature }` clamped to `[min_temp, max_temp]` (`151-165`); `set_temperature` range `{ target_temp_low, target_temp_high }`, rejecting `low >= high` (`194-204`). `set_fan_mode` exists only as commented-out code (`219-233`).
+The option contract — keys, defaults, tier layouts, colour precedence — is [options/climate](./options/climate.md)'s; this is the service and attribute detail behind it.
 
-**Feature flags**: `SUPPORT_TARGET_TEMPERATURE = 1`, `SUPPORT_TARGET_TEMPERATURE_RANGE = 2` (`18-19`), checked bitwise (`106-107`). Others (humidity/fan/preset/swing/aux) are commented out.
+**Services** (all `climate`, dispatched from `ClimateCard/useClimateControl.ts`): `set_hvac_mode` `{ hvac_mode }`; `set_preset_mode` `{ preset_mode }`; `set_fan_mode` `{ fan_mode }`; `set_temperature` single `{ temperature }`, clamped to `[min_temp, max_temp]`; `set_temperature` range `{ target_temp_low, target_temp_high }`, sent together and refused when `low >= high` after clamping. Every one goes through the guarded, non-retrying path, and none of them sees a converted temperature — `displayUnit` is applied in the render path only.
 
-**Attributes read** (`102-125`): `current_temperature`, `temperature`, `target_temp_low/high`, `min_temp` (7), `max_temp` (35), `target_temp_step` (0.5), `temperature_unit` (`°C`), `hvac_modes`, `hvac_action`, `supported_features`. HVAC mode is `entity.state`.
+**Feature flags** (`ClimateCard/climateModel.ts`): `SUPPORT_TARGET_TEMPERATURE = 1`, `SUPPORT_TARGET_TEMPERATURE_RANGE = 2`, `SUPPORT_FAN_MODE = 8`, `SUPPORT_PRESET_MODE = 16`, checked bitwise and resolved to booleans (a masked bit would render as a stray `0`). Preset and fan support additionally require a non-empty `preset_modes` / `fan_modes`. Target humidity (bit 4), swing (32) and aux heat (64) still have no surface — the humidity the card can show is the `current_humidity` reading, which no feature bit gates.
 
-**Sizing**: arc radius 50/70/90; container `minHeight` 220/280/320px (`282`, `482`). All controls hidden in edit mode. No config modal (`cardConfigurations` has a placeholder only, `25-29`).
+**Attributes read**: `current_temperature`, `current_humidity`, `temperature`, `target_temp_low/high`, `min_temp` (default 7), `max_temp` (35), `target_temp_step` (0.5, and a non-positive published step falls back to it), `hvac_modes`, `hvac_action`, `preset_mode(s)`, `fan_mode(s)`, `supported_features`. HVAC mode is `entity.state`. Every temperature passes `readTemperature`, which accepts a finite number or a numeric string and reads anything else — `null`, `NaN`, `"unknown"`, an object — as absent. The native unit is `hass.config.unit_system.temperature`, with the entity's `temperature_unit` as a fallback.
 
-### Scenarios (`src/components/ClimateCard.test.tsx`)
+**Presentation**: `compact` (default) and `dial`, dispatched through the registry's variant mechanism; the dial renders at `full` only and falls back to the compact layout for its tier below that. Arc radius 70 at every tier. All controls are hidden in edit mode, and `glance` carries none in either variant — its stepper and mode row are registered in the detail dialog's domain slot instead. The card's options render in the shared configuration form, capability-gated from the entity.
 
-- **Increase setpoint**: GIVEN `heat` at 21, step 0.5, WHEN increase clicked, THEN `set_temperature { temperature: 21.5 }` (`127-156`).
-- **Min limit disables decrease**: GIVEN temp 7 with `min_temp: 7`, THEN the decrease button is disabled (`189-210`).
-- **Range mode**: GIVEN `heat_cool` with low 20 / high 24 and `supported_features: 3`, THEN shows `20.0 - 24.0°C` and the drag instruction instead of +/- buttons (`212-237`).
-- **Mode switch**: GIVEN `hvac_modes ['off','heat','cool']` in `off`, WHEN the heat mode button clicked, THEN `set_hvac_mode { hvac_mode: 'heat' }` (`241-279`).
-- **Error border**: GIVEN a service error, THEN `.climate-card` has `grid-card-error`, red 2px border, and the error as `title` (`434-457`).
-- **Edit mode hides controls**: GIVEN edit mode, THEN increase/decrease buttons are absent (`367-392`); delete button calls `onDelete` (`351-365`).
+### Scenarios (`src/components/ClimateCard/__tests__/`)
+
+- **Increase setpoint**: GIVEN `heat` at 21, step 0.5, WHEN increase is pressed, THEN `set_temperature { temperature: 21.5 }`.
+- **Min limit disables decrease**: GIVEN temp 7 with `min_temp: 7`, THEN the decrease button is disabled.
+- **Range mode**: GIVEN `heat_cool` with low 20 / high 24 and `supported_features: 3`, THEN both setpoints render — independently at width ≥3, as one lockstep pair below that — and the dial draws two draggable handles.
+- **Dial handles are sliders**: GIVEN a `dial` card in `heat_cool`, THEN each handle carries `role="slider"` with its name, `aria-valuenow`, `aria-valuemin`/`aria-valuemax`, and arrow keys move it under the same band-preserving rule as the drag (`ClimateDial.test.tsx`).
+- **Mode switch**: GIVEN `hvac_modes ['off','heat','cool']` in `off`, WHEN the heat pill is pressed, THEN `set_hvac_mode { hvac_mode: 'heat' }`.
+- **Error border**: GIVEN a service error, THEN `.climate-card` carries `data-error` and the error as `title`.
+- **Edit mode hides controls**: GIVEN edit mode, THEN the steppers and every pill row are absent; the delete button calls `onDelete`.
+- **Unknown is inert**: GIVEN state `unknown`, THEN the card renders the neutral unavailable treatment with no control that could dispatch (`ClimateCard.test.tsx`, both variants).
 
 ## Covers and fans
 
@@ -95,26 +99,31 @@ Cards without declared `defaultDimensions` fall back to `{ width: 2, height: 2 }
 
 ### SensorCard (read-only)
 
-**Value formatting** (`formatSensorValue`, `68-118`): `unavailable`/`unknown` → uppercased state; non-numeric → uppercased state; temperature → `toFixed(1)`; humidity/battery → `Math.round`; energy/power → ÷1000 with `k`-prefixed unit at ≥1000 else `toFixed(0)`; default magnitude rules (integer as-is, `<10` → 2dp, `<100` → 1dp, else round). Unit appended when present.
+**Files**: `src/components/SensorCard/` — `index.tsx` (the card), `format.ts` (the value pipeline), `SensorGraph.tsx` (the graph region and the window's extremes), `SensorCard.css` (the graph's box per tier). Options are read by `src/store/sensorOptions.ts`.
 
-**Icon by `device_class`** (`getSensorIcon`, `35-65`): temperature→Value, humidity→Circle, motion/occupancy/moving→ActivityLog, power/energy/current/voltage→LightningBolt, pressure→Mix, timestamp/duration→Clock, default→Home. Icon size 24/20/16; value font 2/3/4; container `minHeight` 120/100/80px. No config modal, no `onConfigure`.
+**Value formatting** (`format.ts`): one function for the value, the trend delta and the min/max footer, applied in the order `valueScale` → `displayPrecision` → unit. The `displayPrecision: auto` matrix and the `valueScale: auto` k-scaling are owned by [options/sensor](./options/sensor.md#options) and pinned through the rendered card by `src/components/__tests__/sensorFormatting.test.tsx` — that file is the authority on what the matrix does, including two cases it deliberately changed (a `k` prefix is not applied when there is no unit to prefix, and a blank state no longer formats as `NaN`).
 
-**Scenarios** (`src/components/__tests__/SensorCard.test.tsx`):
+**History** (`useEntityHistory`): `sample` for the line graph and the `full` footer, `delta` for bars and the trend arrow, requested per surface. A surface the tier does not render is requested with an empty entity id, so `showGraph: false` costs no recorder request. `unsupported`, an error, and a window under two points all render the graph-less layout; only loading holds a reserved box.
 
-- Temperature `21.5` °C → `21.5 °C` with friendly name.
-- Power `1250` W → `1.3 kW`.
-- Humidity `65.3` % → `65 %` (rounded).
-- `unavailable` → `UNAVAILABLE`, friendly name still shown.
-- Missing entity / disconnected → `Disconnected`.
-- Edit-mode click → `onSelect(true)`; delete button → `onDelete`.
-- Stale entity → no `title`/dashed-border stale indicator (removed).
-- Parametrized device-class table: motion `on`→`ON`, energy `1500 Wh`→`1.5 kWh`, pressure `1013.25`→`1013 hPa`, timestamp string passed through.
+**Icon by `device_class`** (`getSensorIcon`): temperature→Value, humidity→Circle, motion/occupancy/moving→ActivityLog, power/energy/current/voltage→LightningBolt, pressure→Mix, timestamp/duration→Clock, default→Home. One glyph size at every tier — the tiers differ by what they contain, not by scale. No config modal, no `onConfigure`; the card's options render in the shared configuration form.
 
-### BinarySensorCard (read-only, configurable icons)
+**Tests**: `src/components/SensorCard/__tests__/` (card, formatting pipeline, graph region) and `src/components/__tests__/sensorFormatting.test.tsx` (the pinned matrix).
 
-`on = entity.state === 'on'` (`74`). Icon resolution (`64-71`): `config.onIcon`/`config.offIcon` → `device_class` default pair (`getDefaultIcons`, `23-44`) → `getTablerIcon || getIcon || (isOn ? CircleCheck : Circle)`. Device-class defaults include occupancy, door/window, motion, moisture, lock, safety, smoke, sound, vibration, light. Status text is `entity.state.toUpperCase()`. `on` uses amber background/border (2px) and amber icon/text.
+### BinarySensorCard (read-only, configurable)
 
-**Config**: `onIcon` (default `CircleCheck`) / `offIcon` (default `Circle`), both `icon`-type (`src/components/configurations/cardConfigurations.ts:59-76`); wires `onConfigure`, `hasConfiguration={!!item}`, and a `CardConfig.Modal` saving to `item.config`. States mirror SensorCard (skeleton / ErrorDisplay / unavailable). The icon `useMemo` runs before early returns to keep hook order stable.
+**Files**: `src/components/BinarySensorCard/` — `index.tsx` and `presentation.ts`. Options are read by `src/store/binarySensorOptions.ts`.
+
+**Presentation** (`resolveBinarySensorPresentation`): one derivation produces the presented state, the label, the glyph name and the colour triplet together, so `invert` cannot desynchronize them. `invert` swaps only a state that has an opposite — `unavailable`, `unknown` and anything else are read out raw. Label and glyph both come from `BINARY_SENSOR_FACES`, one row per `device_class` holding `{ on: { label, icon }, off: { label, icon } }`; a class with no row takes `DEFAULT_BINARY_SENSOR_FACES` (`Eye`/`EyeOff`, which passes no verdict on a state this build cannot interpret). Configured `onIcon`/`offIcon`/`onLabel`/`offLabel` override the row for the state they name.
+
+**Active colour** (`activeColorForDeviceClass`): the alert set → `alert`, `moisture`/`water` → `water`, `light` → `light`, everything else → `default`.
+
+**The hazard rule**: `ALERT_DEVICE_CLASSES` is one set serving both the colour above and the danger floor. A raw-active sensor of one of those classes resolves `danger`, which the card forwards to the shell — the card's half ignores every option of its own (the row's `on` label and glyph render whatever `onLabel`, `onIcon` and `invert` say), and `readCardDisplay`'s existing danger floor takes back the universal `icon`, `hideName`, `hideState` and `color` while keeping `name`.
+
+**`full` tier**: adds a recency line from `last_changed` via `useRelativeSince`, the same helper and phrasing the switch card's `showLastChanged` uses. A missing or unparseable timestamp renders no line.
+
+**Config**: `onIcon` / `offIcon` (`icon`-type, defaulting to `''` so an unset value means "use the device-class glyph"), `onLabel` / `offLabel`, and `invert`, in `src/components/configurations/cardConfigurations.ts`; the card wires `onConfigure`, `hasConfiguration={!!item}` and a `CardConfig.Modal` saving to `item.config`. States mirror SensorCard (skeleton / ErrorDisplay / unavailable).
+
+**Tests**: `src/components/BinarySensorCard/__tests__/` — including the vocabulary audit, which declares what each glyph means independently of the table and fails any row whose glyph contradicts its label.
 
 ## Weather
 

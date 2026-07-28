@@ -338,6 +338,25 @@ describe('InputNumberCard', () => {
     expect(screen.getByText('50.5 %')).toBeInTheDocument()
   })
 
+  it('formats at the step’s own precision, not merely "fractional"', () => {
+    vi.mocked(useEntity).mockReturnValue({
+      entity: {
+        ...defaultEntity,
+        state: '50.25',
+        attributes: { ...defaultEntity.attributes, step: 0.01 },
+      },
+      isConnected: true,
+      isLoading: false,
+      isStale: false,
+    })
+
+    render(<InputNumberCard entityId="input_number.test_number" />)
+
+    // A single place would render "50.3" — a value this helper would round off
+    // its own 0.01 grid, so the readout would disagree with what can be set.
+    expect(screen.getByText('50.25 %')).toBeInTheDocument()
+  })
+
   describe('shell metadata', () => {
     // `domain` and `color` are what the anatomy parts and the stable selector
     // contract key off (docs/specs/theming — "Stable selector contract"). They

@@ -124,16 +124,59 @@ function makeEntity(partial: Partial<HassEntity> = {}): HassEntity {
   }
 }
 
+/*
+ * Entities the card looks up BESIDES its own camera — currently just the linked
+ * motion sensor. The card calls `useEntity` twice now, so the mock has to answer
+ * per entity id: a single `mockReturnValue` would hand the motion lookup the
+ * camera itself, and every motion assertion would be reading the camera's state.
+ */
+const linkedEntities: Record<string, HassEntity> = {}
+
 function mockEntityReturn(
   overrides: Partial<ReturnType<typeof useEntity>> & { entity?: HassEntity | undefined } = {}
 ) {
-  vi.mocked(useEntity).mockReturnValue({
+  const camera = {
     entity: makeEntity(),
     isConnected: true,
     isLoading: false,
     isStale: false,
     ...overrides,
-  })
+  }
+  vi.mocked(useEntity).mockImplementation((entityId: string) =>
+    entityId === 'camera.front_door'
+      ? camera
+      : {
+          // `useEntity('')` — an unconfigured motion link — subscribes to
+          // nothing and finds nothing, which is what the real hook does.
+          entity: linkedEntities[entityId],
+          isConnected: camera.isConnected,
+          isLoading: false,
+          isStale: false,
+        }
+  )
+}
+
+/**
+ * A linked binary sensor for the motion-line tests.
+ *
+ * `last_updated` is deliberately NOT the same instant as `last_changed`: it
+ * moves on unrelated attribute updates, and the option doc forbids measuring
+ * from it for exactly that reason. Keeping the two apart is what makes every
+ * duration assertion below able to tell which one the card read.
+ */
+function mockMotionSensor(
+  state: string,
+  lastChanged = '2026-01-01T00:00:00Z',
+  lastUpdated = '2026-01-01T00:11:00Z'
+) {
+  linkedEntities['binary_sensor.driveway_motion'] = {
+    entity_id: 'binary_sensor.driveway_motion',
+    state,
+    attributes: { friendly_name: 'Driveway Motion', device_class: 'motion' },
+    last_changed: lastChanged,
+    last_updated: lastUpdated,
+    context: { id: 'ctx', parent_id: null, user_id: null },
+  }
 }
 
 function mockStoreMode(mode: 'view' | 'edit', currentScreenId: string | null = 'screen-1') {
@@ -141,10 +184,17 @@ function mockStoreMode(mode: 'view' | 'edit', currentScreenId: string | null = '
   vi.mocked(useDashboardStore).mockReturnValue({ mode, currentScreenId } as any)
 }
 
+/*
+ * `full` by default, because that is the only tier that mounts a stream at all:
+ * below 2×2 the card degrades to a still thumbnail and no `<ha-camera-stream>`
+ * exists to assert against (docs/specs/entity-cards/options/camera.md — "Tier
+ * layouts"). The degraded tiers get their own block below, which passes theirs
+ * explicitly.
+ */
 function renderCard(props: Partial<React.ComponentProps<typeof CameraCard>> = {}) {
   return render(
     <Theme>
-      <CameraCard entityId="camera.front_door" {...props} />
+      <CameraCard entityId="camera.front_door" tier="full" {...props} />
     </Theme>
   )
 }
@@ -180,6 +230,7 @@ describe('CameraCard', () => {
     streamPropsLog.length = 0
     statusOptionsLog.length = 0
     cardConfigProps = null
+    for (const key of Object.keys(linkedEntities)) delete linkedEntities[key]
     cameraFullscreenStore.setState(() => 0)
     mockStoreMode('view')
     vi.mocked(useIsConnecting).mockReturnValue(false)
@@ -292,7 +343,7 @@ describe('CameraCard', () => {
       render(
         <Theme>
           <HomeAssistantProvider hass={hass}>
-            <CameraCard entityId="camera.front_door" />
+            <CameraCard entityId="camera.front_door" tier="full" />
           </HomeAssistantProvider>
         </Theme>
       )
@@ -368,10 +419,14 @@ describe('CameraCard', () => {
       mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
       const { container } = renderCard()
 
-      // Recent-frame evidence proves frames are flowing through the blip:
-      // the pill stays STREAMING while GridCard's unavailable chrome shows.
+      // Recent-frame evidence proves frames are flowing through the blip: the
+      // live state survives while GridCard's unavailable chrome shows. With the
+      // default `showLiveBadge` that state is presented as the LIVE badge rather
+      // than as a STREAMING pill (change 0021's subsumption) — the status
+      // machine's resolution is unchanged, only its presentation.
       expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
-      expect(screen.getByText('STREAMING')).toBeInTheDocument()
+      expect(container.querySelector('.camera-live-badge')).toHaveTextContent('LIVE')
+      expect(screen.queryByText('STREAMING')).toBeNull()
       expect(screen.queryByText('UNAVAILABLE')).toBeNull()
       const card = container.querySelector('.camera-card') as HTMLElement
       // The unavailable chrome is `.liebe-card[data-unavailable]` now, which
@@ -415,7 +470,7 @@ describe('CameraCard', () => {
       mockEntityReturn({ entity: makeEntity({ state: 'unavailable' }) })
       const { rerender } = render(
         <Theme>
-          <CameraCard entityId="camera.front_door" item={item} />
+          <CameraCard entityId="camera.front_door" tier="full" item={item} />
         </Theme>
       )
       expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
@@ -428,7 +483,7 @@ describe('CameraCard', () => {
       mockEntityReturn({ entity: makeEntity({ state: 'idle' }) })
       rerender(
         <Theme>
-          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+          <CameraCard entityId="camera.front_door" tier="full" item={{ ...item }} />
         </Theme>
       )
       expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
@@ -486,11 +541,14 @@ describe('CameraCard', () => {
       await waitFor(() => expect(screen.getByText('640x480')).toBeInTheDocument())
     })
 
-    it('shows the streaming pill and hides the spinner overlay once frames flow', () => {
+    it('shows the streaming state and hides the spinner overlay once frames flow', () => {
       statusMock.isStreaming = true
       const { container } = renderCard()
 
-      expect(screen.getByText('STREAMING')).toBeInTheDocument()
+      // Presented as the LIVE badge under the default options; the pill's own
+      // STREAMING label is what it falls back to with the badge turned off
+      // (asserted in "presentation options" below).
+      expect(container.querySelector('.camera-live-badge')).toHaveTextContent('LIVE')
       expect(container.querySelectorAll('.rt-Spinner').length).toBe(0)
     })
 
@@ -586,7 +644,7 @@ describe('CameraCard', () => {
             entityId="camera.front_door"
             config={{ tapAction: { action: 'call-service', service: 'script.record' } }}
           >
-            <CameraCard entityId="camera.front_door" />
+            <CameraCard entityId="camera.front_door" tier="full" />
           </CardItemProvider>
         </Theme>
       )
@@ -682,7 +740,7 @@ describe('CameraCard', () => {
       }
       const { rerender } = render(
         <Theme>
-          <CameraCard entityId="camera.front_door" item={item} />
+          <CameraCard entityId="camera.front_door" tier="full" item={item} />
         </Theme>
       )
       fireEvent.click(getStreamHost())
@@ -694,7 +752,7 @@ describe('CameraCard', () => {
       statusMock.error = 'Stream stalled'
       rerender(
         <Theme>
-          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+          <CameraCard entityId="camera.front_door" tier="full" item={{ ...item }} />
         </Theme>
       )
 
@@ -708,7 +766,7 @@ describe('CameraCard', () => {
       statusMock.error = null
       rerender(
         <Theme>
-          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+          <CameraCard entityId="camera.front_door" tier="full" item={{ ...item }} />
         </Theme>
       )
       expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
@@ -754,7 +812,7 @@ describe('CameraCard', () => {
       }
       const { rerender } = render(
         <Theme>
-          <CameraCard entityId="camera.front_door" item={item} />
+          <CameraCard entityId="camera.front_door" tier="full" item={item} />
         </Theme>
       )
       fireEvent.click(getStreamHost())
@@ -766,7 +824,7 @@ describe('CameraCard', () => {
       mockEntityReturn({ entity: undefined, isConnected: false })
       rerender(
         <Theme>
-          <CameraCard entityId="camera.front_door" item={{ ...item }} />
+          <CameraCard entityId="camera.front_door" tier="full" item={{ ...item }} />
         </Theme>
       )
       expect(screen.getByText('Disconnected')).toBeInTheDocument()
@@ -794,7 +852,7 @@ describe('CameraCard', () => {
       const { rerender } = render(
         <StrictMode>
           <Theme>
-            <CameraCard entityId="camera.front_door" item={item} />
+            <CameraCard entityId="camera.front_door" tier="full" item={item} />
           </Theme>
         </StrictMode>
       )
@@ -807,7 +865,7 @@ describe('CameraCard', () => {
       rerender(
         <StrictMode>
           <Theme>
-            <CameraCard entityId="camera.front_door" item={{ ...item }} />
+            <CameraCard entityId="camera.front_door" tier="full" item={{ ...item }} />
           </Theme>
         </StrictMode>
       )
@@ -1128,18 +1186,36 @@ describe('CameraCard', () => {
       expect(screen.queryByText('FPS')).toBeNull()
     })
 
-    it.each(['glance', 'row', 'tall', 'full'] as const)(
-      'feeds the stats overlay the same size at %s — the camera tier exemption',
+    it('renders the expanded stats layout on the tier that has a feed', () => {
+      /*
+       * Was an `it.each` over all four tiers asserting the SAME output at each,
+       * under change 0011's camera exemption ("re-keying this on tier is
+       * 0021's"). This is that re-keying: only `full` mounts a stream, so only
+       * `full` has playback quality to read. The overlay keeps its own `size`
+       * prop and its own tests, so the compact branch stays covered where it
+       * lives (`CameraStats.test.tsx`).
+       */
+      const item: GridItem = {
+        id: 'item-1',
+        type: 'entity',
+        entityId: 'camera.front_door',
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 2,
+        config: { showStats: true },
+      }
+      renderCard({ item, tier: 'full' })
+
+      // The expanded layout, which is what `size="medium"` renders. The
+      // compact single line would read `— FPS • …` instead.
+      expect(screen.getByText('FPS')).toBeInTheDocument()
+      expect(screen.queryByText(/— FPS •/)).toBeNull()
+    })
+
+    it.each(['glance', 'row', 'tall'] as const)(
+      'shows no stats at %s, which mounts no stream to measure',
       (tier) => {
-        /*
-         * Was "renders the compact stats line for small cards", back when the
-         * card handed `CameraStats` its own `size` and the overlay had a
-         * compact branch for `small`. Under the 0011 exemption the card feeds
-         * one size at every span, so what is worth pinning at this level is
-         * that it stays that way — the overlay keeps its own `size` prop and
-         * its own tests, so the compact branch is still covered where it
-         * lives (`CameraStats.test.tsx`). Re-keying this on tier is 0021's.
-         */
         const item: GridItem = {
           id: 'item-1',
           type: 'entity',
@@ -1152,10 +1228,8 @@ describe('CameraCard', () => {
         }
         renderCard({ item, tier })
 
-        // The expanded layout, which is what `size="medium"` renders. The
-        // compact single line would read `— FPS • …` instead.
-        expect(screen.getByText('FPS')).toBeInTheDocument()
-        expect(screen.queryByText(/— FPS •/)).toBeNull()
+        expect(screen.queryByText('FPS')).toBeNull()
+        expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
       }
     )
 
@@ -1201,17 +1275,18 @@ describe('CameraCard', () => {
     })
 
     it.each(['glance', 'row', 'tall', 'full'] as const)(
-      'keeps default matting span-independent at %s — the camera tier exemption',
+      'keeps default matting span-independent at %s',
       (tier) => {
         /*
-         * The subject here is the exemption, not the number. Change 0011 holds
-         * the camera at its current rendering for every span and gives it only
-         * the `data-tier` stamp; all of its span-dependent behaviour — the
-         * sub-2×2 stream unmount, the still thumbnail, the lazy fullscreen —
-         * belongs to change 0021. Default matting used to be keyed on the
-         * legacy `size` prop, so it is exactly the thing most likely to be
-         * quietly re-keyed on tier by someone implementing 0021 out of order.
-         * If that happens, this fails.
+         * The subject here is the independence, not the number. Change 0021 gave
+         * the camera plenty of span-dependent behaviour — the sub-2×2 stream
+         * unmount, the still thumbnail, the lazy fullscreen — and matting is
+         * deliberately none of it: it is the padding BETWEEN the tile and
+         * whatever the tier decided to put in it, so one step at every span is
+         * the right answer at every span. Default matting used to be keyed on
+         * the legacy `size` prop, which makes it the thing most likely to be
+         * quietly re-keyed on tier by someone extending the tier work. If that
+         * happens, this fails.
          */
         const { container } = renderCard({ tier })
         expect(getCardStyle(container)).toContain('var(--space-3)')
@@ -1232,7 +1307,8 @@ describe('CameraCard', () => {
       const { container } = renderCard()
       const card = container.querySelector('.camera-card') as HTMLElement
       expect(card).toHaveAttribute('data-active', 'true')
-      expect(screen.getByText('RECORDING')).toBeInTheDocument()
+      // The recording variant survives the badge subsumption as its own label.
+      expect(container.querySelector('.camera-live-badge')).toHaveTextContent('REC')
     })
 
     it('marks the card selected in edit mode without touching its own chrome', () => {
@@ -1262,6 +1338,491 @@ describe('CameraCard', () => {
       // `opacity-50` class-name assertion that verified a string styling
       // nothing — see the note in the streaming-blip test above.
       expect(card.matches('.liebe-card[data-unavailable]')).toBe(true)
+    })
+  })
+
+  /*
+   * The presentation options (change 0021, docs/specs/entity-cards/options/camera.md).
+   *
+   * The composition rules themselves are asserted in `overlay.test.ts`; what
+   * these cover is the wiring — which layer each rule actually produces on the
+   * card, and what the status pill gives up to it.
+   */
+  describe('presentation options', () => {
+    const cameraItem = (config: Record<string, unknown>): GridItem => ({
+      id: 'item-1',
+      type: 'entity',
+      entityId: 'camera.front_door',
+      x: 0,
+      y: 0,
+      width: 4,
+      height: 2,
+      config,
+    })
+
+    const overlayOf = (container: HTMLElement) => container.querySelector('.camera-name-overlay')
+    const badgeOf = (container: HTMLElement) => container.querySelector('.camera-live-badge')
+
+    it('draws the name and state over the feed with no configuration at all', () => {
+      statusMock.isStreaming = true
+      const { container } = renderCard()
+
+      const overlay = overlayOf(container)!
+      expect(overlay.querySelector('.camera-overlay-name')).toHaveTextContent('Front Door')
+      // The ENTITY's state, sentence-cased — not the pill's stream-health label,
+      // which is a different thing and already shown beside it.
+      expect(overlay.querySelector('.camera-overlay-state')).toHaveTextContent('Idle')
+      // ...and the name is not also in the pill, which would name the camera
+      // twice over its own picture.
+      expect(screen.queryByText('Front Door')).toBe(overlay.querySelector('.camera-overlay-name'))
+    })
+
+    it('renders no band and returns the name to the pill with the overlay off', () => {
+      const { container } = renderCard({ item: cameraItem({ showNameOverlay: false }) })
+
+      expect(overlayOf(container)).toBeNull()
+      expect(screen.getByText('Front Door')).toBeInTheDocument()
+    })
+
+    it('drops the name line for hideName without returning it to the pill', () => {
+      // Yielding the name back to the pill because the overlay stood down would
+      // be the universal option doing nothing at all.
+      const { container } = renderCard({ item: cameraItem({ hideName: true }) })
+
+      const overlay = overlayOf(container)!
+      expect(overlay.querySelector('.camera-overlay-name')).toBeNull()
+      expect(overlay.querySelector('.camera-overlay-state')).toHaveTextContent('Idle')
+      expect(screen.queryByText('Front Door')).toBeNull()
+    })
+
+    it('drops the state line for hideState and keeps the stream-health pill', () => {
+      // `hideState` hides the entity's state line. The pill reports the health
+      // of the stream, which camera-streaming requires the card to show.
+      const { container } = renderCard({ item: cameraItem({ hideState: true }) })
+
+      const overlay = overlayOf(container)!
+      expect(overlay.querySelector('.camera-overlay-name')).toHaveTextContent('Front Door')
+      expect(overlay.querySelector('.camera-overlay-state')).toBeNull()
+      expect(screen.getByText('CONNECTING')).toBeInTheDocument()
+    })
+
+    it('collapses the band entirely when both lines are hidden', () => {
+      const { container } = renderCard({
+        item: cameraItem({ hideName: true, hideState: true }),
+      })
+
+      expect(overlayOf(container)).toBeNull()
+      expect(screen.queryByText('Front Door')).toBeNull()
+      expect(screen.getByText('CONNECTING')).toBeInTheDocument()
+    })
+
+    it('shows the name override from the universal option', () => {
+      const { container } = renderCard({ item: cameraItem({ name: 'Gate' }) })
+
+      expect(overlayOf(container)!.querySelector('.camera-overlay-name')).toHaveTextContent('Gate')
+      // The same name reaches the surface's accessible label.
+      expect(screen.getByLabelText('Toggle fullscreen for Gate')).toBeInTheDocument()
+    })
+
+    it('keeps the band off the error branch, which replaces the feed', () => {
+      statusMock.error = 'Stream stalled'
+      const { container } = renderCard()
+
+      expect(overlayOf(container)).toBeNull()
+      expect(screen.getByText('Stream stalled')).toBeInTheDocument()
+    })
+
+    it('draws no band on a camera with no feed to draw it over', () => {
+      mockEntityReturn({
+        entity: makeEntity({ attributes: { friendly_name: 'Snap Cam', supported_features: 0 } }),
+      })
+      const { container } = renderCard()
+
+      expect(overlayOf(container)).toBeNull()
+      expect(screen.getByText('Snap Cam')).toBeInTheDocument()
+    })
+
+    it('subsumes the streaming pill into the LIVE badge', () => {
+      statusMock.isStreaming = true
+      const { container } = renderCard()
+
+      expect(badgeOf(container)).toHaveTextContent('LIVE')
+      expect(badgeOf(container)).toHaveAttribute('data-variant', 'live')
+      expect(screen.queryByText('STREAMING')).toBeNull()
+      // Exactly one live-ness indicator: the pill's own pulsing dot went with
+      // its label.
+      expect(container.querySelectorAll('.recording-dot')).toHaveLength(1)
+    })
+
+    it('keeps the RECORDING pill when the badge is turned off', () => {
+      statusMock.isStreaming = true
+      mockEntityReturn({ entity: makeEntity({ state: 'recording' }) })
+      const { container } = renderCard({ item: cameraItem({ showLiveBadge: false }) })
+
+      expect(badgeOf(container)).toBeNull()
+      expect(screen.getByText('RECORDING')).toBeInTheDocument()
+    })
+
+    it('never labels the still-image fallback live, whatever the entity says', () => {
+      // The case a status check alone would miss: `deriveCameraStatus` reports
+      // `recording` from the raw entity state, so a camera whose element could
+      // not be bootstrapped reaches a live status with only a snapshot showing.
+      readiness = 'unavailable'
+      mockEntityReturn({ entity: makeEntity({ state: 'recording' }) })
+      const { container } = renderCard()
+
+      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
+      expect(badgeOf(container)).toBeNull()
+      expect(screen.getByText('RECORDING')).toBeInTheDocument()
+      // The BAND does render over the fallback, and the asymmetry is the point:
+      // naming the camera is true of a snapshot, calling it live is not.
+      expect(overlayOf(container)!.querySelector('.camera-overlay-name')).toHaveTextContent(
+        'Front Door'
+      )
+    })
+
+    it('leaves a non-live state entirely to the pill', () => {
+      statusMock.hasFrameWarning = true
+      statusMock.isStreaming = true
+      const { container } = renderCard()
+
+      expect(badgeOf(container)).toBeNull()
+      expect(screen.getByText('NO SIGNAL')).toBeInTheDocument()
+    })
+
+    it('drops the whole control block when nothing is left for it to say', () => {
+      // Edit mode has no buttons, the overlay has the name and the badge has the
+      // live state: an empty backdrop-blurred box over the corner of a feed is a
+      // smudge, not a control block.
+      mockStoreMode('edit')
+      statusMock.isStreaming = true
+      const { container } = renderCard()
+
+      expect(badgeOf(container)).toHaveTextContent('LIVE')
+      expect(container.querySelector('.camera-control-button')).toBeNull()
+      expect(screen.queryByText('Front Door')).toBe(
+        overlayOf(container)!.querySelector('.camera-overlay-name')
+      )
+      expect(screen.queryByText('STREAMING')).toBeNull()
+    })
+
+    it('moves the control block clear of the band and back again', () => {
+      statusMock.isStreaming = true
+      const withBand = renderCard()
+      const bandControls = withBand.container
+        .querySelector('.camera-control-button')!
+        .closest('div[style*="position: absolute"]') as HTMLElement
+      expect(bandControls.style.right).toBe('8px')
+      expect(bandControls.style.left).toBe('')
+      withBand.unmount()
+
+      const withoutBand = renderCard({ item: cameraItem({ showNameOverlay: false }) })
+      const plainControls = withoutBand.container
+        .querySelector('.camera-control-button')!
+        .closest('div[style*="position: absolute"]') as HTMLElement
+      expect(plainControls.style.left).toBe('8px')
+      expect(plainControls.style.right).toBe('')
+    })
+
+    it('scales both layers up in fullscreen', () => {
+      statusMock.isStreaming = true
+      const { container } = renderCard()
+      fireEvent.click(container.querySelector('.camera-stream-surface')!)
+
+      expect(overlayOf(container)).toHaveClass('camera-name-overlay-fullscreen')
+      expect(badgeOf(container)).toHaveClass('camera-live-badge-fullscreen')
+    })
+  })
+
+  /*
+   * The degraded tiers (change 0021, docs/specs/entity-cards/options/camera.md
+   * — "Tier layouts"). The boundary itself is `tiers.test.ts`; what these cover
+   * is what the boundary DOES to the card — above all that no stream element is
+   * mounted below 2×2, which is the point of the degradation rather than a side
+   * effect of it.
+   */
+  describe('degraded tiers', () => {
+    const cameraItem = (config: Record<string, unknown>): GridItem => ({
+      id: 'item-1',
+      type: 'entity',
+      entityId: 'camera.front_door',
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      config,
+    })
+
+    it.each(['glance', 'row', 'tall'] as const)('mounts no stream at %s', (tier) => {
+      statusMock.isStreaming = true
+      const { container } = renderCard({ tier })
+
+      // Not "hidden": the element is absent, so the tile costs no connection.
+      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
+      expect(container.querySelector('.camera-stream-surface')).toBeNull()
+      // ...and the status machine is switched off with it.
+      expect(lastStatusOptions().enabled).toBe(false)
+    })
+
+    it.each(['glance', 'row', 'tall'] as const)(
+      'shows the snapshot thumbnail and the name at %s',
+      (tier) => {
+        const { container } = renderCard({ tier })
+
+        const thumb = container.querySelector('.camera-thumb')
+        expect(thumb).toBeInTheDocument()
+        expect(thumb!.querySelector('img')).toHaveAttribute(
+          'src',
+          expect.stringContaining('/api/camera_proxy/camera.front_door')
+        )
+        expect(container.querySelector('.liebe-name')).toHaveTextContent('Front Door')
+      }
+    )
+
+    it('carries a state line only at row, which has the width for one', () => {
+      // `glance` and `tall` are one cell wide; a state line there would be the
+      // clipping the degradation exists to avoid.
+      const row = renderCard({ tier: 'row' })
+      expect(row.container.querySelector('.liebe-state')).toHaveTextContent('Idle')
+      row.unmount()
+
+      for (const tier of ['glance', 'tall'] as const) {
+        const narrow = renderCard({ tier })
+        expect(narrow.container.querySelector('.liebe-state')).toBeNull()
+        narrow.unmount()
+      }
+    })
+
+    it.each(['glance', 'row', 'tall'] as const)(
+      'suppresses the overlay, the badge and the motion line at %s',
+      (tier) => {
+        // The rule PR 1 could not enforce: an overlay and a LIVE badge on a 1×1
+        // tile is the omit-never-clip rule broken by the option that is supposed
+        // to respect it.
+        statusMock.isStreaming = true
+        mockMotionSensor('on')
+        const { container } = renderCard({
+          tier,
+          item: cameraItem({ showLastMotion: true, motionEntity: 'binary_sensor.driveway_motion' }),
+        })
+
+        expect(container.querySelector('.camera-name-overlay')).toBeNull()
+        expect(container.querySelector('.camera-live-badge')).toBeNull()
+        expect(screen.queryByText('Motion detected')).toBeNull()
+      }
+    )
+
+    it('shows the labelled placeholder when the camera has no snapshot', () => {
+      // An integration that publishes no `entity_picture` at all. The thumbnail
+      // reuses the still-image fallback, so it degrades to the same labelled
+      // icon rather than a broken image — and the tile keeps its name.
+      mockEntityReturn({
+        entity: makeEntity({ attributes: { friendly_name: 'Front Door', supported_features: 2 } }),
+      })
+      const { container } = renderCard({ tier: 'glance' })
+
+      expect(container.querySelector('.camera-thumb img')).toBeNull()
+      expect(screen.getByLabelText('No camera image available')).toBeInTheDocument()
+      expect(container.querySelector('.liebe-name')).toHaveTextContent('Front Door')
+    })
+
+    it('leaves an image-only tile when the name is hidden', () => {
+      // Required to stay a valid layout by the tier table.
+      const { container } = renderCard({ tier: 'glance', item: cameraItem({ hideName: true }) })
+
+      expect(container.querySelector('.camera-thumb')).toBeInTheDocument()
+      expect(container.querySelector('.liebe-name')).toBeNull()
+      expect(screen.queryByText('Front Door')).toBeNull()
+    })
+
+    it('mounts the stream lazily on fullscreen and unmounts it again on exit', () => {
+      /*
+       * The scoped exception to the persistently-mounted rule. A fresh
+       * connection here is correct rather than a regression: there was no
+       * connection to preserve, because the tile mounted none
+       * (docs/specs/camera-streaming/index.md — "Fullscreen").
+       */
+      const { container } = renderCard({ tier: 'glance' })
+      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
+
+      fireEvent.click(container.querySelector('.camera-thumb-surface')!)
+      expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
+      expect(lastStatusOptions().enabled).toBe(true)
+      expect(container.querySelector('.camera-stream-surface-fullscreen')).toBeInTheDocument()
+
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
+      expect(container.querySelector('.camera-thumb')).toBeInTheDocument()
+      expect(lastStatusOptions().enabled).toBe(false)
+    })
+
+    it('shows the overlay over the lazily mounted fullscreen feed', () => {
+      // The suppression is the TILE's, not fullscreen's: a viewport-filling feed
+      // has all the room the band and badge need, whatever the tile behind it
+      // spans.
+      statusMock.isStreaming = true
+      const { container } = renderCard({ tier: 'glance' })
+      fireEvent.click(container.querySelector('.camera-thumb-surface')!)
+
+      expect(container.querySelector('.camera-name-overlay')).toHaveTextContent('Front Door')
+      expect(container.querySelector('.camera-live-badge')).toHaveTextContent('LIVE')
+    })
+
+    it('keeps the tile inert in edit mode', () => {
+      mockStoreMode('edit')
+      const { container } = renderCard({ tier: 'glance' })
+
+      const surface = container.querySelector('.camera-thumb-surface')!
+      expect(surface).not.toHaveAttribute('role')
+      fireEvent.click(surface)
+      expect(screen.queryByTestId('ha-camera-stream')).toBeNull()
+    })
+
+    it('opens fullscreen from the keyboard too', () => {
+      const { container } = renderCard({ tier: 'glance' })
+      const surface = container.querySelector('.camera-thumb-surface')!
+      expect(surface).toHaveAttribute('aria-label', 'Toggle fullscreen for Front Door')
+
+      fireEvent.keyDown(surface, { key: 'Enter' })
+      expect(screen.getByTestId('ha-camera-stream')).toBeInTheDocument()
+    })
+  })
+
+  /*
+   * The motion line (change 0021). `formatSince` and the wording live in
+   * `overlay.test.ts` / the shared `lastChanged` helper; these cover the wiring
+   * and the omissions.
+   */
+  describe('motion line', () => {
+    const motionItem = (config: Record<string, unknown> = {}): GridItem => ({
+      id: 'item-1',
+      type: 'entity',
+      entityId: 'camera.front_door',
+      x: 0,
+      y: 0,
+      width: 4,
+      height: 2,
+      config: { showLastMotion: true, motionEntity: 'binary_sensor.driveway_motion', ...config },
+    })
+
+    const motionOf = (container: HTMLElement) =>
+      container.querySelector('.camera-overlay-motion')?.textContent ?? null
+
+    it('reads "Motion detected" from a sensor that is on', () => {
+      mockMotionSensor('on')
+      const { container } = renderCard({ item: motionItem() })
+      expect(motionOf(container)).toBe('Motion detected')
+    })
+
+    it('measures the clear state from last_changed, not last_updated', () => {
+      /*
+       * The sensor went clear 12 minutes ago and had an unrelated attribute
+       * update a minute ago. `last_updated` moved with that update and
+       * `last_changed` did not, so the two timestamps disagree by 11 minutes —
+       * which is what makes this assertion able to tell which one the card read.
+       * The option doc forbids `last_updated` precisely because it restarts the
+       * count without the sensor having changed.
+       */
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-01-01T00:12:00Z'))
+      mockMotionSensor('off', '2026-01-01T00:00:00Z', '2026-01-01T00:11:00Z')
+      const { container } = renderCard({ item: motionItem() })
+      expect(motionOf(container)).toBe('Clear for 12 min')
+      vi.useRealTimers()
+    })
+
+    it.each([
+      ['an unavailable sensor', 'unavailable'],
+      ['a sensor with no reading yet', 'unknown'],
+    ])('omits the line for %s without erroring the card', (_name, state) => {
+      mockMotionSensor(state)
+      const { container } = renderCard({ item: motionItem() })
+
+      expect(motionOf(container)).toBeNull()
+      // The card itself is untouched by the sensor's trouble.
+      expect(container.querySelector('.camera-card')).not.toHaveAttribute('data-error')
+      expect(container.querySelector('.camera-overlay-name')).toHaveTextContent('Front Door')
+    })
+
+    it('omits the line when the linked entity does not exist', () => {
+      const { container } = renderCard({ item: motionItem() })
+      expect(motionOf(container)).toBeNull()
+    })
+
+    it('reads no motion from an entity outside the binary_sensor domain', () => {
+      /*
+       * The picker cannot produce this, but a shared YAML can. The card must not
+       * announce "Motion detected" because somebody turned the porch light on —
+       * so the id resolves to "none linked" on the way in, and the render path
+       * never sees it. Proven here at the card rather than only at the reader,
+       * because it is the card that would do the lying.
+       */
+      linkedEntities['switch.porch'] = {
+        entity_id: 'switch.porch',
+        state: 'on',
+        attributes: { friendly_name: 'Porch Light' },
+        last_changed: '2026-01-01T00:00:00Z',
+        last_updated: '2026-01-01T00:00:00Z',
+        context: { id: 'ctx', parent_id: null, user_id: null },
+      }
+      const { container } = renderCard({ item: motionItem({ motionEntity: 'switch.porch' }) })
+
+      expect(motionOf(container)).toBeNull()
+      expect(screen.queryByText('Motion detected')).toBeNull()
+    })
+
+    it('omits the line when no sensor is linked at all', () => {
+      mockMotionSensor('on')
+      const { container } = renderCard({ item: motionItem({ motionEntity: '' }) })
+      expect(motionOf(container)).toBeNull()
+    })
+
+    it('omits the line with the option off', () => {
+      mockMotionSensor('on')
+      const { container } = renderCard({ item: motionItem({ showLastMotion: false }) })
+      expect(motionOf(container)).toBeNull()
+    })
+
+    it('goes with the state line under hideState', () => {
+      // It renders IN the state area, so what hides that hides this.
+      mockMotionSensor('on')
+      const { container } = renderCard({ item: motionItem({ hideState: true }) })
+
+      expect(motionOf(container)).toBeNull()
+      expect(container.querySelector('.camera-overlay-name')).toHaveTextContent('Front Door')
+    })
+
+    it('goes with the whole band when the overlay is off', () => {
+      mockMotionSensor('on')
+      const { container } = renderCard({ item: motionItem({ showNameOverlay: false }) })
+
+      expect(container.querySelector('.camera-name-overlay')).toBeNull()
+      expect(motionOf(container)).toBeNull()
+    })
+
+    it('keeps the entity state line beside it rather than replacing it', () => {
+      mockMotionSensor('on')
+      const { container } = renderCard({ item: motionItem() })
+
+      expect(container.querySelector('.camera-overlay-state')).toHaveTextContent('Idle')
+      expect(motionOf(container)).toBe('Motion detected')
+    })
+
+    it('refreshes the duration while the card is on screen', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-01-01T00:12:00Z'))
+      mockMotionSensor('off', '2026-01-01T00:00:00Z')
+      const { container } = renderCard({ item: motionItem() })
+      expect(motionOf(container)).toBe('Clear for 12 min')
+
+      // A minute later, without the sensor changing at all. Advancing the fake
+      // timers moves the mocked clock with them, so the interval fires against
+      // a `Date.now()` that really has moved on.
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(motionOf(container)).toBe('Clear for 13 min')
+      vi.useRealTimers()
     })
   })
 
