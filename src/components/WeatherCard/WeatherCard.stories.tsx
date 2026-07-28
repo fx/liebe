@@ -2,7 +2,12 @@ import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect } from 'storybook/test'
 import { WeatherCard } from './index'
-import { asUnavailable, createWeatherEntity } from '~/test/fixtures'
+import {
+  asUnavailable,
+  createDailyForecast,
+  createHourlyForecast,
+  createWeatherEntity,
+} from '~/test/fixtures'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
 
 const entityId = 'weather.home'
@@ -59,6 +64,22 @@ const arrangement = (canvasElement: HTMLElement) =>
 /** The condition artwork actually painted, or `''` for the flat surface. */
 const backgroundImage = (canvasElement: HTMLElement) =>
   (canvasElement.querySelector('.liebe-card') as HTMLElement | null)?.style.backgroundImage ?? ''
+
+/** How many columns one forecast section drew, `0` when the section is absent. */
+const forecastColumnCount = (canvasElement: HTMLElement, kind: 'hourly' | 'daily') =>
+  canvasElement.querySelectorAll(`[data-forecast="${kind}"] .weather-forecast-column`).length
+
+/**
+ * Both forecasts in the cache, seeded the way a fetch would have left them.
+ *
+ * The card reads them through `useWeatherForecast` like the panel does — it
+ * never calls `weather.get_forecasts` itself — so a story that stopped showing
+ * a forecast would be reporting a real regression rather than a broken stub.
+ */
+const seededForecasts = [
+  { entityId, type: 'hourly' as const, forecast: createHourlyForecast({ count: 12 }) },
+  { entityId, type: 'daily' as const, forecast: createDailyForecast({ count: 5 }) },
+]
 
 /* ------------------------------------------------------------------ *
  * Variants
@@ -391,5 +412,192 @@ export const UnmappedCondition: Story = {
   play: async ({ canvasElement }) => {
     await expect(backgroundImage(canvasElement)).toBe('')
     await expect(cardText(canvasElement)).toContain('exceptional')
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Forecasts
+ *
+ * Every story below seeds the forecast CACHE through the fixture factories that
+ * shipped with the pipeline (change 0015), so the shapes are the ones a real
+ * `weather.get_forecasts` response parses into rather than ones invented here.
+ * The card reaches them through `useWeatherForecast` and never fetches for
+ * itself.
+ * ------------------------------------------------------------------ */
+
+/** 4×3 with both sections at their defaults: four hours, four days. */
+export const Forecasts: Story = {
+  args: { tier: 'full', gridWidth: 4, gridHeight: 3, span: { width: 4, height: 3 } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(4)
+  },
+}
+
+/** The same card tuned wider: eight hours across, seven days configured. */
+export const ForecastsWide: Story = {
+  args: {
+    tier: 'full',
+    gridWidth: 6,
+    gridHeight: 3,
+    span: { width: 6, height: 3 },
+    config: { forecastHours: 8, forecastDays: 7 },
+  },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(8)
+    // Seven days were asked for and the integration sent five: the card draws
+    // what arrived and never pads to the count.
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(5)
+  },
+}
+
+/** 3×1: the hourly strip is a `row` section; the multi-day row is not. */
+export const ForecastRowTier: Story = {
+  args: { tier: 'row', gridWidth: 3, gridHeight: 1, span: { width: 3, height: 1 } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(0)
+  },
+}
+
+/** 1×6: one column wide, so the strip runs down the tile instead of across. */
+export const ForecastTallTier: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 6, span: { width: 1, height: 6 } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-forecast="hourly"]')?.getAttribute('data-orientation')
+    ).toBe('vertical')
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
+  },
+}
+
+/** 1×2: a tall tile with no room left after the readout omits the strip. */
+export const ForecastTallTooShort: Story = {
+  args: { tier: 'tall', gridWidth: 1, gridHeight: 2, span: { width: 1, height: 2 } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(0)
+  },
+}
+
+/** Both options off: the sections go, and nothing else moves. */
+export const ForecastsHidden: Story = {
+  args: {
+    tier: 'full',
+    gridWidth: 4,
+    gridHeight: 3,
+    span: { width: 4, height: 3 },
+    config: { showHourlyForecast: false, showDailyForecast: false },
+  },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(0)
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(0)
+    await expect(cardText(canvasElement)).toContain('51%')
+  },
+}
+
+/**
+ * An integration that publishes no forecast at all: the pipeline resolves
+ * `unsupported`, and both sections are hidden entirely — no empty strip, no
+ * placeholder, no error — with the options still at their defaults.
+ */
+export const ForecastUnsupported: Story = {
+  args: { tier: 'full', gridWidth: 4, gridHeight: 3, span: { width: 4, height: 3 } },
+  parameters: {
+    liebe: {
+      entities: [createWeatherEntity()],
+      forecasts: [
+        { entityId, type: 'hourly' as const, unsupported: true },
+        { entityId, type: 'daily' as const, unsupported: true },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(0)
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(0)
+    await expect(cardText(canvasElement)).not.toMatch(/no forecast|unavailable/i)
+  },
+}
+
+/**
+ * Hourly data and no daily view — availability is per type, so the strip stays
+ * and only the multi-day row goes.
+ */
+export const ForecastHourlyOnly: Story = {
+  args: { tier: 'full', gridWidth: 4, gridHeight: 3, span: { width: 4, height: 3 } },
+  parameters: {
+    liebe: {
+      entities: [createWeatherEntity()],
+      forecasts: [
+        { entityId, type: 'hourly' as const, forecast: createHourlyForecast({ count: 12 }) },
+        { entityId, type: 'daily' as const, unsupported: true },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(0)
+  },
+}
+
+/**
+ * A day the pipeline derived from a twice-daily forecast whose daytime half was
+ * missing — the leading day of a forecast fetched in the evening. It carries a
+ * low and no high on purpose, because a nighttime reading is not the day's
+ * high, and the column renders exactly that: one temperature, in the low slot.
+ */
+export const ForecastDayWithoutHigh: Story = {
+  args: {
+    tier: 'full',
+    gridWidth: 4,
+    gridHeight: 3,
+    span: { width: 4, height: 3 },
+    config: { showHourlyForecast: false, forecastDays: 3 },
+  },
+  parameters: {
+    liebe: {
+      entities: [createWeatherEntity()],
+      forecasts: [
+        {
+          entityId,
+          type: 'daily' as const,
+          forecast: [
+            { datetime: '2026-07-25T20:00:00.000Z', condition: 'clear-night', templow: 12 },
+            ...createDailyForecast({ count: 2, start: Date.parse('2026-07-26T12:00:00.000Z') }),
+          ],
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const [first] = canvasElement.querySelectorAll(
+      '[data-forecast="daily"] .weather-forecast-column'
+    )
+
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(3)
+    // One temperature in that column, and it is the low it actually has.
+    await expect(first.textContent).toContain('12°C')
+    await expect(first.textContent?.match(/°C/g)?.length).toBe(1)
+  },
+}
+
+/** `temperatureUnit` converts the forecast columns with the rest of the card. */
+export const ForecastsFahrenheit: Story = {
+  args: {
+    tier: 'full',
+    gridWidth: 4,
+    gridHeight: 3,
+    span: { width: 4, height: 3 },
+    config: { temperatureUnit: 'fahrenheit', showHourlyForecast: false },
+  },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('°F')
+    await expect(cardText(canvasElement)).not.toContain('°C')
   },
 }

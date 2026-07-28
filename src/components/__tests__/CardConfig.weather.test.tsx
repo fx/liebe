@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
 import { CardConfig } from '../CardConfig'
@@ -20,11 +20,11 @@ vi.mock('~/store', () => ({
  * The weather card's configuration form (docs/specs/entity-cards/options/
  * weather.md).
  *
- * The two options change 0020 PR 1 adds, from the form's side: that they exist,
- * that they are offered to every weather entity rather than gated on what this
- * one happens to publish, and that what a user picks reaches `item.config` under
- * the key the card reads. A control writing a key nothing reads looks exactly
- * like a setting that did nothing.
+ * The options change 0020 adds, from the form's side: that they exist, that
+ * they are offered to every weather entity rather than gated on what this one
+ * happens to publish, and that what a user picks reaches `item.config` under the
+ * key the card reads. A control writing a key nothing reads looks exactly like a
+ * setting that did nothing.
  */
 
 const ENTITY_ID = 'weather.home'
@@ -96,6 +96,48 @@ describe('the weather configuration form', () => {
     expect(findSelectByLabel('Temperature Unit')).toBeTruthy()
     expect(findSelectByLabel('Secondary Info')).toBeTruthy()
     expect(screen.getByText('Condition Background')).toBeInTheDocument()
+    expect(screen.getByText('Hourly Forecast')).toBeInTheDocument()
+    expect(screen.getByText('Daily Forecast')).toBeInTheDocument()
+    expect(screen.getByText('Hours Shown')).toBeInTheDocument()
+    expect(screen.getByText('Days Shown')).toBeInTheDocument()
+  })
+
+  it('bounds the two counts at the option doc’s range', () => {
+    renderModal()
+
+    // The form cannot express a count the card would clamp, so a user never
+    // sets one that renders as something else.
+    const hours = screen.getByText('Hours Shown').parentElement!.querySelector('input')!
+    expect(hours).toHaveAttribute('min', '1')
+    expect(hours).toHaveAttribute('max', '12')
+
+    const days = screen.getByText('Days Shown').parentElement!.querySelector('input')!
+    expect(days).toHaveAttribute('min', '1')
+    expect(days).toHaveAttribute('max', '7')
+  })
+
+  it('saves a forecast count under the key the card reads', async () => {
+    const user = userEvent.setup()
+    renderModal()
+
+    const hours = screen.getByText('Hours Shown').parentElement!.querySelector('input')!
+    // `change` rather than `clear` + `type`: the shared number control resolves
+    // an empty field back to the option's default as you type, so clearing it
+    // first would leave "4" in place and the typed digit would extend it.
+    fireEvent.change(hours, { target: { value: '8' } })
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(onSave).toHaveBeenCalledWith({ config: { forecastHours: 8 } })
+  })
+
+  it('saves a forecast section being switched off', async () => {
+    const user = userEvent.setup()
+    renderModal()
+
+    await user.click(within(screen.getByText('Daily Forecast').parentElement!).getByRole('switch'))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(onSave).toHaveBeenCalledWith({ config: { showDailyForecast: false } })
   })
 
   it('shows each option’s stored value rather than its default', () => {

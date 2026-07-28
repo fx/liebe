@@ -13,7 +13,13 @@ import {
   MIN_SENSOR_GRAPH_HOURS,
   SENSOR_OPTION_DEFAULTS,
 } from '~/store/sensorOptions'
-import { WEATHER_OPTION_DEFAULTS } from '~/store/weatherOptions'
+import {
+  MAX_FORECAST_DAYS,
+  MAX_FORECAST_HOURS,
+  MIN_FORECAST_DAYS,
+  MIN_FORECAST_HOURS,
+  WEATHER_OPTION_DEFAULTS,
+} from '~/store/weatherOptions'
 
 // Define configuration for each card type that needs it
 export const cardConfigurations: Record<
@@ -514,6 +520,47 @@ export const cardConfigurations: Record<
         default: WEATHER_OPTION_DEFAULTS.showConditionBackground,
         label: 'Condition Background',
         description: 'Paint the condition artwork behind the card. The minimal variant never does.',
+      },
+      /*
+       * The forecast options hide or tune presentation; they never conjure a
+       * forecast (common convention 3). Whether the entity HAS one is the
+       * integration's answer, resolved through `useWeatherForecast` at render —
+       * which is why these are not entity-gated the way a cover's tilt control
+       * is: forecast capability can appear the moment an integration is
+       * upgraded, and a control withheld on today's `supported_features` would
+       * stay withheld with nothing to say why.
+       */
+      showHourlyForecast: {
+        type: 'boolean',
+        default: WEATHER_OPTION_DEFAULTS.showHourlyForecast,
+        label: 'Hourly Forecast',
+        description:
+          'Shows the hourly strip on cards with room for it. Hidden when this entity publishes no hourly forecast.',
+      },
+      forecastHours: {
+        type: 'number',
+        default: WEATHER_OPTION_DEFAULTS.forecastHours,
+        label: 'Hours Shown',
+        description: 'Upper bound — fewer render when the integration sends fewer.',
+        min: MIN_FORECAST_HOURS,
+        max: MAX_FORECAST_HOURS,
+        step: 1,
+      },
+      showDailyForecast: {
+        type: 'boolean',
+        default: WEATHER_OPTION_DEFAULTS.showDailyForecast,
+        label: 'Daily Forecast',
+        description:
+          'Shows the multi-day row on 2×2 cards and larger. Hidden when this entity publishes no daily forecast.',
+      },
+      forecastDays: {
+        type: 'number',
+        default: WEATHER_OPTION_DEFAULTS.forecastDays,
+        label: 'Days Shown',
+        description: 'Upper bound — fewer render when the integration sends fewer.',
+        min: MIN_FORECAST_DAYS,
+        max: MAX_FORECAST_DAYS,
+        step: 1,
       },
     },
   },

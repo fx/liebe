@@ -6,6 +6,7 @@ import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
+import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
 import {
   formatTemperature,
@@ -31,6 +32,16 @@ function WeatherCardModernContent(props: CardProps) {
   } = props
   const options = readWeatherOptions(config)
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+
+  // Before the early returns, because a hook cannot be called after one; a
+  // section this tier or these options switch off subscribes to nothing.
+  const forecast = useWeatherForecastSections({
+    entityId,
+    tier,
+    span: props.span,
+    options,
+    entityUnit: entity?.attributes?.temperature_unit,
+  })
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -153,7 +164,7 @@ function WeatherCardModernContent(props: CardProps) {
       </GridCard.Controls>
     )
 
-  const extra =
+  const detailLine =
     (isTall || isFull) && (secondaryLine || supplemental.length > 0) ? (
       <Flex direction="column" align="center" gap="1">
         {secondaryLine}
@@ -167,6 +178,16 @@ function WeatherCardModernContent(props: CardProps) {
             {reading.text}
           </Text>
         ))}
+      </Flex>
+    ) : undefined
+
+  // `undefined` rather than an empty wrapper when there is nothing to put in
+  // it, so a card with no forecast lays out as if the options were off.
+  const extra =
+    detailLine || forecast.hasContent ? (
+      <Flex direction="column" align="center" gap="2" width="100%">
+        {detailLine}
+        <WeatherForecastSections sections={forecast} hasBackground={!!backgroundImage} />
       </Flex>
     ) : undefined
 

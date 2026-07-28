@@ -30,19 +30,18 @@ describe('readWeatherOptions', () => {
   })
 
   it('reads every stored value back', () => {
-    expect(
-      readWeatherOptions({
-        variant: 'detailed',
-        temperatureUnit: 'fahrenheit',
-        secondaryInfo: 'wind',
-        showConditionBackground: false,
-      })
-    ).toEqual({
+    const stored = {
       variant: 'detailed',
       temperatureUnit: 'fahrenheit',
       secondaryInfo: 'wind',
       showConditionBackground: false,
-    })
+      showHourlyForecast: false,
+      forecastHours: 8,
+      showDailyForecast: false,
+      forecastDays: 6,
+    }
+
+    expect(readWeatherOptions(stored)).toEqual(stored)
   })
 
   it('resolves a legacy preset as the variant', () => {

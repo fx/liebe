@@ -6,6 +6,14 @@ import '@radix-ui/themes/styles.css'
 
 vi.mock('../hooks', () => ({
   useEntity: vi.fn(),
+  /*
+   * The forecast pipeline, stubbed at its hook: this file is about the card's
+   * current-conditions content, and a forecast it never asked for must not
+   * reach for a Home Assistant connection to answer. Its own behaviour — the
+   * sections, their tier gating and their degradation — is
+   * `WeatherCard/__tests__/WeatherCard.forecast.test.tsx`.
+   */
+  useWeatherForecast: () => ({ forecast: [], isLoading: false, error: null, unsupported: false }),
 }))
 
 const mockUseEntity = useEntity as ReturnType<typeof vi.fn>
