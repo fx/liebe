@@ -792,10 +792,40 @@ describe('WeatherCard tiers', () => {
     expect(screen.queryByText(/Wind/)).not.toBeInTheDocument()
   })
 
+  it('stacks every variant’s content down a tall tile', () => {
+    /*
+     * `tall` is the tier the weather variants had no shape of their own for
+     * until change 0020: glyph on top, the temperature between it and the meta,
+     * and the secondary line at the bottom (option doc — "Tier layouts").
+     * `minimal` renders less, as the doc explicitly permits it to.
+     */
+    for (const variant of ['default', 'modern', 'detailed', 'minimal'] as const) {
+      const { unmount } = renderCard(
+        <WeatherCard entityId="weather.home" tier="tall" config={{ variant }} />
+      )
+
+      expect(arrangement()).toBe('tall')
+      expect(screen.getByText('sunny')).toBeInTheDocument()
+
+      if (variant === 'minimal') {
+        // The variant that shows only the temperature shows only the
+        // temperature, at every tier.
+        expect(screen.queryByText('65%')).not.toBeInTheDocument()
+      } else {
+        expect(screen.getByText('65%')).toBeInTheDocument()
+      }
+      // The daily/hourly continuation belongs to `full`; `tall` never grows
+      // one.
+      expect(screen.queryByText(/Feels like/)).not.toBeInTheDocument()
+      unmount()
+    }
+  })
+
   it('renders on the plain card surface when the condition maps to no artwork', () => {
     // Every variant paints its text white over the condition background and in
-    // token colours without one; `exceptional` is a condition with no image, so
-    // this is the other half of that branch on all three of them.
+    // token colours without one. `exceptional` is a REAL Home Assistant
+    // condition that this build ships no artwork for — not an unknown one — so
+    // it reaches the other half of that branch on all three variants.
     for (const variant of ['default', 'modern', 'detailed'] as const) {
       seed(makeEntity('weather.home', 'exceptional', weather.attributes))
       const { unmount } = renderCard(
@@ -872,18 +902,18 @@ describe('WeatherCard tiers', () => {
     expect(rowContainer.querySelector('.liebe-value')).toHaveTextContent('22°C')
   })
 
-  it('drops the modern variant’s humidity at glance', () => {
+  it('drops the modern variant’s secondary line at glance', () => {
     const { unmount } = renderCard(
       <WeatherCard entityId="weather.home" tier="glance" config={{ variant: 'modern' }} />
     )
 
-    expect(screen.queryByText('65% humidity')).not.toBeInTheDocument()
+    expect(screen.queryByText('65%')).not.toBeInTheDocument()
     expect(screen.getByText('22°C')).toBeInTheDocument()
     unmount()
 
     renderCard(<WeatherCard entityId="weather.home" tier="row" config={{ variant: 'modern' }} />)
 
-    expect(screen.getByText('65% humidity')).toBeInTheDocument()
+    expect(screen.getByText('65%')).toBeInTheDocument()
   })
 
   it('adds the modern variant’s detail line at full', () => {

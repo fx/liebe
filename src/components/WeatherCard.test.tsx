@@ -80,9 +80,17 @@ describe('WeatherCard', () => {
     it('should render detailed preset with available data points', () => {
       // `full`: pressure is `detailed`'s third data point, and the first thing
       // the narrower tiers drop (docs/specs/entity-cards/options/weather.md).
-      render(<WeatherCard entityId="weather.home" tier="full" config={{ preset: 'detailed' }} />)
+      const { container } = render(
+        <WeatherCard entityId="weather.home" tier="full" config={{ preset: 'detailed' }} />
+      )
       expect(screen.getByText('Temperature')).toBeInTheDocument()
-      expect(screen.getByText('22°C')).toBeInTheDocument()
+      // `full` renders the temperature through the `CardValue` anatomy part,
+      // whose DOM contract keeps the number and the unit in separate spans, so
+      // the reading is asserted per slot rather than as one concatenated
+      // string.
+      const value = container.querySelector('.liebe-value') as HTMLElement
+      expect(value.querySelector('.liebe-value-number')).toHaveTextContent('22')
+      expect(value.querySelector('.liebe-value-unit')).toHaveTextContent('°C')
       expect(screen.getByText('Humidity')).toBeInTheDocument()
       expect(screen.getByText('65%')).toBeInTheDocument()
       expect(screen.getByText('Pressure')).toBeInTheDocument()
