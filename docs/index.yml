@@ -235,5 +235,5 @@ changes:
     path: changes/0027-scene-cards.md
     description: New scene/script/button action-card family — per-domain activation, spinner-to-check feedback, confirm option, running-script stop
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
