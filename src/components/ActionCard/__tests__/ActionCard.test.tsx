@@ -302,6 +302,23 @@ describe('activation feedback', () => {
     expect(tile()).toHaveAttribute('title', 'Service not found')
   })
 
+  it('clears the previous error when the card is tapped again', async () => {
+    callService.mockRejectedValueOnce(new Error('Service not found'))
+    seed(createButtonEntity())
+    renderCard(<ActionCard entityId="button.restart_bridge" />)
+
+    fireEvent.click(tile())
+    await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
+
+    // A retry starts from a clean surface rather than showing the previous
+    // error under a fresh spinner.
+    resetDispatchGuard()
+    fireEvent.click(tile())
+
+    await waitFor(() => expect(tile()).not.toHaveAttribute('data-error'))
+    expect(stateLine()).toBeNull()
+  })
+
   it('lets a later tap through once the window has closed', async () => {
     vi.useFakeTimers()
     seed(createButtonEntity())
@@ -774,6 +791,48 @@ describe('presentation', () => {
   })
 })
 
+/**
+ * A domain the family does not serve. The registry never routes one here, but a
+ * story or a grid item whose entity was replaced can, and the card must decline
+ * rather than dispatch a service it cannot name.
+ */
+describe('an entity outside the family', () => {
+  const foreign = {
+    entity_id: 'light.kitchen',
+    state: 'on',
+    attributes: { friendly_name: 'Kitchen' },
+    last_changed: '2026-07-25T12:00:00.000Z',
+    last_updated: '2026-07-25T12:00:00.000Z',
+    context: { id: 'ctx', parent_id: null, user_id: null },
+  } satisfies HassEntity
+
+  it('renders inert with the generic glyph rather than guessing a service', async () => {
+    seed(foreign)
+    renderCard(<ActionCard entityId="light.kitchen" />)
+
+    expect(tile()).toHaveAttribute('data-unavailable', 'true')
+    // The generic fallback glyph — the map has no entry to draw from.
+    expect(iconGlyph()).toContain('lucide-zap')
+
+    fireEvent.click(tile())
+    await act(async () => {})
+    expect(callService).not.toHaveBeenCalled()
+  })
+
+  it('gates nothing even with confirm on, because it dispatches nothing', async () => {
+    // The gate has no action of ours to name here, and an inert card has none to
+    // hold — so the tap resolves to the detail dialog and no dialog is raised.
+    seed(foreign)
+    renderCard(<ActionCard entityId="light.kitchen" config={{ confirm: true }} />)
+
+    fireEvent.click(tile())
+    await act(async () => {})
+
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(callService).not.toHaveBeenCalled()
+  })
+})
+
 describe('lifecycle states', () => {
   it('renders a skeleton while the entity is still loading', () => {
     entityStore.setState((state) => ({
@@ -804,6 +863,30 @@ describe('lifecycle states', () => {
     expect(
       screen.getByLabelText('Disconnected: Disconnected from Home Assistant')
     ).toBeInTheDocument()
+  })
+
+  it('offers a reload as the way out of a disconnection', async () => {
+    const reload = vi.fn()
+    // jsdom's own `location.reload` throws "not implemented", so the retry can
+    // only be exercised against a replaced one.
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload },
+    })
+
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: false,
+      isInitialLoading: false,
+      entities: {},
+    }))
+    renderCard(<ActionCard entityId="scene.movie_night" />)
+
+    // The card-variant error tile opens a detail modal; Retry lives inside it.
+    fireEvent.click(screen.getByLabelText('Disconnected: Disconnected from Home Assistant'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to the entity id when there is no friendly name', () => {

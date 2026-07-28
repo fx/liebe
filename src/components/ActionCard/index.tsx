@@ -1,10 +1,10 @@
 import { Check, CircleDot, LoaderCircle, Palette, ScrollText, Square, Zap } from 'lucide-react'
-import { createElement, memo, useCallback, useState } from 'react'
+import { createElement, memo, useCallback, useMemo } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
-import { useDashboardStore, dashboardActions } from '~/store'
 import { readActionOptions } from '~/store/actionOptions'
 import { readCardDisplay, resolveCardColor } from '~/store/cardDisplay'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import type { CardConfirmPrompt } from '~/hooks/useCardActions'
 import type { GridItem } from '~/store/types'
 import type { DomainColorName } from '~/theme/tokens'
 import { getIcon } from '~/utils/iconList'
@@ -13,15 +13,8 @@ import { IconCircle } from '../anatomy'
 import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
-import { CardConfig } from '../CardConfig'
 import { useCardItem } from '../cardItemContext'
-import {
-  confirmPromptFor,
-  isActionInert,
-  isActionRunning,
-  isPrimaryRoute,
-  resolvePrimaryCommand,
-} from './actions'
+import { confirmPromptFor, isActionRunning, isPrimaryRoute, resolvePrimaryCommand } from './actions'
 import { useActivationFeedback, useLastActivated } from './hooks'
 import './ActionCard.css'
 
@@ -47,14 +40,21 @@ interface ActionCardProps {
   tier?: CardTier
   /**
    * The effective grid span behind `tier`. Accepted so any renderer can hand a
-   * card the pair `CardProps` defines, and because the tier alone is lossy —
-   * see `~/utils/cardTier`.
+   * card the pair `CardProps` defines. This family reads only the tier — with no
+   * embedded controls, there is nothing a wider `row` could carry that a
+   * narrower one could not — but the memo comparator still watches it, so a card
+   * that later grows a width-dependent detail is not pinned to a stale span.
    */
   span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
-  /** The placed item. Read for its stored options, and needed by the config modal. */
+  /**
+   * The placed item, read for its stored options. Configuration itself belongs
+   * to the grid, which publishes an `onConfigure` on the card item context and
+   * owns the modal — so this card grows no modal of its own, exactly like the
+   * cover and sensor families.
+   */
   item?: GridItem
   config?: Record<string, unknown>
 }
@@ -88,7 +88,6 @@ const RUNNING_LABEL = 'Running · tap to stop'
 function ActionCardComponent({
   entityId,
   tier = 'glance',
-  span,
   onDelete,
   isSelected = false,
   onSelect,
@@ -97,8 +96,6 @@ function ActionCardComponent({
 }: ActionCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { error, dispatchGuarded, clearError } = useServiceCall()
-  const { screens, currentScreenId } = useDashboardStore()
-  const [configOpen, setConfigOpen] = useState(false)
   const feedback = useActivationFeedback()
 
   /*
@@ -126,46 +123,70 @@ function ActionCardComponent({
   const lastActivated = useLastActivated(domain, state, entity?.attributes, showActivated)
 
   /**
-   * The primary action. Passed to the shell unconditionally and guarded inside,
-   * per the shell's contract — withholding it for a transient state would let
-   * `toggle` fall through to `homeassistant.toggle`, which is meaningless on
-   * every domain this family serves.
+   * What a tap dispatches right now, or `undefined` where nothing may be
+   * dispatched at all: an unavailable entity, an indeterminate script, or a
+   * domain this family does not serve. Resolved here rather than inside the
+   * handler so the card has one answer to "is this inert?" instead of two that
+   * could disagree.
    */
-  const handlePrimary = useCallback(() => {
-    const command = resolvePrimaryCommand(entityId, state)
-    if (!command) return
+  const command = resolvePrimaryCommand(entityId, state)
+  const isInert = command === undefined
 
-    /*
-     * The feedback window queues nothing: a tap landing inside it is dropped
-     * here rather than dispatched and swallowed further down. Stopping a running
-     * script is the exception — the inverse action must stay available while the
-     * thing it cancels is happening (REVIEW.md — transitional states).
-     */
-    if (!isRunning && feedback.phase !== 'idle') return
+  /**
+   * The primary action, or nothing when there is no action to take.
+   *
+   * Handing the shell no handler is safe *because* `isUnavailable` below is the
+   * same `isInert`: the gesture controller refuses `toggle` outright for an
+   * unavailable card, so the `homeassistant.toggle` fallback a missing handler
+   * would otherwise expose is unreachable. The two are derived from one value
+   * for exactly that reason.
+   */
+  const handlePrimary = useMemo(() => {
+    if (!command) return undefined
 
-    if (error) clearError()
+    return () => {
+      /*
+       * The feedback window queues nothing: a tap landing inside it is dropped
+       * here rather than dispatched and swallowed further down. Stopping a
+       * running script is the exception — the inverse action must stay available
+       * while the thing it cancels is happening (REVIEW.md — transitional
+       * states).
+       */
+      if (!isRunning && feedback.phase !== 'idle') return
 
-    /*
-     * The guarded, non-retrying path, and the reason it is not negotiable here:
-     * every service this family calls is non-idempotent. A retried
-     * `script.turn_on` runs the script a second time and a retried
-     * `button.press` fires whatever the button is wired to twice
-     * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
-     */
-    void feedback.run(() =>
-      dispatchGuarded({ domain: command.domain, service: command.service, entityId })
-    )
-  }, [clearError, dispatchGuarded, entityId, error, feedback, isRunning, state])
+      // A retry after a failure starts from a clean surface rather than showing
+      // the previous error under a fresh spinner.
+      if (error) clearError()
+
+      /*
+       * The guarded, non-retrying path, and the reason it is not negotiable
+       * here: every service this family calls is non-idempotent. A retried
+       * `script.turn_on` runs the script a second time and a retried
+       * `button.press` fires whatever the button is wired to twice
+       * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
+       */
+      void feedback.run(() =>
+        dispatchGuarded({ domain: command.domain, service: command.service, entityId })
+      )
+    }
+  }, [clearError, command, dispatchGuarded, entityId, error, feedback, isRunning])
+
+  /** How the confirmation dialog would name a tap right now. */
+  const prompt = confirmPromptFor(domain, state)
 
   /**
    * The family's own confirmation rule, which *replaces* the shell's generic
    * on/off gate rather than joining it — so it has to cover everything that one
    * did, the `homeassistant.*` aliases included (see `isPrimaryRoute`).
+   *
+   * With no prompt there is no action of ours to name, which is only true for a
+   * domain the family does not serve — and such a card dispatches nothing, so
+   * there is nothing to gate.
    */
   const confirmRoute = useCallback(
-    (action: ResolvedCardAction) =>
-      isPrimaryRoute(action, entityId) ? (confirmPromptFor(domain, state) ?? null) : null,
-    [domain, entityId, state]
+    (action: ResolvedCardAction): CardConfirmPrompt | null =>
+      prompt && isPrimaryRoute(action, entityId) ? prompt : null,
+    [entityId, prompt]
   )
 
   // Show skeleton while loading initial data
@@ -191,7 +212,6 @@ function ActionCardComponent({
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
-  const isInert = isActionInert(domain, state)
 
   /*
    * The active tint covers both the running state and the check hold. The check
@@ -237,90 +257,70 @@ function ActionCardComponent({
   const statusText = error ? 'ERROR' : isRunning ? RUNNING_LABEL : lastActivated
   const showName = !(tier === 'glance' && isRunning)
 
-  const handleConfigSave = (updates: Partial<GridItem>) => {
-    if (item && currentScreenId && screens.some((screen) => screen.id === currentScreenId)) {
-      dashboardActions.updateGridItem(currentScreenId, item.id, updates)
-    }
-  }
-
   return (
-    <>
-      <GridCard
-        domain={domain}
-        color={color}
-        tier={tier}
-        isError={!!error}
-        isStale={isStale}
-        isSelected={isSelected}
-        isOn={isActive}
-        /*
-         * Inertness, not merely `unavailable`. The shell hands this straight to
-         * the gesture controller, where it makes the primary action inert and
-         * resolves `default` to the detail dialog instead — which is exactly
-         * right for a script whose state is indeterminate, and exactly wrong for
-         * a never-activated scene, whose `unknown` state MUST stay activatable.
-         * `isActionInert` is what tells those two apart.
-         */
-        isUnavailable={isInert}
-        entityId={entityId}
-        /*
-         * Forwarded rather than left to the placed-item context, so the shell
-         * resolves the universal options off the same object this card read its
-         * own off. Without it a card handed a `config` prop directly — a story,
-         * the configuration preview — would apply `confirm` and
-         * `showLastActivated` while silently ignoring `name`, `icon` and
-         * `hideState` from the same object. Where nothing is passed this is
-         * exactly what the shell would have read anyway.
-         */
-        config={storedConfig}
-        onSelect={() => onSelect?.(!isSelected)}
-        onDelete={onDelete}
-        onClick={handlePrimary}
-        // Handed over only where the option applies, so every other card of the
-        // family pays nothing for a gate it does not have.
-        confirmRoute={options.confirm ? confirmRoute : undefined}
-        onConfigure={() => setConfigOpen(true)}
-        hasConfiguration={true}
-        title={error || undefined}
-        className="action-card"
-      >
-        {/*
-         * The whole tile is the touch target at every tier; the family embeds no
-         * discrete controls, so the tiers differ only in arrangement. The glyph
-         * swaps replace the icon in place, so nothing here shifts when the
-         * spinner, the check or the stop glyph appears.
-         */}
-        <CardBody
-          arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
-          lead={
-            <IconCircle
-              domain={domain}
-              color={resolvedColor}
-              active={isActive}
-              className="grid-card-icon"
-            >
-              {glyph}
-            </IconCircle>
-          }
-          meta={
-            <GridCard.Meta>
-              {showName && <GridCard.Title>{friendlyName}</GridCard.Title>}
-              {statusText !== null && <GridCard.Status>{statusText}</GridCard.Status>}
-            </GridCard.Meta>
-          }
-        />
-      </GridCard>
-
-      {item && (
-        <CardConfig.Modal
-          open={configOpen}
-          onOpenChange={setConfigOpen}
-          item={item}
-          span={span}
-          onSave={handleConfigSave}
-        />
-      )}
-    </>
+    <GridCard
+      domain={domain}
+      color={color}
+      tier={tier}
+      isError={!!error}
+      isStale={isStale}
+      isSelected={isSelected}
+      isOn={isActive}
+      /*
+       * Inertness, not merely `unavailable`. The shell hands this straight to
+       * the gesture controller, where it makes the primary action inert and
+       * resolves `default` to the detail dialog instead — which is exactly
+       * right for a script whose state is indeterminate, and exactly wrong for
+       * a never-activated scene, whose `unknown` state MUST stay activatable.
+       * `isActionInert` is what tells those two apart.
+       */
+      isUnavailable={isInert}
+      entityId={entityId}
+      /*
+       * Forwarded rather than left to the placed-item context, so the shell
+       * resolves the universal options off the same object this card read its
+       * own off. Without it a card handed a `config` prop directly — a story,
+       * the configuration preview — would apply `confirm` and
+       * `showLastActivated` while silently ignoring `name`, `icon` and
+       * `hideState` from the same object. Where nothing is passed this is
+       * exactly what the shell would have read anyway.
+       */
+      config={storedConfig}
+      onSelect={() => onSelect?.(!isSelected)}
+      onDelete={onDelete}
+      onClick={handlePrimary}
+      // Handed over only where the option applies, so every other card of the
+      // family pays nothing for a gate it does not have.
+      confirmRoute={options.confirm ? confirmRoute : undefined}
+      title={error || undefined}
+      className="action-card"
+    >
+      {/*
+       * The whole tile is the touch target at every tier; the family embeds no
+       * discrete controls, so the tiers differ only in arrangement. The glyph
+       * swaps replace the icon in place, so nothing here shifts when the
+       * spinner, the check or the stop glyph appears.
+       */}
+      <CardBody
+        arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        lead={
+          <IconCircle
+            domain={domain}
+            color={resolvedColor}
+            active={isActive}
+            className="grid-card-icon"
+          >
+            {glyph}
+          </IconCircle>
+        }
+        meta={
+          <GridCard.Meta>
+            {showName && <GridCard.Title>{friendlyName}</GridCard.Title>}
+            {statusText !== null && <GridCard.Status>{statusText}</GridCard.Status>}
+          </GridCard.Meta>
+        }
+      />
+    </GridCard>
   )
 }
 
