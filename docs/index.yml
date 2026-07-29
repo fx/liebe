@@ -207,7 +207,7 @@ changes:
     path: changes/0023-media-player-card.md
     description: New media player card — artwork modes, transport, volume, source picker, progress/seek, collapse-when-idle, feature-gated on supported_features
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0024'
     name: security-cards
