@@ -186,7 +186,7 @@ changes:
     path: changes/0020-weather-card-to-spec.md
     description: Weather card domain options — tier-adaptive variants, hourly/daily forecasts via the forecast hook, secondary info selection, condition backgrounds with tests
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014', '0015']
   - id: '0021'
     name: camera-presentation-options
