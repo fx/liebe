@@ -80,65 +80,67 @@ export function isVolumeMuted(attributes: MediaPlayerAttributes | undefined): bo
 }
 
 /**
- * A committed volume the entity has not confirmed yet.
+ * An optimistic volume — a value the card is showing that the entity has not
+ * confirmed.
  *
- * The card shows `sent` while this stands, which is deliberately a claim the
- * entity has not made — the point of an optimistic control. `baseline` is what
- * the entity read at the moment of sending, and it is what makes the lie
- * *terminable*: any movement away from it is the truth arriving.
+ * One value with a phase, rather than a separate "dragging" and "pending" pair,
+ * and the reason is a measured Radix behaviour: for keyboard adjustment the
+ * slider fires `onValueCommit` **before** `onValueChange`, so a design where
+ * commit clears a drag latch has that latch immediately re-set by the trailing
+ * change and never reconciles again. One value cannot be half-cleared by an
+ * ordering.
  */
-export interface PendingVolume {
-  /** The value dispatched, and displayed until the entity answers. */
-  sent: number
-  /** The entity's `volume_level` when it was dispatched; `undefined` if it had none. */
+export interface OptimisticVolume {
+  /** The value being displayed. */
+  value: number
+  /** The entity's `volume_level` when this began; movement off it is the truth arriving. */
   baseline: number | undefined
+  /**
+   * Whether it has been dispatched. An uncommitted value is a finger on the
+   * thumb — nothing has been sent, so there is nothing to reconcile against and
+   * no timeout to run.
+   */
+  committed: boolean
 }
 
 /**
- * Whether a pending volume still stands, given what the entity now reports.
+ * Whether an optimistic volume still stands, given what the entity now reports.
  *
- * **The reconciliation rule, stated once:** the optimistic value is dropped as
- * soon as the entity's `volume_level` differs from the baseline it had when the
- * command went out — whatever it changed *to*.
+ * **An uncommitted value always stands.** It is a drag in progress: no command
+ * has gone out, so an incoming state update — from another client, or an
+ * unrelated attribute change — must not move the thumb out from under the
+ * user's finger. That is the "snaps back mid-drag" failure.
  *
- * Accepting any movement, rather than only movement to `sent`, is what makes
+ * **A committed value stands until the entity's `volume_level` differs from the
+ * baseline it had when the command went out** — whatever it changed *to*.
+ * Accepting any movement, rather than only movement to `value`, is what makes
  * this correct for the case that actually bites: a receiver with a volume cap
  * answers a request for 1.0 with 0.8. Waiting for an exact match would leave the
- * card insisting on 1.0 forever, which is the "never reconciles" failure. And
- * dropping the value on *every* incoming state update — including the ones that
- * report the volume unchanged — would be the "snaps back mid-drag" failure,
- * which is why the baseline comparison is here rather than a bare "did a state
- * update arrive".
+ * card insisting on 1.0 forever, which is the "never reconciles" failure.
  *
  * Two cases this cannot settle on its own, both handled by the card:
- *   - the dispatch **fails** — the card drops the pending value immediately,
- *     since nothing is coming;
+ *   - the dispatch **fails** — dropped immediately, since nothing is coming;
  *   - the entity **never moves** (a no-op command, or a device that answers
- *     nothing) — the card drops it on the acknowledgement timeout, so the card
- *     cannot go on lying indefinitely.
+ *     nothing) — dropped on the acknowledgement timeout, which runs only for a
+ *     committed value so a slow drag is never interrupted by it.
  */
-export function pendingVolumeStillStands(
-  pending: PendingVolume,
+export function optimisticVolumeStillStands(
+  optimistic: OptimisticVolume,
   entityVolume: number | undefined
 ): boolean {
-  return entityVolume === pending.baseline
+  if (!optimistic.committed) return true
+  return entityVolume === optimistic.baseline
 }
 
 /**
- * The volume to draw, in the order the card trusts its sources.
- *
- * An in-progress drag beats everything: while a finger is down, incoming state
- * updates must not move the thumb out from under it. A committed-but-unconfirmed
- * value beats the entity for the window described above. Otherwise the entity is
- * the truth.
+ * The volume to draw: the optimistic value while one stands, the entity
+ * otherwise.
  */
 export function resolveDisplayVolume(
   entityVolume: number | undefined,
-  dragValue: number | null,
-  pending: PendingVolume | null
+  optimistic: OptimisticVolume | null
 ): number {
-  if (dragValue !== null) return dragValue
-  if (pending) return pending.sent
+  if (optimistic) return optimistic.value
   return entityVolume ?? 0
 }
 

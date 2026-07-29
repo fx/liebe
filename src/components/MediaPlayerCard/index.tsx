@@ -27,7 +27,7 @@ import { formatMediaTime, resolveMediaProgress } from './progress'
 import {
   canSelectSource,
   isVolumeMuted,
-  pendingVolumeStillStands,
+  optimisticVolumeStillStands,
   percentToVolume,
   readCurrentSource,
   readSourceList,
@@ -36,7 +36,7 @@ import {
   resolveVolumePresentation,
   steppedVolume,
   volumeToPercent,
-  type PendingVolume,
+  type OptimisticVolume,
 } from './volume'
 import {
   isMediaActive,
@@ -157,41 +157,40 @@ function MediaPlayerCardComponent({
   const entityVolume = readVolumeLevel(attributes)
 
   /*
-   * The optimistic volume, in two parts.
+   * The optimistic volume: one value carrying its own phase.
    *
-   * `dragVolume` is the value under the finger: while a drag is in progress the
-   * thumb must not be moved by anything else, or the control fights the user.
-   * `pendingVolume` is a value already dispatched and not yet confirmed — the
-   * card is showing something the entity has not agreed to, which is the whole
-   * point of an optimistic control and therefore has to be *terminable*.
+   * The card shows something the entity has not confirmed, which is the point of
+   * an optimistic control and therefore has to be *terminable*. An uncommitted
+   * value is a finger on the thumb and always stands; a committed one stands
+   * until the entity moves off the baseline recorded when the command went out.
    *
-   * It terminates three ways, and all three are needed:
-   *   - the entity's `volume_level` moves off the baseline → the truth arrived,
-   *     whatever it says (`pendingVolumeStillStands`);
-   *   - the dispatch fails → nothing is coming, so drop it at once;
-   *   - the acknowledgement timeout elapses → a device that answers nothing must
-   *     not leave the card lying indefinitely.
+   * Deliberately NOT a separate drag latch plus a pending value. Radix fires
+   * `onValueCommit` **before** `onValueChange` for keyboard adjustment (measured,
+   * not assumed), so a commit that cleared a drag latch would have it re-set by
+   * the trailing change and the card would never reconcile again — the thumb
+   * would sit at the last arrow-key value forever.
    */
-  const [dragVolume, setDragVolume] = useState<number | null>(null)
-  const [pendingVolume, setPendingVolume] = useState<PendingVolume | null>(null)
+  const [optimisticVolume, setOptimisticVolume] = useState<OptimisticVolume | null>(null)
 
   /*
-   * The timeout lives in an effect keyed on the pending value rather than in a
-   * ref, and that is a correctness point rather than a lint accommodation. The
-   * reconciliation below runs *during render*, where a ref may not be touched
-   * (`react-hooks/refs`) — so a ref-held timer would have to be cancelled
-   * somewhere else, and the two places would be free to disagree about whether
-   * one is still pending. Keying the effect on `pendingVolume` makes the timer a
-   * function of the state it guards: clearing the state cancels the timer
-   * through the effect's own cleanup, unmounting does the same, and a fresh
-   * commit restarts the window because the value's identity changed.
+   * The acknowledgement timeout, in an effect keyed on the value it guards
+   * rather than in a ref. The reconciliation below runs *during render*, where a
+   * ref may not be touched (`react-hooks/refs`), so a ref-held timer would have
+   * to be cancelled somewhere else and the two places could disagree about
+   * whether one is pending. Keying the effect on the state makes the timer a
+   * function of it: clearing the state cancels the timer through the effect's
+   * own cleanup, unmounting does the same, and a fresh commit restarts the
+   * window because the value's identity changed.
+   *
+   * Only for a committed value — a drag has sent nothing, so there is nothing to
+   * time out, and a timeout during a slow drag would snap the thumb away.
    */
   useEffect(() => {
-    if (!pendingVolume) return
+    if (!optimisticVolume?.committed) return
 
-    const id = setTimeout(() => setPendingVolume(null), ACKNOWLEDGEMENT_TIMEOUT_MS)
+    const id = setTimeout(() => setOptimisticVolume(null), ACKNOWLEDGEMENT_TIMEOUT_MS)
     return () => clearTimeout(id)
-  }, [pendingVolume])
+  }, [optimisticVolume])
 
   /*
    * Reconciled during render with a previous-value guard rather than in an
@@ -200,23 +199,22 @@ function MediaPlayerCardComponent({
    * an effect would, so there is no commit in which the card shows a volume the
    * entity has already contradicted.
    */
-  if (pendingVolume && !pendingVolumeStillStands(pendingVolume, entityVolume)) {
-    setPendingVolume(null)
+  if (optimisticVolume && !optimisticVolumeStillStands(optimisticVolume, entityVolume)) {
+    setOptimisticVolume(null)
   }
 
   /*
-   * A card recycled onto another entity drops both, for the reason the cover
-   * card records: a drag state carried across entities would show the previous
-   * player's volume and commit it to the new one.
+   * A card recycled onto another entity drops it, for the reason the cover card
+   * records: a drag carried across entities would show the previous player's
+   * volume and commit it to the new one.
    */
   const [prevVolumeEntityId, setPrevVolumeEntityId] = useState(entityId)
   if (entityId !== prevVolumeEntityId) {
     setPrevVolumeEntityId(entityId)
-    setDragVolume(null)
-    setPendingVolume(null)
+    setOptimisticVolume(null)
   }
 
-  const displayVolume = resolveDisplayVolume(entityVolume, dragVolume, pendingVolume)
+  const displayVolume = resolveDisplayVolume(entityVolume, optimisticVolume)
 
   /**
    * Commit a volume, and hold it on screen until the entity answers.
@@ -227,20 +225,28 @@ function MediaPlayerCardComponent({
    * asked", and only the first is true reconciliation.
    */
   const commitVolume = async (fraction: number) => {
-    setPendingVolume({ sent: fraction, baseline: entityVolume })
+    setOptimisticVolume({ value: fraction, baseline: entityVolume, committed: true })
 
     const result = await dispatch('volume_set', { volume_level: fraction })
     // A failed command has no truth coming, so the lie ends now rather than at
     // the timeout.
-    if (result && result.success === false) setPendingVolume(null)
+    if (result && result.success === false) setOptimisticVolume(null)
   }
 
-  const handleVolumeChange = (percent: number) => setDragVolume(percentToVolume(percent))
-
-  const handleVolumeCommit = (percent: number) => {
-    setDragVolume(null)
-    void commitVolume(percentToVolume(percent))
+  /*
+   * A value the drag is passing through. The same value the commit just sent is
+   * the trailing echo Radix emits after `onValueCommit`, and re-starting an
+   * uncommitted drag from it would strip the committed flag off a value already
+   * in flight — so an unchanged value is left exactly as it is.
+   */
+  const handleVolumeChange = (percent: number) => {
+    const value = percentToVolume(percent)
+    setOptimisticVolume((current) =>
+      current?.value === value ? current : { value, baseline: entityVolume, committed: false }
+    )
   }
+
+  const handleVolumeCommit = (percent: number) => void commitVolume(percentToVolume(percent))
 
   /**
    * A stepper press. `volume_up`/`volume_down` where the entity has them,
