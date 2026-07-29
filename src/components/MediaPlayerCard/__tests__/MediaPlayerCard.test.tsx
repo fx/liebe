@@ -222,6 +222,40 @@ describe('MediaPlayerCard primary action', () => {
     }
   )
 
+  /**
+   * The explicit `tapAction: 'toggle'` route, which is not the same path as the
+   * `default` one: `default` resolving to nothing makes the shell inert, but a
+   * stored `toggle` reaches this card's handler regardless — and the legacy
+   * pinning writes exactly that value onto every pre-existing media player. So
+   * the handler has to decline the command itself rather than rely on the shell
+   * never calling it.
+   */
+  it('declines an explicit toggle when the state resolves to no service', async () => {
+    seed(
+      createMediaPlayerEntity({
+        state: 'playing',
+        attributes: { supported_features: FEATURES.playOnly },
+      })
+    )
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" />, { tapAction: 'toggle' })
+
+    fireEvent.click(tile())
+    await flush()
+
+    expect(calls()).toEqual([])
+  })
+
+  it('honours an explicit toggle when the state does resolve to a service', async () => {
+    seed(createMediaPlayerEntity({ attributes: { supported_features: FEATURES.full } }))
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" />, { tapAction: 'toggle' })
+
+    fireEvent.click(tile())
+
+    await waitFor(() =>
+      expect(calls()).toEqual([{ service: 'media_player.media_pause', entityId: ENTITY_ID }])
+    )
+  })
+
   it('is inert when the entity advertises no features at all', async () => {
     mount({ state: 'paused', attributes: { supported_features: FEATURES.none } })
 
@@ -639,6 +673,121 @@ describe('MediaPlayerCard dispatch guarantees', () => {
   })
 })
 
+describe('MediaPlayerCard lifecycle states', () => {
+  it('renders the skeleton while the first load is still in flight', () => {
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: true,
+      isInitialLoading: true,
+      entities: {},
+      staleEntities: new Set<string>(),
+    }))
+
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" />)
+
+    // The skeleton renders a `liebe-card` of its own, so what tells them apart
+    // is that none of the card's content is there yet.
+    expect(nameLine()).toBeNull()
+    expect(stateLine()).toBeNull()
+    expect(pills()).toEqual([])
+  })
+
+  /**
+   * Disconnected, which is a different case from "entity missing": `useEntity`
+   * cannot tell "not loaded yet" from "does not exist", so a card never reports
+   * an entity as absent while the connection is up.
+   */
+  it('reports the disconnection rather than an absent entity', () => {
+    entityStore.setState((state) => ({
+      ...state,
+      isConnected: false,
+      isInitialLoading: false,
+      entities: {},
+      staleEntities: new Set<string>(),
+    }))
+
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" />)
+
+    expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
+  })
+
+  it('falls back to the entity id when the entity has no friendly name', () => {
+    seed(
+      createMediaPlayerEntity({
+        attributes: { friendly_name: undefined, supported_features: FEATURES.full },
+      })
+    )
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="glance" span={{ width: 1, height: 1 }} />)
+
+    expect(nameLine()).toBe(ENTITY_ID)
+  })
+
+  it('falls back to the entity id on the unavailable treatment too', () => {
+    seed(
+      createMediaPlayerEntity({
+        state: 'unavailable',
+        attributes: { friendly_name: undefined },
+      })
+    )
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" />)
+
+    expect(screen.getByText(ENTITY_ID)).toBeInTheDocument()
+  })
+
+  /** No `span` at all — a card rendered outside a grid, as a story or a preview. */
+  it('treats a missing span as narrow, keeping the compact row', () => {
+    seed(createMediaPlayerEntity({ attributes: { supported_features: FEATURES.full } }))
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="row" />)
+
+    expect(pills()).toEqual(['Pause'])
+  })
+})
+
+describe('MediaPlayerCard selection and errors', () => {
+  it('selects the tile in edit mode rather than dispatching', async () => {
+    const onSelect = vi.fn()
+    dashboardActions.setMode('edit')
+    seed(createMediaPlayerEntity({ attributes: { supported_features: FEATURES.full } }))
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" onSelect={onSelect} />)
+
+    fireEvent.click(tile())
+    await flush()
+
+    expect(onSelect).toHaveBeenCalledWith(true)
+    // Editing a dashboard must never actuate the thing being edited.
+    expect(calls()).toEqual([])
+  })
+
+  it('selects an unavailable tile too', async () => {
+    const onSelect = vi.fn()
+    dashboardActions.setMode('edit')
+    seed(createMediaPlayerEntity({ state: 'unavailable' }))
+    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" onSelect={onSelect} />)
+
+    fireEvent.click(tile())
+    await flush()
+
+    expect(onSelect).toHaveBeenCalledWith(true)
+  })
+
+  /**
+   * A failed dispatch shows ERROR on the state line, and the next dispatch
+   * clears it first: a tile still reading ERROR after the user has pressed
+   * something else says "this failed too" about a command not yet reported on.
+   */
+  it('shows ERROR when a dispatch fails, and clears it on the next press', async () => {
+    callService.mockRejectedValueOnce(new Error('nope'))
+    mount({ tier: 'full' })
+
+    fireEvent.click(screen.getByLabelText('Next track'))
+    await waitFor(() => expect(stateLine()).toBe('ERROR'))
+
+    fireEvent.click(screen.getByLabelText('Previous track'))
+
+    await waitFor(() => expect(stateLine()).not.toBe('ERROR'))
+  })
+})
+
 describe('MediaPlayerCard states', () => {
   it('renders the unavailable treatment', () => {
     mount({ state: 'unavailable' })
@@ -653,6 +802,48 @@ describe('MediaPlayerCard states', () => {
 
     mount({ state: 'paused' })
     expect(tile()).toHaveAttribute('data-color', 'default')
+  })
+
+  /**
+   * The memo comparator. The span has to be compared **by value**: the grid
+   * builds a fresh `{width, height}` for every item on every render, so an
+   * identity check would report a change on each pass and defeat the memo — and
+   * the span cannot simply be left out, because this card keys on width past a
+   * tier boundary.
+   */
+  it('re-renders when the span crosses the wide-row boundary, not when it is rebuilt', () => {
+    seed(createMediaPlayerEntity({ attributes: { supported_features: FEATURES.full } }))
+
+    const { rerender } = renderCard(
+      <MediaPlayerCard entityId={ENTITY_ID} tier="row" span={{ width: 2, height: 1 }} />
+    )
+    expect(pills()).toEqual(['Pause'])
+
+    // A fresh object of the same value: the card must not be held at its last
+    // render by an identity comparison, nor re-render into something different.
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId={ENTITY_ID}>
+            <MediaPlayerCard entityId={ENTITY_ID} tier="row" span={{ width: 2, height: 1 }} />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(pills()).toEqual(['Pause'])
+
+    // A real width change at the same tier — the case a tier-only comparator
+    // would miss entirely.
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId={ENTITY_ID}>
+            <MediaPlayerCard entityId={ENTITY_ID} tier="row" span={{ width: 4, height: 1 }} />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(pills()).toEqual(['Previous track', 'Pause', 'Next track'])
   })
 
   it('hides the transport in edit mode', () => {
