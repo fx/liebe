@@ -4,7 +4,7 @@
 
 Create the dedicated media player card specified in the [media-player option contract](../specs/entity-cards/options/media-player.md) on top of the tier layouts (0011) and universal option surface (0014): a `MediaPlayerCard` registered under `media_player` in `domainToCard`, with play/pause as the default tap action, `artworkMode` (background / thumbnail / none via the HA-proxied `entity_picture`), `showVolume` (slider / buttons / none), `showTransport`, `showSourcePicker`, `showProgress` (with seek where supported), `collapseWhenIdle`, and the `media_title` → `app_name` → raw-state fallback chain — every control feature-gated on `supported_features` bits. Universal options and the action system are already in place per 0014 and are not re-implemented here.
 
-**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/media-player](../specs/entity-cards/options/media-player.md) · **Status:** draft · **Depends on:** 0011, 0014
+**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/media-player](../specs/entity-cards/options/media-player.md) · **Status:** complete · **Depends on:** 0011, 0014
 
 ## Motivation
 
@@ -47,7 +47,7 @@ Spec restatements update **in the same PR** as each behavior change they describ
 
 - [x] **PR 1 — Core card + registration**: `MediaPlayerCard` component folder with tier layouts (`glance`, `row` incl. wide form, `tall`-as-`glance`, `full` thumbnail form), state-line fallback helper, `artworkMode: thumbnail`/`none` with automatic icon fallback, default action (play/pause, `turn_on`-when-off, inert), feature-gated transport cluster, `collapseWhenIdle`; registry entry in `domainToCard`; `media_player` added to `SUPPORTED_DOMAINS`; playing/paused/idle/off fixtures; the legacy-pinning loader migration (`tapAction: 'toggle'` onto pre-existing media_player items) with legacy/new-item tests; payload + gating unit tests; base stories
 - [x] **PR 2 — Volume, source, progress, background artwork**: `showVolume` slider with optimistic drag + `buttons` degradation + mute; `showSourcePicker`; `showProgress` with local extrapolation and gated seek; `artworkMode: background` with scrim and below-`full` degradation; config-form entries merged with the shared 0014 fragment; YAML round-trip test; payload/gating/extrapolation unit tests; full story matrix
-- [ ] **PR 3 — Spec sync**: add a Media Player section to [entity-cards](../specs/entity-cards/index.md) with requirements and scenarios reflecting the implemented card, update the registry snippet and EntityBrowser/`SUPPORTED_DOMAINS` text, mark the [media-player option doc](../specs/entity-cards/options/media-player.md) status implemented (noting the reserved `showGroupControls` key). The changelog entries for PRs 1 and 2 are already recorded, so PR 3 adds only its own
+- [x] **PR 3 — Spec sync**: add a Media Player section to [entity-cards](../specs/entity-cards/index.md) with requirements and scenarios reflecting the implemented card, update the registry snippet and EntityBrowser/`SUPPORTED_DOMAINS` text, mark the [media-player option doc](../specs/entity-cards/options/media-player.md) status implemented (noting the reserved `showGroupControls` key). The changelog entries for PRs 1 and 2 are already recorded, so PR 3 adds only its own
 
 ## Out of Scope
 
