@@ -1,0 +1,34 @@
+/*
+ * The artwork thumbnail — the one part of this card the anatomy has no member
+ * for.
+ *
+ * It stands exactly where the icon circle would (option doc — `artworkMode`:
+ * "renders as a small rounded image in place of the icon circle"), so it takes
+ * the icon circle's own size token and differs only in its radius:
+ * `--liebe-control-radius` rather than the circle's, because album art is
+ * content and squaring it off is what makes it read as a picture rather than as
+ * another glyph.
+ *
+ * Wrapped in the `liebe-base` layer like every other sheet the panel injects —
+ * an unlayered author rule outranks all cascade layers, so leaving this
+ * unlayered would put it beyond the reach of every theme
+ * (docs/specs/theming/index.md).
+ *
+ * `liebe-media-artwork` is internal, not part of the stable selector contract:
+ * `liebe-card[data-domain='media_player']` is the public handle.
+ */
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  .liebe-media-artwork {
+    block-size: var(--liebe-icon-circle);
+    border-radius: var(--liebe-control-radius);
+    /* Never squeezed by a long title beside it in a row layout, exactly as the
+       icon circle it replaces is not. */
+    flex: none;
+    inline-size: var(--liebe-icon-circle);
+    /* Album art is rarely square at the size it is served; cover crops rather
+       than distorting, which is what the HA frontend does with the same URL. */
+    object-fit: cover;
+  }
+}
