@@ -29,6 +29,19 @@ Naming a library's components, methods, or built-in behaviors inside a normative
 - **`MUST` density is a smell.** Each `MUST` is an assertion someone must verify against every other one. If a requirement does not describe something a user could observe or a contract another document depends on, it should be prose or a design decision, not a `MUST`.
 - Prefer invariants to mechanism lists (see [Requirements Must Be Implementable as Written](#requirements-must-be-implementable-as-written)).
 
+## Tests Pin Intent, Not Implementation
+
+An assertion states what the code **should** do. A test derived from the code states what it **does** — including where that is wrong.
+
+A test written from the implementation agrees with the implementation, and the agreement is worthless exactly where it matters. It then inverts: the assertion becomes the documentation, so the defect reads as deliberate to every later reader, and a reviewer who goes to check finds green. This is how "100% patch coverage, all tests passing" has coexisted with every serious defect this repo has shipped — the coverage gate asks whether a line ran, and these tests answer a question nobody asked.
+
+- **Read the expectation, not the test name.** The name almost always describes intent (`falls back to the raw state`); the expected value is where the implementation leaks in. Ask of it: is this what a caller or a user would want, or is it a transcription of what the function currently returns?
+- **The tell is an expected value that is the absence of something** — `toBe(undefined)`, `toBeNull()`, `toEqual([])`, `''`, or a neutral/default enum member. Those are what an implementation returns when it has not decided anything, so asserting one is usually transcription rather than judgement. `resolveMediaStateLine` had two tests asserting `secondary: undefined`, which was a blank second line under the title on every podcast, radio stream and TV app (#258).
+- **Most suspicious where it is most convenient**: the fall-through case, the default arm, the empty result. `classifyLockRoute` had a test asserting that an unrecognised `lock.*` service classified as `neutral` — a fail-open security hole, recorded as the expected answer (#262).
+- **A fixture can carry the same defect.** An assertion may be true of a premise that is false: the weather suite pinned `exceptional` as an unrecognised condition, and `exceptional` is a real Home Assistant condition (#251; see [Home Assistant API Facts](#home-assistant-api-facts)). Confirm a fixture's inputs are things that exist before crediting what the test concludes about them.
+- **An assertion no gate executes is documentation, not verification**, and can be simply false without anyone finding out. A Storybook `play` function asserted a three-button transport against a fixture whose feature mask could not produce one; play functions run in neither `npm test` nor CI (#259).
+- **Request the assertion be restated from the contract** — the owning option or spec document, or what a caller would want — rather than asking for another test. Where the restated assertion and the code disagree, that disagreement is the finding, and it is the code that changes.
+
 ## Open Questions Are Not Defects
 
 Specs carry an Open Questions section on purpose; deferring a decision is the section working as designed.
