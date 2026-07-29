@@ -14,6 +14,14 @@ export const E2E_FLAG = 'input_boolean.e2e_flag'
  * what the fallback card dispatches, is not a registered service.
  */
 export const DEMO_BUTTON = 'button.push'
+/*
+ * Home Assistant's demo lock, which starts `locked`. It is the boundary case a
+ * unit test cannot reach: the `lock` platform registers only `lock`, `unlock`
+ * and `open` — there is no `lock.toggle` — so the fallback card's tap could
+ * never have worked, and only a real instance can tell a service that landed
+ * from one HA answered 400 to.
+ */
+export const DEMO_LOCK = 'lock.front_door'
 // A `mode: password` helper from configuration.yaml: its state IS the secret,
 // so it is what proves the detail dialog masks what the card masks.
 export const E2E_SECRET = 'input_text.e2e_secret'
@@ -127,6 +135,29 @@ export function seedActionCardConfig(): SeedConfig {
         // card by its visible name, and the name is what a 1x1 glance tile
         // keeps, but the wider tile keeps the click target away from the edge.
         width: 2,
+        height: 1,
+      },
+    ],
+  })
+}
+
+/**
+ * The lock card's own screen, carrying the demo lock at 3x1 so the `row` tier
+ * renders its Lock/Unlock pair.
+ */
+export function seedLockCardConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-lock-screen',
+    name: 'E2E Lock',
+    slug: 'e2e-lock',
+    items: [
+      {
+        id: 'item-lock',
+        type: 'entity',
+        entityId: DEMO_LOCK,
+        x: 0,
+        y: 0,
+        width: 3,
         height: 1,
       },
     ],
