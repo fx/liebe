@@ -2,11 +2,13 @@ import { SunIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { SkeletonCard, ErrorDisplay } from '../ui'
-import { GridCardWithComponents as GridCard } from '../GridCard'
+import { GridCardWithComponents as GridCard, useGridCardHue } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Slider } from '../anatomy'
 import { useDashboardStore, dashboardActions } from '~/store'
-import { readShowBrightnessSlider } from '~/store/lightOptions'
+import { readShowBrightnessSlider, readUseLightColor } from '~/store/lightOptions'
+import { resolveLightHue } from './lightColor'
+import { supportsBrightness as lightSupportsBrightness } from './lightCapabilities'
 import { CardConfig } from '../CardConfig'
 import type { GridItem } from '~/store/types'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
@@ -32,36 +34,69 @@ interface LightCardProps {
   item?: GridItem
 }
 
-// Light supported features bit flags from Home Assistant
-const SUPPORT_BRIGHTNESS = 1
-
-/** The `supported_color_modes` values Home Assistant treats as dimmable. */
-const BRIGHTNESS_COLOR_MODES = [
-  'brightness',
-  'white',
-  'color_temp',
-  'hs',
-  'xy',
-  'rgb',
-  'rgbw',
-  'rgbww',
-]
-// const SUPPORT_COLOR_TEMP = 2
-// const SUPPORT_COLOR = 16
-
+/**
+ * The attributes this card reads by name. The index signature is what lets the
+ * bag be handed to `./lightColor` and `./lightCapabilities`, which declare their
+ * own inputs and read nothing else — it widens what may be passed in, not what
+ * this card is entitled to reach for.
+ */
 interface LightAttributes {
+  [attribute: string]: unknown
   brightness?: number
-  color_temp?: number
   rgb_color?: [number, number, number]
   hs_color?: [number, number]
   xy_color?: [number, number]
-  min_mireds?: number
-  max_mireds?: number
+  color_temp_kelvin?: number
+  min_color_temp_kelvin?: number
+  max_color_temp_kelvin?: number
   effect_list?: string[]
   effect?: string
   supported_features?: number
   supported_color_modes?: string[]
   color_mode?: string
+}
+
+/**
+ * The brightness slider, as its own component so it can read the shell.
+ *
+ * The hue it paints with is the one that survived the shell's precedence, taken
+ * off `GridCardContext` rather than from the card — see `useGridCardHue`. A
+ * control created in the card's render body sits outside the provider until it
+ * is rendered into a slot, so reading context is what this boundary buys; the
+ * alternative is the card handing the slider its own raw proposal and the icon
+ * beside it showing something else.
+ */
+function BrightnessSlider({
+  isOn,
+  isTall,
+  value,
+  onValueChange,
+  onValueCommit,
+}: {
+  isOn: boolean
+  isTall: boolean
+  value: number
+  onValueChange: (value: number) => void
+  onValueCommit: (value: number) => void
+}) {
+  const hue = useGridCardHue()
+
+  return (
+    <Slider
+      domain="light"
+      color="light"
+      hue={hue}
+      active={isOn}
+      label="Brightness"
+      // `tall` is the tier that gives a control its own axis; every other one
+      // runs it along the row.
+      orientation={isTall ? 'vertical' : 'horizontal'}
+      value={value}
+      readout={`${value}%`}
+      onValueChange={onValueChange}
+      onValueCommit={onValueCommit}
+    />
+  )
 }
 
 function LightCardComponent({
@@ -74,7 +109,7 @@ function LightCardComponent({
   item,
 }: LightCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
-  const { loading: isLoading, error, turnOn, turnOff, clearError } = useServiceCall()
+  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
   const { mode, screens, currentScreenId } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
@@ -102,43 +137,45 @@ function LightCardComponent({
       // options/light.md — "Brightness").
       const brightness = percentToHaBrightness(value)
 
-      if (brightness === 0) {
-        await turnOff(entityId)
-      } else {
-        await turnOn(entityId, { brightness })
-      }
+      await dispatchGuarded(
+        brightness === 0
+          ? { domain: 'light', service: 'turn_off', entityId }
+          : { domain: 'light', service: 'turn_on', entityId, data: { brightness } }
+      )
 
       setLocalBrightness(null)
     },
-    [entityId, turnOn, turnOff]
+    [dispatchGuarded, entityId]
   )
 
   const lightAttributes = entity?.attributes as LightAttributes | undefined
-  // Check if light supports brightness control
-  const supportedColorModes = lightAttributes?.supported_color_modes
-  const supportedFeatures = lightAttributes?.supported_features ?? 0
-  const supportsBrightness = useMemo(() => {
-    // Modern Home Assistant uses supported_color_modes. Every mode HA itself
-    // treats as brightness-capable counts — `white` included, whose entities
-    // may carry no legacy feature flag at all, so omitting it leaves them with
-    // no way to be dimmed (docs/specs/entity-cards/options/light.md).
-    if (supportedColorModes) {
-      return supportedColorModes.some((mode) => BRIGHTNESS_COLOR_MODES.includes(mode))
-    }
-    // Fallback to old supported_features check. Coerced here, not where it is
-    // read: the masked bits are a number, and React prints a `0` as the text
-    // "0" the moment one gates JSX with `&&`.
-    return (supportedFeatures & SUPPORT_BRIGHTNESS) !== 0
-  }, [supportedColorModes, supportedFeatures])
 
-  // These will be used for color picker implementation
-  // const supportsColor = useMemo(() => {
-  //   return (lightAttributes?.supported_features ?? 0) & SUPPORT_COLOR
-  // }, [lightAttributes?.supported_features])
+  // What the bulb can do, per `supported_color_modes` with the legacy feature
+  // bits behind it (common contract, convention 3). Colour and colour
+  // temperature are detected here and consumed by the controls that arrive with
+  // PR 2b; an entity declaring a mode this build has never heard of simply
+  // answers "no" to each, which is what keeps the card rendering against a
+  // newer Home Assistant (`./lightCapabilities`).
+  const supportsBrightness = useMemo(
+    () => lightSupportsBrightness(lightAttributes),
+    [lightAttributes]
+  )
 
-  // const supportsColorTemp = useMemo(() => {
-  //   return (lightAttributes?.supported_features ?? 0) & SUPPORT_COLOR_TEMP
-  // }, [lightAttributes?.supported_features])
+  /*
+   * The bulb's own colour, OFFERED to the shell rather than applied.
+   *
+   * `useLightColor` is the card's own option and is therefore read here; the
+   * precedence around it is not. Whether this survives an explicit universal
+   * `color` or a danger state is `resolveCardHue`'s decision, made once in
+   * `GridCard` — so this is deliberately not gated a second time. A card that
+   * re-applied that precedence would be a second implementation of it, free to
+   * drift from the first, and the drift would show up as the icon and the
+   * slider disagreeing about whether the tint applies.
+   */
+  const bulbHue = useMemo(
+    () => (readUseLightColor(config) ? resolveLightHue(entity?.state, lightAttributes) : undefined),
+    [config, entity?.state, lightAttributes]
+  )
 
   // Get current brightness (0-255 scale from HA, convert to 0-100 for UI)
   const currentBrightness = useMemo(() => {
@@ -180,11 +217,11 @@ function LightCardComponent({
       clearError()
     }
 
-    if (isOn) {
-      await turnOff(entity.entity_id)
-    } else {
-      await turnOn(entity.entity_id)
-    }
+    await dispatchGuarded({
+      domain: 'light',
+      service: isOn ? 'turn_off' : 'turn_on',
+      entityId: entity.entity_id,
+    })
   }
 
   const handleConfigSave = (updates: Partial<GridItem>) => {
@@ -240,16 +277,10 @@ function LightCardComponent({
 
   const brightnessSlider = showBrightness ? (
     <GridCard.Controls>
-      <Slider
-        domain="light"
-        color="light"
-        active={isOn}
-        label="Brightness"
-        // `tall` is the tier that gives a control its own axis; every other one
-        // runs it along the row.
-        orientation={isTall ? 'vertical' : 'horizontal'}
+      <BrightnessSlider
+        isOn={isOn}
+        isTall={isTall}
         value={displayBrightness}
-        readout={`${displayBrightness}%`}
         onValueChange={handleBrightnessChange}
         onValueCommit={handleBrightnessCommit}
       />
@@ -261,6 +292,7 @@ function LightCardComponent({
       <GridCard
         domain="light"
         color="light"
+        hue={bulbHue}
         tier={tier}
         isLoading={isLoading}
         isError={!!error}

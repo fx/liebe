@@ -355,6 +355,27 @@ export function resolveCardHue(
   return display.color === 'auto' ? hue : undefined
 }
 
+/**
+ * The data-driven colour that survived `resolveCardHue`, for a control the card
+ * renders into one of the shell's slots.
+ *
+ * The shell's own parts read this off context directly. A card's embedded
+ * control cannot — it is created in the card's render body — so it needs this
+ * hook rather than the value the card passed in. The distinction is the whole
+ * point: what the card passed is a *proposal*, and the precedence above may have
+ * rejected it. A slider tinted from the raw proposal while the icon beside it
+ * takes the survivor is one card disagreeing with itself about whether the bulb
+ * colour applies, which is exactly what a pinned `color` or a danger state would
+ * produce.
+ *
+ * Outside a shell — a story, the config preview — there is no provider and this
+ * is `undefined`, which is the same "no data-driven colour" the default context
+ * carries.
+ */
+export function useGridCardHue(): string | undefined {
+  return React.useContext(GridCardContext).hue
+}
+
 // Context for compound components
 const GridCardContext = React.createContext<GridCardContextValue>({
   tier: 'row',
