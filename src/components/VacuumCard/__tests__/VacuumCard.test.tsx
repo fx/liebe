@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
@@ -870,5 +871,79 @@ describe('VacuumCard battery source', () => {
     mount({ tier: 'glance', attributes: { battery_level: 41 } })
 
     expect(batterySegment()).toBe('77%')
+  })
+})
+
+describe('VacuumCard fan-speed dispatch', () => {
+  /**
+   * Driven through the trigger and the listbox rather than by reaching into the
+   * component, so the assertion covers what a user's selection actually sends —
+   * the published string, verbatim.
+   */
+  it('dispatches set_fan_speed with the published string', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    mount({ tier: 'full' })
+
+    await user.click(screen.getByLabelText('Fan speed'))
+    await user.click(await screen.findByRole('option', { name: 'turbo' }))
+
+    await waitFor(() =>
+      expect(callService).toHaveBeenCalledWith('vacuum', 'set_fan_speed', {
+        entity_id: ENTITY_ID,
+        fan_speed: 'turbo',
+      })
+    )
+  })
+
+  /**
+   * A failed dispatch leaves ERROR on the state line, and the next command
+   * clears it first — including one issued from the select, which is the only
+   * control that does not go through a pill.
+   */
+  it('clears a previous error when a speed is chosen', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    callService.mockRejectedValueOnce(new Error('nope'))
+    mount({ tier: 'full', state: 'cleaning' })
+
+    fireEvent.click(pill('Return to dock')!)
+    await waitFor(() => expect(stateLine()).toContain('ERROR'))
+
+    await user.click(screen.getByLabelText('Fan speed'))
+    await user.click(await screen.findByRole('option', { name: 'quiet' }))
+
+    await waitFor(() => expect(stateLine()).not.toContain('ERROR'))
+  })
+
+  /** A vacuum publishing no current speed leaves the select unset, not crashed. */
+  it('renders the select unset when the entity publishes no fan_speed', () => {
+    mount({ tier: 'full', attributes: { fan_speed: undefined } })
+
+    expect(document.querySelector('[aria-label="Fan speed"]')).not.toBeNull()
+  })
+
+  it('renders the select unset when fan_speed is not a string', () => {
+    mount({ tier: 'full', attributes: { fan_speed: 3 } })
+
+    expect(document.querySelector('[aria-label="Fan speed"]')).not.toBeNull()
+  })
+})
+
+describe('VacuumCard outside a Home Assistant provider', () => {
+  /**
+   * A story, the configuration preview and anything rendering the card with no
+   * provider above it get no `hass` — so the battery derivation has no registry
+   * to read and must fall through to the attribute rather than throw.
+   */
+  it('falls back to the attribute when there is no hass to derive from', () => {
+    seed(createVacuumEntity({ attributes: { supported_features: MASK.full, battery_level: 55 } }))
+    render(
+      <Theme>
+        <CardItemProvider entityId={ENTITY_ID}>
+          <VacuumCard entityId={ENTITY_ID} tier="glance" />
+        </CardItemProvider>
+      </Theme>
+    )
+
+    expect(document.querySelector('.liebe-vacuum-battery')?.textContent).toBe('55%')
   })
 })
