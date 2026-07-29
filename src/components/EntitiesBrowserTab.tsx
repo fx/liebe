@@ -91,6 +91,8 @@ const SUPPORTED_DOMAINS = [
   'input_select',
   'input_text',
   'input_datetime',
+  // Change 0023.
+  'media_player',
   // The action family (change 0027).
   'scene',
   'script',

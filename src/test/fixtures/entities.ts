@@ -177,6 +177,46 @@ export function createCameraEntity(overrides: EntityOverrides = {}): HassEntity 
   )
 }
 
+/**
+ * A full-featured speaker, mid-track — the media player card's default fixture.
+ *
+ * `supported_features` is 19511, which is every bit this card's option surface
+ * gates on: PAUSE 1 | SEEK 2 | VOLUME_SET 4 | VOLUME_MUTE 8 | PREVIOUS_TRACK 16
+ * | NEXT_TRACK 32 | TURN_ON 128 | TURN_OFF 256 | VOLUME_STEP 1024 |
+ * SELECT_SOURCE 2048 | PLAY 16384. Written as a sum in the test that pins it
+ * rather than trusted as a literal here.
+ *
+ * The three narrower shapes the gating tests and stories need — play/pause only,
+ * step-only volume, a receiver with no track — are built from this by overriding
+ * `supported_features` at the call site, so there is one place the realistic
+ * attribute set is written down.
+ */
+export function createMediaPlayerEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'media_player.living_room_speaker',
+    'playing',
+    {
+      friendly_name: 'Living Room Speaker',
+      media_title: 'Espresso Bongo',
+      media_artist: 'Jimmy Smith',
+      app_name: 'Spotify',
+      // Relative and HA-proxied, which is the common shape; integrations that
+      // flag artwork remotely accessible publish an absolute URL instead.
+      entity_picture: '/api/media_player_proxy/media_player.living_room_speaker',
+      volume_level: 0.42,
+      is_volume_muted: false,
+      source: 'Spotify',
+      source_list: ['Spotify', 'Radio', 'TV', 'Bluetooth'],
+      media_position: 37,
+      media_position_updated_at: FIXTURE_TIMESTAMP,
+      media_duration: 254,
+      group_members: [],
+      supported_features: 19511,
+    },
+    overrides
+  )
+}
+
 export function createWeatherEntity(overrides: EntityOverrides = {}): HassEntity {
   return entity(
     'weather.home',
@@ -335,6 +375,7 @@ export const entityFactories = {
   cover: createCoverEntity,
   fan: createFanEntity,
   camera: createCameraEntity,
+  media_player: createMediaPlayerEntity,
   weather: createWeatherEntity,
   input_boolean: createInputBooleanEntity,
   input_number: createInputNumberEntity,

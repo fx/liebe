@@ -27,6 +27,10 @@ export const MAPPED_CARD_DOMAINS = [
   'input_select',
   'input_text',
   'input_datetime',
+  // Change 0023. Media players were the fallback's most misleading case: it
+  // renders a bare power toggle for a domain whose whole point is transport
+  // control, with no track metadata, artwork or buttons.
+  'media_player',
   // The action family (change 0027): four domains, one card. They were the
   // fallback's worst case — `ButtonCard` dispatches `<domain>.toggle`, which
   // exists on none of `scene`, `button` or `input_button` — so mapping them is a
