@@ -2,7 +2,7 @@
 
 Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here.
 
-**Status: specified, not yet implemented.** The current `LightCard` implements toggle, brightness detection, and the brightness slider — gated by `showBrightnessSlider`, which [0016](../../../changes/0016-light-card-to-spec.md) PR 1 migrated the legacy `enableBrightness` key onto; color temperature and color controls, `useLightColor`, and presets are new. **Tier layouts below are implemented** by change [0011](../../../changes/0011-layout-tiers.md) PR 3, with the controls that do not exist yet simply absent from their slots. See [entity-cards — Lights](../index.md#lights) for the implementation baseline.
+**Status: implemented** by change [0016](../../../changes/0016-light-card-to-spec.md) — the `enableBrightness` → `showBrightnessSlider` migration and the slider's tier placement in PR 1, `useLightColor` and the dispatch migration in PR 2a, the colour-temperature and colour controls in PR 2b, and `brightnessPresets` in PR 3. Tier layouts come from change [0011](../../../changes/0011-layout-tiers.md) PR 3. Two behaviours below are narrower in practice than the table alone suggests, and both are stated in their own sections: the colour-temperature control needs a _reported_ Kelvin range as well as the capability, and the preset row is the only one of the three `full`-tier controls that renders while the light is off. See [entity-cards — Lights](../index.md#lights) for what holds however the card is configured.
 
 ## Primary action
 
@@ -12,13 +12,13 @@ Extends the [common contract](./common.md); universal options (`name`, `icon`, `
 
 All keys live under `item.config`, camelCase, and follow [common conventions](./common.md#conventions-for-per-card-options) — in particular convention 3: whether a control _can_ appear is derived from the entity's `supported_color_modes` (with the legacy `supported_features` fallback); these options only hide or tune capabilities the entity already has.
 
-| Key                    | Type     | Default | Behavior                                                                                                                                                                                      |
-| ---------------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `showBrightnessSlider` | boolean  | `true`  | Renders the brightness slider when the entity supports brightness. Tiers: `row` (horizontal), `tall` (vertical), `full` (horizontal). Never in `glance`.                                      |
-| `showColorTempControl` | boolean  | `true`  | Renders a warm→cool color-temperature control when the entity supports color temperature (`supported_color_modes` includes `color_temp`). Tier: `full` only.                                  |
-| `showColorControl`     | boolean  | `true`  | Renders a color control when the entity supports color (`supported_color_modes` includes any of `hs` / `xy` / `rgb` / `rgbw` / `rgbww`). Tier: `full` only.                                   |
-| `useLightColor`        | boolean  | `true`  | When `true`, the icon tint and slider fill follow the bulb's actual color; when `false`, they always use the light domain token. Affects all tiers (it recolors existing content, adds none). |
-| `brightnessPresets`    | number[] | `[]`    | Percent values (1–100) rendered as preset pills. Empty array (the default) hides the row entirely. Tier: `full` only.                                                                         |
+| Key                    | Type     | Default | Behavior                                                                                                                                                                                                                  |
+| ---------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `showBrightnessSlider` | boolean  | `true`  | Renders the brightness slider when the entity supports brightness. Tiers: `row` (horizontal), `tall` (vertical), `full` (horizontal). Never in `glance`.                                                                  |
+| `showColorTempControl` | boolean  | `true`  | Renders a warm→cool color-temperature control when the entity supports color temperature (`supported_color_modes` includes `color_temp`) **and reports a usable Kelvin range**, while the light is on. Tier: `full` only. |
+| `showColorControl`     | boolean  | `true`  | Renders a color control when the entity supports color (`supported_color_modes` includes any of `hs` / `xy` / `rgb` / `rgbw` / `rgbww`), while the light is on. Tier: `full` only.                                        |
+| `useLightColor`        | boolean  | `true`  | When `true`, the icon tint and slider fill follow the bulb's actual color; when `false`, they always use the light domain token. Affects all tiers (it recolors existing content, adds none).                             |
+| `brightnessPresets`    | number[] | `[]`    | Whole percent values (1–100) rendered as preset pills; requires brightness support and renders **whether the light is on or off**. Empty array (the default) hides the row entirely. Tier: `full` only.                   |
 
 ### Brightness (`showBrightnessSlider`)
 
@@ -31,11 +31,24 @@ All keys live under `item.config`, camelCase, and follow [common conventions](./
 
 ### Color temperature (`showColorTempControl`)
 
-Rendered in the `full` tier as a warm→cool control: a row of temperature swatches or a gradient slider spanning the entity-reported range `min_color_temp_kelvin`–`max_color_temp_kelvin` (never a hardcoded range). Selecting a value MUST call `light.turn_on` with `color_temp_kelvin`. **Kelvin is the only color-temperature interface**: Home Assistant Core 2026.3 removed `LightEntity.color_temp`/`min_mireds`/`max_mireds`, the `ATTR_COLOR_TEMP`/`ATTR_MIN_MIREDS`/`ATTR_MAX_MIREDS` state attributes, and the `color_temp`/`kelvin` arguments to `light.turn_on`, so a mired fallback would target a deleted API. When the entity does not support color temperature the control MUST NOT appear even with `showColorTempControl: true`.
+Rendered in the `full` tier as a warm→cool slider spanning the entity-reported range `min_color_temp_kelvin`–`max_color_temp_kelvin` (never a hardcoded range), tinted with the colour each position means so the track reads warm→cool without a legend. Selecting a value MUST call `light.turn_on` with `color_temp_kelvin`. **Kelvin is the only color-temperature interface**: Home Assistant Core 2026.3 removed `LightEntity.color_temp`/`min_mireds`/`max_mireds`, the `ATTR_COLOR_TEMP`/`ATTR_MIN_MIREDS`/`ATTR_MAX_MIREDS` state attributes, and the `color_temp`/`kelvin` arguments to `light.turn_on`, so a mired fallback would target a deleted API.
+
+**Two conditions beyond the capability**, both of which withhold the control entirely:
+
+- **A reported range.** Declaring `color_temp` support is not enough — the entity must publish both bounds as finite positive numbers with `min < max`. An entity that declares the mode and reports no usable pair gets no control, because the alternative is a span Liebe invented: a warm end the bulb may not reach and a cool end it may exceed, with every value between wearing the device's authority. `NaN` is rejected explicitly; it survives a naive numeric check and then compares false against everything.
+- **The light being on.** Setting a temperature on an `off` light would turn it on as a side effect of a control that does not look like a switch. Turning it on is the tile's own tap. This differs from `brightnessPresets` below, which deliberately does act on an off light — a preset states a level to turn _on_ at, while a temperature only re-colours light that is already being emitted.
+
+Where the reported `color_temp_kelvin` falls outside the reported range — the two attributes can disagree — the control MUST clamp its position into the range rather than placing it off its own track. An entity reporting no temperature at all sits at the warm end.
 
 ### Color (`showColorControl`)
 
-Rendered in the `full` tier for color-capable lights. Selecting a color MUST call `light.turn_on` with the corresponding color payload. The presentation is a **fixed single row of curated color swatches plus one recent-color slot** (the last color committed from this card) — decided in change 0016: one tap per selection suits touch-first, and a fixed row fits the `full` tier without scrolling by construction ([design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)). A hue/saturation wheel is deferred to a future `colorControlStyle` select.
+Rendered in the `full` tier for color-capable lights, and — like the color-temperature control and for the same reason — only while the light is on. Selecting a color MUST call `light.turn_on` with `rgb_color`.
+
+The presentation is a **fixed single row of curated color swatches plus one recent-color slot** (the last color committed from this card) — decided in change 0016: one tap per selection suits touch-first, and a fixed row fits the `full` tier without scrolling by construction ([design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)). A hue/saturation wheel is deferred to a future `colorControlStyle` select.
+
+- The palette is six hues and the count is a **layout** constraint rather than a colour-theory one: six plus the recent slot is what fits a `full` tile's width at the pill anatomy's minimum touch target. Whites are absent deliberately — a white is a colour _temperature_, which the control above sets across the range the bulb actually reports.
+- The recent slot holds the last colour committed **from this card**, and is deliberately **not persisted**: it is the trace of an interaction, not a setting. Writing it to the dashboard document on every tap would make an ordinary interaction a persisted edit, and a shared YAML would carry one user's last pick as though somebody had configured it. It is therefore empty again after a reload, and the slot is absent until a colour is picked.
+- A swatch reads as selected only when the entity reports that **exact** `rgb_color`. A colour derived from `hs_color`, `xy_color` or a temperature is enough to tint the card but not to claim a swatch is what the light is set to — that swatch's payload would not reproduce the current state, so lighting it up would assert something false about a control nobody touched.
 
 ### Light-color theming (`useLightColor`)
 
@@ -46,10 +59,11 @@ Rendered in the `full` tier for color-capable lights. Selecting a color MUST cal
 
 ### Brightness presets (`brightnessPresets`)
 
-- Values are percentages, each MUST be within 1–100 (0 is not a valid preset — turning off is the tap action's job); out-of-range or non-numeric values MUST be ignored at render time, and an array left empty after filtering hides the row.
-- Tapping a preset pill MUST call `light.turn_on` with the converted `brightness`, even when the light is `off` (presets act as "turn on at N%").
-- Pills render in the `full` tier only, using the standard pill anatomy (`liebe-pill`); the pill matching the current brightness (after 0–100 rounding) SHOULD render as selected.
-- Presets require brightness support; on an `onoff`-only light the row MUST NOT render regardless of configuration.
+- Values are whole percentages, each MUST be within 1–100 (0 is not a valid preset — turning off is the tap action's job); out-of-range, fractional and non-numeric values MUST be ignored at render time, and an array left empty after filtering hides the row. Filtering is render-time resolution and never a rewrite: the stored document keeps every value its author wrote, so a config written by a newer build survives a round trip. A stored value that is not a list at all reads as empty for the same reason.
+- The stored order is the rendered order. A row reading 100 / 50 / 20 is a descending row somebody chose, not a list to normalise.
+- Tapping a preset pill MUST call `light.turn_on` with the converted `brightness`, **even when the light is `off`** (presets act as "turn on at N%"). This is the one `full`-tier control that acts on an off light, and it is the case the option exists for: reaching for 20% at night should be one tap, not a tap to full followed by a correction. The shared 0–100 ↔ 0–255 conversion floors at 1, so no preset can round into an off command.
+- Pills render in the `full` tier only, using the standard pill anatomy (`liebe-pill`); the pill matching the current brightness (after 0–100 rounding) SHOULD render as selected — but **only while the light is on**. Home Assistant keeps the last `brightness` on an entity after it is switched off, so a selected pill on a dark lamp would report a level nothing is emitting.
+- Presets require brightness support; on an `onoff`-only light the row MUST NOT render regardless of configuration, since the payload names a level the entity cannot honour.
 
 ## Tier layouts
 
