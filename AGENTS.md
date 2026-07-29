@@ -681,6 +681,42 @@ When creating automation scripts:
 3. Add a description to this section
 4. Include usage instructions in the script header
 
+## A PR reporting `CONFLICTING` after you merged
+
+### Context
+
+You merge `origin/main`, push, and the GitHub API still reports the PR as
+`CONFLICTING`. There are two entirely different causes and they need opposite
+responses:
+
+- **A stale answer.** GitHub recomputes mergeability asynchronously, so the
+  field is `UNKNOWN` or the previous value for a while after a push. Waiting is
+  correct.
+- **`main` moved again.** A second merge landed between your merge and your
+  push, so the conflict is real and new. Waiting is useless — no amount of
+  polling turns a real conflict into a clean one.
+
+Polling cannot tell these apart, and that is the trap: both look like "not
+mergeable yet", so the natural response to the second cause is to keep waiting
+for it. This cost one agent eight consecutive polls before it checked.
+
+### Details
+
+Ask git, which knows locally and answers immediately:
+
+```bash
+git fetch origin
+git merge-base --is-ancestor origin/main HEAD && echo "up to date — GitHub is stale, wait" || echo "main moved — merge again"
+```
+
+`--is-ancestor` exits 0 when `origin/main` is already contained in `HEAD`,
+which is exactly "I have merged everything on main". If it exits 0, the
+conflict report is stale and polling is the right move. If it exits 1, stop
+polling and merge again.
+
+Run this **before** the first poll, not after several — it is one local command
+and it converts an open-ended wait into a decision.
+
 ## GitHub Issue Linking
 
 ### Important: Linking Sub-Issues to Epics
