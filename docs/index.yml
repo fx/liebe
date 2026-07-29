@@ -158,7 +158,7 @@ changes:
     path: changes/0016-light-card-to-spec.md
     description: Light card domain options — brightness slider key migration, color temperature and color controls, bulb-color theming, brightness presets
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0017'
     name: climate-card-to-spec
