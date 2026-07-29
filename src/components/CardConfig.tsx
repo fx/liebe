@@ -20,7 +20,10 @@ import {
   readCoverDeviceClass,
 } from './CoverCard/presentation'
 import { isSecurityCover } from '~/store/coverOptions'
+import { resolveArmModes } from './AlarmCard/presentation'
 import { fanHasPresets, readFanFeatures } from './FanCard/features'
+import { readMediaPlayerFeatures } from './MediaPlayerCard/features'
+import { canSelectSource } from './MediaPlayerCard/volume'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
@@ -100,6 +103,18 @@ interface ContentProps {
  *   feature bit *and* publishes a non-empty list, so there is a pill row to
  *   show or hide.
  * - `climate-humidity` — it reports a `current_humidity` to display.
+ * - `media-volume` — the player advertises at least one of VOLUME_SET,
+ *   VOLUME_STEP or VOLUME_MUTE, so *some* volume control can render. The three
+ *   bits are one requirement rather than three because the card degrades between
+ *   them automatically (`MediaPlayerCard/volume.ts`); what the option chooses is
+ *   the presentation, and what the entity decides is which one it gets.
+ * - `media-source` — the player advertises SELECT_SOURCE **and** publishes a
+ *   `source_list` with something in it. The bit without a list is a picker with
+ *   nothing to pick, which is the fan-preset defect one domain over.
+ * - `alarm-arm-modes` — the panel advertises at least one arm-mode bit, so the
+ *   multi-select has something to offer. Answered by the card's own
+ *   `resolveArmModes`, which is also what filters the stored list at render
+ *   time — so the form cannot offer a mode the card would then drop.
  */
 export type ConfigOptionRequirement =
   | 'numeric'
@@ -114,6 +129,18 @@ export type ConfigOptionRequirement =
   | 'climate-presets'
   | 'climate-fan-modes'
   | 'climate-humidity'
+  | 'media-volume'
+  | 'media-source'
+  | 'alarm-arm-modes'
+
+/**
+ * An entity-derived choice set.
+ *
+ * - `alarm-arm-modes` — the arm modes this panel's `supported_features`
+ *   advertises, in the definition's own order, resolved by the card's
+ *   `resolveArmModes`.
+ */
+export type ConfigOptionChoiceSource = 'alarm-arm-modes'
 
 // Configuration option types
 export interface ConfigOption {
@@ -153,6 +180,23 @@ export interface ConfigOption {
   domains?: string[] // For entity type: narrows what the picker offers
   deviceClasses?: string[] // For entity type: narrows it further
   requires?: ConfigOptionRequirement // Hides the control when the entity cannot use it
+  /**
+   * Narrows the CHOICES to what the entity can actually perform.
+   *
+   * `requires` decides whether a control exists at all; this decides what is
+   * inside it, and the two are not the same question. An alarm panel that
+   * supports only `away` passes `alarm-arm-modes` — it has *some* arm mode — so
+   * the multi-select renders, and without this it would still offer all four.
+   * A user then configures `vacation`, the card correctly refuses to render a
+   * mode the panel cannot arm to, and the result reads as the card being broken
+   * rather than the panel being incapable: the capability check ends up hidden
+   * behind a control that suggested otherwise.
+   *
+   * Answered by the card's own resolver, for the same reason `requires` is —
+   * a second predicate shaped like it is how the form and the card come to
+   * disagree.
+   */
+  optionsFrom?: ConfigOptionChoiceSource
 }
 
 export interface ConfigDefinition {
@@ -473,6 +517,12 @@ function meetsRequirement(
   // control is possible.
   if (requires === 'cover-position') return coverSupportsPosition(entity?.attributes)
   if (requires === 'cover-tilt') return coverSupportsTilt(entity?.attributes)
+  // Answered by the card's own resolver rather than a second predicate shaped
+  // like it: `undefined` asks it for every mode the panel supports.
+  if (requires === 'alarm-arm-modes') {
+    return resolveArmModes(entity?.attributes, undefined).length > 0
+  }
+
   if (requires === 'security-cover') {
     return isSecurityCover(readCoverDeviceClass(entity?.attributes))
   }
@@ -501,8 +551,44 @@ function meetsRequirement(
     return climate.humidity
   }
 
+  if (requires.startsWith('media-')) {
+    const media = readMediaPlayerFeatures(entity?.attributes)
+    if (requires === 'media-volume') return media.volumeSet || media.volumeStep || media.volumeMute
+    // The card's own predicate, not a second one shaped like it: the picker
+    // needs a list it can label, and `canSelectSource` is what the renderer asks.
+    return canSelectSource(entity?.attributes, media)
+  }
+
   if (!isNumericSensorEntity(entity)) return false
   return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
+}
+
+/**
+ * Narrow an option's choices to what this entity can perform.
+ *
+ * Returns the option untouched when it declares no source — which is every
+ * option but one today, so the common path allocates nothing.
+ *
+ * The definition's own list is *filtered* rather than rebuilt from the
+ * resolver's output: that keeps the labels and the ordering the definition
+ * declares, and means a mode the resolver knows about but the form never
+ * offered cannot appear by accident.
+ *
+ * An option that declares `optionsFrom` but no `options` narrows to nothing.
+ * That is an authoring guard rather than a runtime state — no shipped
+ * definition does it — but it IS reachable by the next person to add a source,
+ * and narrowing to empty is the right answer for them: a control with no
+ * choices is visibly wrong, where falling back to "offer everything" would be
+ * invisibly wrong and would defeat the whole point of this function.
+ *
+ * Exported for its own test, because both arms matter and neither is reachable
+ * through the shipped definitions.
+ */
+export function narrowChoices(option: ConfigOption, entity: HassEntity | undefined): ConfigOption {
+  if (option.optionsFrom !== 'alarm-arm-modes') return option
+
+  const supported = new Set<string>(resolveArmModes(entity?.attributes, undefined))
+  return { ...option, options: (option.options ?? []).filter((c) => supported.has(c.value)) }
 }
 
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
@@ -535,9 +621,12 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   // If this card has a configuration definition, use Component
   if (cardConfig.definition) {
     const definition = Object.fromEntries(
-      Object.entries(cardConfig.definition).filter(([, option]) =>
-        meetsRequirement(option.requires, entity)
-      )
+      Object.entries(cardConfig.definition)
+        .filter(([, option]) => meetsRequirement(option.requires, entity))
+        // The choices are narrowed in the same pass that drops unusable
+        // controls, because they are the same rule one level down: the form
+        // must not offer what the entity cannot do.
+        .map(([key, option]) => [key, narrowChoices(option, entity)])
     )
 
     return (

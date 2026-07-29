@@ -8,6 +8,7 @@ import { coverOptionsConfigSchema } from './coverOptions'
 import { fanOptionsConfigSchema } from './fanOptions'
 import { lightOptionsConfigSchema } from './lightOptions'
 import { lockOptionsConfigSchema } from './lockOptions'
+import { alarmOptionsConfigSchema } from './alarmOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -135,6 +136,7 @@ const gridItemSchema = z
       .merge(lightOptionsConfigSchema)
       .merge(lockOptionsConfigSchema)
       .merge(mediaPlayerOptionsConfigSchema)
+      .merge(alarmOptionsConfigSchema)
       .merge(personOptionsConfigSchema)
       .passthrough()
       .optional(),

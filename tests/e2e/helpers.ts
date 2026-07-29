@@ -22,12 +22,30 @@ export const DEMO_BUTTON = 'button.push'
  * from one HA answered 400 to.
  */
 export const DEMO_LOCK = 'lock.front_door'
+/*
+ * Home Assistant's demo alarm panel, which is a `manual` platform panel
+ * configured with the code `1234`, `code_arm_required: true`, and a real
+ * five-second arming time — so arming genuinely passes through `arming` before
+ * reaching `armed_away`. That countdown is the thing worth proving against a
+ * real instance: it is when Disarm must stay usable.
+ */
+export const DEMO_ALARM = 'alarm_control_panel.security'
+export const DEMO_ALARM_CODE = '1234'
 // A `mode: password` helper from configuration.yaml: its state IS the secret,
 // so it is what proves the detail dialog masks what the card masks.
 export const E2E_SECRET = 'input_text.e2e_secret'
 export const E2E_SECRET_VALUE = 'redaction-fixture-value'
 // Synthetic ffmpeg camera fed by the go2rtc testsrc2 stream (docs/changes/0007).
 export const E2E_CAMERA = 'camera.e2e_pattern'
+/*
+ * The demo integration's TV, and the only demo media player that publishes a
+ * `media_position` WITH a `media_position_updated_at` alongside its duration and
+ * artwork — which is exactly what the progress bar requires before it renders at
+ * all. `walkman`, `kitchen` and `lounge_room` all carry a duration and no
+ * position, so they render no bar; that is the card's rule working, not a
+ * missing fixture.
+ */
+export const DEMO_MEDIA_PLAYER = 'media_player.living_room'
 // A numeric helper from configuration.yaml. Its value is settable over REST and
 // recorded, which is what makes it usable as a history fixture.
 export const E2E_LEVEL = 'input_number.e2e_level'
@@ -49,6 +67,12 @@ export interface SeedGridItem {
   y: number
   width: number
   height: number
+  /**
+   * The placed item's stored card options — the same `item.config` the grid
+   * publishes to the card shell. Seeded here so a spec can assert behaviour that
+   * only exists under a particular option, rather than only the defaults.
+   */
+  config?: Record<string, unknown>
 }
 
 // The theming engine's configuration (docs/changes/0012-theming-engine.md). A
@@ -159,6 +183,29 @@ export function seedLockCardConfig(): SeedConfig {
         y: 0,
         width: 3,
         height: 1,
+      },
+    ],
+  })
+}
+
+/**
+ * The alarm card's own screen, at 3x3 so the `full` tier renders the arm-mode
+ * row and the inline keypad.
+ */
+export function seedAlarmCardConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-alarm-screen',
+    name: 'E2E Alarm',
+    slug: 'e2e-alarm',
+    items: [
+      {
+        id: 'item-alarm',
+        type: 'entity',
+        entityId: DEMO_ALARM,
+        x: 0,
+        y: 0,
+        width: 3,
+        height: 3,
       },
     ],
   })
