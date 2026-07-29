@@ -175,6 +175,20 @@ describe('the confirmation prompt names the direction', () => {
   })
 })
 
+describe('a configured toggle against a jammed lock', () => {
+  it('opens the detail dialog rather than guessing a direction (#260)', async () => {
+    seed(makeLock('jammed'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />, { tapAction: 'toggle' })
+
+    fireEvent.click(screen.getByText('Front Door'))
+
+    // The dialog, not a command: a jammed mechanism has no knowable direction,
+    // but the user still needs somewhere to go.
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+})
+
 describe('the detail dialog as the glance control surface', () => {
   it('locks through the dialog without a confirmation, at the default', async () => {
     seed(makeLock('unlocked'))

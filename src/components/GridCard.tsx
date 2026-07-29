@@ -84,8 +84,11 @@ export interface GridCardProps {
    * the contract's rule for card families with no toggle of their own — so a
    * card that has one must pass it unconditionally and guard inside, rather than
    * withholding it for a transient state.
+   *
+   * Returning `'more-info'` resolves the gesture to the detail dialog instead —
+   * see `UseCardActionsOptions.onToggle`, which this is forwarded to.
    */
-  onClick?: () => void
+  onClick?: () => void | 'more-info' | Promise<unknown>
   /**
    * The entity the card is for: the implicit target of a `call-service` action
    * and of the generic `toggle` fallback. Defaults to what the grid published
