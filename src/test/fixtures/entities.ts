@@ -394,6 +394,34 @@ export function createLockEntity(overrides: EntityOverrides = {}): HassEntity {
   )
 }
 
+/**
+ * A person, at home and with no photo — the shape most households actually
+ * publish.
+ *
+ * `entity_picture: null` rather than an omitted key, because that is what Home
+ * Assistant sends: the person component sets the attribute unconditionally from
+ * config, so a person who has never been given a photo carries the key holding
+ * `None`. A fixture omitting it would let a card that tests for the key rather
+ * than for a value pass here and render `<img src="null">` in a real house.
+ *
+ * `device_trackers` is present and empty for the same reason — the attribute is
+ * always published — and is what change 0026 PR 2's battery derivation reads.
+ */
+export function createPersonEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'person.jane_doe',
+    'home',
+    {
+      friendly_name: 'Jane Doe',
+      entity_picture: null,
+      device_trackers: [],
+      editable: true,
+      id: 'jane_doe',
+    },
+    overrides
+  )
+}
+
 /** Every domain factory, keyed by the domain it serves. */
 export const entityFactories = {
   light: createLightEntity,
@@ -416,6 +444,7 @@ export const entityFactories = {
   script: createScriptEntity,
   button: createButtonEntity,
   input_button: createInputButtonEntity,
+  person: createPersonEntity,
 } as const satisfies Record<string, (overrides?: EntityOverrides) => HassEntity>
 
 export type FixtureDomain = keyof typeof entityFactories

@@ -60,12 +60,16 @@ const getFriendlyDomain = (domain: string): string => {
     weather: 'Weather',
     button: 'Buttons',
     input_button: 'Input Buttons',
+    person: 'People',
   }
   return domainMap[domain] || domain.charAt(0).toUpperCase() + domain.slice(1)
 }
 
 // Domains to filter out by default
-const SYSTEM_DOMAINS = ['persistent_notification', 'person', 'sun', 'zone']
+// `person` is deliberately absent: change 0026 gave the domain a card, and the
+// person option doc supersedes this listing for it
+// (docs/specs/entity-cards/options/person.md).
+const SYSTEM_DOMAINS = ['persistent_notification', 'sun', 'zone']
 
 // Domain info for legend
 interface DomainInfo {
@@ -100,6 +104,9 @@ const SUPPORTED_DOMAINS = [
   'script',
   'button',
   'input_button',
+  // Change 0026, which also removed `person` from SYSTEM_DOMAINS above — being
+  // supported is no use while the domain is filtered out before the check.
+  'person',
 ]
 
 export function EntitiesBrowserTab({ screenId, onClose }: EntitiesBrowserTabProps) {

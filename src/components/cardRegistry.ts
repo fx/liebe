@@ -21,6 +21,7 @@ import { InputDateTimeCard } from './InputDateTimeCard'
 import { LockCard } from './LockCard'
 import { MediaPlayerCard } from './MediaPlayerCard'
 import { ActionCard } from './ActionCard'
+import { PersonCard } from './PersonCard'
 
 // Card props interface that all cards must implement
 export interface CardProps {
@@ -93,6 +94,7 @@ const registeredCards = {
   script: ActionCard,
   button: ActionCard,
   input_button: ActionCard,
+  person: PersonCard,
 } satisfies Record<MappedCardDomain, CardComponent>
 
 // Global domain-to-card mapping
