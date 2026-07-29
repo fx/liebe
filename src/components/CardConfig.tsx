@@ -31,6 +31,10 @@ import type { CardAction } from '~/store/cardActions'
 import { isCounterStateClass, isNumericSensorEntity } from '~/store/sensorOptions'
 import { readClimateCapabilities } from './ClimateCard/climateModel'
 import { useEntity } from '~/hooks'
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { readPersonOptions } from '~/store/personOptions'
+import { personBatteryIsConfigurable } from './PersonCard/battery'
+import type { DeviceSiblingLookup } from '~/utils/deviceSiblings'
 import { ActionEditor } from './ActionEditor'
 import { EntityPicker } from './EntityPicker'
 import { NumberArrayEditor } from './NumberArrayEditor'
@@ -132,6 +136,7 @@ export type ConfigOptionRequirement =
   | 'media-volume'
   | 'media-source'
   | 'alarm-arm-modes'
+  | 'person-battery'
 
 /**
  * An entity-derived choice set.
@@ -508,9 +513,37 @@ function Component({ title, description, configDefinition, config, onChange }: C
  */
 function meetsRequirement(
   requires: ConfigOptionRequirement | undefined,
-  entity: HassEntity | undefined
+  entity: HassEntity | undefined,
+  /**
+   * What a requirement needs beyond the entity itself.
+   *
+   * `person-battery` is the first that cannot be answered from the entity's own
+   * attributes: a person's battery lives on a **sibling of one of its
+   * trackers**, so the question is about the entity graph, and about the stored
+   * config besides. Both are optional because the form renders outside a
+   * provider in stories and tests, where the honest answer is that nothing
+   * derives.
+   */
+  context: { lookup?: DeviceSiblingLookup; config?: Record<string, unknown> } = {}
 ): boolean {
   if (requires === undefined) return true
+
+  /*
+   * Answered by the card's own resolver rather than a second predicate shaped
+   * like it — the rule every other arm here follows, and what keeps the form
+   * from offering a control the card will then refuse to render.
+   *
+   * The stored `batteryEntity` is passed rather than assumed empty: a configured
+   * override must keep the control reachable even when it resolves to nothing,
+   * because that is the case it exists for.
+   */
+  if (requires === 'person-battery') {
+    return personBatteryIsConfigurable({
+      batteryEntity: readPersonOptions(context.config).batteryEntity,
+      person: entity,
+      lookup: context.lookup,
+    })
+  }
 
   // The cover requirements read capabilities off the entity through the card's
   // own predicates, so the form and the card can never disagree about whether a
@@ -596,6 +629,14 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   // one. An item with no entity (a separator, a text card) has no capabilities
   // to gate on and no definition that declares any.
   const { entity } = useEntity(item?.entityId ?? '')
+  /*
+   * Optional: the form renders inside the panel, but also in stories and unit
+   * tests where no provider sits above it. A requirement that needs the entity
+   * graph gets `undefined` there and answers "nothing derives", which is the
+   * truthful answer rather than a crash.
+   */
+  const hass = useHomeAssistantOptional()
+  const lookup = hass ? { entities: hass.entities, states: hass.states } : undefined
 
   const cardType =
     item?.type === 'separator'
@@ -622,7 +663,7 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   if (cardConfig.definition) {
     const definition = Object.fromEntries(
       Object.entries(cardConfig.definition)
-        .filter(([, option]) => meetsRequirement(option.requires, entity))
+        .filter(([, option]) => meetsRequirement(option.requires, entity, { lookup, config }))
         // The choices are narrowed in the same pass that drops unusable
         // controls, because they are the same rule one level down: the form
         // must not offer what the entity cannot do.

@@ -475,7 +475,7 @@ export function createPersonEntity(overrides: EntityOverrides = {}): HassEntity 
     {
       friendly_name: 'Jane Doe',
       entity_picture: null,
-      device_trackers: [],
+      device_trackers: ['device_tracker.jane_phone'],
       editable: true,
       id: 'jane_doe',
     },
@@ -511,6 +511,45 @@ export function createLegacyBatteryVacuumEntity(overrides: EntityOverrides = {})
     ...overrides,
     attributes: { battery_level: 64, ...overrides.attributes },
   })
+}
+
+/**
+ * The phone tracking a person, and the battery sensor on its device.
+ *
+ * Two entities because that is what the shape genuinely is: Home Assistant joins
+ * a tracker and its battery only through a shared `device_id` in the entity
+ * registry, so a fixture modelling the battery as an attribute of the tracker
+ * would be modelling the path being retired rather than the one the card takes.
+ * A story or test that wants the sensor path needs the registry as well as these.
+ */
+export function createPersonTrackerEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'device_tracker.jane_phone',
+    'home',
+    { friendly_name: 'Jane Phone', source_type: 'gps' },
+    overrides
+  )
+}
+
+/**
+ * The battery sensor beside it.
+ *
+ * `'87'` rather than `87`: a sensor's `state` is a string on the wire, always,
+ * and a fixture publishing a number would let a reader pass that never handled
+ * the real shape.
+ */
+export function createPersonBatterySensorEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'sensor.jane_phone_battery',
+    '87',
+    {
+      friendly_name: 'Jane Phone Battery',
+      device_class: 'battery',
+      state_class: 'measurement',
+      unit_of_measurement: '%',
+    },
+    overrides
+  )
 }
 
 /** Every domain factory, keyed by the domain it serves. */

@@ -850,9 +850,28 @@ describe('VacuumCard battery source', () => {
     expect(batterySegment()).toBeNull()
   })
 
-  /** No `device_id` is common — 20 of 95 entities on a small instance — and shows nothing. */
-  it('shows nothing when the vacuum has no device, rather than erroring', () => {
-    hass = createMockHomeAssistant({ callService, entities: {}, states: {} })
+  /**
+   * A deviceless vacuum, in the shape Home Assistant actually publishes.
+   *
+   * `device_id: null` is what the registry sends for an entity with no device —
+   * about a fifth of a real one — and it is **not** the same case as an entity
+   * missing from the registry entirely. Both are seeded, `null` first: a test
+   * that only ever supplied `undefined` would prove the card handles an *absent*
+   * entity while claiming it handles a *deviceless* one, and `findDeviceSiblings`
+   * narrowing with `if (!deviceId)` is what makes them agree today. Had it
+   * narrowed on `=== undefined`, the defect would have been invisible — because
+   * the fixture and the test shared the assumption.
+   */
+  it.each([
+    ['deviceless, as the registry publishes it', { device_id: null }],
+    ['deviceless with the key omitted', {}],
+    ['absent from the registry entirely', undefined],
+  ])('shows nothing when the vacuum is %s, rather than erroring', (_label, entry) => {
+    hass = createMockHomeAssistant({
+      callService,
+      entities: entry ? { [ENTITY_ID]: { entity_id: ENTITY_ID, ...entry } } : {},
+      states: {},
+    })
     mount({ tier: 'glance' })
 
     expect(batterySegment()).toBeNull()

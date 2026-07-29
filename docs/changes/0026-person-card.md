@@ -4,7 +4,7 @@
 
 Create the person card per the [person option contract](../specs/entity-cards/options/person.md): a read-only presence card built around a normative avatar (entity picture, or initials on a stable generated color, with a presence badge dot — green home / red away / neutral zone), the `showZone`, `showLastChanged`, `showBattery` + `batteryEntity` options (battery auto-derived from the person's `device_trackers` when possible, amber below 20%), and `more-info` as the default tap action. The option doc's header-chip form is deferred (no placement facility exists — see Out of Scope). The `person` domain moves out of the EntityBrowser's hidden `SYSTEM_DOMAINS` into `SUPPORTED_DOMAINS` so person entities become addable from the Entities tab and dispatch to the new card via the registry.
 
-**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/person](../specs/entity-cards/options/person.md) · **Status:** draft · **Depends on:** 0011, 0014
+**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/person](../specs/entity-cards/options/person.md) · **Status:** complete · **Depends on:** 0011, 0014
 
 ## Motivation
 
@@ -45,7 +45,7 @@ The [person option doc](../specs/entity-cards/options/person.md) owns the option
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
 - [x] **PR 1 — Person card + discovery**: PersonCard component (avatar rules, badge dot, tier layouts, `showZone`/`showLastChanged` with live durations, `more-info` default tap); registry entry; `person` moved from `SYSTEM_DOMAINS` to `SUPPORTED_DOMAINS`; initials/color unit tests; tier + presence stories; entity-cards spec updated (person card section, EntityBrowser domain lists, changelog)
-- [ ] **PR 2 — Battery**: `showBattery`/`batteryEntity` with sensor-first auto-derivation (attribute fallback covered by tests), amber low-battery treatment, auto-hidden config control; derivation unit tests; battery stories
+- [x] **PR 2 — Battery**: `showBattery`/`batteryEntity` with sensor-first auto-derivation (attribute fallback covered by tests), amber low-battery treatment, auto-hidden config control; derivation unit tests; battery stories
 
 ## Out of Scope
 

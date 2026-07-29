@@ -228,7 +228,7 @@ changes:
     path: changes/0026-person-card.md
     description: New person card — avatar/presence badge rules, zone and since-time display, battery derivation; unhides the person domain (header-chip form deferred)
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0027'
     name: scene-cards

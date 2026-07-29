@@ -2,7 +2,7 @@
 
 Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) — universal options (`name`, `icon`, `hideName`, `hideState`, `color`, actions) are not repeated here.
 
-**Status: implemented** by change [0026](../../../changes/0026-person-card.md) — the card, the avatar rules, `showZone` and `showLastChanged` in PR 1; `showBattery` and `batteryEntity` in PR 2, which is why those two rows below still read as specified. Everything else in this document is the shipped behaviour.
+**Status: implemented** by change [0026](../../../changes/0026-person-card.md) — the card, the avatar rules, `showZone` and `showLastChanged` in PR 1; `showBattery` and `batteryEntity` in PR 2. Every option in this document is shipped.
 
 The `person` domain now has a `domainToCard` entry and is no longer in the EntityBrowser's hidden `SYSTEM_DOMAINS` list (which keeps `persistent_notification`, `sun` and `zone` — see [entity-cards — EntityBrowser](../index.md#entity-and-card-discovery-entitybrowser)). **This spec superseded that listing for `person`**: the domain was removed from `SYSTEM_DOMAINS` and added to `SUPPORTED_DOMAINS`, so person entities are addable from the Entities tab and dispatch to the card via the registry. Nothing needed migrating — the domain was not merely unmapped but unplaceable, so no stored dashboard can contain a person item.
 
@@ -46,6 +46,11 @@ The avatar is the card's identity anchor and its rendering is normative, not con
 - A person's state is therefore arbitrary user text, and MUST NOT be used as a key into a plain object. Presence MUST be resolved by comparison, and a zone name MUST reach an entity lookup only with its `zone.` prefix attached, so a zone called `constructor` cannot resolve to a prototype property.
 - `showLastChanged` durations MUST update live (relative-time re-render) and use compact units ("for 3 d", "for 2 h", "for 15 min", "just now").
 - **Battery source resolution order (normative):** (1) a non-empty `batteryEntity`, if it resolves to an existing entity; (2) a `device_class: battery` sensor on the device backing one of the person's `device_trackers`; (3) a `battery_level`-style attribute on a tracker, as a **legacy fallback** — Home Assistant is migrating tracker battery reporting to dedicated battery-sensor entities, so the attribute path MUST NOT be the primary source. The `showBattery` control is hidden from the config form only when **none** of the three resolves. A configured `batteryEntity` therefore always makes the option available — gating it on auto-derivation alone would make the explicit override unreachable, since its whole purpose is supplying a source the graph does not yield.
+- The device hop is the **entity registry**, read live off `hass.entities`; nothing is fetched and there is no cache. A person is not the entity that has a device — its `device_trackers` are — so the resolution is person → trackers → the battery sensor sharing a tracker's `device_id`.
+- The sensor pass MUST run across **all** trackers before the attribute fallback is considered for any of them. A household part-way through Home Assistant's migration has one tracker on each, and a per-tracker order would hand the answer to whichever tracker sorts first — the deprecated path as often as not.
+- A battery level MUST come from the `sensor` domain. `device_class: battery` on a `binary_sensor` means "on means low" rather than a percentage, and `binary_sensor.x_battery_low` sorts before `sensor.x_battery`, so a resolver without the domain check fails _preferentially_ rather than occasionally.
+- A configured `batteryEntity` naming an entity that does not resolve MUST show nothing rather than falling through to derivation. Naming a sensor is an instruction about which battery to read; quietly reading a different one would make the card disagree with its own configuration exactly when somebody is trying to correct it.
+- A person with no derivable battery MUST render **nothing** — no badge, no placeholder, no `0%`. `device_id` is absent for a fifth of entities on a small instance, so this is the ordinary case rather than an error.
 
 ## Tier layouts
 

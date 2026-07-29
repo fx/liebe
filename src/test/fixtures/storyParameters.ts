@@ -30,6 +30,17 @@ export interface LiebeStoryForecast {
 export interface LiebeStoryParameters {
   /** Entities seeded into the entity store before the story renders. */
   entities?: HassEntity[]
+  /**
+   * Entity REGISTRY entries — what joins an entity to its device.
+   *
+   * `device_id` is nullable because Home Assistant publishes `null` for an
+   * entity with no device, which is the common case rather than an edge one.
+   *
+   * Separate from `entities` above, which seeds STATES. A card that resolves a
+   * sibling through `~/utils/deviceSiblings` reads this map; everything else
+   * ignores it, and leaving it unset is the correct default rather than a gap.
+   */
+  registryEntries?: Array<{ entity_id: string; device_id?: string | null }>
   /** Whether the entity store reports a live Home Assistant connection. Default `true`. */
   connected?: boolean
   /** Whether the entity store is still doing its first load. Default `false`. */
