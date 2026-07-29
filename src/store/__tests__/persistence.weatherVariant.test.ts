@@ -123,8 +123,11 @@ describe('a weather card that predates change 0020', () => {
     // A rename is not a version-keyed migration, so a document containing only
     // one keeps the version it arrived with — the stamp belongs to the pinning
     // migrations, and this change adds none.
-    store('1.3.0', [item('weather.home', { preset: 'modern' })])
+    // Stamped CURRENT, so no pinning cutoff fires and the rename is the only
+    // migration in play — which is the whole point being made. A literal here
+    // rots the moment a later change adds a marker above it, as 0023 did.
+    store(CURRENT_VERSION, [item('weather.home', { preset: 'modern' })])
 
-    expect(loadDashboardConfig()?.version).toBe('1.3.0')
+    expect(loadDashboardConfig()?.version).toBe(CURRENT_VERSION)
   })
 })

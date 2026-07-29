@@ -19,6 +19,7 @@ import { InputSelectCard } from './InputSelectCard'
 import { InputTextCard } from './InputTextCard'
 import { InputDateTimeCard } from './InputDateTimeCard'
 import { LockCard } from './LockCard'
+import { MediaPlayerCard } from './MediaPlayerCard'
 import { ActionCard } from './ActionCard'
 
 // Card props interface that all cards must implement
@@ -80,6 +81,7 @@ const registeredCards = {
   input_text: InputTextCard,
   input_datetime: InputDateTimeCard,
   lock: LockCard,
+  media_player: MediaPlayerCard,
   /*
    * Four entries, one component. The action family's domains differ only in
    * which service a tap calls, so splitting them into three near-identical cards

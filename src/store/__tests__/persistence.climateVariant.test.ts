@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { CURRENT_VERSION, loadDashboardConfig } from '../persistence'
-import { CLIMATE_VARIANT_VERSION } from '../climateOptions'
+import { configPredatesClimateVariant } from '../climateOptions'
 import type { GridItem, ScreenConfig } from '../types'
 
 /**
@@ -76,7 +76,14 @@ describe('climate variant legacy pinning', () => {
     store('1.1.0', [item('climate.hallway')])
 
     expect(loadDashboardConfig()?.version).toBe(CURRENT_VERSION)
-    expect(CURRENT_VERSION).toBe(CLIMATE_VARIANT_VERSION)
+    /*
+     * `CURRENT_VERSION` is the NEWEST marker, not this migration's — every
+     * option's cutoff is a point on the same line, so a document stamped with
+     * the latest is past all the earlier ones. It tracked this one until change
+     * 0023 added a later marker, so what this pins now is that the climate
+     * marker is at or below it rather than equal to it.
+     */
+    expect(configPredatesClimateVariant(CURRENT_VERSION)).toBe(false)
   })
 
   /**
@@ -115,7 +122,9 @@ describe('climate variant legacy pinning', () => {
     store('1.2.0', [item('climate.hallway')])
 
     expect(loadedItems()[0].config).toMatchObject({ variant: 'dial' })
-    expect(loadDashboardConfig()?.version).toBe(CLIMATE_VARIANT_VERSION)
+    // Stamped forward to the newest marker, which is what makes a second load a
+    // no-op for every migration at once.
+    expect(loadDashboardConfig()?.version).toBe(CURRENT_VERSION)
   })
 
   it('pins a document old enough to predate the input helpers’ option too', () => {
