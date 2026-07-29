@@ -179,6 +179,30 @@ describe('useServiceCall', () => {
     expect(hassService.callService).not.toHaveBeenCalled()
   })
 
+  it('maps a numeric setValue on a light to a guarded brightness command', async () => {
+    /*
+     * `setValue`'s domain map covers this, and no card reaches it today — the
+     * light card builds its own payload. It is still public API of the hook, so
+     * it is pinned rather than left as the one arm of the map that could quietly
+     * go back to retrying.
+     */
+    vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    await act(async () => {
+      await result.current.setValue('light.bedroom', 128)
+    })
+
+    expect(hassService.callServiceOnce).toHaveBeenCalledWith({
+      domain: 'light',
+      service: 'turn_on',
+      entityId: 'light.bedroom',
+      data: { brightness: 128 },
+    })
+    expect(hassService.callService).not.toHaveBeenCalled()
+  })
+
   it('should handle setValue error for unsupported domain', async () => {
     const { result } = renderHook(() => useServiceCall(), { wrapper })
 
