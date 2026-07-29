@@ -149,7 +149,21 @@ export function readShowColorControl(config: Record<string, unknown> | undefined
  * researched common case").
  */
 export function readBrightnessPresets(config: Record<string, unknown> | undefined): number[] {
-  return readNumberArray(config, BRIGHTNESS_PRESETS_KEY, BRIGHTNESS_PRESET_BOUNDS)
+  /*
+   * Repeats collapse to their first occurrence, which is a fix for the pills
+   * before it is one for their React keys. Neither the import gate
+   * (`numberArraySchema` is a bare `z.array`) nor the filter above rejects a
+   * repeat, so `[50, 50]` reaches the row from a hand-edited or imported config
+   * — and two identical pills are nonsense on their face: both read as current,
+   * and both dispatch the same command.
+   *
+   * Resolved rather than rejected, like every other entry here. The stored
+   * document keeps what its author wrote, and a duplicate is a redundant
+   * request rather than a wrong one — worth quietly honouring once, unlike an
+   * out-of-range value, which is a request no build can satisfy.
+   */
+  const usable = readNumberArray(config, BRIGHTNESS_PRESETS_KEY, BRIGHTNESS_PRESET_BOUNDS)
+  return [...new Set(usable)]
 }
 
 /**

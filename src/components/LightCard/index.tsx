@@ -258,6 +258,9 @@ function BrightnessPresets({
   )
 }
 
+/** Which embedded slider owns the drag. One more member is all a new one costs. */
+type DragControl = 'brightness' | 'colorTemp'
+
 function LightCardComponent({
   entityId,
   tier = 'row',
@@ -273,11 +276,20 @@ function LightCardComponent({
   const isEditMode = mode === 'edit'
 
   // Local state for slider while dragging
-  const [localBrightness, setLocalBrightness] = useState<number | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  /*
+   * The one drag in flight, whichever control owns it.
+   *
+   * A single slot rather than a flag and a value per slider, because the two
+   * facts are the same fact: a control has an optimistic value exactly while it
+   * is being dragged. Splitting them let the tile's toggle guard enumerate the
+   * sliders that existed when it was written — it checked brightness and not
+   * colour temperature, so a tap landing on the tile mid-drag switched the light
+   * off under the finger adjusting it. With one slot a control cannot occupy it
+   * without also raising the guard, so a slider added later is covered by
+   * construction rather than by remembering.
+   */
+  const [drag, setDrag] = useState<{ control: DragControl; value: number } | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
-  const [localKelvin, setLocalKelvin] = useState<number | null>(null)
-  const [isDraggingKelvin, setIsDraggingKelvin] = useState(false)
   /*
    * The recent-colour slot. Deliberately not persisted: it is the trace of an
    * interaction, not a setting, and a card that rewrote its stored config on
@@ -291,17 +303,31 @@ function LightCardComponent({
   // Get config from item
   const config = item?.config || {}
 
-  const handleBrightnessChange = useCallback((value: number) => {
-    // The anatomy slider reports every value the control passes through, which
-    // is also the signal that a drag is under way: the card must not toggle the
-    // light the finger is dimming.
-    setIsDragging(true)
-    setLocalBrightness(value)
+  /*
+   * The anatomy slider reports every value the control passes through, which is
+   * also the signal that a drag is under way: the card must not toggle the light
+   * the finger is adjusting. Both facts are recorded by claiming the drag slot.
+   */
+  const beginDrag = useCallback((control: DragControl, value: number) => {
+    setDrag({ control, value })
   }, [])
+
+  /*
+   * Released by the control that claimed it, and only if it still holds it — a
+   * commit awaits its dispatch, and in that window the other slider may already
+   * have taken the slot. Clearing unconditionally would wipe a drag in progress.
+   */
+  const endDrag = useCallback((control: DragControl) => {
+    setDrag((current) => (current?.control === control ? null : current))
+  }, [])
+
+  const handleBrightnessChange = useCallback(
+    (value: number) => beginDrag('brightness', value),
+    [beginDrag]
+  )
 
   const handleBrightnessCommit = useCallback(
     async (value: number) => {
-      setIsDragging(false)
       // Only a slider dropped at 0 turns the light off; the conversion never
       // rounds a nonzero position down into that (docs/specs/entity-cards/
       // options/light.md — "Brightness").
@@ -313,28 +339,27 @@ function LightCardComponent({
           : { domain: 'light', service: 'turn_on', entityId, data: { brightness } }
       )
 
-      setLocalBrightness(null)
+      endDrag('brightness')
     },
-    [dispatchGuarded, entityId]
+    [dispatchGuarded, endDrag, entityId]
   )
 
-  const handleKelvinChange = useCallback((value: number) => {
-    setIsDraggingKelvin(true)
-    setLocalKelvin(value)
-  }, [])
+  const handleKelvinChange = useCallback(
+    (value: number) => beginDrag('colorTemp', value),
+    [beginDrag]
+  )
 
   const handleKelvinCommit = useCallback(
     async (value: number) => {
-      setIsDraggingKelvin(false)
       await dispatchGuarded({
         domain: 'light',
         service: 'turn_on',
         entityId,
         data: { color_temp_kelvin: value },
       })
-      setLocalKelvin(null)
+      endDrag('colorTemp')
     },
-    [dispatchGuarded, entityId]
+    [dispatchGuarded, endDrag, entityId]
   )
 
   const handleColorPick = useCallback(
@@ -444,8 +469,10 @@ function LightCardComponent({
     return haBrightnessToPercent(lightAttributes?.brightness ?? HA_BRIGHTNESS_MAX)
   }, [entity, lightAttributes?.brightness])
 
-  const displayBrightness =
-    isDragging && localBrightness !== null ? localBrightness : currentBrightness
+  /** The dragged value while this control owns the drag, else what the entity reports. */
+  const dragValue = (control: DragControl) => (drag?.control === control ? drag.value : undefined)
+
+  const displayBrightness = dragValue('brightness') ?? currentBrightness
 
   // Show skeleton while loading initial data
   if (isEntityLoading || (!entity && isConnected)) {
@@ -483,7 +510,8 @@ function LightCardComponent({
   const isOn = entity.state === 'on'
 
   const handleToggle = async () => {
-    if (isLoading || isDragging) return
+    // Any drag, not a list of the sliders that existed when this was written.
+    if (isLoading || drag !== null) return
 
     // Clear any previous errors
     if (error) {
@@ -582,7 +610,7 @@ function LightCardComponent({
     </GridCard.Controls>
   ) : undefined
 
-  const displayKelvin = isDraggingKelvin && localKelvin !== null ? localKelvin : currentKelvin
+  const displayKelvin = dragValue('colorTemp') ?? currentKelvin
 
   const extras =
     showColorTemp || showColor || showPresets ? (
