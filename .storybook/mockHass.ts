@@ -64,12 +64,11 @@ export function createMockHass({
   return {
     states,
     /*
-     * Empty registries, matching the vitest mock: a story showing a card that
-     * derives something from a device relationship seeds these, and every other
+     * An empty registry, matching the vitest mock: a story showing a card that
+     * derives something from a device relationship seeds it, and every other
      * story gets the same "no device" answer a helper entity really has.
      */
     entities: {},
-    devices: {},
     callService: (domain, service, serviceData) => {
       logServiceCall({ domain, service, serviceData })
       if (fail) return Promise.reject(new Error(failureMessage))

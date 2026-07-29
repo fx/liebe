@@ -25,13 +25,12 @@ export function createMockHomeAssistant(overrides?: Partial<HomeAssistant>): Hom
     callWS: vi.fn(),
     states: {},
     /*
-     * The registries default to empty rather than being omitted: they are
+     * The registry defaults to empty rather than being omitted: it is
      * always present on a real `hass`, so a test that needs a device
-     * relationship seeds them through `overrides` and every other test gets the
+     * relationship seeds it through `overrides` and every other test gets the
      * honest "this entity has no device" answer instead of a crash.
      */
     entities: {},
-    devices: {},
     connection: mockConnection,
     user: {
       name: 'Test User',

@@ -31,22 +31,6 @@ export interface HomeAssistantState {
 export interface HomeAssistantEntityRegistryEntry {
   entity_id: string
   device_id?: string | null
-  area_id?: string | null
-  platform?: string
-}
-
-/**
- * One entry of Home Assistant's **device registry**, from `hass.devices`.
- *
- * `name_by_user` is the name the user gave the device and takes precedence over
- * the integration's `name` wherever a device is named on screen — that is the
- * order the Home Assistant frontend itself displays them in.
- */
-export interface HomeAssistantDeviceRegistryEntry {
-  id: string
-  name?: string | null
-  name_by_user?: string | null
-  area_id?: string | null
 }
 
 /**
@@ -68,8 +52,11 @@ export interface HomeAssistantDeviceRegistryEntry {
  * and kept current by the frontend's own subscription (issue #274).
  *
  * Each field below is typed to what has actually been observed and used, not to
- * everything the object contains. An over-broad type here is a claim about the
- * platform that this repo would then have to keep true.
+ * everything the object contains. `hass.devices` is the worked example in the
+ * other direction: it is present on the live object and deliberately NOT
+ * declared, because nothing reads it yet. An unused declaration would be a claim
+ * about the platform this repo then has to keep true — so a key arrives with its
+ * first consumer, not in anticipation of one.
  */
 export interface HomeAssistant {
   states: Record<string, HomeAssistantState>
@@ -80,16 +67,6 @@ export interface HomeAssistant {
    * invalidate.
    */
   entities: Record<string, HomeAssistantEntityRegistryEntry>
-  /**
-   * The device registry, keyed by device id, on the same live footing as
-   * `entities`.
-   *
-   * Declared alongside `entities` rather than when the first consumer arrives:
-   * the vacuum and person cards both need this widening, and landing it once
-   * keeps two parallel branches from each editing this interface. Nothing in
-   * this change reads it yet.
-   */
-  devices: Record<string, HomeAssistantDeviceRegistryEntry>
   callService: (
     domain: string,
     service: string,
