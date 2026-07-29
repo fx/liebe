@@ -6,12 +6,13 @@ import { validateDashboardConfig } from './configSchema'
 import { migrateThemeConfig } from './themeConfig'
 import { migrateLightCardConfig } from './lightOptions'
 import { configPredatesControlStyle, pinLegacyControlStyle } from './inputHelperOptions'
-import {
-  CLIMATE_VARIANT_VERSION,
-  configPredatesClimateVariant,
-  pinLegacyClimateVariant,
-} from './climateOptions'
+import { configPredatesClimateVariant, pinLegacyClimateVariant } from './climateOptions'
 import { configPredatesSpeedControl, pinLegacyFanSpeedControl } from './fanOptions'
+import {
+  MEDIA_PLAYER_CARD_VERSION,
+  configPredatesMediaPlayerCard,
+  pinLegacyMediaPlayerAction,
+} from './mediaPlayerOptions'
 import { migrateWeatherCardConfig } from './weatherOptions'
 import * as yaml from 'js-yaml'
 
@@ -29,7 +30,7 @@ const BACKUP_STORAGE_KEY = 'liebe-config-backup'
  * migration at once. So this is always the *newest* marker: a new option adds
  * its own constant and moves this one onto it.
  */
-export const CURRENT_VERSION = CLIMATE_VARIANT_VERSION
+export const CURRENT_VERSION = MEDIA_PLAYER_CARD_VERSION
 
 export const saveDashboardConfig = (config: DashboardConfig): void => {
   try {
@@ -131,6 +132,7 @@ const migrateItemConfig = (item: unknown, cutoffs: VersionCutoffs): unknown => {
   if (cutoffs.predatesControlStyle) migrated = pinLegacyControlStyle(domain, migrated)
   if (cutoffs.predatesSpeedControl) migrated = pinLegacyFanSpeedControl(domain, migrated)
   if (cutoffs.predatesClimateVariant) migrated = pinLegacyClimateVariant(domain, migrated)
+  if (cutoffs.predatesMediaPlayerCard) migrated = pinLegacyMediaPlayerAction(domain, migrated)
 
   return migrated === config ? item : { ...item, config: migrated }
 }
@@ -147,6 +149,7 @@ interface VersionCutoffs {
   predatesControlStyle: boolean
   predatesSpeedControl: boolean
   predatesClimateVariant: boolean
+  predatesMediaPlayerCard: boolean
 }
 
 /**
@@ -172,6 +175,7 @@ const migrateConfig = (config: unknown): DashboardConfig => {
     predatesControlStyle: configPredatesControlStyle(version),
     predatesSpeedControl: configPredatesSpeedControl(version),
     predatesClimateVariant: configPredatesClimateVariant(version),
+    predatesMediaPlayerCard: configPredatesMediaPlayerCard(version),
   }
 
   const migrated = migrateScreenConfig(config, cutoffs)
@@ -195,7 +199,8 @@ const migrateConfig = (config: unknown): DashboardConfig => {
   if (
     cutoffs.predatesControlStyle ||
     cutoffs.predatesSpeedControl ||
-    cutoffs.predatesClimateVariant
+    cutoffs.predatesClimateVariant ||
+    cutoffs.predatesMediaPlayerCard
   ) {
     migrated.version = CURRENT_VERSION
   }

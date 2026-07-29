@@ -343,6 +343,177 @@ export const BulbColorWhileOff: Story = {
   },
 }
 
+/*
+ * The `full`-tier colour controls (docs/specs/entity-cards/options/light.md —
+ * "Color temperature" and "Color"). Both are `full` only, so every story below
+ * sets the tier with the 3×2 cell it would be derived from.
+ */
+
+/** A bulb that does colour and colour temperature, with a real reported range. */
+const fullColorBulb = (attributes: Record<string, unknown> = {}, state = 'on') =>
+  createLightEntity({
+    state,
+    attributes: {
+      supported_color_modes: ['color_temp', 'hs', 'rgb'],
+      min_color_temp_kelvin: 2000,
+      max_color_temp_kelvin: 6500,
+      color_temp_kelvin: 3000,
+      ...attributes,
+    },
+  })
+
+const FULL: Partial<LightCardStoryProps> = { tier: 'full', gridWidth: 3, gridHeight: 2 }
+
+const tempThumb = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('[aria-label="Colour temperature"]')
+const swatchGroup = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('[role="group"][aria-label="Light colour"]')
+
+/**
+ * Both controls at rest. The temperature slider spans the range this bulb
+ * reports — 2000–6500 K — and the swatch row sits beneath it.
+ */
+export const ColorControls: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: { liebe: { entities: [fullColorBulb()] } },
+  play: async ({ canvasElement }) => {
+    await expect(tempThumb(canvasElement)).toHaveAttribute('aria-valuemin', '2000')
+    await expect(tempThumb(canvasElement)).toHaveAttribute('aria-valuemax', '6500')
+    await expect(swatchGroup(canvasElement)!.querySelectorAll('button')).toHaveLength(6)
+  },
+}
+
+/**
+ * A different bulb, a different span. The point of the story is that the two
+ * numbers come from the entity rather than from Liebe — a tighter bulb gets a
+ * tighter track, and nothing is hardcoded.
+ */
+export const ColorTempNarrowRange: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: {
+    liebe: {
+      entities: [fullColorBulb({ min_color_temp_kelvin: 2700, max_color_temp_kelvin: 4000 })],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(tempThumb(canvasElement)).toHaveAttribute('aria-valuemin', '2700')
+    await expect(tempThumb(canvasElement)).toHaveAttribute('aria-valuemax', '4000')
+  },
+}
+
+/**
+ * A `color_temp` bulb that publishes no bounds. The control is withheld rather
+ * than given an invented range — the option doc's "never a hardcoded range",
+ * seen from the outside.
+ */
+export const ColorTempWithoutRange: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: {
+    liebe: {
+      entities: [
+        createLightEntity({
+          attributes: { supported_color_modes: ['color_temp'], color_temp_kelvin: 3000 },
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(tempThumb(canvasElement)).toBeNull()
+  },
+}
+
+/** `showColorTempControl: false` — the swatches stay, the temperature slider goes. */
+export const ColorTempHidden: Story = {
+  args: { ...FULL, item: placedLight({ showColorTempControl: false }) },
+  parameters: { liebe: { entities: [fullColorBulb()] } },
+  play: async ({ canvasElement }) => {
+    await expect(tempThumb(canvasElement)).toBeNull()
+    await expect(swatchGroup(canvasElement)).not.toBeNull()
+  },
+}
+
+/** `showColorControl: false` — the mirror image: the slider stays, the swatches go. */
+export const ColorSwatchesHidden: Story = {
+  args: { ...FULL, item: placedLight({ showColorControl: false }) },
+  parameters: { liebe: { entities: [fullColorBulb()] } },
+  play: async ({ canvasElement }) => {
+    await expect(swatchGroup(canvasElement)).toBeNull()
+    await expect(tempThumb(canvasElement)).not.toBeNull()
+  },
+}
+
+/**
+ * The swatch the bulb actually reports renders selected. Only an exact
+ * `rgb_color` counts — a colour derived from `hs_color` tints the card but
+ * claims no swatch.
+ */
+export const ColorSwatchSelected: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: { liebe: { entities: [fullColorBulb({ rgb_color: [0, 122, 255] })] } },
+  play: async ({ canvasElement }) => {
+    const blue = canvasElement.querySelector('[aria-label="Blue"]')
+    await expect(blue).toHaveAttribute('aria-pressed', 'true')
+    await expect(canvasElement.querySelector('[aria-label="Red"]')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+  },
+}
+
+/**
+ * The capability gate, from both sides in one pair of stories: a bulb that only
+ * does colour temperature gets no swatches.
+ */
+export const ColorControlsOnTempOnlyBulb: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: {
+    liebe: {
+      entities: [
+        createLightEntity({
+          attributes: {
+            supported_color_modes: ['color_temp'],
+            min_color_temp_kelvin: 2000,
+            max_color_temp_kelvin: 6500,
+            color_temp_kelvin: 3000,
+          },
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(swatchGroup(canvasElement)).toBeNull()
+    await expect(tempThumb(canvasElement)).not.toBeNull()
+  },
+}
+
+/** And a colour-only bulb gets no temperature slider. */
+export const ColorControlsOnColorOnlyBulb: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: {
+    liebe: {
+      entities: [createLightEntity({ attributes: { supported_color_modes: ['hs', 'rgb'] } })],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(tempThumb(canvasElement)).toBeNull()
+    await expect(swatchGroup(canvasElement)).not.toBeNull()
+  },
+}
+
+/**
+ * Neither control appears while the light is off. Setting a colour would turn
+ * it on as a side effect of something that does not look like a switch — the
+ * tile's own tap is what turns it on.
+ */
+export const ColorControlsWhileOff: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: { liebe: { entities: [fullColorBulb({ brightness: 0 }, 'off')] } },
+  play: async ({ canvasElement }) => {
+    await expect(tempThumb(canvasElement)).toBeNull()
+    await expect(swatchGroup(canvasElement)).toBeNull()
+  },
+}
+
 /** Edit mode hides the controls and exposes configure/delete affordances. */
 export const EditMode: Story = {
   args: { onDelete: () => {} },

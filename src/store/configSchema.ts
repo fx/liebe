@@ -14,6 +14,7 @@ import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
 import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
 import { weatherOptionsConfigSchema } from './weatherOptions'
+import { mediaPlayerOptionsConfigSchema } from './mediaPlayerOptions'
 import type { DashboardConfig } from './types'
 
 /**
@@ -95,6 +96,11 @@ const gridItemSchema = z
     // (docs/specs/entity-cards/options/weather.md). Its `variant` stays out for
     // the same reason the climate card's does — one shared item shape, two
     // domains, two different sets of legal values.
+    // The media player keys join them because both of its enums are closed sets
+    // whose wrong value looks like a working card: `artworkMode: cover` would
+    // quietly render the thumbnail the document did not ask for, and
+    // `showVolume: steppers` — a spelling no build has — would silently take the
+    // slider (docs/specs/entity-cards/options/media-player.md).
     // The action-family keys join them because `confirm` is the only thing
     // standing between an accidental tap and a script that resets every device
     // in the house: `confirm: "true"` is a string, so a reader that fell back to
@@ -128,6 +134,7 @@ const gridItemSchema = z
       .merge(weatherOptionsConfigSchema)
       .merge(lightOptionsConfigSchema)
       .merge(lockOptionsConfigSchema)
+      .merge(mediaPlayerOptionsConfigSchema)
       .merge(alarmOptionsConfigSchema)
       .passthrough()
       .optional(),

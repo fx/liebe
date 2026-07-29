@@ -94,6 +94,8 @@ const SUPPORTED_DOMAINS = [
   'input_datetime',
   // The security family (change 0024).
   'lock',
+  // Change 0023.
+  'media_player',
   'alarm_control_panel',
   // The action family (change 0027).
   'scene',

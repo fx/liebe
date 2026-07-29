@@ -2,7 +2,12 @@ import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
-import { SHOW_BRIGHTNESS_SLIDER_KEY, USE_LIGHT_COLOR_KEY } from '~/store/lightOptions'
+import {
+  SHOW_BRIGHTNESS_SLIDER_KEY,
+  SHOW_COLOR_CONTROL_KEY,
+  SHOW_COLOR_TEMP_CONTROL_KEY,
+  USE_LIGHT_COLOR_KEY,
+} from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
 import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOptions'
@@ -122,6 +127,24 @@ export const cardConfigurations: Record<
         label: 'Use the bulb’s colour',
         description:
           'Tints the icon and slider with the light’s own colour while it is on. Turn off to keep the standard amber. A pinned colour below always wins.',
+      },
+      // Both describe where the control appears as well as what it does: they
+      // are `full`-tier only, so somebody toggling them on a 2×1 card would
+      // otherwise see nothing change and reasonably conclude the option is
+      // broken (docs/specs/entity-cards/options/light.md — "Tier layouts").
+      [SHOW_COLOR_TEMP_CONTROL_KEY]: {
+        type: 'boolean',
+        default: true,
+        label: 'Show colour temperature',
+        description:
+          'Adds a warm-to-cool slider on 3×2 and larger cards, spanning the range this bulb reports. Only for lights that support colour temperature.',
+      },
+      [SHOW_COLOR_CONTROL_KEY]: {
+        type: 'boolean',
+        default: true,
+        label: 'Show colour swatches',
+        description:
+          'Adds a row of colours, plus the last one picked here, on 3×2 and larger cards. Only for lights that support colour.',
       },
     },
   },

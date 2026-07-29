@@ -32,6 +32,10 @@ export const MAPPED_CARD_DOMAINS = [
   // registers only `lock`, `unlock` and `open` — so a placed lock's tap errors
   // today rather than working.
   'lock',
+  // Change 0023. Media players were the fallback's most misleading case: it
+  // renders a bare power toggle for a domain whose whole point is transport
+  // control, with no track metadata, artwork or buttons.
+  'media_player',
   'alarm_control_panel',
   // The action family (change 0027): four domains, one card. They were the
   // fallback's worst case — `ButtonCard` dispatches `<domain>.toggle`, which

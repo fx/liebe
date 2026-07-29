@@ -18,7 +18,10 @@ describe('cardRegistry', () => {
   it('resolves a card by domain and by entity id', () => {
     expect(getCardForDomain('weather')).toBe(WeatherCard)
     expect(getCardForEntity('weather.home')).toBe(WeatherCard)
-    expect(getCardForEntity('media_player.tv')).toBeUndefined()
+    // `siren` stands in for "a domain with no card of its own", which is what
+    // this asserts. It used to be `media_player`, until change 0023 gave that
+    // domain a card — the example has to be a domain no change has mapped.
+    expect(getCardForEntity('siren.klaxon')).toBeUndefined()
   })
 
   /**
@@ -81,9 +84,9 @@ describe('cardRegistry', () => {
     })
 
     it('ignores a domain that has no card', () => {
-      registerCardVariant('media_player', 'compact', () => null)
+      registerCardVariant('siren', 'compact', () => null)
 
-      expect(getCardVariants('media_player')).toEqual([])
+      expect(getCardVariants('siren')).toEqual([])
     })
   })
 })
