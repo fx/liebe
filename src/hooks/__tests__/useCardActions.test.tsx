@@ -131,6 +131,64 @@ describe('useCardActions', () => {
     expect(onToggle).toHaveBeenCalledTimes(1)
   })
 
+  /*
+   * A card family whose `toggle` means "open the details" (issue #260).
+   *
+   * The shell owns the dialog, so the card names the resolution and the shell
+   * performs it — a card that passed its own `onMoreInfo` would REPLACE the
+   * shell's opener rather than borrow it, which is what made the obvious route
+   * wrong.
+   */
+  describe('a toggle that resolves to more-info', () => {
+    it('opens the dialog when the card asks for it, and dispatches nothing', () => {
+      const onMoreInfo = vi.fn()
+      const onToggle = vi.fn(() => 'more-info' as const)
+      const callService = vi.fn()
+      hassService.setHass(createMockHomeAssistant({ callService }))
+
+      const { result } = renderHook(() =>
+        useCardActions({ entityId: 'lock.front_door', onToggle, onMoreInfo, config: {} })
+      )
+
+      act(() => result.current.tap())
+
+      expect(onToggle).toHaveBeenCalledTimes(1)
+      expect(onMoreInfo).toHaveBeenCalledTimes(1)
+      // The dialog instead of the device: no service may leave on this route.
+      expect(callService).not.toHaveBeenCalled()
+    })
+
+    it('leaves a toggle that returns nothing alone', () => {
+      const onMoreInfo = vi.fn()
+      const onToggle = vi.fn()
+
+      const { result } = renderHook(() =>
+        useCardActions({ entityId: 'light.desk', onToggle, onMoreInfo })
+      )
+
+      act(() => result.current.tap())
+
+      expect(onToggle).toHaveBeenCalledTimes(1)
+      expect(onMoreInfo).not.toHaveBeenCalled()
+    })
+
+    it('does not mistake an async toggle for a request to open the dialog', () => {
+      // `Promise<void>` is what several cards already return. It is not the
+      // string, and nothing here awaits it.
+      const onMoreInfo = vi.fn()
+      const onToggle = vi.fn(async () => {})
+
+      const { result } = renderHook(() =>
+        useCardActions({ entityId: 'light.desk', onToggle, onMoreInfo })
+      )
+
+      act(() => result.current.tap())
+
+      expect(onToggle).toHaveBeenCalledTimes(1)
+      expect(onMoreInfo).not.toHaveBeenCalled()
+    })
+  })
+
   it('logs a failed action rather than swallowing it', async () => {
     const hass = createMockHomeAssistant({
       callService: vi.fn().mockRejectedValue(new Error('not authorised')),

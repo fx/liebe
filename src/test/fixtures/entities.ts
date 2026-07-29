@@ -394,6 +394,31 @@ export function createLockEntity(overrides: EntityOverrides = {}): HassEntity {
   )
 }
 
+/**
+ * An alarm panel at rest, disarmed and codeless.
+ *
+ * `supported_features` carries the four arm bits this card offers (1|2|4|32 =
+ * 39) but not TRIGGER — the numbering is HA's and is not the order the modes
+ * are usually listed in. `code_format: null` with `code_arm_required: true` is
+ * the shape a real codeless panel publishes, because HA defaults the flag to
+ * true and publishes it unconditionally; a card reading the flag alone would
+ * demand a code this panel cannot take.
+ */
+export function createAlarmEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'alarm_control_panel.house',
+    'disarmed',
+    {
+      friendly_name: 'House Alarm',
+      supported_features: 39,
+      code_format: null,
+      code_arm_required: true,
+      changed_by: null,
+    },
+    overrides
+  )
+}
+
 /** Every domain factory, keyed by the domain it serves. */
 export const entityFactories = {
   light: createLightEntity,
@@ -412,6 +437,7 @@ export const entityFactories = {
   input_text: createInputTextEntity,
   input_datetime: createInputDateTimeEntity,
   lock: createLockEntity,
+  alarm_control_panel: createAlarmEntity,
   scene: createSceneEntity,
   script: createScriptEntity,
   button: createButtonEntity,

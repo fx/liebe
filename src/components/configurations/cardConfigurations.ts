@@ -2,13 +2,19 @@ import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
-import { SHOW_BRIGHTNESS_SLIDER_KEY, USE_LIGHT_COLOR_KEY } from '~/store/lightOptions'
+import {
+  SHOW_BRIGHTNESS_SLIDER_KEY,
+  SHOW_COLOR_CONTROL_KEY,
+  SHOW_COLOR_TEMP_CONTROL_KEY,
+  USE_LIGHT_COLOR_KEY,
+} from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
 import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOptions'
 import { COVER_OPTION_DEFAULTS, COVER_STATE_LABELS_AUTO } from '~/store/coverOptions'
 import { FAN_OPTION_DEFAULTS } from '~/store/fanOptions'
 import { LOCK_OPTION_DEFAULTS } from '~/store/lockOptions'
+import { ALARM_OPTION_DEFAULTS, DEFAULT_ARM_MODE_ORDER } from '~/store/alarmOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -122,6 +128,24 @@ export const cardConfigurations: Record<
         label: 'Use the bulb’s colour',
         description:
           'Tints the icon and slider with the light’s own colour while it is on. Turn off to keep the standard amber. A pinned colour below always wins.',
+      },
+      // Both describe where the control appears as well as what it does: they
+      // are `full`-tier only, so somebody toggling them on a 2×1 card would
+      // otherwise see nothing change and reasonably conclude the option is
+      // broken (docs/specs/entity-cards/options/light.md — "Tier layouts").
+      [SHOW_COLOR_TEMP_CONTROL_KEY]: {
+        type: 'boolean',
+        default: true,
+        label: 'Show colour temperature',
+        description:
+          'Adds a warm-to-cool slider on 3×2 and larger cards, spanning the range this bulb reports. Only for lights that support colour temperature.',
+      },
+      [SHOW_COLOR_CONTROL_KEY]: {
+        type: 'boolean',
+        default: true,
+        label: 'Show colour swatches',
+        description:
+          'Adds a row of colours, plus the last one picked here, on 3×2 and larger cards. Only for lights that support colour.',
       },
     },
   },
@@ -457,6 +481,72 @@ export const cardConfigurations: Record<
         domains: ['binary_sensor'],
         description:
           'Adds “Door closed” or “Door open” to the state line. Display only — it never changes what the buttons do.',
+      },
+    },
+  },
+  /*
+   * The alarm card's options (docs/specs/entity-cards/options/security.md).
+   *
+   * `armModes` is the capability-gated one, and it is gated per *choice* rather
+   * than per control: the multi-select offers only the modes the panel's
+   * `supported_features` advertises, so a household cannot configure a vacation
+   * mode onto a panel that has none. Render-time filtering repeats the check
+   * for stored values, because a dashboard exported from another house carries
+   * that other panel's modes with it.
+   */
+  alarm_control_panel: {
+    title: 'Alarm Card',
+    description: 'Which arm modes the card offers, and what it asks before acting.',
+    definition: {
+      armModes: {
+        type: 'ordered-multi-select',
+        default: DEFAULT_ARM_MODE_ORDER,
+        label: 'Arm modes',
+        description:
+          'Which modes appear, and in what order. The first is also the single button shown on smaller cards. Only modes this panel supports are listed.',
+        options: [
+          { value: 'away', label: 'Arm away' },
+          { value: 'home', label: 'Arm home' },
+          { value: 'night', label: 'Arm night' },
+          { value: 'vacation', label: 'Arm vacation' },
+        ],
+        requires: 'alarm-arm-modes',
+        // And the choices themselves come from the panel, not from this list:
+        // `requires` only decides whether the control exists.
+        optionsFrom: 'alarm-arm-modes',
+      },
+      showKeypad: {
+        type: 'select',
+        default: ALARM_OPTION_DEFAULTS.showKeypad,
+        label: 'Keypad',
+        description:
+          'Automatic shows it exactly when this panel needs a code. Always shows it for every arm and disarm; Never suppresses it, and a panel that wanted a code will report an error instead.',
+        options: [
+          { value: 'auto', label: 'Automatic' },
+          { value: 'always', label: 'Always' },
+          { value: 'never', label: 'Never' },
+        ],
+      },
+      confirmDisarm: {
+        type: 'boolean',
+        default: ALARM_OPTION_DEFAULTS.confirmDisarm,
+        label: 'Confirm before disarming',
+        description:
+          'Asks first when no code is needed. On a panel that does need one the keypad is already the check, so this does nothing there.',
+      },
+      confirmArm: {
+        type: 'boolean',
+        default: ALARM_OPTION_DEFAULTS.confirmArm,
+        label: 'Confirm before arming',
+        description:
+          'Off by default: arming by mistake is undone by disarming, and one-tap arming is what people expect. Turn it on for symmetry.',
+      },
+      flashOnTriggered: {
+        type: 'boolean',
+        default: ALARM_OPTION_DEFAULTS.flashOnTriggered,
+        label: 'Flash when triggered',
+        description:
+          'Pulses the card while the alarm is going off. The card stays loud and red either way, and the flash is always off for anyone who has asked for reduced motion.',
       },
     },
   },
