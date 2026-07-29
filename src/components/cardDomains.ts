@@ -27,6 +27,11 @@ export const MAPPED_CARD_DOMAINS = [
   'input_select',
   'input_text',
   'input_datetime',
+  // The security family (change 0024). Mapping `lock` is a bugfix as much as a
+  // new card: the fallback dispatches `<domain>.toggle`, and the `lock` platform
+  // registers only `lock`, `unlock` and `open` — so a placed lock's tap errors
+  // today rather than working.
+  'lock',
   // The action family (change 0027): four domains, one card. They were the
   // fallback's worst case — `ButtonCard` dispatches `<domain>.toggle`, which
   // exists on none of `scene`, `button` or `input_button` — so mapping them is a
