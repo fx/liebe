@@ -407,20 +407,49 @@ export interface AlarmRouteContext {
 }
 
 /**
- * The generic aliases, which on an alarm panel are no-ops — and are still held.
+ * The services the `alarm_control_panel` platform registers, and the only
+ * same-domain names whose direction this card can know.
  *
+ * Adding a name here without also classifying it below would make it `neutral`
+ * — the fail-open direction. Classify it first.
+ */
+const ALARM_PLATFORM_SERVICES = new Set<string>([
+  DISARM_SERVICE,
+  ...ARM_SERVICES,
+  // Known, and deliberately `neutral` rather than gated — see `classifyAlarmRoute`.
+  'alarm_trigger',
+])
+
+/**
+ * The routes whose effect on this panel cannot be known, held rather than waved
+ * through.
+ *
+ * **Any same-domain service outside the set above**, first — because that is the
+ * case a custom integration creates. On stock Home Assistant the platform
+ * registers exactly `alarm_disarm`, the five `alarm_arm_*` and `alarm_trigger`,
+ * so `alarm_control_panel.turn_off` resolves to nothing; but an integration is
+ * free to register it, and if one does, nothing here can see what it does.
+ * Naming the known services and holding the rest is the only form of this rule
+ * that a service invented tomorrow cannot walk through.
+ *
+ * (This mirrors the lock card, where the same hole was closed in review. The
+ * alarm shipped with the weaker enumerate-the-aliases form and is corrected
+ * here, because the two families must not disagree about what "unknown" means.)
+ *
+ * Then the generic aliases, which on a panel are no-ops:
  * `homeassistant.turn_on`/`turn_off`/`toggle` forward to `<domain>.<same
  * service>` and do nothing when it does not exist
- * (`components/homeassistant/__init__.py`), and the alarm platform registers
- * only `alarm_disarm`, the five `alarm_arm_*` and `alarm_trigger`. So none of
- * the aliases reaches a panel on stock Home Assistant.
- *
- * They are classified `unclassifiable` rather than waved through for the same
- * two reasons as the lock's: a custom integration may register one, and there
- * is no on/off polarity for an alarm panel to make the direction knowable even
- * then. Gating a no-op costs one dialog; missing a real disarm costs the house.
+ * (`components/homeassistant/__init__.py`). They are still held, for the reason
+ * the whole gate exists — the direction would be unknowable even if the service
+ * did land, since HA defines no on/off polarity for an alarm panel. Gating a
+ * no-op costs one dialog; missing a real disarm costs the house.
  */
-function isAmbiguousAlarmAlias(serviceDomain: string, service: string): boolean {
+function isUnclassifiableAlarmRoute(
+  serviceDomain: string,
+  service: string,
+  entityDomain: string
+): boolean {
+  if (serviceDomain === entityDomain) return !ALARM_PLATFORM_SERVICES.has(service)
   return (
     serviceDomain === 'homeassistant' &&
     (service === 'turn_on' || service === 'turn_off' || service === 'toggle')
@@ -465,10 +494,11 @@ export function classifyAlarmRoute(
   if (serviceDomain === entityDomain) {
     if (service === DISARM_SERVICE) return 'disarming'
     if (ARM_SERVICES.includes(service)) return 'arming'
-    return 'neutral'
   }
 
-  return isAmbiguousAlarmAlias(serviceDomain, service) ? 'unclassifiable' : 'neutral'
+  return isUnclassifiableAlarmRoute(serviceDomain, service, entityDomain)
+    ? 'unclassifiable'
+    : 'neutral'
 }
 
 /**

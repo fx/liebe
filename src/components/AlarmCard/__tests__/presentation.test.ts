@@ -298,6 +298,23 @@ describe('classifyAlarmRoute', () => {
     expect(classify('toggle')).toBe('neutral')
   })
 
+  it('holds any same-domain service it does not know', () => {
+    /*
+     * The fail-open hole the lock card had closed in review, closed here too so
+     * the two families agree about what "unknown" means. On stock HA the
+     * platform registers only disarm, the five arm services and trigger — but a
+     * custom integration is free to register `alarm_control_panel.turn_off`, and
+     * nothing here could see what it does. Naming the known services and holding
+     * the rest is the only form of this rule that a service invented tomorrow
+     * cannot walk through.
+     */
+    for (const service of ['turn_off', 'panic', 'alarm_arm_future_mode', 'toggle']) {
+      expect(classify({ action: 'call-service', service: `alarm_control_panel.${service}` })).toBe(
+        'unclassifiable'
+      )
+    }
+  })
+
   it('holds the generic aliases rather than guessing their direction', () => {
     for (const service of [
       'homeassistant.turn_on',
