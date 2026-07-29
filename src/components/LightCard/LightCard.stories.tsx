@@ -514,6 +514,109 @@ export const ColorControlsWhileOff: Story = {
   },
 }
 
+/*
+ * `brightnessPresets` (docs/specs/entity-cards/options/light.md — "Brightness
+ * presets"). Percent values rendered as one-tap pills at `full`; the empty
+ * default hides the row.
+ */
+
+const presetGroup = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('[role="group"][aria-label="Brightness presets"]')
+
+const presetLabels = (canvasElement: HTMLElement) =>
+  [...(presetGroup(canvasElement)?.querySelectorAll('button') ?? [])].map((b) => b.textContent)
+
+/** A dimmable bulb at 50%, so one preset in the row below reads as current. */
+const dimmable = (attributes: Record<string, unknown> = {}, state = 'on') =>
+  createLightEntity({
+    state,
+    attributes: { supported_color_modes: ['brightness'], brightness: 128, ...attributes },
+  })
+
+/** Three presets, with the one matching the current 50% shown selected. */
+export const BrightnessPresetsShown: Story = {
+  args: { ...FULL, item: placedLight({ brightnessPresets: [20, 50, 100] }) },
+  parameters: { liebe: { entities: [dimmable()] } },
+  play: async ({ canvasElement }) => {
+    await expect(presetLabels(canvasElement)).toEqual(['20%', '50%', '100%'])
+
+    // 128/255 rounds to 50%, so that pill — and only that one — reads current.
+    for (const button of presetGroup(canvasElement)!.querySelectorAll('button')) {
+      await expect(button).toHaveAttribute(
+        'aria-pressed',
+        button.textContent === '50%' ? 'true' : 'false'
+      )
+    }
+  },
+}
+
+/**
+ * The row on a light that is OFF — the case the option exists for. A preset is
+ * "turn on at N%", so it stays tappable, and nothing reads as current because an
+ * off light has no level.
+ */
+export const BrightnessPresetsWhileOff: Story = {
+  args: { ...FULL, item: placedLight({ brightnessPresets: [20, 50, 100] }) },
+  parameters: { liebe: { entities: [dimmable({ brightness: 0 }, 'off')] } },
+  play: async ({ canvasElement }) => {
+    await expect(presetLabels(canvasElement)).toEqual(['20%', '50%', '100%'])
+    for (const button of presetGroup(canvasElement)!.querySelectorAll('button')) {
+      await expect(button).toHaveAttribute('aria-pressed', 'false')
+    }
+  },
+}
+
+/**
+ * Validation, seen from outside: `0` (turning off is the tap action's job),
+ * `150`, a fraction and a string are all dropped, and the row renders what is
+ * left. The stored document keeps every value its author wrote.
+ */
+export const BrightnessPresetsValidated: Story = {
+  args: {
+    ...FULL,
+    item: placedLight({ brightnessPresets: [0, 25, 150, 33.3, 'bright', 75] }),
+  },
+  parameters: { liebe: { entities: [dimmable()] } },
+  play: async ({ canvasElement }) => {
+    await expect(presetLabels(canvasElement)).toEqual(['25%', '75%'])
+  },
+}
+
+/** Nothing usable survives filtering, so the row goes rather than rendering empty. */
+export const BrightnessPresetsAllInvalid: Story = {
+  args: { ...FULL, item: placedLight({ brightnessPresets: [0, 150] }) },
+  parameters: { liebe: { entities: [dimmable()] } },
+  play: async ({ canvasElement }) => {
+    await expect(presetGroup(canvasElement)).toBeNull()
+  },
+}
+
+/** The empty default — no row at all, which is what an unconfigured card shows. */
+export const BrightnessPresetsEmpty: Story = {
+  args: { ...FULL, item: placedLight({}) },
+  parameters: { liebe: { entities: [dimmable()] } },
+  play: async ({ canvasElement }) => {
+    await expect(presetGroup(canvasElement)).toBeNull()
+  },
+}
+
+/**
+ * Inert against a light that cannot be dimmed: an `onoff` bulb cannot honour a
+ * `brightness`, so configuring presets for it conjures nothing (common
+ * contract, convention 3).
+ */
+export const BrightnessPresetsUnsupported: Story = {
+  args: { ...FULL, item: placedLight({ brightnessPresets: [20, 50] }) },
+  parameters: {
+    liebe: {
+      entities: [createLightEntity({ attributes: { supported_color_modes: ['onoff'] } })],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(presetGroup(canvasElement)).toBeNull()
+  },
+}
+
 /** Edit mode hides the controls and exposes configure/delete affordances. */
 export const EditMode: Story = {
   args: { onDelete: () => {} },

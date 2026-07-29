@@ -3,6 +3,8 @@ import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
 import {
+  BRIGHTNESS_PRESETS_KEY,
+  BRIGHTNESS_PRESET_BOUNDS,
   SHOW_BRIGHTNESS_SLIDER_KEY,
   SHOW_COLOR_CONTROL_KEY,
   SHOW_COLOR_TEMP_CONTROL_KEY,
@@ -143,6 +145,19 @@ export const cardConfigurations: Record<
         label: 'Show colour swatches',
         description:
           'Adds a row of colours, plus the last one picked here, on 3×2 and larger cards. Only for lights that support colour.',
+      },
+      // Empty by default, which hides the row: there is no set of percentages
+      // that suits every light, so the card offers none until asked.
+      [BRIGHTNESS_PRESETS_KEY]: {
+        type: 'number-array',
+        default: [],
+        label: 'Brightness presets',
+        description:
+          'One-tap brightness levels on 3×2 and larger cards. Tapping one turns the light on at that level. Leave empty for no presets.',
+        min: BRIGHTNESS_PRESET_BOUNDS.min,
+        max: BRIGHTNESS_PRESET_BOUNDS.max,
+        integer: BRIGHTNESS_PRESET_BOUNDS.integer,
+        unit: '%',
       },
     },
   },

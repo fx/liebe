@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { numberArraySchema, readNumberArray } from './configControls'
 
 /**
  * The light card's own stored options, and the migration off the shipped
@@ -23,6 +24,18 @@ export const SHOW_COLOR_TEMP_CONTROL_KEY = 'showColorTempControl'
 
 /** Whether the colour swatch row appears at `full`. */
 export const SHOW_COLOR_CONTROL_KEY = 'showColorControl'
+
+/** Percent values rendered as brightness preset pills at `full`. */
+export const BRIGHTNESS_PRESETS_KEY = 'brightnessPresets'
+
+/**
+ * The bounds a preset must satisfy to mean anything.
+ *
+ * `0` is excluded deliberately: turning the light off is the tap action's job,
+ * and a "0%" pill would be an off switch wearing a dimmer's clothes
+ * (docs/specs/entity-cards/options/light.md — "Brightness presets").
+ */
+export const BRIGHTNESS_PRESET_BOUNDS = { min: 1, max: 100, integer: true } as const
 
 /**
  * The key Liebe shipped first. Read on the way in and dropped there, so it is
@@ -121,6 +134,25 @@ export function readShowColorControl(config: Record<string, unknown> | undefined
 }
 
 /**
+ * The preset percentages this build can use, in the order they were stored.
+ *
+ * Entries outside 1–100, and entries that are not whole numbers at all, are
+ * dropped rather than rejecting the list — "out-of-range or non-numeric values
+ * MUST be ignored at render time" (option doc). One bad entry costs only itself,
+ * and the stored document keeps every value its author wrote: this resolves for
+ * display and never writes back (docs/specs/dashboard-config/index.md —
+ * "Forward Compatibility").
+ *
+ * Default empty, which hides the row. A preset row is a per-home choice — there
+ * is no set of percentages that is right for every light — so the researched
+ * common case is to offer none until asked (common contract, "Defaults are the
+ * researched common case").
+ */
+export function readBrightnessPresets(config: Record<string, unknown> | undefined): number[] {
+  return readNumberArray(config, BRIGHTNESS_PRESETS_KEY, BRIGHTNESS_PRESET_BOUNDS)
+}
+
+/**
  * The light fragment of `item.config`, merged into the item schema.
  *
  * The light keys join the validated set for the reason its siblings give: both
@@ -137,4 +169,8 @@ export const lightOptionsConfigSchema = z.object({
   [USE_LIGHT_COLOR_KEY]: z.boolean().optional(),
   [SHOW_COLOR_TEMP_CONTROL_KEY]: z.boolean().optional(),
   [SHOW_COLOR_CONTROL_KEY]: z.boolean().optional(),
+  // Strict at the gate, tolerant at render: an imported `brightnessPresets:
+  // [0, 150]` is a document whose author asked for two pills that cannot exist,
+  // and telling them beats silently rendering neither.
+  [BRIGHTNESS_PRESETS_KEY]: numberArraySchema(BRIGHTNESS_PRESET_BOUNDS).optional(),
 })

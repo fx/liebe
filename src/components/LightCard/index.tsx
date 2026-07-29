@@ -7,6 +7,7 @@ import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup, Slider } from '../anatomy'
 import { useDashboardStore, dashboardActions } from '~/store'
 import {
+  readBrightnessPresets,
   readShowBrightnessSlider,
   readShowColorControl,
   readShowColorTempControl,
@@ -208,6 +209,47 @@ function ColorSwatchRow({
   )
 }
 
+/**
+ * The brightness preset pills.
+ *
+ * Data rather than layout: a map over the filtered percentages using the
+ * existing pill anatomy, with no new primitive (change 0016 — "Design
+ * Decisions").
+ *
+ * Unlike the colour controls beside it, this row renders while the light is
+ * OFF. A preset is "turn on at N%", which is the case it is most useful in — a
+ * dimmer-first user reaching for 20% at night wants one tap, not a tap to turn
+ * on at full and a second to bring it down.
+ */
+function BrightnessPresets({
+  presets,
+  currentPercent,
+  isOn,
+  onPick,
+}: {
+  presets: number[]
+  currentPercent: number
+  isOn: boolean
+  onPick: (percent: number) => void
+}) {
+  return (
+    <PillGroup label="Brightness presets">
+      {presets.map((percent) => (
+        <Pill
+          key={percent}
+          domain="light"
+          color="light"
+          // Selected only while the light is on: a preset cannot be "current"
+          // on a light that is off, whatever brightness it will resume at.
+          active={isOn && currentPercent === percent}
+          label={`${percent}%`}
+          onClick={() => onPick(percent)}
+        />
+      ))}
+    </PillGroup>
+  )
+}
+
 function LightCardComponent({
   entityId,
   tier = 'row',
@@ -298,6 +340,23 @@ function LightCardComponent({
         service: 'turn_on',
         entityId,
         data: { rgb_color: rgb },
+      })
+    },
+    [dispatchGuarded, entityId]
+  )
+
+  const handlePresetPick = useCallback(
+    async (percent: number) => {
+      // Always `turn_on`, never a toggle: a preset states the level it wants,
+      // and on a light that is already there it is a no-op rather than an off
+      // switch (docs/specs/entity-cards/options/light.md — "Brightness
+      // presets"). The shared conversion floors at 1, so no preset can round
+      // into an off command.
+      await dispatchGuarded({
+        domain: 'light',
+        service: 'turn_on',
+        entityId,
+        data: { brightness: percentToHaBrightness(percent) },
       })
     },
     [dispatchGuarded, entityId]
@@ -472,6 +531,18 @@ function LightCardComponent({
     colorTempRange !== undefined
   const showColor = isFull && !isEditMode && isOn && supportsColor && readShowColorControl(config)
 
+  /*
+   * The presets, unlike the two controls above, do NOT require the light to be
+   * on: "tapping a preset pill MUST call `light.turn_on` with the converted
+   * brightness, even when the light is `off` (presets act as 'turn on at N%')".
+   *
+   * They do require brightness support — a preset on an `onoff` light would
+   * dispatch a `brightness` the entity cannot honour — and a list with nothing
+   * usable left in it hides the row rather than rendering an empty group.
+   */
+  const brightnessPresets = readBrightnessPresets(config)
+  const showPresets = isFull && !isEditMode && supportsBrightness && brightnessPresets.length > 0
+
   const icon = (
     <GridCard.Icon>
       <SunIcon width={20} height={20} />
@@ -506,7 +577,7 @@ function LightCardComponent({
   const displayKelvin = isDraggingKelvin && localKelvin !== null ? localKelvin : currentKelvin
 
   const extras =
-    showColorTemp || showColor ? (
+    showColorTemp || showColor || showPresets ? (
       <>
         {showColorTemp && colorTempRange ? (
           <ColorTempSlider
@@ -523,6 +594,14 @@ function LightCardComponent({
             recent={recentColor}
             isOn={isOn}
             onPick={handleColorPick}
+          />
+        ) : null}
+        {showPresets ? (
+          <BrightnessPresets
+            presets={brightnessPresets}
+            currentPercent={displayBrightness}
+            isOn={isOn}
+            onPick={handlePresetPick}
           />
         ) : null}
       </>
