@@ -2,9 +2,9 @@
 
 ## Summary
 
-Create the new `VacuumCard` per the [vacuum option doc](../specs/entity-cards/options/vacuum.md): a state-machine primary action (docked/idle → start, cleaning → pause, paused → resume, returning/error → more-info), domain options `showCommands`, `showBattery` (amber under 20%, sourced from a battery sensor), `showFanSpeed`, `showLocate`, and `showStats`, feature-gated on the entity's `supported_features` bits where the current `VacuumEntityFeature` set provides one, an alert-colored error state that surfaces the standardized `status` attribute's message (falling back to `error`, then `Error`), and the teal vacuum domain token. Registers the `vacuum` domain in `domainToCard`, the shared `CardProps` contract, and `SUPPORTED_DOMAINS` per the [entity-cards registry](../specs/entity-cards/index.md#card-dispatch-and-registry).
+Create the new `VacuumCard` per the [vacuum option doc](../specs/entity-cards/options/vacuum.md): a state-machine primary action (docked/idle → start, cleaning → pause, paused → resume, returning/error → more-info), domain options `showCommands`, `showBattery` (amber under 20%, sourced from a battery sensor), `showFanSpeed`, `showLocate`, and `showStats`, feature-gated on the entity's `supported_features` bits where the current `VacuumEntityFeature` set provides one, an alert-colored error state that surfaces the entity's `error` attribute (falling back to `Error`) — **not** `status`, which is deprecated upstream and unsupported by `StateVacuumEntity`, as the [option doc](../specs/entity-cards/options/vacuum.md) requires, and the teal vacuum domain token. Registers the `vacuum` domain in `domainToCard`, the shared `CardProps` contract, and `SUPPORTED_DOMAINS` per the [entity-cards registry](../specs/entity-cards/index.md#card-dispatch-and-registry).
 
-**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/vacuum](../specs/entity-cards/options/vacuum.md) · **Status:** draft · **Depends on:** 0011, 0014
+**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/vacuum](../specs/entity-cards/options/vacuum.md) · **Status:** complete · **Depends on:** 0011, 0014
 
 ## Motivation
 
@@ -44,11 +44,11 @@ The [vacuum option doc](../specs/entity-cards/options/vacuum.md) owns the option
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
 - [x] **PR 1 — VacuumCard core**: card component, registry entry (`domainToCard`, `SUPPORTED_DOMAINS`), primary-action state machine with feature-gated fallthroughs, command cluster + battery segment, tier layouts, error state; the legacy-pinning loader migration (`tapAction: 'toggle'` onto pre-existing vacuum items) with legacy/new-item tests; exhaustive per-state unit tests + state × tier stories
-- [ ] **PR 2 — Options + spec registration**: `showFanSpeed`/`showLocate`/`showStats` controls, `ConfigDefinition` for all five options with YAML round-trip test, option stories; add the vacuum card to the [entity-cards spec](../specs/entity-cards/index.md) (requirements section, registry listing, changelog entry)
+- [x] **PR 2 — Options + spec registration**: `showFanSpeed`/`showLocate`/`showStats` controls, `ConfigDefinition` for all five options with YAML round-trip test, option stories; add the vacuum card to the [entity-cards spec](../specs/entity-cards/index.md) (requirements section, registry listing, changelog entry)
 
 ## Out of Scope
 
 - **Room/zone map targeting** — interactive maps and per-room/zone commands are explicitly future work (option doc open question); attribute shapes are integration-specific and unstandardized.
-- **Companion battery sensor binding** — `showBattery` reads the entity's own battery capability only; binding a separate battery sensor entity is an open question deferred past this change.
+- ~~**Companion battery sensor binding**~~ — resolved in favour of the option doc during PR 2. The card derives the battery sensor from the vacuum's own device and `batteryEntity` overrides that derivation; both ship. Nothing is fetched, because the entity registry and states are already live on `hass` (`utils/deviceSiblings`).
 - **Dedicated stop button** — `STOP` serves only as the `cleaning`-tap fallback; a third cluster button is deferred pending touch testing.
 - Other new card families (media player, security, person, scene), history data in the detail dialog (0015).

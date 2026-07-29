@@ -253,3 +253,81 @@ export const CommandsHidden: Story = {
     await expect(cluster(canvasElement)).toEqual([])
   },
 }
+
+/* ------------------------------------------------------------------ *
+ * The `full`-tier option surface (change 0025 PR 2)
+ * ------------------------------------------------------------------ */
+
+/** The fan-speed select: the vacuum's own speeds, never a fixed list. */
+export const FanSpeed: Story = {
+  play: async ({ canvasElement }) => {
+    const select = canvasElement.querySelector('[aria-label="Fan speed"]')
+    await expect(select).not.toBeNull()
+    await expect(select).not.toBeDisabled()
+  },
+}
+
+/** Hidden when the vacuum advertises no `FAN_SPEED`, whatever the option says. */
+export const FanSpeedUnsupported: Story = {
+  parameters: {
+    liebe: {
+      // PAUSE | STOP | RETURN_HOME | START — no FAN_SPEED
+      entities: [createVacuumEntity({ attributes: { supported_features: 4 | 8 | 16 | 8192 } })],
+      itemConfig: { showFanSpeed: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[aria-label="Fan speed"]')).toBeNull()
+  },
+}
+
+/** Off by default — locating is occasional, not routine. */
+export const LocateButton: Story = {
+  parameters: {
+    liebe: { entities: [createVacuumEntity()], itemConfig: { showLocate: true } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('button', { name: 'Locate' })).toBeInTheDocument()
+  },
+}
+
+/** Cleaning stats, also off by default: not every integration reports them. */
+export const Stats: Story = {
+  parameters: {
+    liebe: { entities: [createVacuumEntity()], itemConfig: { showStats: true } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-vacuum-stats')?.textContent).toBe(
+      '35 m² · 42m'
+    )
+  },
+}
+
+/** No line at all when the entity reports neither reading — never an empty row. */
+export const StatsUnreported: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createVacuumEntity({ attributes: { cleaned_area: undefined, cleaning_time: undefined } }),
+      ],
+      itemConfig: { showStats: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-vacuum-stats')).toBeNull()
+  },
+}
+
+/** Every command control dead in `error`, the select included. */
+export const ErrorDisablesEverything: Story = {
+  parameters: {
+    liebe: {
+      entities: [createVacuumEntity({ state: 'error', attributes: { error: 'Main brush stuck' } })],
+      itemConfig: { showLocate: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[aria-label="Fan speed"]')).toBeDisabled()
+    await expect(within(canvasElement).getByRole('button', { name: 'Locate' })).toBeDisabled()
+  },
+}

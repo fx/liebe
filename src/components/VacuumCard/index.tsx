@@ -1,7 +1,9 @@
 import { Flex } from '@radix-ui/themes'
+import { Select } from '@radix-ui/themes'
 import {
   IconAlertTriangle,
   IconHome,
+  IconMapPin,
   IconPlayerPause,
   IconPlayerPlay,
   IconPlayerStop,
@@ -9,6 +11,8 @@ import {
 } from '@tabler/icons-react'
 import { memo, useCallback, useMemo } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { findBatterySibling } from '~/utils/deviceSiblings'
 import { useDashboardStore } from '~/store'
 import { readVacuumOptions } from '~/store/vacuumOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
@@ -18,9 +22,11 @@ import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup } from '../anatomy'
 import { useCardItem } from '../cardItemContext'
-import { readVacuumFeatures, type VacuumAttributes } from './features'
+import { readFanSpeedList, readVacuumFeatures, type VacuumAttributes } from './features'
 import {
+  areCommandsBlocked,
   hasRunControl,
+  hasVacuumStats,
   isDockDisabled,
   isVacuumActive,
   resolveVacuumBattery,
@@ -28,6 +34,7 @@ import {
   resolveVacuumCommandButton,
   resolveVacuumPrimaryAction,
   resolveVacuumStateText,
+  resolveVacuumStats,
   VACUUM_COMMAND_SERVICE,
 } from './presentation'
 import './VacuumCard.css'
@@ -75,6 +82,7 @@ function VacuumCardComponent({
    * so both go through one dispatcher and share one guard.
    */
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const hass = useHomeAssistantOptional()
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
@@ -117,6 +125,19 @@ function VacuumCardComponent({
   const runCommand = commandButton.command
 
   const handleDock = useCallback(() => dispatch('return_to_base'), [dispatch])
+  const handleLocate = useCallback(() => dispatch('locate'), [dispatch])
+  const handleFanSpeed = useCallback(
+    (fanSpeed: string) => {
+      if (error) clearError()
+      void dispatchGuarded({
+        domain: 'vacuum',
+        service: 'set_fan_speed',
+        entityId,
+        data: { fan_speed: fanSpeed },
+      })
+    },
+    [clearError, dispatchGuarded, entityId, error]
+  )
 
   if (isEntityLoading || (!entity && isConnected)) {
     return <SkeletonCard tier={tier} showIcon={true} lines={2} showButton={true} />
@@ -164,23 +185,33 @@ function VacuumCardComponent({
   const stateColor = resolveVacuumColor(state)
 
   /*
-   * The battery source, and the one place this card knowingly falls short of its
-   * option doc.
+   * The battery source, in the option doc's order with one correction.
    *
-   * The doc requires the percentage to come from a battery **sensor** — the one
-   * on the vacuum's device, or an explicitly configured `batteryEntity` — with
-   * `battery_level` as a legacy fallback only. Neither source is reachable yet:
-   * the panel's `hass` surface exposes `states` and `callWS` but no device or
-   * entity registry (nothing in `src/` fetches either), so there is no way to
-   * find *which* sensor belongs to this vacuum, and the configured
-   * `batteryEntity` key is deferred by this change's Out of Scope. So the second
-   * argument is where the sensor will arrive and nothing is passed to it today.
+   * The doc's chain is a configured sensor, the one derived from the vacuum's
+   * device, then the deprecated `battery_level` attribute — and the configured
+   * one has to come **first**, or it is not an override. `findBatterySibling`
+   * returns *a* battery when a device exposes several (a vacuum with a separate
+   * mop-pad cell), and correcting that pick is exactly what `batteryEntity` is
+   * for; a setting that lost to the value it exists to replace could never do
+   * its job.
    *
-   * `resolveVacuumBattery` is sensor-first regardless, and its tests exercise
-   * that path directly — the seam is real and pinned, not a comment promising
-   * one (docs/changes/0025; see the report on this PR).
+   * Nothing here fetches. `hass.entities` and `hass.states` are live maps the
+   * frontend already keeps current, so the derivation is a synchronous lookup
+   * with no cache to invalidate. A vacuum whose registry entry carries no
+   * `device_id` — common, and not an error — simply derives nothing and falls
+   * through to the attribute.
    */
-  const battery = options.showBattery ? resolveVacuumBattery(attributes) : undefined
+  const batterySensorId =
+    options.batteryEntity ||
+    (hass
+      ? findBatterySibling(entityId, { entities: hass.entities, states: hass.states })
+      : undefined)
+  const battery = options.showBattery
+    ? resolveVacuumBattery(
+        attributes,
+        batterySensorId ? hass?.states[batterySensorId]?.state : undefined
+      )
+    : undefined
 
   /*
    * What each tier carries (option doc — "Tier layouts"), omission never
@@ -267,8 +298,77 @@ function VacuumCardComponent({
     </GridCard.Controls>
   )
 
+  /*
+   * The `full`-tier extras, in the order the option doc lists them: fan-speed
+   * select, locate button, stats line. Each is present only when the entity
+   * advertises the capability *and* the option is on — an option can hide a
+   * capability, never add one (common contract, convention 3) — and each is
+   * disabled, not hidden, where the state forbids commanding.
+   */
+  const fanSpeeds = readFanSpeedList(attributes)
+  const showFanSpeed = options.showFanSpeed && features.fanSpeed && fanSpeeds.length > 0
+  const showLocate = options.showLocate && features.locate
+  const stats = resolveVacuumStats(attributes)
+  const showStats = options.showStats && hasVacuumStats(stats)
+  const commandsBlocked = areCommandsBlocked(state)
+
+  const extras =
+    tier === 'full' && !isEditMode && (showFanSpeed || showLocate || showStats) ? (
+      <Flex direction="column" gap="2" width="100%" className="liebe-vacuum-extras">
+        {showFanSpeed && (
+          <Select.Root
+            value={typeof attributes?.fan_speed === 'string' ? attributes.fan_speed : undefined}
+            onValueChange={handleFanSpeed}
+            disabled={isLoading || commandsBlocked}
+          >
+            {/* A select rather than pills: `fan_speed_list` length varies widely
+                across integrations and must not overflow the tier. */}
+            <Select.Trigger aria-label="Fan speed" placeholder="Fan speed" />
+            <Select.Content>
+              {fanSpeeds.map((speed) => (
+                /*
+                 * The published string is both the value and the label. It is
+                 * dispatched verbatim because Home Assistant matches it against
+                 * the entity's own list — see `readFanSpeedList`. Only the
+                 * label is trimmed, and only for display.
+                 */
+                <Select.Item key={speed} value={speed}>
+                  {speed.trim()}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        )}
+        {showLocate && (
+          <PillGroup label="Locate">
+            <Pill
+              domain="vacuum"
+              color={stateColor}
+              label="Locate"
+              icon={<IconMapPin size={18} />}
+              onClick={handleLocate}
+              disabled={isLoading || commandsBlocked}
+            />
+          </PillGroup>
+        )}
+        {showStats && (
+          <div className="liebe-vacuum-stats">
+            {[stats.area, stats.duration].filter(Boolean).join(' · ')}
+          </div>
+        )}
+      </Flex>
+    ) : undefined
+
   const inRowControl = showCommands && tier === 'row' ? commands : undefined
-  const inFullExtra = showCommands && tier === 'full' ? commands : undefined
+  const fullExtra =
+    showCommands && tier === 'full' ? (
+      <Flex direction="column" gap="2" width="100%">
+        {commands}
+        {extras}
+      </Flex>
+    ) : (
+      extras
+    )
 
   /*
    * A tap resolves to this card's own handler only when the state machine
@@ -311,7 +411,7 @@ function VacuumCardComponent({
         }
         meta={meta}
         control={inRowControl}
-        extra={inFullExtra}
+        extra={tier === 'full' ? fullExtra : undefined}
       />
     </GridCard>
   )

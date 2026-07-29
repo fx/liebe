@@ -221,7 +221,7 @@ changes:
     path: changes/0025-vacuum-card.md
     description: New vacuum card — state-machine primary action, commands/battery/fan-speed/locate/stats options, alert-colored error state
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0026'
     name: person-card

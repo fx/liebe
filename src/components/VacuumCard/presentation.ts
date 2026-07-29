@@ -299,6 +299,58 @@ export function resolveVacuumBattery(
   return { percent, low: percent < LOW_BATTERY_PERCENT }
 }
 
+/** The stats the option doc puts on the `full` tier, already formatted. */
+export interface VacuumStats {
+  /** Area cleaned, with its unit — absent when the entity reports none. */
+  area?: string
+  /** Cleaning time as a duration — absent when the entity reports none. */
+  duration?: string
+}
+
+/** A finite number from whatever an integration published, or nothing. */
+function numeric(value: unknown): number | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+/**
+ * `cleaned_area` and `cleaning_time`, formatted for the stats line.
+ *
+ * Each is independent: an integration reporting one and not the other renders
+ * the one it has, and an entity reporting neither renders no line at all — the
+ * option doc requires the absence rather than an empty row.
+ *
+ * `cleaning_time` is minutes, which is what the integrations publishing it use,
+ * and is rendered as `1h 24m` past the hour so a long run does not read as a
+ * three-digit number the viewer has to divide. Area carries m² because that is
+ * what every integration reporting it uses; no unit attribute is standardised
+ * for it, so none is consulted.
+ */
+export function resolveVacuumStats(attributes: VacuumAttributes | undefined): VacuumStats {
+  const stats: VacuumStats = {}
+
+  const area = numeric(attributes?.cleaned_area)
+  // A negative area is a broken integration, not a small one.
+  if (area !== undefined && area >= 0) stats.area = `${Math.round(area)} m²`
+
+  const minutes = numeric(attributes?.cleaning_time)
+  if (minutes !== undefined && minutes >= 0) {
+    const whole = Math.round(minutes)
+    const hours = Math.floor(whole / 60)
+    stats.duration = hours > 0 ? `${hours}h ${whole % 60}m` : `${whole}m`
+  }
+
+  return stats
+}
+
+/** Whether the stats line has anything to say. */
+export function hasVacuumStats(stats: VacuumStats): boolean {
+  return stats.area !== undefined || stats.duration !== undefined
+}
+
 /**
  * The colour triplet the card resolves to.
  *

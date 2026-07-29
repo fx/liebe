@@ -3,6 +3,7 @@ import { readVacuumFeatures, VACUUM_ACTIVITY } from '../features'
 import {
   areCommandsBlocked,
   hasRunControl,
+  hasVacuumStats,
   isDockDisabled,
   isVacuumActive,
   LOW_BATTERY_PERCENT,
@@ -11,6 +12,7 @@ import {
   resolveVacuumCommandButton,
   resolveVacuumPrimaryAction,
   resolveVacuumStateText,
+  resolveVacuumStats,
   VACUUM_COMMAND_SERVICE,
 } from '../presentation'
 
@@ -431,4 +433,68 @@ describe('isVacuumActive', () => {
       expect(isVacuumActive(state)).toBe(false)
     }
   )
+})
+
+describe('resolveVacuumStats', () => {
+  it('formats both readings when the entity reports them', () => {
+    expect(resolveVacuumStats({ cleaned_area: 34.5, cleaning_time: 42 })).toEqual({
+      area: '35 m²',
+      duration: '42m',
+    })
+  })
+
+  /** Past the hour, so a long run does not read as a number to divide. */
+  it('renders a long run in hours and minutes', () => {
+    expect(resolveVacuumStats({ cleaning_time: 84 }).duration).toBe('1h 24m')
+  })
+
+  it('renders a whole hour without a stray minute count of its own', () => {
+    expect(resolveVacuumStats({ cleaning_time: 120 }).duration).toBe('2h 0m')
+  })
+
+  /** Each reading is independent: an integration may publish either alone. */
+  it('reports area alone', () => {
+    expect(resolveVacuumStats({ cleaned_area: 12 })).toEqual({ area: '12 m²' })
+  })
+
+  it('reports duration alone', () => {
+    expect(resolveVacuumStats({ cleaning_time: 5 })).toEqual({ duration: '5m' })
+  })
+
+  /** Numeric strings, because template-backed entities publish what they rendered. */
+  it('reads numeric strings', () => {
+    expect(resolveVacuumStats({ cleaned_area: '20', cleaning_time: '30' })).toEqual({
+      area: '20 m²',
+      duration: '30m',
+    })
+  })
+
+  it.each([
+    ['absent', undefined],
+    ['null', null],
+    ['empty', ''],
+    ['not a number', 'lots'],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['negative', -1],
+    ['an object', {}],
+    ['a boolean', true],
+  ])('reports nothing when both readings are %s', (_label, raw) => {
+    expect(resolveVacuumStats({ cleaned_area: raw, cleaning_time: raw })).toEqual({})
+  })
+
+  it('reports nothing for an entity with no attributes at all', () => {
+    expect(resolveVacuumStats(undefined)).toEqual({})
+  })
+})
+
+describe('hasVacuumStats', () => {
+  it.each([
+    ['both', { area: '1 m²', duration: '1m' }, true],
+    ['area alone', { area: '1 m²' }, true],
+    ['duration alone', { duration: '1m' }, true],
+    ['neither', {}, false],
+  ])('is %s → %s', (_label, stats, expected) => {
+    expect(hasVacuumStats(stats)).toBe(expected)
+  })
 })
