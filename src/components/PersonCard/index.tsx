@@ -2,6 +2,7 @@ import { Text } from '@radix-ui/themes'
 import { memo, useCallback, useMemo, useState } from 'react'
 import { useEntity } from '~/hooks'
 import { readCardDisplay } from '~/store/cardDisplay'
+import { getIcon } from '~/utils/iconList'
 import { readPersonOptions } from '~/store/personOptions'
 import type { GridItem } from '~/store/types'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
@@ -166,7 +167,7 @@ function PersonCardComponent({
       initials={resolvePersonInitials(entityId, entity.attributes.friendly_name)}
       hue={resolveAvatarHue(entityId)}
       presence={presence}
-      hasIconOverride={!!display.icon}
+      hasIconOverride={!!display.icon && !!getIcon(display.icon)}
       onPictureError={() => setFailedPicture(picture)}
     />
   )

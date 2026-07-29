@@ -54,6 +54,15 @@ describe('zoneEntityIdForState', () => {
     expect(zoneEntityIdForState("Nan's House")).toBe('zone.nan_s_house')
   })
 
+  it('folds accents the way Home Assistant does', () => {
+    // HA's slugify transliterates rather than dropping non-ASCII, so a zone
+    // called "Café" is `zone.cafe`. Stripping the accented letter instead would
+    // miss the real entity by one character and silently fall back to the
+    // title-cased state.
+    expect(zoneEntityIdForState('Café')).toBe('zone.cafe')
+    expect(zoneEntityIdForState('Björns Rum')).toBe('zone.bjorns_rum')
+  })
+
   it('asks for nothing when the state is not a zone', () => {
     // `''` is what makes the lookup safe to run unconditionally: the hook reads
     // an absent key and never subscribes, so hook order does not depend on
@@ -69,6 +78,10 @@ describe('zoneEntityIdForState', () => {
     // names no entity and would subscribe to a key that can never arrive.
     expect(zoneEntityIdForState('!!!')).toBe('')
     expect(zoneEntityIdForState('   ')).toBe('')
+    // The limit of the accent folding above, stated rather than left implicit:
+    // a fully non-Latin name is not transliterated, so no lookup is attempted.
+    // The label still reads correctly — it falls back to the state itself.
+    expect(zoneEntityIdForState('Москва')).toBe('')
   })
 
   it('keeps a zone named after a prototype property out of the prototype', () => {
@@ -114,6 +127,13 @@ describe('resolveZoneLabel', () => {
     // look like a bug in the card rather than a zone nobody renamed.
     expect(resolveZoneLabel('work_office', undefined)).toBe('Work Office')
     expect(resolveZoneLabel('constructor', undefined)).toBe('Constructor')
+  })
+
+  it('title-cases a zone name by code point, not by UTF-16 unit', () => {
+    // The hazard `resolvePersonInitials` documents, which `titleCase` had
+    // reintroduced: `charAt(0)` on a name starting outside the BMP returns half
+    // a surrogate pair and renders as a replacement glyph.
+    expect(resolveZoneLabel('𝒲ork 𝒮hed', undefined)).toBe('𝒲ork 𝒮hed')
   })
 
   it('falls back when the zone entity has no usable name', () => {

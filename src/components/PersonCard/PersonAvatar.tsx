@@ -91,7 +91,9 @@ export function PersonAvatar({
      * The glyph floor — and the branch that applies a configured `icon`, since
      * `GridCard.Icon` substitutes the override for whatever it is given.
      */
-    <GridCard.Icon>{createElement(User, { size: 20 })}</GridCard.Icon>
+    <GridCard.Icon className="person-avatar-glyph">
+      {createElement(User, { size: 20 })}
+    </GridCard.Icon>
   )
 
   return (

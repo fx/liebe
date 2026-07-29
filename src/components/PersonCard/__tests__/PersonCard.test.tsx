@@ -204,10 +204,29 @@ describe('PersonCard', () => {
     it('lets a configured icon replace the initials, keeping the badge', () => {
       // The universal option means the same thing here as on every other card —
       // this entity's glyph — and the badge is not the card's glyph.
-      renderCard('home', { config: { icon: 'home' } })
+      //
+      // `Home` is the name as the icon list spells it. An earlier version of
+      // this test passed `'home'`, which resolves to nothing: the initials
+      // vanished and a generic silhouette rendered, so the test was green while
+      // showing none of what it claimed.
+      renderCard('home', { config: { icon: 'Home' } })
 
       expect(screen.queryByTestId('person-initials')).not.toBeInTheDocument()
+      expect(document.querySelector('.person-avatar-glyph svg')).toBeInTheDocument()
       expect(badge()).toHaveAttribute('data-presence', 'home')
+    })
+
+    it('keeps the initials when a configured icon names nothing this build has', () => {
+      /*
+       * Forward compatibility: a config written by a build with a larger icon
+       * set must render, not degrade. The shell leaves a card's own glyph in
+       * place for an unresolvable name, and on this card the initials ARE that
+       * glyph — so trading them for a silhouette would lose the person's
+       * identity on exactly the configs the rule exists to protect.
+       */
+      renderCard('home', { config: { icon: 'IconFromANewerLiebe' } })
+
+      expect(screen.getByTestId('person-initials')).toHaveTextContent('JD')
     })
 
     it('keeps the photo ahead of a configured icon', () => {
@@ -383,6 +402,9 @@ describe('PersonCard', () => {
       // The only recovery this card can offer: it dispatches nothing, so there
       // is no retry to make other than getting the panel back.
       const reload = vi.fn()
+      // Restored below: the stub is missing everything the real `location` has,
+      // and leaving it in place would hand the rest of the file a crippled one.
+      const originalLocation = Object.getOwnPropertyDescriptor(window, 'location')
       Object.defineProperty(window, 'location', {
         configurable: true,
         value: { ...window.location, reload },
@@ -398,6 +420,8 @@ describe('PersonCard', () => {
       fireEvent.click(screen.getByRole('button', { name: /retry/i }))
 
       expect(reload).toHaveBeenCalled()
+
+      if (originalLocation) Object.defineProperty(window, 'location', originalLocation)
     })
   })
 })

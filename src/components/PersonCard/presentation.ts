@@ -83,6 +83,15 @@ export function zoneEntityIdForState(state: string): string {
   if (resolvePersonPresence(state) !== 'zone') return ''
 
   const slug = state
+    // Decompose and drop combining marks before folding, so "Café" reaches
+    // `zone.cafe` rather than `zone.caf` — Home Assistant's slugify transliterates,
+    // and a card that only stripped non-ASCII would miss the real entity by one
+    // letter. This closes the accented-Latin gap, not the transliteration one: a
+    // fully non-Latin name ("Москва") still slugifies to nothing here, which
+    // returns `''` and leaves the label on its title-cased fallback — the name
+    // still displays correctly, only the friendly-name lookup is skipped.
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
@@ -100,11 +109,23 @@ export function zoneEntityIdForState(state: string): string {
  * zone nobody renamed.
  */
 function titleCase(raw: string): string {
-  return raw
-    .split(/[\s_]+/)
-    .filter(Boolean)
-    .map((word) => `${word.charAt(0).toLocaleUpperCase()}${word.slice(1)}`)
-    .join(' ')
+  return (
+    raw
+      .split(/[\s_]+/)
+      .filter(Boolean)
+      /*
+       * By code point, not by UTF-16 unit — the same rule `resolvePersonInitials`
+       * below spells out. A zone name is user text and may begin outside the BMP,
+       * and `charAt(0)` on one of those returns half a surrogate pair, which
+       * renders as a replacement glyph. Two functions in one file disagreeing
+       * about this is how the rule stops being a rule.
+       */
+      .map((word) => {
+        const [first, ...rest] = Array.from(word)
+        return `${first.toLocaleUpperCase()}${rest.join('')}`
+      })
+      .join(' ')
+  )
 }
 
 /**
