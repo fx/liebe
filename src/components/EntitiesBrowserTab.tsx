@@ -50,6 +50,7 @@ const getFriendlyDomain = (domain: string): string => {
     lock: 'Locks',
     alarm_control_panel: 'Alarm Panels',
     media_player: 'Media Players',
+    vacuum: 'Vacuums',
     scene: 'Scenes',
     script: 'Scripts',
     automation: 'Automations',
@@ -97,6 +98,8 @@ const SUPPORTED_DOMAINS = [
   // Change 0023.
   'media_player',
   'alarm_control_panel',
+  // Change 0025.
+  'vacuum',
   // The action family (change 0027).
   'scene',
   'script',

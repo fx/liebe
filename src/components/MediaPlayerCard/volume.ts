@@ -1,0 +1,240 @@
+import type { MediaVolumeStyle } from '~/store/mediaPlayerOptions'
+import type { MediaPlayerAttributes, MediaPlayerFeatures } from './features'
+
+/**
+ * The volume control: which form it takes, and how an optimistic drag settles
+ * back onto the truth.
+ *
+ * Both halves are pure and live here rather than in the card, because both are
+ * rules with more cases than a reader can hold: the presentation is a
+ * four-rung degradation ladder over three independent feature bits, and the
+ * reconciliation is a small state machine whose whole purpose is to be correct
+ * in the cases nobody exercises by hand.
+ */
+
+/**
+ * What the card actually renders, after feature gating.
+ *
+ * Distinct from the stored `showVolume` option: the option says what the user
+ * asked for, this says what the entity can do about it. An option can only ever
+ * hide a capability, never add one (common contract, convention 3), so every
+ * transition below is a *downgrade*.
+ */
+export type VolumePresentation = 'slider' | 'buttons' | 'mute-only' | 'none'
+
+/**
+ * The degradation ladder from the option doc's `showVolume` section.
+ *
+ *   `none`                            → nothing, whatever the entity supports
+ *   no VOLUME_SET/STEP/MUTE           → nothing, whatever the option says
+ *   `slider` + VOLUME_SET             → the slider
+ *   `slider` + only VOLUME_STEP       → **buttons**, automatically; the stored
+ *                                        option stays `slider`, the entity
+ *                                        simply cannot do better
+ *   `slider` + only VOLUME_MUTE       → mute alone; no slider, no steppers
+ *   `buttons` + VOLUME_STEP or _SET   → buttons
+ *   `buttons` + only VOLUME_MUTE      → mute alone
+ *
+ * The `buttons`-with-only-`VOLUME_SET` rung is the one worth naming: the option
+ * doc allows steppers to be built from "stepped `volume_set`", so a player that
+ * can be set but not stepped still gets steppers rather than being pushed down
+ * to mute-only.
+ */
+export function resolveVolumePresentation(
+  option: MediaVolumeStyle,
+  features: MediaPlayerFeatures
+): VolumePresentation {
+  if (option === 'none') return 'none'
+
+  const { volumeSet, volumeStep, volumeMute } = features
+  if (!volumeSet && !volumeStep && !volumeMute) return 'none'
+
+  if (option === 'slider') {
+    if (volumeSet) return 'slider'
+    if (volumeStep) return 'buttons'
+    return 'mute-only'
+  }
+
+  return volumeStep || volumeSet ? 'buttons' : 'mute-only'
+}
+
+/**
+ * How far a stepper moves a player that has no `volume_up`/`volume_down`.
+ *
+ * 0.1 because that is the increment Home Assistant's own `volume_up` applies,
+ * so a card falling back to stepped `volume_set` moves the volume by the same
+ * amount the real service would have.
+ */
+export const VOLUME_STEP_FRACTION = 0.1
+
+/** `volume_level` as a 0–1 fraction, or `undefined` when the entity has none. */
+export function readVolumeLevel(attributes: MediaPlayerAttributes | undefined): number | undefined {
+  const raw = attributes?.volume_level
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined
+  return Math.min(1, Math.max(0, raw))
+}
+
+/** Whether the player reports itself muted. Only a real `true` counts. */
+export function isVolumeMuted(attributes: MediaPlayerAttributes | undefined): boolean {
+  return attributes?.is_volume_muted === true
+}
+
+/**
+ * An optimistic volume — a value the card is showing that the entity has not
+ * confirmed.
+ *
+ * One value with a phase, rather than a separate "dragging" and "pending" pair,
+ * and the reason is a measured Radix behaviour: for keyboard adjustment the
+ * slider fires `onValueCommit` **before** `onValueChange`, so a design where
+ * commit clears a drag latch has that latch immediately re-set by the trailing
+ * change and never reconciles again. One value cannot be half-cleared by an
+ * ordering.
+ */
+export interface OptimisticVolume {
+  /** The value being displayed. */
+  value: number
+  /** The entity's `volume_level` when this began; movement off it is the truth arriving. */
+  baseline: number | undefined
+  /**
+   * Whether it has been dispatched. An uncommitted value is a finger on the
+   * thumb — nothing has been sent, so there is nothing to reconcile against and
+   * no timeout to run.
+   */
+  committed: boolean
+}
+
+/**
+ * Whether an optimistic volume still stands, given what the entity now reports.
+ *
+ * **An uncommitted value always stands.** It is a drag in progress: no command
+ * has gone out, so an incoming state update — from another client, or an
+ * unrelated attribute change — must not move the thumb out from under the
+ * user's finger. That is the "snaps back mid-drag" failure.
+ *
+ * **A committed value stands until the entity's `volume_level` differs from the
+ * baseline it had when the command went out** — whatever it changed *to*.
+ * Accepting any movement, rather than only movement to `value`, is what makes
+ * this correct for the case that actually bites: a receiver with a volume cap
+ * answers a request for 1.0 with 0.8. Waiting for an exact match would leave the
+ * card insisting on 1.0 forever, which is the "never reconciles" failure.
+ *
+ * Two cases this cannot settle on its own, both handled by the card:
+ *   - the dispatch **fails** — dropped immediately, since nothing is coming;
+ *   - the entity **never moves** (a no-op command, or a device that answers
+ *     nothing) — dropped on the acknowledgement timeout, which runs only for a
+ *     committed value so a slow drag is never interrupted by it.
+ */
+export function optimisticVolumeStillStands(
+  optimistic: OptimisticVolume,
+  entityVolume: number | undefined
+): boolean {
+  if (!optimistic.committed) return true
+  return entityVolume === optimistic.baseline
+}
+
+/**
+ * What an `onValueChange` should leave outstanding.
+ *
+ * A pointer drag reports every value it passes through, and each one starts (or
+ * continues) an **uncommitted** drag. The subtlety is the trailing echo: Radix
+ * fires `onValueCommit` before `onValueChange` for keyboard adjustment, so the
+ * change arriving immediately after a commit carries the value that was just
+ * dispatched. Restarting an uncommitted drag from it would strip the committed
+ * flag off a value already in flight, and the card would never reconcile that
+ * value again.
+ *
+ * So an unchanged value is left exactly as it is, and any other value begins a
+ * fresh drag. Pure, and separate from the component, because it is the one place
+ * that ordering is reasoned about.
+ */
+export function nextOptimisticFromDrag(
+  current: OptimisticVolume | null,
+  value: number,
+  entityVolume: number | undefined
+): OptimisticVolume {
+  if (current && current.value === value) return current
+  return { value, baseline: entityVolume, committed: false }
+}
+
+/**
+ * The volume to draw: the optimistic value while one stands, the entity
+ * otherwise.
+ */
+export function resolveDisplayVolume(
+  entityVolume: number | undefined,
+  optimistic: OptimisticVolume | null
+): number {
+  if (optimistic) return optimistic.value
+  return entityVolume ?? 0
+}
+
+/** A 0–1 fraction as the 0–100 the slider and its readout work in. */
+export function volumeToPercent(fraction: number): number {
+  return Math.round(Math.min(1, Math.max(0, fraction)) * 100)
+}
+
+/**
+ * A 0–100 slider value back to the 0–1 `volume_set` takes.
+ *
+ * A plain division, deliberately: the slider's step is 1, so every value that
+ * reaches here is a whole percent, and dividing one by 100 is exact in IEEE 754
+ * for all 101 of them. An earlier version rounded on the way out to avoid a
+ * float artefact — but there is none to avoid on this path, and a mutation
+ * removing the rounding changed no reachable value, which is how the redundancy
+ * was found. The artefact is real one function down, where a *sum* is involved;
+ * see `steppedVolume`.
+ */
+export function percentToVolume(percent: number): number {
+  return Math.min(100, Math.max(0, percent)) / 100
+}
+
+/**
+ * The volume a stepper should ask for, when it has to build the step out of
+ * `volume_set` because the entity has no `volume_up`/`volume_down`.
+ *
+ * Clamped into 0–1 so the ends of the range are reachable but never exceeded,
+ * and rounded because this one genuinely needs it: `0.7 + 0.1` is
+ * `0.7999999999999999`, and that would travel in the payload. It matters beyond
+ * tidiness — the dispatch guard keys on `JSON.stringify(data)`, so two spellings
+ * of one value are two different commands to it.
+ */
+export function steppedVolume(current: number, direction: 1 | -1): number {
+  const next = current + direction * VOLUME_STEP_FRACTION
+  return Math.round(Math.min(1, Math.max(0, next)) * 1000) / 1000
+}
+
+/**
+ * The sources a picker can offer: `source_list` filtered to strings.
+ *
+ * Filtered rather than trusted, for the reason the fan card's preset reader
+ * records: the list arrives from an integration and a non-string member is an
+ * option with no label. One reader, shared by the card and the config form, so
+ * the form cannot offer a control the card would render empty.
+ */
+export function readSourceList(attributes: MediaPlayerAttributes | undefined): string[] {
+  const raw = attributes?.source_list
+  if (!Array.isArray(raw)) return []
+  return raw.filter((source): source is string => typeof source === 'string' && source !== '')
+}
+
+/** The currently selected source, when the entity names one this card can match. */
+export function readCurrentSource(
+  attributes: MediaPlayerAttributes | undefined
+): string | undefined {
+  const raw = attributes?.source
+  return typeof raw === 'string' && raw !== '' ? raw : undefined
+}
+
+/**
+ * Whether a source picker can render at all: the entity advertises
+ * `SELECT_SOURCE` **and** publishes a list with something in it.
+ *
+ * The bit without a list is a control with nothing in it — the exact shape that
+ * offered the fan card's preset option to a fan that could never show one.
+ */
+export function canSelectSource(
+  attributes: MediaPlayerAttributes | undefined,
+  features: MediaPlayerFeatures
+): boolean {
+  return features.selectSource && readSourceList(attributes).length > 0
+}

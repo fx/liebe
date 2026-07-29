@@ -146,12 +146,13 @@ gh issue view <issue-number>
 
 3. **Probing a test (mutation testing)**
 
-   The way to know a test pins the behavior it claims is to break the behavior and watch that test fail. Three rules make the probe trustworthy, all learned from probe runs that looked perfect and proved nothing:
+   The way to know a test pins the behavior it claims is to break the behavior and watch that test fail. Four rules make the probe trustworthy, all learned from probe runs that looked perfect and proved nothing:
    - **Commit or stage the fix before probing.** Probes restore with `git checkout -- <file>`, which reverts to the index — so with the work uncommitted, the first restore silently throws the fix away. Every later probe then mutates a file whose patterns no longer match and the tests fail because the fix is missing, not because the mutation landed.
    - **Verify the mutation actually applied before reading the test result** — `git diff --quiet -- <file>` after mutating, and treat "no change" as an invalid probe. A mutation that silently failed to apply produces a red test for the wrong reason, and red is exactly what a working probe looks like. The test result alone cannot tell the two apart.
    - **Verify it changed the behavior the named test depends on, not merely the file.** A diff is necessary and not sufficient: a mutation in a file the test's path never reaches, or one that edits a token without changing the semantics the test relies on (`const x` → `let x` leaves the scope that made it pass), cannot fail however different the file looks. Ask what the mutated line does for _this_ test before believing its result.
+   - **Verify the artifact under test is the one you just built.** The three above inspect the _source_, and so does running the full suite rather than a subset; none of them looks at what actually ran. Whenever anything sits between the mutated file and the executing code — a bundler, a container mount, a dev-server cache, a stale `dist/`, a shared stack serving another worktree's build — a probe can score a flawless result against an artifact that never contained the feature at all, because a test failing for want of the feature is indistinguishable from a mutation being caught. Assert artifact identity **inside** the probe loop, so a mismatch _invalidates_ the run rather than scoring it, and hash the artifact the mutation actually lands in: `panel.js` is byte-identical for a CSS-only change, so a CSS probe guarded on that hash alone is unguarded. This is the one trap that survives doing all the others correctly.
 
-   The asymmetry underneath all three: **a probe that fails tells you something; a probe that passes tells you nothing until you have established it could have failed.** A passing probe reads as "the code is fine" when it usually means the probe was useless, so it is the outcome to distrust — the reverse of how a test suite is normally read.
+   The asymmetry underneath all four: **a probe that fails tells you something; a probe that passes tells you nothing until you have established it could have failed.** A passing probe reads as "the code is fine" when it usually means the probe was useless, so it is the outcome to distrust — the reverse of how a test suite is normally read.
 
    And note the limit of the whole technique: a probe proves the test is **wired to** the behavior, never that the behavior it asserts is the **right** one. A test pinning a defect probes perfectly — mutate the defect and it goes red — which is why a green probe is not a defence against `REVIEW.md` → "Tests Pin Intent, Not Implementation".
 
@@ -162,7 +163,15 @@ gh issue view <issue-number>
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
 
-5. **The e2e stack when Docker is not running**
+5. **The e2e stack is single-occupancy, and CI is the gate**
+
+   **The CI `Home Assistant E2E` job is the gate. Do not run Playwright locally to qualify a PR.** CI brings up its own stack per pull request, against that branch's own bundle, with no contention. A local run adds nothing to the merge decision and costs a collision, because the local stack is **shared across every worktree** — one Home Assistant container serving whichever `dist/` was mounted last.
+
+   If you need a local run to _debug_ something rather than to gate it, ask the coordinator for an exclusive slot. Nobody takes the stack without one.
+
+   The harm is concrete rather than theoretical. One worktree recreating the stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 3).
+
+   The rest of this item applies only inside a slot you have been given.
 
    `npm run e2e:ha:up` needs the Docker daemon, which is not always up in a fresh workspace — `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. Unlike the dev server, this one you may start yourself:
 
@@ -185,7 +194,7 @@ gh issue view <issue-number>
 
    Do not `chmod` the socket to work around this: `/var/run/docker.sock` is root-equivalent, and widening it trades a two-word prefix for a real privilege change.
 
-   The stack is **shared across worktrees** — one Home Assistant container serving whichever `dist/` was last mounted. Before running Playwright, rebuild and bring it up from your own worktree, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before.
+   Inside your slot, rebuild and bring the stack up from your own worktree before running Playwright, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before — which is the same failure the slot exists to prevent, seen from the other side.
 
 6. **Playwright's own two prerequisites**
 
