@@ -41,13 +41,65 @@ describe('resolveMediaStateLine', () => {
     })
   })
 
-  it('takes media_title alone when there is no artist', () => {
+  /**
+   * A title with no artist is what a podcast, a radio stream and a TV app all
+   * publish — not an edge case. `secondary` used to be `undefined` here, and the
+   * card renders that field directly, so the split form at `row` and `full` drew
+   * a blank second line for three of the commonest things a player plays.
+   *
+   * The compact `line` is unaffected: one line beside a track name carries the
+   * title alone, which is the option doc's chain.
+   */
+  it('continues down the chain for the muted line when a title has no artist', () => {
+    expect(
+      resolveMediaStateLine('playing', { media_title: 'Serial S01E01', app_name: 'Spotify' }, NAME)
+    ).toEqual({
+      line: 'Serial S01E01',
+      primary: 'Serial S01E01',
+      secondary: 'Spotify',
+      source: 'title',
+    })
+  })
+
+  it('reaches the raw state for a title with neither artist nor app', () => {
     expect(resolveMediaStateLine('playing', { media_title: 'Espresso Bongo' }, NAME)).toEqual({
       line: 'Espresso Bongo',
       primary: 'Espresso Bongo',
-      secondary: undefined,
+      secondary: 'playing',
       source: 'title',
     })
+  })
+
+  /** The artist still wins the muted line whenever there is one. */
+  it('prefers the artist over the app for the muted line', () => {
+    expect(
+      resolveMediaStateLine(
+        'playing',
+        { media_title: 'Espresso Bongo', media_artist: 'Jimmy Smith', app_name: 'Spotify' },
+        NAME
+      ).secondary
+    ).toBe('Jimmy Smith')
+  })
+
+  /**
+   * Every rung, exhaustively: the field is typed as total, and a `string` type
+   * on a value assembled from three optional attributes is a claim worth
+   * checking rather than trusting.
+   */
+  it.each([
+    ['title with artist', { media_title: 'T', media_artist: 'A' }],
+    ['title with app only', { media_title: 'T', app_name: 'Spotify' }],
+    ['title alone', { media_title: 'T' }],
+    ['title with a non-string artist', { media_title: 'T', media_artist: 7 }],
+    ['title with a blank artist', { media_title: 'T', media_artist: '   ' }],
+    ['app only', { app_name: 'Netflix' }],
+    ['nothing at all', {}],
+    ['no attributes', undefined],
+  ])('renders a non-empty muted line for %s', (_label, attributes) => {
+    const { secondary } = resolveMediaStateLine('playing', attributes, NAME)
+
+    expect(typeof secondary).toBe('string')
+    expect(secondary.trim()).not.toBe('')
   })
 
   it('falls back to app_name — a TV with no track metadata', () => {
@@ -109,8 +161,14 @@ describe('resolveMediaStateLine', () => {
 
   it('drops a non-string artist rather than appending it', () => {
     expect(
-      resolveMediaStateLine('playing', { media_title: 'Espresso Bongo', media_artist: 7 }, NAME)
-    ).toMatchObject({ line: 'Espresso Bongo', secondary: undefined })
+      resolveMediaStateLine(
+        'playing',
+        { media_title: 'Espresso Bongo', media_artist: 7, app_name: 'Spotify' },
+        NAME
+      )
+      // Not appended to the compact line, and the muted line falls through to
+      // the app rather than to nothing.
+    ).toMatchObject({ line: 'Espresso Bongo', secondary: 'Spotify' })
   })
 
   it('trims surrounding whitespace off both parts', () => {
