@@ -524,6 +524,45 @@ describe('AlarmCard', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
 
+    it('sends the code entered in the dialog keypad', () => {
+      renderCard('armed_away', { attributes: coded, tier: 'row', span: { width: 4, height: 1 } })
+
+      fireEvent.click(button('Disarm'))
+      for (const digit of ['7', '7', '7']) fireEvent.click(button(digit))
+      fireEvent.click(screen.getAllByRole('button', { name: 'Disarm' }).at(-1)!)
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'alarm_control_panel',
+        service: 'alarm_disarm',
+        entityId: ENTITY_ID,
+        data: { code: '777' },
+      })
+    })
+
+    it('closes the dialog keypad on cancel without sending anything', () => {
+      renderCard('armed_away', { attributes: coded, tier: 'row', span: { width: 4, height: 1 } })
+
+      fireEvent.click(button('Disarm'))
+      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+
+      fireEvent.click(button('Cancel'))
+
+      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
+    it('closes the inline keypad on cancel without sending anything', () => {
+      renderCard('armed_away', { attributes: coded, span: { width: 3, height: 3 } })
+
+      fireEvent.click(button('Disarm'))
+      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+
+      fireEvent.click(button('Cancel'))
+
+      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
     it('uses a dialog at row, whatever the span', () => {
       renderCard('armed_away', {
         attributes: coded,
@@ -571,6 +610,60 @@ describe('AlarmCard', () => {
 
       expect(screen.getByText('Disarmed')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /^Arm/ })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('the gate applied to configured routes', () => {
+    it('gates a call-service route pointed at alarm_disarm', () => {
+      // Applied after action resolution, so naming the service directly does
+      // not get past it.
+      renderCard('armed_away', {
+        tier: 'row',
+        config: {
+          tapAction: { action: 'call-service', service: 'alarm_control_panel.alarm_disarm' },
+        },
+      })
+
+      fireEvent.click(screen.getByText('House Alarm'))
+
+      expect(screen.getByText('Disarm House Alarm?')).toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
+    it('names the arm direction when an arm route is gated', () => {
+      renderCard('disarmed', {
+        tier: 'row',
+        config: {
+          confirmArm: true,
+          tapAction: { action: 'call-service', service: 'alarm_control_panel.alarm_arm_away' },
+        },
+      })
+
+      fireEvent.click(screen.getByText('House Alarm'))
+
+      // The prompt has to say what the button will do to the thing.
+      expect(screen.getByText('Arm House Alarm?')).toBeInTheDocument()
+      expect(screen.queryByText('Disarm House Alarm?')).not.toBeInTheDocument()
+    })
+
+    it('gates a generic alias, whose direction is not knowable', () => {
+      renderCard('armed_away', {
+        tier: 'row',
+        config: { tapAction: { action: 'call-service', service: 'homeassistant.turn_off' } },
+      })
+
+      fireEvent.click(screen.getByText('House Alarm'))
+
+      expect(screen.getByText('Disarm House Alarm?')).toBeInTheDocument()
+    })
+
+    it('does not gate the default tap, which opens more-info', () => {
+      renderCard('armed_away', { tier: 'row' })
+
+      fireEvent.click(screen.getByText('House Alarm'))
+
+      expect(screen.queryByText('Disarm House Alarm?')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
   })
 
