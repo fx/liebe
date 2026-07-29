@@ -325,6 +325,19 @@ describe('LockCard', () => {
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
+    it('gates a custom same-domain service, end to end', () => {
+      // The classifier pins this too, but only the card proves the gate is what
+      // a `lock.turn_off` route actually meets on the way to the device.
+      renderCard('locked', {
+        config: { tapAction: { action: 'call-service', service: 'lock.turn_off' } },
+      })
+
+      fireEvent.click(screen.getByText('Front Door'))
+
+      expect(screen.getByText('Unlock Front Door?')).toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
     it('does not gate the default tap, which opens more-info rather than acting', () => {
       renderCard('locked')
 

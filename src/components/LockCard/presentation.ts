@@ -267,8 +267,8 @@ export function resolveLockToggle(state: string): LockToggleResolution {
  *
  * `unclassifiable` is not a third outcome the gate weighs separately — it is
  * gated whenever either gate is on. It exists as its own value so a test can pin
- * *why* a route was held (an alias whose direction HA does not define) rather
- * than only that it was.
+ * *why* a route was held (a route this card cannot read a direction out of)
+ * rather than only that it was.
  */
 export type LockRouteDirection = 'unlocking' | 'locking' | 'neutral' | 'unclassifiable'
 
@@ -297,30 +297,47 @@ function locksLock(serviceDomain: string, service: string, entityDomain: string)
 }
 
 /**
- * The generic aliases, which on a lock are **not** the same command by another
- * name — and this is where reading Home Assistant's source changes the answer.
+ * The three services the `lock` platform registers, and the only same-domain
+ * names whose direction this card can know.
  *
- * `homeassistant.turn_on` / `turn_off` / `toggle` all run one handler
+ * Adding a name here without also classifying it in `unlocksLock` or
+ * `locksLock` would make it `neutral` — the fail-open direction. Classify it
+ * first.
+ */
+const LOCK_PLATFORM_SERVICES = new Set(['lock', 'unlock', 'open'])
+
+/**
+ * The routes whose effect on this lock cannot be known, held rather than waved
+ * through.
+ *
+ * **Any same-domain service outside the three above**, first — because that is
+ * the case a custom integration creates. On stock HA the `lock` platform
+ * registers exactly `lock`, `unlock` and `open`, so `lock.turn_off` resolves to
+ * nothing; but an integration is free to register it, and if one does, nothing
+ * here can see what it does. Naming the known services and holding the rest is
+ * the only form of this rule that a service invented tomorrow cannot walk
+ * through. This mirrors the toggle branch of `classifyLockRoute`, which holds an
+ * unrecognised *state* for the same reason.
+ *
+ * Then the generic aliases, which on a lock are **not** the same command by
+ * another name — and this is where reading Home Assistant's source changes the
+ * answer. `homeassistant.turn_on` / `turn_off` / `toggle` all run one handler
  * (`components/homeassistant/__init__.py`, `async_handle_turn_service`) that
  * forwards to `<domain>.<same service>` and, when that service does not exist,
- * logs "does not support entities" and does nothing. The `lock` platform
- * registers exactly three services — `lock`, `unlock`, `open` — so there is no
- * `lock.turn_on`, no `lock.turn_off` and **no `lock.toggle`**. On stock HA every
- * one of these aliases, and a hand-written `lock.toggle`, is a no-op.
+ * logs "does not support entities" and does nothing. So on stock HA every one of
+ * these aliases is a no-op too.
  *
- * They are still classified as `unclassifiable` rather than waved through, for
- * two reasons that both point the same way. A custom integration is free to
- * register `lock.turn_off`, and if one does, nothing here would see it coming.
- * And the direction would still be unknowable if it did: HA defines no on/off
- * polarity for a lock, so "off" is as readable as unlocked as it is as locked.
- * A gate that must fail safe cannot resolve that by picking one.
+ * They are still held, for the reason the whole gate exists: the direction would
+ * be unknowable even if the service did land. HA defines no on/off polarity for
+ * a lock, so "off" is as readable as unlocked as it is as locked, and a gate
+ * that must fail safe cannot resolve that by picking one.
  */
-function isAmbiguousLockAlias(
+function isUnclassifiableLockRoute(
   serviceDomain: string,
   service: string,
   entityDomain: string
 ): boolean {
-  if (serviceDomain === entityDomain && service === 'toggle') return true
+  if (serviceDomain === entityDomain) return !LOCK_PLATFORM_SERVICES.has(service)
   return (
     serviceDomain === 'homeassistant' &&
     (service === 'turn_on' || service === 'turn_off' || service === 'toggle')
@@ -367,7 +384,7 @@ export function classifyLockRoute(
 
   if (unlocksLock(serviceDomain, service, entityDomain)) return 'unlocking'
   if (locksLock(serviceDomain, service, entityDomain)) return 'locking'
-  if (isAmbiguousLockAlias(serviceDomain, service, entityDomain)) return 'unclassifiable'
+  if (isUnclassifiableLockRoute(serviceDomain, service, entityDomain)) return 'unclassifiable'
 
   return 'neutral'
 }
