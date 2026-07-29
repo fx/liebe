@@ -187,6 +187,30 @@ describe('a configured toggle against a jammed lock', () => {
     await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
     expect(hass.callService).not.toHaveBeenCalled()
   })
+
+  it('does not confirm on the way there, even with both gates on', async () => {
+    /*
+     * The same design property the alarm card pins, stated here too because
+     * this is where it is easiest to get wrong: `jammed` is a state the gate
+     * treats carefully everywhere else, so the temptation to confirm this route
+     * as well is real. It actuates nothing, so it classifies `neutral` — and a
+     * dialog in front of "open the details" is the prompt fatigue the gate
+     * exists to prevent.
+     */
+    seed(makeLock('jammed'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />, {
+      tapAction: 'toggle',
+      confirmUnlock: true,
+      confirmLock: true,
+    })
+
+    fireEvent.click(screen.getByText('Front Door'))
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Unlock Front Door?')).not.toBeInTheDocument()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
 })
 
 describe('the detail dialog as the glance control surface', () => {

@@ -311,6 +311,34 @@ describe('the detail dialog as the glance control surface', () => {
 })
 
 describe('the family toggle definition', () => {
+  it('does not confirm a toggle that opens the details, even with both gates on', async () => {
+    /*
+     * A design property, not an accident of ordering, and it is pinned here so a
+     * later change cannot "fix" the missing confirmation.
+     *
+     * A route that opens the detail dialog actuates nothing, so it classifies
+     * `neutral` and the gate lets it through. Putting a confirmation in front of
+     * "open the details" is exactly the prompt fatigue the gate exists to
+     * prevent: a user taught to dismiss one dialog will dismiss the one that
+     * matters. Both gates are switched ON here so that a regression making
+     * more-info confirmable fails this test loudly rather than subtly.
+     */
+    seed(makePanel('armed_away'))
+    renderCard(<AlarmCard entityId={ENTITY_ID} tier="row" span={{ width: 3, height: 1 }} />, {
+      tapAction: 'toggle',
+      confirmArm: true,
+      confirmDisarm: true,
+    })
+
+    fireEvent.click(screen.getByText('House Alarm'))
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
+    // No confirmation was raised on the way there.
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Disarm House Alarm?')).not.toBeInTheDocument()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
   it('resolves a configured toggle to the details rather than a service', async () => {
     /*
      * Declared rather than omitted: a card with no toggle of its own falls back
