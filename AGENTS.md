@@ -769,26 +769,36 @@ When creating new entity card components:
    - Use ErrorBoundary wrapper
    - Handle edit mode with delete button and selection
 
-2. **Register in `src/components/cardRegistry.ts`**
+2. **Add the domain to `src/components/cardDomains.ts`**
+   - Append it to `MAPPED_CARD_DOMAINS`. This is a **required** step, not an optional one: `cardRegistry.ts` closes its map with `satisfies Record<MappedCardDomain, CardComponent>`, so the two files fail to compile in either direction — a card registered without its domain listed here, or a domain listed here with no card registered.
+   - **Why the list lives in its own module, away from the registry.** The configuration side needs the registry's _answer_ ("does this domain have a card of its own?") while the registry itself imports every card, and every card imports `CardConfig`. Importing `cardRegistry` from the configuration side would close that loop and reintroduce the temporal-dead-zone crash described in step 3. So the domain list is kept here as data with no component imports, and the registry types its map against it — which turns "adding a domain to one but not the other" from a drift nobody notices into a compile error.
+
+3. **Register in `src/components/cardRegistry.ts`**
    - Add the domain → component entry to `domainToCard`; `GridView` dispatches through `getCardForEntity`, so a domain missing from the registry silently falls through to the fallback card
    - Declare any presentation variants as a static `variants` map on the component (`Object.assign(MyCard, { variants: { ... } })`) rather than a switch inside the card — `getCardVariant` is a read-only lookup and cannot register anything
    - **Do not import `cardRegistry` from a card module.** `registerCardVariant` still exists for consumers outside the card graph, but calling it from a card closes the cycle `cardRegistry` → every card → `CardConfig` → that card → `cardRegistry`, which crashes with a temporal-dead-zone error in any bundle whose entry reaches a card before the registry (this is what broke the Storybook build; the panel bundle survived it only by accident of entry order). Type-only imports (`import type { CardProps }`) are erased and are fine.
 
-3. **Update the EntityBrowser** (`src/components/EntitiesBrowserTab.tsx`)
+4. **Update the EntityBrowser** (`src/components/EntitiesBrowserTab.tsx`)
    - Add the domain to `SUPPORTED_DOMAINS` there — it is a local constant in that file, not part of `cardRegistry.ts` — so the browser offers the domain
    - Add domain to friendly name mapping in `getFriendlyDomain`
    - Remove from `SYSTEM_DOMAINS` if it should be visible
 
-Example:
+Example — note that it takes an edit in **both** files, and neither alone compiles:
 
 ```typescript
+// In src/components/cardDomains.ts
+export const MAPPED_CARD_DOMAINS = [
+  // ...existing entries
+  'weather',
+] as const
+
 // In src/components/cardRegistry.ts
 import { WeatherCard } from './WeatherCard'
 
-export const domainToCard: CardRegistry = {
+const registeredCards = {
   // ...existing entries
   weather: WeatherCard,
-}
+} satisfies Record<MappedCardDomain, CardComponent>
 ```
 
 ## Important Reminders
