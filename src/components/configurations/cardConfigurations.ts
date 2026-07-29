@@ -21,6 +21,7 @@ import {
   WEATHER_OPTION_DEFAULTS,
 } from '~/store/weatherOptions'
 import { ACTION_OPTION_DEFAULTS } from '~/store/actionOptions'
+import { MEDIA_PLAYER_OPTION_DEFAULTS } from '~/store/mediaPlayerOptions'
 import { CARD_DISPLAY_DEFAULTS } from '~/store/cardDisplay'
 
 /**
@@ -454,6 +455,87 @@ export const cardConfigurations: Record<
         label: 'Show speed in state',
         description: 'Adds the current percentage to the state line — “On · 75%”.',
         requires: 'fan-speed',
+      },
+    },
+  },
+  /*
+   * The media player card's options (docs/specs/entity-cards/options/media-player.md).
+   *
+   * Two of the six are capability-gated per common convention 3: volume is
+   * offered only to a player that advertises one of the three volume bits, and
+   * the source picker only to one that both advertises `SELECT_SOURCE` and
+   * publishes a list to pick from.
+   *
+   * Three deliberately are NOT gated, and the reason is the same for all of
+   * them: they depend on the *session* rather than on the device.
+   * `media_duration` and `entity_picture` exist while something is playing and
+   * vanish when it stops, so gating `showProgress` or `artworkMode` on them
+   * would make the option disappear from the form whenever the speaker was
+   * idle — configuring a card would then depend on what it happened to be
+   * playing at the time.
+   *
+   * `showGroupControls` is absent entirely. The key is reserved in the schema so
+   * documents round-trip, but the behaviour is a follow-up change, and the
+   * option doc is explicit that a first implementation may ship it inert only
+   * "provided the config UI does not show a dead toggle".
+   */
+  media_player: {
+    title: 'Media Player Card',
+    description: 'Which controls the card shows, and how artwork presents.',
+    definition: {
+      artworkMode: {
+        type: 'select',
+        default: MEDIA_PLAYER_OPTION_DEFAULTS.artworkMode,
+        label: 'Artwork',
+        description:
+          'Background fills the whole tile behind a dark scrim, and needs a card at least 2\u00d72 \u2014 smaller cards fall back to the thumbnail. Without artwork the icon shows instead.',
+        options: [
+          { value: 'thumbnail', label: 'Thumbnail' },
+          { value: 'background', label: 'Background' },
+          { value: 'none', label: 'None' },
+        ],
+      },
+      showTransport: {
+        type: 'boolean',
+        default: MEDIA_PLAYER_OPTION_DEFAULTS.showTransport,
+        label: 'Show transport controls',
+        description:
+          'Previous, play/pause and next \u2014 each shown only if the player supports it. Cards 1 wide show none; a 2\u20133 wide row shows play/pause alone.',
+      },
+      showVolume: {
+        type: 'select',
+        default: MEDIA_PLAYER_OPTION_DEFAULTS.showVolume,
+        label: 'Volume control',
+        description:
+          'On cards at least 2\u00d72, or rows at least 4 wide. Players that can only step volume show buttons whichever is chosen here.',
+        options: [
+          { value: 'slider', label: 'Slider' },
+          { value: 'buttons', label: 'Buttons' },
+          { value: 'none', label: 'None' },
+        ],
+        requires: 'media-volume',
+      },
+      showProgress: {
+        type: 'boolean',
+        default: MEDIA_PLAYER_OPTION_DEFAULTS.showProgress,
+        label: 'Show progress bar',
+        description:
+          'Position and track length, on cards at least 2\u00d72. Draggable on players that support seeking. Off by default \u2014 position adds movement most speaker tiles do not need.',
+      },
+      showSourcePicker: {
+        type: 'boolean',
+        default: MEDIA_PLAYER_OPTION_DEFAULTS.showSourcePicker,
+        label: 'Show source picker',
+        description:
+          'The player\u2019s input list, on cards at least 2\u00d72. Off by default \u2014 most dashboard tiles are speakers, where switching source is noise.',
+        requires: 'media-source',
+      },
+      collapseWhenIdle: {
+        type: 'boolean',
+        default: MEDIA_PLAYER_OPTION_DEFAULTS.collapseWhenIdle,
+        label: 'Simplify when idle',
+        description:
+          'While the player is idle, off or on standby, shows just the icon, name and state. The card keeps its size, so nothing on the screen moves.',
       },
     },
   },

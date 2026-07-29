@@ -21,6 +21,8 @@ import {
 } from './CoverCard/presentation'
 import { isSecurityCover } from '~/store/coverOptions'
 import { fanHasPresets, readFanFeatures } from './FanCard/features'
+import { readMediaPlayerFeatures } from './MediaPlayerCard/features'
+import { canSelectSource } from './MediaPlayerCard/volume'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
 import type { HassEntity } from '~/store/entityTypes'
@@ -100,6 +102,14 @@ interface ContentProps {
  *   feature bit *and* publishes a non-empty list, so there is a pill row to
  *   show or hide.
  * - `climate-humidity` — it reports a `current_humidity` to display.
+ * - `media-volume` — the player advertises at least one of VOLUME_SET,
+ *   VOLUME_STEP or VOLUME_MUTE, so *some* volume control can render. The three
+ *   bits are one requirement rather than three because the card degrades between
+ *   them automatically (`MediaPlayerCard/volume.ts`); what the option chooses is
+ *   the presentation, and what the entity decides is which one it gets.
+ * - `media-source` — the player advertises SELECT_SOURCE **and** publishes a
+ *   `source_list` with something in it. The bit without a list is a picker with
+ *   nothing to pick, which is the fan-preset defect one domain over.
  */
 export type ConfigOptionRequirement =
   | 'numeric'
@@ -114,6 +124,8 @@ export type ConfigOptionRequirement =
   | 'climate-presets'
   | 'climate-fan-modes'
   | 'climate-humidity'
+  | 'media-volume'
+  | 'media-source'
 
 // Configuration option types
 export interface ConfigOption {
@@ -499,6 +511,14 @@ function meetsRequirement(
     if (requires === 'climate-presets') return climate.presets
     if (requires === 'climate-fan-modes') return climate.fanModes
     return climate.humidity
+  }
+
+  if (requires.startsWith('media-')) {
+    const media = readMediaPlayerFeatures(entity?.attributes)
+    if (requires === 'media-volume') return media.volumeSet || media.volumeStep || media.volumeMute
+    // The card's own predicate, not a second one shaped like it: the picker
+    // needs a list it can label, and `canSelectSource` is what the renderer asks.
+    return canSelectSource(entity?.attributes, media)
   }
 
   if (!isNumericSensorEntity(entity)) return false

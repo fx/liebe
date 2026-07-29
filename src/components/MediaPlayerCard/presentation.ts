@@ -184,16 +184,18 @@ export function shouldCollapseIdle(state: string, collapseWhenIdle: boolean): bo
  * stored option value is unaffected — a card resized from 2×2 to 2×1 still says
  * `background` in its config.
  *
- * This build degrades `background` at **every** tier, because the full-bleed
- * form is change 0023 PR 2. That is the seam rather than a stub: PR 2 changes
- * the `full` arm of this function and nothing else, and the below-`full`
- * degradation it must not break is already pinned by tests here.
+ * `background` therefore takes effect in `full` **only**. Everywhere else it is
+ * the thumbnail, and the option value the card was configured with is untouched
+ * — resizing a card from 2×2 to 2×1 and back returns it to the background form
+ * without the user reconfiguring anything.
  */
 export function resolveArtworkPresentation(
   mode: MediaArtworkMode,
-  _tier: CardTier
-): 'thumbnail' | 'none' {
-  return mode === 'none' ? 'none' : 'thumbnail'
+  tier: CardTier
+): 'background' | 'thumbnail' | 'none' {
+  if (mode === 'none') return 'none'
+  if (mode === 'background' && tier === 'full') return 'background'
+  return 'thumbnail'
 }
 
 /**

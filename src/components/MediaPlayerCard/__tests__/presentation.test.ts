@@ -231,12 +231,30 @@ describe('resolveArtworkPresentation', () => {
   })
 
   /**
-   * The degradation the option doc requires below `full`, which change 0023 PR 2
-   * must not break when it adds the full-bleed arm. This build degrades at every
-   * tier because the background form does not exist yet.
+   * The degradation the option doc requires: background is "only meaningful with
+   * room for overlay", so below `full` it MUST become the thumbnail rather than
+   * render an illegible postage stamp.
    */
-  it.each(TIERS)('degrades background to thumbnail at %s', (tier) => {
-    expect(resolveArtworkPresentation('background', tier)).toBe('thumbnail')
+  it.each(['glance', 'row', 'tall'] as CardTier[])(
+    'degrades background to thumbnail at %s',
+    (tier) => {
+      expect(resolveArtworkPresentation('background', tier)).toBe('thumbnail')
+    }
+  )
+
+  /** …and takes effect at `full`, which is the only tier with room for it. */
+  it('applies background at full', () => {
+    expect(resolveArtworkPresentation('background', 'full')).toBe('background')
+  })
+
+  /**
+   * The stored option is untouched by the degradation, which is what lets a card
+   * resized down and back up return to the background form without being
+   * reconfigured (the option doc's resize scenario).
+   */
+  it('degrades without the tier changing what background means at full', () => {
+    expect(resolveArtworkPresentation('background', 'row')).toBe('thumbnail')
+    expect(resolveArtworkPresentation('background', 'full')).toBe('background')
   })
 })
 
