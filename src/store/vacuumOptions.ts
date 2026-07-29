@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { configPredatesVersion } from './configVersion'
 
 /**
  * The vacuum card's option contract — the persisted shape of `showCommands`,
@@ -116,58 +115,4 @@ export function readVacuumOptions(config: Record<string, unknown> | undefined): 
     showLocate: read('showLocate'),
     showStats: read('showStats'),
   }
-}
-
-/**
- * The version documents carrying pinned vacuum taps are stamped with.
- *
- * `1.5.0` because `MEDIA_PLAYER_CARD_VERSION` claims `1.4.0` and is the highest
- * marker on `main`. Markers are allocated in merge order and only ever move up:
- * two migrations sharing a number is not a merge conflict but a silent one — a
- * document stamped by whichever build ran first would no longer *predate* the
- * other's marker and would skip that migration entirely
- * (`climateOptions.ts` — `CLIMATE_VARIANT_VERSION`).
- */
-export const VACUUM_CARD_VERSION = '1.5.0'
-
-/** Whether a stored document was written before the vacuum card existed. */
-export function configPredatesVacuumCard(version: unknown): boolean {
-  return configPredatesVersion(version, VACUUM_CARD_VERSION)
-}
-
-/**
- * Pin one pre-card `vacuum` item to the power toggle its tap has always
- * performed.
- *
- * Convention 7, mirroring the media player's pin. Before this change there was
- * no `vacuum` entry in `domainToCard`, so every placed vacuum rendered the
- * **fallback** card, whose body tap is `homeassistant.toggle` — power. This
- * build gives the domain a card whose `default` tap runs the state machine.
- * Without a pin, upgrading would silently repurpose a tap that has always cut
- * power into one that starts a cleaning run, on cards the user placed and never
- * reconfigured.
- *
- * The pin writes the universal `tapAction: 'toggle'` rather than a
- * family-specific key, because "keep toggling power" is exactly what that
- * universal value already means — there is no new option to pin to, only the old
- * behaviour to name explicitly (docs/changes/0025 — "Legacy pinning").
- *
- * Returns the config unchanged, by reference, when nothing applies: a document
- * already stating a `tapAction`, a card of another domain, every load after the
- * first.
- */
-export function pinLegacyVacuumAction(
-  domain: string,
-  config: Record<string, unknown>
-): Record<string, unknown> {
-  if (domain !== 'vacuum') return config
-  /*
-   * An own-property check rather than `in`, as the sibling pins do: "does this
-   * document already say something" is a question about the document, and a
-   * migration answering it from the prototype chain is a bug waiting for a key
-   * named like one of `Object.prototype`'s.
-   */
-  if (Object.prototype.hasOwnProperty.call(config, 'tapAction')) return config
-
-  return { ...config, tapAction: 'toggle' }
 }

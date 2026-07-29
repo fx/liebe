@@ -1,24 +1,36 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { CURRENT_VERSION, loadDashboardConfig } from '../persistence'
-import { VACUUM_CARD_VERSION } from '../vacuumOptions'
 import { MEDIA_PLAYER_CARD_VERSION } from '../mediaPlayerOptions'
 import type { GridItem, ScreenConfig } from '../types'
 
 /**
- * The vacuum legacy pinning, at the loader (common contract, convention 7 —
- * "New defaults never change how an existing card is operated").
+ * The vacuum card ships **no** loader migration, and this file pins that
+ * decision rather than leaving it as an absence nobody can see.
  *
- * Before change 0025 there was no `vacuum` entry in `domainToCard`, so every
- * placed vacuum rendered the **fallback** card, whose body tap is
- * `homeassistant.toggle` — power. The new card's `default` tap runs a state
- * machine that starts a cleaning run from `docked`. Without a pin, upgrading
- * would silently turn a tap that has always cut power into one that sends the
- * vacuum out across the floor.
+ * Convention 7 pins a legacy card only to preserve behaviour that **worked**.
+ * Before this change a placed vacuum rendered the fallback card, whose body tap
+ * dispatches `<domain>.toggle` directly (`ButtonCard/index.tsx`,
+ * `useServiceCall.ts`) — and `vacuum.toggle` does not exist. Home Assistant's
+ * vacuum component registers exactly nine services (`vacuum/__init__.py` at
+ * 2026.7.2: start, pause, return_to_base, clean_spot, clean_area, locate, stop,
+ * set_fan_speed, send_command) and none of them is `toggle`, `turn_on` or
+ * `turn_off`. So the old tap was a service-not-found error, not a control: there
+ * is nothing to preserve, and giving the domain a working card is a bugfix.
  *
- * The rule these tests exist for is the discrimination: **version marker, never
- * key absence.** A vacuum card added after this build legitimately carries no
- * `tapAction`, because that is how it asks for the state-machine default, so a
- * migration keyed on absence would rewrite every new card on its first reload.
+ * That is the precedent this repo already set for the action family —
+ * "already-placed cards upgrade on load with no migration, because replacing a
+ * broken control surface is a bugfix rather than a replacement needing pinning"
+ * (docs/changes/0027-scene-cards.md).
+ *
+ * Two traps make the underlying fact easy to get wrong, which is why the
+ * reasoning is written down here rather than assumed: `vacuum/services.yaml`
+ * still lists a `toggle` entry left over from the deleted `VacuumEntity` class,
+ * and `vacuum/__init__.py` still *imports* `SERVICE_TOGGLE` under
+ * `# noqa: F401`. Both make a naive check say the service exists.
+ *
+ * An earlier draft of this change shipped a pin. It was removed before merge:
+ * a migration is a write into other people's stored documents, so a pin that
+ * turns out to be wrong cannot be undone by deleting the code that wrote it.
  */
 
 const storage = new Map<string, string>()
@@ -55,77 +67,67 @@ const item = (entityId: string, config: Record<string, unknown> = {}): Partial<G
   config,
 })
 
-describe('vacuum legacy pinning', () => {
+describe('vacuum cards are deliberately not migrated', () => {
   beforeEach(() => storage.clear())
 
-  it('pins a pre-card vacuum to the power toggle its tap has always been', () => {
-    store('1.4.0', [item('vacuum.robby')])
-
-    expect(loadedItems()[0].config).toMatchObject({ tapAction: 'toggle' })
-  })
-
-  /** The discrimination: a document written by this build is left alone. */
-  it('leaves a vacuum in a current document unpinned, taking the state-machine default', () => {
-    store(VACUUM_CARD_VERSION, [item('vacuum.robby')])
+  /**
+   * The central assertion. A vacuum placed long before this card existed must
+   * come back **unpinned**, so it takes the state-machine default and starts
+   * working — rather than being pinned to a `toggle` that has only ever errored.
+   */
+  it('leaves a pre-card vacuum unpinned, so its broken tap becomes a working one', () => {
+    store('1.0.0', [item('vacuum.robby')])
 
     expect(loadedItems()[0].config).not.toHaveProperty('tapAction')
   })
 
-  /**
-   * The media player marker is the one immediately below this card's, so a
-   * document stamped with it is the narrowest "old" case there is — and the one
-   * a migration keyed on the wrong comparison would miss.
-   */
-  it('still pins a document stamped with the marker immediately below', () => {
-    store(MEDIA_PLAYER_CARD_VERSION, [item('vacuum.robby')])
+  it.each(['1.0.0', '1.3.0', MEDIA_PLAYER_CARD_VERSION, 'beta'])(
+    'writes nothing onto a vacuum item in a document versioned %p',
+    (version) => {
+      store(version, [item('vacuum.robby')])
 
-    expect(loadedItems()[0].config).toMatchObject({ tapAction: 'toggle' })
-  })
+      expect(loadedItems()[0].config).toEqual({})
+    }
+  )
 
   it('leaves a vacuum that already states a tapAction exactly as configured', () => {
-    store('1.4.0', [item('vacuum.robby', { tapAction: 'more-info' })])
+    store('1.0.0', [item('vacuum.robby', { tapAction: 'more-info' })])
 
     expect(loadedItems()[0].config).toMatchObject({ tapAction: 'more-info' })
   })
 
-  it('leaves other domains in the same old document alone', () => {
-    store('1.4.0', [item('light.living_room'), item('vacuum.robby')])
+  /**
+   * The migrations that legitimately exist are untouched by the vacuum card's
+   * absence of one: a media player in the same old document is still pinned,
+   * because `media_player.toggle` **is** registered
+   * (`media_player/__init__.py` — `SERVICE_TOGGLE`, required features
+   * `TURN_OFF | TURN_ON`) and that tap really did work.
+   */
+  it('still pins a media player in the same document, whose toggle does exist', () => {
+    store('1.3.0', [item('vacuum.robby'), item('media_player.tv')])
 
-    const [light, vacuum] = loadedItems()
-    expect(light.config).not.toHaveProperty('tapAction')
-    expect(vacuum.config).toMatchObject({ tapAction: 'toggle' })
+    const [vacuum, media] = loadedItems()
+    expect(vacuum.config).not.toHaveProperty('tapAction')
+    expect(media.config).toMatchObject({ tapAction: 'toggle' })
   })
 
   /**
-   * Idempotence, which is what the version stamp buys. The document is rewritten
-   * to `CURRENT_VERSION` on the first load, so a vacuum *added* to it afterwards
-   * — legitimately carrying no `tapAction` — must not be pinned on the next one.
+   * No marker was allocated for this change, and none should be: a marker with
+   * no migration behind it is never stamped, so the next family's "go above the
+   * highest marker" check would land on a number nothing in the document set
+   * ever carries.
    */
-  it('stamps the document forward so a later-added vacuum is not pinned', () => {
-    store('1.4.0', [item('vacuum.robby')])
-
-    const first = loaded()
-    expect(first?.version).toBe(CURRENT_VERSION)
-
-    store(first!.version, [item('vacuum.robby'), item('vacuum.mopper')])
-    const [, added] = loadedItems()
-
-    expect(added.config).not.toHaveProperty('tapAction')
-  })
-
-  /** `CURRENT_VERSION` must be this change's marker, since it is the newest. */
-  it('advances CURRENT_VERSION onto the vacuum marker', () => {
-    expect(CURRENT_VERSION).toBe(VACUUM_CARD_VERSION)
+  it('allocates no version marker of its own', () => {
+    expect(CURRENT_VERSION).toBe(MEDIA_PLAYER_CARD_VERSION)
   })
 
   /**
-   * A document Liebe cannot date reads as old: pinning an existing card to the
-   * control it already renders is harmless, while skipping the pin silently
-   * changes how a placed card is operated.
+   * And a document already at the newest marker is not rewritten at all —
+   * proving the vacuum card added no cutoff that would restamp it.
    */
-  it.each([['beta'], ['']])('pins a vacuum in a document versioned %p', (version) => {
-    store(version, [item('vacuum.robby')])
+  it('does not restamp a document already at the current marker', () => {
+    store(MEDIA_PLAYER_CARD_VERSION, [item('vacuum.robby')])
 
-    expect(loadedItems()[0].config).toMatchObject({ tapAction: 'toggle' })
+    expect(loaded()?.version).toBe(MEDIA_PLAYER_CARD_VERSION)
   })
 })
