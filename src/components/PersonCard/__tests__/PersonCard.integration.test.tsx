@@ -83,19 +83,24 @@ describe('the person card against the real shell', () => {
     expect(hass.callService).not.toHaveBeenCalled()
   })
 
-  it('calls no service even when a tap is configured as a toggle', async () => {
+  it('sends a configured toggle to the dialog rather than to a service', async () => {
     /*
      * The configured route, which is the one that matters: `tapAction: default`
      * resolving to `more-info` is this card's own rule, but a stored `toggle`
      * reaches the shell's generic on/off path, and `homeassistant.toggle` on a
      * person is what the fallback card used to attempt and what the registry
      * entry exists to stop.
+     *
+     * Both halves are asserted. That no service is called is the safety half;
+     * that the dialog opens anyway is the half that makes the option behave like
+     * every other route on this card rather than like a dead tap.
      */
     seed(makePerson('home'))
     renderCard(<PersonCard entityId={ENTITY_ID} tier="row" />, { tapAction: 'toggle' })
 
     fireEvent.click(screen.getByText('Jane Doe'))
 
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
     // Waited out rather than asserted immediately: a dispatch one tick later
     // would otherwise pass this test.
     await new Promise((resolve) => setTimeout(resolve, 20))

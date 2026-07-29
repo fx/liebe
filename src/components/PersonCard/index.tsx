@@ -105,7 +105,8 @@ function PersonCardComponent({
   )
 
   /**
-   * This card's toggle semantics: there are none, and saying so is the point.
+   * This card's toggle semantics: open the details, because there is nothing to
+   * toggle.
    *
    * Omitting the handler is NOT the same as passing this one. The shell's rule
    * for a family with no toggle of its own is to fall back to
@@ -116,20 +117,15 @@ function PersonCardComponent({
    * a new control surface; inheriting it through the configured route would fix
    * the default and leave the defect one option away.
    *
-   * Passed unconditionally rather than withheld, per the shell's contract.
+   * Returning `'more-info'` rather than doing nothing is what makes a configured
+   * `tapAction: toggle` land where every other route on this card lands. The
+   * card *requests* the resolution; the shell owns the dialog and performs it.
+   * That is the whole of this card's toggle contract, so it is stated once here
+   * rather than guarded per gesture.
    *
-   * **What a configured `tapAction: toggle` does instead is nothing**, and that
-   * is a known gap rather than the intended end state. The natural resolution is
-   * for it to open more-info like every other route on this card, which the
-   * shell cannot yet express — `onToggle` returns `void`, so a card can decline
-   * to act but cannot ask for the dialog. This is the same shape as the lock's
-   * `jammed` deviation (#260) and resolves with it. Doing nothing is the safe
-   * half: no service call is made on a card that can never have one, and the
-   * default tap and the hold gesture both still reach more-info.
+   * Passed unconditionally rather than withheld, per the shell's contract.
    */
-  const handleToggle = useCallback(() => {
-    /* Read-only: a person cannot be controlled, so no route may dispatch. */
-  }, [])
+  const handleToggle = useCallback((): 'more-info' => 'more-info', [])
 
   if (isEntityLoading || (!entity && isConnected)) {
     return <SkeletonCard tier={tier} showIcon={true} lines={2} />
