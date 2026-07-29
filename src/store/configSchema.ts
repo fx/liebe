@@ -6,6 +6,7 @@ import { cameraOptionsConfigSchema } from './cameraOptions'
 import { climateOptionsConfigSchema } from './climateOptions'
 import { coverOptionsConfigSchema } from './coverOptions'
 import { fanOptionsConfigSchema } from './fanOptions'
+import { lightOptionsConfigSchema } from './lightOptions'
 import { lockOptionsConfigSchema } from './lockOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
@@ -98,6 +99,11 @@ const gridItemSchema = z
     // in the house: `confirm: "true"` is a string, so a reader that fell back to
     // the default would leave a card its author asked to gate dispatching
     // unguarded (docs/specs/entity-cards/options/scene.md — "`confirm`").
+    // The light keys join them because both readers treat "not the disabling
+    // value" as enabled: `showBrightnessSlider: "false"` is a string, so it is
+    // not `false`, so a dashboard that asked to hide the slider silently keeps
+    // it — a document whose author needs telling rather than a card that quietly
+    // disagrees with them (docs/specs/entity-cards/options/light.md).
     //
     // NOTE on overlapping keys: `.merge()` is LAST-ONE-WINS, so a key declared
     // by two fragments is governed by whichever is merged later here — for both
@@ -119,6 +125,7 @@ const gridItemSchema = z
       .merge(coverOptionsConfigSchema)
       .merge(fanOptionsConfigSchema)
       .merge(weatherOptionsConfigSchema)
+      .merge(lightOptionsConfigSchema)
       .merge(lockOptionsConfigSchema)
       .passthrough()
       .optional(),
