@@ -8,6 +8,7 @@ import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOptions'
 import { COVER_OPTION_DEFAULTS, COVER_STATE_LABELS_AUTO } from '~/store/coverOptions'
 import { FAN_OPTION_DEFAULTS } from '~/store/fanOptions'
+import { LOCK_OPTION_DEFAULTS } from '~/store/lockOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -402,6 +403,59 @@ export const cardConfigurations: Record<
         description:
           'Asks before anything that would open this further — the Open button, an opening tap, a drag to a wider position. Closing is never held up.',
         requires: 'security-cover',
+      },
+    },
+  },
+  /*
+   * The lock card's options (docs/specs/entity-cards/options/security.md).
+   *
+   * Nothing here is capability-gated, and that is correct rather than an
+   * oversight: `LockEntityFeature` defines one bit, `OPEN`, and it gates only
+   * the unlatch service this card deliberately does not offer. Every lock can
+   * lock and unlock, so every lock gets the same four options.
+   *
+   * The two confirmation gates are separate options because the directions are
+   * asymmetric — unlock is the one that can fail physically-open — and their
+   * defaults say so: `confirmUnlock` on, `confirmLock` off.
+   */
+  lock: {
+    title: 'Lock Card',
+    description: 'Which controls the card shows, and what it asks before acting.',
+    definition: {
+      showButtons: {
+        type: 'boolean',
+        default: LOCK_OPTION_DEFAULTS.showButtons,
+        label: 'Show lock / unlock buttons',
+        description:
+          'The explicit Lock and Unlock pair, on cards at least 2 cells. A 1×1 card has no room and operates from the detail dialog instead.',
+      },
+      confirmUnlock: {
+        type: 'boolean',
+        default: LOCK_OPTION_DEFAULTS.confirmUnlock,
+        label: 'Confirm before unlocking',
+        description:
+          'Asks before anything that would unlock this — the Unlock button, an unlocking tap, or an action pointed at this lock. Leave it on unless you have a reason.',
+      },
+      confirmLock: {
+        type: 'boolean',
+        default: LOCK_OPTION_DEFAULTS.confirmLock,
+        label: 'Confirm before locking',
+        description:
+          'The same question for locking. Off by default — locking is the safe direction and stays one tap.',
+      },
+      doorEntity: {
+        type: 'entity',
+        default: LOCK_OPTION_DEFAULTS.doorEntity,
+        label: 'Door sensor',
+        /*
+         * Narrowed to the domain and no further, for the reason the camera's
+         * motion sensor is: plenty of real door sensors — template ones
+         * especially — carry no `device_class`, and a picker that cannot offer
+         * the sensor a user actually has is worse than a long one.
+         */
+        domains: ['binary_sensor'],
+        description:
+          'Adds “Door closed” or “Door open” to the state line. Display only — it never changes what the buttons do.',
       },
     },
   },
