@@ -176,12 +176,46 @@ describe('classifyLockRoute', () => {
     }
   })
 
+  it('holds a same-domain service the lock platform does not register', () => {
+    // A custom integration is free to register `lock.turn_off`, and the gate
+    // cannot read a direction out of it — HA defines no on/off polarity for a
+    // lock. Naming only `lock.toggle` here let every other invented name fall
+    // through to `neutral` and dispatch unconfirmed.
+    expect(classify({ action: 'call-service', service: 'lock.turn_off' })).toBe('unclassifiable')
+    expect(classify({ action: 'call-service', service: 'lock.turn_on' })).toBe('unclassifiable')
+    // And it is a rule, not a patch for three names: a service nobody has
+    // thought of yet is held on the same grounds.
+    expect(classify({ action: 'call-service', service: 'lock.unlatch' })).toBe('unclassifiable')
+    expect(classify({ action: 'call-service', service: 'lock.some_custom_service' })).toBe(
+      'unclassifiable'
+    )
+  })
+
+  /*
+   * The property behind that case, swept rather than exampled: inside the
+   * lock's own domain, exactly the three services the platform registers
+   * classify to a direction and everything else is held. Written this way so a
+   * same-domain service added later cannot default to `neutral` — the fail-open
+   * direction — without this failing.
+   */
+  it('never passes a same-domain service, whatever it is called', () => {
+    const services = ['lock', 'unlock', 'open', 'toggle', 'turn_on', 'turn_off', 'unlatch', 'ping']
+
+    const passed = services.filter(
+      (service) => classify({ action: 'call-service', service: `lock.${service}` }) === 'neutral'
+    )
+
+    expect(passed).toEqual([])
+  })
+
   it('passes actions that do not actuate this lock', () => {
     expect(classify('more-info')).toBe('neutral')
     expect(classify('none')).toBe('neutral')
     expect(classify({ action: 'navigate', target: 'kitchen' })).toBe('neutral')
+    // A service in another domain is genuinely non-actuating, and gating those
+    // would be prompt fatigue — the other way this design fails.
     expect(classify({ action: 'call-service', service: 'light.turn_on' })).toBe('neutral')
-    expect(classify({ action: 'call-service', service: 'lock.some_custom_service' })).toBe(
+    expect(classify({ action: 'call-service', service: 'homeassistant.update_entity' })).toBe(
       'neutral'
     )
   })
