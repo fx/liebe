@@ -553,8 +553,18 @@ function meetsRequirement(
  * resolver's output: that keeps the labels and the ordering the definition
  * declares, and means a mode the resolver knows about but the form never
  * offered cannot appear by accident.
+ *
+ * An option that declares `optionsFrom` but no `options` narrows to nothing.
+ * That is an authoring guard rather than a runtime state — no shipped
+ * definition does it — but it IS reachable by the next person to add a source,
+ * and narrowing to empty is the right answer for them: a control with no
+ * choices is visibly wrong, where falling back to "offer everything" would be
+ * invisibly wrong and would defeat the whole point of this function.
+ *
+ * Exported for its own test, because both arms matter and neither is reachable
+ * through the shipped definitions.
  */
-function narrowChoices(option: ConfigOption, entity: HassEntity | undefined): ConfigOption {
+export function narrowChoices(option: ConfigOption, entity: HassEntity | undefined): ConfigOption {
   if (option.optionsFrom !== 'alarm-arm-modes') return option
 
   const supported = new Set<string>(resolveArmModes(entity?.attributes, undefined))
