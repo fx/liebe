@@ -219,13 +219,19 @@ gh issue view <issue-number>
 
    Concatenating the two sides is right for the first case and **silently wrong** for the second — it emits every shared row twice. Resolve a whole-table conflict as a **keyed union** instead: take main's table verbatim, then append only the rows this branch has that main does not, matching on a padding-stripped key (split on `|`, trim each cell, rejoin).
 
+   **Exclude the separator row from that key.** Its padding is dashes rather than spaces, so stripping whitespace leaves `| ---- |` and `| --------- |` two different strings: main's reflowed separator reads as a row only one side has, and the obvious correction restores it as a second separator in the middle of the table. "Normalise the padding" sounds total and is not — it covers the padding made of spaces.
+
    Then verify, on a normalised key, in this order:
    - **Duplicate count** — `len(rows) - len(set(rows))` must be `0`.
    - **Sequence** — main's rows and this branch's rows must each keep their relative order in the merge.
    - **Set difference in both directions** — merged∖expected and expected∖merged must both be empty, where expected is main's rows ∪ this branch's rows.
-   - **Whole-file** — the merged file should differ from `origin/main` by this branch's own added rows and nothing else, every hunk a `+`.
+   - **Whole-file** — the merged file should differ from `origin/main` by this branch's own additions and nothing else, every hunk a `+`. Additions, not added rows: see below.
 
    That order is deliberate and corrects how these checks were originally taught. **The bidirectional set diff is not the load-bearing one**: it passed cleanly on a 66-row table containing 32 duplicates, because a duplicated row is still a member of both sets. The duplicate count and the sequence comparison are what caught it — the two that read as ceremony until the day they do not. Counting rows is likewise not enough on its own: it cannot see a row _amended_ on main that this branch also carries, which is what the set difference is genuinely for.
+
+   **Order is only half of it — the checks also have to be pointed at the whole file.** The last bullet means _all_ of this branch's additions, not only its rows, and it is the one to read strictly. Resolving a table conflict by taking main's file wholesale and appending the missing rows passes every other check above — zero duplicates, correct sequence, empty set differences both ways — while dropping every prose change this branch made, because the table was the only thing being compared. A whole spec section can go that way without a single row assertion noticing.
+
+   That is the same failure as the set diff passing on a duplicated table, one level up: **a check aimed at the region that conflicted cannot see what it displaced.** The remedy is to compare the non-table lines too, against both parents, and require that every line either side added survives. Cheap, and it is the only check that would have caught it.
 
 ### Completing a Task
 
