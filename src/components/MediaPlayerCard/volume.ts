@@ -176,20 +176,27 @@ export function volumeToPercent(fraction: number): number {
 /**
  * A 0–100 slider value back to the 0–1 `volume_set` takes.
  *
- * Rounded to three decimals so the payload is the value the user chose rather
- * than a float artefact: `0.42`, never `0.42000000000000004`. That matters
- * beyond tidiness — the dispatch guard keys on `JSON.stringify(data)`, so two
- * spellings of one value would be two different commands to it.
+ * A plain division, deliberately: the slider's step is 1, so every value that
+ * reaches here is a whole percent, and dividing one by 100 is exact in IEEE 754
+ * for all 101 of them. An earlier version rounded on the way out to avoid a
+ * float artefact — but there is none to avoid on this path, and a mutation
+ * removing the rounding changed no reachable value, which is how the redundancy
+ * was found. The artefact is real one function down, where a *sum* is involved;
+ * see `steppedVolume`.
  */
 export function percentToVolume(percent: number): number {
-  return Math.round(Math.min(100, Math.max(0, percent)) * 10) / 1000
+  return Math.min(100, Math.max(0, percent)) / 100
 }
 
 /**
  * The volume a stepper should ask for, when it has to build the step out of
  * `volume_set` because the entity has no `volume_up`/`volume_down`.
  *
- * Clamped into 0–1 so the ends of the range are reachable but never exceeded.
+ * Clamped into 0–1 so the ends of the range are reachable but never exceeded,
+ * and rounded because this one genuinely needs it: `0.7 + 0.1` is
+ * `0.7999999999999999`, and that would travel in the payload. It matters beyond
+ * tidiness — the dispatch guard keys on `JSON.stringify(data)`, so two spellings
+ * of one value are two different commands to it.
  */
 export function steppedVolume(current: number, direction: 1 | -1): number {
   const next = current + direction * VOLUME_STEP_FRACTION

@@ -1419,6 +1419,80 @@ describe('MediaPlayerCard progress', () => {
     expect(progressBar()).toBeNull()
   })
 
+  /*
+   * The ticker's *cost*, which is a property of the card rather than of the
+   * arithmetic and so is invisible to every assertion about what the bar shows.
+   *
+   * `media_position` advances whether or not anyone is looking, so a ticker
+   * keyed on playback alone would re-render every media card on a dashboard once
+   * a second for a bar none of them draws (docs/changes/0023 resolves the option
+   * doc's "extrapolation cadence" question this way). What is observed here is
+   * the scheduled timer itself — the only direct evidence that nothing is
+   * running.
+   */
+  describe('the extrapolation ticker', () => {
+    const mountTicking = (state: string, tier: CardTier, config: Record<string, unknown>) => {
+      vi.useFakeTimers()
+      mount({
+        state,
+        tier,
+        span: tier === 'full' ? { width: 2, height: 2 } : { width: 4, height: 1 },
+        attributes: {
+          supported_features: FEATURES.playPauseOnly,
+          media_duration: 300,
+          media_position: 30,
+          media_position_updated_at: PLAYING_AT,
+        },
+        config,
+      })
+    }
+
+    it('schedules a tick while playing with the bar on screen', () => {
+      mountTicking('playing', 'full', { showProgress: true })
+
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+    })
+
+    it('schedules nothing when the bar is switched off', () => {
+      mountTicking('playing', 'full', { showProgress: false })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('schedules nothing at a tier with no room for the bar', () => {
+      mountTicking('playing', 'row', { showProgress: true })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('schedules nothing while the player is paused', () => {
+      mountTicking('paused', 'full', { showProgress: true })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('stops ticking when playback stops', () => {
+      mountTicking('playing', 'full', { showProgress: true })
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+
+      act(() => {
+        seed(
+          createMediaPlayerEntity({
+            state: 'paused',
+            attributes: {
+              supported_features: FEATURES.playPauseOnly,
+              media_duration: 300,
+              media_position: 30,
+              media_position_updated_at: PLAYING_AT,
+            },
+          })
+        )
+      })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+  })
+
   it('reports the position and duration to assistive technology', () => {
     withProgress({}, { showProgress: true })
 
