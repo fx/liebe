@@ -199,6 +199,38 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 - The family MUST declare `defaultDimensions` of 1×1 — the first to do so — and MUST NOT expose a configuration modal of its own; its options render in the shared form, routed through the card that renders rather than the raw entity domain.
 - Registering these four domains changes what `getCardForEntity` resolves for **already-placed** grid items, so existing dashboards upgrade on load with no migration. Convention 7's bugfix exemption is what permits that: `<domain>.toggle` is not a registered service on three of the four, so the fallback was not a working control surface to preserve ([options/common.md](./options/common.md#conventions-for-per-card-options), convention 7). The new keys are additive, so existing configurations keep validating.
 
+### Security (lock and alarm)
+
+**Status: implemented** by change [0024](../../changes/0024-security-cards.md) PRs 1 and 2. Two cards, one for `lock` and one for `alarm_control_panel`. What they present and how their options behave — the per-state tables, the arm modes, the keypad, the confirmation gates and their scenarios — is owned by [options/security.md](./options/security.md). What belongs here is what the registry and the card contract say about them, and the two properties that are not negotiable at any tier.
+
+- Both domains MUST be registered, and both MUST join the set the entity browser offers, so a user can place either from the browser rather than by hand.
+- Neither card's default tap MUST actuate the device. A tap with no configured action MUST open the entity's detail dialog. This is the rule the whole family exists for: a brushed sleeve on a wall tablet must not unlock a door or disarm a house, and no other card family's default is chosen this way.
+- Because a tap does not operate them, both cards MUST make every control they offer reachable from the detail dialog as well. A card placed at one cell renders no controls of its own, so without this it would be a security device that cannot be operated from anywhere.
+- Every command either card sends MUST take the non-retrying guarded dispatch path, and MUST NOT be retried automatically ([options/common.md — dispatch guarantees](./options/common.md#action-type)). A retried unlock is a door opened twice; a retried arm on a code-protected panel is a second rejected code.
+- A control MUST NOT be re-enabled merely because the command's request completed. Home Assistant acknowledges a service call before a slow integration updates its state, so a control that reopened on acknowledgement would admit a second press while the first was still travelling. It MUST stay held until the entity itself moves or an acknowledgement timeout elapses.
+- Transitional states MUST NOT disable controls wholesale. Each card's option document names which single control a given state holds back; every other control — in particular the one that reverses or cancels what is happening — MUST remain usable. Disarming during an exit countdown, and reversing a lock mid-travel, are the moments these cards are for.
+- **A danger state MUST NOT be configurable into looking calm.** A jammed lock and a triggered alarm MUST keep their alert colour, their glyph, their name and their state text regardless of any configured colour or hide option. A card that reported a triggered alarm as calm and green would be the worst output this family can produce. Only the user's own name override survives, because it identifies which device is alarming rather than describing what it is doing.
+- **Motion MUST NOT be the sole signal.** Where these cards animate — a countdown pulse, a triggered flash — the state MUST remain unambiguous with all animation suppressed, and the suppression MUST hold for a viewer who has asked for reduced motion regardless of any option that asks for the animation.
+- Registering these domains changes what already-placed grid items resolve to, and existing dashboards upgrade on load with no migration. Convention 7's bugfix exemption permits it: the fallback card's tap dispatched a toggle service that neither domain registers, so on both of them the previous behaviour was an erroring tap rather than a working control surface worth preserving ([options/common.md](./options/common.md#conventions-for-per-card-options), convention 7). Pinning that behaviour would have converted a broken tap into a real unlock path, which is strictly worse than the safe default.
+
+#### Scenario: A tap opens the details rather than unlocking
+
+- **GIVEN** a lock card with no configured tap action
+- **WHEN** the user taps the card body
+- **THEN** the entity detail dialog opens and no lock service is called.
+
+#### Scenario: A jammed lock cannot be dressed down
+
+- **GIVEN** a lock card configured with a calm colour and its state line hidden
+- **WHEN** the lock reports `jammed`
+- **THEN** the card renders in the alert colour with its state line reading `Jammed`, and the configured colour and hide option do not apply.
+
+#### Scenario: Disarm survives the exit countdown
+
+- **GIVEN** an alarm card whose panel is counting down to armed
+- **WHEN** the user looks for a way to stop it
+- **THEN** the Disarm control is present and usable, and remains so until the panel leaves the countdown.
+
 ### Text and separator widgets
 
 - `TextCard` (grid item type `text`) MUST render Markdown via `react-markdown` with Radix-themed elements, MUST support `alignment`, `textSize`, `textColor`, and `hideBackground`, and MUST allow inline editing (a focused `TextArea`) in edit mode, persisting to the grid item's direct properties.
@@ -285,10 +317,19 @@ export const domainToCard: CardRegistry = {
   input_select: InputSelectCard,
   input_text: InputTextCard,
   input_datetime: InputDateTimeCard,
+  lock: LockCard,
+  media_player: MediaPlayerCard,
+  alarm_control_panel: AlarmCard,
+  scene: ActionCard,
+  script: ActionCard,
+  button: ActionCard,
+  input_button: ActionCard,
 }
 ```
 
-(The `camera` entry resolves to `CameraCard`, specified separately in [`../camera-streaming/`](../camera-streaming/).)
+(The `camera` entry resolves to `CameraCard`, specified separately in [`../camera-streaming/`](../camera-streaming/). The last four entries are one component under four domains — see [Scene, script and button](#scene-script-and-button).)
+
+The domain list this map is checked against lives apart from the registry and carries no component imports, so the configuration surface can ask whether a domain has a card of its own without importing the registry. A domain present in one and absent from the other is a compile error rather than a drift, which is what keeps the fallback-routing rule true by construction.
 
 ### Data Models
 
@@ -395,3 +436,4 @@ Registry functions (`cardRegistry.ts:60-98`): `getCardForDomain`, `getCardForEnt
 | 2026-07-29 | Media player card added (change 0023 PR 1): a `MediaPlayerCard` under a new `media_player` registry entry, replacing the fallback's bare power toggle for a domain whose point is transport control. Ships the tier layouts (`glance`, `row` with its wide full-transport form at ≥4 columns, `tall`-as-`glance`, `full`), the `media_title` → `app_name` → raw-state fallback chain as a pure helper, `artworkMode: thumbnail`/`none` with automatic icon fallback on a missing attribute **and** on a failed load, the state-resolved default action (`media_pause` while playing, `turn_on` when off/standby, inert rather than falling through where the state-appropriate bit is absent), the feature-gated transport cluster sharing that one resolver, and `collapseWhenIdle`. Legacy `media_player` items are pinned to `tapAction: 'toggle'` by the loader so an upgrade does not repurpose a tap that has always cut power. Volume, source picker, progress and background artwork are PR 2.                                                                                                                             | [options/media-player](./options/media-player.md)                                       |
 | 2026-07-29 | AlarmCard implemented, completing the security family: capability-derived `armModes` pills, Disarm, the keypad as dialog or inline above a 2×3 span, `showKeypad`, `confirmArm`/`confirmDisarm` and `flashOnTriggered`. `triggered` is non-negotiably loud through the danger floor, and the reduced-motion suppression lives in the stylesheet so neither the option nor a logic regression can switch the flash back on. Two Home Assistant contracts were read off a running 2026.7.2 instance rather than assumed, and both would have been guessed wrong: `TRIGGER` takes feature bit `8`, so `ARM_VACATION` is `32` and not the `8` the listing order suggests; and `alarm_disarm` is registered with **no** feature requirement, so every panel can be disarmed. Arming requires a code only when the panel publishes BOTH a `code_format` and `code_arm_required` — HA defaults the latter to `true` and publishes it unconditionally, so reading it alone would demand a code from every codeless panel and make arming impossible                                                                                        | [0024-security-cards](../../changes/0024-security-cards.md)                             |
 | 2026-07-29 | A card's `toggle` may now resolve to the detail dialog by returning `'more-info'` from its handler, which the shell performs. Families whose toggle means "open the details" — the alarm always, a jammed lock — could not express it: the shell owns the dialog, and a card passing its own `onMoreInfo` REPLACED the shell's opener rather than borrowing it, leaving `more-info` resolving to nothing. Closes the lock card's jammed deviation (#260)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | [0024-security-cards](../../changes/0024-security-cards.md)                             |
+| 2026-07-29 | Security section marked implemented and reduced to its contract, with the state tables, arm modes, keypad and confirmation gates left to [options/security](./options/security.md). Three things the implementation settled are recorded there rather than left to be rediscovered: the confirmation suppression follows **whether a keypad is presented**, not the literal "when a code is required" — the two diverge under `showKeypad: always` on a codeless panel and `never` on a coded one, and the spec's own stated reason (the keypad _is_ the confirmation) governs; arming requires **both** a `code_format` and a non-waived `code_arm_required`, because Home Assistant defaults that flag true and publishes it on codeless panels, so reading it alone makes arming impossible; and `alarm_trigger` is ungated by decision, its failure mode being delay rather than accident. The registry listing in Design was also brought up to date — it had gone stale for the media player and action families as well                                                                                                     | [0024-security-cards](../../changes/0024-security-cards.md)                             |

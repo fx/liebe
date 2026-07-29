@@ -214,7 +214,7 @@ changes:
     path: changes/0024-security-cards.md
     description: New lock and alarm cards — confirmation-gated unlock, door-sensor linkage, jammed handling, arm-mode pills, code keypad flow, triggered alerting
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0011', '0014']
   - id: '0025'
     name: vacuum-card

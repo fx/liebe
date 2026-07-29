@@ -4,7 +4,7 @@
 
 Create the two new security card families specified in [options/security](../specs/entity-cards/options/security.md): a **LockCard** for the `lock` domain (more-info default tap, explicit Lock/Unlock pills, `confirmUnlock: true` by default, `doorEntity` linkage, locked=green / unlocked=red, `locking`/`unlocking` in-progress states, loud `jammed` alert) and an **AlarmCard** for `alarm_control_panel` (arm-mode pills derived from `supported_features`, code-required keypad as dialog or inline per `showKeypad: auto | always | never`, state colors including the amber `pending` pulse and red `triggered` flash with reduced-motion fallback, `flashOnTriggered`). Both register in `domainToCard`, accept the shared `CardProps` contract, render through the common shell on the [0011 tier system](./0011-layout-tiers.md), and adopt the [0014 universal options](./0014-universal-card-options.md).
 
-**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/security](../specs/entity-cards/options/security.md) · **Status:** draft · **Depends on:** 0011, 0014
+**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/security](../specs/entity-cards/options/security.md) · **Status:** complete · **Depends on:** 0011, 0014
 
 ## Motivation
 
@@ -50,8 +50,8 @@ Spec restatements update **in the same PR** as each behavior change they describ
 
 - [x] **PR 1 — LockCard**: component + registry entry + `SUPPORTED_DOMAINS`; states incl. `jammed`; Lock/Unlock pills with confirm gates (shared shell gate, coordinated with 0022); `doorEntity` fragment; config definition; tier layouts; unit tests + full story matrix
 - [x] **PR 2 — AlarmCard**: component + registry entry + `SUPPORTED_DOMAINS`; states incl. `pending` pulse and `triggered` flash with reduced-motion fallback; `armModes` capability-derived pills; keypad (dialog + inline) with code payloads; `confirmDisarm` and `confirmArm` with their action-resolution gate tests (pills and same-entity call-service routes); config definition; tier layouts; unit tests + full story matrix
-- [ ] **PR 3 — Spec sync**: update [entity-cards](../specs/entity-cards/index.md) — add both cards to the registry section and requirements as implemented baseline, note the new `SUPPORTED_DOMAINS` entries, and record this change in the spec changelog
-- [ ] **Blocks `complete`** — settle [#260](https://github.com/fx/liebe/issues/260) before this change's status flips: the [security option doc](../specs/entity-cards/options/security.md) says a configured `tapAction: toggle` on a `jammed` lock resolves to `more-info`, and PR 1 shipped it resolving to nothing. Either the shell lets a card route a resolved toggle to the dialog, or the spec is amended — PR 2 is expected to carry the former. PR 1's own scope is done; this deviation is recorded, not hidden.
+- [x] **PR 3 — Spec sync**: update [entity-cards](../specs/entity-cards/index.md) — add both cards to the registry section and requirements as implemented baseline, note the new `SUPPORTED_DOMAINS` entries, and record this change in the spec changelog
+- [x] **Blocks `complete`** — settle [#260](https://github.com/fx/liebe/issues/260) before this change's status flips: the [security option doc](../specs/entity-cards/options/security.md) says a configured `tapAction: toggle` on a `jammed` lock resolves to `more-info`, and PR 1 shipped it resolving to nothing. Either the shell lets a card route a resolved toggle to the dialog, or the spec is amended — PR 2 is expected to carry the former. PR 1's own scope is done; this deviation is recorded, not hidden.
 
 ## Out of Scope
 
