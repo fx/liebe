@@ -487,6 +487,9 @@ export const cardConfigurations: Record<
           { value: 'vacation', label: 'Arm vacation' },
         ],
         requires: 'alarm-arm-modes',
+        // And the choices themselves come from the panel, not from this list:
+        // `requires` only decides whether the control exists.
+        optionsFrom: 'alarm-arm-modes',
       },
       showKeypad: {
         type: 'select',

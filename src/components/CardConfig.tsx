@@ -121,6 +121,15 @@ export type ConfigOptionRequirement =
   | 'climate-humidity'
   | 'alarm-arm-modes'
 
+/**
+ * An entity-derived choice set.
+ *
+ * - `alarm-arm-modes` — the arm modes this panel's `supported_features`
+ *   advertises, in the definition's own order, resolved by the card's
+ *   `resolveArmModes`.
+ */
+export type ConfigOptionChoiceSource = 'alarm-arm-modes'
+
 // Configuration option types
 export interface ConfigOption {
   type:
@@ -159,6 +168,23 @@ export interface ConfigOption {
   domains?: string[] // For entity type: narrows what the picker offers
   deviceClasses?: string[] // For entity type: narrows it further
   requires?: ConfigOptionRequirement // Hides the control when the entity cannot use it
+  /**
+   * Narrows the CHOICES to what the entity can actually perform.
+   *
+   * `requires` decides whether a control exists at all; this decides what is
+   * inside it, and the two are not the same question. An alarm panel that
+   * supports only `away` passes `alarm-arm-modes` — it has *some* arm mode — so
+   * the multi-select renders, and without this it would still offer all four.
+   * A user then configures `vacation`, the card correctly refuses to render a
+   * mode the panel cannot arm to, and the result reads as the card being broken
+   * rather than the panel being incapable: the capability check ends up hidden
+   * behind a control that suggested otherwise.
+   *
+   * Answered by the card's own resolver, for the same reason `requires` is —
+   * a second predicate shaped like it is how the form and the card come to
+   * disagree.
+   */
+  optionsFrom?: ConfigOptionChoiceSource
 }
 
 export interface ConfigDefinition {
@@ -517,6 +543,24 @@ function meetsRequirement(
   return requires === 'numeric' || isCounterStateClass(entity?.attributes?.state_class)
 }
 
+/**
+ * Narrow an option's choices to what this entity can perform.
+ *
+ * Returns the option untouched when it declares no source — which is every
+ * option but one today, so the common path allocates nothing.
+ *
+ * The definition's own list is *filtered* rather than rebuilt from the
+ * resolver's output: that keeps the labels and the ordering the definition
+ * declares, and means a mode the resolver knows about but the form never
+ * offered cannot appear by accident.
+ */
+function narrowChoices(option: ConfigOption, entity: HassEntity | undefined): ConfigOption {
+  if (option.optionsFrom !== 'alarm-arm-modes') return option
+
+  const supported = new Set<string>(resolveArmModes(entity?.attributes, undefined))
+  return { ...option, options: (option.options ?? []).filter((c) => supported.has(c.value)) }
+}
+
 function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   // Read before the early returns below, because a hook cannot be called after
   // one. An item with no entity (a separator, a text card) has no capabilities
@@ -547,9 +591,12 @@ function Content({ config = {}, onChange = () => {}, item }: ContentProps) {
   // If this card has a configuration definition, use Component
   if (cardConfig.definition) {
     const definition = Object.fromEntries(
-      Object.entries(cardConfig.definition).filter(([, option]) =>
-        meetsRequirement(option.requires, entity)
-      )
+      Object.entries(cardConfig.definition)
+        .filter(([, option]) => meetsRequirement(option.requires, entity))
+        // The choices are narrowed in the same pass that drops unusable
+        // controls, because they are the same rule one level down: the form
+        // must not offer what the entity cannot do.
+        .map(([key, option]) => [key, narrowChoices(option, entity)])
     )
 
     return (

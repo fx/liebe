@@ -105,4 +105,52 @@ describe('alarm card configuration form', () => {
 
     expect(screen.queryByText('Arm modes')).not.toBeInTheDocument()
   })
+
+  describe('the choices inside the control', () => {
+    /*
+     * `requires` decides whether the control exists; this decides what is in
+     * it, and they are different questions. A panel supporting only `away` has
+     * *some* arm mode, so the control renders — and offering all four there
+     * would let a user configure `vacation`, whereupon the card correctly
+     * refuses to render it and the result reads as the card being broken rather
+     * than the panel being incapable.
+     */
+    it('offers only the modes the panel can actually arm to', () => {
+      seed({ supported_features: ALARM_FEATURE.ARM_AWAY | ALARM_FEATURE.ARM_NIGHT })
+      renderModal()
+
+      expect(screen.getByText('Arm modes')).toBeInTheDocument()
+      expect(screen.getByText('Arm away')).toBeInTheDocument()
+      expect(screen.getByText('Arm night')).toBeInTheDocument()
+      expect(screen.queryByText('Arm vacation')).not.toBeInTheDocument()
+      expect(screen.queryByText('Arm home')).not.toBeInTheDocument()
+    })
+
+    it('offers all four to a panel that supports all four', () => {
+      seed({
+        supported_features:
+          ALARM_FEATURE.ARM_AWAY |
+          ALARM_FEATURE.ARM_HOME |
+          ALARM_FEATURE.ARM_NIGHT |
+          ALARM_FEATURE.ARM_VACATION,
+      })
+      renderModal()
+
+      for (const label of ['Arm away', 'Arm home', 'Arm night', 'Arm vacation']) {
+        expect(screen.getByText(label)).toBeInTheDocument()
+      }
+    })
+
+    it('does not offer custom bypass, which the panel supports but this card does not', () => {
+      // Capability is necessary, not sufficient: `armed_custom_bypass` is a real
+      // HA arm service the option surface deliberately defers, so narrowing
+      // filters the definition's list rather than rebuilding it from the
+      // entity's bits.
+      seed({ supported_features: ALARM_FEATURE.ARM_AWAY | ALARM_FEATURE.ARM_CUSTOM_BYPASS })
+      renderModal()
+
+      expect(screen.getByText('Arm away')).toBeInTheDocument()
+      expect(screen.queryByText(/custom bypass/i)).not.toBeInTheDocument()
+    })
+  })
 })
