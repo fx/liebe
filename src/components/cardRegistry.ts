@@ -18,6 +18,7 @@ import { InputNumberCard } from './InputNumberCard'
 import { InputSelectCard } from './InputSelectCard'
 import { InputTextCard } from './InputTextCard'
 import { InputDateTimeCard } from './InputDateTimeCard'
+import { LockCard } from './LockCard'
 import { MediaPlayerCard } from './MediaPlayerCard'
 import { ActionCard } from './ActionCard'
 
@@ -79,6 +80,7 @@ const registeredCards = {
   input_select: InputSelectCard,
   input_text: InputTextCard,
   input_datetime: InputDateTimeCard,
+  lock: LockCard,
   media_player: MediaPlayerCard,
   /*
    * Four entries, one component. The action family's domains differ only in

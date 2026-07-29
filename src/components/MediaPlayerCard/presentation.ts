@@ -80,8 +80,17 @@ export interface MediaStateLine {
   line: string
   /** The name-style line of the split form — `row` and `full`. */
   primary: string
-  /** The muted line of the split form; absent when there is nothing for it. */
-  secondary?: string
+  /**
+   * The muted line of the split form — `row` and `full`.
+   *
+   * **Total, never optional.** The card renders this field directly, so an
+   * `undefined` here is a blank second line on the tile, and the case that
+   * produced one was not exotic: a title with no `media_artist` is what a
+   * podcast, a radio stream and a TV app all publish. Making the field optional
+   * moved the fallback to every caller and then relied on each of them
+   * remembering — the render path did not, and neither would the next one.
+   */
+  secondary: string
   /** Which rung of the fallback chain produced this. */
   source: 'title' | 'app' | 'state'
 }
@@ -113,18 +122,31 @@ export function resolveMediaStateLine(
   friendlyName: string
 ): MediaStateLine {
   const title = text(attributes?.media_title)
+  const app = text(attributes?.app_name)
 
   if (title) {
     const artist = text(attributes?.media_artist)
     return {
+      /*
+       * The compact line is the title alone without an artist — the doc's chain
+       * for `glance` and `tall` is `media_title` plus the artist when there is
+       * one, and nothing else belongs on a single line beside a track name.
+       */
       line: artist ? `${title}${ARTIST_SEPARATOR}${artist}` : title,
       primary: title,
-      secondary: artist,
+      /*
+       * The split form has a second line to fill whether or not an artist
+       * exists, so it continues down the same chain rather than rendering
+       * blank: a podcast episode shows "Spotify", a radio stream with no app
+       * shows its state. Both are strictly more informative than the empty line
+       * this used to produce, and neither invents anything the entity did not
+       * publish.
+       */
+      secondary: artist ?? app ?? state,
       source: 'title',
     }
   }
 
-  const app = text(attributes?.app_name)
   if (app) {
     return { line: app, primary: friendlyName, secondary: app, source: 'app' }
   }

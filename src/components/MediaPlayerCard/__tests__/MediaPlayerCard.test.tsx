@@ -452,6 +452,88 @@ describe('MediaPlayerCard state line', () => {
     expect(nameLine()).toBe('Living Room Speaker')
     expect(stateLine()).toBe('Netflix')
   })
+
+  /**
+   * The split form at `row` and `full` puts the title on the name line and the
+   * artist beneath it — and a podcast, a radio stream and a TV app all publish a
+   * `media_title` with **no** `media_artist`. The muted line used to render
+   * `undefined` for exactly those, drawing a blank row under the title.
+   *
+   * Asserted at the tiers that split the meta, since `glance` and `tall` take
+   * the compact single line and could never have shown the gap.
+   */
+  it.each(['row', 'full'] as const)(
+    'renders no blank line at %s for a title with no artist',
+    (tier) => {
+      mount({
+        tier,
+        span: { width: 4, height: 2 },
+        state: 'playing',
+        attributes: { media_title: 'Serial S01E01', media_artist: undefined, app_name: 'Spotify' },
+      })
+
+      expect(nameLine()).toBe('Serial S01E01')
+      expect(stateLine()).toBe('Spotify')
+      expect(stateLine()?.trim()).not.toBe('')
+    }
+  )
+
+  /** With no app either, the muted line takes the raw state rather than nothing. */
+  it('falls through to the state on the muted line when there is no artist and no app', () => {
+    mount({
+      tier: 'full',
+      state: 'playing',
+      attributes: {
+        media_title: 'Espresso Bongo',
+        media_artist: undefined,
+        app_name: undefined,
+      },
+    })
+
+    expect(nameLine()).toBe('Espresso Bongo')
+    expect(stateLine()).toBe('playing')
+  })
+})
+
+/**
+ * The card's own boundary — AGENTS.md, "Entity Card Registration", and the shape
+ * the WeatherCard variants use.
+ *
+ * `GridView` wraps entity cards in `EntityErrorBoundary`, but that covers only
+ * the dashboard path; this card is also rendered directly by a story, by the
+ * configuration preview, and by anything handed a literal `entityId`. The test
+ * renders it exactly that way — bare, with nothing above it — because a
+ * boundary asserted underneath another boundary proves nothing about the case
+ * it exists for.
+ */
+describe('MediaPlayerCard error boundary', () => {
+  it('contains a render-time throw instead of taking the tree down with it', () => {
+    /*
+     * The throw is planted in `attributes`, which this card reads on every
+     * render pass, so it fires from inside the boundary's subtree rather than
+     * from the test's own frame. React logs a caught boundary error, hence the
+     * console silencing — without it the passing test prints a stack trace.
+     */
+    const entity = createMediaPlayerEntity({ attributes: { supported_features: FEATURES.full } })
+    const exploding = {
+      ...entity,
+      get attributes(): never {
+        throw new Error('render exploded')
+      },
+    } as unknown as HassEntity
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      seed(exploding)
+      // Rendered bare, with no `EntityErrorBoundary` above it — the direct path
+      // a story or the configuration preview takes, and the only one where this
+      // boundary is what stands between a throw and the whole tree.
+      expect(() => renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" />)).not.toThrow()
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
 })
 
 describe('MediaPlayerCard artwork', () => {

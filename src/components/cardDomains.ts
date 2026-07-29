@@ -27,6 +27,11 @@ export const MAPPED_CARD_DOMAINS = [
   'input_select',
   'input_text',
   'input_datetime',
+  // The security family (change 0024). Mapping `lock` is a bugfix as much as a
+  // new card: the fallback dispatches `<domain>.toggle`, and the `lock` platform
+  // registers only `lock`, `unlock` and `open` — so a placed lock's tap errors
+  // today rather than working.
+  'lock',
   // Change 0023. Media players were the fallback's most misleading case: it
   // renders a bare power toggle for a domain whose whole point is transport
   // control, with no track metadata, artwork or buttons.

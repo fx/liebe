@@ -377,6 +377,23 @@ export function createInputButtonEntity(overrides: EntityOverrides = {}): HassEn
   )
 }
 
+/**
+ * A lock at rest, locked.
+ *
+ * `supported_features: 0` is the ordinary case rather than a degraded one: the
+ * lock platform defines exactly one bit (`OPEN = 1`, the unlatch service), and
+ * most locks do not advertise it. A fixture carrying the full mask would be
+ * describing an unusual lock as if it were the default.
+ */
+export function createLockEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'lock.front_door',
+    'locked',
+    { friendly_name: 'Front Door', supported_features: 0 },
+    overrides
+  )
+}
+
 /** Every domain factory, keyed by the domain it serves. */
 export const entityFactories = {
   light: createLightEntity,
@@ -394,6 +411,7 @@ export const entityFactories = {
   input_select: createInputSelectEntity,
   input_text: createInputTextEntity,
   input_datetime: createInputDateTimeEntity,
+  lock: createLockEntity,
   scene: createSceneEntity,
   script: createScriptEntity,
   button: createButtonEntity,
