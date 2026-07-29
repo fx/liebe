@@ -86,12 +86,43 @@
    * is the artwork, not the card surface — so the text is pinned to white
    * regardless of appearance. This is the same trade the weather card's
    * condition backgrounds make.
+   *
+   * Done by overriding the **tokens** in this scope rather than by setting
+   * `color` on the parts, and that distinction is the whole fix. The anatomy
+   * parts colour themselves from `--liebe-fg` / `--liebe-muted` inside the
+   * `liebe-base` layer, and a Radix `<Text color="gray">` sets its own colour
+   * from a Radix scale — neither ever sees a `color` inherited from an
+   * ancestor, so the previous descendant rule left the progress readouts grey
+   * on photographic artwork. Custom properties do inherit, so overriding them
+   * here reaches every descendant that reads them, whatever sets its own
+   * `color`. This is the rule the weather card already carries
+   * (docs/specs/entity-cards/index.md — "the big readout MUST take that
+   * treatment through the `--liebe-fg` / `--liebe-muted` tokens rather than an
+   * inline `color`"), and it is the theming channel rather than a way around
+   * it: a hard-coded `color` on `.liebe-state` would be a declaration no theme
+   * could reach.
    */
+  .media-player-card-backdrop {
+    --liebe-fg: #fff;
+    --liebe-muted: rgb(255 255 255 / 85%);
+  }
+
+  /* `text-shadow` inherits on its own, so the scope carries it for every line. */
   .media-player-card-backdrop .liebe-name,
   .media-player-card-backdrop .liebe-state,
   .media-player-card-backdrop .liebe-media-progress {
-    color: #fff;
     text-shadow: 0 1px 3px rgb(0 0 0 / 60%);
+  }
+
+  /*
+   * The position and duration readouts. They take `--liebe-muted` directly
+   * rather than a Radix `color` prop, so the token override above reaches them
+   * in backdrop mode and they stay properly muted everywhere else — one
+   * declaration serving both, instead of a second rule fighting the first.
+   */
+  .liebe-media-progress-time {
+    color: var(--liebe-muted);
+    font-size: var(--font-size-1);
   }
 
   /* ------------------------------------------------------------------ *

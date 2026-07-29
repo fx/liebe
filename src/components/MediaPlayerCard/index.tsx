@@ -1,4 +1,4 @@
-import { Box, Flex, Select, Text } from '@radix-ui/themes'
+import { Box, Flex, Select } from '@radix-ui/themes'
 import {
   IconDeviceSpeaker,
   IconPlayerPause,
@@ -701,13 +701,21 @@ function MediaPlayerCardComponent({
             />
           </div>
         )}
+        {/*
+         * Plain spans taking `--liebe-muted`, not `<Text color="gray">`.
+         * A Radix `color` prop resolves to a Radix gray scale on the element
+         * itself, which no ancestor `color` can override — so over background
+         * artwork these readouts stayed grey on the photograph while every
+         * other line went white. Reading the token instead means the backdrop
+         * scope's override reaches them, and they stay muted everywhere else
+         * (docs/specs/entity-cards/index.md — the weather card's rule, same
+         * mechanism from the other direction).
+         */}
         <Flex justify="between">
-          <Text size="1" color="gray">
+          <span className="liebe-media-progress-time">
             {formatMediaTime(seekSeconds ?? progress.position)}
-          </Text>
-          <Text size="1" color="gray">
-            {formatMediaTime(progress.duration)}
-          </Text>
+          </span>
+          <span className="liebe-media-progress-time">{formatMediaTime(progress.duration)}</span>
         </Flex>
       </Flex>
     )
