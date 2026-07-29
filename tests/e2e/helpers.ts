@@ -22,6 +22,15 @@ export const DEMO_BUTTON = 'button.push'
  * from one HA answered 400 to.
  */
 export const DEMO_LOCK = 'lock.front_door'
+/*
+ * Home Assistant's demo alarm panel, which is a `manual` platform panel
+ * configured with the code `1234`, `code_arm_required: true`, and a real
+ * five-second arming time — so arming genuinely passes through `arming` before
+ * reaching `armed_away`. That countdown is the thing worth proving against a
+ * real instance: it is when Disarm must stay usable.
+ */
+export const DEMO_ALARM = 'alarm_control_panel.security'
+export const DEMO_ALARM_CODE = '1234'
 // A `mode: password` helper from configuration.yaml: its state IS the secret,
 // so it is what proves the detail dialog masks what the card masks.
 export const E2E_SECRET = 'input_text.e2e_secret'
@@ -159,6 +168,29 @@ export function seedLockCardConfig(): SeedConfig {
         y: 0,
         width: 3,
         height: 1,
+      },
+    ],
+  })
+}
+
+/**
+ * The alarm card's own screen, at 3x3 so the `full` tier renders the arm-mode
+ * row and the inline keypad.
+ */
+export function seedAlarmCardConfig(): SeedConfig {
+  return buildSeedConfig({
+    id: 'e2e-alarm-screen',
+    name: 'E2E Alarm',
+    slug: 'e2e-alarm',
+    items: [
+      {
+        id: 'item-alarm',
+        type: 'entity',
+        entityId: DEMO_ALARM,
+        x: 0,
+        y: 0,
+        width: 3,
+        height: 3,
       },
     ],
   })

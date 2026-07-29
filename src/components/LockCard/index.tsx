@@ -173,17 +173,17 @@ function LockCardComponent({
    * already put `confirmRoute` in front of this gesture, and gating it again
    * here would raise a second dialog after the user had already confirmed.
    *
-   * **`jammed` is specified to resolve to `more-info` and resolves to nothing
-   * here instead.** The shell owns the detail dialog and a card's `onToggle`
-   * has no handle on it — reaching it would mean changing the action system,
-   * which change 0024 puts out of scope. Doing nothing is the safe half of the
-   * deviation (a jammed lock is never actuated by a guessed direction, which is
-   * what the rule is for); what is lost is only that the tap opens no dialog.
-   * The hold gesture still reaches more-info at its default.
+   * `jammed` returns `'more-info'`, which the shell resolves to the detail
+   * dialog — never guess a direction against a jammed mechanism, but do give
+   * the user somewhere to go (issue #260).
    */
-  const handleToggle = useCallback(() => {
+  const handleToggle = useCallback((): void | 'more-info' => {
     const resolution = resolveLockToggle(state)
-    if (resolution === 'lock' || resolution === 'unlock') send(resolution)
+    if (resolution === 'lock' || resolution === 'unlock') {
+      send(resolution)
+      return
+    }
+    if (resolution === 'more-info') return 'more-info'
   }, [send, state])
 
   /**
