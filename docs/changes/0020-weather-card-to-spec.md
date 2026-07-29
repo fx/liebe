@@ -4,7 +4,7 @@
 
 Implement the weather-specific options from the [weather option contract](../specs/entity-cards/options/weather.md) on top of the tier layouts (0011), the universal option surface (0014), and the forecast pipeline (0015): the existing `variant` key preserved and made tier-adaptive (every variant implements all four tiers per the variant×tier reconciliation), `showHourlyForecast`/`forecastHours`, `showDailyForecast`/`forecastDays`, `secondaryInfo` with attribute fallback, and `showConditionBackground` — plus their config-form entries. The condition-background feature keeps the `window.__LIEBE_ASSET_BASE_URL__` resolution rule and finally gains the unit tests the entity-cards spec flags as missing. Universal options and the action system are already in place per 0014 and are not re-implemented here.
 
-**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/weather](../specs/entity-cards/options/weather.md) · **Status:** draft · **Depends on:** 0011, 0014, 0015
+**Spec:** [entity-cards](../specs/entity-cards/index.md) → [options/weather](../specs/entity-cards/options/weather.md) · **Status:** complete · **Depends on:** 0011, 0014, 0015
 
 ## Motivation
 
@@ -45,8 +45,8 @@ The [weather option doc](../specs/entity-cards/options/weather.md) owns the opti
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
 - [x] **PR 1 — Tier-adaptive variants, secondary info, background option**: tier layouts (`glance`/`row`/`tall`/`full`) for all four variants per the option doc's tier table; `secondaryInfo` select + fallback helper; `showConditionBackground` option; config-form entries; the missing `getWeatherBackground`/asset-base-URL/text-treatment unit tests; loader tests for `preset` → `variant` and legacy configs; stories per tier/variant/option
-- [ ] **PR 2 — Forecasts**: hourly strip and daily row wired to `useWeatherForecast`; `showHourlyForecast`/`forecastHours` and `showDailyForecast`/`forecastDays` with tier gating; unsupported/empty/upper-bound degradation; `temperatureUnit` conversion for forecast and feels-like values; config-form entries; unit tests; stories incl. the forecast-unsupported state
-- [ ] **PR 3 — Spec sync**: update [entity-cards — Weather](../specs/entity-cards/index.md#weather) to the implemented behavior, close the "weather background feature is untested" open question, flip the weather option doc's status line to implemented, and record the change in the spec changelog
+- [x] **PR 2 — Forecasts**: hourly strip and daily row wired to `useWeatherForecast`; `showHourlyForecast`/`forecastHours` and `showDailyForecast`/`forecastDays` with tier gating; unsupported/empty/upper-bound degradation; `temperatureUnit` conversion for forecast and feels-like values; config-form entries; unit tests; stories incl. the forecast-unsupported state
+- [x] **PR 3 — Spec sync**: update [entity-cards — Weather](../specs/entity-cards/index.md#weather) to the implemented behavior, close the "weather background feature is untested" open question, flip the weather option doc's status line to implemented, and record the change in the spec changelog
 
 ## Out of Scope
 
