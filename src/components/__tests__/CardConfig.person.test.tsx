@@ -65,7 +65,9 @@ function hassWith({ linked }: { linked: boolean }): HomeAssistant {
         [TRACKER]: { entity_id: TRACKER, device_id: 'dev-phone' },
         [SENSOR]: { entity_id: SENSOR, device_id: 'dev-phone' },
       }
-    : { [TRACKER]: { entity_id: TRACKER } }
+    : // `null`, not an omitted key: that is what Home Assistant publishes for an
+      // entity with no device, and it is the shape this gate has to survive.
+      { [TRACKER]: { entity_id: TRACKER, device_id: null } }
   hass.states = {
     [TRACKER]: {
       entity_id: TRACKER,

@@ -16,6 +16,11 @@ export interface MockHassOptions {
   /**
    * Entity REGISTRY entries — the `device_id` join, not the state list.
    *
+   * `device_id` is `string | null | undefined` because Home Assistant really
+   * publishes `null` for a deviceless entity — a fifth of the registry on a
+   * small instance. A mock that could only express `undefined` would let every
+   * "no device" test pass against a shape the real map never hands you.
+   *
    * Named `registryEntries` rather than anything containing "entities" on
    * purpose: `entities` above is a list of *states*, and the two being one word
    * apart is exactly how a story ends up seeding the wrong map. A card
@@ -23,7 +28,7 @@ export interface MockHassOptions {
    * other story leaves it empty, which is the honest answer for a helper entity
    * with no device.
    */
-  registryEntries?: Array<{ entity_id: string; device_id?: string }>
+  registryEntries?: Array<{ entity_id: string; device_id?: string | null }>
   fail?: boolean
   failureMessage?: string
   /**

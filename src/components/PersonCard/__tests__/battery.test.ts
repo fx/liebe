@@ -39,7 +39,7 @@ function state(entityId: string, value: string, attributes: Record<string, unkno
 }
 
 function registry(
-  entries: Array<[string, string | undefined]>
+  entries: Array<[string, string | null | undefined]>
 ): Record<string, HomeAssistantEntityRegistryEntry> {
   return Object.fromEntries(
     entries.map(([entity_id, device_id]) => [entity_id, { entity_id, device_id }])
@@ -184,17 +184,27 @@ describe('resolvePersonBattery', () => {
         lookup,
       })
     ).toBeUndefined()
-    // A tracker with no `device_id` — 20 of 95 entities on a small instance.
-    expect(
-      resolvePersonBattery({
-        batteryEntity: '',
-        person: person([TRACKER]),
-        lookup: {
-          entities: registry([[TRACKER, undefined]]),
-          states: { [TRACKER]: state(TRACKER, 'home') },
-        },
-      })
-    ).toBeUndefined()
+    /*
+     * A tracker with no `device_id` — 20 of 95 entities on a small instance.
+     *
+     * Both shapes, and `null` FIRST because it is the one Home Assistant
+     * actually sends: the registry publishes the key holding `null` rather than
+     * omitting it. A test that only seeded `undefined` would be asserting
+     * against a map the real system never produces, so a resolver that handled
+     * one and threw on the other would be green.
+     */
+    for (const deviceId of [null, undefined]) {
+      expect(
+        resolvePersonBattery({
+          batteryEntity: '',
+          person: person([TRACKER]),
+          lookup: {
+            entities: registry([[TRACKER, deviceId]]),
+            states: { [TRACKER]: state(TRACKER, 'home') },
+          },
+        })
+      ).toBeUndefined()
+    }
     // Outside Home Assistant altogether — a story, the config preview, a test.
     expect(
       resolvePersonBattery({ batteryEntity: '', person: person([TRACKER]), lookup: undefined })

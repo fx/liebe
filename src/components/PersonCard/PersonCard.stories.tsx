@@ -311,7 +311,14 @@ export const BatteryLow: Story = {
  */
 export const BatteryUnavailable: Story = {
   parameters: {
-    liebe: { entities: [createPersonEntity(), createPersonTrackerEntity()] },
+    liebe: {
+      entities: [createPersonEntity(), createPersonTrackerEntity()],
+      // `device_id: null` rather than an absent entry — that is what Home
+      // Assistant publishes for an entity with no device, and seeding the shape
+      // it really sends is the difference between this story proving something
+      // and merely being green.
+      registryEntries: [{ entity_id: 'device_tracker.jane_phone', device_id: null }],
+    },
   },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector('[data-testid="person-battery"]')).toBeNull()
