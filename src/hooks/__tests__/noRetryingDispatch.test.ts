@@ -23,6 +23,15 @@ import { join } from 'node:path'
  * A file may legitimately mention `callService` in a comment or type; what it
  * may not do is call it. Naming what is forbidden rather than enumerating who
  * is compliant is what makes this survive a card being added tomorrow.
+ *
+ * **What this does NOT cover**, stated so nobody reads it as more than it is:
+ * a violation living inside `useServiceCall.ts` itself, which the allowlist
+ * must permit for the hook to expose anything at all. That is exactly the shape
+ * of #230's last remaining instance — a convenience wrapper on the hook quietly
+ * routing to the retrying path while every card looked compliant. Nothing
+ * structural can catch that from outside; the behavioural tests in
+ * `useServiceCall.test.tsx` are what pin it, by asserting each wrapper reaches
+ * the guarded path and that the retrying one is never touched.
  */
 
 /**
@@ -73,19 +82,33 @@ function dispatchableFiles(): { rel: string; text: string }[] {
     .filter(({ rel }) => !ALLOWED.has(rel))
 }
 
-/** Call sites of a retrying dispatcher — `foo(` but not `.foo(` on some object. */
+/**
+ * Call sites of a retrying dispatcher, in the two shapes a consumer can write.
+ *
+ *  - **bare** `callService(...)` — a card that destructured the hook;
+ *  - **`hassService.callService(...)`** — a card that imported the service
+ *    singleton and skipped the hook entirely. Named specifically rather than as
+ *    any `.callService(`, because the latter would flag the service layer
+ *    calling itself; `hassService` is the only receiver a consumer can reach,
+ *    and the file that defines it is on the allowlist.
+ */
 function retryingCallSites(text: string): string[] {
   const hits: string[] = []
-  for (const name of RETRYING) {
-    // `hassService.callService(` is the mechanism calling itself and lives in
-    // an allowed file; here we look for a bare invocation, which is what a card
-    // destructuring the hook would write.
-    const bare = new RegExp(String.raw`(^|[^\w.])${name}\s*\(`, 'gm')
-    for (const line of text.split('\n')) {
-      if (line.trimStart().startsWith('*') || line.trimStart().startsWith('//')) continue
-      if (bare.test(line)) hits.push(`${name}: ${line.trim().slice(0, 80)}`)
-      bare.lastIndex = 0
-    }
+  const patterns = RETRYING.flatMap((name) => [
+    { name, re: new RegExp(String.raw`(^|[^\w.])${name}\s*\(`) },
+    { name: `hassService.${name}`, re: new RegExp(String.raw`hassService\s*\.\s*${name}\s*\(`) },
+  ])
+
+  for (const line of text.split('\n')) {
+    if (line.trimStart().startsWith('*') || line.trimStart().startsWith('//')) continue
+    /*
+     * One hit per offending LINE, not per matching pattern. `hassService .
+     * callService(` satisfies both the qualified pattern and the bare one —
+     * the space before the method makes it look bare — and reporting it twice
+     * would overstate the count in the failure message for a single violation.
+     */
+    const matched = patterns.find(({ re }) => re.test(line))
+    if (matched) hits.push(`${matched.name}: ${line.trim().slice(0, 80)}`)
   }
   return hits
 }
@@ -119,6 +142,13 @@ describe('the dispatch contract', () => {
     // nobody knows works.
     expect(retryingCallSites('const x = callService({ domain: "lock" })')).toHaveLength(1)
     expect(retryingCallSites('await callServiceWithRetry(options)')).toHaveLength(1)
+  })
+
+  it('detects a component reaching the service singleton directly', () => {
+    // The second shape: skip the hook, import `hassService`, call the retrying
+    // method on it. The bare-invocation pattern alone does not see this.
+    expect(retryingCallSites('await hassService.callService(options)')).toHaveLength(1)
+    expect(retryingCallSites('void hassService . callService( options )')).toHaveLength(1)
   })
 
   it('does not flag the guarded dispatcher or an unrelated mention', () => {
