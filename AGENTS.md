@@ -215,6 +215,8 @@ gh issue view <issue-number>
 
    **The append collision** is the common one: both sides added rows at the end, the conflict covers only those rows, and the resolution is to keep both — main's first, then this branch's.
 
+   **One side's content may be a superset of the other's**, which is neither. The tell is that every item on this branch's side also appears on main's — a registry listing where main had `lock`, `media_player` and `alarm_control_panel` while this branch had only `media_player`. Take main's side whole; keeping both prints `media_player` twice. It reads like a competing edit and is not one.
+
    **The whole-table conflict** is the one that gets resolved wrongly. **The tell is that the conflict includes the header row.** Its cause: a longer row on main makes Prettier reflow every column to the new width, so not one line matches and git conflicts the entire table rather than its tail.
 
    Concatenating the two sides is right for the first case and **silently wrong** for the second — it emits every shared row twice. Resolve a whole-table conflict as a **keyed union** instead: take main's table verbatim, then append only the rows this branch has that main does not, matching on a padding-stripped key (split on `|`, trim each cell, rejoin).
@@ -223,7 +225,7 @@ gh issue view <issue-number>
 
    Then verify, on a normalised key, in this order:
    - **Duplicate count** — `len(rows) - len(set(rows))` must be `0`.
-   - **Sequence** — main's rows and this branch's rows must each keep their relative order in the merge.
+   - **Sequence** — main's rows and this branch's rows must each keep their relative order in the merge. **Appended rows only**: see below.
    - **Set difference in both directions** — merged∖expected and expected∖merged must both be empty, where expected is main's rows ∪ this branch's rows.
    - **Whole-file** — the merged file should differ from `origin/main` by this branch's own additions and nothing else, every hunk a `+`. Additions, not added rows: see below.
 
@@ -232,6 +234,8 @@ gh issue view <issue-number>
    **Order is only half of it — the checks also have to be pointed at the whole file.** The last bullet means _all_ of this branch's additions, not only its rows, and it is the one to read strictly. Resolving a table conflict by taking main's file wholesale and appending the missing rows passes every other check above — zero duplicates, correct sequence, empty set differences both ways — while dropping every prose change this branch made, because the table was the only thing being compared. A whole spec section can go that way without a single row assertion noticing.
 
    That is the same failure as the set diff passing on a duplicated table, one level up: **a check aimed at the region that conflicted cannot see what it displaced.** The remedy is to compare the non-table lines too, against both parents, and require that every line either side added survives. Cheap, and it is the only check that would have caught it.
+
+   **The sequence check assumes rows are appended, and says nothing useful when they are amended in place.** `docs/index.md` is where this bites: statuses live in a table keyed by change number, so each side edits a row rather than adding one. This branch flipped 0023 to `complete` and main flipped 0024, each side still carrying the other's row at `draft` — concatenation gives four rows and two contradictions, and the right resolution is per row, taking whichever side made the flip. The rows then sit in numeric order, where they have always been, and a sequence check expecting main's-then-ours reports a divergence on a correct file. That false positive is the dangerous direction: it invites "fixing" something that was right. For amended rows compare the **key order against the base** instead — same keys, same order — and then assert that every row is either untouched or exactly one side's edit, and that every edit either side made is present.
 
 ### Completing a Task
 
@@ -251,6 +255,10 @@ gh issue view <issue-number>
    - ✅ TypeScript checks pass (`npm run typecheck`)
 
    **Pull requests with failing tests WILL NOT BE MERGED. This is non-negotiable.**
+
+   **Do not pipe the gate.** A shell pipeline exits with the status of its _last_ command, so `npm test 2>&1 | tail -4 && git push` pushes whatever the tests did — `tail` succeeded, and `&&` believes it. The `&&` is right there in the command, which is what makes this worth stating: it reads as a gate, and the failure is invisible unless you already know how pipeline status works. It has happened here, on a run that had genuinely failed.
+
+   A gate that silently does not gate is worse than no gate at all, because the report then says the gate passed — the mistake is invisible in the transcript as well as in the shell. Any of these are safe: run the command unpiped and read its result; `set -o pipefail` first; or capture `${PIPESTATUS[0]}` and branch on that. Never chain a push onto a piped command.
 
 3. **Commit and Push**
 

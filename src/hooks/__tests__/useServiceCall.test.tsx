@@ -107,55 +107,56 @@ describe('useServiceCall', () => {
     })
   })
 
-  it('should handle turnOn helper', async () => {
-    vi.mocked(hassService.callService).mockResolvedValue({ success: true })
+  /*
+   * The three convenience helpers, which cards reach for far more often than
+   * they build a payload by hand.
+   *
+   * These asserted the RETRYING path until #230 — which is what let the input
+   * boolean card's switch keep re-sending `toggle` three times on a flaky
+   * connection while every other card had migrated. The assertion below states
+   * what the contract requires of them ("non-retrying and at-most-once per
+   * gesture ... for every embedded control, on every card"), not which function
+   * they presently call.
+   */
+  it.each([
+    ['turnOn', 'turn_on', { brightness: 255 }],
+    ['turnOff', 'turn_off', undefined],
+    ['toggle', 'toggle', undefined],
+  ] as const)(
+    'dispatches %s through the non-retrying guarded path',
+    async (helper, service, data) => {
+      vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+
+      const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+      await act(async () => {
+        await result.current[helper]('light.bedroom', data)
+      })
+
+      expect(hassService.callServiceOnce).toHaveBeenCalledWith({
+        domain: 'light',
+        service,
+        entityId: 'light.bedroom',
+        data,
+      })
+      // The retrying wrapper is the thing the contract forbids here.
+      expect(hassService.callService).not.toHaveBeenCalled()
+    }
+  )
+
+  it('refuses a repeat of the same helper command while the first is in flight', async () => {
+    // At-most-once is the other half of the guarantee, and the half a call-site
+    // swap alone would not deliver.
+    vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
 
     const { result } = renderHook(() => useServiceCall(), { wrapper })
 
     await act(async () => {
-      await result.current.turnOn('light.bedroom', { brightness: 255 })
+      await result.current.toggle('switch.well_pump')
+      await result.current.toggle('switch.well_pump')
     })
 
-    expect(hassService.callService).toHaveBeenCalledWith({
-      domain: 'light',
-      service: 'turn_on',
-      entityId: 'light.bedroom',
-      data: { brightness: 255 },
-    })
-  })
-
-  it('should handle turnOff helper', async () => {
-    vi.mocked(hassService.callService).mockResolvedValue({ success: true })
-
-    const { result } = renderHook(() => useServiceCall(), { wrapper })
-
-    await act(async () => {
-      await result.current.turnOff('switch.outlet')
-    })
-
-    expect(hassService.callService).toHaveBeenCalledWith({
-      domain: 'switch',
-      service: 'turn_off',
-      entityId: 'switch.outlet',
-      data: undefined,
-    })
-  })
-
-  it('should handle toggle helper', async () => {
-    vi.mocked(hassService.callService).mockResolvedValue({ success: true })
-
-    const { result } = renderHook(() => useServiceCall(), { wrapper })
-
-    await act(async () => {
-      await result.current.toggle('input_boolean.test')
-    })
-
-    expect(hassService.callService).toHaveBeenCalledWith({
-      domain: 'input_boolean',
-      service: 'toggle',
-      entityId: 'input_boolean.test',
-      data: undefined,
-    })
+    expect(hassService.callServiceOnce).toHaveBeenCalledTimes(1)
   })
 
   it('should handle setValue helper for input_number', async () => {
@@ -174,6 +175,30 @@ describe('useServiceCall', () => {
       service: 'set_value',
       entityId: 'input_number.temperature',
       data: { value: 25 },
+    })
+    expect(hassService.callService).not.toHaveBeenCalled()
+  })
+
+  it('maps a numeric setValue on a light to a guarded brightness command', async () => {
+    /*
+     * `setValue`'s domain map covers this, and no card reaches it today — the
+     * light card builds its own payload. It is still public API of the hook, so
+     * it is pinned rather than left as the one arm of the map that could quietly
+     * go back to retrying.
+     */
+    vi.mocked(hassService.callServiceOnce).mockResolvedValue({ success: true })
+
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    await act(async () => {
+      await result.current.setValue('light.bedroom', 128)
+    })
+
+    expect(hassService.callServiceOnce).toHaveBeenCalledWith({
+      domain: 'light',
+      service: 'turn_on',
+      entityId: 'light.bedroom',
+      data: { brightness: 128 },
     })
     expect(hassService.callService).not.toHaveBeenCalled()
   })

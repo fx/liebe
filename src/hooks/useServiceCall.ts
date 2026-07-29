@@ -168,38 +168,38 @@ export function useServiceCall(): UseServiceCallResult {
 
   const turnOn = useCallback(
     async (entityId: string, data?: Record<string, unknown>) => {
-      return callService({
+      return dispatchGuarded({
         domain: entityId.split('.')[0],
         service: 'turn_on',
         entityId,
         data,
       })
     },
-    [callService]
+    [dispatchGuarded]
   )
 
   const turnOff = useCallback(
     async (entityId: string, data?: Record<string, unknown>) => {
-      return callService({
+      return dispatchGuarded({
         domain: entityId.split('.')[0],
         service: 'turn_off',
         entityId,
         data,
       })
     },
-    [callService]
+    [dispatchGuarded]
   )
 
   const toggle = useCallback(
     async (entityId: string, data?: Record<string, unknown>) => {
-      return callService({
+      return dispatchGuarded({
         domain: entityId.split('.')[0],
         service: 'toggle',
         entityId,
         data,
       })
     },
-    [callService]
+    [dispatchGuarded]
   )
 
   const setValue = useCallback(
@@ -246,7 +246,7 @@ export function useServiceCall(): UseServiceCallResult {
           data,
         })
       } else if (domain === 'light' && typeof value === 'number') {
-        return callService({
+        return dispatchGuarded({
           domain,
           service: 'turn_on',
           entityId,
@@ -257,7 +257,7 @@ export function useServiceCall(): UseServiceCallResult {
       setError(`setValue not supported for domain: ${domain}`)
       return { success: false, error: `setValue not supported for domain: ${domain}` }
     },
-    [callService, dispatchGuarded]
+    [dispatchGuarded]
   )
 
   const clearError = useCallback(() => {
