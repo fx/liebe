@@ -328,8 +328,15 @@ function AlarmCardComponent({
     controlsVisible && isFull ? (
       <Flex direction="column" gap="2" width="100%">
         <GridCard.Controls>
+          {/*
+           * Both slots are rendered from their own flag rather than as an
+           * either/or, because the indeterminate case is the one where both are
+           * true at once: an unreachable panel shows its whole control surface
+           * greyed out rather than showing nothing.
+           */}
           <PillGroup label="Alarm controls">
-            {showArmPills ? armModes.map(armPill) : disarmPill}
+            {showArmPills && armModes.map(armPill)}
+            {showDisarm && disarmPill}
           </PillGroup>
         </GridCard.Controls>
         {inlineKeypadFits && keypadRequest && (

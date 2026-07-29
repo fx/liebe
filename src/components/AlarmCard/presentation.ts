@@ -340,8 +340,18 @@ export function resolveAlarmPresentation({ state }: { state: string }): AlarmPre
       isCountdown: false,
       isDisarming: false,
       isIndeterminate: true,
-      showArmPills: false,
-      showDisarm: false,
+      /*
+       * Rendered, and every one of them disabled — which is what the spec asks
+       * for in as many words ("every control MUST render disabled and MUST NOT
+       * dispatch") rather than the controls vanishing. A card whose buttons
+       * disappear when a panel goes quiet reads as a card that lost its
+       * features; one whose buttons are visibly greyed reads as a panel that is
+       * unreachable, which is the true thing. Nothing can fire either way:
+       * `canArm` and `canDisarm` are both false, and they are what gate the
+       * dispatch.
+       */
+      showArmPills: true,
+      showDisarm: true,
       canDisarm: false,
       canArm: false,
     }

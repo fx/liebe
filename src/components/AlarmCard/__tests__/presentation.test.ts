@@ -107,8 +107,10 @@ describe('resolveAlarmPresentation', () => {
     [ALARM_STATE.PENDING, false, true, true],
     [ALARM_STATE.TRIGGERED, false, true, true],
     [ALARM_STATE.DISARMING, false, true, false],
-    ['unavailable', false, false, false],
-    ['unknown', false, false, false],
+    // Indeterminate renders BOTH, and both disabled — the spec asks for
+    // controls that are visibly unusable rather than controls that vanish.
+    ['unavailable', true, true, false],
+    ['unknown', true, true, false],
   ])('in %s: armPills=%s disarm=%s canDisarm=%s', (state, showArmPills, showDisarm, canDisarm) => {
     const presentation = resolveAlarmPresentation({ state })
 
@@ -131,8 +133,7 @@ describe('resolveAlarmPresentation', () => {
       const presentation = resolveAlarmPresentation({ state })
 
       expect(presentation.isIndeterminate).toBe(true)
-      expect(presentation.showArmPills).toBe(false)
-      expect(presentation.showDisarm).toBe(false)
+      // Rendered but inert: what matters is that neither can fire.
       expect(presentation.canDisarm).toBe(false)
       expect(presentation.canArm).toBe(false)
     }
@@ -143,7 +144,6 @@ describe('resolveAlarmPresentation', () => {
     // against a panel whose state the card does not know.
     const unavailable = resolveAlarmPresentation({ state: 'unavailable' })
 
-    expect(unavailable.showDisarm).toBe(false)
     expect(unavailable.canDisarm).toBe(false)
   })
 })
