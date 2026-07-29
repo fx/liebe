@@ -49,6 +49,7 @@ const getFriendlyDomain = (domain: string): string => {
     fan: 'Fans',
     lock: 'Locks',
     media_player: 'Media Players',
+    vacuum: 'Vacuums',
     scene: 'Scenes',
     script: 'Scripts',
     automation: 'Automations',
@@ -95,6 +96,8 @@ const SUPPORTED_DOMAINS = [
   'lock',
   // Change 0023.
   'media_player',
+  // Change 0025.
+  'vacuum',
   // The action family (change 0027).
   'scene',
   'script',

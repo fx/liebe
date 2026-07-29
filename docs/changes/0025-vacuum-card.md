@@ -43,7 +43,7 @@ The [vacuum option doc](../specs/entity-cards/options/vacuum.md) owns the option
 
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
-- [ ] **PR 1 — VacuumCard core**: card component, registry entry (`domainToCard`, `SUPPORTED_DOMAINS`), primary-action state machine with feature-gated fallthroughs, command cluster + battery segment, tier layouts, error state; the legacy-pinning loader migration (`tapAction: 'toggle'` onto pre-existing vacuum items) with legacy/new-item tests; exhaustive per-state unit tests + state × tier stories
+- [x] **PR 1 — VacuumCard core**: card component, registry entry (`domainToCard`, `SUPPORTED_DOMAINS`), primary-action state machine with feature-gated fallthroughs, command cluster + battery segment, tier layouts, error state; the legacy-pinning loader migration (`tapAction: 'toggle'` onto pre-existing vacuum items) with legacy/new-item tests; exhaustive per-state unit tests + state × tier stories
 - [ ] **PR 2 — Options + spec registration**: `showFanSpeed`/`showLocate`/`showStats` controls, `ConfigDefinition` for all five options with YAML round-trip test, option stories; add the vacuum card to the [entity-cards spec](../specs/entity-cards/index.md) (requirements section, registry listing, changelog entry)
 
 ## Out of Scope

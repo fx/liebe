@@ -1,0 +1,39 @@
+/*
+ * The vacuum card's only local styling: the low-battery emphasis.
+ *
+ * Everything else the card draws comes from the shared anatomy and the domain
+ * token — this exists because the option doc asks for one treatment the token
+ * set has no name for yet.
+ *
+ * Wrapped in the `liebe-base` layer like every sheet the panel injects: an
+ * unlayered author rule outranks every cascade layer, so one sheet left outside
+ * it is one component a theme and user CSS cannot restyle (docs/specs/theming —
+ * "Application mechanism").
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /*
+   * The battery segment sits in the state line's `detail` slot, which is muted
+   * by design so a percentage never competes with the state it qualifies. Below
+   * 20% the option doc overrides that with amber emphasis.
+   *
+   * `--liebe-c-warn-text` does not exist yet. The domain triplets are a closed,
+   * spec-ordered registry (`src/theme/tokens.ts`) and none of them means
+   * "warning": `--liebe-c-alert` is red and belongs to the error state this card
+   * already uses it for, and the only amber triplet is `--liebe-c-light`, which
+   * is the *light domain's* colour — spending it here would break domain-colour
+   * discipline in every theme at once.
+   *
+   * So the declaration reads the token a theme may define and falls back to the
+   * Radix amber step otherwise. Adding the triplet properly spans `tokens.ts`,
+   * all three themes and the design-system spec, which is not this card's PR to
+   * make; the fallback keeps the card correct until it lands, and the moment a
+   * theme defines `--liebe-c-warn-text` this picks it up with no change here.
+   */
+  .liebe-vacuum-battery[data-low='true'] {
+    color: var(--liebe-c-warn-text, var(--amber-11));
+    font-weight: 600;
+  }
+}
