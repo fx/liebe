@@ -201,35 +201,15 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 
 ### Security (lock and alarm)
 
-**Status: implemented** by change [0024](../../changes/0024-security-cards.md) PRs 1 and 2. Two cards, one for `lock` and one for `alarm_control_panel`. What they present and how their options behave — the per-state tables, the arm modes, the keypad, the confirmation gates and their scenarios — is owned by [options/security.md](./options/security.md). What belongs here is what the registry and the card contract say about them, and the two properties that are not negotiable at any tier.
+**Status: implemented** by change [0024](../../changes/0024-security-cards.md) PRs 1 and 2. Two cards, one for `lock` and one for `alarm_control_panel`. Everything about how they present and behave — the per-state tables, which control a given state holds back, the arm modes, the keypad, the confirmation gates, and the scenarios for all of them — is owned by [options/security.md](./options/security.md). This section covers only what is this document's own business: that the domains are registered, the default action that defines the family, and two properties that hold at every tier and that no option may switch off.
 
 - Both domains MUST be registered, and both MUST join the set the entity browser offers, so a user can place either from the browser rather than by hand.
-- Neither card's default tap MUST actuate the device. A tap with no configured action MUST open the entity's detail dialog. This is the rule the whole family exists for: a brushed sleeve on a wall tablet must not unlock a door or disarm a house, and no other card family's default is chosen this way.
-- Because a tap does not operate them, both cards MUST make every control they offer reachable from the detail dialog as well. A card placed at one cell renders no controls of its own, so without this it would be a security device that cannot be operated from anywhere.
-- Every command either card sends MUST take the non-retrying guarded dispatch path, and MUST NOT be retried automatically ([options/common.md — dispatch guarantees](./options/common.md#action-type)). A retried unlock is a door opened twice; a retried arm on a code-protected panel is a second rejected code.
-- A control MUST NOT be re-enabled merely because the command's request completed. Home Assistant acknowledges a service call before a slow integration updates its state, so a control that reopened on acknowledgement would admit a second press while the first was still travelling. It MUST stay held until the entity itself moves or an acknowledgement timeout elapses.
-- Transitional states MUST NOT disable controls wholesale. Each card's option document names which single control a given state holds back; every other control — in particular the one that reverses or cancels what is happening — MUST remain usable. Disarming during an exit countdown, and reversing a lock mid-travel, are the moments these cards are for.
-- **A danger state MUST NOT be configurable into looking calm.** A jammed lock and a triggered alarm MUST keep their alert colour, their glyph, their name and their state text regardless of any configured colour or hide option. A card that reported a triggered alarm as calm and green would be the worst output this family can produce. Only the user's own name override survives, because it identifies which device is alarming rather than describing what it is doing.
-- **Motion MUST NOT be the sole signal.** Where these cards animate — a countdown pulse, a triggered flash — the state MUST remain unambiguous with all animation suppressed, and the suppression MUST hold for a viewer who has asked for reduced motion regardless of any option that asks for the animation.
-- Registering these domains changes what already-placed grid items resolve to, and existing dashboards upgrade on load with no migration. Convention 7's bugfix exemption permits it: the fallback card's tap dispatched a toggle service that neither domain registers, so on both of them the previous behaviour was an erroring tap rather than a working control surface worth preserving ([options/common.md](./options/common.md#conventions-for-per-card-options), convention 7). Pinning that behaviour would have converted a broken tap into a real unlock path, which is strictly worse than the safe default.
+- Alone among the card families, **neither card's default tap actuates the device** — a tap with no configured action opens the entity's detail dialog ([options/security.md](./options/security.md)). A brushed sleeve on a wall tablet must not unlock a door or disarm a house. Because a tap does not operate them, both cards make their controls reachable from that dialog, which is what keeps a card placed at a single cell operable at all.
+- **A danger state MUST NOT be configurable into looking calm.** A jammed lock and a triggered alarm MUST keep their alert colour, their glyph, their name and their state text regardless of any configured colour or hide option — the danger channel of the universal display contract, which any card family may use and which these two are the reason for. Only the user's own name override survives, because it identifies which device is alarming rather than describing what it is doing.
+- **Motion MUST NOT be the sole signal.** Where these cards animate — a countdown pulse, a triggered flash — the state MUST remain unambiguous with all animation suppressed, and the suppression MUST hold for a viewer who has asked for reduced motion regardless of any option asking for the animation ([design-system — motion](../design-system/index.md)).
+- Registering these domains changes what already-placed grid items resolve to, and existing dashboards upgrade on load with no migration. Convention 7's bugfix exemption permits it: the fallback card's tap dispatched a toggle service that neither domain registers, so on both of them the previous behaviour was an erroring tap rather than a working control surface worth preserving ([options/common.md](./options/common.md#conventions-for-per-card-options), convention 7). Pinning it would have converted a broken tap into a real unlock path, which is strictly worse than the safe default.
 
-#### Scenario: A tap opens the details rather than unlocking
-
-- **GIVEN** a lock card with no configured tap action
-- **WHEN** the user taps the card body
-- **THEN** the entity detail dialog opens and no lock service is called.
-
-#### Scenario: A jammed lock cannot be dressed down
-
-- **GIVEN** a lock card configured with a calm colour and its state line hidden
-- **WHEN** the lock reports `jammed`
-- **THEN** the card renders in the alert colour with its state line reading `Jammed`, and the configured colour and hide option do not apply.
-
-#### Scenario: Disarm survives the exit countdown
-
-- **GIVEN** an alarm card whose panel is counting down to armed
-- **WHEN** the user looks for a way to stop it
-- **THEN** the Disarm control is present and usable, and remains so until the panel leaves the countdown.
+Both cards dispatch under the [common dispatch guarantees](./options/common.md#action-type) — non-retrying, at most once per gesture, and held until the entity moves or the acknowledgement timeout elapses. That invariant is not restated here; it governs every card, and this family is simply the one where breaking it costs the most.
 
 ### Text and separator widgets
 

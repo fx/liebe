@@ -148,6 +148,12 @@ Recorded because the obvious reading says otherwise: a reader who sees an actuat
 - **WHEN** the user taps the "Arm away" pill, enters the code on the keypad dialog, and submits
 - **THEN** the card calls `alarm_control_panel.alarm_arm_away` with the entered code, the dialog closes, and the card shows the amber `arming` pulse until the entity reports `armed_away` (green).
 
+### Scenario: Disarm survives the exit countdown
+
+- **GIVEN** an `arming` alarm card whose panel is counting down to `armed_away`
+- **WHEN** the user looks for a way to stop it
+- **THEN** the Disarm control is present and enabled, and stays so until the panel leaves the countdown — the transitional state disables only the control whose own command is in flight.
+
 ### Scenario: Triggered stays loud without motion
 
 - **GIVEN** an alarm card with defaults (`flashOnTriggered: true`) on a device with `prefers-reduced-motion: reduce`, whose entity enters `triggered`
