@@ -51,6 +51,16 @@ const FEATURES = {
   turnOnAndPlay: 128 | 16384,
   /** Nothing at all. */
   none: 0,
+  /** PAUSE | VOLUME_SET | VOLUME_MUTE | PLAY — a speaker with a real slider. */
+  volumeSlider: 1 | 4 | 8 | 16384,
+  /** PAUSE | VOLUME_STEP | PLAY — steppers only, no slider possible. */
+  volumeStepOnly: 1 | 1024 | 16384,
+  /** PAUSE | VOLUME_MUTE | PLAY — mute and nothing else. */
+  volumeMuteOnly: 1 | 8 | 16384,
+  /** PAUSE | SELECT_SOURCE | PLAY */
+  source: 1 | 2048 | 16384,
+  /** PAUSE | SEEK | PLAY — a seekable track. */
+  seek: 1 | 2 | 16384,
 } as const
 
 function seed(...entities: HassEntity[]) {
@@ -967,5 +977,671 @@ describe('MediaPlayerCard states', () => {
     mount({ tier: 'full' })
 
     expect(pills()).toEqual([])
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * Change 0023 PR 2 — volume, source picker, progress, background art
+ * ------------------------------------------------------------------ */
+
+const slider = (name: string) =>
+  document.querySelector(`[role="slider"][aria-label="${name}"]`) as HTMLElement | null
+const progressBar = () => document.querySelector('[role="progressbar"]')
+const backdrop = () => document.querySelector('.liebe-media-backdrop')
+
+describe('MediaPlayerCard volume', () => {
+  it('renders the slider for a player that can set volume', () => {
+    mount({ tier: 'full', attributes: { supported_features: FEATURES.volumeSlider } })
+
+    expect(slider('Volume')).not.toBeNull()
+  })
+
+  it('commits volume_set on release, not on every value the drag passes', async () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.2 },
+    })
+
+    const control = slider('Volume')!
+    control.focus()
+    // Each key press is a commit; a pointer drag reports many changes and one.
+    fireEvent.keyDown(control, { key: 'ArrowRight' })
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(callService.mock.calls[0][1]).toBe('volume_set')
+  })
+
+  /**
+   * The automatic degradation. The stored option still says `slider` — the
+   * entity is what cannot provide one — so this asserts the presentation
+   * changed without the config changing.
+   */
+  it('degrades to steppers for a step-only player, with the option still slider', () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeStepOnly },
+      config: { showVolume: 'slider' },
+    })
+
+    expect(slider('Volume')).toBeNull()
+    expect(screen.getByLabelText('Volume up')).toBeInTheDocument()
+    expect(screen.getByLabelText('Volume down')).toBeInTheDocument()
+  })
+
+  it('dispatches volume_up and volume_down from the steppers', async () => {
+    mount({ tier: 'full', attributes: { supported_features: FEATURES.volumeStepOnly } })
+
+    fireEvent.click(screen.getByLabelText('Volume up'))
+    await waitFor(() =>
+      expect(calls()).toContainEqual({
+        service: 'media_player.volume_up',
+        entityId: ENTITY_ID,
+      })
+    )
+
+    fireEvent.click(screen.getByLabelText('Volume down'))
+    await waitFor(() =>
+      expect(calls()).toContainEqual({
+        service: 'media_player.volume_down',
+        entityId: ENTITY_ID,
+      })
+    )
+  })
+
+  /**
+   * A player that can be set but not stepped still gets working buttons, built
+   * from `volume_set` — the option doc allows steppers made either way.
+   */
+  it('builds steppers from volume_set when the player cannot step', async () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.4 },
+      config: { showVolume: 'buttons' },
+    })
+
+    fireEvent.click(screen.getByLabelText('Volume up'))
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(callService.mock.calls[0][1]).toBe('volume_set')
+    expect(callService.mock.calls[0][2]).toMatchObject({ volume_level: 0.5 })
+  })
+
+  /**
+   * A player that can be set but reports no `volume_level` yet — a device that
+   * has not published one since it came online. The stepper still works, from
+   * zero.
+   */
+  it('steps up from zero for a player reporting no volume level', async () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeSlider, volume_level: undefined },
+      config: { showVolume: 'buttons' },
+    })
+
+    fireEvent.click(screen.getByLabelText('Volume up'))
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(callService.mock.calls[0][2]).toMatchObject({ volume_level: 0.1 })
+  })
+
+  it('degrades to the mute toggle alone for a mute-only player', () => {
+    mount({ tier: 'full', attributes: { supported_features: FEATURES.volumeMuteOnly } })
+
+    expect(slider('Volume')).toBeNull()
+    expect(screen.queryByLabelText('Volume up')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Mute')).toBeInTheDocument()
+  })
+
+  it('dispatches volume_mute with the inverted flag', async () => {
+    mount({ tier: 'full', attributes: { supported_features: FEATURES.volumeMuteOnly } })
+
+    fireEvent.click(screen.getByLabelText('Mute'))
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(callService.mock.calls[0][1]).toBe('volume_mute')
+    expect(callService.mock.calls[0][2]).toMatchObject({ is_volume_muted: true })
+  })
+
+  it('unmutes a muted player', async () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeMuteOnly, is_volume_muted: true },
+    })
+
+    fireEvent.click(screen.getByLabelText('Unmute'))
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(callService.mock.calls[0][2]).toMatchObject({ is_volume_muted: false })
+  })
+
+  it('renders no volume UI when the player has no volume feature at all', () => {
+    mount({ tier: 'full', attributes: { supported_features: FEATURES.playPauseOnly } })
+
+    expect(slider('Volume')).toBeNull()
+    expect(screen.queryByLabelText('Mute')).not.toBeInTheDocument()
+  })
+
+  it('renders no volume UI when the option says none', () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeSlider },
+      config: { showVolume: 'none' },
+    })
+
+    expect(slider('Volume')).toBeNull()
+  })
+
+  /* Tier visibility: `row` at ≥4 wide and `full` only. */
+
+  it.each([
+    ['glance', { width: 1, height: 1 }],
+    ['tall', { width: 1, height: 3 }],
+  ] as const)('never renders volume at %s', (tier, span) => {
+    mount({ tier, span, attributes: { supported_features: FEATURES.volumeSlider } })
+
+    expect(slider('Volume')).toBeNull()
+  })
+
+  it('never renders volume on a compact row', () => {
+    mount({
+      tier: 'row',
+      span: { width: 2, height: 1 },
+      attributes: { supported_features: FEATURES.volumeSlider },
+    })
+
+    expect(slider('Volume')).toBeNull()
+  })
+
+  it('renders volume on a row at four columns', () => {
+    mount({
+      tier: 'row',
+      span: { width: 4, height: 1 },
+      attributes: { supported_features: FEATURES.volumeSlider },
+    })
+
+    expect(slider('Volume')).not.toBeNull()
+  })
+})
+
+describe('MediaPlayerCard optimistic volume', () => {
+  /*
+   * The card deliberately shows a value the entity has not confirmed. These pin
+   * that the claim ends — the failure mode being a slider that either snaps back
+   * under the user's finger or never reconciles at all.
+   */
+
+  const mountSlider = (volume_level = 0.2) =>
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeSlider, volume_level },
+    })
+
+  it('keeps showing the committed value while the entity has not answered', async () => {
+    mountSlider(0.2)
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+
+    // The entity still reports 0.2; the card shows what it asked for.
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '100%')
+  })
+
+  /** A state update that does not move the volume must not disturb the display. */
+  it('holds the committed value when an unrelated state update arrives', async () => {
+    mountSlider(0.2)
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      seed(
+        createMediaPlayerEntity({
+          attributes: {
+            supported_features: FEATURES.volumeSlider,
+            volume_level: 0.2,
+            media_title: 'A different track',
+          },
+        })
+      )
+    })
+
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '100%')
+  })
+
+  it('yields to the entity once its volume actually moves', async () => {
+    mountSlider(0.2)
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      seed(
+        createMediaPlayerEntity({
+          attributes: { supported_features: FEATURES.volumeSlider, volume_level: 1 },
+        })
+      )
+    })
+
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '100%')
+  })
+
+  /**
+   * The capped-receiver case, and the reason the rule is "any movement" rather
+   * than "movement to what was sent". An exact-match rule would leave the card
+   * insisting on 100% forever.
+   */
+  it('accepts a value different from the one it asked for', async () => {
+    mountSlider(0.2)
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      seed(
+        createMediaPlayerEntity({
+          attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.8 },
+        })
+      )
+    })
+
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '80%')
+  })
+
+  /**
+   * The Radix ordering, pinned because it is not what anyone assumes.
+   *
+   * For keyboard adjustment the slider fires `onValueCommit` **before**
+   * `onValueChange`. A design where commit clears a drag latch therefore has
+   * that latch immediately re-set by the trailing change, and the card never
+   * reconciles again — the thumb sits at the last arrow-key value forever, and
+   * the only visible symptom is a slider that stops agreeing with the speaker.
+   *
+   * This drives the control by keyboard end to end and asserts the value settles
+   * back onto the entity, which is exactly what fails under that design.
+   */
+  it('reconciles after a keyboard adjustment, despite commit firing before change', async () => {
+    mountSlider(0.2)
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'ArrowRight' })
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      seed(
+        createMediaPlayerEntity({
+          attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.55 },
+        })
+      )
+    })
+
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '55%')
+  })
+
+  /**
+   * A card recycled onto another entity must not carry the previous player's
+   * optimistic volume with it — it would show that player's value and, on the
+   * next commit, send it to the new one.
+   */
+  it('drops the optimistic value when the card is recycled onto another entity', async () => {
+    const OTHER = 'media_player.kitchen'
+    seed(
+      createMediaPlayerEntity({
+        attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.2 },
+      }),
+      createMediaPlayerEntity({
+        entity_id: OTHER,
+        attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.9 },
+      })
+    )
+
+    const { rerender } = renderCard(
+      <MediaPlayerCard entityId={ENTITY_ID} tier="full" span={{ width: 2, height: 2 }} />
+    )
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '100%')
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId={OTHER}>
+            <MediaPlayerCard entityId={OTHER} tier="full" span={{ width: 2, height: 2 }} />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '90%')
+  })
+
+  it('drops the optimistic value when the dispatch fails', async () => {
+    callService.mockRejectedValueOnce(new Error('nope'))
+    mountSlider(0.2)
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+
+    await waitFor(() => expect(slider('Volume')).toHaveAttribute('aria-valuetext', '20%'))
+  })
+
+  /** A device that answers nothing must not leave the card lying indefinitely. */
+  it('drops the optimistic value after the acknowledgement timeout', async () => {
+    vi.useFakeTimers()
+    mountSlider(0.2)
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+    await act(async () => {})
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '100%')
+
+    await act(async () => {
+      vi.advanceTimersByTime(ACKNOWLEDGEMENT_TIMEOUT_MS + 1)
+    })
+
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '20%')
+  })
+})
+
+describe('MediaPlayerCard source picker', () => {
+  const sourced = (config: Record<string, unknown> = { showSourcePicker: true }) =>
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.source, source: 'Radio' },
+      config,
+    })
+
+  it('renders the picker when the option is on and the player can select', () => {
+    sourced()
+
+    expect(screen.getByLabelText('Source')).toBeInTheDocument()
+  })
+
+  it('is off by default', () => {
+    mount({ tier: 'full', attributes: { supported_features: FEATURES.source } })
+
+    expect(screen.queryByLabelText('Source')).not.toBeInTheDocument()
+  })
+
+  it('renders nothing without the SELECT_SOURCE bit', () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.playPauseOnly },
+      config: { showSourcePicker: true },
+    })
+
+    expect(screen.queryByLabelText('Source')).not.toBeInTheDocument()
+  })
+
+  /** The bit without a list is a picker with nothing to pick. */
+  it('renders nothing when the player publishes no source list', () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.source, source_list: [] },
+      config: { showSourcePicker: true },
+    })
+
+    expect(screen.queryByLabelText('Source')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['glance', { width: 1, height: 1 }],
+    ['row', { width: 4, height: 1 }],
+    ['tall', { width: 1, height: 3 }],
+  ] as const)('never renders the picker at %s', (tier, span) => {
+    mount({
+      tier,
+      span,
+      attributes: { supported_features: FEATURES.source },
+      config: { showSourcePicker: true },
+    })
+
+    expect(screen.queryByLabelText('Source')).not.toBeInTheDocument()
+  })
+})
+
+describe('MediaPlayerCard progress', () => {
+  const PLAYING_AT = '2026-07-25T12:00:00.000Z'
+
+  const withProgress = (
+    attributes: Record<string, unknown> = {},
+    config: Record<string, unknown> = { showProgress: true },
+    state = 'playing'
+  ) =>
+    mount({
+      state,
+      tier: 'full',
+      attributes: {
+        supported_features: FEATURES.playPauseOnly,
+        media_duration: 300,
+        media_position: 30,
+        media_position_updated_at: PLAYING_AT,
+        ...attributes,
+      },
+      config,
+    })
+
+  it('renders a display-only bar for a player without SEEK', () => {
+    withProgress()
+
+    expect(progressBar()).not.toBeNull()
+    expect(slider('Seek')).toBeNull()
+  })
+
+  it('renders a seek slider for a player with SEEK', () => {
+    withProgress({ supported_features: FEATURES.seek })
+
+    expect(slider('Seek')).not.toBeNull()
+    expect(progressBar()).toBeNull()
+  })
+
+  /*
+   * Paused deliberately. While `playing`, the position extrapolates from
+   * `media_position_updated_at` — a fixture timestamp that is days behind the
+   * real clock — so the head clamps to the end of the track and there is no
+   * room left for a keyboard `End` to move it. Pausing stops the extrapolation,
+   * which is the point being relied on rather than a workaround.
+   */
+  it('dispatches media_seek with seek_position in seconds', async () => {
+    withProgress({ supported_features: FEATURES.seek }, { showProgress: true }, 'paused')
+
+    const control = slider('Seek')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(callService.mock.calls[0][1]).toBe('media_seek')
+    expect(callService.mock.calls[0][2]).toMatchObject({ seek_position: 300 })
+  })
+
+  it('is off by default', () => {
+    withProgress({}, {})
+
+    expect(progressBar()).toBeNull()
+    expect(slider('Seek')).toBeNull()
+  })
+
+  /** No duration, no bar — a radio stream is not a track with a length. */
+  it('renders nothing when the session exposes no duration', () => {
+    withProgress({ media_duration: undefined })
+
+    expect(progressBar()).toBeNull()
+  })
+
+  it.each([
+    ['glance', { width: 1, height: 1 }],
+    ['row', { width: 4, height: 1 }],
+    ['tall', { width: 1, height: 3 }],
+  ] as const)('never renders progress at %s', (tier, span) => {
+    mount({
+      tier,
+      span,
+      attributes: {
+        supported_features: FEATURES.playPauseOnly,
+        media_duration: 300,
+        media_position: 30,
+      },
+      config: { showProgress: true },
+    })
+
+    expect(progressBar()).toBeNull()
+  })
+
+  /*
+   * The ticker's *cost*, which is a property of the card rather than of the
+   * arithmetic and so is invisible to every assertion about what the bar shows.
+   *
+   * `media_position` advances whether or not anyone is looking, so a ticker
+   * keyed on playback alone would re-render every media card on a dashboard once
+   * a second for a bar none of them draws (docs/changes/0023 resolves the option
+   * doc's "extrapolation cadence" question this way). What is observed here is
+   * the scheduled timer itself — the only direct evidence that nothing is
+   * running.
+   */
+  describe('the extrapolation ticker', () => {
+    const mountTicking = (state: string, tier: CardTier, config: Record<string, unknown>) => {
+      vi.useFakeTimers()
+      mount({
+        state,
+        tier,
+        span: tier === 'full' ? { width: 2, height: 2 } : { width: 4, height: 1 },
+        attributes: {
+          supported_features: FEATURES.playPauseOnly,
+          media_duration: 300,
+          media_position: 30,
+          media_position_updated_at: PLAYING_AT,
+        },
+        config,
+      })
+    }
+
+    it('schedules a tick while playing with the bar on screen', () => {
+      mountTicking('playing', 'full', { showProgress: true })
+
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+    })
+
+    it('schedules nothing when the bar is switched off', () => {
+      mountTicking('playing', 'full', { showProgress: false })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('schedules nothing at a tier with no room for the bar', () => {
+      mountTicking('playing', 'row', { showProgress: true })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('schedules nothing while the player is paused', () => {
+      mountTicking('paused', 'full', { showProgress: true })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('stops ticking when playback stops', () => {
+      mountTicking('playing', 'full', { showProgress: true })
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+
+      act(() => {
+        seed(
+          createMediaPlayerEntity({
+            state: 'paused',
+            attributes: {
+              supported_features: FEATURES.playPauseOnly,
+              media_duration: 300,
+              media_position: 30,
+              media_position_updated_at: PLAYING_AT,
+            },
+          })
+        )
+      })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+  })
+
+  it('reports the position and duration to assistive technology', () => {
+    withProgress({}, { showProgress: true })
+
+    const bar = progressBar()!
+    expect(bar).toHaveAttribute('aria-valuemax', '300')
+    expect(bar.getAttribute('aria-valuetext')).toContain('of 5:00')
+  })
+})
+
+describe('MediaPlayerCard background artwork', () => {
+  const background = { artworkMode: 'background' }
+
+  it('renders the full-bleed artwork and its scrim at full', () => {
+    mount({ tier: 'full', config: background })
+
+    expect(backdrop()).not.toBeNull()
+    expect(document.querySelector('.liebe-media-scrim')).not.toBeNull()
+  })
+
+  /** In background mode the artwork is the tile, so there is no thumbnail too. */
+  it('drops the thumbnail and the icon circle when the artwork is the tile', () => {
+    mount({ tier: 'full', config: background })
+
+    expect(artwork()).toBeNull()
+    expect(iconCircle()).toBeNull()
+  })
+
+  it.each([
+    ['glance', { width: 1, height: 1 }],
+    ['row', { width: 2, height: 1 }],
+    ['tall', { width: 1, height: 3 }],
+  ] as const)('degrades to the thumbnail at %s', (tier, span) => {
+    mount({ tier, span, config: background })
+
+    expect(backdrop()).toBeNull()
+    expect(artwork()).not.toBeNull()
+  })
+
+  it('falls back to the icon when the player publishes no artwork', () => {
+    mount({ tier: 'full', attributes: { entity_picture: undefined }, config: background })
+
+    expect(backdrop()).toBeNull()
+    expect(iconCircle()).not.toBeNull()
+  })
+
+  /**
+   * The load failure has to work in this mode too, which is why the artwork is
+   * an `<img>` rather than a CSS background — a background-image that 404s
+   * reports nothing at all.
+   */
+  it('falls back to the icon when the background artwork fails to load', () => {
+    mount({ tier: 'full', config: background })
+
+    fireEvent.error(document.querySelector('.liebe-media-backdrop-image')!)
+
+    expect(backdrop()).toBeNull()
+    expect(iconCircle()).not.toBeNull()
+  })
+
+  it('suppresses the background when the card is collapsed', () => {
+    mount({
+      tier: 'full',
+      state: 'idle',
+      config: { ...background, collapseWhenIdle: true },
+    })
+
+    expect(backdrop()).toBeNull()
+    expect(iconCircle()).not.toBeNull()
   })
 })

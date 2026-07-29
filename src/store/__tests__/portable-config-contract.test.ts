@@ -8,6 +8,7 @@ import {
 } from '../persistence'
 import { DEFAULT_THEME_CONFIG } from '../themeConfig'
 import { readCardDisplay } from '../cardDisplay'
+import { readMediaPlayerOptions } from '../mediaPlayerOptions'
 import type { DashboardConfig, DashboardState, GridItem, WidgetConfig } from '../types'
 
 // Mock localStorage so import/save paths don't touch a real store.
@@ -309,6 +310,90 @@ describe('portable configuration contract', () => {
       await expect(importConfigurationFromFile(new File([yamlStr], 'config.yaml'))).rejects.toThrow(
         /screens\.0\.grid\.items\.0\.config\.color/
       )
+    })
+  })
+
+  describe('media player options round-trip through YAML', () => {
+    /*
+     * The whole option surface in one document, including the two closed enums
+     * and the reserved `showGroupControls` — the key this build validates and
+     * deliberately does nothing with. A key that serialises but does not
+     * deserialise is exactly what this catches, and a reserved key is the most
+     * likely one to be dropped, since nothing reads it.
+     */
+    const mediaItem: GridItem = {
+      id: 'item-media',
+      type: 'entity',
+      entityId: 'media_player.living_room_speaker',
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 2,
+      config: {
+        artworkMode: 'background',
+        showVolume: 'buttons',
+        showTransport: false,
+        showSourcePicker: true,
+        showProgress: true,
+        collapseWhenIdle: true,
+        showGroupControls: true,
+      },
+    }
+
+    it('reproduces every media player option', async () => {
+      dashboardStore.setState(() => ({
+        ...richState,
+        screens: [
+          {
+            ...richState.screens[0],
+            grid: { resolution: { columns: 12, rows: 8 }, items: [mediaItem] },
+          },
+        ],
+      }))
+
+      const yamlStr = exportConfigurationAsYAML()
+      dashboardStore.setState((s) => ({ ...s, screens: [] }))
+      await importConfigurationFromFile(
+        new File([yamlStr], 'config.yaml', { type: 'application/x-yaml' })
+      )
+
+      const [screen] = dashboardActions.exportConfiguration().screens
+      const config = screen.grid!.items![0].config as Record<string, unknown>
+
+      expect(config).toEqual(mediaItem.config)
+    })
+
+    it('resolves the round-tripped document to the options it was configured with', async () => {
+      dashboardStore.setState(() => ({
+        ...richState,
+        screens: [
+          {
+            ...richState.screens[0],
+            grid: { resolution: { columns: 12, rows: 8 }, items: [mediaItem] },
+          },
+        ],
+      }))
+
+      const yamlStr = exportConfigurationAsYAML()
+      dashboardStore.setState((s) => ({ ...s, screens: [] }))
+      await importConfigurationFromFile(
+        new File([yamlStr], 'config.yaml', { type: 'application/x-yaml' })
+      )
+
+      const [screen] = dashboardActions.exportConfiguration().screens
+      const config = screen.grid!.items![0].config as Record<string, unknown>
+
+      // The reader is what the card resolves through, so this is the half that
+      // proves the values survived as values rather than merely as text.
+      expect(readMediaPlayerOptions(config)).toEqual({
+        artworkMode: 'background',
+        showVolume: 'buttons',
+        showTransport: false,
+        showSourcePicker: true,
+        showProgress: true,
+        collapseWhenIdle: true,
+        showGroupControls: true,
+      })
     })
   })
 })
