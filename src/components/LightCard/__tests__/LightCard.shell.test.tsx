@@ -178,20 +178,16 @@ describe('the toggle', () => {
     await waitFor(() => expect(tile()).not.toHaveAttribute('data-error', 'true'))
   })
 
-  it('declines while a brightness drag is under way', async () => {
-    // The card must not toggle the light the finger is dimming.
-    renderCard()
-
-    const thumb = screen.getByLabelText('Brightness')
-    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
-    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
-
-    // `onValueChange` fired without a commit is a drag in progress.
-    fireEvent.pointerDown(thumb)
-    fireEvent.click(tile())
-
-    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
-  })
+  /*
+   * The drag guard used to be asserted here and is not any more. That version
+   * fired a bare `pointerDown`, which in jsdom moves nothing — every element
+   * reports a zero-sized rect, so Radix computed the value the slider already
+   * had and never reported a change. No drag was ever recorded, and the
+   * assertion held whether or not the card had a guard at all.
+   *
+   * It lives in `LightCard.dragGuard.test.tsx` now, where the slider is given a
+   * real rect and the moved value is asserted before the guard is.
+   */
 })
 
 describe('saving the configuration', () => {
