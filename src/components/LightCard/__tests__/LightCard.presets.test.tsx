@@ -187,13 +187,19 @@ describe('the selected preset', () => {
     expect(pill('100%')).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('marks nothing while the light is off', () => {
+  it('marks nothing while the light is off, at the level it would resume at', () => {
     /*
-     * An off light has no current level, whatever brightness it will resume at.
-     * Home Assistant keeps the last `brightness` on the entity, so reading it
-     * without checking the state would light up a preset on a dark lamp.
+     * Home Assistant keeps the last `brightness` on an entity after it is
+     * switched off, so a card reading that attribute without regard to the state
+     * would light up a preset on a dark lamp.
+     *
+     * The stored level here is deliberately 255 — exactly the `100` preset
+     * below. Seeding anything else would pass whether or not the card checks the
+     * state, because no other value matches a pill; this is the only shape of
+     * fixture that can tell the two apart, and it is what makes the assertion
+     * mean something.
      */
-    seed(light({ brightness: 128 }, 'off'))
+    seed(light({ brightness: 255 }, 'off'))
 
     fullCard({ brightnessPresets: [20, 50, 100] })
 

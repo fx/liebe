@@ -224,12 +224,15 @@ function ColorSwatchRow({
 function BrightnessPresets({
   presets,
   currentPercent,
-  isOn,
   onPick,
 }: {
   presets: number[]
+  /**
+   * The level the card is displaying, which is `0` whenever the light is off —
+   * Home Assistant keeps the last `brightness` on the entity, and the card
+   * deliberately does not read it while the light is dark.
+   */
   currentPercent: number
-  isOn: boolean
   onPick: (percent: number) => void
 }) {
   return (
@@ -239,9 +242,14 @@ function BrightnessPresets({
           key={percent}
           domain="light"
           color="light"
-          // Selected only while the light is on: a preset cannot be "current"
-          // on a light that is off, whatever brightness it will resume at.
-          active={isOn && currentPercent === percent}
+          /*
+           * No separate "is the light on" test. It would be unreachable: an off
+           * light displays 0%, and 0 is not a legal preset, so no pill can match
+           * while the light is dark. The guarantee rests entirely on that — the
+           * displayed level being 0 when off — which is asserted directly rather
+           * than left to a second condition that could never fire.
+           */
+          active={currentPercent === percent}
           label={`${percent}%`}
           onClick={() => onPick(percent)}
         />
@@ -600,7 +608,6 @@ function LightCardComponent({
           <BrightnessPresets
             presets={brightnessPresets}
             currentPercent={displayBrightness}
-            isOn={isOn}
             onPick={handlePresetPick}
           />
         ) : null}
