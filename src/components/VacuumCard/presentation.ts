@@ -284,19 +284,85 @@ function percentage(value: unknown): number | undefined {
  * The order is the point. Core 2025.8 deprecated
  * `StateVacuumEntity.battery_level` and it stops working in 2026.8, so a card
  * built on the attribute ships dead within this change's lifetime
- * (docs/specs/entity-cards/options/vacuum.md — "Battery"). The sensor is passed
- * in rather than looked up here because finding it is the caller's problem and
- * currently an unsolved one — see the card, which explains why nothing is passed
- * yet.
+ * (docs/specs/entity-cards/options/vacuum.md — "Battery"). The states are
+ * passed in rather than looked up here because this module stays pure: the card
+ * resolves the ids — the configured `batteryEntity` first, then the sibling
+ * `findBatterySibling` derives from the vacuum's device — and hands their states
+ * along in that order.
  */
 export function resolveVacuumBattery(
   attributes: VacuumAttributes | undefined,
-  batterySensorState?: unknown
+  ...batterySensorStates: unknown[]
 ): VacuumBattery | undefined {
-  const percent = percentage(batterySensorState) ?? percentage(attributes?.battery_level)
+  /*
+   * **Every** sensor source is tried before the attribute, not just the first.
+   *
+   * Variadic rather than a single state for exactly that reason. The card has
+   * two sensor sources — the configured `batteryEntity` and the one derived
+   * from the device — and a configured sensor that resolves to nothing (removed,
+   * renamed, not yet loaded) must fall to the *derived* sensor, not past both to
+   * the deprecated attribute. Ordering per source instead of
+   * sensors-then-attribute reads as equivalent and is not: it hands the answer
+   * to the legacy path whenever the preferred sensor happens to be unreadable,
+   * which is the same defect the person card's tracker list found.
+   */
+  const fromSensor = batterySensorStates.map(percentage).find((value) => value !== undefined)
+  const percent = fromSensor ?? percentage(attributes?.battery_level)
   if (percent === undefined) return undefined
 
   return { percent, low: percent < LOW_BATTERY_PERCENT }
+}
+
+/** The stats the option doc puts on the `full` tier, already formatted. */
+export interface VacuumStats {
+  /** Area cleaned, with its unit — absent when the entity reports none. */
+  area?: string
+  /** Cleaning time as a duration — absent when the entity reports none. */
+  duration?: string
+}
+
+/** A finite number from whatever an integration published, or nothing. */
+function numeric(value: unknown): number | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+/**
+ * `cleaned_area` and `cleaning_time`, formatted for the stats line.
+ *
+ * Each is independent: an integration reporting one and not the other renders
+ * the one it has, and an entity reporting neither renders no line at all — the
+ * option doc requires the absence rather than an empty row.
+ *
+ * `cleaning_time` is minutes, which is what the integrations publishing it use,
+ * and is rendered as `1h 24m` past the hour so a long run does not read as a
+ * three-digit number the viewer has to divide. Area carries m² because that is
+ * what every integration reporting it uses; no unit attribute is standardised
+ * for it, so none is consulted.
+ */
+export function resolveVacuumStats(attributes: VacuumAttributes | undefined): VacuumStats {
+  const stats: VacuumStats = {}
+
+  const area = numeric(attributes?.cleaned_area)
+  // A negative area is a broken integration, not a small one.
+  if (area !== undefined && area >= 0) stats.area = `${Math.round(area)} m²`
+
+  const minutes = numeric(attributes?.cleaning_time)
+  if (minutes !== undefined && minutes >= 0) {
+    const whole = Math.round(minutes)
+    const hours = Math.floor(whole / 60)
+    stats.duration = hours > 0 ? `${hours}h ${whole % 60}m` : `${whole}m`
+  }
+
+  return stats
+}
+
+/** Whether the stats line has anything to say. */
+export function hasVacuumStats(stats: VacuumStats): boolean {
+  return stats.area !== undefined || stats.duration !== undefined
 }
 
 /**

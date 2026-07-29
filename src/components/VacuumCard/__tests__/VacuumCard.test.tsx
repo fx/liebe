@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
@@ -358,10 +359,17 @@ describe('VacuumCard state line', () => {
 
 describe('VacuumCard battery segment', () => {
   /**
-   * PR 1 reads the legacy attribute because no battery **sensor** is reachable
-   * yet — the panel has no device or entity registry, so nothing can say which
-   * sensor belongs to this vacuum. The resolver is sensor-first and its unit
-   * tests cover that path; this asserts what the card actually renders today.
+   * These cases read the legacy `battery_level` attribute because `mount` seeds
+   * no registry, so no sensor is derivable and the attribute is the only source
+   * left in the chain — not because the sensor path is unreachable. It is
+   * reachable now: the card derives a sibling off `hass.entities` and prefers a
+   * configured `batteryEntity` ahead of it.
+   *
+   * Kept on the attribute deliberately. This block is about what the segment
+   * RENDERS — the percentage, the low threshold, the option — and the source is
+   * incidental to every assertion in it; the sensor and override paths are
+   * pinned where they are the subject, in the resolver's own tests and in the
+   * card's derivation cases.
    */
   it('appends the battery percentage to the state line', () => {
     mount({ state: 'docked', attributes: { battery_level: 87 } })
@@ -673,5 +681,353 @@ describe('VacuumCard selection and boundary', () => {
     } finally {
       consoleError.mockRestore()
     }
+  })
+})
+
+describe('VacuumCard full-tier options', () => {
+  const fanSpeedTrigger = () =>
+    document.querySelector('[aria-label="Fan speed"]') as HTMLElement | null
+  const statsLine = () => document.querySelector('.liebe-vacuum-stats')?.textContent ?? null
+  /**
+   * The locate button keeps its visible label rather than going icon-only like
+   * the cluster: it sits alone beneath the transport, where a bare pin glyph
+   * next to a house glyph reads as a second dock button.
+   */
+  const locateButton = () => screen.queryByRole('button', { name: 'Locate' })
+
+  it('renders the fan-speed select at full when the vacuum supports it', () => {
+    mount({ tier: 'full' })
+
+    expect(fanSpeedTrigger()).not.toBeNull()
+  })
+
+  /** An option can hide a capability, never add one (common contract, convention 3). */
+  it('omits the select when FAN_SPEED is absent, whatever the option says', () => {
+    mount({ tier: 'full', attributes: { supported_features: MASK.startOnly } })
+
+    expect(fanSpeedTrigger()).toBeNull()
+  })
+
+  it('omits the select when the entity publishes no speeds to choose from', () => {
+    mount({ tier: 'full', attributes: { fan_speed_list: [] } })
+
+    expect(fanSpeedTrigger()).toBeNull()
+  })
+
+  it('hides the select with showFanSpeed false', () => {
+    mount({ tier: 'full', config: { showFanSpeed: false } })
+
+    expect(fanSpeedTrigger()).toBeNull()
+  })
+
+  it('disables the select where no command may dispatch', () => {
+    mount({ tier: 'full', state: 'error' })
+
+    expect(fanSpeedTrigger()).toBeDisabled()
+  })
+
+  it('renders the locate button only when the option is on and LOCATE is advertised', () => {
+    const { unmount } = mount({ tier: 'full' })
+    // Off by default — locating is occasional.
+    expect(locateButton()).toBeNull()
+    unmount()
+
+    mount({ tier: 'full', config: { showLocate: true } })
+    expect(locateButton()).not.toBeNull()
+    unmount()
+
+    mount({
+      tier: 'full',
+      config: { showLocate: true },
+      attributes: { supported_features: MASK.startOnly },
+    })
+    expect(locateButton()).toBeNull()
+  })
+
+  it('dispatches vacuum.locate from the locate button', async () => {
+    mount({ tier: 'full', config: { showLocate: true } })
+
+    fireEvent.click(locateButton()!)
+
+    await waitFor(() =>
+      expect(calls()).toEqual([{ service: 'vacuum.locate', entityId: ENTITY_ID }])
+    )
+  })
+
+  it('renders the stats line only when the option is on and a reading exists', () => {
+    const { unmount } = mount({ tier: 'full' })
+    expect(statsLine()).toBeNull()
+    unmount()
+
+    mount({ tier: 'full', config: { showStats: true } })
+    expect(statsLine()).toBe('35 m² · 42m')
+    unmount()
+
+    mount({
+      tier: 'full',
+      config: { showStats: true },
+      attributes: { cleaned_area: undefined, cleaning_time: undefined },
+    })
+    expect(statsLine()).toBeNull()
+  })
+
+  /** The `full`-tier extras are `full` only — a row carries the cluster alone. */
+  it.each(['glance', 'row', 'tall'] as const)('carries none of the extras at %s', (tier) => {
+    mount({ tier, config: { showLocate: true, showStats: true } })
+
+    expect(fanSpeedTrigger()).toBeNull()
+    expect(locateButton()).toBeNull()
+    expect(statsLine()).toBeNull()
+  })
+
+  it('hides the extras in edit mode, so editing never actuates the vacuum', () => {
+    dashboardActions.setMode('edit')
+    mount({ tier: 'full', config: { showLocate: true, showStats: true } })
+
+    expect(fanSpeedTrigger()).toBeNull()
+    expect(locateButton()).toBeNull()
+  })
+})
+
+describe('VacuumCard battery source', () => {
+  const batterySegment = () => document.querySelector('.liebe-vacuum-battery')?.textContent ?? null
+
+  /** Registry + states, exactly the two live maps the resolver reads. */
+  function seedWithDevice({
+    batteryState = '64',
+    deviceClass = 'battery',
+    batteryId = 'sensor.robby_battery',
+  }: { batteryState?: string; deviceClass?: string; batteryId?: string } = {}) {
+    hass = createMockHomeAssistant({
+      callService,
+      entities: {
+        [ENTITY_ID]: { entity_id: ENTITY_ID, device_id: 'device-1' },
+        [batteryId]: { entity_id: batteryId, device_id: 'device-1' },
+      },
+      states: {
+        [batteryId]: {
+          entity_id: batteryId,
+          state: batteryState,
+          attributes: { device_class: deviceClass },
+          last_changed: '',
+          last_updated: '',
+          context: { id: 'x', parent_id: null, user_id: null },
+        },
+      },
+    })
+  }
+
+  it('derives the battery from the sensor on the vacuum device', () => {
+    seedWithDevice()
+    mount({ tier: 'glance' })
+
+    expect(batterySegment()).toBe('64%')
+  })
+
+  /**
+   * The configured sensor wins over the derived one. `findBatterySibling`
+   * returns *a* battery when a device exposes several, and correcting that pick
+   * is the whole reason `batteryEntity` exists — an override that lost to the
+   * value it replaces could never do its job.
+   */
+  it('prefers a configured batteryEntity over the derived sibling', () => {
+    seedWithDevice()
+    hass.states['sensor.mop_pad'] = {
+      entity_id: 'sensor.mop_pad',
+      state: '9',
+      attributes: { device_class: 'battery' },
+      last_changed: '',
+      last_updated: '',
+      context: { id: 'x', parent_id: null, user_id: null },
+    }
+    mount({ tier: 'glance', config: { batteryEntity: 'sensor.mop_pad' } })
+
+    expect(batterySegment()).toBe('9%')
+  })
+
+  /**
+   * A `binary_sensor` carrying `device_class: battery` means "on is low", not a
+   * percentage — and it sorts before `sensor.*` by entity id, so a resolver
+   * without the domain check would fail preferentially rather than rarely.
+   */
+  it('ignores a binary_sensor battery sibling', () => {
+    seedWithDevice({ batteryId: 'binary_sensor.robby_battery_low', batteryState: 'on' })
+    mount({ tier: 'glance' })
+
+    expect(batterySegment()).toBeNull()
+  })
+
+  /**
+   * A deviceless vacuum, in the shape Home Assistant actually publishes.
+   *
+   * `device_id: null` is what the registry sends for an entity with no device —
+   * about a fifth of a real one — and it is **not** the same case as an entity
+   * missing from the registry entirely. Both are seeded, `null` first: a test
+   * that only ever supplied `undefined` would prove the card handles an *absent*
+   * entity while claiming it handles a *deviceless* one, and `findDeviceSiblings`
+   * narrowing with `if (!deviceId)` is what makes them agree today. Had it
+   * narrowed on `=== undefined`, the defect would have been invisible — because
+   * the fixture and the test shared the assumption.
+   */
+  it.each([
+    ['deviceless, as the registry publishes it', { device_id: null }],
+    ['deviceless with the key omitted', {}],
+    ['absent from the registry entirely', undefined],
+  ])('shows nothing when the vacuum is %s, rather than erroring', (_label, entry) => {
+    hass = createMockHomeAssistant({
+      callService,
+      entities: entry ? { [ENTITY_ID]: { entity_id: ENTITY_ID, ...entry } } : {},
+      states: {},
+    })
+    mount({ tier: 'glance' })
+
+    expect(batterySegment()).toBeNull()
+  })
+
+  /**
+   * **Both** sensor sources are tried before the attribute.
+   *
+   * A configured `batteryEntity` that resolves to nothing — removed, renamed,
+   * not yet loaded — must fall to the *derived* sensor, not past it to the
+   * deprecated path. Skipping to the attribute per-source reads as equivalent
+   * and is not: it hands the answer to the legacy path whenever the preferred
+   * sensor happens to be unreadable, which is exactly the shape the person
+   * card's tracker list found.
+   */
+  it('falls from an unreadable configured sensor to the derived one, not to the attribute', () => {
+    seedWithDevice({ batteryState: '77' })
+    mount({
+      tier: 'glance',
+      config: { batteryEntity: 'sensor.gone' },
+      attributes: { battery_level: 41 },
+    })
+
+    expect(batterySegment()).toBe('77%')
+  })
+
+  /** Only with every sensor source exhausted does the attribute answer. */
+  it('reaches the attribute when the configured sensor is unreadable and no sibling exists', () => {
+    hass = createMockHomeAssistant({ callService, entities: {}, states: {} })
+    mount({
+      tier: 'glance',
+      config: { batteryEntity: 'sensor.gone' },
+      attributes: { battery_level: 41 },
+    })
+
+    expect(batterySegment()).toBe('41%')
+  })
+
+  /** The deprecated attribute is the last rung, not the first. */
+  it('falls back to battery_level only when no sensor resolves', () => {
+    hass = createMockHomeAssistant({ callService, entities: {}, states: {} })
+    mount({ tier: 'glance', attributes: { battery_level: 41 } })
+
+    expect(batterySegment()).toBe('41%')
+  })
+
+  it('prefers the derived sensor over the deprecated attribute', () => {
+    seedWithDevice({ batteryState: '77' })
+    mount({ tier: 'glance', attributes: { battery_level: 41 } })
+
+    expect(batterySegment()).toBe('77%')
+  })
+})
+
+describe('VacuumCard fan-speed dispatch', () => {
+  /**
+   * Driven through the trigger and the listbox rather than by reaching into the
+   * component, so the assertion covers what a user's selection actually sends —
+   * the published string, verbatim.
+   */
+  it('dispatches set_fan_speed with the published string', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    mount({ tier: 'full' })
+
+    await user.click(screen.getByLabelText('Fan speed'))
+    await user.click(await screen.findByRole('option', { name: 'turbo' }))
+
+    await waitFor(() =>
+      expect(callService).toHaveBeenCalledWith('vacuum', 'set_fan_speed', {
+        entity_id: ENTITY_ID,
+        fan_speed: 'turbo',
+      })
+    )
+  })
+
+  /**
+   * The published string is dispatched **verbatim**, padding included.
+   *
+   * Home Assistant validates `fan_speed` with `cv.string` alone and the
+   * integration matches it against its own `fan_speed_list`, so a padded entry
+   * IS the token and trimming it would send a value the integration rejects.
+   * The label is trimmed for display and the value is not — this pins the
+   * dispatch side of that split, which `readFanSpeedList`'s own test cannot see.
+   */
+  it('dispatches a padded speed without trimming it, while showing a trimmed label', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    mount({ tier: 'full', attributes: { fan_speed_list: [' max ', 'quiet'] } })
+
+    await user.click(screen.getByLabelText('Fan speed'))
+    // The option reads "max"; what it sends keeps the padding.
+    await user.click(await screen.findByRole('option', { name: 'max' }))
+
+    await waitFor(() =>
+      expect(callService).toHaveBeenCalledWith('vacuum', 'set_fan_speed', {
+        entity_id: ENTITY_ID,
+        fan_speed: ' max ',
+      })
+    )
+  })
+
+  /**
+   * A failed dispatch leaves ERROR on the state line, and the next command
+   * clears it first — including one issued from the select, which is the only
+   * control that does not go through a pill.
+   */
+  it('clears a previous error when a speed is chosen', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    callService.mockRejectedValueOnce(new Error('nope'))
+    mount({ tier: 'full', state: 'cleaning' })
+
+    fireEvent.click(pill('Return to dock')!)
+    await waitFor(() => expect(stateLine()).toContain('ERROR'))
+
+    await user.click(screen.getByLabelText('Fan speed'))
+    await user.click(await screen.findByRole('option', { name: 'quiet' }))
+
+    await waitFor(() => expect(stateLine()).not.toContain('ERROR'))
+  })
+
+  /** A vacuum publishing no current speed leaves the select unset, not crashed. */
+  it('renders the select unset when the entity publishes no fan_speed', () => {
+    mount({ tier: 'full', attributes: { fan_speed: undefined } })
+
+    expect(document.querySelector('[aria-label="Fan speed"]')).not.toBeNull()
+  })
+
+  it('renders the select unset when fan_speed is not a string', () => {
+    mount({ tier: 'full', attributes: { fan_speed: 3 } })
+
+    expect(document.querySelector('[aria-label="Fan speed"]')).not.toBeNull()
+  })
+})
+
+describe('VacuumCard outside a Home Assistant provider', () => {
+  /**
+   * A story, the configuration preview and anything rendering the card with no
+   * provider above it get no `hass` — so the battery derivation has no registry
+   * to read and must fall through to the attribute rather than throw.
+   */
+  it('falls back to the attribute when there is no hass to derive from', () => {
+    seed(createVacuumEntity({ attributes: { supported_features: MASK.full, battery_level: 55 } }))
+    render(
+      <Theme>
+        <CardItemProvider entityId={ENTITY_ID}>
+          <VacuumCard entityId={ENTITY_ID} tier="glance" />
+        </CardItemProvider>
+      </Theme>
+    )
+
+    expect(document.querySelector('.liebe-vacuum-battery')?.textContent).toBe('55%')
   })
 })

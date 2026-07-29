@@ -24,12 +24,25 @@ export interface VacuumOptions {
   showCommands: boolean
   /** Live: appends the battery percentage to the state line. */
   showBattery: boolean
-  /** Reserved by this build; the fan-speed select is change 0025 PR 2. */
+  /** Live: gates the fan-speed select at `full`. */
   showFanSpeed: boolean
-  /** Reserved by this build; the locate button is change 0025 PR 2. */
+  /** Live: gates the locate button at `full`. */
   showLocate: boolean
-  /** Reserved by this build; the stats line is change 0025 PR 2. */
+  /** Live: gates the stats line. */
   showStats: boolean
+  /**
+   * The battery sensor to read, overriding the one derived from the vacuum's
+   * device.
+   *
+   * Empty means "derive it". When set it comes **first** in the chain, ahead of
+   * the derived sibling — that is what makes it an override rather than a
+   * suggestion. A device exposing more than one battery (a vacuum with a
+   * separate mop-pad cell) makes the derived answer *a* battery rather than
+   * *the* battery, and correcting that pick is the whole reason this key
+   * exists; a setting that lost to the value it replaces could never do its job
+   * (`~/utils/deviceSiblings` — `findBatterySibling`).
+   */
+  batteryEntity: string
 }
 
 export const VACUUM_OPTION_KEYS = [
@@ -38,6 +51,7 @@ export const VACUUM_OPTION_KEYS = [
   'showFanSpeed',
   'showLocate',
   'showStats',
+  'batteryEntity',
 ] as const
 
 export type VacuumOptionKey = (typeof VACUUM_OPTION_KEYS)[number]
@@ -57,6 +71,7 @@ export const VACUUM_OPTION_DEFAULTS: Readonly<VacuumOptions> = {
   showFanSpeed: true,
   showLocate: false,
   showStats: false,
+  batteryEntity: '',
 }
 
 /**
@@ -75,6 +90,7 @@ export const vacuumOptionsConfigSchema = z.object({
   showFanSpeed: z.boolean().optional(),
   showLocate: z.boolean().optional(),
   showStats: z.boolean().optional(),
+  batteryEntity: z.string().optional(),
 })
 
 /** Per-key schemas, so one bad value costs only its own key. */
@@ -84,6 +100,7 @@ const vacuumKeySchemas: Readonly<Record<VacuumOptionKey, z.ZodTypeAny>> = {
   showFanSpeed: z.boolean(),
   showLocate: z.boolean(),
   showStats: z.boolean(),
+  batteryEntity: z.string(),
 }
 
 /**
@@ -114,5 +131,6 @@ export function readVacuumOptions(config: Record<string, unknown> | undefined): 
     showFanSpeed: read('showFanSpeed'),
     showLocate: read('showLocate'),
     showStats: read('showStats'),
+    batteryEntity: read('batteryEntity'),
   }
 }

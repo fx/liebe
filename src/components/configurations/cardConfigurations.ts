@@ -16,6 +16,7 @@ import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOpt
 import { COVER_OPTION_DEFAULTS, COVER_STATE_LABELS_AUTO } from '~/store/coverOptions'
 import { FAN_OPTION_DEFAULTS } from '~/store/fanOptions'
 import { LOCK_OPTION_DEFAULTS } from '~/store/lockOptions'
+import { VACUUM_OPTION_DEFAULTS } from '~/store/vacuumOptions'
 import { ALARM_OPTION_DEFAULTS, DEFAULT_ARM_MODE_ORDER } from '~/store/alarmOptions'
 import { PERSON_OPTION_DEFAULTS } from '~/store/personOptions'
 import {
@@ -448,6 +449,76 @@ export const cardConfigurations: Record<
     },
   },
   /*
+   * The vacuum card's options (docs/specs/entity-cards/options/vacuum.md).
+   *
+   * None of these is capability-gated here, deliberately: the
+   * `ConfigOptionRequirement` union has no vacuum member, and adding one
+   * touches the union and its evaluator — a shared contract rather than this
+   * card's. The card itself gates every control on `supported_features`, so an
+   * unsupported capability is never rendered; the cost is that the form offers
+   * a toggle a given vacuum may not be able to act on.
+   *
+   * `batteryEntity` is the odd one out: it is not a presentation switch but a
+   * correction, for the case where a device exposes more than one battery and
+   * the derived pick is the wrong one.
+   */
+  vacuum: {
+    title: 'Vacuum Card',
+    description: 'Which controls the card shows, and where the battery reading comes from.',
+    definition: {
+      showCommands: {
+        type: 'boolean',
+        default: VACUUM_OPTION_DEFAULTS.showCommands,
+        label: 'Show command buttons',
+        description:
+          'Start/pause and return-to-dock, on cards at least 2 wide. Each appears only if the vacuum supports it, and greys out where the state forbids it \u2014 already docked, or reporting an error.',
+      },
+      showBattery: {
+        type: 'boolean',
+        default: VACUUM_OPTION_DEFAULTS.showBattery,
+        label: 'Show battery',
+        description:
+          'Adds the battery percentage to the state line, in amber below 20%. Nothing shows if no battery sensor can be found.',
+      },
+      batteryEntity: {
+        type: 'entity',
+        default: VACUUM_OPTION_DEFAULTS.batteryEntity,
+        label: 'Battery sensor',
+        /*
+         * Narrowed by domain and device class, unlike the lock's door sensor:
+         * battery sensors are one of the few kinds integrations label reliably,
+         * and the field exists to disambiguate a device with several batteries
+         * rather than to find one at all. Left empty, the card derives it.
+         */
+        domains: ['sensor'],
+        deviceClasses: ['battery'],
+        description:
+          'Leave empty to use the battery on the vacuum\u2019s own device. Set this when a device reports more than one \u2014 a separate mop-pad cell, say \u2014 and the card picked the wrong one.',
+      },
+      showFanSpeed: {
+        type: 'boolean',
+        default: VACUUM_OPTION_DEFAULTS.showFanSpeed,
+        label: 'Show fan speed',
+        description:
+          'A dropdown of the vacuum\u2019s own speeds, on cards at least 2\u00d72. Hidden if the vacuum does not report any.',
+      },
+      showLocate: {
+        type: 'boolean',
+        default: VACUUM_OPTION_DEFAULTS.showLocate,
+        label: 'Show locate button',
+        description:
+          'Makes the vacuum chime so you can find it, on cards at least 2\u00d72. Off by default \u2014 locating is occasional.',
+      },
+      showStats: {
+        type: 'boolean',
+        default: VACUUM_OPTION_DEFAULTS.showStats,
+        label: 'Show cleaning stats',
+        description:
+          'Area cleaned and time taken, on cards at least 2\u00d72. Off by default \u2014 not every integration reports them, and the line is hidden when neither is present.',
+      },
+    },
+  },
+  /**
    * The lock card's options (docs/specs/entity-cards/options/security.md).
    *
    * Nothing here is capability-gated, and that is correct rather than an
