@@ -226,6 +226,7 @@ See [card reference — Input helpers](./card-reference.md#input-helper-cards), 
 - **GIVEN** a `person.jane_doe` entity named "Jane Doe" with no `entity_picture` and zero per-card config
 - **WHEN** the card renders
 - **THEN** the avatar shows "JD" on a generated background colour with a green badge dot, and the same entity id resolves to the same colour on every later render (`src/components/PersonCard/__tests__/presentation.test.ts`).
+
 ### Security (lock and alarm)
 
 **Status: implemented** by change [0024](../../changes/0024-security-cards.md) PRs 1 and 2. Two cards, one for `lock` and one for `alarm_control_panel`. Everything about how they present and behave — the per-state tables, which control a given state holds back, the arm modes, the keypad, the confirmation gates, and the scenarios for all of them — is owned by [options/security.md](./options/security.md). This section covers only what is this document's own business: that the domains are registered, the default action that defines the family, and two properties that hold at every tier and that no option may switch off.
