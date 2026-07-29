@@ -44,7 +44,7 @@ The [person option doc](../specs/entity-cards/options/person.md) owns the option
 
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
-- [ ] **PR 1 — Person card + discovery**: PersonCard component (avatar rules, badge dot, tier layouts, `showZone`/`showLastChanged` with live durations, `more-info` default tap); registry entry; `person` moved from `SYSTEM_DOMAINS` to `SUPPORTED_DOMAINS`; initials/color unit tests; tier + presence stories; entity-cards spec updated (person card section, EntityBrowser domain lists, changelog)
+- [x] **PR 1 — Person card + discovery**: PersonCard component (avatar rules, badge dot, tier layouts, `showZone`/`showLastChanged` with live durations, `more-info` default tap); registry entry; `person` moved from `SYSTEM_DOMAINS` to `SUPPORTED_DOMAINS`; initials/color unit tests; tier + presence stories; entity-cards spec updated (person card section, EntityBrowser domain lists, changelog)
 - [ ] **PR 2 — Battery**: `showBattery`/`batteryEntity` with sensor-first auto-derivation (attribute fallback covered by tests), amber low-battery treatment, auto-hidden config control; derivation unit tests; battery stories
 
 ## Out of Scope

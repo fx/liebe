@@ -16,6 +16,7 @@ import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
 import { weatherOptionsConfigSchema } from './weatherOptions'
 import { mediaPlayerOptionsConfigSchema } from './mediaPlayerOptions'
 import { vacuumOptionsConfigSchema } from './vacuumOptions'
+import { personOptionsConfigSchema } from './personOptions'
 import type { DashboardConfig } from './types'
 
 /**
@@ -142,6 +143,7 @@ const gridItemSchema = z
       .merge(mediaPlayerOptionsConfigSchema)
       .merge(alarmOptionsConfigSchema)
       .merge(vacuumOptionsConfigSchema)
+      .merge(personOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative
