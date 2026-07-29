@@ -1,8 +1,8 @@
 # Card Options — Media Player
 
-Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here. **Status: specified, not yet implemented (new card).**
+Extends the [common contract](./common.md); universal options (`name`, `icon`, `hideName`, `hideState`, `color`, `tapAction`, `holdAction`, `doubleTapAction`) apply as specified there and are not repeated here. **Status: implemented** by change [0023](../../../changes/0023-media-player-card.md) — the core card, tier layouts, state line, thumbnail artwork, primary action and transport in PR 1; volume, source picker, progress with seek and background artwork in PR 2. `showGroupControls` is the one key that is **reserved but inert**: it is accepted and round-trips, and the configuration form does not offer it, because the group-controls surface is a follow-up change.
 
-There is currently no `media_player` entry in `domainToCard`, so media players fall back to `ButtonCard`. This document specifies the option surface of the dedicated media player card. The card MUST fit the existing registry and `CardProps` contract ([entity-cards](../index.md)): registered under the `media_player` domain, configured through `item.config` via `CardConfig.Modal`, round-tripping through YAML export. Domain color is `--liebe-c-media` (indigo, [design-system](../../design-system/index.md#domain-color-discipline)); the active tint pattern applies when the player is `playing`.
+The card is registered under the `media_player` domain in `domainToCard`; before change 0023 the domain had no entry and fell through to `ButtonCard`, whose whole contract is a power toggle. It fits the existing registry and `CardProps` contract ([entity-cards](../index.md)): configured through `item.config` via `CardConfig.Modal`, round-tripping through YAML export. Domain color is `--liebe-c-media` (indigo, [design-system](../../design-system/index.md#domain-color-discipline)); the active tint pattern applies when the player is `playing`.
 
 ## Primary action
 
@@ -34,7 +34,7 @@ Relevant `supported_features` bits (HA `MediaPlayerEntityFeature`): `PAUSE` 1, `
 ### `artworkMode`
 
 - `thumbnail` (default): `entity_picture` renders as a small rounded image (`--liebe-control-radius`) in place of the icon circle. When no artwork is available the icon circle renders instead — the fallback MUST be automatic and per-render, since artwork comes and goes with the media session.
-- `background`: artwork renders as a full-bleed cover background with a dark scrim so overlaid text and controls meet contrast requirements (same legibility approach as weather condition backgrounds). Background mode is only meaningful with room for overlay: it MUST apply only in the `full` tier (≥2×2); in `glance` and `row` the card MUST degrade to `thumbnail` behavior rather than render an illegible postage stamp.
+- `background`: artwork renders as a full-bleed cover background with a dark scrim so overlaid text and controls meet contrast requirements (same legibility approach as weather condition backgrounds). **Every** overlaid element MUST take that treatment, including any that would otherwise carry a colour of its own — the position and duration readouts are the ones that did. The treatment therefore travels through the `--liebe-fg` / `--liebe-muted` tokens rather than a `color` on an ancestor: the mechanism is named because the observable-only phrasing does not distinguish a working implementation from a failing one, since a `color` set on a wrapper never reaches a part that colours itself in a cascade layer, and the card then looks correct everywhere except the two lines that stay grey on the photograph. Background mode is only meaningful with room for overlay: it MUST apply only in the `full` tier (≥2×2); in `glance` and `row` the card MUST degrade to `thumbnail` behavior rather than render an illegible postage stamp.
 - `none`: never show artwork; always the icon circle.
 
 Default is `thumbnail` because it works at every tier and never compromises text contrast; `background` is the deliberate showcase choice.
@@ -43,7 +43,7 @@ Tier visibility: `thumbnail`/`none` affect all tiers; `background` takes effect 
 
 ### `showVolume`
 
-- `slider` (default): the embedded 42px slider (`liebe-slider`) mapped to `volume_level` 0–1, committing `media_player.volume_set` on release (optimistic-drag pattern shared with light brightness). Requires `VOLUME_SET` (bit 4); when the entity supports only `VOLUME_STEP` (bit 1024), the card MUST automatically degrade to the `buttons` presentation — the option value stays `slider`, the entity simply cannot do better. An entity advertising **only `VOLUME_MUTE`** (neither `VOLUME_SET` nor `VOLUME_STEP`) degrades further to a mute-only presentation: just the mute toggle, no slider or steppers. With none of the three bits, no volume UI renders.
+- `slider` (default): the embedded 42px slider (`liebe-slider`) mapped to `volume_level` 0–1, committing `media_player.volume_set` on release (optimistic-drag pattern shared with light brightness). The committed value stays on screen until the entity's own `volume_level` moves — whatever it moves _to_, since a receiver with a volume cap answers a request for full volume with its own maximum and the card must show what the device did rather than what was asked. A failed command drops the optimistic value at once, and a device that answers nothing drops it on the acknowledgement timeout, so the card cannot go on displaying a value nothing confirmed. Requires `VOLUME_SET` (bit 4); when the entity supports only `VOLUME_STEP` (bit 1024), the card MUST automatically degrade to the `buttons` presentation — the option value stays `slider`, the entity simply cannot do better. An entity advertising **only `VOLUME_MUTE`** (neither `VOLUME_SET` nor `VOLUME_STEP`) degrades further to a mute-only presentation: just the mute toggle, no slider or steppers. With none of the three bits, no volume UI renders.
 - `buttons`: volume down / up steppers (`media_player.volume_down` / `volume_up` or stepped `volume_set`), plus a mute toggle when `VOLUME_MUTE` (bit 8) is supported.
 - `none`: no volume UI.
 
@@ -65,7 +65,7 @@ Tier visibility: `full` only.
 
 ### `showProgress`
 
-When `true` and the session exposes `media_duration`, a thin progress bar renders, its position derived from `media_position` + elapsed time since `media_position_updated_at` (the attribute is a snapshot, not a live value — the card MUST extrapolate locally rather than expect state churn). When `SEEK` (bit 2) is supported, dragging/tapping the bar sends `media_player.media_seek` with `{ seek_position }`; otherwise the bar is display-only. Off by default because position adds visual churn most speaker tiles don't need.
+When `true` and the session exposes `media_duration`, a thin progress bar renders, its position derived from `media_position` + elapsed time since `media_position_updated_at` (the attribute is a snapshot, not a live value — the card MUST extrapolate locally rather than expect state churn). The bar MUST NOT render at all without both a duration and a position: a bar pinned at 0:00 for a radio stream is a claim the entity never made. And the card MUST NOT extrapolate when `media_position_updated_at` is absent or unparseable — it shows the snapshot as published instead, because advancing a position from an unknown instant produces a bar that moves smoothly and drifts further from the truth the longer it runs, which is worse than one that admits it is a snapshot. When `SEEK` (bit 2) is supported, dragging/tapping the bar sends `media_player.media_seek` with `{ seek_position }`; otherwise the bar is display-only. Off by default because position adds visual churn most speaker tiles don't need.
 
 Tier visibility: `full` only.
 
@@ -92,6 +92,10 @@ The state line (`liebe-state`) MUST resolve, in order:
 3. else the raw entity state (`playing`, `paused`, `idle`, …).
 
 The line stays single-line, ellipsized, muted ([design-system — typography](../../design-system/index.md#typography)); when the player is `playing` it SHOULD take the indigo text step per the active-state pattern. `hideState` (common contract) suppresses the line entirely. In the `row` and `full` tiers where title and artist have their own lines, `media_title` takes the name-style line and `media_artist` the muted line — `hideName` then applies to the entity name, not the track title.
+
+Where the split form gives the muted line its own row, that line MUST always carry content: `media_artist` when the track names one, else `app_name`, else the raw state. A title with no artist is not an edge case — it is what a podcast, a radio stream and most TV apps publish — so a rule that left the field empty rendered a blank row under every one of them.
+
+Where there is no track at all, the name-style line MUST hold the entity name rather than the raw state, so a receiver sitting in `on` reads as the ordinary name-over-state card every other family renders instead of a lone "on" naming no device.
 
 ## Tier layouts
 
