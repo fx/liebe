@@ -17,6 +17,7 @@ import { COVER_OPTION_DEFAULTS, COVER_STATE_LABELS_AUTO } from '~/store/coverOpt
 import { FAN_OPTION_DEFAULTS } from '~/store/fanOptions'
 import { LOCK_OPTION_DEFAULTS } from '~/store/lockOptions'
 import { ALARM_OPTION_DEFAULTS, DEFAULT_ARM_MODE_ORDER } from '~/store/alarmOptions'
+import { PERSON_OPTION_DEFAULTS } from '~/store/personOptions'
 import {
   MAX_SENSOR_GRAPH_HOURS,
   MIN_SENSOR_GRAPH_HOURS,
@@ -1099,6 +1100,38 @@ export const cardConfigurations: Record<
         default: false,
         label: 'Hide Card Background',
         description: 'Remove the card background for a cleaner look',
+      },
+    },
+  },
+
+  /*
+   * The person card's options (docs/specs/entity-cards/options/person.md).
+   *
+   * Two, and no avatar controls among them. Identity rendering — photo, initials,
+   * the generated colour, the presence dot — is normative rather than
+   * configurable: making it optional would let one dashboard show presence and
+   * the next hide it, and presence legibility is the only thing this card is for.
+   *
+   * `showBattery` and `batteryEntity` belong to the same option table and arrive
+   * with the derivation that makes them mean anything, in PR 2 of change 0026.
+   */
+  person: {
+    title: 'Person Card',
+    description: 'What the presence line says, and whether it says how long.',
+    definition: {
+      showZone: {
+        type: 'boolean',
+        default: PERSON_OPTION_DEFAULTS.showZone,
+        label: 'Show location',
+        description:
+          'The state line — “Home”, “Away”, or the zone’s name. Turn it off to leave presence to the badge dot alone.',
+      },
+      showLastChanged: {
+        type: 'boolean',
+        default: PERSON_OPTION_DEFAULTS.showLastChanged,
+        label: 'Show how long',
+        description:
+          'Adds “for 2 h” beside the location, on cards at least 2 cells wide. A 1×1 card has no room for it.',
       },
     },
   },

@@ -1,14 +1,17 @@
 # Card Options — Person
 
-Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) — universal options (`name`, `icon`, `hideName`, `hideState`, `color`, actions) are not repeated here. **Status: specified, not yet implemented (new card).**
+Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) — universal options (`name`, `icon`, `hideName`, `hideState`, `color`, actions) are not repeated here.
 
-There is no person card today: the `person` domain has no `domainToCard` entry and sits in the EntityBrowser's hidden `SYSTEM_DOMAINS` list (alongside `persistent_notification`, `sun`, `zone` — see [entity-cards — EntityBrowser](../index.md#entity-and-card-discovery-entitybrowser)). **This spec supersedes that listing for `person`**: the domain MUST be removed from `SYSTEM_DOMAINS` and added to `SUPPORTED_DOMAINS`, so person entities become addable from the Entities tab and dispatch to the new card via the registry.
+**Status: implemented** by change [0026](../../../changes/0026-person-card.md) — the card, the avatar rules, `showZone` and `showLastChanged` in PR 1; `showBattery` and `batteryEntity` in PR 2, which is why those two rows below still read as specified. Everything else in this document is the shipped behaviour.
+
+The `person` domain now has a `domainToCard` entry and is no longer in the EntityBrowser's hidden `SYSTEM_DOMAINS` list (which keeps `persistent_notification`, `sun` and `zone` — see [entity-cards — EntityBrowser](../index.md#entity-and-card-discovery-entitybrowser)). **This spec superseded that listing for `person`**: the domain was removed from `SYSTEM_DOMAINS` and added to `SUPPORTED_DOMAINS`, so person entities are addable from the Entities tab and dispatch to the card via the registry. Nothing needed migrating — the domain was not merely unmapped but unplaceable, so no stored dashboard can contain a person item.
 
 The card is **read-only**: a person entity cannot be controlled, so the card MUST NOT call services from any built-in interaction; every option below tunes presentation only (per [common — conventions](./common.md#conventions-for-per-card-options)).
 
 ## Primary action
 
 - As a read-only card, `person` resolves `tapAction: default` to `more-info` (the common contract's read-only rule); the stored default remains the literal `default`.
+- A configured `tapAction: toggle` MUST also resolve to `more-info`, and the card MUST declare that rather than leaving the gesture to the shell. The shell's fallback for a family with no toggle of its own is `homeassistant.toggle` on the entity, which forwards to a `person.toggle` the platform does not register — so a card that stayed silent here would keep the erroring tap that registering this domain exists to fix, reachable through one stored option.
 - `holdAction: more-info` and `doubleTapAction: none` keep their universal defaults.
 - The entity detail dialog is Liebe's own (per the common action type). A future map/location-history action target MAY be added to the dialog later; it is not part of this option surface (see Open Questions).
 
@@ -17,7 +20,9 @@ The card is **read-only**: a person entity cannot be controlled, so the card MUS
 The avatar is the card's identity anchor and its rendering is normative, not configurable:
 
 - The card MUST render the entity's `entity_picture` as a circular avatar (`--liebe-circle-radius`) when the attribute is present.
-- When `entity_picture` is absent, the card MUST render the person's initials (first letters of up to two name words) on a **generated, stable background color** — derived deterministically from the entity id so the same person always gets the same color across sessions, screens, and exports.
+- The card MUST read `entity_picture` **by value, not by key**. Home Assistant's person component sets the attribute unconditionally from config, so a person who has never been given a photo publishes the key holding `null` — a card testing for the key renders a broken image on the common case.
+- When `entity_picture` is absent, the card MUST render the person's initials (first letters of up to two name words) on a **generated, stable background color** — derived deterministically from the entity id so the same person always gets the same color across sessions, screens, and exports. The palette is eight Radix scales the [domain color discipline](../../design-system/index.md#domain-color-discipline) has **not** reserved: green and red are the badge dot's own home and away, and amber, sky, indigo, teal, cyan or blue would read as a domain state the person is not in. The hash MUST distribute over the whole palette rather than a corner of it — a hash whose palette index comes off its low bits gives ids that differ only in their tail the same color.
+- The initials MUST be derived per code point rather than per UTF-16 unit, and MUST fall back to the entity id's object id (underscores read as word breaks) when there is no usable `friendly_name`.
 - A **presence badge dot** MUST overlap the avatar's edge (bottom-trailing), colored by presence:
   - state `home` → `--liebe-c-ok` (green, per the [domain color discipline](../../design-system/index.md#domain-color-discipline): home = ok)
   - state `not_home` → `--liebe-c-alert` (red: away)
@@ -37,7 +42,8 @@ The avatar is the card's identity anchor and its rendering is normative, not con
 | `batteryEntity`   | string  | `''`    | Entity id of a battery sensor to read. `''` MUST auto-derive **sensor-first**: look for a `device_class: battery` sensor on the device backing one of the person's `device_trackers`, and only then fall back to a `battery_level`-style tracker attribute (see Battery below).                                                                                                                                                                                 |
 
 - `showZone: true` with `hideState: true` resolves per the common contract: `hideState` wins and the state line is hidden (the badge dot still shows presence).
-- Zone display MUST use friendly names: `home` → "Home", `not_home` → "Away", and zone states resolve through the corresponding `zone.*` entity's friendly name, falling back to the raw state title-cased.
+- Zone display MUST use friendly names: `home` → "Home", `not_home` → "Away", and zone states resolve through the corresponding `zone.*` entity's friendly name, falling back to the raw state title-cased. The two are connected by slugifying: a person's state is its source tracker's, and trackers publish a zone's **name**, not its entity id.
+- A person's state is therefore arbitrary user text, and MUST NOT be used as a key into a plain object. Presence MUST be resolved by comparison, and a zone name MUST reach an entity lookup only with its `zone.` prefix attached, so a zone called `constructor` cannot resolve to a prototype property.
 - `showLastChanged` durations MUST update live (relative-time re-render) and use compact units ("for 3 d", "for 2 h", "for 15 min", "just now").
 - **Battery source resolution order (normative):** (1) a non-empty `batteryEntity`, if it resolves to an existing entity; (2) a `device_class: battery` sensor on the device backing one of the person's `device_trackers`; (3) a `battery_level`-style attribute on a tracker, as a **legacy fallback** — Home Assistant is migrating tracker battery reporting to dedicated battery-sensor entities, so the attribute path MUST NOT be the primary source. The `showBattery` control is hidden from the config form only when **none** of the three resolves. A configured `batteryEntity` therefore always makes the option available — gating it on auto-derivation alone would make the explicit override unreachable, since its whole purpose is supplying a source the graph does not yield.
 
@@ -92,7 +98,7 @@ A person renders naturally as a **header chip** — the compact presence row at 
 - **Distance to home.** Showing "3.2 km away" in `full` requires computing a distance from the person's `latitude`/`longitude` against the home zone's coordinates (`zone.home` lat/long) — the panel currently reads no zone geometry, and accuracy (`gps_accuracy`) handling is undefined. Open.
 - **Map preview in `full`.** A small static map (or map action target for `tapAction`) is the natural `full`-tier upgrade and the natural future meaning of a `map` action, but requires a map data source/renderer the panel does not have. Open / future.
 - **Zone history line.** The `full`-tier "Work → Home, arrived 17:42" line needs entity history, which the entity-state pipeline does not fetch — same dependency as the [design-system "Sparkline data source" open question](../../design-system/index.md#open-questions).
-- **Initials color algorithm.** The stable color MUST be deterministic per entity id; whether it hashes into the Radix scale set (excluding domain-reserved hues per the color discipline) or a dedicated avatar palette is an implementation choice to settle with the design system.
+- ~~**Initials color algorithm.**~~ Resolved by change [0026](../../../changes/0026-person-card.md) PR 1 and recorded under Avatar above: the Radix scale set with every domain-reserved hue excluded, hashed per entity id with an avalanche step so the index depends on the whole id. A dedicated avatar palette was not needed — the reserved-hue exclusion is what makes the set safe, and deriving it from the color discipline means reserving a new domain hue cannot silently collide with an identity color.
 - ~~**Battery auto-derivation depth.**~~ Resolved by the resolution order above: sensor-first via the tracker's device, attribute only as legacy fallback. Home Assistant's move to dedicated battery sensors makes the attribute-only pass the unsafe start.
 
 ## References
