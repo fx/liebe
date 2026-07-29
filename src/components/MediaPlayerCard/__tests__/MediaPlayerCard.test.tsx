@@ -749,7 +749,9 @@ describe('MediaPlayerCard lifecycle states', () => {
         attributes: { friendly_name: undefined, supported_features: FEATURES.full },
       })
     )
-    renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="glance" span={{ width: 1, height: 1 }} />)
+    renderCard(
+      <MediaPlayerCard entityId={ENTITY_ID} tier="glance" span={{ width: 1, height: 1 }} />
+    )
 
     expect(nameLine()).toBe(ENTITY_ID)
   })
