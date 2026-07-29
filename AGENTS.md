@@ -147,7 +147,7 @@ gh issue view <issue-number>
 3. **Probing a test (mutation testing)**
 
    The way to know a test pins the behavior it claims is to break the behavior and watch that test fail. Four rules make the probe trustworthy, all learned from probe runs that looked perfect and proved nothing:
-   - **Commit or stage the fix before probing.** Probes restore with `git checkout -- <file>`, which reverts to the index — so with the work uncommitted, the first restore silently throws the fix away. Every later probe then mutates a file whose patterns no longer match and the tests fail because the fix is missing, not because the mutation landed.
+   - **Commit or stage the fix before probing.** Probes restore with `git checkout -- <file>`, which reverts to the index — so with the work uncommitted, the first restore silently throws the fix away. Every later probe then mutates a file whose patterns no longer match and the tests fail because the fix is missing, not because the mutation landed. That is the noisy version. The quiet one is worse and is the reason this bullet is first: when the discarded work is a comment, a doc block or a document, **the suite stays green after the restore**, because a comment is a comment. Nothing goes red, every gate passes, and what ships is the probe's leftovers rather than your work. A lost code fix announces itself; a lost documentation fix is invisible to `npm test`, `npm run lint` and coverage alike. After restoring, grep for a sentence you wrote rather than trusting the green run.
    - **Verify the mutation actually applied before reading the test result** — `git diff --quiet -- <file>` after mutating, and treat "no change" as an invalid probe. A mutation that silently failed to apply produces a red test for the wrong reason, and red is exactly what a working probe looks like. The test result alone cannot tell the two apart.
    - **Verify it changed the behavior the named test depends on, not merely the file.** A diff is necessary and not sufficient: a mutation in a file the test's path never reaches, or one that edits a token without changing the semantics the test relies on (`const x` → `let x` leaves the scope that made it pass), cannot fail however different the file looks. Ask what the mutated line does for _this_ test before believing its result.
    - **Verify the artifact under test is the one you just built.** The three above inspect the _source_, and so does running the full suite rather than a subset; none of them looks at what actually ran. Whenever anything sits between the mutated file and the executing code — a bundler, a container mount, a dev-server cache, a stale `dist/`, a shared stack serving another worktree's build — a probe can score a flawless result against an artifact that never contained the feature at all, because a test failing for want of the feature is indistinguishable from a mutation being caught. Assert artifact identity **inside** the probe loop, so a mismatch _invalidates_ the run rather than scoring it, and hash the artifact the mutation actually lands in: `panel.js` is byte-identical for a CSS-only change, so a CSS probe guarded on that hash alone is unguarded. This is the one trap that survives doing all the others correctly.
@@ -208,6 +208,24 @@ gh issue view <issue-number>
    The second is worth knowing by its symptom rather than its cause. Without the system libraries, Chromium dies on `libnspr4.so` and Playwright reports `browserType.launch: Target page, context or browser has been closed` — which names neither a missing package nor the command that installs it, and reads like a bug in the test.
 
    `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
+
+7. **Merging `main` into a long-lived branch: the changelog tables**
+
+   Several specs end in a dated changelog table that every card change appends a row to, so two branches in flight almost always conflict there. There are **two** kinds of conflict in those tables and they take opposite resolutions.
+
+   **The append collision** is the common one: both sides added rows at the end, the conflict covers only those rows, and the resolution is to keep both — main's first, then this branch's.
+
+   **The whole-table conflict** is the one that gets resolved wrongly. **The tell is that the conflict includes the header row.** Its cause: a longer row on main makes Prettier reflow every column to the new width, so not one line matches and git conflicts the entire table rather than its tail.
+
+   Concatenating the two sides is right for the first case and **silently wrong** for the second — it emits every shared row twice. Resolve a whole-table conflict as a **keyed union** instead: take main's table verbatim, then append only the rows this branch has that main does not, matching on a padding-stripped key (split on `|`, trim each cell, rejoin).
+
+   Then verify, on a normalised key, in this order:
+   - **Duplicate count** — `len(rows) - len(set(rows))` must be `0`.
+   - **Sequence** — main's rows and this branch's rows must each keep their relative order in the merge.
+   - **Set difference in both directions** — merged∖expected and expected∖merged must both be empty, where expected is main's rows ∪ this branch's rows.
+   - **Whole-file** — the merged file should differ from `origin/main` by this branch's own added rows and nothing else, every hunk a `+`.
+
+   That order is deliberate and corrects how these checks were originally taught. **The bidirectional set diff is not the load-bearing one**: it passed cleanly on a 66-row table containing 32 duplicates, because a duplicated row is still a member of both sets. The duplicate count and the sequence comparison are what caught it — the two that read as ceremony until the day they do not. Counting rows is likewise not enough on its own: it cannot see a row _amended_ on main that this branch also carries, which is what the set difference is genuinely for.
 
 ### Completing a Task
 
