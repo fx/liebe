@@ -45,7 +45,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 - `src/components/anatomy/Slider.tsx` + `anatomy.css` — a background variant of the slider anatomy: absolutely-filled track behind the card body, fill-direction from the effective span (per the design-system placement rule), leading edge; `GridCard` hosts it behind content the way the media backdrop mounts behind the body.
 - Forced orientation: placement resolution feeds the existing `orientation` prop the cards already set from tier — but the prop alone is not sufficient outside `tall`. A vertical slider's **length comes from its host**, not from itself (`anatomy.css` gives it `block-size: 100%` and the inline axis the control-height token), and only `tall`'s fill band establishes a definite block size for that percentage to resolve against; dropped into a `row`/`full` line the track collapses. So forcing `vertical` in those tiers MUST also give the slider a definite long-axis size — the arrangement adopting the fill band's sizing contract for the forced case, rather than the orientation prop being flipped in isolation. The mirror case (`horizontal` forced in `tall`) is the easy direction: the horizontal track already takes its length from the inline axis the band gives it.
 - Gesture layer: pointer handling shared with the action system's press pipeline; drag claims the pointer past the travel threshold and suppresses the action resolution for that gesture.
-- Tests: shared placement module, per-card orientation forcing (tier-layout suite), gesture discrimination suite, cover gate routing, e2e.
+- Tests: shared placement module, per-card orientation forcing (tier-layout suite), gesture discrimination suite, cover gate routing, e2e. Forced-orientation **geometry** is locked where jsdom cannot measure it (the 0028 pattern): stylesheet-level assertions that a forced vertical slider in `row`/`full` receives a definite long-axis size (a bare `orientation` flip collapses it) and that horizontal-in-`tall` keeps a definite width, plus a browser-level (e2e) bounding-box check for one forced placement.
 
 ### Decisions
 
@@ -61,7 +61,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 ## Tasks
 
-- [ ] `sliderPlacement` option with forced `horizontal`/`vertical`: shared placement module, per-card config rows (light/cover/fan), tier-suite orientation tests, stories per value
+- [ ] `sliderPlacement` option with forced `horizontal`/`vertical`: shared placement module, per-card config rows (light/cover/fan), tier-suite orientation tests plus the stylesheet/e2e geometry locks for forced placements, stories per value
 - [ ] `background` placement: card-surface slider anatomy, gesture split on the shared press pipeline (travel threshold; tap/hold/double-tap preserved), cover `confirmOpen` routing, `iconOnly` composition, gesture + gate tests, e2e on the real grid, stories
 
 ## Open Questions

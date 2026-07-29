@@ -134,7 +134,7 @@ The cards that carry it today are the three whose **primary embedded control is 
 - In edit mode the slider is inert like every embedded control; selection semantics apply to the tile.
 - The key follows convention 7's pinning boundary: `auto` reproduces today's operation exactly, so introducing the option requires no migration.
 
-#### Scenario: Background placement on a glance light
+### Scenario: Background placement on a glance light
 
 - **GIVEN** an `on` dimmable light at 40% on a 1×1 card with `sliderPlacement: background`
 - **WHEN** the card renders

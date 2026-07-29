@@ -86,7 +86,7 @@ Binary sensors have no numeric history, so no graph options apply; the extra `fu
 
 ## Scenarios
 
-#### Scenario: Bigger tile, bigger graph
+### Scenario: Bigger tile, bigger graph
 
 - **GIVEN** a numeric sensor with history on a 2×2 (`full`) card
 - **WHEN** the card is resized to 3×3
