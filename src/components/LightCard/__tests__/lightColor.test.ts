@@ -56,6 +56,19 @@ describe('resolveLightHue', () => {
       expect(cool[2]).toBeGreaterThan(cool[0])
     })
 
+    it('drops blue out entirely at the bottom of the candle range', () => {
+      /*
+       * Below roughly 1900K the piecewise fit puts blue at zero rather than
+       * extrapolating its logarithm, which would go negative. A candle-warm bulb
+       * is a real setting — "1%" on a warm-dim strip lands here — so this is the
+       * ordinary bottom of the range and not an edge case.
+       */
+      const [r, g, b] = channels(resolveLightHue('on', { color_temp_kelvin: 1500 })!)
+
+      expect(b).toBe(0)
+      expect(r).toBeGreaterThan(g)
+    })
+
     it('prefers the most direct attribute a bulb reports', () => {
       // A colour bulb in `color_temp` mode reports several at once. `rgb_color`
       // states the colour outright, so it wins over coordinates and over a

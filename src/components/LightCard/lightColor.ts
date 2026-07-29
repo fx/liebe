@@ -138,9 +138,17 @@ function xyToRgb([x, y]: XyColor): RgbColor | undefined {
     return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055
   }
 
+  /*
+   * `peak` is always positive, so there is no zero-division case to guard.
+   * Luminance is `Y = 0.2126R + 0.7152G + 0.0722B` over the linear channels, and
+   * `Y` is pinned at 1 above — so the three cannot all be non-positive without
+   * contradicting it. Whichever way an out-of-gamut `x` pushes the result, one
+   * channel survives: a large positive `X` keeps red positive, and an `X` at or
+   * below zero keeps green positive. A guard here would therefore be a branch no
+   * input can take, which is worse than none — it reads as a handled case.
+   */
   const linear = [gamma(r), gamma(g), gamma(b)]
   const peak = Math.max(...linear)
-  if (peak <= 0) return undefined
 
   return [to255(linear[0] / peak), to255(linear[1] / peak), to255(linear[2] / peak)]
 }

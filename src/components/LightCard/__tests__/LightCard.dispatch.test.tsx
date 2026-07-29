@@ -95,6 +95,19 @@ describe('LightCard dispatch', () => {
     )
   })
 
+  it('toggles an off light on, through the same path', async () => {
+    // The other side of the toggle, and the one a `glance` tile exists for.
+    seed(light({ state: 'off' }))
+
+    renderCard(<LightCard entityId={LIGHT} tier="row" span={{ width: 2, height: 1 }} />)
+
+    fireEvent.click(tile())
+
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith('light', 'turn_on', { entity_id: LIGHT })
+    )
+  })
+
   it('refuses a second identical toggle while the first is acknowledged but unlanded', async () => {
     renderCard(<LightCard entityId={LIGHT} tier="row" span={{ width: 2, height: 1 }} />)
 

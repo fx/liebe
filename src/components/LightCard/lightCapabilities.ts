@@ -89,17 +89,6 @@ function declaredModes(value: unknown): string[] | undefined {
   return value.filter((mode): mode is string => typeof mode === 'string')
 }
 
-/** Whether any declared mode is one this build recognises as providing `capability`. */
-function hasMode(attributes: LightCapabilityAttributes | undefined, capability: string[]): boolean {
-  const modes = declaredModes(attributes?.supported_color_modes)
-  return modes === undefined ? false : modes.some((mode) => capability.includes(mode))
-}
-
-/** Whether the entity declares colour modes this build can read at all. */
-function declaresModes(attributes: LightCapabilityAttributes | undefined): boolean {
-  return declaredModes(attributes?.supported_color_modes) !== undefined
-}
-
 /**
  * The legacy bit test.
  *
@@ -127,8 +116,13 @@ function supports(
   modes: string[],
   legacyBit: number
 ): boolean {
-  if (declaresModes(attributes)) return hasMode(attributes, modes)
-  return hasFeature(attributes, legacyBit)
+  // Resolved once and branched on directly. Asking "does it declare modes?" and
+  // then "which modes?" as two calls would leave the second with an
+  // unreachable "no declaration" arm — dead by construction, and dead code in a
+  // capability check is worse than most: it reads as a handled case.
+  const declared = declaredModes(attributes?.supported_color_modes)
+  if (declared === undefined) return hasFeature(attributes, legacyBit)
+  return declared.some((mode) => modes.includes(mode))
 }
 
 /**
