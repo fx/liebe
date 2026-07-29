@@ -438,10 +438,19 @@ function isAmbiguousAlarmAlias(serviceDomain: string, service: string): boolean 
  * that opens the details actuates nothing, so confirming it would train the
  * user to dismiss the dialog that matters.
  *
- * `alarm_trigger` is `neutral` too. It is feature-gated, consequential and
- * deliberately not gated here: it raises the alarm rather than lowering the
- * security of the house, and the spec asks for gates on arming and disarming
- * only. Adding an unasked-for gate would be scope this change did not agree to.
+ * `alarm_trigger` is `neutral` too, and this one needs its reason stated
+ * because the obvious reading says otherwise: it unambiguously actuates the
+ * panel, and this card's whole design is that what cannot be proven harmless
+ * confirms. It is ungated anyway because **it is the panic action, and its
+ * failure mode is delay rather than accident.** A confirmation dialog in front
+ * of a panic button is itself the hazard — it puts a modal between someone in
+ * an emergency and the siren. Every other gate here protects against an
+ * accidental *loss* of security; gating this one would invert the property,
+ * trading a real emergency delay for protection against an outcome that is
+ * loud, obvious and immediately reversible.
+ *
+ * So: not an oversight, and not "the spec did not ask for it". Do not add a
+ * gate here without a reason that beats the one above.
  */
 export function classifyAlarmRoute(
   action: ResolvedCardAction,
