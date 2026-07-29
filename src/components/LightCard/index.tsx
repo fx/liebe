@@ -172,9 +172,13 @@ function LightCardComponent({
    * drift from the first, and the drift would show up as the icon and the
    * slider disagreeing about whether the tint applies.
    */
+  // Read outside the memo rather than inside it: `config` is rebuilt by the
+  // `item?.config || {}` fallback on every render, so depending on it directly
+  // would defeat the memo entirely. The boolean it resolves to is stable.
+  const followsBulbColor = readUseLightColor(config)
   const bulbHue = useMemo(
-    () => (readUseLightColor(config) ? resolveLightHue(entity?.state, lightAttributes) : undefined),
-    [config, entity?.state, lightAttributes]
+    () => (followsBulbColor ? resolveLightHue(entity?.state, lightAttributes) : undefined),
+    [followsBulbColor, entity?.state, lightAttributes]
   )
 
   // Get current brightness (0-255 scale from HA, convert to 0-100 for UI)
