@@ -237,6 +237,21 @@ describe('readFanSpeedList', () => {
     ])
   })
 
+  /**
+   * The asymmetry that matters for dispatch: emptiness is judged trimmed, the
+   * value survives untrimmed.
+   *
+   * Home Assistant neither normalises `fan_speed` nor validates it against the
+   * list — the schema is `cv.string`, which returns the string unchanged, and
+   * the platform matches whatever arrives against its own published list. So a
+   * padded entry IS the token, and tidying it here would dispatch a value the
+   * integration rejects. Pinned because "trim the values too" reads like an
+   * obvious cleanup.
+   */
+  it('keeps a padded entry verbatim, because the padded string is the token', () => {
+    expect(readFanSpeedList({ fan_speed_list: [' max ', 'quiet'] })).toEqual([' max ', 'quiet'])
+  })
+
   it.each([
     ['missing', undefined],
     ['a string', 'quiet,max'],

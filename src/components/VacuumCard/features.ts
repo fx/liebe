@@ -147,11 +147,26 @@ export function readVacuumFeatures(attributes: VacuumAttributes | undefined): Va
 }
 
 /**
- * The entity's fan-speed options, or an empty list.
+ * The entity's fan-speed options, **verbatim**, or an empty list.
  *
  * Every element must be a non-empty string: `fan_speed_list` is passed straight
  * to `vacuum.set_fan_speed`, and an integration publishing `[null, "max"]` would
  * otherwise offer a select entry that dispatches `{ fan_speed: null }`.
+ *
+ * **Emptiness is judged on the trimmed form; the value dispatched is the
+ * untrimmed original, and that asymmetry is deliberate.** Home Assistant does
+ * not normalise this value and does not validate it against the list: the
+ * service schema is `{vol.Required(ATTR_FAN_SPEED): cv.string}`
+ * (`vacuum/__init__.py:142-146`), `cv.string` returns a `str` unchanged
+ * (`helpers/config_validation.py:697-704`), and `async_set_fan_speed` hands the
+ * raw string to the platform (`vacuum/__init__.py:577-587`). The integration
+ * then matches it against its own published `fan_speed_list`.
+ *
+ * So the accepted token is *exactly* the string the integration published. If
+ * one really publishes `" max "`, then `" max "` is the fan speed, and trimming
+ * before dispatch would send a value it rejects. Trimming belongs to the
+ * **label** a select renders, never to the value it submits — change 0025 PR 2
+ * draws that split.
  */
 export function readFanSpeedList(attributes: VacuumAttributes | undefined): string[] {
   const raw = attributes?.fan_speed_list
