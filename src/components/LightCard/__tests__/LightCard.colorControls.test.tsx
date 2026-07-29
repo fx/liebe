@@ -27,7 +27,13 @@ let hass: HomeAssistant
 const LIGHT = 'light.living_room'
 const FULL_SPAN = { width: 3, height: 2 }
 
-function light(attributes: Record<string, unknown> = {}, state = 'on'): HassEntity {
+function light(
+  attributes: Record<string, unknown> = {},
+  state = 'on',
+  // The guard reopens on `last_updated` moving, so a case that needs a second
+  // command admitted has to move it — changing an attribute is not enough.
+  lastUpdated = '2024-01-01T00:00:00Z'
+): HassEntity {
   return {
     entity_id: LIGHT,
     state,
@@ -41,8 +47,8 @@ function light(attributes: Record<string, unknown> = {}, state = 'on'): HassEnti
       supported_features: 0,
       ...attributes,
     } as HassEntity['attributes'],
-    last_changed: '2024-01-01T00:00:00Z',
-    last_updated: '2024-01-01T00:00:00Z',
+    last_changed: lastUpdated,
+    last_updated: lastUpdated,
     context: { id: 'ctx', parent_id: null, user_id: null },
   }
 }
@@ -268,6 +274,34 @@ describe('the colour control', () => {
 
     await waitFor(() => expect(swatchRow()!.querySelectorAll('button')).toHaveLength(7))
     expect(screen.getByRole('button', { name: 'Last used, rgb(148, 0, 211)' })).toBeTruthy()
+  })
+
+  it('re-sends the recent colour when its slot is tapped', async () => {
+    /*
+     * The slot is a real control, not a swatch-shaped label. Picking Violet then
+     * Blue leaves Blue in the slot; tapping it is a fresh request for Blue,
+     * which the guard refuses only because Blue is the command still in flight.
+     * So the assertion is on the *last payload*, which is what shows the tap was
+     * routed at all.
+     */
+    fullCard()
+
+    fireEvent.click(swatch('Violet'))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+
+    // The entity moves, so the next command is admitted.
+    seed(light({ rgb_color: [148, 0, 211] }, 'on', '2024-01-01T00:01:00Z'))
+    fireEvent.click(swatch('Blue'))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+
+    seed(light({ rgb_color: [0, 122, 255] }, 'on', '2024-01-01T00:02:00Z'))
+    fireEvent.click(screen.getByRole('button', { name: 'Last used, rgb(0, 122, 255)' }))
+
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(3))
+    expect(hass.callService).toHaveBeenLastCalledWith('light', 'turn_on', {
+      entity_id: LIGHT,
+      rgb_color: [0, 122, 255],
+    })
   })
 
   it('is withheld from a light with no colour mode', () => {

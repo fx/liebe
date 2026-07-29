@@ -219,7 +219,7 @@ function LightCardComponent({
 }: LightCardProps) {
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
-  const { mode, screens, currentScreenId } = useDashboardStore()
+  const { mode, currentScreenId } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
   // Local state for slider while dragging
@@ -430,15 +430,6 @@ function LightCardComponent({
     })
   }
 
-  const handleConfigSave = (updates: Partial<GridItem>) => {
-    if (item && currentScreenId) {
-      const screen = screens.find((s) => s.id === currentScreenId)
-      if (screen) {
-        dashboardActions.updateGridItem(currentScreenId, item.id, updates)
-      }
-    }
-  }
-
   // Apply configuration. The loader has already rewritten the legacy
   // `enableBrightness` key, so only the current one is ever read here.
   const showBrightnessSlider = readShowBrightnessSlider(config)
@@ -586,7 +577,22 @@ function LightCardComponent({
           onOpenChange={setConfigOpen}
           item={item}
           span={span}
-          onSave={handleConfigSave}
+          /*
+           * Written here rather than through a `handleConfigSave` above, so the
+           * `item` this needs is the one JSX has already narrowed. Hoisting it
+           * meant re-testing `item` inside a branch only reachable when it
+           * exists — an arm no input could take.
+           *
+           * The screen is not looked up first either: `updateGridItem` walks
+           * the tree itself and leaves a `screenId` it cannot find alone, so a
+           * guard here would only duplicate that and add a second branch
+           * nothing distinguishes.
+           */
+          onSave={(updates) => {
+            if (currentScreenId) {
+              dashboardActions.updateGridItem(currentScreenId, item.id, updates)
+            }
+          }}
         />
       )}
     </>

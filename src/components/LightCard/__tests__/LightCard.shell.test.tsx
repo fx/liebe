@@ -232,13 +232,23 @@ describe('saving the configuration', () => {
     })
   })
 
-  it('does nothing when the card is not a placed item', async () => {
-    // A card rendered without an `item` — a story, a preview — has nothing to
-    // write back to, and saving must not throw.
+  it('writes nothing when no screen is current', async () => {
+    /*
+     * A placed item with no current screen — the state between loading a
+     * configuration and selecting a screen. There is nowhere to write, so
+     * saving is a no-op rather than a throw, and the item keeps its options.
+     */
+    const item = placed({ showBrightnessSlider: true })
     dashboardActions.setMode('edit')
 
-    renderCard()
+    renderCard(item)
 
-    expect(screen.queryByRole('button', { name: /configure/i })).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: /configure/i }))
+
+    const row = (await screen.findByText('Show Brightness Slider')).parentElement!
+    await userEvent.click(within(row).getByRole('switch'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    expect(dashboardStore.state.screens).toEqual([])
   })
 })
