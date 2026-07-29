@@ -896,6 +896,31 @@ describe('VacuumCard fan-speed dispatch', () => {
   })
 
   /**
+   * The published string is dispatched **verbatim**, padding included.
+   *
+   * Home Assistant validates `fan_speed` with `cv.string` alone and the
+   * integration matches it against its own `fan_speed_list`, so a padded entry
+   * IS the token and trimming it would send a value the integration rejects.
+   * The label is trimmed for display and the value is not — this pins the
+   * dispatch side of that split, which `readFanSpeedList`'s own test cannot see.
+   */
+  it('dispatches a padded speed without trimming it, while showing a trimmed label', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    mount({ tier: 'full', attributes: { fan_speed_list: [' max ', 'quiet'] } })
+
+    await user.click(screen.getByLabelText('Fan speed'))
+    // The option reads "max"; what it sends keeps the padding.
+    await user.click(await screen.findByRole('option', { name: 'max' }))
+
+    await waitFor(() =>
+      expect(callService).toHaveBeenCalledWith('vacuum', 'set_fan_speed', {
+        entity_id: ENTITY_ID,
+        fan_speed: ' max ',
+      })
+    )
+  })
+
+  /**
    * A failed dispatch leaves ERROR on the state line, and the next command
    * clears it first — including one issued from the select, which is the only
    * control that does not go through a pill.
