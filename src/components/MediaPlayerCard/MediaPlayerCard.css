@@ -31,4 +31,122 @@
        than distorting, which is what the HA frontend does with the same URL. */
     object-fit: cover;
   }
+
+  /* ------------------------------------------------------------------ *
+   * Background artwork (`artworkMode: background`, `full` tier only)
+   * ------------------------------------------------------------------ */
+
+  /*
+   * The tile becomes the artwork. `position: relative` on the card is what the
+   * backdrop is absolutely positioned against; the content above it needs no
+   * positioning of its own beyond sitting later in the stacking order, which
+   * `isolation` guarantees without any z-index — the panel's rule is `auto`, `0`
+   * or `-1` only (AGENTS.md — Radix styling).
+   */
+  .media-player-card-backdrop {
+    isolation: isolate;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .liebe-media-backdrop {
+    inset: 0;
+    position: absolute;
+  }
+
+  .liebe-media-backdrop-image {
+    block-size: 100%;
+    inline-size: 100%;
+    object-fit: cover;
+  }
+
+  /*
+   * The scrim, and the reason background mode is legible at all: album art is
+   * arbitrary, so text over it is unknown-on-unknown. A downward gradient rather
+   * than a flat wash keeps the top of the image visible while darkening most
+   * under the control stack, which is where the text actually sits.
+   *
+   * Deliberately not themable-away: a theme that removed it would produce
+   * unreadable cards, and the token contract governs colour, not whether
+   * contrast exists.
+   */
+  .liebe-media-scrim {
+    background: linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 25%) 0%,
+      rgb(0 0 0 / 55%) 55%,
+      rgb(0 0 0 / 80%) 100%
+    );
+    inset: 0;
+    position: absolute;
+  }
+
+  /*
+   * Over a scrim the card's own foreground tokens no longer apply — the ground
+   * is the artwork, not the card surface — so the text is pinned to white
+   * regardless of appearance. This is the same trade the weather card's
+   * condition backgrounds make.
+   *
+   * Done by overriding the **tokens** in this scope rather than by setting
+   * `color` on the parts, and that distinction is the whole fix. The anatomy
+   * parts colour themselves from `--liebe-fg` / `--liebe-muted` inside the
+   * `liebe-base` layer, and a Radix `<Text color="gray">` sets its own colour
+   * from a Radix scale — neither ever sees a `color` inherited from an
+   * ancestor, so the previous descendant rule left the progress readouts grey
+   * on photographic artwork. Custom properties do inherit, so overriding them
+   * here reaches every descendant that reads them, whatever sets its own
+   * `color`. This is the rule the weather card already carries
+   * (docs/specs/entity-cards/index.md — "the big readout MUST take that
+   * treatment through the `--liebe-fg` / `--liebe-muted` tokens rather than an
+   * inline `color`"), and it is the theming channel rather than a way around
+   * it: a hard-coded `color` on `.liebe-state` would be a declaration no theme
+   * could reach.
+   */
+  .media-player-card-backdrop {
+    --liebe-fg: #fff;
+    --liebe-muted: rgb(255 255 255 / 85%);
+  }
+
+  /* `text-shadow` inherits on its own, so the scope carries it for every line. */
+  .media-player-card-backdrop .liebe-name,
+  .media-player-card-backdrop .liebe-state,
+  .media-player-card-backdrop .liebe-media-progress {
+    text-shadow: 0 1px 3px rgb(0 0 0 / 60%);
+  }
+
+  /*
+   * The position and duration readouts. They take `--liebe-muted` directly
+   * rather than a Radix `color` prop, so the token override above reaches them
+   * in backdrop mode and they stay properly muted everywhere else — one
+   * declaration serving both, instead of a second rule fighting the first.
+   */
+  .liebe-media-progress-time {
+    color: var(--liebe-muted);
+    font-size: var(--font-size-1);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Progress bar (`showProgress`, `full` tier only)
+   * ------------------------------------------------------------------ */
+
+  /*
+   * The display-only form, for a player with no `SEEK` bit. A presentational
+   * element rather than a disabled slider: an inert control in the tab order is
+   * worse than no control.
+   */
+  .liebe-media-progress-track {
+    background: var(--gray-a5);
+    block-size: 4px;
+    border-radius: 999px;
+    inline-size: 100%;
+    overflow: hidden;
+  }
+
+  .liebe-media-progress-fill {
+    background: var(--liebe-c-media);
+    block-size: 100%;
+    /* The extrapolated position steps once a second; easing the width over that
+       second is what makes it read as continuous rather than as a stutter. */
+    transition: inline-size 1s linear;
+  }
 }

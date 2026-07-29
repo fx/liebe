@@ -10,11 +10,15 @@ const entityId = 'media_player.living_room_speaker'
 type MediaPlayerCardStoryProps = ComponentProps<typeof MediaPlayerCard> & GridCellArgs
 
 /**
- * The four canonical states × the four tiers × the option values PR 1 ships.
+ * The four canonical states × the four tiers × the option surface.
  *
- * Every story asserts rather than merely rendering: the tier matrix is the point
- * of this file, and a tier layout that silently stopped rendering its transport
- * cluster would still look like a card in a snapshot.
+ * These stories are **documentation**, not a gate. Nothing in this repo executes
+ * Storybook `play` functions — there is no test-runner script, `*.stories.tsx`
+ * is excluded from coverage, and `build-storybook` only proves they compile
+ * (issue #259). The assertions below are kept because they say what each story
+ * is *for*, but every behaviour they touch is independently pinned in
+ * `__tests__/`, which does run. Nothing relies on this file to catch a
+ * regression.
  */
 const meta: Meta<MediaPlayerCardStoryProps> = {
   title: 'Cards/MediaPlayerCard',
@@ -318,5 +322,185 @@ export const Unavailable: Story = {
   parameters: { liebe: { entities: [asUnavailable(createMediaPlayerEntity())] } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText('UNAVAILABLE')).toBeInTheDocument()
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * Volume, source, progress and background artwork (PR 2)
+ * ------------------------------------------------------------------ */
+
+/** PAUSE | VOLUME_SET | VOLUME_MUTE | PLAY — a speaker with a real slider. */
+const VOLUME_SLIDER = 1 | 4 | 8 | 16384
+/** PAUSE | VOLUME_STEP | PLAY — the player that can only step. */
+const VOLUME_STEP_ONLY = 1 | 1024 | 16384
+/** PAUSE | VOLUME_MUTE | PLAY — mute and nothing else. */
+const VOLUME_MUTE_ONLY = 1 | 8 | 16384
+/** PAUSE | SELECT_SOURCE | PLAY */
+const SOURCE = 1 | 2048 | 16384
+/** PAUSE | SEEK | PLAY */
+const SEEKABLE = 1 | 2 | 16384
+
+const volumeSlider = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('[role="slider"][aria-label="Volume"]')
+
+/** The default: a slider with its mute toggle. */
+export const VolumeSlider: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createMediaPlayerEntity({
+          attributes: { supported_features: VOLUME_SLIDER, volume_level: 0.42 },
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(volumeSlider(canvasElement)).toHaveAttribute('aria-valuetext', '42%')
+  },
+}
+
+/**
+ * The automatic degradation: this player advertises only `VOLUME_STEP`, so it
+ * gets steppers even though the stored option still says `slider`.
+ */
+export const VolumeDegradesToButtons: Story = {
+  parameters: {
+    liebe: {
+      entities: [createMediaPlayerEntity({ attributes: { supported_features: VOLUME_STEP_ONLY } })],
+      itemConfig: { showVolume: 'slider' },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(volumeSlider(canvasElement)).toBeNull()
+    await expect(within(canvasElement).getByLabelText('Volume up')).toBeInTheDocument()
+  },
+}
+
+/** Further down the ladder: a player advertising only `VOLUME_MUTE`. */
+export const VolumeMuteOnly: Story = {
+  parameters: {
+    liebe: {
+      entities: [createMediaPlayerEntity({ attributes: { supported_features: VOLUME_MUTE_ONLY } })],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(volumeSlider(canvasElement)).toBeNull()
+    await expect(within(canvasElement).getByLabelText('Mute')).toBeInTheDocument()
+  },
+}
+
+/** The wide row — the only `row` form that carries volume at all. */
+export const RowWideWithVolume: Story = {
+  args: { tier: 'row', span: { width: 4, height: 1 }, gridWidth: 4, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createMediaPlayerEntity({ attributes: { supported_features: VOLUME_SLIDER } })],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(volumeSlider(canvasElement)).not.toBeNull()
+  },
+}
+
+export const SourcePicker: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createMediaPlayerEntity({ attributes: { supported_features: SOURCE, source: 'Radio' } }),
+      ],
+      itemConfig: { showSourcePicker: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByLabelText('Source')).toBeInTheDocument()
+  },
+}
+
+/** Display-only: this player exposes a duration but no `SEEK` bit. */
+export const ProgressReadOnly: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createMediaPlayerEntity({
+          state: 'paused',
+          attributes: { supported_features: 1 | 16384, media_duration: 254, media_position: 37 },
+        }),
+      ],
+      itemConfig: { showProgress: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[role="progressbar"]')).not.toBeNull()
+  },
+}
+
+/** Seekable: the same session on a player that advertises `SEEK`. */
+export const ProgressSeekable: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createMediaPlayerEntity({
+          state: 'paused',
+          attributes: { supported_features: SEEKABLE, media_duration: 254, media_position: 37 },
+        }),
+      ],
+      itemConfig: { showProgress: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[role="slider"][aria-label="Seek"]')).not.toBeNull()
+  },
+}
+
+/** The showcase layout: full-bleed artwork under a scrim, controls over it. */
+export const BackgroundArtwork: Story = {
+  parameters: {
+    liebe: {
+      entities: [createMediaPlayerEntity({ attributes: { supported_features: VOLUME_SLIDER } })],
+      itemConfig: { artworkMode: 'background', showProgress: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-media-backdrop')).not.toBeNull()
+    await expect(canvasElement.querySelector('.liebe-media-scrim')).not.toBeNull()
+  },
+}
+
+/** The same card at 2×1: background degrades to the thumbnail, option unchanged. */
+export const BackgroundDegradesOnResize: Story = {
+  args: { tier: 'row', span: { width: 2, height: 1 }, gridWidth: 2, gridHeight: 1 },
+  parameters: {
+    liebe: {
+      entities: [createMediaPlayerEntity()],
+      itemConfig: { artworkMode: 'background' },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-media-backdrop')).toBeNull()
+    await expect(canvasElement.querySelector('img.liebe-media-artwork')).not.toBeNull()
+  },
+}
+
+/** Everything at once — the densest `full` card this option surface allows. */
+export const FullyLoaded: Story = {
+  args: { gridWidth: 4, gridHeight: 4, span: { width: 3, height: 3 } },
+  parameters: {
+    liebe: {
+      entities: [
+        createMediaPlayerEntity({
+          attributes: {
+            supported_features: 1 | 2 | 4 | 8 | 16 | 32 | 128 | 2048 | 16384,
+            media_duration: 254,
+            media_position: 37,
+          },
+        }),
+      ],
+      itemConfig: { showProgress: true, showSourcePicker: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(transport(canvasElement)).toEqual(['Previous track', 'Pause', 'Next track'])
+    await expect(volumeSlider(canvasElement)).not.toBeNull()
+    await expect(within(canvasElement).getByLabelText('Source')).toBeInTheDocument()
   },
 }

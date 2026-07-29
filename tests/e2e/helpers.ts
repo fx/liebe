@@ -37,6 +37,15 @@ export const E2E_SECRET = 'input_text.e2e_secret'
 export const E2E_SECRET_VALUE = 'redaction-fixture-value'
 // Synthetic ffmpeg camera fed by the go2rtc testsrc2 stream (docs/changes/0007).
 export const E2E_CAMERA = 'camera.e2e_pattern'
+/*
+ * The demo integration's TV, and the only demo media player that publishes a
+ * `media_position` WITH a `media_position_updated_at` alongside its duration and
+ * artwork — which is exactly what the progress bar requires before it renders at
+ * all. `walkman`, `kitchen` and `lounge_room` all carry a duration and no
+ * position, so they render no bar; that is the card's rule working, not a
+ * missing fixture.
+ */
+export const DEMO_MEDIA_PLAYER = 'media_player.living_room'
 // A numeric helper from configuration.yaml. Its value is settable over REST and
 // recorded, which is what makes it usable as a history fixture.
 export const E2E_LEVEL = 'input_number.e2e_level'
@@ -58,6 +67,12 @@ export interface SeedGridItem {
   y: number
   width: number
   height: number
+  /**
+   * The placed item's stored card options — the same `item.config` the grid
+   * publishes to the card shell. Seeded here so a spec can assert behaviour that
+   * only exists under a particular option, rather than only the defaults.
+   */
+  config?: Record<string, unknown>
 }
 
 // The theming engine's configuration (docs/changes/0012-theming-engine.md). A
