@@ -243,8 +243,16 @@ function MediaPlayerCardComponent({
    * absent from every tier here rather than stubbed.
    */
   const isWideRow = (span?.width ?? 0) >= WIDE_ROW_COLUMNS
-  const isSplitMeta = tier === 'row' || tier === 'full'
-  const showTransport = options.showTransport && !isCollapsed && !isEditMode && isSplitMeta
+  /*
+   * The collapsed presentation is "icon circle + name + state line only", which
+   * is the `glance` meta at whatever tier the grid handed down — so it takes the
+   * single-line form even at `row` and `full`. Without this, an idle player that
+   * still carries the last track's `media_title` would keep announcing that
+   * track as its name line, which is the opposite of what collapsing is for.
+   */
+  const isSplitMeta = !isCollapsed && (tier === 'row' || tier === 'full')
+  const showTransport =
+    options.showTransport && !isCollapsed && !isEditMode && (tier === 'row' || tier === 'full')
   const showFullCluster = tier === 'full' || isWideRow
 
   const meta = (

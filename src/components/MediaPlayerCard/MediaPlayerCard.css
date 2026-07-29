@@ -17,6 +17,8 @@
  * `liebe-media-artwork` is internal, not part of the stable selector contract:
  * `liebe-card[data-domain='media_player']` is the public handle.
  */
+@layer liebe-base, liebe-theme, liebe-user;
+
 @layer liebe-base {
   .liebe-media-artwork {
     block-size: var(--liebe-icon-circle);
