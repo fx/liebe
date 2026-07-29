@@ -39,8 +39,27 @@ export interface UseCardActionsOptions {
    * options impose. `toggle` routes here when a card provides it, precisely so a
    * re-routed action cannot slip past a gate the card enforces; only a card that
    * defines no toggle falls back to `homeassistant.toggle`.
+   *
+   * **Returning `'more-info'` resolves the gesture to the detail dialog
+   * instead.** Some families define `toggle` as meaning "open the details" —
+   * either always (an alarm panel, where disarm ↔ *which* arm mode has no sane
+   * answer) or in one state (a jammed lock, where no direction may be guessed).
+   * They cannot express that by calling the dialog themselves: the shell owns
+   * it, and a card passing its own `onMoreInfo` would REPLACE the shell's opener
+   * rather than borrow it, leaving `more-info` resolving to nothing. So the card
+   * names the resolution and the shell performs it — which also keeps the
+   * confirmation gate correct for free, since a route classified as opening the
+   * details is not one that actuates the device
+   * (docs/specs/entity-cards/options/security.md; issue #260).
+   *
+   * The `Promise` arm is not decoration. Several cards pass an `async` handler,
+   * and while `Promise<void>` is assignable to a bare `void` return by a
+   * deliberate TypeScript rule, that rule does not survive being put in a union
+   * — so omitting it would break every async toggle in the codebase for a
+   * feature none of them use. Nothing is awaited here: a card that wants the
+   * dialog returns the string synchronously, and a promise is simply not it.
    */
-  onToggle?: () => void
+  onToggle?: () => void | 'more-info' | Promise<unknown>
   /**
    * Opens the entity detail dialog. The dialog itself arrives with 0014 PR 2 —
    * until then `more-info` resolves and finds nothing to call, which is why it
@@ -351,7 +370,9 @@ export function useCardActions({
       if (action === 'toggle') {
         if (unavailable) return
         if (onToggle) {
-          onToggle()
+          // A family whose toggle means "open the details" says so by returning
+          // the resolution; the shell is what actually opens the dialog.
+          if (onToggle() === 'more-info') onMoreInfo?.()
           return
         }
         if (entityId) {

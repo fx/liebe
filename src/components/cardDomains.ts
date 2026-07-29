@@ -36,6 +36,7 @@ export const MAPPED_CARD_DOMAINS = [
   // renders a bare power toggle for a domain whose whole point is transport
   // control, with no track metadata, artwork or buttons.
   'media_player',
+  'alarm_control_panel',
   // Change 0025. Vacuums were the fallback's other misleading case: a blind
   // power toggle for a domain whose useful next action depends on what the
   // vacuum is currently doing.

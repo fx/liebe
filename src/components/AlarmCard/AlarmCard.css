@@ -1,0 +1,78 @@
+/*
+ * Layered into `liebe-base` like every other Liebe sheet: an unlayered author
+ * rule outranks every cascade layer regardless of specificity, so anything left
+ * outside a layer here would be the one part of this component a theme or user
+ * CSS could not restyle (docs/specs/theming — "Application mechanism").
+ */
+
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /*
+   * The exit/entry countdown (docs/specs/entity-cards/options/security.md —
+   * `arming` / `pending`). The one moment the user has to notice in time, so the
+   * icon circle breathes.
+   */
+  @keyframes liebe-alarm-countdown-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  .alarm-card-countdown .liebe-icon {
+    animation: liebe-alarm-countdown-pulse 1.2s ease-in-out infinite;
+  }
+
+  /*
+   * `triggered` with `flashOnTriggered` (the default). The card background
+   * pulses the alert tint.
+   */
+  @keyframes liebe-alarm-triggered-flash {
+    0%,
+    100% {
+      background-color: var(--liebe-c-alert-tint);
+    }
+    50% {
+      background-color: transparent;
+    }
+  }
+
+  .alarm-card-flash {
+    animation: liebe-alarm-triggered-flash 900ms steps(1, end) infinite;
+  }
+
+  /* --------------------------------------------------------------------
+   * The reduced-motion gate lives HERE, in the sheet, and not in the
+   * component that decides whether to animate. That placement is the whole
+   * guarantee: `flashOnTriggered: true` cannot switch the flash back on, and
+   * neither can a regression in the card's logic — which matters more here
+   * than anywhere else in the codebase, because the spec requires a triggered
+   * alarm to stay unambiguous with all motion disabled.
+   *
+   * Nothing is lost when they are suppressed, and that is by construction
+   * rather than by luck: the countdown keeps its amber tint and its "Arming…"
+   * text, and `triggered` keeps the full-strength alert tint and the word
+   * TRIGGERED. Motion is emphasis on top of a signal that is already complete
+   * without it — never the sole signal (docs/specs/design-system — "Motion").
+   * ------------------------------------------------------------------ */
+
+  @media (prefers-reduced-motion: reduce) {
+    .alarm-card-countdown .liebe-icon,
+    .alarm-card-flash {
+      animation: none;
+    }
+
+    /*
+     * The static substitute for the flash, so a triggered card with motion off
+     * is not merely a card that stopped moving: it holds the alert tint the
+     * animation would otherwise have been passing through.
+     */
+    .alarm-card-flash {
+      background-color: var(--liebe-c-alert-tint);
+    }
+  }
+}

@@ -153,6 +153,8 @@ gh issue view <issue-number>
 
    The asymmetry underneath all three: **a probe that fails tells you something; a probe that passes tells you nothing until you have established it could have failed.** A passing probe reads as "the code is fine" when it usually means the probe was useless, so it is the outcome to distrust — the reverse of how a test suite is normally read.
 
+   And note the limit of the whole technique: a probe proves the test is **wired to** the behavior, never that the behavior it asserts is the **right** one. A test pinning a defect probes perfectly — mutate the defect and it goes red — which is why a green probe is not a defence against `REVIEW.md` → "Tests Pin Intent, Not Implementation".
+
    Never `git stash` to set work aside: the stash stack is shared across worktrees and other sessions can pop it. Use a temporary commit.
 
 4. **Home Assistant Integration Testing**

@@ -20,6 +20,7 @@ import { InputTextCard } from './InputTextCard'
 import { InputDateTimeCard } from './InputDateTimeCard'
 import { LockCard } from './LockCard'
 import { MediaPlayerCard } from './MediaPlayerCard'
+import { AlarmCard } from './AlarmCard'
 import { VacuumCard } from './VacuumCard'
 import { ActionCard } from './ActionCard'
 
@@ -83,6 +84,7 @@ const registeredCards = {
   input_datetime: InputDateTimeCard,
   lock: LockCard,
   media_player: MediaPlayerCard,
+  alarm_control_panel: AlarmCard,
   vacuum: VacuumCard,
   /*
    * Four entries, one component. The action family's domains differ only in
