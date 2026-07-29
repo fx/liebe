@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect } from 'storybook/test'
 import { LightCard } from './index'
 import { asUnavailable, createLightEntity } from '~/test/fixtures'
 import type { GridItem } from '~/store/types'
@@ -197,6 +198,148 @@ export const BrightnessSliderUnsupported: Story = {
     liebe: {
       entities: [createLightEntity({ attributes: { supported_color_modes: ['onoff'] } })],
     },
+  },
+}
+
+/*
+ * `useLightColor` (docs/specs/entity-cards/options/light.md — "Light-color
+ * theming"). The option recolours existing content rather than adding any, so
+ * what each story below shows is one pair of parts — the icon circle and the
+ * slider fill — and every one of them asserts that the two AGREE. That is the
+ * property the workshop cannot show by eye at a glance and the one most worth
+ * pinning: they take the same colour from different places.
+ */
+
+/** The inline custom property a data-driven hue produces, or `''` when there is none. */
+const partHue = (canvasElement: HTMLElement, selector: string) =>
+  (canvasElement.querySelector(selector) as HTMLElement | null)?.style.getPropertyValue(
+    '--part-color'
+  ) ?? null
+
+const iconHue = (canvasElement: HTMLElement) => partHue(canvasElement, '.liebe-icon')
+const sliderHue = (canvasElement: HTMLElement) => partHue(canvasElement, '.liebe-slider')
+
+/** A colour bulb, reporting a real `rgb_color`. */
+const colorBulb = (attributes: Record<string, unknown> = {}, state = 'on') =>
+  createLightEntity({
+    state,
+    attributes: {
+      supported_color_modes: ['hs', 'rgb'],
+      rgb_color: [64, 120, 255],
+      ...attributes,
+    },
+  })
+
+/**
+ * `useLightColor: true` — the default. The icon and the slider both leave the
+ * amber domain token and take the bulb's blue.
+ */
+export const BulbColorFollowed: Story = {
+  args: { item: placedLight({ useLightColor: true }) },
+  parameters: { liebe: { entities: [colorBulb()] } },
+  play: async ({ canvasElement }) => {
+    await expect(iconHue(canvasElement)).toBe('rgb(64, 120, 255)')
+    await expect(sliderHue(canvasElement)).toBe(iconHue(canvasElement))
+  },
+}
+
+/**
+ * `useLightColor: false` — the same bulb, reporting the same colour, held on the
+ * light domain's amber. Neither part carries a data-driven hue.
+ */
+export const BulbColorIgnored: Story = {
+  args: { item: placedLight({ useLightColor: false }) },
+  parameters: { liebe: { entities: [colorBulb()] } },
+  play: async ({ canvasElement }) => {
+    await expect(iconHue(canvasElement)).toBe('')
+    await expect(sliderHue(canvasElement)).toBe('')
+  },
+}
+
+/**
+ * The RGB fallback: a bulb publishing only `hs_color` still resolves to a tint,
+ * derived rather than reported. Both parts get the derived value.
+ */
+export const BulbColorFromHue: Story = {
+  args: { item: placedLight({ useLightColor: true }) },
+  parameters: {
+    liebe: {
+      entities: [colorBulb({ rgb_color: undefined, hs_color: [120, 100] })],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(iconHue(canvasElement)).not.toBe('')
+    await expect(sliderHue(canvasElement)).toBe(iconHue(canvasElement))
+  },
+}
+
+/**
+ * The lightness clamp. A bulb set to a very dark red would tint the active card
+ * almost black — indistinguishable from inactive, at exactly the moment it is
+ * most obviously on — so the tint is lifted while its hue is preserved.
+ */
+export const BulbColorClamped: Story = {
+  args: { item: placedLight({ useLightColor: true }) },
+  parameters: { liebe: { entities: [colorBulb({ rgb_color: [40, 0, 0] })] } },
+  play: async ({ canvasElement }) => {
+    const hue = iconHue(canvasElement)
+    // Lifted well clear of the near-black it reported, and still red.
+    await expect(hue).not.toBe('rgb(40, 0, 0)')
+    await expect(hue).toMatch(/^rgb\(\d+, 0, 0\)$/)
+    await expect(sliderHue(canvasElement)).toBe(hue)
+  },
+}
+
+/**
+ * The option is inert on a bulb with no colour to report: a `brightness`-only
+ * light falls back to the domain token however `useLightColor` is set (common
+ * contract, convention 3 — an option cannot conjure a capability).
+ */
+export const BulbColorUnavailable: Story = {
+  args: { item: placedLight({ useLightColor: true }) },
+  parameters: {
+    liebe: {
+      entities: [createLightEntity({ attributes: { supported_color_modes: ['brightness'] } })],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(iconHue(canvasElement)).toBe('')
+    await expect(sliderHue(canvasElement)).toBe('')
+  },
+}
+
+/**
+ * An explicit universal `color` outranks the bulb. The card is pinned to `cool`
+ * and stays there, which is the precedence the option doc requires — a named
+ * value pins the active treatment predictably.
+ */
+export const BulbColorLosesToPinnedColor: Story = {
+  args: { item: placedLight({ useLightColor: true, color: 'cool' }) },
+  parameters: {
+    liebe: { entities: [colorBulb()], itemConfig: { useLightColor: true, color: 'cool' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(iconHue(canvasElement)).toBe('')
+    await expect(sliderHue(canvasElement)).toBe('')
+    await expect(canvasElement.querySelector('.liebe-card')).toHaveAttribute('data-color', 'cool')
+  },
+}
+
+/**
+ * A light that is off carries no tint even though its colour attributes are
+ * still there — Home Assistant leaves the last colour on the entity. The
+ * inactive treatment is the domain token, which is what makes "on" legible.
+ */
+export const BulbColorWhileOff: Story = {
+  args: { item: placedLight({ useLightColor: true }) },
+  parameters: {
+    liebe: { entities: [colorBulb({ brightness: 0 }, 'off')] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(iconHue(canvasElement)).toBe('')
+    // No slider while off, per the tier contract — so there is nothing to
+    // disagree with the icon here.
+    await expect(canvasElement.querySelector('.liebe-slider')).toBeNull()
   },
 }
 
