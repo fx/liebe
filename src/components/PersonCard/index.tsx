@@ -1,6 +1,7 @@
-import { Text } from '@radix-ui/themes'
+import { Flex, Text } from '@radix-ui/themes'
 import { memo, useCallback, useMemo, useState } from 'react'
 import { useEntity } from '~/hooks'
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
 import { readCardDisplay } from '~/store/cardDisplay'
 import { getIcon } from '~/utils/iconList'
 import { readPersonOptions } from '~/store/personOptions'
@@ -12,6 +13,7 @@ import { GridCardWithComponents as GridCard } from '../GridCard'
 import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
 import { useCardItem } from '../cardItemContext'
 import { PersonAvatar } from './PersonAvatar'
+import { resolvePersonBattery } from './battery'
 import {
   resolveAvatarHue,
   resolvePersonInitials,
@@ -54,6 +56,16 @@ interface PersonCardProps {
  * (option doc — `showLastChanged`).
  */
 const SINCE_TIERS: readonly CardTier[] = ['row', 'full']
+
+/**
+ * The tiers that carry the battery readout — the same two, and for the same
+ * reason (option doc — `showBattery`: "Renders in `row` and `full`").
+ *
+ * Named separately from `SINCE_TIERS` rather than shared, because they are two
+ * option rows in the doc that happen to agree today; folding them into one
+ * constant would make a later change to either read as a change to both.
+ */
+const BATTERY_TIERS: readonly CardTier[] = ['row', 'full']
 
 function PersonCardComponent({
   entityId,
@@ -104,6 +116,27 @@ function PersonCardComponent({
     entity?.last_changed,
     options.showLastChanged && SINCE_TIERS.includes(tier)
   )
+
+  /*
+   * The battery source. `useHomeAssistantOptional` rather than the throwing
+   * hook: this card renders outside a provider in stories, the configuration
+   * preview and unit tests, and a battery readout is exactly the thing that
+   * should be absent there rather than fatal.
+   *
+   * The registry and states are read straight off `hass` — both are live maps
+   * the frontend keeps current, so there is no fetch here, no cache and nothing
+   * to invalidate (`~/utils/deviceSiblings`).
+   */
+  const hass = useHomeAssistantOptional()
+  const battery = useMemo(() => {
+    if (!options.showBattery || !BATTERY_TIERS.includes(tier)) return undefined
+
+    return resolvePersonBattery({
+      batteryEntity: options.batteryEntity,
+      person: entity,
+      lookup: hass ? { entities: hass.entities, states: hass.states } : undefined,
+    })
+  }, [entity, hass, options.batteryEntity, options.showBattery, tier])
 
   /**
    * This card's toggle semantics: open the details, because there is nothing to
@@ -198,6 +231,40 @@ function PersonCardComponent({
   ) : undefined
 
   /*
+   * The battery percentage, amber below the threshold.
+   *
+   * The amber comes from `--liebe-c-light-text` rather than a Radix colour prop,
+   * so a theme that remaps the triplet takes this with it — the token contract's
+   * whole promise (docs/specs/design-system — "Domain color discipline"). Above
+   * the threshold it stays muted like the duration beside it: a battery that is
+   * fine should not compete with the presence the card exists to show.
+   */
+  const batteryLine = battery ? (
+    <Text
+      size="1"
+      color="gray"
+      data-testid="person-battery"
+      data-low={battery.low ? 'true' : undefined}
+      style={battery.low ? { color: 'var(--liebe-c-light-text)' } : undefined}
+    >
+      {battery.percent}%
+    </Text>
+  ) : undefined
+
+  /*
+   * Both trailing readouts share the one slot the tier table gives them. Only
+   * the tiers with room pass either, so a `glance` card renders neither and
+   * `undefined` is how the slot is omitted rather than emptied.
+   */
+  const trailing =
+    sinceLine || batteryLine ? (
+      <Flex align="center" gap="2">
+        {sinceLine}
+        {batteryLine}
+      </Flex>
+    ) : undefined
+
+  /*
    * What each tier carries (option doc — "Tier layouts"). Omission, never
    * clipping:
    *
@@ -238,7 +305,7 @@ function PersonCardComponent({
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
         lead={avatar}
         meta={meta}
-        control={sinceLine}
+        control={trailing}
       />
     </GridCard>
   )

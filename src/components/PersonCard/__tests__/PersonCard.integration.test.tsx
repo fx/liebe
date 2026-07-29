@@ -33,7 +33,10 @@ function makePerson(state: string): HassEntity {
   return {
     entity_id: ENTITY_ID,
     state,
-    attributes: { friendly_name: 'Jane Doe' } as HassEntity['attributes'],
+    attributes: {
+      friendly_name: 'Jane Doe',
+      device_trackers: ['device_tracker.jane_phone'],
+    } as HassEntity['attributes'],
     last_changed: '2026-07-29T10:00:00Z',
     last_updated: '2026-07-29T10:00:00Z',
     context: { id: 'ctx', parent_id: null, user_id: null },
@@ -48,6 +51,41 @@ function seed(entity: HassEntity) {
     entities: { [entity.entity_id]: entity },
     staleEntities: new Set<string>(),
   }))
+}
+
+/**
+ * The registry and states a linked phone produces — the shape the whole
+ * derivation exists for, and the one no unit test can prove reaches the card.
+ */
+function seedLinkedPhone(level = '87') {
+  hass.entities = {
+    'device_tracker.jane_phone': {
+      entity_id: 'device_tracker.jane_phone',
+      device_id: 'dev-phone',
+    },
+    'sensor.jane_phone_battery': {
+      entity_id: 'sensor.jane_phone_battery',
+      device_id: 'dev-phone',
+    },
+  }
+  hass.states = {
+    'device_tracker.jane_phone': {
+      entity_id: 'device_tracker.jane_phone',
+      state: 'home',
+      attributes: {},
+      last_changed: '2026-07-29T10:00:00Z',
+      last_updated: '2026-07-29T10:00:00Z',
+      context: { id: 'ctx', parent_id: null, user_id: null },
+    },
+    'sensor.jane_phone_battery': {
+      entity_id: 'sensor.jane_phone_battery',
+      state: level,
+      attributes: { device_class: 'battery' },
+      last_changed: '2026-07-29T10:00:00Z',
+      last_updated: '2026-07-29T10:00:00Z',
+      context: { id: 'ctx', parent_id: null, user_id: null },
+    },
+  }
 }
 
 function renderCard(card: ReactElement, config?: Record<string, unknown>) {
@@ -81,6 +119,42 @@ describe('the person card against the real shell', () => {
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
     expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('shows the battery on the sensor beside the person’s tracker', async () => {
+    /*
+     * The hop only this test can exercise. `findBatterySibling` goes from an
+     * entity to the battery sensor on its device; a person is not that entity —
+     * its `device_trackers` name the entities that have devices. The unit tests
+     * pin the resolver's rules against hand-built maps; this pins that the card
+     * reads the REAL `hass.entities` and `hass.states` and joins them the same
+     * way.
+     */
+    seedLinkedPhone()
+    seed(makePerson('home'))
+    renderCard(<PersonCard entityId={ENTITY_ID} tier="row" />)
+
+    await waitFor(() => expect(screen.getByTestId('person-battery')).toHaveTextContent('87%'))
+    expect(screen.getByTestId('person-battery')).not.toHaveAttribute('data-low')
+  })
+
+  it('renders a low battery in the amber step', async () => {
+    seedLinkedPhone('14')
+    seed(makePerson('home'))
+    renderCard(<PersonCard entityId={ENTITY_ID} tier="row" />)
+
+    const readout = await screen.findByTestId('person-battery')
+    expect(readout).toHaveTextContent('14%')
+    expect(readout).toHaveAttribute('data-low', 'true')
+  })
+
+  it('shows nothing when the tracker’s device carries no battery sensor', async () => {
+    // The ordinary case, not an error: no badge, no placeholder, no zero.
+    seed(makePerson('home'))
+    renderCard(<PersonCard entityId={ENTITY_ID} tier="row" />)
+
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
+    expect(screen.queryByTestId('person-battery')).not.toBeInTheDocument()
   })
 
   it('sends a configured toggle to the dialog rather than to a service', async () => {

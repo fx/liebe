@@ -1112,8 +1112,9 @@ export const cardConfigurations: Record<
    * configurable: making it optional would let one dashboard show presence and
    * the next hide it, and presence legibility is the only thing this card is for.
    *
-   * `showBattery` and `batteryEntity` belong to the same option table and arrive
-   * with the derivation that makes them mean anything, in PR 2 of change 0026.
+   * `showBattery` carries a `requires`, which is what makes the doc's
+   * "auto-hidden control" real: a person whose trackers yield no battery never
+   * sees the toggle, rather than seeing one that does nothing.
    */
   person: {
     title: 'Person Card',
@@ -1132,6 +1133,24 @@ export const cardConfigurations: Record<
         label: 'Show how long',
         description:
           'Adds “for 2 h” beside the location, on cards at least 2 cells wide. A 1×1 card has no room for it.',
+      },
+      showBattery: {
+        type: 'boolean',
+        default: PERSON_OPTION_DEFAULTS.showBattery,
+        label: 'Show phone battery',
+        description:
+          'The battery of the phone tracking this person, beside the location. Turns amber below 20%.',
+        requires: 'person-battery',
+      },
+      batteryEntity: {
+        type: 'entity',
+        default: PERSON_OPTION_DEFAULTS.batteryEntity,
+        label: 'Battery sensor',
+        placeholder: 'Found automatically',
+        description:
+          'Only needed when the battery is not found on its own — a phone whose sensor is not linked to the same device, or one tracked by an integration that does not publish the link.',
+        domains: ['sensor'],
+        deviceClasses: ['battery'],
       },
     },
   },

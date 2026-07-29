@@ -7,18 +7,40 @@ import {
 } from '../personOptions'
 
 describe('readPersonOptions', () => {
-  it('gives an unconfigured card both options on', () => {
-    // The shipped defaults, asserted as the contract rather than read back from
-    // the constant: a person card with neither is a contact photo, not a
-    // presence card (docs/specs/entity-cards/options/person.md — "Options").
-    expect(readPersonOptions(undefined)).toEqual({ showZone: true, showLastChanged: true })
-    expect(readPersonOptions({})).toEqual({ showZone: true, showLastChanged: true })
+  it('gives an unconfigured card every option on', () => {
+    /*
+     * The shipped defaults, asserted as the contract rather than read back from
+     * the constant: a person card with none of them is a contact photo, not a
+     * presence card (docs/specs/entity-cards/options/person.md — "Options").
+     *
+     * `showBattery` defaults on and costs nothing when there is no battery,
+     * because the option is self-hiding — it renders only where a level
+     * derives. `batteryEntity` defaults to `''`, which means "derive".
+     */
+    const defaults = {
+      showZone: true,
+      showLastChanged: true,
+      showBattery: true,
+      batteryEntity: '',
+    }
+
+    expect(readPersonOptions(undefined)).toEqual(defaults)
+    expect(readPersonOptions({})).toEqual(defaults)
   })
 
   it('reads what the user stored', () => {
-    expect(readPersonOptions({ showZone: false, showLastChanged: false })).toEqual({
+    expect(
+      readPersonOptions({
+        showZone: false,
+        showLastChanged: false,
+        showBattery: false,
+        batteryEntity: 'sensor.phone_battery',
+      })
+    ).toEqual({
       showZone: false,
       showLastChanged: false,
+      showBattery: false,
+      batteryEntity: 'sensor.phone_battery',
     })
   })
 
@@ -32,10 +54,15 @@ describe('readPersonOptions', () => {
     expect(readPersonOptions({ showZone: 'no' })).toEqual(PERSON_OPTION_DEFAULTS)
     expect(readPersonOptions({ showLastChanged: 1 })).toEqual(PERSON_OPTION_DEFAULTS)
     expect(readPersonOptions({ showZone: null })).toEqual(PERSON_OPTION_DEFAULTS)
+    expect(readPersonOptions({ showBattery: 'yes' })).toEqual(PERSON_OPTION_DEFAULTS)
+    // A non-string `batteryEntity` falls back to `''` — "derive" — rather than
+    // being coerced into an entity id nobody wrote.
+    expect(readPersonOptions({ batteryEntity: 42 })).toEqual(PERSON_OPTION_DEFAULTS)
   })
 
   it('costs a bad value only its own key', () => {
     expect(readPersonOptions({ showZone: 'no', showLastChanged: false })).toEqual({
+      ...PERSON_OPTION_DEFAULTS,
       showZone: true,
       showLastChanged: false,
     })
@@ -55,5 +82,7 @@ describe('the person config fragment', () => {
     expect(personOptionsConfigSchema.safeParse({}).success).toBe(true)
     expect(personOptionsConfigSchema.safeParse({ showZone: true }).success).toBe(true)
     expect(personOptionsConfigSchema.safeParse({ showZone: 'yes' }).success).toBe(false)
+    expect(personOptionsConfigSchema.safeParse({ batteryEntity: 'sensor.x' }).success).toBe(true)
+    expect(personOptionsConfigSchema.safeParse({ batteryEntity: 42 }).success).toBe(false)
   })
 })
