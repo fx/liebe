@@ -34,10 +34,12 @@ export interface VacuumOptions {
    * The battery sensor to read, overriding the one derived from the vacuum's
    * device.
    *
-   * Empty means "derive it". The override is second in the chain rather than a
-   * replacement for it, because a device exposing more than one battery — a
-   * vacuum with a separate mop-pad cell, say — makes the derived answer *a*
-   * battery rather than *the* battery, and this is how a user corrects that
+   * Empty means "derive it". When set it comes **first** in the chain, ahead of
+   * the derived sibling — that is what makes it an override rather than a
+   * suggestion. A device exposing more than one battery (a vacuum with a
+   * separate mop-pad cell) makes the derived answer *a* battery rather than
+   * *the* battery, and correcting that pick is the whole reason this key
+   * exists; a setting that lost to the value it replaces could never do its job
    * (`~/utils/deviceSiblings` — `findBatterySibling`).
    */
   batteryEntity: string

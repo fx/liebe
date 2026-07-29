@@ -284,10 +284,11 @@ function percentage(value: unknown): number | undefined {
  * The order is the point. Core 2025.8 deprecated
  * `StateVacuumEntity.battery_level` and it stops working in 2026.8, so a card
  * built on the attribute ships dead within this change's lifetime
- * (docs/specs/entity-cards/options/vacuum.md — "Battery"). The sensor is passed
- * in rather than looked up here because finding it is the caller's problem and
- * currently an unsolved one — see the card, which explains why nothing is passed
- * yet.
+ * (docs/specs/entity-cards/options/vacuum.md — "Battery"). The states are
+ * passed in rather than looked up here because this module stays pure: the card
+ * resolves the ids — the configured `batteryEntity` first, then the sibling
+ * `findBatterySibling` derives from the vacuum's device — and hands their states
+ * along in that order.
  */
 export function resolveVacuumBattery(
   attributes: VacuumAttributes | undefined,

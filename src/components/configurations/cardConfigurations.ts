@@ -449,16 +449,18 @@ export const cardConfigurations: Record<
     },
   },
   /*
-   * The lock card's options (docs/specs/entity-cards/options/security.md).
+   * The vacuum card's options (docs/specs/entity-cards/options/vacuum.md).
    *
-   * Nothing here is capability-gated, and that is correct rather than an
-   * oversight: `LockEntityFeature` defines one bit, `OPEN`, and it gates only
-   * the unlatch service this card deliberately does not offer. Every lock can
-   * lock and unlock, so every lock gets the same four options.
+   * None of these is capability-gated here, deliberately: the
+   * `ConfigOptionRequirement` union has no vacuum member, and adding one
+   * touches the union and its evaluator — a shared contract rather than this
+   * card's. The card itself gates every control on `supported_features`, so an
+   * unsupported capability is never rendered; the cost is that the form offers
+   * a toggle a given vacuum may not be able to act on.
    *
-   * The two confirmation gates are separate options because the directions are
-   * asymmetric — unlock is the one that can fail physically-open — and their
-   * defaults say so: `confirmUnlock` on, `confirmLock` off.
+   * `batteryEntity` is the odd one out: it is not a presentation switch but a
+   * correction, for the case where a device exposes more than one battery and
+   * the derived pick is the wrong one.
    */
   vacuum: {
     title: 'Vacuum Card',
@@ -516,6 +518,18 @@ export const cardConfigurations: Record<
       },
     },
   },
+  /**
+   * The lock card's options (docs/specs/entity-cards/options/security.md).
+   *
+   * Nothing here is capability-gated, and that is correct rather than an
+   * oversight: `LockEntityFeature` defines one bit, `OPEN`, and it gates only
+   * the unlatch service this card deliberately does not offer. Every lock can
+   * lock and unlock, so every lock gets the same four options.
+   *
+   * The two confirmation gates are separate options because the directions are
+   * asymmetric — unlock is the one that can fail physically-open — and their
+   * defaults say so: `confirmUnlock` on, `confirmLock` off.
+   */
   lock: {
     title: 'Lock Card',
     description: 'Which controls the card shows, and what it asks before acting.',
