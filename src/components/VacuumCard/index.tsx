@@ -201,16 +201,19 @@ function VacuumCardComponent({
    * `device_id` — common, and not an error — simply derives nothing and falls
    * through to the attribute.
    */
-  const batterySensorId =
-    options.batteryEntity ||
-    (hass
-      ? findBatterySibling(entityId, { entities: hass.entities, states: hass.states })
-      : undefined)
+  const derivedBatteryId = hass
+    ? findBatterySibling(entityId, { entities: hass.entities, states: hass.states })
+    : undefined
+  /*
+   * Configured first, derived second, attribute last — and both sensors are
+   * tried before the attribute. A configured sensor that resolves to nothing
+   * falls to the derived one rather than past it to the deprecated path.
+   */
+  const batterySensorIds = [options.batteryEntity, derivedBatteryId].filter(
+    (id): id is string => typeof id === 'string' && id !== ''
+  )
   const battery = options.showBattery
-    ? resolveVacuumBattery(
-        attributes,
-        batterySensorId ? hass?.states[batterySensorId]?.state : undefined
-      )
+    ? resolveVacuumBattery(attributes, ...batterySensorIds.map((id) => hass?.states[id]?.state))
     : undefined
 
   /*

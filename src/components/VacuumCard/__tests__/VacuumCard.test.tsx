@@ -858,6 +858,39 @@ describe('VacuumCard battery source', () => {
     expect(batterySegment()).toBeNull()
   })
 
+  /**
+   * **Both** sensor sources are tried before the attribute.
+   *
+   * A configured `batteryEntity` that resolves to nothing — removed, renamed,
+   * not yet loaded — must fall to the *derived* sensor, not past it to the
+   * deprecated path. Skipping to the attribute per-source reads as equivalent
+   * and is not: it hands the answer to the legacy path whenever the preferred
+   * sensor happens to be unreadable, which is exactly the shape the person
+   * card's tracker list found.
+   */
+  it('falls from an unreadable configured sensor to the derived one, not to the attribute', () => {
+    seedWithDevice({ batteryState: '77' })
+    mount({
+      tier: 'glance',
+      config: { batteryEntity: 'sensor.gone' },
+      attributes: { battery_level: 41 },
+    })
+
+    expect(batterySegment()).toBe('77%')
+  })
+
+  /** Only with every sensor source exhausted does the attribute answer. */
+  it('reaches the attribute when the configured sensor is unreadable and no sibling exists', () => {
+    hass = createMockHomeAssistant({ callService, entities: {}, states: {} })
+    mount({
+      tier: 'glance',
+      config: { batteryEntity: 'sensor.gone' },
+      attributes: { battery_level: 41 },
+    })
+
+    expect(batterySegment()).toBe('41%')
+  })
+
   /** The deprecated attribute is the last rung, not the first. */
   it('falls back to battery_level only when no sensor resolves', () => {
     hass = createMockHomeAssistant({ callService, entities: {}, states: {} })

@@ -291,9 +291,22 @@ function percentage(value: unknown): number | undefined {
  */
 export function resolveVacuumBattery(
   attributes: VacuumAttributes | undefined,
-  batterySensorState?: unknown
+  ...batterySensorStates: unknown[]
 ): VacuumBattery | undefined {
-  const percent = percentage(batterySensorState) ?? percentage(attributes?.battery_level)
+  /*
+   * **Every** sensor source is tried before the attribute, not just the first.
+   *
+   * Variadic rather than a single state for exactly that reason. The card has
+   * two sensor sources — the configured `batteryEntity` and the one derived
+   * from the device — and a configured sensor that resolves to nothing (removed,
+   * renamed, not yet loaded) must fall to the *derived* sensor, not past both to
+   * the deprecated attribute. Ordering per source instead of
+   * sensors-then-attribute reads as equivalent and is not: it hands the answer
+   * to the legacy path whenever the preferred sensor happens to be unreadable,
+   * which is the same defect the person card's tracker list found.
+   */
+  const fromSensor = batterySensorStates.map(percentage).find((value) => value !== undefined)
+  const percent = fromSensor ?? percentage(attributes?.battery_level)
   if (percent === undefined) return undefined
 
   return { percent, low: percent < LOW_BATTERY_PERCENT }
