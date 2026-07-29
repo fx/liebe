@@ -18,6 +18,12 @@ export const SHOW_BRIGHTNESS_SLIDER_KEY = 'showBrightnessSlider'
 /** Whether the icon tint and slider fill follow the bulb's own colour. */
 export const USE_LIGHT_COLOR_KEY = 'useLightColor'
 
+/** Whether the warm→cool colour-temperature control appears at `full`. */
+export const SHOW_COLOR_TEMP_CONTROL_KEY = 'showColorTempControl'
+
+/** Whether the colour swatch row appears at `full`. */
+export const SHOW_COLOR_CONTROL_KEY = 'showColorControl'
+
 /**
  * The key Liebe shipped first. Read on the way in and dropped there, so it is
  * never written back and never reaches a card or a configuration form — the
@@ -91,6 +97,30 @@ export function readUseLightColor(config: Record<string, unknown> | undefined): 
 }
 
 /**
+ * Whether the colour-temperature control appears.
+ *
+ * Default `true`, and additive: the control is a new surface on an existing
+ * card, so it appears on already-placed `full`-tier light cards without a
+ * pinning migration (common contract, convention 7 — no legacy pinning for
+ * purely additive controls). Existing interactions are unchanged by it.
+ *
+ * Whether the control *can* appear is the entity's business: an entity with no
+ * `color_temp` mode, or none that reports a usable Kelvin range, gets no control
+ * however this is set (convention 3).
+ */
+export function readShowColorTempControl(config: Record<string, unknown> | undefined): boolean {
+  return config?.[SHOW_COLOR_TEMP_CONTROL_KEY] !== false
+}
+
+/**
+ * Whether the colour swatch row appears. Default `true`, additive, and equally
+ * inert against a light with no colour mode.
+ */
+export function readShowColorControl(config: Record<string, unknown> | undefined): boolean {
+  return config?.[SHOW_COLOR_CONTROL_KEY] !== false
+}
+
+/**
  * The light fragment of `item.config`, merged into the item schema.
  *
  * The light keys join the validated set for the reason its siblings give: both
@@ -105,4 +135,6 @@ export function readUseLightColor(config: Record<string, unknown> | undefined): 
 export const lightOptionsConfigSchema = z.object({
   [SHOW_BRIGHTNESS_SLIDER_KEY]: z.boolean().optional(),
   [USE_LIGHT_COLOR_KEY]: z.boolean().optional(),
+  [SHOW_COLOR_TEMP_CONTROL_KEY]: z.boolean().optional(),
+  [SHOW_COLOR_CONTROL_KEY]: z.boolean().optional(),
 })

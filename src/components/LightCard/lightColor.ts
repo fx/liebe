@@ -162,7 +162,7 @@ function xyToRgb([x, y]: XyColor): RgbColor | undefined {
  * refused: an integration reporting 500K is reporting something, and a warm
  * bulb is the right answer for it.
  */
-function kelvinToRgb(kelvin: number): RgbColor {
+export function kelvinToRgb(kelvin: number): RgbColor {
   const t = clamp(kelvin, 1000, 40000) / 100
 
   const red = t <= 66 ? 255 : clamp(329.698727446 * Math.pow(t - 60, -0.1332047592), 0, 255)

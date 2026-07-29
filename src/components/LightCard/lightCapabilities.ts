@@ -68,8 +68,13 @@ const SUPPORT_COLOR = 16
 export interface LightCapabilityAttributes {
   supported_color_modes?: unknown
   supported_features?: unknown
+  min_color_temp_kelvin?: unknown
+  max_color_temp_kelvin?: unknown
   [attribute: string]: unknown
 }
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
 
 /**
  * The declared colour modes, or nothing when the entity does not usably declare
@@ -152,4 +157,45 @@ export function supportsColorTemp(attributes: LightCapabilityAttributes | undefi
 /** Whether the light accepts a colour, in any of the modes that carry one. */
 export function supportsColor(attributes: LightCapabilityAttributes | undefined): boolean {
   return supports(attributes, COLOR_COLOR_MODES, SUPPORT_COLOR)
+}
+
+/** The warm and cool ends a colour-temperature control may span, in Kelvin. */
+export interface ColorTempRange {
+  min: number
+  max: number
+}
+
+/**
+ * The entity's own colour-temperature bounds, or nothing when it does not
+ * usably report them.
+ *
+ * **Why "nothing" rather than a default range.** The option doc requires the
+ * control to span `min_color_temp_kelvin`–`max_color_temp_kelvin` and says
+ * "never a hardcoded range". A light that declares `color_temp` support but
+ * publishes no bounds therefore gets no control at all: inventing 2000–6500 for
+ * it would present a warm end the bulb may not reach and a cool end it may
+ * exceed, and every value in between would be a guess dressed as the device's
+ * own. No control is honest; a fabricated one is not.
+ *
+ * The cases below are what the *consumer* can be handed, not a list of
+ * defensive guesses. `Slider` passes these straight to Radix as `min`/`max`, and
+ * each one breaks it differently: a missing or non-numeric bound gives a track
+ * with no arithmetic, `NaN` poisons every comparison silently (it is never less
+ * than, never greater than, never equal), and `min >= max` gives an inverted
+ * track whose thumb cannot be placed. A single bound is just as unusable as
+ * none — there is no span without both ends.
+ */
+export function readColorTempRange(
+  attributes: LightCapabilityAttributes | undefined
+): ColorTempRange | undefined {
+  const min = attributes?.min_color_temp_kelvin
+  const max = attributes?.max_color_temp_kelvin
+
+  if (!isFiniteNumber(min) || !isFiniteNumber(max)) return undefined
+  // Kelvin is an absolute scale, so a non-positive bound is not a cooler colour
+  // but a broken reading.
+  if (min <= 0 || max <= 0) return undefined
+  if (min >= max) return undefined
+
+  return { min, max }
 }
