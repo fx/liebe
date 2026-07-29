@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  readColorTempRange,
   supportsBrightness,
   supportsColor,
   supportsColorTemp,
@@ -149,5 +150,75 @@ describe('the modern attribute against the legacy bits', () => {
     expect(
       supportsBrightness(attributes({ supported_color_modes: [], supported_features: 1 }))
     ).toBe(false)
+  })
+})
+
+describe('the colour-temperature range', () => {
+  /*
+   * Every case here is "what can the consumer legally be handed", not a list of
+   * defensive guesses. `Slider` passes these to Radix as `min`/`max`, and the
+   * answer for anything unusable is the SAME — no range, therefore no control —
+   * because the option doc forbids substituting one ("never a hardcoded range").
+   */
+
+  it('reads the bounds the entity reports', () => {
+    expect(
+      readColorTempRange(attributes({ min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535 }))
+    ).toEqual({ min: 2000, max: 6535 })
+  })
+
+  it('is absent when the entity reports neither bound', () => {
+    // The case the lead flagged: a real `color_temp` light can publish no range
+    // at all. It gets no control rather than an invented one.
+    expect(readColorTempRange(attributes({}))).toBeUndefined()
+    expect(readColorTempRange(undefined)).toBeUndefined()
+  })
+
+  it('is absent when only one bound is reported', () => {
+    // Half a range is as unusable as none: there is no span without both ends.
+    expect(readColorTempRange(attributes({ min_color_temp_kelvin: 2000 }))).toBeUndefined()
+    expect(readColorTempRange(attributes({ max_color_temp_kelvin: 6535 }))).toBeUndefined()
+  })
+
+  it.each([
+    ['a string', '2000'],
+    ['null', null],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+  ])('is absent when a bound is %s', (_label, bad) => {
+    /*
+     * `NaN` is the one worth naming. It passes a bare `typeof === 'number'` and
+     * then poisons every comparison silently — never less than, never greater
+     * than, never equal — so a range carrying it would reach Radix looking valid
+     * and produce a track whose thumb cannot be placed.
+     */
+    expect(
+      readColorTempRange(attributes({ min_color_temp_kelvin: bad, max_color_temp_kelvin: 6535 }))
+    ).toBeUndefined()
+    expect(
+      readColorTempRange(attributes({ min_color_temp_kelvin: 2000, max_color_temp_kelvin: bad }))
+    ).toBeUndefined()
+  })
+
+  it('is absent when the bounds are inverted or equal', () => {
+    // An inverted track has nowhere to put the thumb; a zero-width one has one
+    // reachable value, which is a control that cannot control anything.
+    expect(
+      readColorTempRange(attributes({ min_color_temp_kelvin: 6535, max_color_temp_kelvin: 2000 }))
+    ).toBeUndefined()
+    expect(
+      readColorTempRange(attributes({ min_color_temp_kelvin: 4000, max_color_temp_kelvin: 4000 }))
+    ).toBeUndefined()
+  })
+
+  it('is absent when a bound is not a positive temperature', () => {
+    // Kelvin is absolute, so zero or below is a broken reading rather than a
+    // cooler colour.
+    expect(
+      readColorTempRange(attributes({ min_color_temp_kelvin: 0, max_color_temp_kelvin: 6535 }))
+    ).toBeUndefined()
+    expect(
+      readColorTempRange(attributes({ min_color_temp_kelvin: -100, max_color_temp_kelvin: 6535 }))
+    ).toBeUndefined()
   })
 })
