@@ -420,6 +420,42 @@ export function createAlarmEntity(overrides: EntityOverrides = {}): HassEntity {
 }
 
 /**
+ * A docked robot vacuum with the full run-control surface.
+ *
+ * `supported_features` is 8764 — `PAUSE 4 | STOP 8 | RETURN_HOME 16 |
+ * FAN_SPEED 32 | LOCATE 512 | START 8192`, every bit the card's option surface
+ * gates on. A literal here and a sum of named `VACUUM_FEATURE` members in
+ * `VacuumCard/__tests__/features.test.ts`, which pins the two against each
+ * other; that way round on purpose, because a fixture computing its mask from
+ * the constants under test would agree with them however wrong they were.
+ *
+ * The narrower shapes the gating tests need — no `PAUSE`, no `START`, nothing at
+ * all — are built from this by overriding `supported_features` at the call site.
+ *
+ * **No `battery_level`.** Core 2025.8 deprecated
+ * `StateVacuumEntity.battery_level` and it stops working in 2026.8, so the
+ * default fixture does not model a source that expires inside this change's
+ * lifetime; `createVacuumBatterySensorEntity` is the shape integrations are
+ * migrating to. `createLegacyBatteryVacuumEntity` exists for the fallback path
+ * and is named for what it is.
+ */
+export function createVacuumEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'vacuum.robby',
+    'docked',
+    {
+      friendly_name: 'Robby',
+      supported_features: 8764,
+      fan_speed: 'medium',
+      fan_speed_list: ['quiet', 'medium', 'turbo', 'max'],
+      cleaned_area: 34.5,
+      cleaning_time: 42,
+    },
+    overrides
+  )
+}
+
+/**
  * A person, at home and with no photo — the shape most households actually
  * publish.
  *
@@ -447,6 +483,36 @@ export function createPersonEntity(overrides: EntityOverrides = {}): HassEntity 
   )
 }
 
+/**
+ * The battery **sensor** on the vacuum's device — the source the option doc
+ * requires and the shape Home Assistant is migrating integrations to.
+ *
+ * A sensor's `state` is a string on the wire, always, which is why the default
+ * is `'87'` rather than `87`: a fixture that published a number would let a
+ * reader pass that never handled the real shape.
+ */
+export function createVacuumBatterySensorEntity(overrides: EntityOverrides = {}): HassEntity {
+  return entity(
+    'sensor.robby_battery',
+    '87',
+    {
+      friendly_name: 'Robby Battery',
+      device_class: 'battery',
+      state_class: 'measurement',
+      unit_of_measurement: '%',
+    },
+    overrides
+  )
+}
+
+/** A vacuum still publishing the deprecated attribute, for the fallback path. */
+export function createLegacyBatteryVacuumEntity(overrides: EntityOverrides = {}): HassEntity {
+  return createVacuumEntity({
+    ...overrides,
+    attributes: { battery_level: 64, ...overrides.attributes },
+  })
+}
+
 /** Every domain factory, keyed by the domain it serves. */
 export const entityFactories = {
   light: createLightEntity,
@@ -466,6 +532,7 @@ export const entityFactories = {
   input_datetime: createInputDateTimeEntity,
   lock: createLockEntity,
   alarm_control_panel: createAlarmEntity,
+  vacuum: createVacuumEntity,
   scene: createSceneEntity,
   script: createScriptEntity,
   button: createButtonEntity,

@@ -15,6 +15,7 @@ import { switchOptionsConfigSchema } from './switchOptions'
 import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
 import { weatherOptionsConfigSchema } from './weatherOptions'
 import { mediaPlayerOptionsConfigSchema } from './mediaPlayerOptions'
+import { vacuumOptionsConfigSchema } from './vacuumOptions'
 import { personOptionsConfigSchema } from './personOptions'
 import type { DashboardConfig } from './types'
 
@@ -102,6 +103,10 @@ const gridItemSchema = z
     // quietly render the thumbnail the document did not ask for, and
     // `showVolume: steppers` — a spelling no build has — would silently take the
     // slider (docs/specs/entity-cards/options/media-player.md).
+    // The vacuum keys join them because all five read "not the disabling
+    // value" as enabled: `showCommands: "false"` is a string, so it is not
+    // `false`, so a dashboard that asked to hide the command cluster silently
+    // keeps it (docs/specs/entity-cards/options/vacuum.md).
     // The action-family keys join them because `confirm` is the only thing
     // standing between an accidental tap and a script that resets every device
     // in the house: `confirm: "true"` is a string, so a reader that fell back to
@@ -137,6 +142,7 @@ const gridItemSchema = z
       .merge(lockOptionsConfigSchema)
       .merge(mediaPlayerOptionsConfigSchema)
       .merge(alarmOptionsConfigSchema)
+      .merge(vacuumOptionsConfigSchema)
       .merge(personOptionsConfigSchema)
       .passthrough()
       .optional(),

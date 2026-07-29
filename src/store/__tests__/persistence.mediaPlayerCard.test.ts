@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { CURRENT_VERSION, loadDashboardConfig } from '../persistence'
-import { MEDIA_PLAYER_CARD_VERSION } from '../mediaPlayerOptions'
+import { MEDIA_PLAYER_CARD_VERSION, configPredatesMediaPlayerCard } from '../mediaPlayerOptions'
 import type { GridItem, ScreenConfig } from '../types'
 
 /**
@@ -125,7 +125,19 @@ describe('media player legacy pinning', () => {
     expect(added.config).not.toHaveProperty('tapAction')
   })
 
-  it('carries the current marker onto the newest migration', () => {
-    expect(CURRENT_VERSION).toBe(MEDIA_PLAYER_CARD_VERSION)
+  /**
+   * The property this migration actually needs from `CURRENT_VERSION`: a
+   * document stamped with it is **past** the media player cutoff, so a second
+   * load cannot pin again.
+   *
+   * It used to assert `CURRENT_VERSION === MEDIA_PLAYER_CARD_VERSION`, which was
+   * true only while the media player was the newest migration and said nothing
+   * about the reason the stamp matters. Change 0025 moved `CURRENT_VERSION` onto
+   * the vacuum marker and the identity broke, correctly — the invariant below
+   * survives every future bump, and still fails loudly if the stamp is ever
+   * moved *below* this cutoff.
+   */
+  it('stamps documents at or past this migration cutoff', () => {
+    expect(configPredatesMediaPlayerCard(CURRENT_VERSION)).toBe(false)
   })
 })
