@@ -2,7 +2,7 @@ import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
 import type { ConfigDefinition } from '../CardConfig'
-import { SHOW_BRIGHTNESS_SLIDER_KEY } from '~/store/lightOptions'
+import { SHOW_BRIGHTNESS_SLIDER_KEY, USE_LIGHT_COLOR_KEY } from '~/store/lightOptions'
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
 import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOptions'
@@ -108,6 +108,18 @@ export const cardConfigurations: Record<
         default: true,
         label: 'Show Brightness Slider',
         description: 'Show brightness slider when light is on and supports brightness control',
+      },
+      // Described in terms of what the user sees rather than of the mechanism:
+      // the option governs the icon tint and the slider fill together, and its
+      // `false` value is the one worth naming, because "always amber" is the
+      // reason somebody reaches for this (docs/specs/entity-cards/options/
+      // light.md — "Light-color theming").
+      [USE_LIGHT_COLOR_KEY]: {
+        type: 'boolean',
+        default: true,
+        label: 'Use the bulb’s colour',
+        description:
+          'Tints the icon and slider with the light’s own colour while it is on. Turn off to keep the standard amber. A pinned colour below always wins.',
       },
     },
   },

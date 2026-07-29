@@ -150,7 +150,11 @@ describe('LightCard', () => {
       await user.click(card)
     }
 
-    expect(mockServiceCallHandlers.turnOff).toHaveBeenCalledWith('light.living_room')
+    expect(mockServiceCallHandlers.dispatchGuarded).toHaveBeenCalledWith({
+      domain: 'light',
+      service: 'turn_off',
+      entityId: 'light.living_room',
+    })
   })
 
   it('shows unavailable state', () => {

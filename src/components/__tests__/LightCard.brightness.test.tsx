@@ -215,8 +215,11 @@ describe('LightCard Brightness Slider', () => {
       // Painted from local state, before Home Assistant echoes anything back.
       expect(thumb).toHaveAttribute('aria-valuenow', '51')
       await waitFor(() =>
-        expect(mockServiceCallHandlers.turnOn).toHaveBeenCalledWith('light.test_light', {
-          brightness: 130,
+        expect(mockServiceCallHandlers.dispatchGuarded).toHaveBeenCalledWith({
+          domain: 'light',
+          service: 'turn_on',
+          entityId: 'light.test_light',
+          data: { brightness: 130 },
         })
       )
     })
@@ -240,9 +243,17 @@ describe('LightCard Brightness Slider', () => {
       fireEvent.keyDown(thumb, { key: 'Home' })
 
       await waitFor(() =>
-        expect(mockServiceCallHandlers.turnOff).toHaveBeenCalledWith('light.test_light')
+        expect(mockServiceCallHandlers.dispatchGuarded).toHaveBeenCalledWith({
+          domain: 'light',
+          service: 'turn_off',
+          entityId: 'light.test_light',
+        })
       )
-      expect(mockServiceCallHandlers.turnOn).not.toHaveBeenCalled()
+      // Never as a `turn_on` carrying zero, which is an off command wearing the
+      // on service's name.
+      expect(mockServiceCallHandlers.dispatchGuarded).not.toHaveBeenCalledWith(
+        expect.objectContaining({ service: 'turn_on' })
+      )
     })
 
     it('keeps the lowest step on rather than rounding it off', async () => {
@@ -257,8 +268,11 @@ describe('LightCard Brightness Slider', () => {
       fireEvent.keyDown(thumb, { key: 'ArrowRight' })
 
       await waitFor(() =>
-        expect(mockServiceCallHandlers.turnOn).toHaveBeenCalledWith('light.test_light', {
-          brightness: 3,
+        expect(mockServiceCallHandlers.dispatchGuarded).toHaveBeenCalledWith({
+          domain: 'light',
+          service: 'turn_on',
+          entityId: 'light.test_light',
+          data: { brightness: 3 },
         })
       )
     })
