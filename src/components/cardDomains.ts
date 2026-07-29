@@ -49,6 +49,10 @@ export const MAPPED_CARD_DOMAINS = [
   'script',
   'button',
   'input_button',
+  // Change 0026. `person` is the first domain to move OUT of the EntityBrowser's
+  // hidden `SYSTEM_DOMAINS` as it is mapped: it was not merely unmapped, it was
+  // unplaceable, so nothing existed to fall back to.
+  'person',
 ] as const
 
 export type MappedCardDomain = (typeof MAPPED_CARD_DOMAINS)[number]

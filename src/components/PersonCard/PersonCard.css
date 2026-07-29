@@ -1,0 +1,121 @@
+/*
+ * The avatar and its presence badge — the two parts of this card the anatomy has
+ * no member for.
+ *
+ * The avatar stands exactly where the icon circle would and takes the circle's
+ * own size and radius tokens; when it renders initials it IS a `liebe-icon`,
+ * tinted by the identity hue through the anatomy's data-colour exception, so
+ * only the photo form and the badge need rules of their own.
+ *
+ * Wrapped in the `liebe-base` layer like every other sheet the panel injects —
+ * an unlayered author rule outranks all cascade layers, so leaving this
+ * unlayered would put it beyond the reach of every theme
+ * (docs/specs/theming/index.md).
+ *
+ * `liebe-person-*` is internal, not part of the stable selector contract:
+ * `liebe-card[data-domain='person']` is the public handle.
+ */
+@layer liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /*
+   * The positioning context for the badge, and nothing else. It takes the
+   * circle's footprint rather than a size of its own so that swapping a photo
+   * for initials never reflows the row beside it.
+   */
+  .liebe-person-avatar {
+    block-size: var(--liebe-icon-circle);
+    display: inline-flex;
+    /* Never squeezed by a long name beside it in a row layout, exactly as the
+       icon circle it stands in for is not. */
+    flex: none;
+    inline-size: var(--liebe-icon-circle);
+    position: relative;
+  }
+
+  .liebe-person-photo {
+    block-size: 100%;
+    border-radius: var(--liebe-circle-radius);
+    inline-size: 100%;
+    /* Profile photos are rarely square at the size they are served; cover crops
+       rather than distorting, which is what the HA frontend does with the same
+       URL. */
+    object-fit: cover;
+  }
+
+  /*
+   * The initials.
+   *
+   * Sized off the circle rather than fixed, so the `full` tier can enlarge the
+   * avatar (option doc — "full MAY enlarge it") without the letters staying
+   * small inside it. `--liebe-font-numeric` is deliberately NOT used: these are
+   * letters, and the numeric face exists for readouts that must align in a
+   * column.
+   */
+  .liebe-person-initials {
+    font-family: var(--liebe-font-family);
+    font-size: calc(var(--liebe-icon-circle) * 0.35);
+    font-weight: 600;
+    letter-spacing: var(--liebe-letter-spacing);
+    line-height: 1;
+    /* The name is already upper-cased by the resolver; a theme's casing token
+       must not lower-case it back. */
+    text-transform: none;
+  }
+
+  /*
+   * The presence badge — bottom-trailing, overlapping the avatar's edge.
+   *
+   * `inset-inline-end` / `inset-block-end` rather than right/bottom so the badge
+   * follows the writing direction, as the rest of the anatomy does.
+   *
+   * The ring is the card's own background rather than a border colour, which is
+   * what makes the dot read as sitting ON the avatar instead of inside it — and
+   * it is why the ring is drawn with `box-shadow` on the filled forms: a border
+   * would eat into the dot's own diameter at these sizes.
+   */
+  .liebe-person-badge {
+    block-size: 12px;
+    border-radius: var(--liebe-circle-radius);
+    box-shadow: 0 0 0 2px var(--liebe-card-bg);
+    inline-size: 12px;
+    inset-block-end: 0;
+    inset-inline-end: 0;
+    position: absolute;
+    /* Spec motion rule, and the arriving-at-a-zone scenario's "≤300ms": a
+       state-driven colour change takes ~280ms ease-out like every other part. */
+    transition:
+      background-color 280ms ease-out,
+      box-shadow 280ms ease-out;
+  }
+
+  .liebe-person-badge[data-presence='home'] {
+    background: var(--liebe-c-ok);
+  }
+
+  .liebe-person-badge[data-presence='away'] {
+    background: var(--liebe-c-alert);
+  }
+
+  /*
+   * A named zone: neutral, because the zone's NAME carries the information and a
+   * hue would have to invent a meaning for "School" the colour discipline does
+   * not define (option doc — "Avatar").
+   */
+  .liebe-person-badge[data-presence='zone'] {
+    background: var(--liebe-faint);
+  }
+
+  /*
+   * Indeterminate presence: hollow — outlined, unfilled — and explicitly not the
+   * neutral fill above, so `unknown` can never be mistaken for a zone the reader
+   * has not heard of. Both rings are drawn in one `box-shadow` so the outline and
+   * the card-coloured separation stay a single paint.
+   */
+  .liebe-person-badge[data-presence='unknown'] {
+    background: transparent;
+    box-shadow:
+      inset 0 0 0 2px var(--liebe-faint),
+      0 0 0 2px var(--liebe-card-bg);
+  }
+}
