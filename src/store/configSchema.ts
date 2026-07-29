@@ -7,6 +7,7 @@ import { climateOptionsConfigSchema } from './climateOptions'
 import { coverOptionsConfigSchema } from './coverOptions'
 import { fanOptionsConfigSchema } from './fanOptions'
 import { lockOptionsConfigSchema } from './lockOptions'
+import { alarmOptionsConfigSchema } from './alarmOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
 import { switchOptionsConfigSchema } from './switchOptions'
@@ -120,6 +121,7 @@ const gridItemSchema = z
       .merge(fanOptionsConfigSchema)
       .merge(weatherOptionsConfigSchema)
       .merge(lockOptionsConfigSchema)
+      .merge(alarmOptionsConfigSchema)
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

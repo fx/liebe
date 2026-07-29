@@ -48,6 +48,7 @@ const getFriendlyDomain = (domain: string): string => {
     cover: 'Covers',
     fan: 'Fans',
     lock: 'Locks',
+    alarm_control_panel: 'Alarm Panels',
     media_player: 'Media Players',
     scene: 'Scenes',
     script: 'Scripts',
@@ -93,6 +94,7 @@ const SUPPORTED_DOMAINS = [
   'input_datetime',
   // The security family (change 0024).
   'lock',
+  'alarm_control_panel',
   // The action family (change 0027).
   'scene',
   'script',

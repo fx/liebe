@@ -32,6 +32,7 @@ export const MAPPED_CARD_DOMAINS = [
   // registers only `lock`, `unlock` and `open` — so a placed lock's tap errors
   // today rather than working.
   'lock',
+  'alarm_control_panel',
   // The action family (change 0027): four domains, one card. They were the
   // fallback's worst case — `ButtonCard` dispatches `<domain>.toggle`, which
   // exists on none of `scene`, `button` or `input_button` — so mapping them is a

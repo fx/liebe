@@ -20,6 +20,7 @@ import {
   readCoverDeviceClass,
 } from './CoverCard/presentation'
 import { isSecurityCover } from '~/store/coverOptions'
+import { resolveArmModes } from './AlarmCard/presentation'
 import { fanHasPresets, readFanFeatures } from './FanCard/features'
 import { actionConfigOptions, displayConfigOptions } from './configurations/universalOptions'
 import type { GridItem } from '~/store/types'
@@ -100,6 +101,10 @@ interface ContentProps {
  *   feature bit *and* publishes a non-empty list, so there is a pill row to
  *   show or hide.
  * - `climate-humidity` — it reports a `current_humidity` to display.
+ * - `alarm-arm-modes` — the panel advertises at least one arm-mode bit, so the
+ *   multi-select has something to offer. Answered by the card's own
+ *   `resolveArmModes`, which is also what filters the stored list at render
+ *   time — so the form cannot offer a mode the card would then drop.
  */
 export type ConfigOptionRequirement =
   | 'numeric'
@@ -114,6 +119,7 @@ export type ConfigOptionRequirement =
   | 'climate-presets'
   | 'climate-fan-modes'
   | 'climate-humidity'
+  | 'alarm-arm-modes'
 
 // Configuration option types
 export interface ConfigOption {
@@ -473,6 +479,12 @@ function meetsRequirement(
   // control is possible.
   if (requires === 'cover-position') return coverSupportsPosition(entity?.attributes)
   if (requires === 'cover-tilt') return coverSupportsTilt(entity?.attributes)
+  // Answered by the card's own resolver rather than a second predicate shaped
+  // like it: `undefined` asks it for every mode the panel supports.
+  if (requires === 'alarm-arm-modes') {
+    return resolveArmModes(entity?.attributes, undefined).length > 0
+  }
+
   if (requires === 'security-cover') {
     return isSecurityCover(readCoverDeviceClass(entity?.attributes))
   }
