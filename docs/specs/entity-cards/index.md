@@ -355,6 +355,7 @@ export const domainToCard: CardRegistry = {
   script: ActionCard,
   button: ActionCard,
   input_button: ActionCard,
+  person: PersonCard,
 }
 ```
 

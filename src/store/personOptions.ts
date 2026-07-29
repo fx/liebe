@@ -9,13 +9,6 @@ import { z } from 'zod'
  * imports with it, and a pure module keeps the card graph free of another
  * import edge (AGENTS.md — "Entity Card Registration").
  *
- * `showBattery` and `batteryEntity` are specified in the same option table and
- * are deliberately **absent here** — they land with the derivation that gives
- * them meaning in PR 2 of change 0026. Declaring the keys early would put two
- * options in the config form that read nothing and hide nothing, which is worse
- * than their absence: a control that does not work is a bug report, a control
- * that does not exist yet is a roadmap.
- *
  * This module is the contract only. What the options RESOLVE TO on screen —
  * presence, zone label, initials and the avatar's identity colour — is
  * `src/components/PersonCard/presentation.ts`.
@@ -26,9 +19,30 @@ export interface PersonOptions {
   showZone: boolean
   /** Renders how long the person has held this presence, at `row` and `full`. */
   showLastChanged: boolean
+  /**
+   * Renders the battery percentage of the person's tracker, at `row` and
+   * `full`. On by default, and self-hiding: it shows only where a level is
+   * actually derivable, so the default costs nothing on a person whose trackers
+   * report none.
+   */
+  showBattery: boolean
+  /**
+   * An explicit battery sensor to read, which overrides derivation.
+   *
+   * `''` means derive. It is the answer for a tracker whose device the registry
+   * does not join — 20 of 95 entities on a small instance carry no `device_id`
+   * — which is exactly when auto-derivation cannot answer and is therefore
+   * exactly when the override has to be reachable.
+   */
+  batteryEntity: string
 }
 
-export const PERSON_OPTION_KEYS = ['showZone', 'showLastChanged'] as const
+export const PERSON_OPTION_KEYS = [
+  'showZone',
+  'showLastChanged',
+  'showBattery',
+  'batteryEntity',
+] as const
 
 export type PersonOptionKey = (typeof PERSON_OPTION_KEYS)[number]
 
@@ -42,6 +56,8 @@ export type PersonOptionKey = (typeof PERSON_OPTION_KEYS)[number]
 export const PERSON_OPTION_DEFAULTS: Readonly<PersonOptions> = {
   showZone: true,
   showLastChanged: true,
+  showBattery: true,
+  batteryEntity: '',
 }
 
 /**
@@ -57,12 +73,16 @@ export const PERSON_OPTION_DEFAULTS: Readonly<PersonOptions> = {
 export const personOptionsConfigSchema = z.object({
   showZone: z.boolean().optional(),
   showLastChanged: z.boolean().optional(),
+  showBattery: z.boolean().optional(),
+  batteryEntity: z.string().optional(),
 })
 
 /** Per-key schemas, so one bad value costs only its own key. */
 const personKeySchemas: Readonly<Record<PersonOptionKey, z.ZodTypeAny>> = {
   showZone: z.boolean(),
   showLastChanged: z.boolean(),
+  showBattery: z.boolean(),
+  batteryEntity: z.string(),
 }
 
 /**
@@ -88,5 +108,7 @@ export function readPersonOptions(config: Record<string, unknown> | undefined): 
   return {
     showZone: read('showZone'),
     showLastChanged: read('showLastChanged'),
+    showBattery: read('showBattery'),
+    batteryEntity: read('batteryEntity'),
   }
 }

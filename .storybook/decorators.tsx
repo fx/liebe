@@ -123,17 +123,18 @@ function ServiceCallHost({
   liebe: LiebeStoryParameters
   children: ReactNode
 }) {
-  const { entities, serviceCall, serviceCallError } = liebe
+  const { entities, registryEntries, serviceCall, serviceCallError } = liebe
 
   const hass = useMemo(
     () =>
       createMockHass({
         entities,
+        registryEntries,
         fail: serviceCall === 'error',
         failureMessage: serviceCallError,
         pending: serviceCall === 'pending',
       }),
-    [entities, serviceCall, serviceCallError]
+    [entities, registryEntries, serviceCall, serviceCallError]
   )
 
   return <HomeAssistantProvider hass={hass}>{children}</HomeAssistantProvider>

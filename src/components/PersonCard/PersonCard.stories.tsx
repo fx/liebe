@@ -2,7 +2,12 @@ import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, within } from 'storybook/test'
 import { PersonCard } from '.'
-import { asUnavailable, createPersonEntity } from '~/test/fixtures'
+import {
+  asUnavailable,
+  createPersonBatterySensorEntity,
+  createPersonEntity,
+  createPersonTrackerEntity,
+} from '~/test/fixtures'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
 
 const entityId = 'person.jane_doe'
@@ -242,5 +247,75 @@ export const DurationHidden: Story = {
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('Home')
     await expect(canvasElement.querySelector('[data-testid="person-since"]')).toBeNull()
+  },
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Battery. The derivation's own shapes, which need the entity REGISTRY seeded
+ * as well as the states — a tracker and its battery sensor are joined only by a
+ * shared `device_id` (docs/specs/entity-cards/options/person.md — "Battery").
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/** The registry join a linked phone produces. */
+const linkedPhoneRegistry = [
+  { entity_id: 'device_tracker.jane_phone', device_id: 'dev-phone' },
+  { entity_id: 'sensor.jane_phone_battery', device_id: 'dev-phone' },
+]
+
+/** The battery readout, derived from the sensor on the tracker's device. */
+export const Battery: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createPersonEntity(),
+        createPersonTrackerEntity(),
+        createPersonBatterySensorEntity(),
+      ],
+      registryEntries: linkedPhoneRegistry,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const readout = canvasElement.querySelector('[data-testid="person-battery"]')
+    await expect(readout).toHaveTextContent('87%')
+    await expect(readout).not.toHaveAttribute('data-low')
+  },
+}
+
+/** Below 20% it takes the amber step — the one state worth noticing. */
+export const BatteryLow: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createPersonEntity(),
+        createPersonTrackerEntity(),
+        createPersonBatterySensorEntity({ state: '14' }),
+      ],
+      registryEntries: linkedPhoneRegistry,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const readout = canvasElement.querySelector('[data-testid="person-battery"]')
+    await expect(readout).toHaveTextContent('14%')
+    await expect(readout).toHaveAttribute('data-low', 'true')
+  },
+}
+
+/**
+ * A person whose tracker has no battery anywhere: nothing renders.
+ *
+ * The default fixture set, without the registry join — which is the shape most
+ * households actually have, and the reason the option is self-hiding rather
+ * than merely defaulted on.
+ */
+export const BatteryUnavailable: Story = {
+  parameters: {
+    liebe: { entities: [createPersonEntity(), createPersonTrackerEntity()] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-testid="person-battery"]')).toBeNull()
+    // The rest of the card is unaffected — omission, never a placeholder.
+    await expect(readState(canvasElement)).toBe('Home')
   },
 }

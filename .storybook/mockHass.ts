@@ -13,6 +13,17 @@ import type { HassEntity } from '~/store/entityTypes'
  */
 export interface MockHassOptions {
   entities?: HassEntity[]
+  /**
+   * Entity REGISTRY entries — the `device_id` join, not the state list.
+   *
+   * Named `registryEntries` rather than anything containing "entities" on
+   * purpose: `entities` above is a list of *states*, and the two being one word
+   * apart is exactly how a story ends up seeding the wrong map. A card
+   * resolving a battery through `~/utils/deviceSiblings` needs this one; every
+   * other story leaves it empty, which is the honest answer for a helper entity
+   * with no device.
+   */
+  registryEntries?: Array<{ entity_id: string; device_id?: string }>
   fail?: boolean
   failureMessage?: string
   /**
@@ -49,6 +60,7 @@ function createMockConnection(): Connection {
 
 export function createMockHass({
   entities = [],
+  registryEntries = [],
   fail = false,
   failureMessage = 'Service call failed (Storybook mock)',
   pending = false,
@@ -64,21 +76,18 @@ export function createMockHass({
   return {
     states,
     /*
-     * The entity REGISTRY, always empty here — deliberately, and not the same
-     * thing as this helper's `entities` option, which is a list of states and
-     * populates `hass.states` above. The collision of names is worth knowing
-     * before reading either.
+     * The entity REGISTRY — the `device_id` join — and NOT the same thing as
+     * this helper's `entities` option, which is a list of states and populates
+     * `hass.states` above. The collision of names is worth knowing before
+     * reading either, which is why the option that fills this one is called
+     * `registryEntries`.
      *
-     * Empty is currently honest: no story renders anything derived from a
-     * device relationship, so every story gets the "this entity has no device"
-     * answer, which is what a helper entity really reports. A story that wants
-     * one — a card showing a battery segment resolved through
-     * `~/utils/deviceSiblings` — cannot get there by passing an option, because
-     * there is none; it needs a new option that seeds registry entries carrying
-     * `device_id`. Whoever writes that story should add it, and name it so it
-     * cannot be confused with the states list.
+     * Empty unless a story seeds it, and empty is the honest default: an entity
+     * absent from the registry reports no device, which is what a helper entity
+     * really does. The person card's battery stories are the first to need
+     * otherwise (change 0026 PR 2).
      */
-    entities: {},
+    entities: Object.fromEntries(registryEntries.map((entry) => [entry.entity_id, entry])),
     callService: (domain, service, serviceData) => {
       logServiceCall({ domain, service, serviceData })
       if (fail) return Promise.reject(new Error(failureMessage))
