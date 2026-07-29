@@ -49,7 +49,7 @@ The [security option doc](../specs/entity-cards/options/security.md) owns both c
 Spec restatements update **in the same PR** as each behavior change they describe (repo consistency rule — the living spec must never lag a merged PR); any task below naming a spec update covers only final changelog entries and status-line flips not tied to a single behavior.
 
 - [x] **PR 1 — LockCard**: component + registry entry + `SUPPORTED_DOMAINS`; states incl. `jammed`; Lock/Unlock pills with confirm gates (shared shell gate, coordinated with 0022); `doorEntity` fragment; config definition; tier layouts; unit tests + full story matrix
-- [ ] **PR 2 — AlarmCard**: component + registry entry + `SUPPORTED_DOMAINS`; states incl. `pending` pulse and `triggered` flash with reduced-motion fallback; `armModes` capability-derived pills; keypad (dialog + inline) with code payloads; `confirmDisarm` and `confirmArm` with their action-resolution gate tests (pills and same-entity call-service routes); config definition; tier layouts; unit tests + full story matrix
+- [x] **PR 2 — AlarmCard**: component + registry entry + `SUPPORTED_DOMAINS`; states incl. `pending` pulse and `triggered` flash with reduced-motion fallback; `armModes` capability-derived pills; keypad (dialog + inline) with code payloads; `confirmDisarm` and `confirmArm` with their action-resolution gate tests (pills and same-entity call-service routes); config definition; tier layouts; unit tests + full story matrix
 - [ ] **PR 3 — Spec sync**: update [entity-cards](../specs/entity-cards/index.md) — add both cards to the registry section and requirements as implemented baseline, note the new `SUPPORTED_DOMAINS` entries, and record this change in the spec changelog
 
 ## Out of Scope
