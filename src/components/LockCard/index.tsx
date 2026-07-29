@@ -16,7 +16,6 @@ import {
   LOCK_CONFIRM_PROMPT,
   UNLOCK_CONFIRM_PROMPT,
   classifyLockRoute,
-  lockConfirmPrompt,
   requiresLockConfirmation,
   resolveDoorFragment,
   resolveLockPresentation,
@@ -195,9 +194,14 @@ function LockCardComponent({
   const confirmRoute = useCallback(
     (action: ResolvedCardAction) => {
       const direction = classifyLockRoute(action, routeContext)
-      return requiresLockConfirmation(direction, options)
-        ? (lockConfirmPrompt(direction) ?? null)
-        : null
+      if (!requiresLockConfirmation(direction, options)) return null
+
+      /*
+       * An `unclassifiable` route asks the unlock question, which is the
+       * stronger of the two: if the card cannot tell which way a route goes, the
+       * dialog has to name the direction that would matter.
+       */
+      return direction === 'locking' ? LOCK_CONFIRM_PROMPT : UNLOCK_CONFIRM_PROMPT
     },
     [options, routeContext]
   )

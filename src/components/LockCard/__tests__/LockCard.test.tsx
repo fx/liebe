@@ -103,6 +103,18 @@ describe('LockCard', () => {
       expect(screen.getByText(label)).toBeInTheDocument()
     })
 
+    it('falls back to the entity id when the lock has no friendly name', () => {
+      mockEntities({ [ENTITY_ID]: { entity_id: ENTITY_ID, state: 'locked', attributes: {} } })
+
+      render(
+        <CardItemProvider entityId={ENTITY_ID}>
+          <LockCard entityId={ENTITY_ID} tier="row" />
+        </CardItemProvider>
+      )
+
+      expect(screen.getByText(ENTITY_ID)).toBeInTheDocument()
+    })
+
     it('renders a jammed lock as Jammed, loudly', () => {
       // The one state that must never be renderable as anything calmer.
       renderCard('jammed')
@@ -451,17 +463,26 @@ describe('LockCard', () => {
       expect(screen.queryByText('Front Door')).not.toBeInTheDocument()
     })
 
-    it('reports a lost connection', () => {
+    it('reports a lost connection, and offers a reload', () => {
       ;(useEntity as any).mockReturnValue({
         entity: undefined,
         isConnected: false,
         isStale: false,
         isLoading: false,
       })
+      const reload = vi.fn()
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: { ...window.location, reload },
+      })
 
       render(<LockCard entityId={ENTITY_ID} />)
 
       expect(screen.getByText('Disconnected')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /retry/i }))
+
+      expect(reload).toHaveBeenCalled()
     })
 
     it('shows ERROR in the state line when a command failed', () => {
@@ -537,6 +558,85 @@ describe('LockCard', () => {
       renderCard('locked', { config: { hideState: true } })
 
       expect(screen.queryByText('Locked')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('as a placed grid item', () => {
+    it('reports selection back to the grid', () => {
+      const onSelect = vi.fn()
+      mockEntities({ [ENTITY_ID]: lockEntity('locked') })
+      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+
+      const { container } = render(
+        <CardItemProvider entityId={ENTITY_ID}>
+          <LockCard entityId={ENTITY_ID} tier="row" isSelected={false} onSelect={onSelect} />
+        </CardItemProvider>
+      )
+
+      fireEvent.click(container.querySelector('.liebe-card')!)
+
+      expect(onSelect).toHaveBeenCalledWith(true)
+    })
+
+    /*
+     * The `memo` comparator, one prop at a time. It is boilerplate, but it is
+     * boilerplate that decides whether a recycled card re-renders — and the
+     * entity-id arm of it is what the confirmation reset below depends on.
+     */
+    it('re-renders when any of its props change', () => {
+      mockEntities({
+        [ENTITY_ID]: lockEntity('locked'),
+        'lock.back_door': {
+          entity_id: 'lock.back_door',
+          state: 'unlocked',
+          attributes: { friendly_name: 'Back Door' },
+        },
+      })
+
+      const card = (props: Record<string, unknown>) => (
+        <CardItemProvider entityId={ENTITY_ID}>
+          <LockCard {...(props as any)} />
+        </CardItemProvider>
+      )
+
+      /*
+       * Each step differs from the one before it by exactly ONE prop, which is
+       * what makes the comparator's short-circuit chain reach every arm. A
+       * sequence built by spreading over a fresh base instead would change two
+       * props at once — a new `onDelete` identity alongside the intended change
+       * — and the earlier arm would short-circuit before the later one ran.
+       */
+      const onDelete = vi.fn()
+      const onSelect = vi.fn()
+      let props: Record<string, unknown> = {
+        entityId: ENTITY_ID,
+        tier: 'row',
+        onDelete,
+        isSelected: false,
+        onSelect,
+      }
+
+      const { rerender } = render(card(props))
+      expect(screen.getByText('Front Door')).toBeInTheDocument()
+
+      props = { ...props, entityId: 'lock.back_door' }
+      rerender(card(props))
+      expect(screen.getByText('Back Door')).toBeInTheDocument()
+
+      props = { ...props, tier: 'glance' }
+      rerender(card(props))
+      expect(screen.queryByRole('button', { name: 'Unlock' })).not.toBeInTheDocument()
+
+      props = { ...props, onDelete: vi.fn() }
+      rerender(card(props))
+
+      props = { ...props, isSelected: true }
+      rerender(card(props))
+
+      props = { ...props, onSelect: vi.fn() }
+      rerender(card(props))
+
+      expect(screen.getByText('Back Door')).toBeInTheDocument()
     })
   })
 

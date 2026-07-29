@@ -158,7 +158,42 @@ describe('the pending confirmation across edit mode', () => {
   })
 })
 
+describe('the confirmation prompt names the direction', () => {
+  it('asks the lock question, not the unlock one, when confirmLock is on', async () => {
+    seed(makeLock('unlocked'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />, {
+      confirmLock: true,
+      tapAction: 'toggle',
+    })
+
+    fireEvent.click(screen.getByText('Front Door'))
+
+    // The gesture resolves to `lock` from `unlocked`, so the dialog has to say
+    // Lock — the direction branch the pills alone never exercise on this path.
+    await waitFor(() => expect(screen.getByText('Lock Front Door?')).toBeInTheDocument())
+    expect(screen.queryByText('Unlock Front Door?')).not.toBeInTheDocument()
+  })
+})
+
 describe('the detail dialog as the glance control surface', () => {
+  it('locks through the dialog without a confirmation, at the default', async () => {
+    seed(makeLock('unlocked'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="glance" />)
+
+    fireEvent.click(screen.getByText('Front Door'))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Lock' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Unlock' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lock' }))
+
+    // `confirmLock` is off by default, so this is the ungated path through the
+    // dialog's controls.
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+    expect(hass.callService).toHaveBeenCalledWith('lock', 'lock', { entity_id: ENTITY_ID })
+    expect(screen.queryByText('Lock Front Door?')).not.toBeInTheDocument()
+  })
+
   it('reaches lock and unlock through the dialog a 1x1 card opens', async () => {
     // A `glance` lock renders no pills and its tap resolves to more-info, so the
     // dialog's registered controls are the whole control surface. Without them a

@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { DoorOpen, Lock, LockOpen, TriangleAlert } from 'lucide-react'
 import {
+  LOCK_CONFIRM_PROMPT,
   LOCK_STATE,
+  UNLOCK_CONFIRM_PROMPT,
   classifyLockRoute,
-  lockConfirmPrompt,
   requiresLockConfirmation,
   resolveDoorFragment,
   resolveLockPresentation,
@@ -271,20 +272,12 @@ describe('requiresLockConfirmation', () => {
   })
 })
 
-describe('lockConfirmPrompt', () => {
-  it('names each gated direction', () => {
-    expect(lockConfirmPrompt('unlocking')).toEqual({ verb: 'Unlock', gerund: 'unlocking' })
-    expect(lockConfirmPrompt('locking')).toEqual({ verb: 'Lock', gerund: 'locking' })
-  })
-
-  it('asks the stronger question for an ambiguous route', () => {
-    // If the card cannot tell which way a route goes, the dialog has to name the
-    // direction that would matter.
-    expect(lockConfirmPrompt('unclassifiable')).toEqual({ verb: 'Unlock', gerund: 'unlocking' })
-  })
-
-  it('has nothing to say about a route it does not gate', () => {
-    expect(lockConfirmPrompt('neutral')).toBeUndefined()
+describe('the confirmation prompts', () => {
+  it('name the action rather than an on/off reading', () => {
+    // "Turn on Front Door?" is the wrong question to put in front of someone
+    // about a lock.
+    expect(UNLOCK_CONFIRM_PROMPT).toEqual({ verb: 'Unlock', gerund: 'unlocking' })
+    expect(LOCK_CONFIRM_PROMPT).toEqual({ verb: 'Lock', gerund: 'locking' })
   })
 })
 

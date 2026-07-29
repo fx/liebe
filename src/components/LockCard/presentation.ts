@@ -395,18 +395,18 @@ export function requiresLockConfirmation(
   return false
 }
 
-/** How each gated direction names itself in the confirmation dialog. */
+/**
+ * How each gated direction names itself in the confirmation dialog.
+ *
+ * There is no `promptFor(direction)` helper, deliberately. It would need a
+ * fourth arm for `neutral` — a direction that is never gated, so the arm could
+ * not be reached, and an unreachable arm in the middle of a safety gate is worse
+ * than none: it reads as a case someone considered, and it can be quietly wrong
+ * forever. The two call sites choose between these two constants directly, on a
+ * condition each of them can actually take both ways.
+ */
 export const UNLOCK_CONFIRM_PROMPT = { verb: 'Unlock', gerund: 'unlocking' } as const
 export const LOCK_CONFIRM_PROMPT = { verb: 'Lock', gerund: 'locking' } as const
-
-/** The prompt a gated direction raises; `undefined` where nothing is gated. */
-export function lockConfirmPrompt(
-  direction: LockRouteDirection
-): typeof UNLOCK_CONFIRM_PROMPT | typeof LOCK_CONFIRM_PROMPT | undefined {
-  if (direction === 'locking') return LOCK_CONFIRM_PROMPT
-  if (direction === 'unlocking' || direction === 'unclassifiable') return UNLOCK_CONFIRM_PROMPT
-  return undefined
-}
 
 /**
  * The linked door sensor's contribution to the state line

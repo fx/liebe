@@ -14,6 +14,21 @@ import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { EntityDetailControlsProps } from '../EntityDetailDialog/detailControls'
 
 /**
+ * What each service is, for the gate: its direction and the question it raises.
+ *
+ * A lookup rather than the pair of ternaries this started as. These controls
+ * always apply the option *defaults*, and `confirmLock` defaults to `false`, so
+ * a `service === 'unlock' ? … : …` has one arm that cannot be reached from here
+ * — dead code sitting in the middle of a safety gate, which is exactly the kind
+ * that can be wrong for a long time without anyone noticing. A table has no arms
+ * to leave unreached, and it stays correct if a default ever changes.
+ */
+const SERVICE_GATE = {
+  lock: { direction: 'locking', prompt: LOCK_CONFIRM_PROMPT },
+  unlock: { direction: 'unlocking', prompt: UNLOCK_CONFIRM_PROMPT },
+} as const
+
+/**
  * The lock's Lock / Unlock pair inside the entity detail dialog.
  *
  * It exists because the card's pills render from `row` upward and a lock placed
@@ -48,13 +63,9 @@ export function LockDetailControls({ entity }: EntityDetailControlsProps) {
         void dispatchGuarded({ domain: 'lock', service, entityId })
       }
 
-      const direction = service === 'unlock' ? 'unlocking' : 'locking'
+      const { direction, prompt } = SERVICE_GATE[service]
       if (requiresLockConfirmation(direction, LOCK_OPTION_DEFAULTS)) {
-        setConfirmRequest({
-          entityId,
-          prompt: service === 'unlock' ? UNLOCK_CONFIRM_PROMPT : LOCK_CONFIRM_PROMPT,
-          proceed: run,
-        })
+        setConfirmRequest({ entityId, prompt, proceed: run })
         return
       }
       run()
