@@ -181,7 +181,14 @@ export function configPredatesMediaPlayerCard(version: unknown): boolean {
  *
  * This is convention 7 at its sharpest. Before this change there was no
  * `media_player` entry in `domainToCard`, so every placed media player rendered
- * the **fallback** card, whose body tap is `homeassistant.toggle` — power. This
+ * the **fallback** card, whose body tap dispatches `<domain>.toggle` directly
+ * (`ButtonCard/index.tsx`, `useServiceCall.ts`) — power, and a real service:
+ * `media_player/__init__.py` registers `SERVICE_TOGGLE` with required features
+ * `TURN_OFF | TURN_ON`. That is what makes this pin correct where the vacuum's
+ * would not have been, since `vacuum.toggle` is registered nowhere. The
+ * mechanism is worth naming precisely: this is NOT `homeassistant.toggle`,
+ * which forwards and skips domains lacking the service — an unregistered
+ * `<domain>.toggle` is a service-not-found error. This
  * build gives the domain a card whose `default` tap is play/pause. Without a pin,
  * upgrading would silently repurpose a tap that has always cut power into one
  * that pauses, on cards the user placed and never reconfigured.
