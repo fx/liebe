@@ -359,10 +359,17 @@ describe('VacuumCard state line', () => {
 
 describe('VacuumCard battery segment', () => {
   /**
-   * PR 1 reads the legacy attribute because no battery **sensor** is reachable
-   * yet — the panel has no device or entity registry, so nothing can say which
-   * sensor belongs to this vacuum. The resolver is sensor-first and its unit
-   * tests cover that path; this asserts what the card actually renders today.
+   * These cases read the legacy `battery_level` attribute because `mount` seeds
+   * no registry, so no sensor is derivable and the attribute is the only source
+   * left in the chain — not because the sensor path is unreachable. It is
+   * reachable now: the card derives a sibling off `hass.entities` and prefers a
+   * configured `batteryEntity` ahead of it.
+   *
+   * Kept on the attribute deliberately. This block is about what the segment
+   * RENDERS — the percentage, the low threshold, the option — and the source is
+   * incidental to every assertion in it; the sensor and override paths are
+   * pinned where they are the subject, in the resolver's own tests and in the
+   * card's derivation cases.
    */
   it('appends the battery percentage to the state line', () => {
     mount({ state: 'docked', attributes: { battery_level: 87 } })
