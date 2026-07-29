@@ -23,6 +23,19 @@ import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { EntityDetailControlsProps } from '../EntityDetailDialog/detailControls'
 
 /**
+ * Each direction's gate, as a pair rather than two parallel ternaries.
+ *
+ * These controls always apply the option *defaults*, and `confirmArm` defaults
+ * to `false` — so an `arming` direction never reaches the confirmation block
+ * from here, and a `direction === 'disarming' ? … : …` for the prompt had an arm
+ * that could not be taken. Pairing the direction with its prompt removes the
+ * unreachable arm without removing the correctness: if a default ever changes,
+ * the right prompt is already attached to the right direction.
+ */
+const DISARM_GATE = { direction: 'disarming', prompt: DISARM_CONFIRM_PROMPT } as const
+const ARM_GATE = { direction: 'arming', prompt: ARM_CONFIRM_PROMPT } as const
+
+/**
  * The alarm's arm pills, Disarm and keypad inside the entity detail dialog.
  *
  * It exists because a panel placed 1×1 derives `glance`, where the card renders
@@ -71,13 +84,10 @@ export function AlarmDetailControls({ entity }: EntityDetailControlsProps) {
         return
       }
 
-      const direction = service === DISARM_SERVICE ? 'disarming' : 'arming'
+      const { direction, prompt } = service === DISARM_SERVICE ? DISARM_GATE : ARM_GATE
+
       if (requiresAlarmConfirmation(direction, ALARM_OPTION_DEFAULTS, false)) {
-        setConfirmRequest({
-          entityId,
-          prompt: direction === 'disarming' ? DISARM_CONFIRM_PROMPT : ARM_CONFIRM_PROMPT,
-          proceed: () => send(service),
-        })
+        setConfirmRequest({ entityId, prompt, proceed: () => send(service) })
         return
       }
 

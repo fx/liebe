@@ -42,11 +42,19 @@ export function Keypad({ format, actionLabel, onSubmit, onCancel }: KeypadProps)
    */
   const [submitted, setSubmitted] = useState(false)
 
+  /*
+   * One mechanism, not two. This began with an `if (submitted) return` guard as
+   * well as the `disabled` below — and the guard could never run, because a
+   * disabled button dispatches no click at all. An unreachable early return
+   * inside the thing enforcing at-most-once is the worst place to keep dead
+   * code: it reads as the enforcement while the attribute is doing the work, so
+   * it could be wrong indefinitely without a test noticing. The latch state is
+   * still the source of truth; `disabled` is how it is enforced.
+   */
   const submit = useCallback(() => {
-    if (submitted) return
     setSubmitted(true)
     onSubmit(code)
-  }, [code, onSubmit, submitted])
+  }, [code, onSubmit])
 
   const append = useCallback((digit: string) => setCode((current) => current + digit), [])
   const backspace = useCallback(() => setCode((current) => current.slice(0, -1)), [])

@@ -551,6 +551,20 @@ describe('AlarmCard', () => {
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
+    it('drops the keypad when the dialog itself is dismissed', () => {
+      // Escape, or a click outside — dismissing the container must abandon the
+      // code as surely as the keypad's own Cancel does.
+      renderCard('armed_away', { attributes: coded, tier: 'row', span: { width: 4, height: 1 } })
+
+      fireEvent.click(button('Disarm'))
+      fireEvent.click(button('1'))
+
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' })
+
+      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
     it('closes the inline keypad on cancel without sending anything', () => {
       renderCard('armed_away', { attributes: coded, span: { width: 3, height: 3 } })
 
