@@ -64,9 +64,19 @@ export function createMockHass({
   return {
     states,
     /*
-     * An empty registry, matching the vitest mock: a story showing a card that
-     * derives something from a device relationship seeds it, and every other
-     * story gets the same "no device" answer a helper entity really has.
+     * The entity REGISTRY, always empty here — deliberately, and not the same
+     * thing as this helper's `entities` option, which is a list of states and
+     * populates `hass.states` above. The collision of names is worth knowing
+     * before reading either.
+     *
+     * Empty is currently honest: no story renders anything derived from a
+     * device relationship, so every story gets the "this entity has no device"
+     * answer, which is what a helper entity really reports. A story that wants
+     * one — a card showing a battery segment resolved through
+     * `~/utils/deviceSiblings` — cannot get there by passing an option, because
+     * there is none; it needs a new option that seeds registry entries carrying
+     * `device_id`. Whoever writes that story should add it, and name it so it
+     * cannot be confused with the states list.
      */
     entities: {},
     callService: (domain, service, serviceData) => {

@@ -12,11 +12,17 @@ import type {
  * battery" therefore has to cross from an entity to its device and back out to
  * the siblings.
  *
- * That crossing costs nothing. Both registries arrive on the `hass` object
- * already, live (see `~/contexts/HomeAssistantContext`), so everything here is a
- * synchronous lookup over maps the frontend keeps current — no fetch, no cache,
- * no invalidation, and no admin permission. This module is deliberately pure and
- * React-free so the rules below are testable without rendering anything.
+ * That crossing costs nothing. This module needs exactly two things, both
+ * already on the `hass` object and both live (see
+ * `~/contexts/HomeAssistantContext`): the **entity registry** for the
+ * `device_id` join, and **states** for the device class it selects on. Neither
+ * is fetched, so there is no cache, nothing to invalidate, and no permission to
+ * hold — every lookup here is synchronous over maps the frontend keeps current.
+ *
+ * It does NOT need the device registry. Grouping by `device_id` never reads a
+ * device record, which is why `hass.devices` is not declared on the interface at
+ * all. This module is deliberately pure and React-free so the rules below are
+ * testable without rendering anything.
  */
 
 /** The registry and state maps this module reads, named so callers pass slices. */

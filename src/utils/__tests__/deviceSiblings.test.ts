@@ -114,7 +114,7 @@ describe('findDeviceSiblings', () => {
    * `device_id` compared against another falsy `device_id` is the shape that
    * would make every helper on the dashboard a sibling of every other.
    */
-  it('does not make devicelesss entities siblings of each other', () => {
+  it('does not make deviceless entities siblings of each other', () => {
     const entities = registry(entity('input_number.a', null), entity('input_number.b', null), {
       entity_id: 'input_text.c',
     })
