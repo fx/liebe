@@ -711,6 +711,38 @@ describe('MediaPlayerCard lifecycle states', () => {
     expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
   })
 
+  /**
+   * The retry a disconnected card offers. A full reload rather than a
+   * reconnect attempt: the panel gets its connection from the Home Assistant
+   * frontend that hosts it, so re-entering that bootstrap is the only thing
+   * this card can meaningfully do.
+   */
+  it('reloads the panel when the disconnected card is retried', () => {
+    const reload = vi.fn()
+    const original = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...original, reload },
+    })
+
+    try {
+      entityStore.setState((state) => ({
+        ...state,
+        isConnected: false,
+        isInitialLoading: false,
+        entities: {},
+        staleEntities: new Set<string>(),
+      }))
+
+      renderCard(<MediaPlayerCard entityId={ENTITY_ID} tier="full" />)
+      fireEvent.click(screen.getByRole('button', { name: /retry/i }))
+
+      expect(reload).toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original })
+    }
+  })
+
   it('falls back to the entity id when the entity has no friendly name', () => {
     seed(
       createMediaPlayerEntity({
