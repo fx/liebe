@@ -26,12 +26,19 @@ Today the only ways to see a card are unit-test DOM assertions and a full HA rou
   - **Theme**: registry-driven — the toolbar MUST offer exactly the themes currently registered in the built-in registry, so it needs no workshop changes as themes land (only `default` exists until change 0013 registers `liquid-glass` and `lcars`).
   - **Appearance**: `dark | light` (disabled/forced for single-appearance themes).
 - A **grid-cell decorator** MUST render card stories inside a fixed-size cell matching real grid metrics (cell height, `--liebe-grid-gap`), with story controls for `width`/`height` spans so every layout tier (`glance`/`row`/`tall`/`full`) is reachable interactively.
+- **The decorator MUST derive the tier from the configured span** using the same derivation the grid renderer uses, and supply the tier/span pair to the card — the workshop shows what the grid would show for that cell, by construction. A story MUST NOT pin a tier that contradicts its cell span: resizing the cell controls MUST change the rendered tier exactly as resizing the item on the real grid would. (Until change [0029](../../changes/0029-workshop-tier-fidelity.md), the decorator sized the cell but never derived the tier, so every story rendered its hand-set `tier` arg regardless of the cell — which is how a whole class of tier-dependent rendering, the vertical slider included, went unrepresented in the workshop.) A story MAY still force an explicit tier for a deliberately artificial frame (a tier comparison grid), but then MUST size the cell to match it.
 
 #### Scenario: Reviewing a card in LCARS
 
 - **GIVEN** the light card "On" story
 - **WHEN** the reviewer switches the theme toolbar to LCARS
 - **THEN** the story re-renders with LCARS tokens and scoped rules applied, no story-side changes needed.
+
+#### Scenario: Cell controls drive the tier
+
+- **GIVEN** any card story rendered through the grid-cell decorator at a 2×2 span
+- **WHEN** the viewer changes the cell controls to 1×3
+- **THEN** the story re-renders in the `tall` tier — showing the vertical control where the card has one — without any story-side tier argument being touched.
 
 ### Entity data mocking
 
@@ -115,7 +122,8 @@ Sequencing (the point of this spec): Storybook + fixtures + stories for the **ex
 
 ## Changelog
 
-| Date       | Change                                                                                                  | Document                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 2026-07-25 | Initial spec created                                                                                    | [0009-storybook-setup](../../changes/0009-storybook-setup.md) |
-| 2026-07-26 | Workshop implemented: CI `build-storybook` gate, Pages publishing under `/storybook/`, usage documented | [0009-storybook-setup](../../changes/0009-storybook-setup.md) |
+| Date       | Change                                                                                                                                                                                                                                                                | Document                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 2026-07-25 | Initial spec created                                                                                                                                                                                                                                                  | [0009-storybook-setup](../../changes/0009-storybook-setup.md)               |
+| 2026-07-26 | Workshop implemented: CI `build-storybook` gate, Pages publishing under `/storybook/`, usage documented                                                                                                                                                               | [0009-storybook-setup](../../changes/0009-storybook-setup.md)               |
+| 2026-07-29 | Grid-cell decorator rule strengthened: the decorator MUST derive the tier from the configured span exactly as the grid renderer does, and stories MUST NOT pin a tier contradicting their cell — recording the gap that let tier-dependent rendering go unrepresented | [0029-workshop-tier-fidelity](../../changes/0029-workshop-tier-fidelity.md) |
