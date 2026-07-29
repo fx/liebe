@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { createMediaPlayerEntity } from '~/test/fixtures'
 import {
   MEDIA_PLAYER_FEATURE,
   readMediaPlayerFeatures,
@@ -62,6 +63,81 @@ describe('MEDIA_PLAYER_FEATURE', () => {
     expect(MEDIA_PLAYER_FEATURE.PLAY).toBe(16384)
     expect(MEDIA_PLAYER_FEATURE.TURN_ON).toBe(128)
     expect(Object.values(MEDIA_PLAYER_FEATURE)).not.toContain(64)
+  })
+})
+
+/**
+ * The default fixture's mask, pinned against the bits it claims to advertise.
+ *
+ * `createMediaPlayerEntity` writes `supported_features` as a bare literal and its
+ * doc comment lists the bits in prose; this is the only thing holding the two
+ * together. It was not always here, and in its absence the literal and the prose
+ * disagreed for three bits — TURN_ON, TURN_OFF and VOLUME_MUTE were documented
+ * and clear — while the fixture's own comment claimed a test like this one
+ * existed.
+ *
+ * That mattered beyond the comment. The `Off` story takes the fixture unmodified
+ * and asserts the card's `Turn on` button, which `resolveMediaPrimaryAction`
+ * cannot produce without bit 128: the assertion was false, and passed nowhere
+ * because Storybook's play functions run in neither `npm test` nor CI.
+ *
+ * Written as a sum of **named members** rather than as `19903`, so a wrong bit
+ * fails here by name instead of as a mismatch between two opaque numbers — and
+ * so an edit to either the fixture or the constants breaks this loudly.
+ */
+describe('createMediaPlayerEntity', () => {
+  it('advertises exactly the bits its doc comment claims', () => {
+    const {
+      PAUSE,
+      SEEK,
+      VOLUME_SET,
+      VOLUME_MUTE,
+      PREVIOUS_TRACK,
+      NEXT_TRACK,
+      TURN_ON,
+      TURN_OFF,
+      VOLUME_STEP,
+      SELECT_SOURCE,
+      PLAY,
+    } = MEDIA_PLAYER_FEATURE
+
+    expect(createMediaPlayerEntity().attributes.supported_features).toBe(
+      PAUSE |
+        SEEK |
+        VOLUME_SET |
+        VOLUME_MUTE |
+        PREVIOUS_TRACK |
+        NEXT_TRACK |
+        TURN_ON |
+        TURN_OFF |
+        VOLUME_STEP |
+        SELECT_SOURCE |
+        PLAY
+    )
+  })
+
+  /**
+   * The gates the fixture is relied on for, read through the card's own reader
+   * rather than asserted as arithmetic. `turnOn` is the one that was false while
+   * every consumer assumed it true.
+   */
+  it('lights every gate this card reads, through readMediaPlayerFeatures', () => {
+    const features = readMediaPlayerFeatures(
+      createMediaPlayerEntity().attributes as MediaPlayerAttributes
+    )
+
+    expect(features).toEqual({
+      pause: true,
+      play: true,
+      turnOn: true,
+      previousTrack: true,
+      nextTrack: true,
+      volumeSet: true,
+      volumeStep: true,
+      volumeMute: true,
+      seek: true,
+      selectSource: true,
+    })
   })
 })
 
