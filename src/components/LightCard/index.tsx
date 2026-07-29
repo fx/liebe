@@ -385,15 +385,27 @@ function LightCardComponent({
     return <SkeletonCard tier={tier} showIcon={true} lines={2} />
   }
 
-  // Show error state when disconnected or entity not found
+  /*
+   * Disconnection is the only failure that reaches here, so the message does
+   * not choose between two.
+   *
+   * `useEntity` cannot tell "not loaded yet" from "does not exist", so a missing
+   * entity on a live connection is held by the skeleton above and never falls
+   * through — which leaves `!isConnected` as the only way in. The three
+   * ternaries that used to pick between "Disconnected" and "Entity Not Found"
+   * could therefore each take only one side, and an unreachable arm reads as a
+   * handled case: someone maintaining this would believe a missing entity is
+   * reported when it is silently pending instead. Reporting one properly means
+   * `useEntity` learning to tell the two apart, which is its own change.
+   */
   if (!entity || !isConnected) {
     return (
       <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
+        error="Disconnected from Home Assistant"
         variant="card"
         tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
+        title="Disconnected"
+        onRetry={() => window.location.reload()}
       />
     )
   }
