@@ -120,45 +120,59 @@ function LockCardComponent({
   const routeContext: LockRouteContext = useMemo(() => ({ entityId, state }), [entityId, state])
 
   /**
-   * Hold a route behind the confirmation dialog, or run it now.
-   *
-   * Both pills come through here, and so does the card's own toggle, which is
-   * what keeps one rule in front of every dispatch this card makes.
+   * Send the command. Ungated on purpose — every caller has already passed
+   * whichever gate owns it.
    */
-  const guard = useCallback(
-    (service: 'lock' | 'unlock', run: () => void) => {
+  const send = useCallback(
+    (service: 'lock' | 'unlock') => {
+      if (error) clearError()
+      void dispatchGuarded({ domain: 'lock', service, entityId })
+    },
+    [clearError, dispatchGuarded, entityId, error]
+  )
+
+  /**
+   * The gate in front of the two pills, which this card dispatches itself.
+   *
+   * **Only the pills.** A gesture is gated by the shell through `confirmRoute`
+   * below, and routing the shell's confirmed toggle back through here as well
+   * would ask the same question twice — the user confirms "Unlock Front Door?",
+   * and a second identical dialog opens on top of the first. That is not a
+   * cosmetic defect: a gate that fires twice for one intent is one people learn
+   * to click through, which is how a confirmation stops being a confirmation.
+   * One gate per route, at the layer that dispatches it (`useCardActions` —
+   * "A card family's own rule replaces the on/off one rather than joining it").
+   */
+  const dispatchFromPill = useCallback(
+    (service: 'lock' | 'unlock') => {
       const direction = service === 'unlock' ? 'unlocking' : 'locking'
+
       if (requiresLockConfirmation(direction, options)) {
         setConfirmRequest({
           entityId,
           prompt: service === 'unlock' ? UNLOCK_CONFIRM_PROMPT : LOCK_CONFIRM_PROMPT,
-          proceed: run,
+          proceed: () => send(service),
         })
         return
       }
-      run()
+
+      send(service)
     },
-    [entityId, options]
+    [entityId, options, send]
   )
 
-  const dispatch = useCallback(
-    (service: 'lock' | 'unlock') => {
-      if (error) clearError()
-      guard(service, () => {
-        void dispatchGuarded({ domain: 'lock', service, entityId })
-      })
-    },
-    [clearError, dispatchGuarded, entityId, error, guard]
-  )
-
-  const handleLock = useCallback(() => dispatch('lock'), [dispatch])
-  const handleUnlock = useCallback(() => dispatch('unlock'), [dispatch])
+  const handleLock = useCallback(() => dispatchFromPill('lock'), [dispatchFromPill])
+  const handleUnlock = useCallback(() => dispatchFromPill('unlock'), [dispatchFromPill])
 
   /**
    * The card's own toggle semantics, which the shell calls when a gesture
    * resolves to `toggle` (docs/specs/entity-cards/options/security.md —
    * "Primary action"). The default is `more-info`, so this only runs for a
    * `tapAction: toggle` the user configured deliberately.
+   *
+   * It sends directly rather than going through the pills' gate: the shell has
+   * already put `confirmRoute` in front of this gesture, and gating it again
+   * here would raise a second dialog after the user had already confirmed.
    *
    * **`jammed` is specified to resolve to `more-info` and resolves to nothing
    * here instead.** The shell owns the detail dialog and a card's `onToggle`
@@ -170,8 +184,8 @@ function LockCardComponent({
    */
   const handleToggle = useCallback(() => {
     const resolution = resolveLockToggle(state)
-    if (resolution === 'lock' || resolution === 'unlock') dispatch(resolution)
-  }, [dispatch, state])
+    if (resolution === 'lock' || resolution === 'unlock') send(resolution)
+  }, [send, state])
 
   /**
    * The shell's gate. Every gesture — `default`, an explicit `toggle`, a
