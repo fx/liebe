@@ -4,6 +4,7 @@ import {
   VOLUME_STEP_FRACTION,
   canSelectSource,
   isVolumeMuted,
+  nextOptimisticFromDrag,
   optimisticVolumeStillStands,
   percentToVolume,
   readCurrentSource,
@@ -167,6 +168,54 @@ describe('the optimistic volume', () => {
     expect(optimisticVolumeStillStands(dragging(0.9, 0.2), 0.2)).toBe(true)
     expect(optimisticVolumeStillStands(dragging(0.9, 0.2), 0.5)).toBe(true)
     expect(optimisticVolumeStillStands(dragging(0.9, 0.2), undefined)).toBe(true)
+  })
+
+  describe('nextOptimisticFromDrag', () => {
+    /** A drag beginning from nothing outstanding. */
+    it('starts an uncommitted drag when nothing is outstanding', () => {
+      expect(nextOptimisticFromDrag(null, 0.6, 0.2)).toEqual({
+        value: 0.6,
+        baseline: 0.2,
+        committed: false,
+      })
+    })
+
+    it('starts a fresh drag for each new value the pointer passes through', () => {
+      const first = nextOptimisticFromDrag(null, 0.6, 0.2)
+
+      expect(nextOptimisticFromDrag(first, 0.7, 0.2)).toEqual({
+        value: 0.7,
+        baseline: 0.2,
+        committed: false,
+      })
+    })
+
+    /**
+     * THE case this function exists for. Radix fires `onValueCommit` before
+     * `onValueChange` for keyboard adjustment, so the change immediately after a
+     * commit carries the value that was just dispatched. Restarting a drag from
+     * it would strip the committed flag off a value already in flight, and the
+     * card would never reconcile it — the thumb would sit there forever.
+     */
+    it('leaves a committed value alone when the trailing echo repeats it', () => {
+      const committedValue = { value: 1, baseline: 0.2, committed: true }
+
+      expect(nextOptimisticFromDrag(committedValue, 1, 0.2)).toBe(committedValue)
+    })
+
+    it('starts a new drag when the value genuinely differs from a committed one', () => {
+      const committedValue = { value: 1, baseline: 0.2, committed: true }
+
+      expect(nextOptimisticFromDrag(committedValue, 0.5, 0.2)).toEqual({
+        value: 0.5,
+        baseline: 0.2,
+        committed: false,
+      })
+    })
+
+    it('records the entity’s current volume as the baseline for a new drag', () => {
+      expect(nextOptimisticFromDrag(null, 0.6, undefined).baseline).toBeUndefined()
+    })
   })
 
   describe('resolveDisplayVolume', () => {

@@ -27,6 +27,7 @@ import { formatMediaTime, resolveMediaProgress } from './progress'
 import {
   canSelectSource,
   isVolumeMuted,
+  nextOptimisticFromDrag,
   optimisticVolumeStillStands,
   percentToVolume,
   readCurrentSource,
@@ -241,9 +242,7 @@ function MediaPlayerCardComponent({
    */
   const handleVolumeChange = (percent: number) => {
     const value = percentToVolume(percent)
-    setOptimisticVolume((current) =>
-      current?.value === value ? current : { value, baseline: entityVolume, committed: false }
-    )
+    setOptimisticVolume((current) => nextOptimisticFromDrag(current, value, entityVolume))
   }
 
   const handleVolumeCommit = (percent: number) => void commitVolume(percentToVolume(percent))

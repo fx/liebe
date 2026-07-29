@@ -133,6 +133,30 @@ export function optimisticVolumeStillStands(
 }
 
 /**
+ * What an `onValueChange` should leave outstanding.
+ *
+ * A pointer drag reports every value it passes through, and each one starts (or
+ * continues) an **uncommitted** drag. The subtlety is the trailing echo: Radix
+ * fires `onValueCommit` before `onValueChange` for keyboard adjustment, so the
+ * change arriving immediately after a commit carries the value that was just
+ * dispatched. Restarting an uncommitted drag from it would strip the committed
+ * flag off a value already in flight, and the card would never reconcile that
+ * value again.
+ *
+ * So an unchanged value is left exactly as it is, and any other value begins a
+ * fresh drag. Pure, and separate from the component, because it is the one place
+ * that ordering is reasoned about.
+ */
+export function nextOptimisticFromDrag(
+  current: OptimisticVolume | null,
+  value: number,
+  entityVolume: number | undefined
+): OptimisticVolume {
+  if (current && current.value === value) return current
+  return { value, baseline: entityVolume, committed: false }
+}
+
+/**
  * The volume to draw: the optimistic value while one stands, the entity
  * otherwise.
  */

@@ -984,6 +984,24 @@ describe('MediaPlayerCard volume', () => {
     expect(callService.mock.calls[0][2]).toMatchObject({ volume_level: 0.5 })
   })
 
+  /**
+   * A player that can be set but reports no `volume_level` yet — a device that
+   * has not published one since it came online. The stepper still works, from
+   * zero.
+   */
+  it('steps up from zero for a player reporting no volume level', async () => {
+    mount({
+      tier: 'full',
+      attributes: { supported_features: FEATURES.volumeSlider, volume_level: undefined },
+      config: { showVolume: 'buttons' },
+    })
+
+    fireEvent.click(screen.getByLabelText('Volume up'))
+
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(callService.mock.calls[0][2]).toMatchObject({ volume_level: 0.1 })
+  })
+
   it('degrades to the mute toggle alone for a mute-only player', () => {
     mount({ tier: 'full', attributes: { supported_features: FEATURES.volumeMuteOnly } })
 
@@ -1185,6 +1203,46 @@ describe('MediaPlayerCard optimistic volume', () => {
     })
 
     expect(slider('Volume')).toHaveAttribute('aria-valuetext', '55%')
+  })
+
+  /**
+   * A card recycled onto another entity must not carry the previous player's
+   * optimistic volume with it — it would show that player's value and, on the
+   * next commit, send it to the new one.
+   */
+  it('drops the optimistic value when the card is recycled onto another entity', async () => {
+    const OTHER = 'media_player.kitchen'
+    seed(
+      createMediaPlayerEntity({
+        attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.2 },
+      }),
+      createMediaPlayerEntity({
+        entity_id: OTHER,
+        attributes: { supported_features: FEATURES.volumeSlider, volume_level: 0.9 },
+      })
+    )
+
+    const { rerender } = renderCard(
+      <MediaPlayerCard entityId={ENTITY_ID} tier="full" span={{ width: 2, height: 2 }} />
+    )
+
+    const control = slider('Volume')!
+    control.focus()
+    fireEvent.keyDown(control, { key: 'End' })
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(1))
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '100%')
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId={OTHER}>
+            <MediaPlayerCard entityId={OTHER} tier="full" span={{ width: 2, height: 2 }} />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    expect(slider('Volume')).toHaveAttribute('aria-valuetext', '90%')
   })
 
   it('drops the optimistic value when the dispatch fails', async () => {
