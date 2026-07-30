@@ -3,8 +3,8 @@ import { z } from 'zod'
 /**
  * The cover card's option contract — the persisted shape of
  * `showPositionSlider`, `showButtons`, `showTiltControls`, `invertPosition`,
- * `deviceClassIcon`, `stateLabels` and `confirmOpen` under `item.config`, and
- * the rules for reading them back.
+ * `deviceClassIcon`, `stateLabelStyle` and `confirmOpen` under `item.config`,
+ * and the rules for reading them back, plus the legacy `stateLabels` rename.
  *
  * Spec: docs/specs/entity-cards/options/cover.md. Lives in the store beside
  * `cardDisplay.ts` for the same two reasons as its siblings: `configSchema.ts`
@@ -27,8 +27,8 @@ import { z } from 'zod'
  * style uses absence (docs/changes/0022): the stored contract has one spelling
  * for "follow the entity", and a form that could only write one of the two
  * concrete styles would pin every garage door to a percentage the moment its
- * form was opened and saved. `COVER_STATE_LABELS_AUTO` is the form's spelling
- * of that absence, and never reaches `item.config`.
+ * form was opened and saved. `COVER_STATE_LABEL_STYLE_AUTO` is the form's
+ * spelling of that absence, and never reaches `item.config`.
  */
 export type CoverStateLabelStyle = 'percent' | 'open-closed'
 
@@ -39,7 +39,25 @@ export type CoverStateLabelStyle = 'percent' | 'open-closed'
  * resolves through the same path as any other unrecognised value — the
  * entity-derived default it was asking for.
  */
-export const COVER_STATE_LABELS_AUTO = 'auto'
+export const COVER_STATE_LABEL_STYLE_AUTO = 'auto'
+
+/** The current key for the style selector. */
+export const COVER_STATE_LABEL_STYLE_KEY = 'stateLabelStyle'
+
+/**
+ * What this option was called before change 0038, and still is in every stored
+ * document written by an earlier build.
+ *
+ * The rename is the whole of that change: `stateLabels` was declared by this
+ * family as a style enum *and* by `switchOptions.ts` as the
+ * `{ onLabel, offLabel }` text pair the switch and fallback cards document, and
+ * `configSchema.ts` merges both fragments into one item schema where
+ * `zod.merge()` is last-one-wins — so the cover's enum governed the key for
+ * every family and a switch card carrying its own documented labels was
+ * rejected outright by the import gate
+ * (docs/changes/0038-option-key-collision.md).
+ */
+export const LEGACY_COVER_STATE_LABELS_KEY = 'stateLabels'
 
 export interface CoverOptions {
   /** Renders the position slider, where set-position (bit 4) is supported. */
@@ -53,7 +71,7 @@ export interface CoverOptions {
   /** Picks the default glyph pair from the entity's `device_class`. */
   deviceClassIcon: boolean
   /** Position display style on the state line; `undefined` derives it. */
-  stateLabels: CoverStateLabelStyle | undefined
+  stateLabelStyle: CoverStateLabelStyle | undefined
   /** Confirmation gate on opening routes; only offered for security classes. */
   confirmOpen: boolean
 }
@@ -64,7 +82,7 @@ export const COVER_OPTION_KEYS = [
   'showTiltControls',
   'invertPosition',
   'deviceClassIcon',
-  'stateLabels',
+  'stateLabelStyle',
   'confirmOpen',
 ] as const
 
@@ -84,7 +102,7 @@ export const COVER_OPTION_DEFAULTS: Readonly<CoverOptions> = {
   showTiltControls: true,
   invertPosition: false,
   deviceClassIcon: true,
-  stateLabels: undefined,
+  stateLabelStyle: undefined,
   confirmOpen: true,
 }
 
@@ -102,7 +120,13 @@ export function isSecurityCover(deviceClass: string | undefined): boolean {
   return (COVER_SECURITY_DEVICE_CLASSES as readonly string[]).includes(deviceClass ?? '')
 }
 
-const coverStateLabelStyleSchema = z.enum(['percent', 'open-closed'])
+/**
+ * The two concrete styles. Exported because the import gate has to keep
+ * accepting them under the *legacy* key as well: the loader migration below runs
+ * after `dashboardConfigSchema`, so a shared document written before the rename
+ * would be rejected before it could be migrated (see `./configSchema`).
+ */
+export const coverStateLabelStyleSchema = z.enum(['percent', 'open-closed'])
 
 /** The cover fragment of `item.config`, merged into the item schema. */
 export const coverOptionsConfigSchema = z.object({
@@ -111,7 +135,7 @@ export const coverOptionsConfigSchema = z.object({
   showTiltControls: z.boolean().optional(),
   invertPosition: z.boolean().optional(),
   deviceClassIcon: z.boolean().optional(),
-  stateLabels: coverStateLabelStyleSchema.optional(),
+  stateLabelStyle: coverStateLabelStyleSchema.optional(),
   confirmOpen: z.boolean().optional(),
 })
 
@@ -122,7 +146,7 @@ const coverKeySchemas: Readonly<Record<CoverOptionKey, z.ZodTypeAny>> = {
   showTiltControls: z.boolean(),
   invertPosition: z.boolean(),
   deviceClassIcon: z.boolean(),
-  stateLabels: coverStateLabelStyleSchema,
+  stateLabelStyle: coverStateLabelStyleSchema,
   confirmOpen: z.boolean(),
 }
 
@@ -154,7 +178,46 @@ export function readCoverOptions(config: Record<string, unknown> | undefined): C
     showTiltControls: read('showTiltControls'),
     invertPosition: read('invertPosition'),
     deviceClassIcon: read('deviceClassIcon'),
-    stateLabels: read('stateLabels'),
+    stateLabelStyle: read('stateLabelStyle'),
     confirmOpen: read('confirmOpen'),
   }
+}
+
+/**
+ * The cover card's legacy `stateLabels` → `stateLabelStyle` rename, applied at
+ * the loader so a card and its configuration form only ever see the current key
+ * (common contract, convention 1 — the same job the weather card's
+ * `preset` → `variant` rename does).
+ *
+ * **Keyed on the stored value's shape as well as the card's domain**, which is
+ * what makes it not a blanket key rewrite. `stateLabels` is still a live,
+ * documented option for the switch and fallback cards, as the
+ * `{ onLabel, offLabel }` text pair — the very configurations change 0038 exists
+ * to unbreak — so renaming the key wherever it appears would destroy them.
+ * Only a **string** on a **cover** card is this option; anything else is left
+ * exactly where it is, like every other key from a document Liebe cannot fully
+ * interpret (docs/specs/dashboard-config/index.md — "Forward Compatibility").
+ * Any string, not only the two legal ones: an unrecognised style is still this
+ * option being addressed, and `readCoverOptions` resolves what it cannot
+ * interpret rather than the loader silently dropping it.
+ *
+ * Unconditional rather than version-keyed, like the other two renames: a rename
+ * has no default to pin, so there is no newly added card whose absent key could
+ * be mistaken for a legacy one (convention 7's cutoff rule is about pinning).
+ * The legacy key is never written back — it is removed here, and nothing
+ * downstream writes it.
+ *
+ * Returns the config unchanged, by reference, when no rename applies.
+ */
+export function migrateCoverCardConfig(config: Record<string, unknown>): Record<string, unknown> {
+  const { [LEGACY_COVER_STATE_LABELS_KEY]: legacy, ...rest } = config
+  if (typeof legacy !== 'string') return config
+
+  // Both keys present means a config migrated once already and then given the
+  // legacy key back by hand or by an older build's export. The current key is
+  // the one the form last wrote, so it wins and the legacy one is dropped —
+  // the rule the light card's rename follows.
+  if (COVER_STATE_LABEL_STYLE_KEY in rest) return rest
+
+  return { ...rest, [COVER_STATE_LABEL_STYLE_KEY]: legacy }
 }

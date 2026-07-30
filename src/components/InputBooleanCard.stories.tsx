@@ -12,15 +12,11 @@ const meta: Meta<InputBooleanCardStoryProps> = {
   title: 'Cards/Inputs/InputBooleanCard',
   component: InputBooleanCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 2,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createInputBooleanEntity()] },
@@ -97,25 +93,25 @@ export const EditMode: Story = {
  */
 export const TierGlance: Story = {
   name: 'Tier — glance (1×1)',
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /** Icon, meta and the discrete switch in a row. */
 export const TierRow: Story = {
   name: 'Tier — row (3×1)',
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
 }
 
 /** Icon on top, switch between, meta at the bottom. */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /** The row arrangement, with the extra area as breathing room. */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }
 
 /* ------------------------------------------------------------------ *
@@ -127,7 +123,7 @@ export const TierFull: Story = {
  * toggle, and the active tint carries the state.
  */
 export const ControlStyleTile: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createInputBooleanEntity({ state: 'on' })],
@@ -138,7 +134,7 @@ export const ControlStyleTile: Story = {
 
 /** `switch`: the discrete control returns beside the meta. The tile still toggles. */
 export const ControlStyleSwitch: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createInputBooleanEntity({ state: 'on' })],
@@ -153,7 +149,7 @@ export const ControlStyleSwitch: Story = {
  * as `tile` and the tap still toggles.
  */
 export const ControlStyleSwitchGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createInputBooleanEntity({ state: 'on' })],

@@ -16,15 +16,11 @@ const meta: Meta<ClimateCardStoryProps> = {
   title: 'Cards/ClimateCard',
   component: ClimateCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 4,
-    gridHeight: 5,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createClimateEntity()] },
@@ -91,13 +87,47 @@ export const HeatCoolRange: Story = {
   },
 }
 
+/**
+ * A heat pump resting in a mode this build has never heard of.
+ *
+ * `hvac_modes` belongs to the integration, so the row renders every mode the
+ * entity reports: the unrecognised one takes the title-cased form of its own
+ * value for a label, the neutral triplet for a colour and the two-letter glyph
+ * fallback, and selecting it sends the raw value. Dropping it — which is what the
+ * row used to do — left a mode the thermostat has unselectable and invisible
+ * (change 0037 PR 1).
+ */
+export const VendorHvacMode: Story = {
+  args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  parameters: {
+    liebe: {
+      entities: [
+        createClimateEntity({
+          state: 'heat_pump_boost',
+          attributes: {
+            hvac_action: 'heating',
+            hvac_modes: ['off', 'heat', 'cool', 'heat_pump_boost'],
+          },
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole('group', { name: 'HVAC mode' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: /heat pump boost/i })).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+  },
+}
+
 export const Unavailable: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [asUnavailable(createClimateEntity())] } },
 }
 
 export const Loading: Story = {
-  args: { gridHeight: 3 },
   parameters: { liebe: { entities: [], initialLoading: true } },
 }
 
@@ -117,13 +147,12 @@ export const ServiceCallFailure: Story = {
 }
 
 export const Disconnected: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [createClimateEntity()], connected: false } },
 }
 
 /** Edit mode hides the temperature and HVAC-mode controls. */
 export const EditMode: Story = {
-  args: { onDelete: () => {}, gridHeight: 4 },
+  args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createClimateEntity()], mode: 'edit' } },
 }
 
@@ -139,7 +168,7 @@ export const EditMode: Story = {
  * opens (`ClimateDetailControls.tsx`).
  */
 export const TierGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1, span: { width: 1, height: 1 } },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
@@ -150,17 +179,17 @@ export const TierGlance: Story = {
 
 /** 2×1: icon and meta with the stepper and its readout on the right. */
 export const TierRow: Story = {
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1, span: { width: 2, height: 1 } },
+  args: { gridWidth: 2, gridHeight: 1 },
 }
 
 /** 1×3: the stepper stands up — plus above the readout, minus below. */
 export const TierTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3, span: { width: 1, height: 3 } },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /** 4×5: the row layout plus the HVAC mode pills — no dial, this is `compact`. */
 export const TierFull: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  args: { gridWidth: 4, gridHeight: 5 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
@@ -177,7 +206,7 @@ export const TierFull: Story = {
  * decides that — `row` covers 2×1 through N×1.
  */
 export const TierRowRangeNarrow: Story = {
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1, span: { width: 2, height: 1 } },
+  args: { gridWidth: 2, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [
@@ -198,7 +227,7 @@ export const TierRowRangeNarrow: Story = {
 
 /** The same thermostat at width 3: independent low and high setpoints. */
 export const TierRowRangeWide: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, span: { width: 3, height: 1 } },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: TierRowRangeNarrow.parameters,
 }
 
@@ -211,7 +240,7 @@ export const TierRowRangeWide: Story = {
 /** The arc thermostat at `full`, where it is the only tier it renders in. */
 export const VariantDial: Story = {
   render: (args) => <ClimateDialCard {...args} />,
-  args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  args: { gridWidth: 4, gridHeight: 5 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
@@ -227,7 +256,7 @@ export const VariantDial: Story = {
  */
 export const VariantDialRange: Story = {
   render: (args) => <ClimateDialCard {...args} />,
-  args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  args: { gridWidth: 4, gridHeight: 5 },
   parameters: {
     liebe: {
       entities: [
@@ -265,7 +294,7 @@ export const VariantDialRange: Story = {
  */
 export const VariantDialFallsBackBelowFull: Story = {
   render: (args) => <ClimateDialCard {...args} />,
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1, span: { width: 2, height: 1 } },
+  args: { gridWidth: 2, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
@@ -292,11 +321,14 @@ const thermostatWithEverything = () =>
     },
   })
 
+/**
+ * The cell those stories are shown in. The tier is derived from the cell
+ * (`withGridCell`), so 4×5 is how a story asks for `full` — the meta's 4×1
+ * default derives `row`.
+ */
 const fullTier = {
-  tier: 'full' as const,
   gridWidth: 4,
   gridHeight: 5,
-  span: { width: 4, height: 5 },
 }
 
 /** `showModePills: false` — the state line still says what the unit is doing. */
