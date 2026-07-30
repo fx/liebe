@@ -241,13 +241,23 @@
    * it — the same `align-self: stretch` the fill band's slot carries, and for
    * the same reason: a vertical slider's length IS the room the shape gave it.
    *
-   * On the inline axis it goes the other way: `flex: 0 0 auto` and an automatic
-   * width, so a 42px control stays 42px on a row that has hundreds to spare
-   * instead of being stretched into a track whose thumb is the only part the
-   * finger can reach. `justify-content: center` is the vertical slider's
-   * centring rule applied inside the slot, restated at a weight that outranks
-   * the content-alignment rules further down for the same reason the band's
-   * copy is (docs/specs/design-system — "Card anatomy").
+   * On the inline axis it does NOT grow — `flex-grow: 0`, so a 42px control
+   * stays 42px on a row with hundreds of pixels to spare rather than being
+   * stretched into a track whose thumb is the only part a finger can reach —
+   * and it DOES shrink, which is the half that keeps the row inside its tile.
+   * The control's thickness is the token's on a row that affords it and the
+   * row's leftover where it does not: "a control rendered at a one-cell-wide
+   * tier MUST be cross-axis flexible … its geometry token names the size it
+   * prefers rather than the size it always has" (docs/specs/design-system —
+   * "Cross-axis fit"). A non-shrinking 42px slot beside the icon circle's fixed
+   * 40px overflows a narrow tile — a 16-column screen at 960px under LCARS
+   * leaves a two-cell tile about 58px of content region — and the tile clips,
+   * which is the one outcome the tier rules forbid outright.
+   *
+   * `justify-content: center` is the vertical slider's centring rule applied
+   * inside the slot, restated at a weight that outranks the content-alignment
+   * rules further down for the same reason the band's copy is
+   * (docs/specs/design-system — "Card anatomy").
    *
    * `[data-control-size]` — an attribute the body always stamps — is in the
    * selector only for its weight: this must outrank the `fill` sizing above,
@@ -258,9 +268,38 @@
     > .liebe-card-body-line
     > .liebe-card-controls {
     align-self: stretch;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     inline-size: auto;
     justify-content: center;
+    /* A flex item's automatic minimum size is its content, and the content here
+       is a control with a fixed thickness — so without this the slot refuses to
+       shrink however small the row gets, and the `flex-shrink` above buys
+       nothing. */
+    min-inline-size: 0;
+  }
+
+  /*
+   * And the slider follows the slot rather than holding the token's thickness
+   * against it. `anatomy.css` sizes a vertical track at exactly
+   * `--liebe-control-height`, which is the fixed size the rule above exists to
+   * relax: a shrinking slot around a rigid control moves the overflow one box
+   * inwards instead of removing it.
+   *
+   * `max-inline-size` rather than a replacement width, so the token still names
+   * the thickness the control PREFERS — the same reading the design system
+   * re-pinned it to — and the only case that resolves differently is the one
+   * where the row cannot afford it.
+   *
+   * Scoped to this slot, so the `tall` band's own vertical slider is untouched:
+   * making that one flexible is change 0042 PR 3's, which owns the floors that
+   * decide when a narrowed track should be omitted instead.
+   */
+  .liebe-card-body[data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls
+    > .liebe-slider {
+    inline-size: 100%;
+    max-inline-size: var(--liebe-control-height);
   }
 
   /*

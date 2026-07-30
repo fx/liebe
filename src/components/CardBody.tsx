@@ -132,20 +132,26 @@ export const CONTROL_LONG_AXIS_FLOOR_PX = 44
  *    with a real symptom: `tall` is one column wide, which on a 12-column
  *    desktop grid is a 35px content region — a track too short to drag.
  *  - a **vertical** control in a row shape is bounded across it, so the 24px
- *    cross-axis floor applies.
+ *    cross-axis floor applies. The region is not the whole of what bounds it —
+ *    the icon circle and the gaps beside it come out first — so this is a
+ *    coarse gate rather than the exact one: what keeps such a control inside
+ *    the tile is that `CardBody.css` makes it cross-axis flexible, so it
+ *    narrows with the row instead of overflowing it.
  *
  * `undefined` is "not observed", never "no room": a tree that was never laid out
  * carries no information about width, so the width-blind contract stands and the
  * control renders (`useCardContentWidth` owns that distinction). This is why the
  * unit suite and the workshop see every forced placement render.
  *
- * **The long axis of a forced vertical control is NOT checked here**, because
- * nothing publishes it: the band's height comes from what the icon and the meta
- * leave, and a card may not measure the DOM for it. Establishing that capacity
- * signal is change 0042 PR 3's, alongside the same floors for the placements the
- * tiers choose on their own; a forced vertical control shortens with its band
- * until then rather than overflowing it, so the failure mode is a short control
- * and never a clipped one.
+ * **Two capacities are NOT checked here, and both are the same gap**: the long
+ * axis of a vertical control — its band's height, which nothing publishes — and
+ * a row line's leftover width once the icon and the gaps are out of it. A card
+ * may not measure the DOM for either, and establishing those signals is change
+ * 0042 PR 3's, which owns the identical question for the placements the tiers
+ * choose on their own (the `tall` vertical slider has it today). Until then a
+ * forced control narrows and shortens with the room it is given rather than
+ * overflowing it, so the failure mode is a small control and never a clipped
+ * one — which is where the tiers' own controls already stand.
  */
 export function controlFitsArrangement(
   orientation: SliderOrientation | undefined,

@@ -219,13 +219,44 @@ describe('a forced slider placement gets a definite axis to run along', () => {
     // The long axis: the slot takes the whole line rather than being centred in
     // it, which is the same contract the `tall` band's slot carries.
     expect(slot).toContain('align-self: stretch;')
-    // And the cross axis goes the other way — a 42px control on a row with
-    // hundreds of pixels to spare stays 42px, instead of being stretched into a
-    // track only its thumb can be grabbed by.
-    expect(slot).toContain('flex: 0 0 auto;')
+    // And the cross axis is `grow: 0, shrink: 1` — a 42px control on a row with
+    // hundreds of pixels to spare stays 42px rather than becoming a track only
+    // its thumb can be grabbed by, and gives way on a row that cannot afford
+    // it rather than pushing the line past the tile's edge.
+    expect(slot).toContain('flex: 0 1 auto;')
     expect(slot).toContain('inline-size: auto;')
+    // Without this the shrink above is inert: a flex item's automatic minimum
+    // size is its content, and this slot's content has a fixed thickness.
+    expect(slot).toContain('min-inline-size: 0;')
     // The vertical slider's centring rule, applied inside the slot.
     expect(slot).toContain('justify-content: center;')
+  })
+
+  it('makes the forced control itself cross-axis flexible, not only its slot', () => {
+    /*
+     * "A control rendered at a one-cell-wide tier MUST be cross-axis flexible:
+     * it takes the content region's width, and its geometry token names the
+     * size it prefers rather than the size it always has"
+     * (docs/specs/design-system — "Cross-axis fit").
+     *
+     * The slot shrinking is half a fix on its own: the anatomy sheet sizes a
+     * vertical track at exactly the token, so a rigid control inside a
+     * shrinking slot moves the overflow one box inwards. `max-inline-size`
+     * keeps the token's meaning — the thickness the control PREFERS — while
+     * letting the row decide when it cannot be afforded.
+     */
+    const control = ruleMatching(
+      /data-control-orientation='vertical'\].* > \.liebe-slider$/
+    ).declarations
+
+    expect(control).toContain('inline-size: 100%;')
+    expect(control).toContain('max-inline-size: var(--liebe-control-height);')
+
+    // The premise, from the anatomy sheet: the thickness this relaxes is a
+    // fixed one, so a rule that only shrank the slot would change nothing.
+    expect(anatomy).toMatch(
+      /\.liebe-slider\[data-orientation='vertical'\]\s*\{[^}]*inline-size:\s*var\(--liebe-control-height\);/
+    )
   })
 
   it('outranks the `fill` sizing it has to override, by weight rather than by order', () => {
