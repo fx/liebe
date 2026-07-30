@@ -377,25 +377,42 @@ export const GraphInFull: Story = historyStory(
 )
 
 /**
- * The height the graph region resolved to, once the series is drawn.
+ * How much of the tile is left over once the value line and the footer have
+ * taken theirs, and how much of that the graph took.
  *
- * The point of the two stories below is a quantity no rendered test can see:
- * jsdom lays nothing out, so "the graph claims the tile" is only observable in a
- * browser (docs/specs/entity-cards/options/sensor.md — "Tier layouts"). These
- * play functions run in no gate, so treat them as the documentation of what to
- * look at rather than as verification of it.
+ * The two stories below exist for a quantity no rendered test can see: jsdom
+ * lays nothing out, so "the graph claims the tile" is only observable in a
+ * browser (docs/specs/entity-cards/options/sensor.md — "Tier layouts"). The
+ * declaration lock is `__tests__/sensorGraphStyles.test.ts`; this is the
+ * measurement, and it runs in NO gate — a play function executes in neither
+ * `npm test` nor CI, so read these as documentation of what to look at rather
+ * than as verification of it.
+ *
+ * The comparison is the tile's own leftover rather than a pixel threshold. A
+ * threshold ("taller than 72px") is satisfied by any fixed band large enough,
+ * which is precisely the defect these stories are about; the leftover is
+ * satisfied only by a region that grows with the tile.
  */
-function graphHeight(canvasElement: HTMLElement): number {
-  return canvasElement.querySelector('[data-testid="sensor-graph"]')!.getBoundingClientRect().height
-}
+function graphFillsLeftover(canvasElement: HTMLElement): { graph: number; leftover: number } {
+  const box = (selector: string) =>
+    canvasElement.querySelector(selector)!.getBoundingClientRect().height
 
-/** The band the `full` graph used to be pinned to, before change 0031. */
-const FORMER_FIXED_BAND = 72
+  const body = box('.liebe-card-body')
+  const line = box('.liebe-card-body-line')
+  const footer = box('.liebe-sensor-graph-footer')
+  // The body is a column with one gap above the graph and one below it; the
+  // graph is what remains of the tile after the line, the footer and those gaps.
+  const gap = parseFloat(getComputedStyle(canvasElement.querySelector('.liebe-card-body')!).rowGap)
+
+  return {
+    graph: box('[data-testid="sensor-graph"]'),
+    leftover: body - line - footer - gap * 2,
+  }
+}
 
 /**
  * The smallest tile that reaches `full` — the sensor card's own default size.
- * The graph takes what the value line and the min/max footer leave, which is
- * already more than the fixed band it replaced.
+ * The graph takes what the value line and the min/max footer leave.
  */
 export const GraphInFullSmallTile: Story = historyStory(
   graphEntity('full_small'),
@@ -404,7 +421,8 @@ export const GraphInFullSmallTile: Story = historyStory(
     args: { gridWidth: 2, gridHeight: 2 },
     play: async ({ canvasElement }) => {
       await drawnSpark(canvasElement)
-      await expect(graphHeight(canvasElement)).toBeGreaterThan(FORMER_FIXED_BAND)
+      const { graph, leftover } = graphFillsLeftover(canvasElement)
+      await expect(graph).toBeCloseTo(leftover, 0)
     },
   }
 )
@@ -423,10 +441,10 @@ export const GraphInFullLargeTile: Story = historyStory(
       await drawnSpark(canvasElement)
       const canvas = within(canvasElement)
       await expect(canvas.getByTestId('sensor-graph')).toHaveAttribute('data-region', 'full')
-      // A third row is roughly another hundred pixels of tile, and all of it
-      // lands here: the row above and the footer below are the same size they
-      // are at 2×2.
-      await expect(graphHeight(canvasElement)).toBeGreaterThan(FORMER_FIXED_BAND * 2)
+      // The same invariant at a larger size, which is what makes the pair a
+      // comparison: the leftover is bigger here, and the graph is all of it.
+      const { graph, leftover } = graphFillsLeftover(canvasElement)
+      await expect(graph).toBeCloseTo(leftover, 0)
     },
   }
 )
