@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { ReactElement } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { InputTextCard } from '../InputTextCard'
@@ -58,7 +59,7 @@ describe('the text and datetime helpers at a tier that cannot hold their input',
     context: { id: 'seed', parent_id: null, user_id: null },
   })
 
-  function renderCard(ui: React.ReactElement) {
+  function renderCard(ui: ReactElement) {
     return render(
       <Theme>
         <HomeAssistantProvider hass={hass}>
