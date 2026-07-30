@@ -79,36 +79,55 @@ interface LintCase {
 }
 
 /**
- * The directive that makes the React compiler bail on a whole function, used
- * both to write the fixture below and as the needle the source scan looks for.
+ * The directive that makes the React compiler bail on a whole function, used to
+ * write the fixture below.
  *
- * Assembled from two pieces so this file does not itself contain the string it
- * searches for. The alternative was to exempt this spec from the scan, and an
- * exemption is the one thing a scan of this kind must not have — the file that
- * enforces the policy would be the file the policy could not see into.
+ * Assembled from two pieces so this file's own text does not contain a
+ * suppression, which would make it an offender in the scan further down. The
+ * alternative was to exempt this spec from that scan, and an exemption is the
+ * one thing a scan of this kind must not have — the file enforcing the policy
+ * would be the file the policy could not see into.
  */
 const EXHAUSTIVE_DEPS_DIRECTIVE = `eslint-disable-next-line react-hooks/exhaustive` + '-deps'
 
+/** Every `//` line comment and `/* … *\/` block comment in a source file. */
+const COMMENT_PATTERN = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g
+
 /**
- * Any ESLint directive comment that names the rule, in any of the spellings
- * ESLint accepts.
+ * A suppression naming the rule, inside one comment, in any order and across
+ * however many lines the comment spans.
  *
- * Deliberately a pattern rather than the one string above. Matching a single
- * spelling is the mistake this whole change document exists to correct: PR 3's
- * defect was a rule that saw `useEffect(...)` and not `React.useEffect(...)`,
- * and a scan keyed on the next-line form alone would be the same shape of hole.
- * A block directive disabling the rule for a whole file, the `-line` suffix,
- * and a multi-rule list naming some other rule first all silence exactly the
- * same thing, and all three would read as clean.
- *
- * Note what this constrains about the file itself: it is scanned like every
- * other source under `src/`, so neither the prose above nor any example in it
- * may spell a directive out. That is the intended pressure — the spec is inside
- * its own rule rather than exempt from it — and it is why the fixture's
- * directive is assembled at runtime instead of written here.
+ * Applied to comment *bodies* rather than to the whole file, which is what
+ * makes it total: the opener may be `//`, `/*` or `/**`, the leading `*` of a
+ * continuation line may sit between the words, and the rule name may be on a
+ * different line from the `eslint-disable` — every one of those is a spelling
+ * ESLint honours, and a pattern anchored on the opener misses most of them.
  */
-const EXHAUSTIVE_DEPS_DIRECTIVE_PATTERN =
-  /(?:\/\/|\/\*)\s*eslint-disable(?:-next-line|-line)?[^\n*]*react-hooks\/exhaustive-deps/
+const RULE_SUPPRESSION_PATTERN =
+  /eslint-disable(?:-next-line|-line)?\b[\s\S]*react-hooks\/exhaustive-deps/
+
+/**
+ * Whether a source file suppresses the rule from a comment.
+ *
+ * Matching one spelling is the mistake this whole change document exists to
+ * correct: PR 3's defect was a rule that saw `useEffect(...)` and not
+ * `React.useEffect(...)`, and a scan keyed on the next-line form alone is the
+ * same shape of hole. A block disable for a whole file, the `-line` suffix, a
+ * multi-rule list naming some other rule first, a `/**` opener and a
+ * continuation line all silence exactly the same thing, and every one of them
+ * would read as clean.
+ *
+ * Scoping to comments buys the accuracy and one property besides: the patterns
+ * above are *code*, so they cannot match themselves however they are written,
+ * and the file needs no exemption from its own scan. The prose still may not
+ * spell a suppression out — that is the intended pressure, and it is why the
+ * fixture's directive is assembled at runtime rather than written here.
+ */
+function suppressesRuleFromAComment(source: string): boolean {
+  return (source.match(COMMENT_PATTERN) ?? []).some((comment) =>
+    RULE_SUPPRESSION_PATTERN.test(comment)
+  )
+}
 
 /**
  * Every `.ts`/`.tsx` file under `src/`, walked with Node rather than listed by
@@ -459,7 +478,7 @@ describe('an exhaustive-deps suppression silences the rule for its whole functio
     )
 
     const offenders = sources.filter((path) =>
-      EXHAUSTIVE_DEPS_DIRECTIVE_PATTERN.test(readFileSync(join(repoRoot, path), 'utf8'))
+      suppressesRuleFromAComment(readFileSync(join(repoRoot, path), 'utf8'))
     )
 
     expect(offenders).toEqual([])
@@ -490,6 +509,51 @@ describe('an exhaustive-deps suppression silences the rule for its whole functio
       // ESLint normalises severities to numbers in a resolved config.
       expect(config.rules['react-hooks/exhaustive-deps']).toEqual([0])
       expect(config.rules['react-hooks/set-state-in-effect']).toEqual([2])
+    }
+  )
+
+  /*
+   * The claim itself, on the real files rather than on a stand-in.
+   *
+   * Everything above is indirect: the fixture pair proves the mechanism on a
+   * synthetic component, the scan proves no directive is left, and the resolved
+   * config proves the severities. None of them lints `tokens.stories.tsx`. The
+   * thing actually being asserted — *these two hooks are analysable again* —
+   * deserves to be asserted about them, because that is what a future author
+   * reading `eslint.config.js` will take the override to mean.
+   *
+   * `lintText` with `filePath` resolves the real file's config and lints the
+   * text handed to it, so the planted violation never touches the disk. That
+   * matters beyond tidiness: `stories.test.tsx` imports both of these files, and
+   * mutating them mid-run would race a parallel worker.
+   *
+   * Both directions, so neither half can pass vacuously: the file as it stands
+   * reports nothing, and the same file with one `setState` added inside the
+   * effect reports at `error`.
+   */
+  it.each(['src/theme/tokens.stories.tsx', 'src/theme/customCss.stories.tsx'])(
+    'reports a planted state write inside %s',
+    async (path) => {
+      const eslint = new ESLint({ cwd: repoRoot })
+      const source = readFileSync(join(repoRoot, path), 'utf8')
+      const planted = source
+        .replace(
+          'const ref = useRef<HTMLDivElement>(null)',
+          "const ref = useRef<HTMLDivElement>(null)\n  const [, setPlanted] = useState<string>('')"
+        )
+        .replace('useEffect(() => {', "useEffect(() => {\n    setPlanted('planted')")
+
+      // The plant has to have landed, or "reports at error" is measuring the
+      // untouched file and both assertions below are about the same source.
+      expect(planted).not.toBe(source)
+
+      const errors = async (code: string) => {
+        const [result] = await eslint.lintText(code, { filePath: join(repoRoot, path) })
+        return result.messages.filter((m) => m.severity === 2).map((m) => m.ruleId)
+      }
+
+      expect(await errors(source)).toEqual([])
+      expect(await errors(planted)).toContain('react-hooks/set-state-in-effect')
     }
   )
 })

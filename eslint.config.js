@@ -197,8 +197,13 @@ export default [
    *
    * A config-level `off` is invisible to the compiler, so it suppresses exactly
    * the one rule it names and leaves the rest analysable. `src/__tests__/
-   * effectHookLintGate.test.ts` pins that: a planted `setState` in either hook
-   * is silent with the old comment and reported with this.
+   * effectHookLintGate.test.ts` pins that in four ways, worth knowing apart
+   * before editing this block: it lints **these two files** with a planted
+   * `setState` and requires `set-state-in-effect` to report; it shows the same
+   * violation going silent beside the old comment, on a matched fixture pair;
+   * it scans every source under `src/` for a comment suppression in any
+   * spelling; and it asserts the resolved config here — `exhaustive-deps` off,
+   * `set-state-in-effect` still `error` — for each file by name.
    *
    * Keep the list exact. It is two hooks, not a directory.
    */
