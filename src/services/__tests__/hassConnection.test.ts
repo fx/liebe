@@ -141,10 +141,11 @@ describe('HassConnectionManager', () => {
       // Should load initial states
       expect(entityStoreActions.setInitialLoading).toHaveBeenCalledWith(true)
       /*
-       * REPLACE, not merge (change 0037 PR 8). A snapshot is the state
-       * machine's whole contents, so writing it through `updateEntities` left
-       * the map a permanent superset — an entity deleted while the socket was
-       * down survived from the previous session and `isMissing` never saw it.
+       * RECONCILE, not merge (change 0037 PR 8). A snapshot describes what
+       * Home Assistant had at one instant, so writing it through
+       * `updateEntities` left the map a permanent superset — an entity deleted
+       * while the socket was down survived from the previous session and
+       * `isMissing` never saw it.
        * Asserting the action by name is the point: the two differ only in what
        * they do with ids the snapshot does NOT carry, which no assertion about
        * the ids it does carry can distinguish.

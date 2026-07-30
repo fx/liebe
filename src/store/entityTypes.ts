@@ -35,7 +35,7 @@ export interface EntityStoreActions {
   setError: (error: string | null) => void
   updateEntity: (entity: HassEntity) => void
   updateEntities: (entities: HassEntity[]) => void
-  /** Take a snapshot as the map's whole contents — see the implementation. */
+  /** Reconcile the map against a whole snapshot — see the implementation. */
   replaceEntities: (entities: HassEntity[]) => void
   removeEntity: (entityId: string) => void
   subscribeToEntity: (entityId: string) => void

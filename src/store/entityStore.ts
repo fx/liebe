@@ -164,10 +164,13 @@ export const entityStoreActions: EntityStoreActions = {
    * rest on the sequence one caller happens to use, and this holds whatever
    * order a future caller picks.
    *
-   * **Absence is the deletion signal, and only for entities the snapshot could
+   * **Absence is the deletion signal, but only for entities the snapshot could
    * have carried.** An id missing from a whole-state snapshot is an id Home
-   * Assistant does not have, which is exactly the fact `isMissing` needs and the
-   * one the merge threw away.
+   * Assistant did not have *when the snapshot was assembled* — which is the fact
+   * `isMissing` needs and the one the merge threw away. It is not the same as
+   * "does not have": an entity created after that instant is also absent, which
+   * is why the second rule below exists and why the result is a reconciliation
+   * rather than a strict replace.
    */
   replaceEntities: (entities: HassEntity[]) => {
     entityStore.setState((state) => {

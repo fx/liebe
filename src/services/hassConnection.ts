@@ -149,11 +149,13 @@ export class HassConnectionManager {
       }))
 
       /*
-       * REPLACE rather than merge. A snapshot is the state machine's whole
-       * contents, so an id it does not carry is an id Home Assistant does not
-       * have — which is the only way a deletion that happened while the socket
-       * was down can ever be noticed (change 0037 PR 8). Merging left the map a
-       * permanent superset and `isMissing` blind to it.
+       * RECONCILE rather than merge. A snapshot describes what Home Assistant
+       * had at one instant, so an id it does not carry — and that nothing newer
+       * has touched since — is a deletion, which is the only way one that
+       * happened while the socket was down can ever be noticed (change 0037
+       * PR 8). Merging left the map a permanent superset and `isMissing` blind
+       * to it. `replaceEntities` owns what "and nothing newer" means, in both
+       * directions.
        */
       entityStoreActions.replaceEntities(entities)
       entityStoreActions.setInitialLoading(false)
