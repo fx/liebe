@@ -238,6 +238,21 @@ describe('the item config schema', () => {
       expect(Object.keys(fragment.shape).length).toBeGreaterThan(0)
     }
 
+    /*
+     * And the parse reaches the WHOLE chain, which the assertions above cannot
+     * tell: the expression stops at the first thing that is not another
+     * `.merge(...)`, so a comment written between two of them truncates it
+     * silently. Everything below the comment then goes unchecked while this
+     * test stays green and every count above it still looks healthy — the
+     * guard covering less than it claims, which is the failure mode a guard
+     * has that a feature does not.
+     *
+     * Counted against the source rather than against a number kept here, so
+     * adding a family needs no edit and removing one cannot quietly pass.
+     */
+    const merged = read('../configSchema.ts').match(/\.merge\(\w+\)/g) ?? []
+    expect(fragments).toHaveLength(merged.length + 1)
+
     const collisions = findCollisions(fragments)
 
     expect(collisions, `\n\n${report(collisions)}\n`).toEqual([])

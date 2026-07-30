@@ -130,6 +130,17 @@ const gridItemSchema = z
     // family a rename (docs/changes/0038-option-key-collision.md; see also
     // `./confirmOption`), and `__tests__/configSchema.keyCollisions.test.ts`
     // now fails the build the moment a third one is introduced.
+    // `sliderPlacement` is the second key with that treatment: the light, cover
+    // and fan families all offer it, so it is declared once in
+    // `./sliderPlacement` and merged once below
+    // (docs/specs/entity-cards/options/common.md — "Shared slider placement").
+    //
+    // Nothing may be written BETWEEN the `.merge(...)` calls, comments included.
+    // That guard reads this chain out of the source with a regular expression
+    // that stops at the first thing which is not another `.merge(...)`, so a
+    // note tucked into the middle of it silently drops every fragment below the
+    // note from the check — the guard stays green while covering less. It
+    // asserts its own reach for that reason; see the test.
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(actionOptionsConfigSchema)
@@ -148,14 +159,6 @@ const gridItemSchema = z
       .merge(alarmOptionsConfigSchema)
       .merge(vacuumOptionsConfigSchema)
       .merge(personOptionsConfigSchema)
-      /*
-       * `sliderPlacement` is offered by the light, cover and fan families and
-       * is therefore declared once, in `./sliderPlacement`, and merged once
-       * here — the same treatment `confirm` gets, for the same reason: three
-       * fragments declaring one key would put its validation at the mercy of
-       * this chain's order (docs/specs/entity-cards/options/common.md —
-       * "Shared slider placement").
-       */
       .merge(sliderPlacementConfigSchema)
       /*
        * The one key this gate deliberately accepts in two shapes, and the only
