@@ -64,7 +64,7 @@ The legacy-compatibility acceptance criterion lives with the contract, not here:
 
 ## Tasks
 
-- [ ] `iconOnly` option end to end with seam-level content suppression, centred icon, per-card anchors (camera/person/sensor), danger-floor reversion; display + round-trip tests, suppression coverage across card families, stories
+- [x] `iconOnly` option end to end with seam-level content suppression, centred icon, per-card anchors (camera/person/sensor), danger-floor reversion; display + round-trip tests, suppression coverage across card families, stories
 - [ ] Audit every registered card and variant for seam bypass (own layout instead of `CardBody`, or no icon slot) and give each one its icon-only form — climate `dial` and weather `minimal` included; a test asserting every registered card and variant resolves exactly one identity anchor under `iconOnly` — the glyph for most cards, the thumbnail or avatar for the cards the contract exempts — with all other content suppressed
 - [ ] Tile state tint: active/inactive tile treatment on the option's own marker (never the derived `data-icon-only`), colour resolution reuse (incl. bulb colour), level modulation, the new marker promoted into the theming stable selector contract (spec + changelog + structure tests), a regression test that a legacy `hideName` + `hideState` tile stays neutral, tint stories
 

@@ -136,11 +136,21 @@ function SensorCardComponent({
    * "Fallbacks").
    */
   const { config } = useCardItem()
-  const { hideState, color: storedColor } = readCardDisplay(config)
+  const { hideState, iconOnly, color: storedColor } = readCardDisplay(config)
   const options = readSensorOptions(config)
 
   const isGlance = tier === 'glance'
-  const showsValue = !hideState
+  /*
+   * `iconOnly` joins `hideState` here for the same reason `hideState` is read
+   * at all, one step further along: the body seam suppresses every slot but the
+   * lead, and in `glance` the lead is the big value rather than the glyph — so
+   * a card that only collapsed its slots would render an icon-only tile with a
+   * number on it and no icon. The sensor's identity anchor under the option is
+   * its icon, which the option contract names as one of the three anchor
+   * exceptions to reuse rather than invent
+   * (docs/specs/entity-cards/options/common.md — "Icon-only presentation").
+   */
+  const showsValue = !hideState && !iconOnly
 
   /*
    * Which history surfaces this tier asks for, and therefore which projections
@@ -159,7 +169,15 @@ function SensorCardComponent({
     options.graphMode,
     readStringAttribute(entity, 'state_class')
   )
-  const wantsGraph = !isGlance && options.showGraph
+  /*
+   * `iconOnly` gates this as firmly as `showGraph: false` does, and for the
+   * same reason: the flag decides what history this card asks the recorder for,
+   * and an icon-only tile draws no graph at any tier. Left ungated the card
+   * would keep issuing history requests and holding a subscription for a
+   * sparkline the seam has already suppressed — invisible work, on every such
+   * tile on the dashboard.
+   */
+  const wantsGraph = !isGlance && options.showGraph && !iconOnly
   const wantsBars = wantsGraph && graphMode === 'bar'
   const wantsTrend = isGlance && options.showTrend && showsValue
   const wantsSamples = wantsGraph && (!wantsBars || tier === 'full')

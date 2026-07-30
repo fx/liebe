@@ -183,7 +183,21 @@ function CameraCardComponent({
    * takes this branch, so its no-reconnect guarantee is untouched.
    */
   const tierLayout = resolveCameraTier(tier)
-  const showStreamSurface = tierLayout.live || isFullscreen
+  /*
+   * `iconOnly` takes the tile down to the degraded thumbnail, which is this
+   * card's identity anchor under the option: "the camera's icon-only tile is
+   * its image-only thumbnail (its existing `hideName` form)"
+   * (docs/specs/entity-cards/options/common.md — "Icon-only presentation").
+   * The card resolves it here rather than the shell suppressing it, because
+   * what the option removes on this card is a live stream and its whole
+   * overlay chrome — a surface the seam cannot reach, and one that costs a
+   * connection for as long as it is mounted.
+   *
+   * Fullscreen still wins: the whole tile stays the tap target under the
+   * option, the camera's tap opens the in-place overlay, and mounting the
+   * stream is the point of opening it.
+   */
+  const showStreamSurface = (tierLayout.live && !display.iconOnly) || isFullscreen
 
   // Bootstrap <ha-camera-stream>: 'ready' renders the element, 'unavailable'
   // falls back to the still image, 'loading' keeps the connecting state.
