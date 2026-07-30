@@ -184,12 +184,19 @@ This closes the "Legacy `size` prop migration" open question the design-system s
 - They MUST reject when the parsed object lacks a truthy `version` or a `screens` array (`'Invalid configuration format'`), and MUST run `checkVersionCompatibility`: a higher major version than `CURRENT_VERSION` (`1.0.0`) is rejected; a lower major is accepted with an upgrade message; equal is accepted silently.
 - `parseConfigurationFromFile` MUST return `{ config, versionMessage? }` for preview WITHOUT mutating the store. `importConfigurationFromFile` MUST additionally back up the current config, migrate, force `version` to `CURRENT_VERSION`, load it into the store, and save it to `localStorage`.
 - YAML and JSON syntax errors MUST be surfaced as `'Failed to parse YAML: …'` / `'Failed to parse JSON: …'` respectively.
+- **Validation runs before migration, so a renamed option key's legacy spelling MUST still validate.** An import is validated as it arrived and migrated afterwards. Where a loader migration renames a key the schema _validates_ — as opposed to one it merely passes through — the schema MUST accept the legacy spelling alongside the current one, or a shared document written before the rename is rejected before the migration that would fix it can run. The tolerance is exactly the legacy shape and nothing wider: a value that is neither shape MUST still fail, naming the field. Nothing writes the legacy spelling back out, because the loader has renamed it before the store sees the document. The cover card's [`stateLabelStyle`](../entity-cards/options/cover.md#state-label-style-statelabelstyle), renamed from `stateLabels` by change [0038](../../changes/0038-option-key-collision.md), is the live instance.
 
 #### Scenario: Import preview does not mutate
 
 - **GIVEN** a valid `.yaml` file
 - **WHEN** `parseConfigurationFromFile` resolves
 - **THEN** the store is unchanged and the caller receives the parsed config for display in `ImportPreviewDialog`
+
+#### Scenario: A pre-rename option key imports and is upgraded
+
+- **GIVEN** a shared file whose cover card carries the legacy `stateLabels: open-closed` and whose switch card carries its own `stateLabels: { onLabel, offLabel }`
+- **WHEN** `importConfigurationFromFile` runs
+- **THEN** the import succeeds, the cover card's key is `stateLabelStyle: open-closed` with no `stateLabels` left behind, and the switch card's object is unchanged
 
 #### Scenario: Reject invalid structure
 
@@ -446,10 +453,11 @@ Storage keys (`src/store/persistence.ts:7`): `liebe-config`, `liebe-mode`, `lieb
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                                 | Document                                               |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                             | —                                                      |
-| 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying                                                        | [0004](../../changes/0004-portable-config-contract.md) |
-| 2026-07-26 | `theme` becomes `{ id, appearance, customCss }`: new store shape, `setTheme(partial)`, legacy scalar migration on every load route, object-shaped export, picker / appearance control / custom-CSS editor              | [0012](../../changes/0012-theming-engine.md)           |
-| 2026-07-26 | Forward-compatibility invariant added: unrecognised values round-trip unchanged and are resolved for display only                                                                                                      | [0012](../../changes/0012-theming-engine.md)           |
-| 2026-07-27 | Legacy `size` prop audited against the persisted shape: never a stored key, derived at render time from the already-persisted `width`/`height`, so no configuration migrates; tier recorded as derived-never-persisted | [0011](../../changes/0011-layout-tiers.md)             |
+| Date       | Change                                                                                                                                                                                                                                                                                                 | Document                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                                                                                                             | —                                                      |
+| 2026-07-18 | Canonical portable contract: `sidebarWidgets` now portable, YAML carries `tabsExpanded`/`sidebarWidgets`, `setMode`/top-level `setGridResolution` stop dirtying                                                                                                                                        | [0004](../../changes/0004-portable-config-contract.md) |
+| 2026-07-26 | `theme` becomes `{ id, appearance, customCss }`: new store shape, `setTheme(partial)`, legacy scalar migration on every load route, object-shaped export, picker / appearance control / custom-CSS editor                                                                                              | [0012](../../changes/0012-theming-engine.md)           |
+| 2026-07-26 | Forward-compatibility invariant added: unrecognised values round-trip unchanged and are resolved for display only                                                                                                                                                                                      | [0012](../../changes/0012-theming-engine.md)           |
+| 2026-07-27 | Legacy `size` prop audited against the persisted shape: never a stored key, derived at render time from the already-persisted `width`/`height`, so no configuration migrates; tier recorded as derived-never-persisted                                                                                 | [0011](../../changes/0011-layout-tiers.md)             |
+| 2026-07-30 | The cover card's `stateLabels` renamed to `stateLabelStyle`, ending the shared-key collision that made the switch family's documented `stateLabels` object unimportable; loader rename keyed on domain and value shape, legacy spelling tolerated at the gate because validation runs before migration | [0038](../../changes/0038-option-key-collision.md)     |

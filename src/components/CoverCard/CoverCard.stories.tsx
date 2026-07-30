@@ -34,7 +34,7 @@ type Story = StoryObj<CoverCardStoryProps>
  */
 const FULL_CELL: Partial<CoverCardStoryProps> = { gridWidth: 3, gridHeight: 4 }
 
-/** The card's state line, which is where `stateLabels` and `invertPosition` land. */
+/** The card's state line, which is where `stateLabelStyle` and `invertPosition` land. */
 function readState(canvasElement: HTMLElement): string {
   return canvasElement.querySelector('.liebe-state')?.textContent ?? ''
 }
@@ -316,20 +316,20 @@ export const WithoutTiltControls: Story = {
   },
 }
 
-/** `stateLabels: 'percent'` — the default for a cover that reports a position. */
-export const StateLabelsPercent: Story = {
+/** `stateLabelStyle: 'percent'` — the default for a cover that reports a position. */
+export const StateLabelStylePercent: Story = {
   parameters: {
-    liebe: { itemConfig: { stateLabels: 'percent' }, entities: [createCoverEntity()] },
+    liebe: { itemConfig: { stateLabelStyle: 'percent' }, entities: [createCoverEntity()] },
   },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('70% OPEN')
   },
 }
 
-/** `stateLabels: 'open-closed'` — a percentage is noise on a garage door. */
-export const StateLabelsOpenClosed: Story = {
+/** `stateLabelStyle: 'open-closed'` — a percentage is noise on a garage door. */
+export const StateLabelStyleOpenClosed: Story = {
   parameters: {
-    liebe: { itemConfig: { stateLabels: 'open-closed' }, entities: [createCoverEntity()] },
+    liebe: { itemConfig: { stateLabelStyle: 'open-closed' }, entities: [createCoverEntity()] },
   },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('OPEN')
