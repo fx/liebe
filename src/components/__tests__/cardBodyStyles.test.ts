@@ -68,25 +68,41 @@ describe('card body stylesheet', () => {
   })
 })
 
-describe('the tall fill band', () => {
-  it('distributes its control on the inline axis while stretching it on the block axis', () => {
-    /*
-     * A vertical slider is `--liebe-control-height` wide inside a control row
-     * that spans the band, so the band's own `justify-content` has nothing left
-     * to centre — the control has to be distributed by the row it is in, or it
-     * sits against the tile's leading edge. That is the second half of the
-     * defect the design system now rules out: "A vertical slider MUST also
-     * render horizontally centred within whatever region hosts it, not pinned to
-     * the region's leading edge" (docs/specs/design-system — "Card anatomy").
-     *
-     * The block axis is the other half of the same rule and is asserted with it:
-     * the band exists to give a vertical control the height the icon and the
-     * meta leave, which it only gets by stretching.
-     */
+describe('the tall arrangement centres its vertical control', () => {
+  /**
+   * "A vertical slider MUST also render horizontally centred within whatever
+   * region hosts it, not pinned to the region's leading edge"
+   * (docs/specs/design-system — "Card anatomy").
+   *
+   * TWO declarations hold that rule, and this block asserts both in the order
+   * they take effect, because only the first is load-bearing as the sheet stands
+   * today. Measured in Chromium on the rendered `tall` light, cover, fan and
+   * `input_number` cards (88px cell → 64px body, 42px control):
+   *
+   *   - as shipped                             slider centre − region centre = 0
+   *   - band stretched, row centring kept      0
+   *   - band stretched, row centring dropped   −11 (half the leftover width)
+   *
+   * So `align-items: center` is what centres the control now — it makes the band
+   * a fit-content item that hugs the 42px control — and the row's own centring is
+   * the guard that keeps the rule true if the band is ever stretched. Asserting
+   * only the guard would have been a test that passes with the rule broken.
+   */
+  it('centres the band itself, which is what puts the control on the tile’s midline', () => {
+    const tall = ruleBody(body, ".liebe-card-body[data-arrangement='tall']")
+    expect(tall).toContain('align-items: center;')
+  })
+
+  it('also centres inside the band, so a stretched band cannot left-flush the control', () => {
+    // `.liebe-card-controls` spans whatever box it is in (`inline-size: 100%`),
+    // so a stretched band would hand the control a full-width row to sit at the
+    // leading edge of — this is what stops that.
     expect(ruleBody(shell, '.liebe-card-controls')).toContain('inline-size: 100%;')
 
     const band = ruleBody(body, '.liebe-card-body-fill > .liebe-card-controls')
     expect(band).toContain('justify-content: center;')
+    // The block axis is the band's own purpose, asserted with it: the control
+    // only gets the height the icon and the meta leave by stretching into it.
     expect(band).toContain('align-self: stretch;')
   })
 

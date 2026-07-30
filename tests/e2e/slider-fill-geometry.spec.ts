@@ -68,8 +68,20 @@ interface SliderGeometry {
   fill: Box
   /** The slider root, whose centring within its host region is the second rule. */
   slider: Box
-  /** The region hosting it — the `tall` body's control band. */
-  band: Box
+  /**
+   * The region hosting it, which the centring rule is about: the `tall` body's
+   * inline extent — the tile's content box.
+   *
+   * Deliberately NOT the control band (`.liebe-card-body-fill`). The `tall`
+   * arrangement centres its items, so the band is a fit-content box that hugs
+   * the 42px control: measured in Chromium, band and slider are the same 42px to
+   * the pixel, which makes "the slider is centred in the band" true of a
+   * stretched slider and of a centred one alike. A precondition on that pair
+   * cannot be satisfied, and the assertion under it cannot fail. The body is the
+   * box with room to be off-centre in — 64px against the control's 42px — so it
+   * is the pair the rule governs and the pair measured here.
+   */
+  region: Box
 }
 
 /** The friendly name the panel currently knows for an entity. */
@@ -128,8 +140,8 @@ async function sliderGeometry(page: Page, name: string): Promise<SliderGeometry 
     const slider = card.querySelector('.liebe-slider')
     const track = slider?.querySelector('.liebe-slider-track')
     const fill = slider?.querySelector('.liebe-slider-fill')
-    const band = card.querySelector('.liebe-card-body-fill')
-    if (!slider || !track || !fill || !band) return null
+    const region = card.querySelector('.liebe-card-body')
+    if (!slider || !track || !fill || !region) return null
 
     const box = (element: Element) => {
       const { left, right, top, bottom, width, height } = element.getBoundingClientRect()
@@ -142,7 +154,7 @@ async function sliderGeometry(page: Page, name: string): Promise<SliderGeometry 
       track: box(track),
       fill: box(fill),
       slider: box(slider),
-      band: box(band),
+      region: box(region),
     }
   }, name)
 }
@@ -189,7 +201,7 @@ test('a tall card’s vertical slider fill spans its track and is centred in it'
   expect(geometry!.tier).toBe('tall')
   expect(geometry!.orientation).toBe('vertical')
 
-  const { track, fill, slider, band } = geometry!
+  const { track, fill, slider, region } = geometry!
 
   // Sub-pixel tolerance throughout: the track's width comes from a token in
   // `px`, but a fractional grid column can still land either box on a
@@ -221,10 +233,19 @@ test('a tall card’s vertical slider fill spans its track and is centred in it'
   expect(fill.height).toBeLessThan(track.height)
   expect(Math.abs(fill.bottom - track.bottom)).toBeLessThanOrEqual(TOLERANCE)
 
-  // The second rule: the slider sits centred in the region hosting it, not
-  // against its leading edge.
-  expect(band.width).toBeGreaterThan(slider.width)
+  /*
+   * The second rule: the slider sits centred in the region hosting it, not
+   * against its leading edge.
+   *
+   * The precondition earns its place — it is what makes the claim below capable
+   * of failing, and it is why this measures the body rather than the control
+   * band. A control that filled its region cannot be off-centre in it, so the
+   * assertion would hold whatever the CSS did. Measured in Chromium, the body is
+   * 64px against the control's 42px, and removing both declarations that centre
+   * it moves the slider 11px — half the leftover — off the region's midline.
+   */
+  expect(region.width).toBeGreaterThan(slider.width)
   const sliderCentre = slider.left + slider.width / 2
-  const bandCentre = band.left + band.width / 2
-  expect(Math.abs(sliderCentre - bandCentre)).toBeLessThanOrEqual(1)
+  const regionCentre = region.left + region.width / 2
+  expect(Math.abs(sliderCentre - regionCentre)).toBeLessThanOrEqual(1)
 })
