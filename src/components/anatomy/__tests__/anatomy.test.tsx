@@ -66,9 +66,16 @@ describe('anatomyPart', () => {
     // the pattern's per-appearance glyph step reaches for a darker step of the
     // domain hue, and a live colour has none to reach for. Leaving it out would
     // put the glyph on the token's hue inside a tint mixed from the bulb's.
+    //
+    // `--liebe-part-color` is the same value under the name the theming
+    // contract publishes, and it has to move with the live hue rather than with
+    // the `data-color` triplet: a theme reading "this part's colour" on a bulb
+    // rendering its own RGB would otherwise be told amber while the part paints
+    // orange (docs/changes/0036-theming-contract-gaps.md PR 3).
     expect(
       anatomyPart('liebe-icon', { color: 'light', domain: 'light', hue: 'rgb(255, 170, 80)' }).style
     ).toEqual({
+      '--liebe-part-color': 'rgb(255, 170, 80)',
       '--part-color': 'rgb(255, 170, 80)',
       '--part-tint': 'color-mix(in srgb, rgb(255, 170, 80) 20%, transparent)',
       '--part-text': 'rgb(255, 170, 80)',

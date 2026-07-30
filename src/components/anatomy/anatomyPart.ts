@@ -71,15 +71,21 @@ export interface AnatomyPartAttributes {
  * design system's `useLightColor` exception grants — the bulb's own colour is
  * the information — and it reaches no other part.
  *
+ * `--liebe-part-color` is the published half of the same value — the token a
+ * theme reads to get "this part's own colour" (docs/specs/theming, "Stable
+ * selector contract"). It is overridden alongside the internal one and from the
+ * same `hue`, so a theme colouring a part by the token sees the bulb's real
+ * colour rather than the `data-color` triplet the bulb is standing in for.
+ *
  * Exported for the one consumer outside this module: the card shell writes the
- * same four properties on an **icon-only tile**, where the tile itself is the
- * tint surface and therefore needs the survivor of `resolveCardHue` the way a
- * part does (docs/changes/0033-icon-only-cards.md). Shared rather than
- * reimplemented so a bulb's tile and its glyph cannot mix their tint at
- * different strengths.
+ * same properties on an **icon-only tile**, where the tile itself is the tint
+ * surface and therefore needs the survivor of `resolveCardHue` the way a part
+ * does (docs/changes/0033-icon-only-cards.md). Shared rather than reimplemented
+ * so a bulb's tile and its glyph cannot mix their tint at different strengths.
  */
 export function hueStyle(hue: string): CSSProperties {
   return {
+    '--liebe-part-color': hue,
     '--part-color': hue,
     '--part-tint': `color-mix(in srgb, ${hue} 20%, transparent)`,
     '--part-text': hue,

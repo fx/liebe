@@ -5,7 +5,8 @@ import { isFullyLayered } from '../cssLayers'
 import {
   domainColorTokens,
   domainColors,
-  listTokenNames,
+  listRootDeclaredTokenNames,
+  listUseDefaultedTokenNames,
   surfaceReferences,
   tokenGroups,
 } from '../tokens'
@@ -148,8 +149,29 @@ const LIGHT_TEXT_STEPS = new Map([
 ])
 
 describe('token stylesheet', () => {
-  it('declares every token the contract catalogues', () => {
-    expect([...base.keys()].sort()).toEqual([...listTokenNames()].sort())
+  it('declares exactly the tokens the contract catalogues as root-declared', () => {
+    // Both directions: a token catalogued but not declared, and a token
+    // declared but not catalogued, each fail here. The `defaultedAtUse` few are
+    // the deliberate exception and are checked by the test below instead — the
+    // two together still cover the whole contract.
+    expect([...base.keys()].sort()).toEqual([...listRootDeclaredTokenNames()].sort())
+  })
+
+  it('leaves the use-defaulted tokens undeclared, which is what makes them inert', () => {
+    // Declaring one here would defeat its own default. These are the tokens
+    // whose default is another token that components resolve LOCALLY — the
+    // label pair's `--liebe-muted` / `--liebe-fg` — and a custom property is
+    // substituted at the element that declares it, so an alias on the root
+    // resolves the neutral once at the root and inherits the answer. The rule
+    // it replaced read the neutral at the label, honouring anything set
+    // between; the fallback form keeps that and the root alias would not
+    // (docs/changes/0036-theming-contract-gaps.md PR 3, whose whole claim is
+    // that the tokens change nothing until a theme sets one).
+    const useDefaulted = listUseDefaultedTokenNames()
+    expect(useDefaulted.length).toBeGreaterThan(0)
+    for (const name of useDefaulted) {
+      expect(base.has(name), `${name} is declared on the root`).toBe(false)
+    }
   })
 
   it('pins no literal colour, so every value flows from a Radix scale', () => {
