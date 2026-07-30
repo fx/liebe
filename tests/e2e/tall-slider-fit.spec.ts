@@ -305,8 +305,11 @@ test('a tall card’s vertical slider takes the content region where the token d
     // and this would be the wrong case entirely.
     expect(contentRegion.width, where).toBeGreaterThanOrEqual(CROSS_AXIS_FLOOR)
 
-    // The rule: the track is the region's width, not the token's.
+    // The rule: the track is the region's width, not the token's — and the band
+    // is where that width is expressed, so it is measured with them.
     expect(slider, `${where} — a control must still render here`).not.toBeNull()
+    expect(band, `${where} — a filling control is laid out in a band`).not.toBeNull()
+    expect(Math.abs(band!.width - contentRegion.width), where).toBeLessThanOrEqual(TOLERANCE)
     expect(Math.abs(slider!.width - contentRegion.width), where).toBeLessThanOrEqual(TOLERANCE)
     expect(Math.abs(track!.width - contentRegion.width), where).toBeLessThanOrEqual(TOLERANCE)
     /*

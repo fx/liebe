@@ -56,9 +56,10 @@ describe('controlFitsArrangement', () => {
      */
     expect(controlFitsArrangement('horizontal', 'tall', undefined)).toBe(true)
     expect(controlFitsArrangement('vertical', 'row', undefined)).toBe(true)
-    // And the same for the band, on the axis it bounds: unobserved is not short.
+    // And the same for the band, which is what the `tall` vertical case reads:
+    // an unmeasured band is not a short one, whatever the region says.
     expect(controlFitsArrangement('vertical', 'tall', undefined, undefined)).toBe(true)
-    expect(controlFitsArrangement('vertical', 'tall', 35, undefined)).toBe(true)
+    expect(controlFitsArrangement('vertical', 'tall', 0, undefined)).toBe(true)
   })
 
   it('omits a horizontal control in `tall` below the long-axis floor', () => {
@@ -73,20 +74,32 @@ describe('controlFitsArrangement', () => {
 
   it('omits a vertical control in `tall` below the cross-axis floor', () => {
     /*
-     * The tier's OWN placement, and the case change 0042 PR 3 is about: the
-     * region bounds the track's thickness, so a region under 24px is a track
-     * nobody could land on however long the band is. 19px is LCARS's content
-     * region on a 12-column desktop grid, which the spec names by number
-     * ("no slider renders at all — 19px is under the 24px floor").
+     * The tier's OWN placement, and the case change 0042 PR 3 is about. The
+     * reading is the BAND's inline size rather than the region's, because the
+     * band IS the control's box: `CardBody.css` sizes it
+     * `min(--liebe-control-height, 100%)` and the track reads 100% of it. So
+     * this is the floor measured "on the control as it renders", which the
+     * region alone cannot be — a theme may pin the token at 10px in a 35px
+     * region, and a region-only check would let a 10px track through.
+     *
+     * 19px is what LCARS's inset leaves a 12-column desktop tile, which the
+     * spec names by number ("no slider renders at all — 19px is under the 24px
+     * floor"); the band is min(42, 19) there, so it is the same number.
      */
-    expect(controlFitsArrangement('vertical', 'tall', 19, 120)).toBe(false)
-    expect(controlFitsArrangement('vertical', 'tall', 0, 120)).toBe(false)
-    expect(controlFitsArrangement('vertical', 'tall', 23, 120)).toBe(false)
-    expect(controlFitsArrangement('vertical', 'tall', 24, 120)).toBe(true)
+    const band = (inlineSize: number) => ({ inlineSize, blockSize: 120 })
+
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(19))).toBe(false)
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(0))).toBe(false)
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(23))).toBe(false)
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(24))).toBe(true)
     // 35px is the default theme's region on that same grid — narrower than the
     // 42px token and comfortably over the floor, so the track narrows and the
     // control stays. That is the whole point of the flexibility.
-    expect(controlFitsArrangement('vertical', 'tall', 35, 120)).toBe(true)
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(35))).toBe(true)
+    // A themed token under the floor inside a region well over it: the region
+    // says yes and the rendered control says no, which is the disagreement the
+    // band exists to resolve.
+    expect(controlFitsArrangement('vertical', 'tall', 300, band(10))).toBe(false)
   })
 
   it('omits a vertical control in `tall` below the long-axis floor', () => {
@@ -94,23 +107,31 @@ describe('controlFitsArrangement', () => {
      * The other axis, and the one no card can derive: "a tile that clears 120px
      * can still leave a band that does not clear 44px", because the inset, the
      * icon circle, the meta block and the gaps all come out first. Measured on
-     * the band rather than inferred from the tile (`useControlBandHeight`).
+     * the band rather than inferred from the tile (`useControlBandBox`).
      */
-    expect(controlFitsArrangement('vertical', 'tall', 35, 30)).toBe(false)
-    expect(controlFitsArrangement('vertical', 'tall', 35, 43)).toBe(false)
-    expect(controlFitsArrangement('vertical', 'tall', 35, 44)).toBe(true)
-    // Both floors, independently: a comfortable band cannot rescue a sub-floor
-    // region and a comfortable region cannot rescue a sub-floor band.
-    expect(controlFitsArrangement('vertical', 'tall', 19, 400)).toBe(false)
-    expect(controlFitsArrangement('vertical', 'tall', 400, 30)).toBe(false)
+    const band = (blockSize: number) => ({ inlineSize: 35, blockSize })
+
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(30))).toBe(false)
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(43))).toBe(false)
+    expect(controlFitsArrangement('vertical', 'tall', 63, band(44))).toBe(true)
+    // Both floors, independently: a long band cannot rescue a thin track and a
+    // thick track cannot rescue a short band.
+    expect(controlFitsArrangement('vertical', 'tall', 63, { inlineSize: 19, blockSize: 400 })).toBe(
+      false
+    )
+    expect(controlFitsArrangement('vertical', 'tall', 63, { inlineSize: 42, blockSize: 30 })).toBe(
+      false
+    )
   })
 
   it('leaves the band out of the answer for shapes that have no band', () => {
-    // Only the `tall` fill shape has one, so a height reported for any other
-    // shape is not a capacity this predicate may spend: a row line's control
-    // runs across the line, not down a band.
-    expect(controlFitsArrangement('vertical', 'row', 35, 10)).toBe(true)
-    expect(controlFitsArrangement('horizontal', 'tall', 44, 10)).toBe(true)
+    // Only the `tall` fill shape has one, so a box reported for any other shape
+    // is not a capacity this predicate may spend: a row line's control runs
+    // across the line, not down a band.
+    const band = { inlineSize: 10, blockSize: 10 }
+
+    expect(controlFitsArrangement('vertical', 'row', 35, band)).toBe(true)
+    expect(controlFitsArrangement('horizontal', 'tall', 44, band)).toBe(true)
   })
 
   it('omits a vertical control on a row line below the cross-axis floor', () => {
@@ -154,13 +175,17 @@ describe('the body’s forced-placement seam', () => {
   /**
    * An observer reporting a content box to whatever it is asked to watch.
    *
-   * Two targets are watched in a `tall` body — the shell's own box, which
-   * publishes the content width, and the control band, whose height is the
-   * long-axis capacity — so the stub answers per target rather than with one
-   * size for both. Keyed on the band's class, since that is what distinguishes
-   * them in the DOM as well.
+   * Two targets are watched in a `tall` body, and they are different boxes: the
+   * shell's own, which publishes the content width, and the control band, which
+   * is the vertical control's own box on both axes. jsdom applies no stylesheet,
+   * so the relationship the sheet establishes between them — the band is
+   * `min(--liebe-control-height, 100%)` of the region — is the fixture's to
+   * state rather than something a rendered test can derive. Keyed on the band's
+   * class, which is what distinguishes the two in the DOM as well.
    */
-  function observeBox(inlineSize: number, bandHeight = 120) {
+  function observeBox(inlineSize: number, bandBox?: { inlineSize: number; blockSize: number }) {
+    const band = bandBox ?? { inlineSize, blockSize: 120 }
+
     class TestResizeObserver {
       constructor(private readonly callback: ResizeObserverCallback) {}
 
@@ -168,10 +193,10 @@ describe('the body’s forced-placement seam', () => {
         // A partial entry: the consumers read `contentBoxSize` and nothing
         // else, and building a whole `ResizeObserverEntry` would assert nothing
         // more.
-        const band = target.classList.contains('liebe-card-body-fill')
+        const isBand = target.classList.contains('liebe-card-body-fill')
         const entry = {
           target,
-          contentBoxSize: [{ inlineSize, blockSize: band ? bandHeight : 120 }],
+          contentBoxSize: [isBand ? band : { inlineSize, blockSize: 120 }],
         } as unknown as ResizeObserverEntry
         this.callback([entry], this as unknown as ResizeObserver)
       }
@@ -183,8 +208,12 @@ describe('the body’s forced-placement seam', () => {
     global.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserver
   }
 
-  function renderBody(props: Parameters<typeof CardBody>[0], width?: number, bandHeight?: number) {
-    if (width !== undefined) observeBox(width, bandHeight)
+  function renderBody(
+    props: Parameters<typeof CardBody>[0],
+    width?: number,
+    bandBox?: { inlineSize: number; blockSize: number }
+  ) {
+    if (width !== undefined) observeBox(width, bandBox)
     return render(
       <GridCard domain="light">
         <CardBody {...props} />
@@ -245,7 +274,7 @@ describe('the body’s forced-placement seam', () => {
     expect(bodyAttribute('data-control-orientation')).toBeNull()
     /*
      * The band STAYS, empty. It is where the long-axis capacity is measured
-     * (`useControlBandHeight`), so a band that disappeared with its control
+     * (`useControlBandBox`), so a band that disappeared with its control
      * would take the measurement with it: the capacity would go back to
      * "not observed", the control would render again, and the two would
      * alternate forever. It also holds the tier's shape still as a tile is
@@ -293,8 +322,9 @@ describe('the body’s forced-placement seam', () => {
   it('omits the tier’s own vertical slider below the cross-axis floor', () => {
     /*
      * Not a forced placement: this is what every `tall` light, cover, fan and
-     * `input_number` card renders, on a content region a theme can drive under
-     * the floor (LCARS leaves a 12-column desktop tile 19px).
+     * `input_number` card renders, on a band a theme's inset can drive under the
+     * floor (LCARS leaves a 12-column desktop tile a 19px region, and the band
+     * is `min(token, region)` of it).
      */
     renderBody(
       {
@@ -304,11 +334,35 @@ describe('the body’s forced-placement seam', () => {
         lead: <span>icon</span>,
         control: <span data-testid="control">slider</span>,
       },
-      19
+      19,
+      { inlineSize: 19, blockSize: 120 }
     )
 
     expect(document.querySelector('[data-testid="control"]')).toBeNull()
     expect(document.querySelector('.liebe-card-body-fill')).not.toBeNull()
+  })
+
+  it('omits it where a theme pinned the token under the floor in a region that fits', () => {
+    /*
+     * `--liebe-control-height` is public theming API, so the rendered thickness
+     * is not the region's: a theme pinning it at 10px puts a 10px track in a
+     * 300px region, and a floor checked against the REGION would let it render.
+     * The band is what the sheet sizes to `min(token, region)`, which is why the
+     * floors are read off it.
+     */
+    renderBody(
+      {
+        arrangement: 'tall',
+        controlSize: 'fill',
+        controlOrientation: 'vertical',
+        lead: <span>icon</span>,
+        control: <span data-testid="control">slider</span>,
+      },
+      300,
+      { inlineSize: 10, blockSize: 120 }
+    )
+
+    expect(document.querySelector('[data-testid="control"]')).toBeNull()
   })
 
   it('omits it below the long-axis floor the band publishes, at a region that fits', () => {
@@ -324,7 +378,7 @@ describe('the body’s forced-placement seam', () => {
         control: <span data-testid="control">slider</span>,
       },
       35,
-      20
+      { inlineSize: 35, blockSize: 20 }
     )
 
     expect(document.querySelector('[data-testid="control"]')).toBeNull()
@@ -344,7 +398,7 @@ describe('the body’s forced-placement seam', () => {
         control: <span data-testid="control">slider</span>,
       },
       35,
-      90
+      { inlineSize: 35, blockSize: 90 }
     )
 
     expect(document.querySelector('[data-testid="control"]')).not.toBeNull()
@@ -384,7 +438,7 @@ describe('the body’s forced-placement seam', () => {
         control: <span data-testid="control">slider</span>,
       },
       35,
-      20
+      { inlineSize: 35, blockSize: 20 }
     )
 
     expect(document.querySelector('[data-testid="control"]')).toBeNull()

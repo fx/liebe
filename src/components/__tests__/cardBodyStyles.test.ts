@@ -142,10 +142,13 @@ describe('the tall arrangement centres its vertical control', () => {
    *   - band stretched, row centring kept      0
    *   - band stretched, row centring dropped   −11 (half the leftover width)
    *
-   * So `align-items: center` is what centres the control now — it makes the band
-   * a fit-content item that hugs the 42px control — and the row's own centring is
-   * the guard that keeps the rule true if the band is ever stretched. Asserting
-   * only the guard would have been a test that passes with the rule broken.
+   * So `align-items: center` is what centres the control now — the band is a
+   * narrow item in the body's cross axis, so centring it puts the control on the
+   * tile's midline — and the row's own centring is the guard that keeps the rule
+   * true if the band is ever stretched. Asserting only the guard would have been
+   * a test that passes with the rule broken. (Change 0042 PR 3 made the band's
+   * width `min(token, 100%)` rather than fit-content, which changes how it gets
+   * its width and not that it has one narrower than the body to be centred in.)
    */
   it('centres the band itself, which is what puts the control on the tile’s midline', () => {
     const tall = ruleBody(body, ".liebe-card-body[data-arrangement='tall']")
@@ -188,59 +191,53 @@ describe('the tall band’s vertical control is cross-axis flexible', () => {
    * `tall` is one column wide by definition, so the region that bounds it is the
    * narrowest the design system ever hands a control: a 12-column desktop grid
    * at 960px lays out a 63px tile with a 35px content region, against a 42px
-   * track. Three declarations hold the rule and each is useless without the
-   * others, which is why they are asserted together rather than as one
+   * track. Two declarations hold the rule and neither is useful without the
+   * other, which is why they are asserted together rather than as one
    * "flexible" claim.
    *
    * None of this is visible to a rendered test: jsdom applies no stylesheet and
    * lays nothing out, so the track measures the same whichever way this sheet
    * reads. `tests/e2e/tall-slider-fit.spec.ts` is the half that measures.
    */
-  it('stops the band itself outgrowing the tile’s content region', () => {
+  it('sizes the band to the token or the region, whichever is smaller', () => {
     /*
-     * The band is a fit-content flex item (the arrangement's `align-items:
-     * center`), so its width is shrink-to-fit — min(max(min-content, available),
-     * max-content) — and a slot carrying a definite token width gives it a 42px
-     * min-content that shrink-to-fit will not reduce. Without this cap the band
-     * is 42px inside a 35px body and hangs 3.5px past each side, which is change
-     * 0042's first consequence exactly.
+     * `min()` of the two IS the rule — the thickness the control prefers,
+     * bounded by the room the tile has — and putting it on the band is what
+     * makes the chain resolve at all: every box below sizes as a percentage, so
+     * exactly one DEFINITE width has to sit at its head. Left fit-content, the
+     * band takes its width from a slot asking for 100% of it and the circular
+     * pair resolves to ZERO (0034 PR 1 measured that at 0 against the token's 42
+     * on the row shape). Neither term consults the content: the token is a
+     * length, and the percentage resolves against the body, whose own width is
+     * definite.
      */
-    expect(ruleBody(body, '.liebe-card-body-fill')).toContain('max-inline-size: 100%;')
-  })
+    const band = ruleBody(body, ".liebe-card-body-fill[data-band-axis='vertical']")
+    expect(band).toContain('inline-size: min(var(--liebe-control-height), 100%);')
 
-  it('puts the definite width on the slot, and lets it shrink with the band', () => {
-    const slot = ruleMatching(
-      /data-control-orientation='vertical'\].*> \.liebe-card-body-fill > \.liebe-card-controls$/
-    ).declarations
-
-    /*
-     * The direction is load-bearing, and it is the trap 0034 PR 1 paid for on
-     * the row shape: everything under this slot sizes as a percentage, so the
-     * chain needs exactly one definite width at its head. A slot left at
-     * `inline-size: 100%` — which is what the shell declares, and what an
-     * intrinsic-sizing pass treats as `auto` — takes its width from content
-     * asking for 100% of the slot, and the circular pair resolves to ZERO.
-     */
-    expect(slot).toContain('inline-size: var(--liebe-control-height);')
+    // The other half of the chain, from the shell's sheet: the slot spans the
+    // band it is in, so it inherits the band's answer rather than having one.
     expect(ruleBody(shell, '.liebe-card-controls')).toContain('inline-size: 100%;')
-
-    // Grow 0 keeps a region with room to spare at the token; shrink 1 is what
-    // narrows the track to a region that cannot afford it.
-    expect(slot).toContain('flex: 0 1 auto;')
-    // Without this the shrink is inert: a flex item's automatic minimum size is
-    // its content, and this slot's content has a fixed thickness.
-    expect(slot).toContain('min-inline-size: 0;')
   })
 
-  it('relaxes the track and its thumb, not only the slot around them', () => {
-    const control = ruleMatching(
-      /data-control-orientation='vertical'\].*\.liebe-card-body-fill.*\.liebe-slider-thumb$/
-    )
+  it('sizes the band on the axis the card asked for, not on the surviving stamp', () => {
+    /*
+     * `data-band-axis` rather than the body's `data-control-orientation`, and
+     * the difference is the mechanism rather than a spare hook: the body stamps
+     * its orientation only where a control SURVIVED the floors, while the band's
+     * width is what the floors are measured on. A band that lost its width along
+     * with its control would report zero, and a control omitted once could never
+     * come back however wide the tile grew.
+     */
+    expect(body).toMatch(/\.liebe-card-body-fill\[data-band-axis='vertical'\]/)
+    expect(body).not.toMatch(/data-control-orientation='vertical'\]\s*>\s*\.liebe-card-body-fill/)
+  })
 
-    // 100% OF THE SLOT, whose own width is the token; `max-inline-size` rather
-    // than a replacement width, so the token still names the thickness the
-    // control PREFERS and only a region that cannot afford it resolves
-    // differently.
+  it('relaxes the track and its thumb, not only the band around them', () => {
+    const control = ruleMatching(/data-band-axis='vertical'\].*\.liebe-slider-thumb$/)
+
+    // 100% OF THE BAND, whose own width is the `min()` above; `max-inline-size`
+    // as well, so the token still names the thickness the control PREFERS on a
+    // path where the band is stretched for some other reason.
     expect(control.declarations).toContain('inline-size: 100%;')
     expect(control.declarations).toContain('max-inline-size: var(--liebe-control-height);')
 
@@ -252,7 +249,7 @@ describe('the tall band’s vertical control is cross-axis flexible', () => {
     expect(control.selector).toMatch(/> span:not\(\[class\]\),/)
 
     // The premise, read off the anatomy sheet: both thicknesses this relaxes
-    // are fixed, so a rule that only shrank the slot would change nothing.
+    // are fixed, so a rule that only sized the band would change nothing.
     expect(anatomy).toMatch(
       /\.liebe-slider\[data-orientation='vertical'\]\s*\{[^}]*inline-size:\s*var\(--liebe-control-height\);/
     )
@@ -261,15 +258,17 @@ describe('the tall band’s vertical control is cross-axis flexible', () => {
     )
   })
 
-  it('outranks the band-slot sizing it has to override', () => {
-    // The band's own slot rule sets `align-self` and `justify-content` and is
-    // two classes deep; this one adds the token and must win the width without
-    // depending on which was written first.
-    expect(
-      weighOf(
-        /data-control-orientation='vertical'\][^,{]*liebe-card-body-fill[^,{]*liebe-card-controls$/
-      )
-    ).toBeGreaterThan(weighOf(/^\.liebe-card-body-fill > \.liebe-card-controls$/))
+  it('leaves every other band’s width alone', () => {
+    /*
+     * Scoped to the vertical band, so a `tall` band holding something else — the
+     * climate card's stepper, the sensor's stretched sparkline band — renders
+     * exactly as it did. Those parts are change 0042's FOURTH task, and bringing
+     * them under the rule here would be that task happening in this PR without
+     * the measurement it asks for.
+     */
+    const shared = ruleBody(body, '.liebe-card-body-fill')
+    expect(shared).not.toContain('inline-size:')
+    expect(shared).not.toContain('max-inline-size:')
   })
 })
 

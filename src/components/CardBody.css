@@ -140,26 +140,12 @@
    * `min-block-size: 0` because a flex item's automatic minimum size is its
    * content: without it a control taller than the room left would push the meta
    * off the bottom of the tile instead of shrinking inside the band.
-   *
-   * `max-inline-size: 100%` is the cross-axis half, and it is what makes the
-   * flexibility below reachable at all. The band is a fit-content item (the
-   * `tall` arrangement's `align-items: center`), so its width is shrink-to-fit
-   * against the body — min(max(min-content, available), max-content) — and a
-   * slot carrying a definite `--liebe-control-height` gives it a 42px
-   * min-content that shrink-to-fit will NOT reduce below the region. The band
-   * would then be 42px inside a 35px body and overhang it by 3.5px per side,
-   * which is change 0042's first consequence exactly. The percentage resolves
-   * against the body, whose own width is definite (`inline-size: 100%` of the
-   * tile's content box) — never against the band's own content, which is what
-   * would make it circular (docs/specs/design-system — "Cross-axis fit";
-   * docs/changes/0042-tall-tile-control-geometry.md).
    */
   .liebe-card-body-fill {
     align-items: center;
     display: flex;
     flex: 1 1 auto;
     justify-content: center;
-    max-inline-size: 100%;
     min-block-size: 0;
   }
 
@@ -192,9 +178,10 @@
    * "a vertical slider MUST render horizontally centred within whatever region
    * hosts it, not pinned to the region's leading edge" (docs/specs/design-system
    * — "Card anatomy"). The first is `align-items: center` on the `tall`
-   * arrangement above: it makes this band a fit-content item rather than a
-   * stretched one, so the band hugs the 42px control and lands centred, and the
-   * rule holds without anything here.
+   * arrangement above: the band is narrower than the body — fit-content by
+   * default, and `min(--liebe-control-height, 100%)` once it is sized for a
+   * vertical control (change 0042 PR 3) — so centring the band lands the control
+   * on the tile's midline, and the rule holds without anything here.
    *
    * This is kept because that is the whole of what holds it. Measured in
    * Chromium on the rendered `tall` light, cover, fan and `input_number` cards
@@ -226,9 +213,7 @@
    *
    * `tall` is one column wide by definition, so this is not an edge case: a
    * 12-column desktop grid at 960px lays out a 63px tile with a 35px content
-   * region, and the 42px track overhung it by 3.5px per side. The band's
-   * `max-inline-size` above is what stops the overhang; these two rules are
-   * what stop it being moved one box inwards instead of removed.
+   * region, and the 42px track overhung it by 3.5px per side.
    *
    * Below the floors the control is not narrowed at all but OMITTED, which is
    * `CardBody`'s decision rather than this sheet's — a stylesheet cannot take
@@ -237,44 +222,49 @@
    * ------------------------------------------------------------------ */
 
   /*
-   * **The slot carries the token and the control below reads 100% of the
-   * slot**, exactly as the forced-placement slot further down does, and for
-   * the reason spelled out there: everything under this slot sizes itself as a
-   * percentage, so the chain needs exactly one definite width at its head. An
-   * `inline-size: auto` slot (which is what `.liebe-card-controls`'
-   * `inline-size: 100%` becomes during the band's intrinsic sizing) takes its
-   * width from content asking for 100% of the slot, and the circular pair
-   * resolves to **zero** — the whole control disappears, in a tree jsdom lays
-   * nothing out for and a stylesheet that still reads correctly. 0034 PR 1
-   * measured that at 0 against the token's 42 on the row shape
-   * (`tests/e2e/forced-slider-placement.spec.ts`), which is why this one is
-   * written the same way round rather than rediscovered.
+   * **The band carries the width, and everything under it reads 100% of the
+   * band.** `min()` of the token and the region IS the rule — the thickness the
+   * control prefers, bounded by the room the tile has — expressed once, in the
+   * one box that can hold it.
    *
-   * `flex: 0 1 auto` — grow 0 so a region with room to spare leaves the track
-   * at the token rather than stretching it into something only its thumb can
-   * be grabbed by; shrink 1 is the half that narrows it to a region that
-   * cannot afford the token. `min-inline-size: 0` because a flex item's
-   * automatic minimum size is its content, and this slot's content is a
-   * control with a fixed thickness — without it the shrink buys nothing.
+   * The direction is load-bearing, and it is the trap 0034 PR 1 paid for on the
+   * row shape: every box under this one sizes itself as a percentage, so the
+   * chain needs exactly one DEFINITE width at its head. Leave the band
+   * fit-content and it takes its width from a slot asking for 100% of it, and
+   * the circular pair resolves to **zero** — the whole control disappears, in a
+   * tree jsdom lays nothing out for and a stylesheet that still reads correctly
+   * (measured at 0 against the token's 42 by
+   * `tests/e2e/forced-slider-placement.spec.ts`). Both terms here resolve
+   * without consulting the content: the token is a length, and the percentage
+   * resolves against the body, whose own width is definite (`inline-size: 100%`
+   * of the tile's content box).
    *
-   * `align-self: stretch` and `justify-content: center` are the band slot's
-   * own, from the rule above; nothing here disturbs them.
+   * **On the band's own attribute rather than on the body's
+   * `data-control-orientation`**, and that is deliberate rather than a spare
+   * hook: the body stamps its orientation only where a control SURVIVED the
+   * floors, while this width has to hold whether or not one did. It is what the
+   * band publishes as the rendered thickness (`useControlBandBox`), so a band
+   * that lost its width when its control was omitted would report 0, and a
+   * control omitted once could never return however wide the tile grew.
+   *
+   * `align-self: stretch` and `justify-content: center` stay the band slot's
+   * own, from the rule above; the slot's `inline-size: 100%` (`GridCard.css`)
+   * now resolves against a definite band.
    */
-  .liebe-card-body[data-control-orientation='vertical']
-    > .liebe-card-body-fill
-    > .liebe-card-controls {
-    flex: 0 1 auto;
-    inline-size: var(--liebe-control-height);
-    min-inline-size: 0;
+  .liebe-card-body-fill[data-band-axis='vertical'] {
+    inline-size: min(var(--liebe-control-height), 100%);
   }
 
   /*
-   * And the slider follows the slot rather than holding the token's thickness
+   * And the slider follows the band rather than holding the token's thickness
    * against it: `anatomy.css` sizes a vertical track at exactly
-   * `--liebe-control-height`, which is the fixed size the re-pin relaxes.
-   * `max-inline-size` rather than a replacement width, so the token still names
-   * the thickness the control PREFERS and only a region that cannot afford it
-   * resolves differently.
+   * `--liebe-control-height`, which is the fixed size the re-pin relaxes. A
+   * shrinking band around a rigid control moves the overflow one box inwards
+   * instead of removing it.
+   *
+   * `max-inline-size` as well as the percentage, so the token still names the
+   * thickness the control PREFERS on the path where the band is stretched for
+   * some other reason.
    *
    * The thumb takes the same treatment and it is not a detail: the vertical
    * thumb is a 3px-tall bar spanning the control's THICKNESS, so the anatomy
@@ -287,17 +277,12 @@
    * is pinned against the rendered DOM in
    * `__tests__/sliderPlacementTierLayouts.test.tsx`.
    */
-  .liebe-card-body[data-control-orientation='vertical']
-    > .liebe-card-body-fill
-    > .liebe-card-controls
-    > .liebe-slider,
-  .liebe-card-body[data-control-orientation='vertical']
-    > .liebe-card-body-fill
+  .liebe-card-body-fill[data-band-axis='vertical'] > .liebe-card-controls > .liebe-slider,
+  .liebe-card-body-fill[data-band-axis='vertical']
     > .liebe-card-controls
     > .liebe-slider
     > span:not([class]),
-  .liebe-card-body[data-control-orientation='vertical']
-    > .liebe-card-body-fill
+  .liebe-card-body-fill[data-band-axis='vertical']
     > .liebe-card-controls
     > .liebe-slider
     > span:not([class])
