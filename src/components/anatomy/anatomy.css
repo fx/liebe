@@ -244,12 +244,38 @@
    * Icon circle
    * ------------------------------------------------------------------ */
 
+  /*
+   * The circle is cross-axis flexible, for the reason every other part in a
+   * one-cell-wide tier is: "a part MUST NOT rely on the tile's inset to absorb
+   * an overhang" (docs/specs/design-system — "Cross-axis fit", change 0042
+   * PR 4). `--liebe-icon-circle` is 40px and a `tall` tile's content region on a
+   * 12-column desktop grid is 35px, so the fixed circle overhung it by 2.5px per
+   * side and leaned on the padding to stay uncropped — which held for the
+   * default theme's 14px and was never a property of the design system.
+   *
+   * The arithmetic is worth recording because it is not the one the other parts
+   * have: a symmetric inset cancels, so the circle is CLIPPED only where the
+   * TILE itself is narrower than the circle (a 16-column screen at 900px lays
+   * out a 39px tile), and merely overhangs its region at every width between.
+   * Both are the same rule, and `min()` closes them together.
+   *
+   * `aspect-ratio` with an automatic block size rather than a second `min()`:
+   * the block axis has no containing block to take a percentage of here — a
+   * `tall` body is as tall as the tile — so the ratio is what keeps a narrowed
+   * circle circular instead of an ellipse.
+   *
+   * `flex: none` stays. It is about the main axis of a row line — never squeezed
+   * by a long name beside it — and the clamp above is the cross-axis rule; the
+   * two do not meet. On a line wide enough for the token, `min()` resolves to
+   * the token and nothing moves.
+   */
   .liebe-icon {
-    block-size: var(--liebe-icon-circle);
+    aspect-ratio: 1;
+    block-size: auto;
     border-radius: var(--liebe-circle-radius);
     /* Never squeezed by a long name beside it in a row layout. */
     flex: none;
-    inline-size: var(--liebe-icon-circle);
+    inline-size: min(var(--liebe-icon-circle), 100%);
   }
 
   /* ------------------------------------------------------------------ *

@@ -162,7 +162,18 @@ export function TextHelperControl({
             value={localValue}
             onChange={(e) => setLocalValue(e.target.value)}
             autoFocus
-            style={{ minWidth: '150px' }}
+            /*
+             * Cross-axis flexible rather than a 150px minimum: the field takes
+             * the room the shape gives it and shrinks with it, which is what
+             * "a control rendered at a one-cell-wide tier MUST be cross-axis
+             * flexible" asks of it (docs/specs/design-system — "Cross-axis
+             * fit"). The old minimum was not merely too wide for a `tall`
+             * tile's 35px region — it overflowed a two-column `row` region
+             * (113px) as well, so this fixes the tier nobody had measured too.
+             * `minWidth: 0` because a flex item's automatic minimum size is its
+             * content, and without it the flex above buys nothing.
+             */
+            style={{ flex: 1, minWidth: 0 }}
             maxLength={attributes.max}
           />
           <IconButton
@@ -197,7 +208,18 @@ export function TextHelperControl({
           padding: '4px 12px',
           borderRadius: 'var(--radius-2)',
           backgroundColor: 'var(--gray-2)',
-          minWidth: '100px',
+          /*
+           * No inline minimum. The readout took 100px whatever the tile was,
+           * which a `tall` tile's 35px content region cannot hold — the tile's
+           * own `overflow: hidden` cropped it, the clip the omit-never-clip
+           * rule forbids. It now shrinks with the room and ellipsizes what will
+           * not fit, which is the meta block's established treatment for text
+           * too long for its box.
+           */
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
           textAlign: 'center',
         }}
       >
@@ -276,6 +298,33 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
   const isGlance = tier === 'glance'
 
   /*
+   * `tall` renders no inline input, and the tap goes to the detail dialog with
+   * it (change 0042 PR 4; docs/specs/design-system — "Cross-axis fit").
+   *
+   * A text field is bounded by its content on the axis this tier is one cell
+   * wide: it has a preferred width of its own and cannot be taken below it, so
+   * it is in the class the contract says MUST be omitted rather than made
+   * flexible — "a control that cannot be sized down at all MUST be omitted at
+   * that tier, in favour of one that can". Measured on a 12-column desktop grid
+   * at 960px: a 63px tile, a 35px content region, against a 100px readout and a
+   * 150px edit field. The tile's own `overflow: hidden` cropped both, which is
+   * the clip the omit-never-clip rule forbids.
+   *
+   * **Keyed on the tier, not on a measured width**, which is the same mechanism
+   * change 0042 PR 2 used for the `input_number` stepper and for the same
+   * reason: `tall` is one column wide by definition, so the condition needs no
+   * arithmetic and holds at 35px, at LCARS's 19px and at the 16-column case
+   * that leaves no content region at all. A card may not measure the DOM, and
+   * the shell's published width is not readable here in any case — this
+   * component renders the shell, so it sits outside its own provider.
+   *
+   * Both halves are one decision: the input goes, AND the tap falls back to
+   * `more-info`, or the tier removes the last way to operate the helper —
+   * "these floors outrank the no-last-control rule, and do not suspend it".
+   */
+  const controlOmitted = isGlance || tier === 'tall'
+
+  /*
    * The tile tap is the card's primary action: it focuses the text field,
    * entering the inline edit state (the option doc's "Primary action"). At
    * `glance` there is no field to focus, so the tap resolves to `more-info`
@@ -284,8 +333,8 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
    * configured `toggle` to `homeassistant.toggle` on an `input_text`.
    */
   const handleClick = useCallback(() => {
-    if (!isGlance) setIsEditing(true)
-  }, [isGlance])
+    if (!controlOmitted) setIsEditing(true)
+  }, [controlOmitted])
 
   // Keyed on the prop rather than on the resolved entity: the control that
   // calls this only renders past the early returns below, so the entity exists
@@ -361,7 +410,7 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
        * value (docs/specs/entity-cards/options/input-helpers.md — "In `glance`,
        * fall back to `more-info`").
        */
-      defaultAction={isGlance ? 'more-info' : undefined}
+      defaultAction={controlOmitted ? 'more-info' : undefined}
       title={error || undefined}
     >
       {/*
@@ -398,7 +447,7 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
           </GridCard.Meta>
         }
         control={
-          isGlance ? undefined : (
+          controlOmitted ? undefined : (
             <GridCard.Controls>
               <TextHelperControl
                 entity={entity}

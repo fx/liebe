@@ -463,7 +463,6 @@ describe('InputTextCard tiers', () => {
 
   it.each([
     ['row', 'row'],
-    ['tall', 'tall'],
     ['full', 'row'],
   ] as const)('keeps the value field at %s', (tier, shape) => {
     renderCard(<InputTextCard entityId="input_text.doorbell_message" tier={tier} />)
@@ -471,6 +470,28 @@ describe('InputTextCard tiers', () => {
     expect(arrangement()).toBe(shape)
     expect(part('.liebe-card-controls')).not.toBeNull()
     expect(screen.getByText('Please leave parcels at the side door')).toBeInTheDocument()
+  })
+
+  it('renders the tall shape with no field, which one column cannot hold', () => {
+    /*
+     * `tall` used to keep the field and no longer does (change 0042 PR 4). The
+     * field carries a 100px readout and a 150px edit box, and a one-column tile
+     * leaves a 35px content region — so the tile's `overflow: hidden` cropped
+     * it, which is the clip the omit-never-clip rule forbids, and a field is
+     * bounded by its content so it cannot be narrowed to fit either
+     * (docs/specs/design-system — "Cross-axis fit";
+     * docs/specs/entity-cards/options/input-helpers.md — the tier table).
+     *
+     * The shape is still `tall` — this is the tier rendering what it can hold,
+     * not the card falling back to another arrangement.
+     */
+    renderCard(<InputTextCard entityId="input_text.doorbell_message" tier="tall" />)
+
+    expect(arrangement()).toBe('tall')
+    expect(part('.liebe-card-controls')).toBeNull()
+    // The name is still there: the tile keeps saying which helper it is, and
+    // the value is reachable through the dialog its tap now opens.
+    expect(screen.getByText('Doorbell Message')).toBeInTheDocument()
   })
 
   it('reads the value out as the state at glance, with no field', () => {
@@ -538,13 +559,21 @@ describe('InputDateTimeCard tiers', () => {
 
   it.each([
     ['row', 'row'],
-    ['tall', 'tall'],
     ['full', 'row'],
   ] as const)('keeps the picker at %s', (tier, shape) => {
     renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier={tier} />)
 
     expect(arrangement()).toBe(shape)
     expect(part('.liebe-card-controls')).not.toBeNull()
+  })
+
+  it('renders the tall shape with no picker, on the worst measurement of the set', () => {
+    // 120px readout, 200px edit field, 35px region — the same rule as the text
+    // helper above, on the widest fixed inline sizes any card carries.
+    renderCard(<InputDateTimeCard entityId="input_datetime.wake_up" tier="tall" />)
+
+    expect(arrangement()).toBe('tall')
+    expect(part('.liebe-card-controls')).toBeNull()
   })
 
   it('reads the formatted value out as the state at glance, with no picker', () => {

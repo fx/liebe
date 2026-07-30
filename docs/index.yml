@@ -340,7 +340,7 @@ changes:
     path: changes/0042-tall-tile-control-geometry.md
     description: Reconcile the 42px control height and 14px card padding with the ~35px content region a 1-wide desktop tile gives the tall tier — the input_number stepper is clipped there and the vertical slider bleeds into the padding
     spec: design-system
-    status: draft
+    status: complete
     depends_on: []
   - id: '0043'
     name: card-tile-control-semantics
