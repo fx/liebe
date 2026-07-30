@@ -296,10 +296,15 @@ function describeMismatch({
   error,
   built,
 }: ArtifactMismatch): string {
+  // 404 says the mount does not have the file; any other status says only that
+  // the server would not hand it over, which is a different thing to go and look
+  // at. Naming the wrong one sends the reader after the wrong cause.
   const unretrievable =
-    error === undefined
-      ? `answered HTTP ${status} — the mount does not have this file`
-      : `could not be retrieved — ${error}`
+    error !== undefined
+      ? `could not be retrieved — ${error}`
+      : status === 404
+        ? `answered HTTP 404 — the mount does not have this file`
+        : `answered HTTP ${status} — the server would not serve it`
   const servedLine =
     served === undefined
       ? `    served ${url} ${unretrievable}`

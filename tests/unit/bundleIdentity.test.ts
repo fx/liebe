@@ -296,9 +296,30 @@ describe('assertServedArtifactsMatchDist', () => {
       })
     )
 
-    expect(error.message).toContain('answered HTTP 404')
+    expect(error.message).toContain('answered HTTP 404 — the mount does not have this file')
     expect(error.message).toContain('dist/liebe.css')
     expect(error.message).toContain(sha256('styles-v1'))
+  })
+
+  it('does not blame the mount for a status other than 404', async () => {
+    // A 500 or 503 says the server would not hand the file over, which is a
+    // different thing to go and look at than a file the mount lacks.
+    const error = await rejectionOf(
+      assertServedArtifactsMatchDist({
+        moduleUrl: MOUNTED_URL,
+        origin: ORIGIN,
+        fetchImpl: async (url) => ({
+          ok: false,
+          status: url.endsWith('liebe.css') ? 503 : 200,
+          arrayBuffer: async () => new ArrayBuffer(0),
+        }),
+        ...built({ 'panel.js': 'bundle-v1', 'liebe.css': 'styles-v1' }),
+        log: vi.fn(),
+      })
+    )
+
+    expect(error.message).toContain('answered HTTP 503 — the server would not serve it')
+    expect(error.message).not.toContain('the mount does not have this file')
   })
 
   it('reports a request that throws instead of dying on it', async () => {
