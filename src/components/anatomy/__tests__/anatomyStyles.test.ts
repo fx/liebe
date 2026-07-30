@@ -171,8 +171,12 @@ describe('domain colour', () => {
         // measurement above rules out. `--liebe-part-color` and `--part-color`
         // still carry the base, so this has to be read off the glyph line
         // rather than off the rule as a whole.
-        const glyphLine = rule.split(';').find((line) => line.includes('--part-glyph'))
-        expect(glyphLine).not.toContain(`var(${base})`)
+        // Every glyph declaration in the rule, not merely the first: a second
+        // one would win by source order and is exactly how the base hue could
+        // come back without the assertion above noticing.
+        const glyphLines = rule.split(';').filter((line) => line.includes('--part-glyph'))
+        expect(glyphLines).toHaveLength(1)
+        expect(glyphLines[0]).not.toContain(`var(${base})`)
       }
     })
 
