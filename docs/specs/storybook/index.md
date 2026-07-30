@@ -63,18 +63,35 @@ Today the only ways to see a card are unit-test DOM assertions and a full HA rou
 ### Accessibility & interaction checks
 
 - The a11y addon MUST run on all stories; violations at the "serious"/"critical" level SHOULD be treated as defects.
-- Stories SHOULD use `play` functions for key interactions (toggle, slider commit, mode select) with assertions via `@storybook/test`; the Storybook test-runner in CI is OPTIONAL initially (see Open Questions).
+- Stories SHOULD use `play` functions for key interactions (toggle, slider commit, mode select) with assertions via `storybook/test`. **Those assertions are gate-grade** — they run on every PR, and the rules that make them so are in [CI & publishing](#ci--publishing) below.
 
 ### CI & publishing
 
 - CI MUST build Storybook (`build-storybook`) on every PR; a broken workshop build fails the pipeline.
 - The static build MUST be published to GitHub Pages under `/storybook/` alongside the panel bundle by the existing deploy workflow (matching change 0009's mandatory publishing task), so every merge to `main` refreshes a browsable workshop.
 
+#### Story assertions are gate-grade
+
+**Stories are gate-grade, not documentation-grade** (change [0040](../../changes/0040-test-harness-reliability.md) PR 6). An assertion in a `play` function is a test, carries the weight of one, and is expected to fail when the behaviour it names changes.
+
+- **Every `play` function MUST execute on every PR.** `src/__tests__/stories.test.tsx` composes every `*.stories.tsx` through Storybook's portable-stories API with the real `.storybook/preview` annotations, renders each story and runs its `play`. It is an ordinary member of the Vitest suite, so `npm test` is the gate and there is **no second CI job and no browser** — a `@storybook/test-runner` or browser-mode job would have added a Playwright install, a static Storybook build to serve, and minutes of its own. The measured price of doing it this way instead: the story file's 656 tests cost about 9 s of CPU, and because it is one worker among 253 the **suite's wall clock rises by under a second in steady state** (three paired full-suite runs, without → with: 25.1 s → 37.1 s on the first cold pair, then 22.3 s → 22.2 s and 22.2 s → 23.1 s). The cost is accepted at that price and would not have been at the other one.
+- **A story MUST NOT be written to assert something the runner cannot evaluate**, and where one is, it MUST be named in the runner's `BROWSER_ONLY` map with its reason **and the message it throws**. jsdom lays nothing out, so an assertion on rendered geometry does not merely fail — its neighbour asserting "nothing overflows" _passes_, on `0 <= 1`. The entry list is **self-verifying** in both directions: a listed story is still executed and MUST throw, so an entry that stops earning its place is reported rather than skipped forever; and it must throw with the pinned message, so an unrelated regression in the same story is a gate failure rather than a satisfied exemption.
+- **Keep the geometry assertion last in a browser-only story.** The exemption stops the story at its first unevaluable assertion, so anything after it is unenforced too — narrowing the exemption to the assertion that earns it is the story's own responsibility, and the message pin cannot do it for you.
+- **A browser-only story's assertions are documentation until an e2e check picks them up**, and the stories keep their coverage regardless — what the map records is where the assertion is enforced, never whether the story renders.
+- **The runner MUST reset process-wide state between stories.** The at-most-once dispatch guard (`src/services/guardedDispatch.ts`) is module-scoped by design, so a story whose service call never settles leaves that command in flight and the next identical command is admitted **as a success**. The workshop gets the reset for free by reloading its preview; the runner does it explicitly.
+- **Where the workshop substitutes a module, the runner MUST substitute the same one, and MUST supply what the browser would.** `.storybook/vite.config.ts` swaps `CameraCard`'s stream-readiness hook for a fixture-driven stub, and the workshop serves the mock's frames over HTTP; jsdom neither fetches an `<img>` nor decodes one, so the runner resolves those frames against `.storybook/public` on disk — the real file, so the deliberately-missing one still produces `error` and the stream-error story stays honest. Removing the substitution is caught by a single story's assertions while the whole stream surface quietly stops being exercised, which is the reason this is a rule rather than a convenience: **a substitution the runner drops is mostly invisible to the assertions that depend on it.**
+
 #### Scenario: Broken story blocks merge
 
 - **GIVEN** a PR that renames a component export a story imports
 - **WHEN** CI runs
 - **THEN** `build-storybook` fails and the PR cannot merge until the story is fixed.
+
+#### Scenario: A wrong assertion blocks merge
+
+- **GIVEN** a PR that changes what a card's state line says
+- **WHEN** CI runs
+- **THEN** the story asserting the old text fails in `npm test`, and the PR either corrects the assertion or the change.
 
 ## Design
 
@@ -102,8 +119,9 @@ Sequencing (the point of this spec): Storybook + fixtures + stories for the **ex
 ## Open Questions
 
 - **Visual regression.** Chromatic or Playwright-based snapshot testing of stories would harden theme changes but adds cost/flake surface; deferred — the theme gallery stories keep review manual for now.
-- **Test-runner in CI.** Whether `@storybook/test-runner` (play-function execution) joins CI as a required gate after initial adoption, or interaction coverage stays in Vitest.
+- ~~**Test-runner in CI.**~~ Settled by change [0040](../../changes/0040-test-harness-reliability.md) PR 6: neither. `play` functions run **in Vitest**, through portable stories, so they are a required gate without `@storybook/test-runner` and without a browser. See [CI & publishing](#ci--publishing).
 - **Storybook major version.** Pin to the current stable major at implementation time; verify Vite version compatibility with the repo's toolchain in the setup PR.
+- **A browser home for the five geometry assertions.** `BROWSER_ONLY` lists the stories whose assertions measure rendered boxes — forecast column widths, the sensor graph's share of its tile, a slider drag across a real track. They are enforced nowhere today. The e2e suite is the only place that can evaluate them; whether they belong there, or whether the same claims are better made against the panel's own layout, is open. Tracked in [docs/tasks.md](../../tasks.md).
 
 ## References
 
@@ -114,6 +132,7 @@ Sequencing (the point of this spec): Storybook + fixtures + stories for the **ex
 - **Toolbar:** the **Theme** control lists the themes in the built-in registry and **Appearance** switches `dark`/`light`. Card stories render inside the grid-cell decorator, whose `width`/`height` story controls resize the cell so every layout tier is reachable without editing the story.
 - **Entity data:** stories seed the entity store from the factories in `src/test/fixtures/`; service calls are intercepted and logged to the Actions panel, so nothing reaches a real Home Assistant.
 - **A11y:** the a11y addon audits every story as it opens — check its panel when adding or changing a story.
+- **The assertions run:** `npm test` executes every `play` function through `src/__tests__/stories.test.tsx`. A story that fails there fails the PR, so write its assertions as you would a test's — and if one needs a real browser, add it to that file's `BROWSER_ONLY` map with a reason rather than leaving it to fail.
 
 ### Related documents
 
@@ -122,9 +141,10 @@ Sequencing (the point of this spec): Storybook + fixtures + stories for the **ex
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                                                                                | Document                                                                    |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 2026-07-25 | Initial spec created                                                                                                                                                                                                                                                  | [0009-storybook-setup](../../changes/0009-storybook-setup.md)               |
-| 2026-07-26 | Workshop implemented: CI `build-storybook` gate, Pages publishing under `/storybook/`, usage documented                                                                                                                                                               | [0009-storybook-setup](../../changes/0009-storybook-setup.md)               |
-| 2026-07-29 | Grid-cell decorator rule strengthened: the decorator MUST derive the tier from the configured span exactly as the grid renderer does, and stories MUST NOT pin a tier contradicting their cell — recording the gap that let tier-dependent rendering go unrepresented | [0029-workshop-tier-fidelity](../../changes/0029-workshop-tier-fidelity.md) |
-| 2026-07-30 | Derivation implemented: `withGridCell` supplies the tier and span from the cell through `deriveCardTier`, every card story's hand-set `tier` arg is gone and its cell reconciled, and a Vitest test pins the decorator's derivation                                   | [0029-workshop-tier-fidelity](../../changes/0029-workshop-tier-fidelity.md) |
+| Date       | Change                                                                                                                                                                                                                                                                         | Document                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| 2026-07-25 | Initial spec created                                                                                                                                                                                                                                                           | [0009-storybook-setup](../../changes/0009-storybook-setup.md)                   |
+| 2026-07-26 | Workshop implemented: CI `build-storybook` gate, Pages publishing under `/storybook/`, usage documented                                                                                                                                                                        | [0009-storybook-setup](../../changes/0009-storybook-setup.md)                   |
+| 2026-07-29 | Grid-cell decorator rule strengthened: the decorator MUST derive the tier from the configured span exactly as the grid renderer does, and stories MUST NOT pin a tier contradicting their cell — recording the gap that let tier-dependent rendering go unrepresented          | [0029-workshop-tier-fidelity](../../changes/0029-workshop-tier-fidelity.md)     |
+| 2026-07-30 | Derivation implemented: `withGridCell` supplies the tier and span from the cell through `deriveCardTier`, every card story's hand-set `tier` arg is gone and its cell reconciled, and a Vitest test pins the decorator's derivation                                            | [0029-workshop-tier-fidelity](../../changes/0029-workshop-tier-fidelity.md)     |
+| 2026-07-30 | Stories settled as **gate-grade**: every `play` function runs in Vitest through portable stories, the CI section states the rules and the cost, the test-runner open question is closed, and the geometry assertions jsdom cannot evaluate are named rather than left to score | [0040-test-harness-reliability](../../changes/0040-test-harness-reliability.md) |

@@ -502,10 +502,19 @@ export const WithPercentage: Story = {
   },
 }
 
-/** `showPercentage: false` — the bare state. */
+/**
+ * `showPercentage: false` — the bare state, which for this fixture is its
+ * preset.
+ *
+ * The option removes the `· 66%` suffix; it does not rewrite the line, and the
+ * primary slot belongs to the preset whenever there is one (fan.md — "the state
+ * line shows the bare state/preset"). This asserted `ON` until the story runner
+ * executed it, which is what a story asserting the absent half of a rule looks
+ * like when nothing runs it.
+ */
 export const WithoutPercentage: Story = {
   parameters: { liebe: { itemConfig: { showPercentage: false } } },
   play: async ({ canvasElement }) => {
-    await expect(readState(canvasElement)).toBe('ON')
+    await expect(readState(canvasElement)).toBe('auto')
   },
 }
