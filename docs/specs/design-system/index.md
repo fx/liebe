@@ -177,7 +177,7 @@ For everything else:
 
 **Migration note for themes.** `--liebe-control-height` keeps its name and its 42px default; what changes is that setting it states a maximum. A theme MUST NOT assume a slider measures that value at `tall`, and cannot obtain a thicker track there from this token alone — the content region is what bounds it. A theme whose inset is large enough to drive that region under 24px is choosing omission over a control, which is why LCARS's `tall` sliders disappear on a 12-column desktop grid rather than rendering at 19px.
 
-**Fixed-size parts still to be measured against this rule.** The icon circle (40px), the chip (34px) and the pill group (38px) — the last of which is a control, and vertical at `tall` — all exceed a `tall` tile's content region at ordinary desktop widths, so the rule reaches them and they do not hold it today. None has a measured symptom, which is why [0042](../../changes/0042-tall-tile-control-geometry.md) scoped its own fixes to the two that do; the audit is tracked as that change's fourth task rather than left to be rediscovered.
+**Parts that do not hold this rule yet.** The vertical slider and the `input_number` stepper are the two [0042](../../changes/0042-tall-tile-control-geometry.md) measured and fixes directly; they are not the only two the rule reaches. `input_text`'s field and `input_datetime`'s inputs carry inline minimum widths of 100–200px and render at `tall` per their tier table, so they overflow a 35px region by more than the stepper does. The icon circle (40px), the chip (34px) and the pill group (38px, and a control) exceed it too, with no symptom measured either way. All of them are that change's fourth task — the rule states what each must be measured against, and none of them is closed by the two fixes in front of it.
 
 #### Scenario: Vertical slider fits the narrowest tile it can occupy
 
@@ -191,8 +191,8 @@ For everything else:
 - **THEN** no slider renders at all — 19px is under the 24px floor — and the tile keeps its own primary action with the domain's controls behind the detail dialog
 - **WHEN** a screen stored at 16 columns lays out a 43px tile under LCARS, leaving no content region
 - **THEN** the same omission holds, and nothing renders at a width the user could not have hit
-- **WHEN** the card is instead at the minimum `tall` span of 1×2 on the default theme, where the inset, the icon circle and the meta block leave the control a band under 44px
-- **THEN** no slider renders either — the long-axis floor omits it exactly as the cross-axis one does, rather than shrinking it to a track too short to drag.
+- **WHEN** the tile is short enough that the inset, the icon circle and the meta block leave the control a band under 44px — the grid's row height is derived from the container width, so a `tall` span does not guarantee a band
+- **THEN** no slider renders either: the long-axis floor omits it exactly as the cross-axis floor does, rather than shrinking it to a track too short to drag.
 
 #### Background slider placement
 
