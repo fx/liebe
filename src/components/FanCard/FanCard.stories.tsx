@@ -170,6 +170,35 @@ export const Unavailable: Story = {
   },
 }
 
+/**
+ * The other state that carries no direction, and the one this card used to let
+ * through (change 0037 PR 7). `unknown` renders the same inert tile as
+ * `unavailable` — the option doc resolves the pair together, before any
+ * direction is chosen — but labelled as itself: `isOn` is a test for exactly
+ * `on`, so an `unknown` fan reaching the ordinary layout would have read as off
+ * and answered a tap with `fan.turn_on`.
+ *
+ * The fan advertises every switching bit, so nothing but its state is stopping
+ * the command.
+ */
+export const UnknownState: Story = {
+  parameters: { liebe: { entities: [createFanEntity({ state: 'unknown' })] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    /*
+     * `data-unavailable` first, because it is the assertion that DISCRIMINATES.
+     * The other two do not: an `unknown` fan reaching the ordinary layout still
+     * prints `UNKNOWN` on its state line and still hides the speed control at
+     * this tier, so a story asserting only those passes on the defect — probed,
+     * not assumed. The attribute is stamped by the inert branch alone.
+     */
+    await expect(canvasElement.querySelector('[data-unavailable="true"]')).toBeInTheDocument()
+    await expect(canvas.getByText('UNKNOWN')).toBeInTheDocument()
+    // And labelled as itself rather than as the state it is resolved beside.
+    await expect(canvas.queryByText('UNAVAILABLE')).not.toBeInTheDocument()
+  },
+}
+
 export const Loading: Story = {
   parameters: { liebe: { entities: [], initialLoading: true } },
   play: async ({ canvasElement }) => {

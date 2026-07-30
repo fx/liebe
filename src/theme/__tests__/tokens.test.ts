@@ -394,6 +394,35 @@ describe('token catalogue', () => {
     }
   })
 
+  it('states that the control height is a maximum, not a size a theme can pin', () => {
+    /*
+     * The re-pin change 0042 made: same name, same 42px default, and what
+     * setting it states is a MAXIMUM. "A theme MUST NOT assume a slider measures
+     * that value at `tall`, and cannot obtain a thicker track there from this
+     * token alone — the content region is what bounds it"
+     * (docs/specs/design-system/index.md — "Cross-axis fit", migration note).
+     *
+     * Asserted on the catalogue because the catalogue is what a theme author
+     * reads: the token panel is the documentation surface, and a purpose still
+     * reading "Embedded slider height" would tell them the one thing this change
+     * made untrue. The value itself is unchanged and is pinned above with the
+     * rest of the geometry.
+     */
+    const geometry = tokenGroups.find((group) => group.id === 'geometry')
+    const control = geometry?.tokens.find((token) => token.name === '--liebe-control-height')
+
+    expect(control, 'the geometry group must still catalogue the control height').toBeDefined()
+    expect(control!.purpose).toMatch(/maximum/i)
+    /*
+     * Both halves, because "maximum" alone still reads as a size a theme sets
+     * and gets: what the re-pin actually says is that the tile narrows the
+     * control below it. A purpose that dropped the second half would document
+     * a token this build does not have.
+     */
+    expect(control!.purpose).toMatch(/narrow/i)
+    expect(control!.purpose).not.toMatch(/^Embedded slider height$/)
+  })
+
   it('references only surface tokens the contract declares', () => {
     for (const surface of surfaceReferences) {
       expect(base.has(surface.name)).toBe(true)
