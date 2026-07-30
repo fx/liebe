@@ -4,7 +4,7 @@
 
 `item.config.stateLabels` is declared by two card families with incompatible shapes — an object `{ onLabel, offLabel }` in `switchOptions.ts`, a string enum `'percent' | 'open-closed'` in `coverOptions.ts` — and `zod.merge()` is last-one-wins, so the cover shape governs the merged item schema. The consequence is user-facing: a switch or fallback card carrying its own documented `stateLabels: { onLabel: 'Running', offLabel: 'Idle' }` is rejected outright by the import gate. The option is documented, the card reads it correctly at render, and a configuration containing it cannot be imported. Rename the cover's declaration to `stateLabelStyle`, which is what it means, and retire the exemption the collision guard currently carries for it.
 
-**Spec:** [dashboard-config](../specs/dashboard-config/index.md) → [file import & version handling](../specs/dashboard-config/index.md#file-import--version-handling) · **Status:** draft · **Depends on:** —
+**Spec:** [dashboard-config](../specs/dashboard-config/index.md) → [file import & version handling](../specs/dashboard-config/index.md#file-import--version-handling) · **Status:** complete · **Depends on:** —
 
 Supersedes issue [#254](https://github.com/fx/liebe/issues/254).
 
@@ -51,7 +51,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ## Tasks
 
-- [ ] **PR 1 — Rename and migrate**: `coverOptions.ts` declares `stateLabelStyle`; loader migration from the legacy `stateLabels` string with the legacy key never written back; remove `KNOWN_COLLISIONS` from the collision guard; merged-schema round-trip test for the switch family's object form; cover and switch option docs updated; dashboard-config changelog entry
+- [x] **PR 1 — Rename and migrate**: `coverOptions.ts` declares `stateLabelStyle`; loader migration from the legacy `stateLabels` string with the legacy key never written back; remove `KNOWN_COLLISIONS` from the collision guard; merged-schema round-trip test for the switch family's object form; cover and switch option docs updated; dashboard-config changelog entry
 
 ## Out of Scope
 

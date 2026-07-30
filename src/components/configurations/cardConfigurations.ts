@@ -13,7 +13,7 @@ import {
 import { BINARY_SENSOR_OPTION_DEFAULTS } from '~/store/binarySensorOptions'
 import { CAMERA_OPTION_DEFAULTS } from '~/store/cameraOptions'
 import { CLIMATE_OPTION_DEFAULTS, CLIMATE_VARIANT_KEY } from '~/store/climateOptions'
-import { COVER_OPTION_DEFAULTS, COVER_STATE_LABELS_AUTO } from '~/store/coverOptions'
+import { COVER_OPTION_DEFAULTS, COVER_STATE_LABEL_STYLE_AUTO } from '~/store/coverOptions'
 import { FAN_OPTION_DEFAULTS } from '~/store/fanOptions'
 import { LOCK_OPTION_DEFAULTS } from '~/store/lockOptions'
 import { VACUUM_OPTION_DEFAULTS } from '~/store/vacuumOptions'
@@ -404,7 +404,7 @@ export const cardConfigurations: Record<
         description: 'Tilt buttons and the tilt slider, on cards at least 2×2.',
         requires: 'cover-tilt',
       },
-      stateLabels: {
+      stateLabelStyle: {
         type: 'select',
         /*
          * The default is the *absence* of a value, so the form's default has to
@@ -412,13 +412,13 @@ export const cardConfigurations: Record<
          * styles — otherwise opening the form would pin a card that was deriving
          * its style, and nothing would ever get it back (docs/changes/0022).
          */
-        default: COVER_STATE_LABELS_AUTO,
-        clearValue: COVER_STATE_LABELS_AUTO,
+        default: COVER_STATE_LABEL_STYLE_AUTO,
+        clearValue: COVER_STATE_LABEL_STYLE_AUTO,
         label: 'Position display',
         description:
           'Automatic shows a percentage for covers that report a position and Open / Closed for the rest.',
         options: [
-          { value: COVER_STATE_LABELS_AUTO, label: 'Automatic' },
+          { value: COVER_STATE_LABEL_STYLE_AUTO, label: 'Automatic' },
           { value: 'percent', label: 'Percentage' },
           { value: 'open-closed', label: 'Open / Closed' },
         ],

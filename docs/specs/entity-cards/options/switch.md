@@ -43,6 +43,8 @@ The universal `icon` option always wins over all of the above. Visible in every 
 
 ### `stateLabels`
 
+This key belongs to this card family alone. The cover card's position-display selector shared the name until change [0038](../../../changes/0038-option-key-collision.md) renamed it to [`stateLabelStyle`](./cover.md#state-label-style-statelabelstyle); while both declarations stood, the cover's string enum governed the merged item schema and a switch or fallback card carrying the object below was rejected by the import gate outright.
+
 `stateLabels.onLabel` / `stateLabels.offLabel` replace the state line's text for the `on` / `off` states respectively ("Brewing" / "Idle" instead of "On" / "Off"). Empty or absent values fall back to the default capitalized state. States other than `on`/`off` (including any state a fallback-domain entity reports, and `unavailable`) MUST render the raw state unmodified — the overrides only ever remap `on` and `off`. Labels are plain text, single line, ellipsized per the [design-system typography](../../design-system/index.md#typography). Renders wherever the state line renders (all tiers, unless `hideState` is set); state-line coloring (domain color when active, muted otherwise) is unaffected by the label text.
 
 ### `showLastChanged`

@@ -15,11 +15,12 @@ import { confirmOptionsConfigSchema } from '../confirmOption'
  * test, and no diff in the file whose behaviour changed — which is exactly why
  * it needs a guard rather than review attention.
  *
- * It has already shipped once. `stateLabels` is an object in `switchOptions.ts`
- * and a string enum in `coverOptions.ts`; cover merges last, so a switch card
- * carrying its own documented `stateLabels: { onLabel, offLabel }` is rejected
- * outright by the import gate (issue #254). `confirmOption.ts` exists because
- * `confirm` was about to become the second.
+ * It has already shipped once. `stateLabels` was an object in `switchOptions.ts`
+ * and a string enum in `coverOptions.ts`; cover merged last, so a switch card
+ * carrying its own documented `stateLabels: { onLabel, offLabel }` was rejected
+ * outright by the import gate until change 0038 renamed the cover's key to
+ * `stateLabelStyle` (docs/changes/0038-option-key-collision.md).
+ * `confirmOption.ts` exists because `confirm` was about to become the second.
  *
  * The guard runs now rather than later because changes 0023–0026 add four more
  * card families to this same flat namespace; it is worth most in the window
@@ -34,7 +35,8 @@ import { confirmOptionsConfigSchema } from '../confirmOption'
  * modes, fan means `preset_modes`, the key is already semantically overloaded,
  * and only the accident of both being an optional boolean keeps it green here.
  * `deviceClassIcon` (switch/cover) is the same. Both are one type change from
- * being #254, and that change is the moment this test fires.
+ * being the collision change 0038 had to rename a shipped key to resolve, and
+ * that change is the moment this test fires.
  *
  * So: this catches a family's schema being silently overridden. It does not
  * catch two families sharing a name. Nothing here does.
@@ -72,15 +74,16 @@ const UNIVERSAL_FRAGMENTS = new Set(['cardActionsConfigSchema', 'cardDisplayConf
 /** Keys the shared `confirm` fragment contributes wherever it is merged. */
 const SHARED_KEYS = new Set(Object.keys(confirmOptionsConfigSchema.shape))
 
-/**
- * Collisions that exist and are tracked elsewhere.
- *
- * `stateLabels` is live today and fixing it means renaming a documented option
- * in one of two shipped families, which needs its own change — so it is skipped
- * here with a pointer rather than left to keep this file red. Nothing else may
- * join this list without the same treatment.
+/*
+ * No exemption list, deliberately. This guard carried one entry —
+ * `stateLabels`, the collision that had already shipped — from the day it was
+ * written until change 0038 renamed the cover's key. With that collision gone
+ * the map is empty, so the mechanism goes with it rather than standing by as a
+ * satisfied hole and a standing invitation to add a second entry
+ * (docs/changes/0038-option-key-collision.md). A collision found from here on is
+ * a defect being introduced, and the answer is the two the report names: a
+ * family-specific name, or one shared fragment.
  */
-const KNOWN_COLLISIONS = new Map([['stateLabels', 'tracked by issue #254']])
 
 /**
  * The fragments merged into `item.config`, in merge order, read from the source
@@ -235,33 +238,9 @@ describe('the item config schema', () => {
       expect(Object.keys(fragment.shape).length).toBeGreaterThan(0)
     }
 
-    const collisions = findCollisions(fragments).filter(
-      (collision) => !KNOWN_COLLISIONS.has(collision.key)
-    )
+    const collisions = findCollisions(fragments)
 
     expect(collisions, `\n\n${report(collisions)}\n`).toEqual([])
-  })
-
-  it('still needs every exception it is carrying', async () => {
-    /*
-     * An exception outlives its defect otherwise. When #254 lands, `stateLabels`
-     * stops colliding and this fails — which is the reminder to delete the
-     * entry rather than leave a permanent hole in the guard above.
-     *
-     * Deliberately not "the collisions are exactly the known ones": that would
-     * report a NEW collision here as well as in the real check, so one defect
-     * would fail two tests and neither name would mean what it says.
-     */
-    const fragments = await loadFragments()
-
-    const found = new Set(findCollisions(fragments).map((collision) => collision.key))
-
-    for (const [key, tracker] of KNOWN_COLLISIONS) {
-      expect(
-        found,
-        `"${key}" no longer collides — drop it from KNOWN_COLLISIONS (${tracker})`
-      ).toContain(key)
-    }
   })
 })
 
@@ -274,6 +253,9 @@ describe('the collision guard itself', () => {
   const family = (name: string, shape: z.ZodRawShape) => ({ name, shape })
 
   it('reports a key two families govern differently, naming both', () => {
+    // The collision that had already shipped, rebuilt from synthetic fragments:
+    // the real cover fragment no longer declares this key, so the detector needs
+    // its own copy of the shape to be exercised against.
     const collisions = findCollisions([
       family('switchOptionsConfigSchema', {
         stateLabels: z.object({ onLabel: z.string() }).optional(),
@@ -308,8 +290,8 @@ describe('the collision guard itself', () => {
   })
 
   it('fires the moment one of those two narrows its type', () => {
-    // The transition #254 describes: same key, one family tightens, and the
-    // other's validation changes with no diff touching it.
+    // The transition change 0038 describes: same key, one family tightens, and
+    // the other's validation changes with no diff touching it.
     expect(
       findCollisions([
         family('climateOptionsConfigSchema', { showPresets: z.boolean().optional() }),
