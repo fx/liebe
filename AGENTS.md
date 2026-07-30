@@ -224,7 +224,17 @@ The SDLC skills own the phases. What is specific to this repo:
 
    Two things follow. **Re-run the full suite after merging `main`, and read the failure before assuming it is yours** — a detached worktree at `origin/main` with your branch absent settles ownership in one command, and here it showed the failure was main's. And **expect the first run of a newly-executable gate to fail on somebody else's assertion**: the assertion is usually right and the code usually wrong, which is the whole reason it was written and never checked, so the fix is to establish which — not to weaken the assertion so the gate goes quiet. Weakening it would be a defect in the change, and it also discards the finding the gate just bought.
 
-7. **Playwright's own two prerequisites**
+7. **Never write `// eslint-disable-next-line react-hooks/exhaustive-deps` — suppress it from the config instead**
+
+   The React compiler reads that directive as "the author knows they are breaking the rules of React" and stops analysing the **entire enclosing function**, so every compiler-backed rule goes quiet with it — `react-hooks/set-state-in-effect`, which this repo enforces at `error`, included. The suppression is not local to the line it sits on, and it reads as though it were.
+
+   It is also self-concealing: once the rule stops reporting for a function, an explicit `set-state-in-effect` suppression inside it becomes an "unused eslint-disable directive", so the comment that proves the rule once applied there afterwards reads as though it never needed to. That is how `CardConfig`'s `Modal` went unanalysed — a deliberately blatant planted `setLocalConfig({})` was silent there while the identical violation in a fresh component in the same file reported fine (change [0040](docs/changes/0040-test-harness-reliability.md), PRs 4 and 7).
+
+   **The fix is where the suppression lives, not what it names.** A config-level `off` in `eslint.config.js` is invisible to the compiler, so it suppresses exactly the rule it names and leaves the function analysable; two theme-workshop hooks are listed there for that reason. `src/__tests__/effectHookLintGate.test.ts` pins all of it — a fixture pair differing only by the comment, a scan requiring zero inline directives anywhere under `src/` in any spelling ESLint accepts, and a check of the resolved config per file so the replacement suppression cannot quietly become the wrong one.
+
+   Scope, so this is not over-read: only `exhaustive-deps` has been tested as a bail trigger. `set-state-in-effect`'s own suppression does **not** bail, and whether `rules-of-hooks` does is untested.
+
+8. **Playwright's own two prerequisites**
 
    A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
 
@@ -237,7 +247,7 @@ The SDLC skills own the phases. What is specific to this repo:
 
    `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
 
-8. **Merging `main` into a long-lived branch: the changelog tables**
+9. **Merging `main` into a long-lived branch: the changelog tables**
 
    Several specs end in a dated changelog table that every card change appends a row to, so two branches in flight almost always conflict there. There are **two** kinds of conflict in those tables and they take opposite resolutions.
 
