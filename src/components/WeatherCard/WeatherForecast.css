@@ -1,0 +1,184 @@
+/*
+ * The forecast sections' rhythm: labelled sections, equal-width columns, and a
+ * high–low pair that stays a pair over a photograph.
+ *
+ * Spec: docs/specs/entity-cards/options/weather.md — "Forecast presentation".
+ * What shipped before this sheet was two identically-styled runs of 12px text
+ * with no labels and no column rhythm, which a viewer could only tell apart by
+ * noticing that one section's labels were weekdays.
+ *
+ * Wrapped in the `liebe-base` layer like every other sheet the panel injects —
+ * an unlayered author rule outranks all cascade layers, so leaving this
+ * unlayered would put it beyond the reach of every theme
+ * (docs/specs/theming/index.md).
+ *
+ * Every class here is internal, not part of the stable selector contract:
+ * `liebe-card[data-domain='weather']` is the public handle. `data-forecast` is
+ * the section's own test/story hook and is stamped by `WeatherForecast.tsx`.
+ */
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
+
+@layer liebe-base {
+  /*
+   * One section: its label and its strip.
+   *
+   * `min-inline-size: 0` on a flex child that contains a grid is what stops the
+   * grid's tracks from setting the section's own minimum width — without it a
+   * strip whose columns do not fit widens the card instead of being narrowed,
+   * which is the clipped-rather-than-omitted failure the capacity rule exists
+   * to avoid, arriving by a different route.
+   */
+  .weather-forecast-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  /*
+   * The section label: eyebrow typography (docs/specs/design-system —
+   * "Typography": 11px / 650 / uppercase / 0.09em tracking, faint colour).
+   *
+   * Naming the section is the rule's whole point — two sections a viewer can
+   * only tell apart by reading their values are the defect. The colour comes
+   * from `--liebe-faint`, which the artwork scope re-points at 80% white, so
+   * the label stays legible over a photograph without a declaration of its own
+   * (`WeatherCard.css`).
+   */
+  .weather-forecast-label {
+    color: var(--liebe-faint);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.09em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  /*
+   * The strip: equal-width columns whose width does not derive from their
+   * content, so "2 PM" and "10 AM" align and the strip reads as a table of
+   * moments rather than a run of text.
+   *
+   * `grid-auto-columns: minmax(0, 1fr)` rather than a `repeat()` with the
+   * column count in it: the tracks are equal without the sheet having to be
+   * told how many there are, so the count stays entirely a capacity decision
+   * (`forecastPresentation.ts`) and never arrives here as an inline style.
+   * The `0` floor lets a track be narrower than its content wants, which is
+   * what keeps a long locale label from breaking the rhythm.
+   *
+   * **No column gap, and that is load-bearing rather than a taste.** Capacity
+   * is `floor(contentWidth / minColumnWidth)` — the option doc's formula, not
+   * this implementation's — so a gap between tracks is width the formula does
+   * not know about and every track pays for: at 220px the rule picks five 44px
+   * hourly columns, and four 4px gaps would leave 40.8px each, shrinking every
+   * column below the floor the rule exists to hold. The separation columns need
+   * is `padding` on the column instead, which sits INSIDE its track and takes
+   * nothing off it. The row gap stays for the `tall` tier, whose rows are
+   * spaced down an axis no capacity rule budgets.
+   */
+  .weather-forecast-strip {
+    column-gap: 0;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    inline-size: 100%;
+    row-gap: var(--space-1);
+  }
+
+  /*
+   * The `tall` tier's strip runs DOWN the tile — one column wide, one hour per
+   * row — so the same rhythm applies to rows instead.
+   */
+  [data-orientation='vertical'] > .weather-forecast-strip {
+    grid-auto-flow: row;
+    grid-auto-rows: minmax(0, auto);
+  }
+
+  /*
+   * `padding-inline` rather than a gap between tracks: it separates the columns
+   * from inside their own track, so the track keeps the full minimum width the
+   * capacity rule counted on (see the strip above).
+   */
+  .weather-forecast-column {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    justify-content: center;
+    min-inline-size: 0;
+    padding-inline: 2px;
+    text-align: center;
+  }
+
+  /*
+   * A vertical strip's cell is a row: time on the leading edge, glyph and
+   * temperatures on the trailing one, so the hours read as a list rather than
+   * as a stack of centred fragments.
+   */
+  [data-orientation='vertical'] .weather-forecast-column {
+    flex-direction: row;
+    gap: var(--space-2);
+    justify-content: space-between;
+  }
+
+  /*
+   * The hour/weekday label ellipsizes on a single line, the same treatment the
+   * type ramp gives an entity name (docs/specs/design-system — "Typography").
+   * The minimum column width is sized for the locale labels this card meets;
+   * this is what keeps a long one from widening its track and breaking the
+   * rhythm for every other column, rather than a licence to draw columns
+   * narrower than the floor.
+   */
+  .weather-forecast-column .weather-forecast-when {
+    max-inline-size: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /*
+   * The high–low pair.
+   *
+   * The distinction has to survive the condition artwork, where every
+   * foreground is some white and colour can carry nothing — so weight and size
+   * carry it: the high is the column's emphasized value, the low is a smaller,
+   * lighter companion. `tabular-nums` because these are numeric displays that
+   * sit in a column with their neighbours (docs/specs/design-system —
+   * "Typography").
+   *
+   * Deliberately NOT an opacity or a lighter white on the low. Over artwork the
+   * low inherits `--liebe-fg`, which change 0030 PR 1 measured at 7.0:1 against
+   * the worst ground a photograph can present; fading it to carry the emphasis
+   * would spend contrast the scrim was strengthened to buy. Weight and size
+   * cost none.
+   */
+  .weather-forecast-temps {
+    align-items: baseline;
+    display: flex;
+    font-variant-numeric: tabular-nums;
+    gap: var(--space-1);
+    justify-content: center;
+  }
+
+  .weather-forecast-high {
+    font-weight: 700;
+  }
+
+  .weather-forecast-low {
+    font-weight: 400;
+  }
+
+  /*
+   * The slot the variants put their detail line and forecast sections in.
+   *
+   * Empty when the width left room for no column at all and the variant had no
+   * detail line to add — a `row` tier tile inside a theme with a wide inline
+   * inset is the case. An empty flex child still collects the body's gap, so a
+   * tile that omitted everything would keep a band of blank space where the
+   * strip would have gone; `:empty` is what makes omission actually omit.
+   */
+  .weather-card-extra:empty {
+    display: none;
+  }
+}

@@ -16,6 +16,7 @@ import {
   decimalsFor,
   quantizeHelperValue,
   readNumberControlStyle,
+  resolveNumberPresentation,
   type NumberControlStyle,
 } from '~/store/inputHelperOptions'
 import { readCardDisplay } from '~/store/cardDisplay'
@@ -425,6 +426,13 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    */
   const storedConfig = config ?? publishedItem.config
   const controlStyle = readNumberControlStyle(storedConfig, attributes.mode)
+  /*
+   * ...and what the tier lets that style render. `tall` is one column wide, so
+   * the stepper gives way to the vertical slider there; the stored value is
+   * untouched and `row`/`full` resolve to exactly what they always did
+   * (docs/specs/entity-cards/options/input-helpers.md — `input_number`).
+   */
+  const controlPresentation = resolveNumberPresentation(controlStyle, tier)
 
   /*
    * `iconOnly` has to reach the lead, which is the one slot the seam keeps.
@@ -533,7 +541,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
             <GridCard.Controls>
               <NumberHelperControl
                 entity={entity}
-                style={controlStyle}
+                style={controlPresentation}
                 orientation={tier === 'tall' ? 'vertical' : 'horizontal'}
                 loading={loading}
                 onCommit={handleCommit}

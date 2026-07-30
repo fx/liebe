@@ -51,6 +51,8 @@ Weather-card work lives in `src/components/WeatherCard/`; two pieces are deliber
 
 - **Scrim + token override instead of stronger shadows**: shadows trace glyphs and can never guarantee a floor against arbitrary photos; the scrim pattern already shipped for media and is what the design-system rule now names as reference.
 - **Keep one `ForecastCell` component**: the sections differ by label, data and emphasis, not by anatomy — differentiation comes from section labels and the hi–lo pair, not a second component to drift.
+- **The width gates the drawing, not the subscription** — recorded because it is a knowing deviation from the letter of one rule. The option doc says a card MUST NOT request a forecast for a section it will not render, naming two reasons: the tier has no room, or the option is `false`. A section omitted for WIDTH is a third, and it still subscribes. Two reasons. The signal is the shell's, so it is readable only inside the shell, while the hook that subscribes runs in the variant's body above it — gating there would mean moving forecast acquisition inside the shell subtree, which is a restructuring of all three forecast-bearing variants rather than a line. And it would be worse behaviour: width omission is resize-driven and reversible, so dropping the subscription would evict a cached forecast every time a tile narrowed past the floor and refetch it on the way back, making the strip flicker through a loading state that the cache exists to prevent. The case only arises on a tile with no room for a single 44px column, which is already the pathological end of the grid. Revisit if forecast acquisition ever moves into the shell for other reasons.
+- **No gap between forecast columns.** Capacity is the contract's `floor(contentWidth / minColumnWidth)`, which budgets columns and nothing between them, so an inter-column gap is width the formula cannot see and every track pays for — at 220px the rule picks five 44px columns and four 4px gaps leave 40.8px each, under the floor the rule exists to hold. Separation is `padding` inside the column instead. Changing the formula to subtract gaps was the alternative and was rejected: the formula is the option doc's, not this change's.
 - **PR split**: scrim first (closes #215 on its own, smallest reviewable diff), forecast visual pass second.
 
 #### Measuring contrast here: four rules, three of them learned the expensive way
@@ -89,7 +91,7 @@ The rig itself is deliberately **not** committed — it depends on a Storybook b
 
   Record the mechanism under the design-system scrim rule, then implement and re-measure the same way. Found by local review on PR 1.
 
-- [ ] Forecast visual pass: section labels, shared column rhythm, width-aware horizontal capacity in `hourlyForecastCapacity`/`dailyForecastCapacity` fed by the shell's content-width signal (per the owning contract), hi–lo pair emphasis, degree-only cells, unified icon language, glyph sizing; forecast stories for `modern`/`detailed`/max-count including a max-count strip on a minimum-width tile; refresh `card-reference.md`'s weather section
+- [x] Forecast visual pass: section labels, shared column rhythm, width-aware horizontal capacity in `hourlyForecastCapacity`/`dailyForecastCapacity` fed by the shell's content-width signal (per the owning contract), hi–lo pair emphasis, degree-only cells, unified icon language, glyph sizing; forecast stories for `modern`/`detailed`/max-count including a max-count strip on a minimum-width tile; refresh `card-reference.md`'s weather section
 
 ## Open Questions
 

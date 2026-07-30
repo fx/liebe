@@ -76,6 +76,44 @@ export function readNumberControlStyle(
   return readStyle(config, NUMBER_CONTROL_STYLES, mode === 'slider' ? 'slider' : 'stepper')
 }
 
+/**
+ * What the number card actually renders, which is not always what is stored.
+ *
+ * The stepper is a row of buttons around a value field, sized by its contents
+ * on the only axis a `tall` tile is narrow: one column. It cannot be taken down
+ * to that tile's content region without dropping its buttons under the touch
+ * floor, and rendering it anyway hangs it past the tile's own edge, where the
+ * tile clips it — so `tall` renders the vertical slider instead, which is what
+ * that tier's layout asks for and is a control that CAN be sized down, because
+ * its thickness is one declaration over a track with a long axis to keep
+ * (docs/specs/design-system — cross-axis fit;
+ * docs/specs/entity-cards/options/input-helpers.md — `input_number`).
+ *
+ * **Can, not does.** The vertical slider is still a fixed
+ * `inline-size: var(--liebe-control-height)` today (`anatomy/anatomy.css`), so
+ * it overhangs a narrow content region exactly as it always has — inside the
+ * tile's padding rather than past its edge, which is why it is an overhang and
+ * not this clip. Making it take the region's width, and omitting it below the
+ * 24px floor, is change 0042 PR 3's.
+ *
+ * That is also why this substitution is keyed on the TIER and not on a measured
+ * width, and why the check is not a redundant one to be optimised away later:
+ * `tall` is one column wide by definition, so the condition needs no arithmetic
+ * and holds at 35px, at LCARS's 19px and at the 16-column case that leaves no
+ * content region at all. Nothing here consults a width, and cards may not
+ * measure the DOM for one.
+ *
+ * Presentation only, exactly as `resolveSelectPresentation` is: resolved at
+ * render, the stored `controlStyle` is never rewritten, and the card returns to
+ * the stepper the moment it is two columns wide again.
+ */
+export function resolveNumberPresentation(
+  style: NumberControlStyle,
+  tier: string
+): NumberControlStyle {
+  return style === 'stepper' && tier === 'tall' ? 'slider' : style
+}
+
 export function readSelectControlStyle(
   config: Record<string, unknown> | undefined
 ): SelectControlStyle {

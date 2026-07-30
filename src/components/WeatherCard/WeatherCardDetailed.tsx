@@ -223,9 +223,17 @@ function WeatherCardDetailedContent(props: CardProps) {
   // it, so a card with no forecast lays out as if the options were off.
   const extra =
     detailRows || forecast.hasContent ? (
-      <Flex direction="column" gap="3" width="100%">
+      // `weather-card-extra` collapses the slot when the content width left
+      // room for no forecast column and there were no detail rows beside it.
+      <Flex direction="column" gap="3" width="100%" className="weather-card-extra">
         {detailRows}
-        <WeatherForecastSections sections={forecast} hasBackground={!!backgroundImage} />
+        <WeatherForecastSections
+          sections={forecast}
+          hasBackground={!!backgroundImage}
+          // With no current temperature there is no main readout to state the
+          // unit, so the section label states it once instead.
+          statesUnit={!tempDisplay}
+        />
       </Flex>
     ) : undefined
 

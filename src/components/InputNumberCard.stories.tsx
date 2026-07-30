@@ -131,7 +131,7 @@ export const TierRow: Story = {
   args: { gridWidth: 3, gridHeight: 1 },
 }
 
-/** Icon on top, stepper between, meta at the bottom. */
+/** Icon on top, the vertical slider between, meta at the bottom. */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
   args: { gridWidth: 1, gridHeight: 3 },
@@ -185,6 +185,23 @@ export const ControlStyleSliderTall: Story = {
     liebe: {
       entities: [createInputNumberEntity()],
       itemConfig: { controlStyle: 'slider' },
+    },
+  },
+}
+
+/**
+ * `stepper` stored, `tall` rendered: the vertical slider is what appears. A
+ * one-column tile's content region cannot hold a row of buttons sized by its
+ * contents, and the option is not rewritten — widen this story back to three
+ * columns and the stepper returns
+ * (docs/specs/entity-cards/options/input-helpers.md — `input_number`).
+ */
+export const ControlStyleStepperTall: Story = {
+  args: { gridWidth: 1, gridHeight: 3 },
+  parameters: {
+    liebe: {
+      entities: [createInputNumberEntity({ attributes: { mode: 'box' } })],
+      itemConfig: { controlStyle: 'stepper' },
     },
   },
 }

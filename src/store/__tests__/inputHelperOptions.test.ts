@@ -9,6 +9,7 @@ import {
   readNumberControlStyle,
   readSelectControlStyle,
   readSelectOptions,
+  resolveNumberPresentation,
   resolveSelectPresentation,
 } from '../inputHelperOptions'
 
@@ -40,6 +41,28 @@ describe('readNumberControlStyle', () => {
   it('lets an explicit style override the entity in either direction', () => {
     expect(readNumberControlStyle({ controlStyle: 'stepper' }, 'slider')).toBe('stepper')
     expect(readNumberControlStyle({ controlStyle: 'slider' }, 'box')).toBe('slider')
+  })
+})
+
+describe('resolveNumberPresentation', () => {
+  it('renders the stepper on every tier that is wider than one column', () => {
+    expect(resolveNumberPresentation('stepper', 'row')).toBe('stepper')
+    expect(resolveNumberPresentation('stepper', 'full')).toBe('stepper')
+    // `glance` carries no embedded control at all, so nothing is substituted
+    // for the stepper there — the card declines to render one either way.
+    expect(resolveNumberPresentation('stepper', 'glance')).toBe('stepper')
+  })
+
+  it('gives the stepper way to the vertical slider at tall', () => {
+    // The one-column tier: a content-sized row of buttons cannot be taken down
+    // to that tile's content region, so the tier's own vertical slider renders
+    // instead (docs/specs/entity-cards/options/input-helpers.md).
+    expect(resolveNumberPresentation('stepper', 'tall')).toBe('slider')
+  })
+
+  it('leaves a stored slider alone, tall included', () => {
+    expect(resolveNumberPresentation('slider', 'tall')).toBe('slider')
+    expect(resolveNumberPresentation('slider', 'row')).toBe('slider')
   })
 })
 

@@ -22,6 +22,7 @@ import {
   type CardDisplayOptions,
 } from '~/store/cardDisplay'
 import { isCardBodyElement } from './cardBodyMarker'
+import { observeContentWidth } from './cardContentWidth'
 import { getIcon } from '~/utils/iconList'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
@@ -341,6 +342,15 @@ interface GridCardContextValue {
    * applies — see `resolveCardHue`.
    */
   hue?: string
+  /**
+   * The pixel width available to the card's content — the shell's own content
+   * box, padding already taken off — or `undefined` where it has not been
+   * observed.
+   *
+   * See `useCardContentWidth` for what consumes it and why the two states are
+   * not interchangeable.
+   */
+  contentWidth?: number
 }
 
 /**
@@ -407,6 +417,41 @@ function alignAttribute(value: CardAlignOption): CardAlignOption | undefined {
  */
 export function useGridCardHue(): string | undefined {
   return React.useContext(GridCardContext).hue
+}
+
+/**
+ * The pixel width the shell has left for content, for a card contract whose
+ * capacity is width-derived rather than span-derived.
+ *
+ * The tier and the span are lossy about pixels on purpose: one effective span
+ * is not one width, because the breakpoint mapping and a user-configurable
+ * column count make a two-cell tile arbitrarily narrow. Where a contract has to
+ * decide how many fixed-minimum-width parts fit — the weather forecast's
+ * columns are the shipped case (docs/specs/entity-cards/options/weather.md —
+ * "Forecast presentation") — the answer needs the width itself.
+ *
+ * **The shell measures; the card never does.** That prohibition is unchanged
+ * (docs/changes/0011-layout-tiers.md): what changed is that the shell now
+ * publishes one observation of the box it owns, so cards consume a signal
+ * exactly as they consume tier and span. It is an observation rather than
+ * arithmetic on the grid's laid-out width because the content width moves
+ * without the grid moving — a theme setting a different `--liebe-card-padding`,
+ * LCARS's asymmetric frame — and because a card renders in hosts with no grid
+ * renderer at all (the configuration preview, the sidebar widget, the
+ * workshop). The shell renders in all of them, so the signal does too.
+ *
+ * **`undefined` means "not observed", and is NOT the same as `0`.** A consumer
+ * MUST treat the two differently: `0` is a measured content box with no room in
+ * it, and a fixed-minimum-width part must be omitted; `undefined` is a tree
+ * that has not been laid out (jsdom, an environment with no `ResizeObserver`,
+ * the first render before the observer's initial callback) and carries no
+ * information about width at all, so a consumer falls back to whatever its
+ * width-blind contract says rather than omitting content it was never told did
+ * not fit. Collapsing them would blank every forecast in the unit suite and,
+ * worse, would report "does not fit" about a measurement that never happened.
+ */
+export function useCardContentWidth(): number | undefined {
+  return React.useContext(GridCardContext).contentWidth
 }
 
 /**
@@ -847,6 +892,43 @@ export const GridCard = React.memo(
 
       const effectiveHue = resolveCardHue(hue, display, danger)
 
+      /*
+       * The content-width signal (docs/specs/design-system — "Size-adaptive
+       * layouts"; `useCardContentWidth` for the consumer's half).
+       *
+       * The box observed is this component's own, and the instrument is shared
+       * across every mounted shell (`observeContentWidth`) — the spec asks for
+       * "a single shared observation, not a per-card one", and a dashboard is a
+       * wall of tiles. The content box rather than `offsetWidth` because the
+       * signal is what is left FOR content: the tile's padding is a theme's to
+       * change, and a card asking "do four 44px columns fit" must not be handed
+       * the width of the frame around them.
+       *
+       * Both the observation and the caller's `ref` are driven from the one ref
+       * callback rather than from an effect: React hands it the node on attach
+       * and `null` on detach, which is exactly the pair of events the
+       * observation needs, and assigning the caller's `ref` from an effect
+       * would leave a consumer's ref null for the first commit.
+       */
+      const [contentWidth, setContentWidth] = React.useState<number | undefined>(undefined)
+      const stopObserving = React.useRef<(() => void) | undefined>(undefined)
+
+      const setShellRef = React.useCallback(
+        (node: HTMLDivElement | null) => {
+          stopObserving.current?.()
+          stopObserving.current = node
+            ? observeContentWidth(node, setContentWidth)
+            : // Detached: the tile is gone, and so is any width it reported.
+              // Left as the state it was, because the component is unmounting
+              // with it — nothing reads this again.
+              undefined
+
+          if (typeof ref === 'function') ref(node)
+          else if (ref) ref.current = node
+        },
+        [ref]
+      )
+
       const contextValue = React.useMemo(
         () => ({
           tier,
@@ -857,8 +939,19 @@ export const GridCard = React.memo(
           display,
           hue: effectiveHue,
           iconOnlyLabel,
+          contentWidth,
         }),
-        [tier, isLoading, domain, resolvedColor, isOn, display, effectiveHue, iconOnlyLabel]
+        [
+          tier,
+          isLoading,
+          domain,
+          resolvedColor,
+          isOn,
+          display,
+          effectiveHue,
+          iconOnlyLabel,
+          contentWidth,
+        ]
       )
 
       /*
@@ -895,7 +988,7 @@ export const GridCard = React.memo(
       return (
         <GridCardContext.Provider value={contextValue}>
           <div
-            ref={ref}
+            ref={setShellRef}
             onClick={handleClick}
             onPointerDown={handlePointerDown}
             // Release on all three: a pointer that leaves the tile or is taken
