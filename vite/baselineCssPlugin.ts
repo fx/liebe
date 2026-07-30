@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite'
-import { isVendoredSheet, prepareBaselineCss, prepareVendorCss } from '../src/theme/cssLayers'
+import { isDemotedVendorSheet, prepareBaselineCss, prepareVendorCss } from '../src/theme/cssLayers'
 
 /**
  * Gives every stylesheet the panel ships the baseline treatment: inside a
@@ -14,10 +14,12 @@ import { isVendoredSheet, prepareBaselineCss, prepareVendorCss } from '../src/th
  * declarations are worse still, because importance runs the layer order in
  * reverse: an important baseline rule beats important theme *and* user rules.
  *
- * They land in `liebe-base.vendor` rather than in `liebe-base` itself, which is
- * what lets a baseline rule beat a vendor rule that out-specifies it — the
- * coarse-pointer touch floor over Radix's own control sizing. `cssLayers.ts`
- * carries why that is a sub-layer and not a fourth layer.
+ * The sheets that need to be OUTRANKED land in `liebe-base.vendor` rather than
+ * in `liebe-base` itself, which is what lets a baseline rule beat a vendor rule
+ * that out-specifies it — the coarse-pointer touch floor over Radix's own
+ * control sizing. Which sheets those are is a decision rather than a rule, and
+ * `cssLayers.ts` carries both it and why the layer is a sub-layer of the
+ * baseline rather than a fourth layer of its own.
  * See docs/specs/theming/index.md, "Application mechanism".
  *
  * A build-time transform rather than a runtime one: the panel links its CSS as
@@ -42,7 +44,7 @@ export function baselineCssPlugin(): Plugin {
       // baseline.
       if (!id.endsWith('.css')) return null
 
-      const css = isVendoredSheet(id) ? prepareVendorCss(code) : prepareBaselineCss(code)
+      const css = isDemotedVendorSheet(id) ? prepareVendorCss(code) : prepareBaselineCss(code)
       return css === code ? null : { code: css, map: null }
     },
   }

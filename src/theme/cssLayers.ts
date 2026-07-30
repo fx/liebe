@@ -278,7 +278,7 @@ export function prepareBaselineCss(css: string): string {
  *
  * Separate from `prepareBaselineCss` rather than a parameter, because which of
  * the two a sheet gets is not a caller's option — it follows from where the
- * sheet came from, which is what `isVendoredSheet` answers.
+ * sheet came from, which is what `isDemotedVendorSheet` answers.
  *
  * The wrapper is unconditional here, where `wrapInLayer` hands an already-layered
  * sheet back untouched. That shortcut is right for Liebe's own sheets, which are
@@ -296,19 +296,44 @@ export function prepareVendorCss(css: string): string {
   return `${charset}${LAYER_ORDER_STATEMENT}\n@layer ${VENDOR_LAYER} {\n${body}\n}\n`
 }
 
-// A module id under a package directory. Matched on the path rather than on the
-// import specifier because that is what a bundler hands a transform: `import
-// '@radix-ui/themes/styles.css'` arrives resolved, as an absolute path.
-const VENDORED_ID = /[\\/]node_modules[\\/]/
+/**
+ * The vendored packages whose stylesheets sit below Liebe's own baseline, by
+ * package root.
+ *
+ * A list rather than "everything under node_modules", and the difference is not
+ * caution — it is what demotion actually does. Demoting a sheet does not only
+ * let Liebe's rules win where they were losing usefully; it activates EVERY
+ * first-party rule that was losing to it, including rules written years ago
+ * against a cascade in which they never applied and which nobody has ever seen
+ * render.
+ *
+ * `react-grid-layout` is the measured instance. Its handle rules are
+ * `.react-grid-item > .react-resizable-handle.react-resizable-handle-s`, three
+ * class selectors deep, while `GridLayoutSection.css` styles the same handles as
+ * `.react-resizable-handle-s` — so the sheet has always won and Liebe's version
+ * has never rendered. Demoting it swapped the south handle from a 28×28 rotated
+ * square to a 40×20 bar shifted 16px left, and the east handle from 28×28 to
+ * 20×40, which was enough for a resize handle to cover a card's action button
+ * and swallow its click. Those first-party rules may well be the better design —
+ * they carry the same touch-target intent as the coarse-pointer floor — but
+ * making them live changes how the grid is operated, and that is a change with
+ * its own evidence to gather, not a side effect of a cascade fix
+ * (docs/changes/0036-theming-contract-gaps.md).
+ *
+ * So a package joins this list when something needs to outrank it and the
+ * consequences have been measured. Radix Themes is here because the 44px touch
+ * floor is written on bare element selectors that its `.rt-reset` outranks.
+ */
+const DEMOTED_VENDOR_PACKAGES = ['@radix-ui/themes']
 
 /**
- * Whether a stylesheet is vendored, and so belongs below Liebe's own baseline.
+ * Whether a stylesheet belongs in the layer below Liebe's own baseline.
  *
- * The distinction is authorship, not content: a vendored sheet cannot be
- * authored inside a layer, cannot be asked to keep its selectors weak, and
- * changes shape on every upgrade — so it is the one that yields. Liebe's own
- * sheets are authored inside `liebe-base` and stay there.
+ * Matched on the resolved path rather than the import specifier, because that is
+ * what a bundler hands a transform: `import '@radix-ui/themes/styles.css'`
+ * arrives as an absolute path. Windows separators are normalised first.
  */
-export function isVendoredSheet(id: string): boolean {
-  return VENDORED_ID.test(id)
+export function isDemotedVendorSheet(id: string): boolean {
+  const path = id.replaceAll('\\', '/')
+  return DEMOTED_VENDOR_PACKAGES.some((pkg) => path.includes(`/node_modules/${pkg}/`))
 }

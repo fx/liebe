@@ -39,6 +39,15 @@ interface ControlBox {
  * collapsed sidebar, an inactive tab panel) measures zero however well the floor
  * applies to it, so measuring one would fail the height assertion for a reason
  * that has nothing to do with the cascade.
+ *
+ * Height comes from `offsetHeight` rather than `getBoundingClientRect`, which is
+ * the difference between the box the layout gave the control and the box it is
+ * currently painted at. Radix's dialog opens with `rt-dialog-content-show`,
+ * animating `scale(0.97)` → `scale(1)`, and a rect is transform-inclusive — so a
+ * button laid out at 44px measured 42.68 (44 × 0.97) whenever the assertion won
+ * the race with the animation. The floor is a layout constraint and a transient
+ * scale does not breach it; measuring the rect asked a question the rule was
+ * never making a claim about.
  */
 async function controlBoxes(page: Page, selector: string): Promise<ControlBox[]> {
   return page.evaluate((sel) => {
@@ -50,7 +59,7 @@ async function controlBoxes(page: Page, selector: string): Promise<ControlBox[]>
       .flatMap((root) => Array.from(root.querySelectorAll(sel)))
       .filter((element) => element.getClientRects().length > 0)
       .map((element) => ({
-        height: element.getBoundingClientRect().height,
+        height: (element as HTMLElement).offsetHeight,
         minHeight: getComputedStyle(element).minHeight,
         paddingInline: getComputedStyle(element).paddingLeft,
       }))

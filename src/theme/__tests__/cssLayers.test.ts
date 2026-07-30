@@ -8,7 +8,7 @@ import {
   VENDOR_LAYER,
   isFullyLayered,
   isThemableProperty,
-  isVendoredSheet,
+  isDemotedVendorSheet,
   prepareBaselineCss,
   prepareVendorCss,
   stripThemableImportance,
@@ -275,30 +275,50 @@ describe('prepareVendorCss', () => {
   })
 })
 
-describe('isVendoredSheet', () => {
+describe('isDemotedVendorSheet', () => {
   it.each([
     '/repo/node_modules/@radix-ui/themes/styles.css',
+    'C:\\repo\\node_modules\\@radix-ui\\themes\\styles.css',
+    // A transitive copy, which is where a hoisting-defeated install puts it.
+    '/repo/node_modules/a/node_modules/@radix-ui/themes/styles.css',
+  ])('demotes %s', (id) => {
+    expect(isDemotedVendorSheet(id)).toBe(true)
+  })
+
+  /*
+   * The grid packages stay in `liebe-base`, and this is the assertion that says
+   * so rather than an omission that happens to.
+   *
+   * Demoting them activates every first-party rule that was losing to them, and
+   * `GridLayoutSection.css` is full of handle rules that have never rendered
+   * because react-grid-layout selects the same handles one class deeper. Live,
+   * they resize the drag handles enough to cover a card's action button. Being
+   * vendored is therefore not the test — needing to be outranked is, and nothing
+   * yet needs to outrank these.
+   */
+  it.each([
     '/repo/node_modules/react-grid-layout/css/styles.css',
-    'C:\\repo\\node_modules\\react-resizable\\css\\styles.css',
-    // A nested dependency, which is where a transitive sheet arrives from.
-    '/repo/node_modules/a/node_modules/b/styles.css',
-  ])('reads %s as vendored', (id) => {
-    expect(isVendoredSheet(id)).toBe(true)
+    '/repo/node_modules/react-resizable/css/styles.css',
+  ])('leaves %s in the baseline layer', (id) => {
+    expect(isDemotedVendorSheet(id)).toBe(false)
   })
 
   it.each([
     '/repo/src/styles/app.css',
     '/repo/src/components/anatomy/anatomy.css',
-    // The name without the path separators around it is a first-party file.
-    '/repo/src/styles/node_modules-notes.css',
-  ])('reads %s as first-party', (id) => {
-    expect(isVendoredSheet(id)).toBe(false)
+    // The package name outside node_modules is a first-party file.
+    '/repo/src/vendor/@radix-ui/themes/styles.css',
+  ])('leaves first-party %s in the baseline layer', (id) => {
+    expect(isDemotedVendorSheet(id)).toBe(false)
   })
 })
 
 describe('the vendored stylesheets as they ship', () => {
+  // The transform is asserted against all three sheets as they ship, because it
+  // has to survive whatever text a dependency emits — which of them the build
+  // actually routes through it is `isDemotedVendorSheet`'s decision, above.
   it.each(Object.entries(vendoredSheets))(
-    '%s lands in the vendor sub-layer with no themable importance',
+    '%s survives the vendor treatment with no themable importance',
     (_specifier, css) => {
       const prepared = prepareVendorCss(css)
 

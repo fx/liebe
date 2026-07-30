@@ -32,6 +32,20 @@ describe('baselineCssPlugin', () => {
     expect(code).toContain(`@layer ${VENDOR_LAYER} {`)
   })
 
+  it('leaves the grid packages in the baseline layer', () => {
+    // The routing decision this test exists for. Demoting react-grid-layout
+    // activates `GridLayoutSection.css`'s handle rules, which have never
+    // rendered and which resize the drag handles over a card's action button —
+    // so being vendored is not what puts a sheet below the baseline.
+    const code = transform(
+      '.react-grid-item { position: absolute }',
+      '/repo/node_modules/react-grid-layout/css/styles.css'
+    )
+
+    expect(code).toContain(`@layer ${BASE_LAYER} {`)
+    expect(code).not.toContain(`@layer ${VENDOR_LAYER} {`)
+  })
+
   it("puts an unlayered first-party sheet in the baseline's own layer", () => {
     // Liebe's sheets are authored inside `liebe-base`; one that forgot to be
     // must not be demoted below the vendored CSS it is meant to outrank.
