@@ -83,6 +83,28 @@ async function entityName(page: Page, entityId: string): Promise<string> {
 }
 
 /**
+ * The value that card's slider currently reports, straight off the element
+ * carrying `role="slider"` — the thumb.
+ *
+ * `null` when the card or its slider is not in the DOM, so a poll on this waits
+ * for the card to have rendered AND for the brightness the spec asked for to
+ * have arrived, in one predicate.
+ *
+ * The lookup is spelled out inline for the same reason as below: `page.evaluate`
+ * serializes the function it is handed, which cannot close over this module.
+ */
+async function sliderValueNow(page: Page, name: string): Promise<string | null> {
+  return page.evaluate((cardName) => {
+    const panel = (window as unknown as { __liebePanel?: FillPanelHandle }).__liebePanel
+    const cards = [...(panel?.shadowRoot?.querySelectorAll('.grid-item .liebe-card') ?? [])]
+    const card = cards.find(
+      (candidate) => candidate.querySelector('.liebe-name')?.textContent?.trim() === cardName
+    )
+    return card?.querySelector('[role="slider"]')?.getAttribute('aria-valuenow') ?? null
+  }, name)
+}
+
+/**
  * Every box the two geometry rules need, measured in one pass.
  *
  * One `evaluate` rather than four: the boxes are only comparable if they were
@@ -143,15 +165,31 @@ test('a tall card’s vertical slider fill spans its track and is centred in it'
   const neighbour = await entityName(page, E2E_FLAG)
   expect(light, 'the two seeded cards must be distinguishable by name').not.toBe(neighbour)
 
-  await expect.poll(() => sliderGeometry(page, light)).not.toBeNull()
-  const geometry = (await sliderGeometry(page, light))!
+  /*
+   * Synchronise on the VALUE, not merely on the slider's existence. The REST
+   * call above returns before its state update has reached the panel over the
+   * websocket, and the demo light may already have been on — at some other
+   * brightness — when this spec started. A poll that only waits for a slider
+   * would then be satisfied by the card as it was, and the snapshot below would
+   * measure a fill at whatever length the OLD brightness gave it: a full-height
+   * fill passes the width claims and fails `fill.height < track.height`, which
+   * is a red run reporting a defect that is not there.
+   *
+   * 128 of Home Assistant's 0–255 is the 50 the card renders and its thumb
+   * announces (`haBrightnessToPercent`), so this is the requested value arriving
+   * rather than a proxy for it.
+   */
+  await expect.poll(() => sliderValueNow(page, light)).toBe('50')
+
+  const geometry = await sliderGeometry(page, light)
+  expect(geometry, 'the tall card should render a vertical slider').not.toBeNull()
 
   // The premise: this is the `tall` tier's vertical slider. Asserted rather than
   // assumed — every measurement below is meaningless about a horizontal one.
-  expect(geometry.tier).toBe('tall')
-  expect(geometry.orientation).toBe('vertical')
+  expect(geometry!.tier).toBe('tall')
+  expect(geometry!.orientation).toBe('vertical')
 
-  const { track, fill, slider, band } = geometry
+  const { track, fill, slider, band } = geometry!
 
   // Sub-pixel tolerance throughout: the track's width comes from a token in
   // `px`, but a fractional grid column can still land either box on a
