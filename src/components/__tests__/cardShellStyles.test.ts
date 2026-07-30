@@ -56,6 +56,13 @@ function ruleBody(selector: string): string {
 }
 
 describe('card shell stylesheet', () => {
+  /**
+   * The `@property` registration, which is the one thing in this sheet that
+   * MUST sit outside the layer block — see the two assertions below for why,
+   * and `GridCard.css`'s own note at the declaration.
+   */
+  const PROPERTY_RULE = /@property\s+--liebe-icon-tile-tint\s*\{[^}]*\}/
+
   it('lands entirely in the base layer, with the layer order declared', () => {
     // An unlayered author rule outranks every cascade layer, so a stray rule
     // outside the block would be the one piece of the shell no theme could
@@ -64,10 +71,30 @@ describe('card shell stylesheet', () => {
       '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
     expect(css).toContain(statement)
 
-    const body = css.replace(statement, '').trim()
+    // The `@property` registration is lifted out before this is judged, and
+    // that is not an exemption being carved for it: it registers a NAME rather
+    // than declaring anything, so there is no declaration for a theme to lose
+    // to. Every rule that styles something still has to be inside the block.
+    const body = css.replace(statement, '').replace(PROPERTY_RULE, '').trim()
     expect(body.startsWith('@layer liebe-base {')).toBe(true)
     expect(body.endsWith('}')).toBe(true)
     expect(body.indexOf('@layer')).toBe(body.lastIndexOf('@layer'))
+  })
+
+  it('registers the tint property OUTSIDE every layer, where a parser will honour it', () => {
+    // `@property` is a top-level at-rule. Nested inside `@layer` a parser is
+    // entitled to ignore it, leaving the property unregistered and the tint's
+    // transition inert — and nothing cheap can see that happen: the rule still
+    // serialises into the built sheet either way, so "it survived the bundler"
+    // is not evidence it was honoured.
+    //
+    // Asserted as a POSITION rather than as presence, because presence is what
+    // the nested form also satisfies. `@property` must appear before the layer
+    // block opens, which is the only place in this sheet that is outside one.
+    const property = css.match(PROPERTY_RULE)
+    expect(property, 'no @property registration for the tint colour').not.toBeNull()
+
+    expect(css.indexOf(property![0])).toBeLessThan(css.indexOf('@layer liebe-base {'))
   })
 
   it('uses no importance, which layers reverse', () => {

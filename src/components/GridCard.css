@@ -40,6 +40,40 @@
 
 @layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
+/*
+ * The icon-only tile's tint colour, REGISTERED so the treatment can fade.
+ *
+ * `background-image` is animatable only discretely, so the gradient layer the
+ * tint is painted as cannot transition however it is declared — and the pattern
+ * owes a state change the ~280ms the motion rule gives one
+ * (docs/specs/design-system/index.md — "Card anatomy"). Registering the colour
+ * makes the PROPERTY interpolable, and the gradient built from it follows.
+ *
+ * DECLARED AT TOP LEVEL, DELIBERATELY, AND IT MUST STAY THERE.
+ * `@property` is a top-level at-rule: nested inside `@layer`, a parser is
+ * entitled to ignore it, which leaves the property unregistered and the
+ * transition inert. That failure is invisible to everything cheap — the rule
+ * still serialises into `dist/liebe.css`, so surviving the bundler says
+ * nothing about being honoured — and `cardShellStyles.test.ts` therefore
+ * asserts the block sits outside every `@layer` rather than merely existing.
+ *
+ * Registration is about the FADE, not about the colour: unregistered, the tint
+ * still resolves and paints correctly and simply snaps between states. It is a
+ * degradation of the motion rule, never a wrong tile.
+ *
+ * Being unlayered is not the hole the layering rule guards against either. That
+ * rule is about overridable *declarations* — an unlayered style rule outranks
+ * every cascade layer — and this registers a name rather than styling anything;
+ * `liebe.css` is linked into `document.head` as well as into the shadow root
+ * (`src/panel.ts`), so the registration lands at document scope wherever the
+ * panel runs.
+ */
+@property --liebe-icon-tile-tint {
+  inherits: false;
+  initial-value: transparent;
+  syntax: '<color>';
+}
+
 @layer liebe-base {
   /* ------------------------------------------------------------------ *
    * The tile
@@ -208,26 +242,7 @@
    * what the tile happens to be sitting on. An icon-only tile IS the state
    * surface, so it takes the surface token back.
    *
-   * WHY THE TINT COLOUR IS A REGISTERED PROPERTY
-   * -------------------------------------------
-   * `background-image` is animatable only discretely, so a gradient layer
-   * cannot fade however it is declared — and the pattern owes a state change
-   * the ~280ms the motion rule gives one. Registering the colour makes the
-   * property itself interpolable, and the gradient built from it follows,
-   * which is the whole of the transition below.
-   *
-   * `liebe.css` is linked into `document.head` as well as into the shadow root
-   * (`src/panel.ts` — the copy Radix portals need), so the registration lands
-   * at document scope wherever the panel runs. Should it ever not, the tint
-   * still resolves and simply stops fading: the degradation is the treatment
-   * without its transition, never the wrong colour.
    */
-  @property --liebe-icon-tile-tint {
-    inherits: false;
-    initial-value: transparent;
-    syntax: '<color>';
-  }
-
   .liebe-card[data-icon-tile] {
     /*
      * Inactive: "the standard ~5%-alpha neutral", the same wash the icon
