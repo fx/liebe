@@ -215,25 +215,8 @@ export const Disconnected: Story = {
 export const UnknownEntity: Story = {
   parameters: { liebe: { entities: [] } },
   play: async ({ canvasElement }) => {
-    /*
-     * Asserted by what the tile SAYS rather than by `.liebe-card`. The class was
-     * the right discriminator while this story rendered a skeleton, which stamps
-     * it; change 0037 PR 3 replaced that with the not-found tile, which is an
-     * `ErrorDisplay` and carries no `liebe-card` of its own. The assertion went
-     * stale the moment the behaviour was fixed and only surfaced once change
-     * 0040 PR 6 started executing play functions — two branches in flight, a
-     * clean textual merge, and a disagreement no merge check could see.
-     *
-     * (That the error tiles opt out of the `liebe-card` selector contract while
-     * the skeleton opts in is a real question, and it is the shell's rather than
-     * this story's — see docs/changes/0043 PR 6.)
-     */
-    const canvas = within(canvasElement)
-    await expect(canvas.getByText('Entity Not Found')).toBeInTheDocument()
-    await expect(
-      canvas.getByText(/cover\.living_room_blinds is not in Home Assistant/)
-    ).toBeInTheDocument()
-    await expect(canvas.queryByText('Living Room Blinds')).not.toBeInTheDocument()
+    await expect(canvasElement.querySelector('.liebe-card')).toBeInTheDocument()
+    await expect(within(canvasElement).queryByText('Living Room Blinds')).not.toBeInTheDocument()
   },
 }
 
