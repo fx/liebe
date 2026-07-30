@@ -5,7 +5,7 @@
 Add the universal `alignHorizontal` / `alignVertical` display options — every entity card's content block becomes positionable on both tile axes, applied centrally by the card shell like the existing display options. The option contract lives in [options/common — content alignment](../specs/entity-cards/options/common.md#content-alignment-alignhorizontal--alignvertical).
 
 **Spec:** [entity-cards](../specs/entity-cards/) (options/common)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -49,6 +49,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 - **Two keys, not one combined value**: axes are independent and the form renders two small selects; a combined nine-value select reads worse and migrates worse if a value is added.
 - **`start`/`center`/`end`, not `left`/`top`**: logical properties match the stylesheet's existing logical-axis style and stay correct under any future writing mode; the text widget's `left/right` naming predates the token contract and stays as-is.
 - **Attributes stamped only when non-`auto`**: mirrors `data-active`'s presence-only contract and keeps `auto` provably zero-footprint.
+- **A replacement state surface keeps its own presentation.** The loading skeleton, and the unavailable or error tile a card renders instead of itself, centre their own content and are not slid by the pair — recorded in [options/common](../specs/entity-cards/options/common.md#content-alignment-alignhorizontal--alignvertical), where the contract lives. Found while auditing: those surfaces are shared or per-card stand-ins that report a state rather than show the entity, so aligning them would mean every card's every state branch joining the audit's matrix for no user-visible gain.
 - **Not added to the theming stable selector contract**: alignment attributes are layout plumbing, not theme surface; contract promotion can follow demand.
 
 ### Non-Goals
@@ -57,7 +58,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 ## Tasks
 
-- [ ] Universal alignment pair: display-key registry/schema/defaults, config-form selects, shell stamping, stylesheet application at the tile plus per arrangement, an audit that every registered card and variant honours both axes (climate `dial` included), `auto`-unchanged proof, round-trip + display + stylesheet tests, stories
+- [x] Universal alignment pair: display-key registry/schema/defaults, config-form selects, shell stamping, stylesheet application at the tile plus per arrangement, an audit that every registered card and variant honours both axes (climate `dial` included), `auto`-unchanged proof, round-trip + display + stylesheet tests, stories
 
 ## Open Questions
 

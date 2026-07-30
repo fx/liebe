@@ -24,6 +24,7 @@ import type { CameraStatus } from './CameraControls'
 import { CameraStats } from './CameraStats'
 import { CameraLiveBadge, CameraNameOverlay } from './CameraOverlay'
 import { CameraThumbnailTile } from './CameraThumbnailTile'
+import { CardBody } from '../CardBody'
 import {
   cameraStateText,
   resolveCameraLiveBadge,
@@ -529,25 +530,39 @@ function CameraCardComponent({
       >
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
           {!supportsStream ? (
-            <Flex
-              direction="column"
-              align="center"
-              justify="center"
-              style={{ width: '100%', height: '100%' }}
-            >
-              <GridCard.Icon>
-                <VideoIcon
-                  style={{
-                    color: isRecording || isStreamingState ? 'var(--blue-9)' : 'var(--gray-9)',
-                    opacity: 1,
-                    transition: 'opacity 0.2s ease',
-                    width: 20,
-                    height: 20,
-                  }}
-                />
-              </GridCard.Icon>
-              {controls}
-            </Flex>
+            /*
+             * The placeholder for a camera that advertises no stream: the icon
+             * and whatever controls the tier keeps, centred in the tile.
+             *
+             * Through the shared body rather than an inline-filled `Flex`,
+             * which is what it was until change 0032. The two render the same
+             * centred column — the body's `stack` arrangement IS that column —
+             * but a `Flex` carrying `width`/`height: 100%` inline swallowed the
+             * tile: an inline declaration outranks every cascade layer, so no
+             * rule could move the icon inside it and the universal alignment
+             * pair was visibly inert on this one branch (measured in Chromium:
+             * the icon sat at the tile's centre for every value of both axes).
+             * The body is styled from the sheet, so it follows the alignment
+             * like every other card's — and this card still knows nothing about
+             * the option.
+             */
+            <CardBody
+              arrangement="stack"
+              lead={
+                <GridCard.Icon>
+                  <VideoIcon
+                    style={{
+                      color: isRecording || isStreamingState ? 'var(--blue-9)' : 'var(--gray-9)',
+                      opacity: 1,
+                      transition: 'opacity 0.2s ease',
+                      width: 20,
+                      height: 20,
+                    }}
+                  />
+                </GridCard.Icon>
+              }
+              control={controls}
+            />
           ) : !showStreamSurface ? (
             /*
              * Degraded tier: no stream element is mounted at all, so this tile

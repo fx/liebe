@@ -11,7 +11,8 @@ import {
   type GridCellArgs,
 } from '../../.storybook/decorators'
 import { domainColors } from '~/theme/tokens'
-import { CARD_COLOR_OPTIONS } from '~/store/cardDisplay'
+import { CARD_ALIGN_OPTIONS, CARD_COLOR_OPTIONS } from '~/store/cardDisplay'
+import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 
 function SampleContents({
   label = 'Living Room',
@@ -398,6 +399,93 @@ const TIER_CELLS = [
   { key: 'tall', cell: nestedGridCell(1, 2) },
   { key: 'full', cell: nestedGridCell(2, 2) },
 ] as const
+
+/**
+ * The alignment pair, one axis per story, every value side by side.
+ *
+ * Drawn through `CardBody` rather than through the loose slots above, because
+ * the arrangement is half of what the option does: the same stored value lands
+ * on a `glance` tile's stacked column and on a `full` tile's row line, and the
+ * stylesheet is what maps it onto whichever axis that shape distributes along.
+ * A gallery of loose slots would show the tile-level placement only and hide the
+ * half a card actually renders in.
+ *
+ * `auto` leads each row as the reference: it is the tier's own arrangement, and
+ * a value that looked like `auto` would be a value doing nothing.
+ */
+const ALIGN_CELLS = [
+  { key: 'glance', cell: nestedGridCell(1, 1) },
+  { key: 'full', cell: nestedGridCell(2, 2) },
+] as const
+
+function AlignedTile({
+  args,
+  config,
+  label,
+  cell,
+}: {
+  args: GridCardStoryProps
+  config: Record<string, string>
+  label: string
+  cell: (typeof ALIGN_CELLS)[number]['cell']
+}) {
+  return (
+    <div {...cell.frame}>
+      <PlacedCard {...args} tier={cell.tier} config={config}>
+        <CardBody
+          arrangement={DEFAULT_TIER_ARRANGEMENT[cell.tier]}
+          lead={
+            <GridCard.Icon>
+              <SunIcon width={20} height={20} />
+            </GridCard.Icon>
+          }
+          meta={
+            <GridCard.Meta>
+              <GridCard.Title>{label}</GridCard.Title>
+              <GridCard.Status>ON</GridCard.Status>
+            </GridCard.Meta>
+          }
+        />
+      </PlacedCard>
+    </div>
+  )
+}
+
+function AlignmentGallery({
+  axis,
+  args,
+}: {
+  axis: 'alignHorizontal' | 'alignVertical'
+  args: GridCardStoryProps
+}) {
+  return (
+    <Flex gap="4" align="start" wrap="wrap">
+      {CARD_ALIGN_OPTIONS.map((value) =>
+        ALIGN_CELLS.map(({ key: cellKey, cell }) => (
+          <AlignedTile
+            key={`${value}-${cellKey}`}
+            args={args}
+            config={{ [axis]: value }}
+            label={value}
+            cell={cell}
+          />
+        ))
+      )}
+    </Flex>
+  )
+}
+
+/** `alignHorizontal` — the content block slid across the tile. */
+export const HorizontalAlignment: Story = {
+  args: { gridWidth: 12, gridHeight: 4, isOn: true },
+  render: (args) => <AlignmentGallery axis="alignHorizontal" args={args} />,
+}
+
+/** `alignVertical` — the same block slid up and down it. */
+export const VerticalAlignment: Story = {
+  args: { gridWidth: 12, gridHeight: 4, isOn: true },
+  render: (args) => <AlignmentGallery axis="alignVertical" args={args} />,
+}
 
 export const Tiers: Story = {
   args: { gridWidth: 8, gridHeight: 3 },

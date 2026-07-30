@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CARD_ALIGN_OPTIONS,
   CARD_COLOR_OPTIONS,
   CARD_DISPLAY_DEFAULTS,
+  CARD_DISPLAY_KEYS,
+  cardAlignSchema,
   cardColorSchema,
   cardDisplayConfigSchema,
   readCardDisplay,
@@ -34,6 +37,47 @@ describe('card display options', () => {
     })
   })
 
+  describe('the alignment pair', () => {
+    it('offers exactly the four values the contract names', () => {
+      expect([...CARD_ALIGN_OPTIONS]).toEqual(['auto', 'start', 'center', 'end'])
+    })
+
+    it('rejects a value outside the closed set', () => {
+      // `left`/`top` are the spellings a reader arrives with — the text
+      // widget uses them — and they are deliberately not these.
+      expect(cardAlignSchema.safeParse('left').success).toBe(false)
+      expect(cardAlignSchema.safeParse('top').success).toBe(false)
+      expect(cardAlignSchema.safeParse('stretch').success).toBe(false)
+      expect(cardAlignSchema.safeParse('end').success).toBe(true)
+    })
+
+    it('defaults each axis to auto, which is the tier’s own arrangement', () => {
+      expect(readCardDisplay({})).toMatchObject({
+        alignHorizontal: 'auto',
+        alignVertical: 'auto',
+      })
+    })
+
+    it('takes each axis on its own', () => {
+      // "A named value overrides only its own axis; the other axis keeps its
+      // `auto` behavior."
+      expect(readCardDisplay({ alignVertical: 'start' })).toMatchObject({
+        alignHorizontal: 'auto',
+        alignVertical: 'start',
+      })
+    })
+
+    it('falls the axis back to auto for a value this build does not know', () => {
+      // Render-path tolerance, per key: a document written by a newer build
+      // renders with the tier's own arrangement on that axis rather than
+      // failing, and nothing rewrites what was stored.
+      expect(readCardDisplay({ alignHorizontal: 'justify', alignVertical: 'end' })).toMatchObject({
+        alignHorizontal: 'auto',
+        alignVertical: 'end',
+      })
+    })
+  })
+
   describe('defaults', () => {
     it('leave an unconfigured card exactly as it was', () => {
       expect(CARD_DISPLAY_DEFAULTS).toEqual({
@@ -42,7 +86,16 @@ describe('card display options', () => {
         hideName: false,
         hideState: false,
         color: 'auto',
+        alignHorizontal: 'auto',
+        alignVertical: 'auto',
       })
+    })
+
+    it('has a default for every key the reader iterates', () => {
+      // The reader starts from the defaults and overwrites per key, so a key
+      // listed without a default would resolve to `undefined` for every card
+      // rather than to the "leave it alone" value the option promises.
+      expect(Object.keys(CARD_DISPLAY_DEFAULTS).sort()).toEqual([...CARD_DISPLAY_KEYS].sort())
     })
 
     it('reads them for a card with no config at all', () => {
@@ -60,15 +113,21 @@ describe('card display options', () => {
           hideName: true,
           hideState: true,
           color: 'heat',
+          alignHorizontal: 'center',
+          alignVertical: 'end',
         }).success
       ).toBe(true)
       expect(cardDisplayConfigSchema.safeParse({ hideState: true }).success).toBe(true)
+      expect(cardDisplayConfigSchema.safeParse({ alignVertical: 'start' }).success).toBe(true)
     })
 
     it('rejects a wrong-typed value rather than coercing it', () => {
       expect(cardDisplayConfigSchema.safeParse({ hideName: 'yes' }).success).toBe(false)
       expect(cardDisplayConfigSchema.safeParse({ name: 3 }).success).toBe(false)
       expect(cardDisplayConfigSchema.safeParse({ color: 'amber' }).success).toBe(false)
+      // The gate is where a closed enum stops being tolerant: a shared document
+      // naming an alignment nothing implements has an author who needs to know.
+      expect(cardDisplayConfigSchema.safeParse({ alignHorizontal: 'left' }).success).toBe(false)
     })
   })
 
@@ -81,6 +140,8 @@ describe('card display options', () => {
           hideName: true,
           hideState: true,
           color: 'ok',
+          alignHorizontal: 'end',
+          alignVertical: 'start',
         })
       ).toEqual({
         name: 'Reading lamp',
@@ -88,6 +149,8 @@ describe('card display options', () => {
         hideName: true,
         hideState: true,
         color: 'ok',
+        alignHorizontal: 'end',
+        alignVertical: 'start',
       })
     })
 
@@ -115,6 +178,8 @@ describe('card display options', () => {
       hideName: true,
       hideState: true,
       color: 'ok',
+      alignHorizontal: 'end',
+      alignVertical: 'start',
     }
 
     it('takes back everything that carries the warning', () => {
@@ -127,6 +192,11 @@ describe('card display options', () => {
         hideName: false,
         hideState: false,
         color: 'auto',
+        // Layout, not signalling: sliding the warning to the top of the tile
+        // does not make it say anything less, so the floor leaves it in force
+        // (docs/specs/entity-cards/options/common.md — "Content alignment").
+        alignHorizontal: 'end',
+        alignVertical: 'start',
       })
     })
 
