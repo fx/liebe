@@ -306,8 +306,19 @@ function FanCardComponent({
   const showOscillate = isFull && !isEditMode && options.showOscillate && features.oscillate
   const showDirection = isFull && !isEditMode && options.showDirection && features.direction
 
-  const displayPercentage =
-    isDragging && localPercentage !== null ? localPercentage : (percentage ?? 0)
+  /**
+   * The speed the card is showing, or `undefined` where there is none to show
+   * — a fan without the capability, or one that advertises it and reports no
+   * `percentage`. The dragged value wins while a drag owns the control.
+   */
+  const reportedPercentage =
+    isDragging && localPercentage !== null
+      ? localPercentage
+      : features.speed
+        ? percentage
+        : undefined
+
+  const displayPercentage = reportedPercentage ?? 0
 
   /*
    * The spin. Its duration rides on a custom property rather than on a class
@@ -467,6 +478,18 @@ function FanCardComponent({
       isStale={isStale}
       isSelected={isSelected}
       isOn={isOn}
+      /*
+       * The speed an icon-only tile modulates its state tint by — the dragged
+       * value while a drag owns it, as the speed control itself uses.
+       *
+       * `displayPercentage` is not the value to publish, because it falls back
+       * to `0` for display: a fan with no speed capability, and one that
+       * advertises `SET_SPEED` but reports no `percentage` (a preset mode is
+       * the shipped case), both have NO level rather than the bottom of one.
+       * Passing `0` would render them at the faintest tint the scale allows,
+       * where the undimmed fallback is what an unknown speed should take.
+       */
+      level={reportedPercentage === undefined ? undefined : reportedPercentage / 100}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleToggle}

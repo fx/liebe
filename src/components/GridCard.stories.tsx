@@ -484,8 +484,8 @@ function AlignmentGallery({
  * would show tiles that look correct without showing what they no longer show.
  *
  * `data-icon-tile` is the marker the tile carries only in the right-hand column
- * (docs/specs/theming — "Stable selector contract"); the state tint it will
- * carry arrives with the rest of change 0033.
+ * (docs/specs/theming — "Stable selector contract"), and the state tint below
+ * is what it keys.
  */
 function IconOnlyPair({
   args,
@@ -555,7 +555,7 @@ export const IconOnlyControlCard: Story = {
       </IconOnlyPair>
       <IconOnlyPair
         args={{ ...args, isOn: false }}
-        label="off — the same glyph, and the tile that will carry the state"
+        label="off — the same glyph, on the neutral tile"
       >
         {() => (
           <CardBody
@@ -643,6 +643,95 @@ export const IconOnlyDangerReversion: Story = {
       </Flex>
     )
   },
+}
+
+/**
+ * One icon-only tile, labelled — the unit both tint galleries below are built
+ * from.
+ */
+function TintTile({
+  args,
+  label,
+  ...props
+}: { args: GridCardStoryProps; label: string } & Partial<GridCardProps>) {
+  const cell = nestedGridCell(1, 1)
+
+  return (
+    <Flex direction="column" gap="1" align="center">
+      <div {...cell.frame}>
+        <PlacedCard {...args} {...props} tier={cell.tier} config={{ iconOnly: true }}>
+          <CardBody
+            arrangement={DEFAULT_TIER_ARRANGEMENT['glance']}
+            lead={
+              <GridCard.Icon>
+                <SunIcon width={20} height={20} />
+              </GridCard.Icon>
+            }
+            meta={
+              <GridCard.Meta>
+                <GridCard.Title>Reading lamp</GridCard.Title>
+                <GridCard.Status>ON</GridCard.Status>
+              </GridCard.Meta>
+            }
+          />
+        </PlacedCard>
+      </div>
+      <Text size="1" color="gray">
+        {label}
+      </Text>
+    </Flex>
+  )
+}
+
+/**
+ * The icon-only tile's state tint — the one place a card surface carries hue.
+ *
+ * Everywhere else the tile stays neutral; a card in this presentation has
+ * surrendered every part that could carry state, so the tile becomes the tint
+ * surface (docs/specs/design-system — "Card anatomy", one of exactly two
+ * exceptions to the neutral-tile rule). Inactive is the neutral wash with a
+ * muted glyph; active is the domain's own tint, modulated by the entity's level
+ * so a lamp at 10% reads dimmer than one at full.
+ *
+ * The 1×1 cell is the size the exception is really about — a dimmable light
+ * reduced to a tile that reads its own state from across the room.
+ *
+ * Switch the toolbar's appearance control to see both halves of the pattern:
+ * the glyph takes the base hue over the dark tint and the domain's text step
+ * over the light one, which is what holds its 3:1 clearance in either.
+ */
+export const IconOnlyStateTint: Story = {
+  args: { gridWidth: 12, gridHeight: 2, domain: 'light', color: 'light' },
+  render: (args) => (
+    <Flex gap="4" align="start" wrap="wrap">
+      <TintTile args={args} isOn={false} label="off" />
+      <TintTile args={args} isOn level={0.1} label="on · 10%" />
+      <TintTile args={args} isOn level={0.5} label="on · 50%" />
+      <TintTile args={args} isOn label="on · no level" />
+    </Flex>
+  ),
+}
+
+/**
+ * The same tile across the domain triplets, and on a bulb's own reported
+ * colour.
+ *
+ * The tint resolves through the `data-color` triplet rather than naming a hue,
+ * so a theme remapping the triplet recolours these tiles with everything else —
+ * and the bulb-colour exception (`useLightColor`) reaches the tile exactly as it
+ * reaches the glyph, because both read the one value `resolveCardHue` let
+ * through.
+ */
+export const IconOnlyTintColours: Story = {
+  args: { gridWidth: 12, gridHeight: 2, domain: 'light' },
+  render: (args) => (
+    <Flex gap="4" align="start" wrap="wrap">
+      {CARD_COLOR_OPTIONS.filter((option) => option !== 'auto').map((color) => (
+        <TintTile key={color} args={args} isOn color={color} label={color} />
+      ))}
+      <TintTile args={args} isOn color="light" hue="rgb(64, 120, 255)" label="bulb colour" />
+    </Flex>
+  ),
 }
 
 /** `alignHorizontal` — the content block slid across the tile. */

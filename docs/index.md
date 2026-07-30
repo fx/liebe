@@ -52,7 +52,7 @@
 | 0030 | [Weather Forecast Legibility](changes/0030-weather-forecast-legibility.md)                                   | [Entity Cards](specs/entity-cards/)         | draft    | —                |
 | 0031 | [Sensor Graph Fill](changes/0031-sensor-graph-fill.md)                                                       | [Entity Cards](specs/entity-cards/)         | complete | —                |
 | 0032 | [Card Content Alignment](changes/0032-card-content-alignment.md)                                             | [Entity Cards](specs/entity-cards/)         | complete | —                |
-| 0033 | [Icon-Only Cards](changes/0033-icon-only-cards.md)                                                           | [Entity Cards](specs/entity-cards/)         | draft    | —                |
+| 0033 | [Icon-Only Cards](changes/0033-icon-only-cards.md)                                                           | [Entity Cards](specs/entity-cards/)         | complete | —                |
 | 0034 | [Slider Placement Options](changes/0034-slider-placement.md)                                                 | [Entity Cards](specs/entity-cards/)         | draft    | 0028, 0033       |
 | 0035 | [Light-Appearance Contrast & Accessible Names](changes/0035-light-appearance-contrast.md)                    | [Design System](specs/design-system/)       | draft    | —                |
 | 0036 | [Theming Contract & Cascade Gaps](changes/0036-theming-contract-gaps.md)                                     | [Theming](specs/theming/)                   | draft    | —                |

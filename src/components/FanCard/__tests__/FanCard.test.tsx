@@ -514,4 +514,51 @@ describe('FanCard', () => {
 
     expect(screen.getByText('Living Room Fan')).toBeInTheDocument()
   })
+
+  describe('the level an icon-only tile tints by', () => {
+    /**
+     * The tile tint's strength follows the fan's speed
+     * (docs/specs/design-system — "Card anatomy"). What the sheet does with
+     * the fraction is `cardShellStyles.test.ts`'s subject; what is asserted
+     * here is that the card hands over the speed it is already showing, and
+     * hands over nothing for a fan that has none.
+     */
+    const tileLevel = () =>
+      (document.querySelector('.liebe-card') as HTMLElement).style.getPropertyValue(
+        '--liebe-icon-tile-level'
+      )
+
+    it('reports the fan speed as a 0–1 fraction', () => {
+      renderCard({ iconOnly: true })
+
+      expect(tileLevel()).toBe('0.5')
+    })
+
+    it('reports no level for a running fan that publishes no speed', () => {
+      // A fan advertising SET_SPEED while reporting no `percentage` — a preset
+      // mode is the shipped case. Its speed is unknown, not zero, so the tile
+      // takes the undimmed tint rather than the faintest one on the scale.
+      withEntity({
+        attributes: { friendly_name: 'Living Room Fan', supported_features: 49 },
+      })
+
+      renderCard({ iconOnly: true })
+
+      expect(tileLevel()).toBe('')
+    })
+
+    it('reports no level for a fan with no speed capability', () => {
+      // TURN_OFF | TURN_ON and nothing else: a fan that switches but does not
+      // set a percentage has no level, and an undimmed tint is the right tile
+      // for it — a `0` would render every such fan at the faintest tint the
+      // scale allows.
+      withEntity({
+        attributes: { friendly_name: 'Living Room Fan', supported_features: 48 },
+      })
+
+      renderCard({ iconOnly: true })
+
+      expect(tileLevel()).toBe('')
+    })
+  })
 })

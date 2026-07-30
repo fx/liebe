@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PersonCard } from '..'
@@ -160,6 +162,36 @@ describe('PersonCard', () => {
 
       expect(circle.style.getPropertyValue('--part-color')).toBe('var(--gold-9)')
       expect(circle).toHaveAttribute('data-active', 'true')
+    })
+
+    it('keeps the initials disc on an icon-only tile', () => {
+      /*
+       * An icon-only tile becomes the state tint surface, and `GridCard.css`
+       * strips `.liebe-icon`'s own background there so a glyph is not left on
+       * two stacked tints. This card is the exception the contract names —
+       * "the person card's [icon-only tile] is its avatar"
+       * (docs/specs/entity-cards/options/common.md — "Icon-only
+       * presentation") — and the avatar IS the coloured disc, so bare initials
+       * on the tinted tile would be the anchor half removed.
+       *
+       * Both ends are asserted together, because the risk is that they drift:
+       * the class the circle renders with, and the rule in this card's own
+       * sheet that restores the background for exactly that class under
+       * exactly that marker. Either one alone passes while the avatar is gone.
+       */
+      renderCard('home', { config: { iconOnly: true } })
+
+      const circle = document.querySelector('.liebe-icon') as HTMLElement
+      expect(circle).toHaveClass('person-avatar-initials')
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+
+      const sheetPath = '../PersonCard.css'
+      const sheet = readFileSync(fileURLToPath(new URL(sheetPath, import.meta.url)), 'utf8')
+      const rule = sheet
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .match(/\.liebe-card\[data-icon-tile\] \.liebe-icon\.person-avatar-initials\s*\{([^}]*)\}/)
+
+      expect(rule?.[1]).toContain('background: var(--part-tint);')
     })
 
     it('falls back to initials when the photo fails to load', () => {

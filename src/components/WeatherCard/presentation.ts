@@ -546,21 +546,34 @@ export function getWeatherBackground(condition: unknown): string | null {
  * The artwork a card should actually paint, once the option and the variant
  * have had their say.
  *
- * Three separate reasons for no background, resolved in one place so no variant
- * can honour two of them and forget the third: the user turned it off, this
+ * Four separate reasons for no background, resolved in one place so no variant
+ * can honour three of them and forget the fourth: the user turned it off, this
  * variant never paints one (`minimal` — a transparent tile is its whole
- * identity), or the condition maps to nothing.
+ * identity), the card is reduced to its icon, or the condition maps to nothing.
+ *
+ * `iconOnly` belongs here rather than at the point the image is applied,
+ * because the artwork is not only a background: a card painting one takes the
+ * `weather-card-artwork` scope, which pins every foreground token to white for
+ * legibility over a photograph (`WeatherCard.css`). The shell already drops the
+ * paint layers from the tile under `iconOnly`
+ * (docs/changes/0033-icon-only-cards.md), so a variant that kept resolving an
+ * image would keep the white pins with no photograph under them — a white
+ * glyph on the light appearance's own pale tile, which is the identity anchor
+ * gone. One answer to "is this card painting artwork" keeps the paint and the
+ * treatment that assumes it from parting company.
  */
 export function resolveConditionBackground({
   condition,
   showConditionBackground,
   variantPaintsBackground = true,
+  iconOnly = false,
 }: {
   condition: unknown
   showConditionBackground: boolean
   variantPaintsBackground?: boolean
+  iconOnly?: boolean
 }): string | null {
-  if (!showConditionBackground || !variantPaintsBackground) return null
+  if (!showConditionBackground || !variantPaintsBackground || iconOnly) return null
 
   return getWeatherBackground(condition)
 }

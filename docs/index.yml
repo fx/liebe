@@ -277,7 +277,7 @@ changes:
     path: changes/0033-icon-only-cards.md
     description: Universal iconOnly display option — any card reduces to its centred icon on a tile that itself carries the state tint, level-modulated
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: []
   - id: '0034'
     name: slider-placement
