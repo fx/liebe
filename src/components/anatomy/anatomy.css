@@ -115,11 +115,36 @@
   /* ------------------------------------------------------------------ *
    * The active/inactive treatment
    *
-   * One pattern for every tinted part: a saturated glyph on the domain's 20%
+   * One pattern for every tinted part: the domain's glyph on the domain's 20%
    * tint when active, a muted glyph on a 5% neutral when not. The neutral is
    * `--gray-a3` by name — the spec pins the inactive ground to the Radix
    * neutral rather than to a domain token, because an inactive part carries no
    * state meaning and must not carry hue.
+   *
+   * WHY THE GLYPH STEP IS PER APPEARANCE
+   * ------------------------------------
+   * The glyph has to clear 3:1 against the tint it sits on, and the tint is a
+   * 20% veil of the SAME hue over the card. In dark appearance that veil lands
+   * on a near-black card and stays dark, so the saturated base hue reads
+   * against it. In light it lands on a near-white card and comes out a pale
+   * wash of the base — measured 1.40:1 for amber and 2.50:1 for green under
+   * Default, and within noise of that under Liquid Glass, because a step 9 on a
+   * 20% tint of itself over near-white cannot reach 3:1 whatever the hue.
+   * Lowering the tint's alpha only moves the ground closer to the card and
+   * makes it worse, so the glyph is the knob (change 0035 — measured figures
+   * per hue per theme in its PR).
+   *
+   * In light the glyph therefore takes the domain's TEXT role, which every
+   * theme already has to pin to clear 4.5:1 against that same card surface
+   * (docs/specs/design-system — "Domain color discipline"). Clearing the text
+   * floor on the card is what carries the glyph over the 3:1 floor on a 20%
+   * veil of the card, so a theme that meets the obligation it already has gets
+   * a conforming glyph without a token of its own. Dark keeps the base hue: the
+   * block below restores it, and no dark figure moves.
+   *
+   * The bulb-colour exception rides along unchanged — `anatomyPart.ts` sets
+   * `--part-text` to the live hue alongside `--part-color`, so a light card
+   * under `useLightColor` still shows its own colour in both appearances.
    * ------------------------------------------------------------------ */
 
   .liebe-icon,
@@ -140,6 +165,22 @@
   .liebe-pill[data-active],
   .liebe-chip[data-active] {
     background: var(--part-tint);
+    color: var(--part-text);
+  }
+
+  /*
+   * Dark appearance restores the saturated base hue. The selector pair mirrors
+   * the one src/styles/tokens.css and the themes use — a theme root that
+   * declares itself dark, and a nested theme inheriting darkness from an
+   * ancestor without overriding it — with the parts as descendants of it, since
+   * this is a property of the part rather than a token on the root. Light is
+   * the unconditional value for the same reason it is there: Radix's classless
+   * default is light.
+   */
+  .radix-themes:where(.dark, .dark-theme) :is(.liebe-icon, .liebe-pill, .liebe-chip)[data-active],
+  :is(.dark, .dark-theme)
+    :where(.radix-themes:not(.light, .light-theme))
+    :is(.liebe-icon, .liebe-pill, .liebe-chip)[data-active] {
     color: var(--part-color);
   }
 

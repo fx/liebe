@@ -8,6 +8,7 @@ import {
   tokenGroups,
   type TokenGroup,
 } from './tokens'
+import { IconCircle } from '~/components/anatomy/IconCircle'
 
 /* ------------------------------------------------------------------ *
  * Reading the live values
@@ -220,7 +221,9 @@ function DomainColorTable() {
       <Text as="p" size="2" mb="2" style={{ color: 'var(--liebe-muted)' }}>
         Each domain is a triplet: the base hue, a 20% tint derived from it, and a text step. Remap
         the base and the tint follows; under the Default theme the text step is pinned, so remap it
-        too.
+        too. The active swatch renders the shipped pattern, whose glyph step is per appearance — the
+        base hue in dark, the text step in light, where a base-step glyph on a 20% tint of itself
+        measures as little as 1.40:1.
       </Text>
       <Table.Root size="1" variant="ghost">
         <Table.Header>
@@ -256,13 +259,14 @@ function DomainColorTable() {
                   </Flex>
                 </Table.Cell>
                 <Table.Cell>
-                  <IconCircle
-                    glyph={values[tokens.base] ?? ''}
-                    surface={values[tokens.tint] ?? ''}
-                  />
+                  <IconCircle color={domain.name} domain={domain.name} active>
+                    <GlyphDot />
+                  </IconCircle>
                 </Table.Cell>
                 <Table.Cell>
-                  <IconCircle glyph="var(--liebe-faint)" surface="var(--gray-a3)" />
+                  <IconCircle color={domain.name} domain={domain.name}>
+                    <GlyphDot />
+                  </IconCircle>
                 </Table.Cell>
                 <Table.Cell>
                   <Text size="2" style={{ color: values[tokens.text] }}>
@@ -282,26 +286,12 @@ function DomainColorTable() {
 }
 
 /**
- * A stand-in for the icon circle PR 2 ships, drawn from tokens only — enough to
- * judge the tint pattern without pre-empting the real component.
+ * A stand-in for whatever glyph a card puts in the circle: a solid dot in the
+ * glyph colour, so the swatch shows the colour the shipped pattern resolves
+ * rather than one the gallery picked for itself.
  */
-function IconCircle({ glyph, surface }: { glyph: string; surface: string }) {
-  return (
-    <Flex
-      aria-hidden
-      align="center"
-      justify="center"
-      style={{
-        background: surface,
-        borderRadius: 'var(--liebe-circle-radius)',
-        color: glyph,
-        height: 'var(--liebe-icon-circle)',
-        width: 'var(--liebe-icon-circle)',
-      }}
-    >
-      <Box style={{ background: 'currentcolor', borderRadius: '50%', height: 14, width: 14 }} />
-    </Flex>
-  )
+function GlyphDot() {
+  return <Box style={{ background: 'currentcolor', borderRadius: '50%', height: 14, width: 14 }} />
 }
 
 /** Side-by-side reference hex and resolved alias, per surface token. */

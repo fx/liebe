@@ -111,12 +111,59 @@ describe('domain colour', () => {
       '.liebe-icon[data-active],\n  .liebe-pill[data-active],\n  .liebe-chip[data-active]'
     )
     expect(active).toContain('background: var(--part-tint);')
-    expect(active).toContain('color: var(--part-color);')
 
     // Inactive carries no state, so it carries no hue either.
     const inactive = ruleBody('.liebe-icon,\n  .liebe-pill,\n  .liebe-chip')
     expect(inactive).toContain('background: var(--gray-a3);')
     expect(inactive).toContain('color: var(--liebe-faint);')
+  })
+
+  /**
+   * The glyph step is per appearance, and which way round it goes is the whole
+   * of change 0035 PR 2: a step-9 glyph on a 20% tint of itself over the light
+   * card measures 1.40:1 for amber and 2.50:1 for green, and no tint alpha
+   * fixes it. Light therefore takes the text role, which every theme already
+   * pins to clear 4.5:1 on that same surface; dark keeps the base hue, where
+   * the tint lands on a near-black card and the saturated step reads against
+   * it. Asserted on the declarations because jsdom applies no stylesheet — the
+   * figures themselves come from decoded pixels, recorded in the PR.
+   */
+  describe('the glyph on its tint', () => {
+    const DARK_PARTS = ':is(.liebe-icon, .liebe-pill, .liebe-chip)[data-active]'
+
+    it('takes the domain text role in light appearance, which is the unconditional one', () => {
+      const active = ruleBody(
+        '.liebe-icon[data-active],\n  .liebe-pill[data-active],\n  .liebe-chip[data-active]'
+      )
+      expect(active).toContain('color: var(--part-text);')
+    })
+
+    it('restores the saturated base hue in dark appearance', () => {
+      expect(ruleBody(DARK_PARTS)).toContain('color: var(--part-color);')
+    })
+
+    it('reaches dark through both branches the appearance selector needs', () => {
+      // A theme root that declares itself dark, and a nested theme inheriting
+      // darkness from an ancestor without overriding it — the pair the base
+      // token sheet and every theme use. Dropping the second branch would leave
+      // a nested theme on the light glyph over a dark tint.
+      expect(source).toContain(`.radix-themes:where(.dark, .dark-theme) ${DARK_PARTS}`)
+      expect(source).toMatch(
+        /:is\(\.dark, \.dark-theme\)\s+:where\(\.radix-themes:not\(\.light, \.light-theme\)\)/
+      )
+    })
+
+    it('changes nothing in dark but the glyph colour', () => {
+      // Dark measured clean before this rule existed and must measure
+      // identically after it: a second declaration here would move a figure the
+      // change document puts out of scope.
+      const declarations = ruleBody(DARK_PARTS)
+        .split(';')
+        .map((line) => line.trim())
+        .filter(Boolean)
+
+      expect(declarations).toEqual(['color: var(--part-color)'])
+    })
   })
 })
 
