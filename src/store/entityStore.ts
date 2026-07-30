@@ -124,8 +124,13 @@ export const entityStoreActions: EntityStoreActions = {
   },
 
   /**
-   * Take a whole snapshot as the state machine's contents, rather than merging
-   * it into whatever the last session left behind.
+   * Reconcile the map against a whole snapshot, rather than merging the
+   * snapshot into whatever the last session left behind.
+   *
+   * "Reconcile" rather than "replace" is exact and the difference matters: the
+   * result is the snapshot plus anything the map holds that demonstrably
+   * postdates it, which is not the same set as the snapshot. The two rules
+   * below are what make up that difference.
    *
    * **What it fixes.** `loadInitialStates` used `updateEntities`, which merges —
    * so an entity DELETED WHILE THE SOCKET WAS DOWN survived from the previous
