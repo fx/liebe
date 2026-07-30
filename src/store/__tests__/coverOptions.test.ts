@@ -105,6 +105,16 @@ describe('coverOptionsConfigSchema', () => {
     expect(coverOptionsConfigSchema.safeParse({ stateLabelStyle: 'pct' }).success).toBe(false)
     expect(coverOptionsConfigSchema.safeParse({ confirmOpen: 'false' }).success).toBe(false)
   })
+
+  it('rejects the form’s spelling of absence, which is not a stored value', () => {
+    // `auto` is the select control's value for "derive it from the entity", and
+    // the form's `clearValue` turns it back into an absent key on save. A
+    // document carrying it is a document whose author needs telling, not one
+    // asking for a style — the stored contract has exactly two.
+    expect(
+      coverOptionsConfigSchema.safeParse({ stateLabelStyle: COVER_STATE_LABEL_STYLE_AUTO }).success
+    ).toBe(false)
+  })
 })
 
 describe('isSecurityCover', () => {
