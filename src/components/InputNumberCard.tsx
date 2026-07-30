@@ -423,7 +423,8 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    * built with the stepper, so the loader pins them to it; the attribute
    * default reaches new cards only (common contract, convention 7).
    */
-  const controlStyle = readNumberControlStyle(config ?? publishedItem.config, attributes.mode)
+  const storedConfig = config ?? publishedItem.config
+  const controlStyle = readNumberControlStyle(storedConfig, attributes.mode)
 
   /*
    * `iconOnly` has to reach the lead, which is the one slot the seam keeps.
@@ -435,8 +436,12 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    * (docs/specs/entity-cards/options/common.md — "Icon-only presentation": the
    * card's resolved icon, and only the camera's thumbnail and the person's
    * avatar are anchors of another kind).
+   *
+   * The same resolution goes to the shell below, so the card and its shell
+   * cannot disagree about the option: read here and not there, the glyph would
+   * land on a tile that suppressed nothing and stamped no marker.
    */
-  const { iconOnly } = readCardDisplay(config ?? publishedItem.config)
+  const { iconOnly } = readCardDisplay(storedConfig)
 
   return (
     <GridCard
@@ -462,6 +467,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        */
       defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
+      config={storedConfig}
     >
       {/*
        * `glance` is the value and the name, and nothing else: the reading is the

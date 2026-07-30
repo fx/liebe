@@ -40,9 +40,15 @@ function WeatherCardMinimalContent(props: CardProps) {
    * Off the prop when the renderer passed one and off the published item
    * otherwise, because both are real: the grid hands a placed card both, while
    * anything that publishes only the item context (the configuration preview) is
-   * still a card the option has to reach.
+   * still a card the option has to reach. The **same** resolution then goes to
+   * the shell below, which is the part that cannot be skipped: a card that reads
+   * one source while its shell reads another renders half the option — this
+   * glyph on a tile that never suppressed anything and never stamped the
+   * marker. `ActionCard` and `CameraCard` pass their resolved config down for
+   * exactly this reason.
    */
-  const { iconOnly } = readCardDisplay(config ?? publishedItem.config)
+  const storedConfig = config ?? publishedItem.config
+  const { iconOnly } = readCardDisplay(storedConfig)
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
 
   // Show skeleton while loading initial data
@@ -106,6 +112,7 @@ function WeatherCardMinimalContent(props: CardProps) {
       onConfigure={onConfigure}
       hasConfiguration={!!onConfigure}
       transparent={true}
+      config={storedConfig}
     >
       {/*
        * `minimal` is the variant that renders LESS than its tier allows, which

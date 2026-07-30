@@ -626,6 +626,49 @@ describe('the targets that bypassed the seam', () => {
     const { container: plain } = renderCardIn('input_number', 'glance', {})
     expect(plain.querySelector('.liebe-card .liebe-value')).not.toBeNull()
   })
+
+  it.each([
+    {
+      name: 'weather (minimal variant)',
+      Card: domainToCard.weather.variants!.minimal,
+      tier: 'full',
+    },
+    { name: 'input_number', Card: domainToCard.input_number, tier: 'glance' },
+  ] as const)(
+    '$name reads the option from the same place its tile does',
+    ({ name, Card, tier }) => {
+      /*
+       * Both of these resolve their icon-only form by reading the stored options
+       * themselves, which is the one way a per-card form can go wrong that the
+       * anchor count cannot see: read the option from a source the SHELL does not
+       * read, and the card renders its glyph onto a tile that suppressed nothing
+       * and stamped no marker — the option half-applied, which is worse than not
+       * applied at all.
+       *
+       * A card handed its config as a prop with no `CardItemProvider` around it is
+       * where the two sources come apart, and it is a shape this repo renders:
+       * a bare card with a literal `entityId` and `config` is what a story and the
+       * configuration preview mount. So the assertion is that the tile agrees with
+       * the card — marker stamped, one anchor, nothing else left.
+       */
+      const entityId =
+        entityFactories[name.startsWith('weather') ? 'weather' : 'input_number']().entity_id
+
+      const { container } = render(
+        <Theme>
+          <HomeAssistantProvider hass={hass}>
+            <Card entityId={entityId} tier={tier} config={ICON_ONLY} />
+          </HomeAssistantProvider>
+        </Theme>
+      )
+
+      const tile = container.querySelector('.liebe-card')!
+      expect(tile.getAttribute('data-icon-tile'), name).toBe('true')
+      expect(anchorsIn(tile), name).toHaveLength(1)
+      expect(tile.querySelector('.liebe-name'), name).toBeNull()
+      expect(tile.querySelector('.liebe-value'), name).toBeNull()
+    }
+  )
 })
 
 function renderCardIn(domain: FixtureDomain, tier: CardTier, config: Record<string, unknown>) {

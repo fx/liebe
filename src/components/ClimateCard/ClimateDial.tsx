@@ -127,10 +127,21 @@ export function ClimateDialContent(props: CardProps) {
    * it would have made the two variants of one domain disagree about what an
    * icon-only thermostat looks like.
    *
+   * Off the published item, and deliberately not off `props.config` as the
+   * other cards that read a universal option for themselves do. Those hand the
+   * same resolution to the shell they render (`config={storedConfig}`), so the
+   * card and its tile cannot disagree; this variant renders no shell — it
+   * delegates to `ClimateCompactContent`, whose tile and whose own options both
+   * come off this context. Reading the prop here would resolve the option from a
+   * source the tile it delegates to never sees: a compact layout that suppressed
+   * nothing, under a tile carrying no marker. Rerouting the climate family's
+   * config through its props would fix that at the family level, and belongs to
+   * the family rather than to this audit.
+   *
    * Read before the branch below, so the hook order is settled the same way the
    * tier settles it: whichever component renders, it renders from the top.
    */
-  const { iconOnly } = readCardDisplay(props.config ?? config)
+  const { iconOnly } = readCardDisplay(config)
 
   // The tier decides which component renders at all, so it is settled before any
   // hook runs — the dial and the compact layout do not share a hook order, and
