@@ -389,6 +389,22 @@ describe('a fan whose state carries no direction', () => {
     )
   })
 
+  it.each(INOPERABLE)('still shows edit-mode selection while %s', (state) => {
+    /*
+     * Inert is about the device, not about the card. Selection is edit-mode
+     * chrome — the user is arranging tiles, and one that toggles selection
+     * without showing it is a tile they cannot see they have picked
+     * (docs/specs/grid-layout — "Card Chrome"). The branch omitted `isSelected`
+     * before this change, so `unavailable` had the same hole; routing `unknown`
+     * through it is what turned a noticed defect into one worth fixing.
+     */
+    dashboardActions.setMode('edit')
+    seed(makeFan(state, SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="row" isSelected onSelect={() => {}} />)
+
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-selected', 'true')
+  })
+
   it.each(INOPERABLE)(
     'is inert while %s even on a fan that advertises no switching bit either',
     async (state) => {

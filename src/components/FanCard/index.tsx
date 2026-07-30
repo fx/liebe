@@ -270,6 +270,14 @@ function FanCardComponent({
         color="ok"
         tier={tier}
         isUnavailable={true}
+        // Selection is edit-mode chrome and has nothing to do with the entity's
+        // state: an inoperable card is still a card the user is arranging, and
+        // one that toggles selection without showing it is a tile the user
+        // cannot see they have picked (docs/specs/grid-layout — "Card Chrome").
+        // Omitted here since before this change, so an `unavailable` fan had it
+        // too; routing `unknown` through the same branch is what made it worth
+        // fixing rather than merely noticing.
+        isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
