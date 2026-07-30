@@ -135,6 +135,7 @@ describe('the bulb colour on a rendered card', () => {
 
     expect(circle.style.getPropertyValue('--part-tint')).toContain('rgb(255, 255, 255)')
     expect(circle.style.getPropertyValue('--part-glyph')).not.toContain('rgb(255, 255, 255)')
+    expect(circle.style.getPropertyValue('--part-glyph')).toBe('var(--liebe-fg)')
   })
 
   it('derives the same tint for both parts from hs_color alone', () => {
