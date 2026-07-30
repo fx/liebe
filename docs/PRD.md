@@ -129,7 +129,7 @@ Extend entity support beyond basic switches to include lights, climate, sensors,
 
 ## Constraints and Considerations
 
-1. **Browser Support**: Modern browsers only (Chrome, Firefox, Safari, Edge)
+1. **Browser Support**: Modern browsers only (Chrome, Firefox, Safari, Edge). **No version floor has been decided**, and the two that the build applies today disagree with each other: the JavaScript is down-levelled to Vite's default `baseline-widely-available` target (`chrome107`, `edge107`, `firefox104`, `safari16`), while the CSS ships as authored and already requires more than that — `@layer`, `color-mix()`, `@property` and `:has()` are used unconditionally. Deciding the floor is an open architecture question, with the measured figures and the options recorded in [architecture — Open Questions](specs/architecture/index.md#open-questions).
 2. **Mobile**: Responsive design but mobile-first optimization in Phase 2
 3. **Security**: Inherits Home Assistant's security model
 4. **Configuration**: Single YAML file for entire dashboard, edited only through UI

@@ -54,7 +54,7 @@
 | 0032 | [Card Content Alignment](changes/0032-card-content-alignment.md)                                             | [Entity Cards](specs/entity-cards/)         | complete | —                |
 | 0033 | [Icon-Only Cards](changes/0033-icon-only-cards.md)                                                           | [Entity Cards](specs/entity-cards/)         | complete | —                |
 | 0034 | [Slider Placement Options](changes/0034-slider-placement.md)                                                 | [Entity Cards](specs/entity-cards/)         | draft    | 0028, 0033       |
-| 0035 | [Light-Appearance Contrast & Accessible Names](changes/0035-light-appearance-contrast.md)                    | [Design System](specs/design-system/)       | draft    | —                |
+| 0035 | [Light-Appearance Contrast & Accessible Names](changes/0035-light-appearance-contrast.md)                    | [Design System](specs/design-system/)       | complete | —                |
 | 0036 | [Theming Contract & Cascade Gaps](changes/0036-theming-contract-gaps.md)                                     | [Theming](specs/theming/)                   | draft    | —                |
 | 0037 | [Card State, Capability & Primary-Action Correctness](changes/0037-card-state-and-capability-correctness.md) | [Entity Cards](specs/entity-cards/)         | draft    | —                |
 | 0038 | [Resolve the stateLabels Option-Key Collision](changes/0038-option-key-collision.md)                         | [Dashboard Config](specs/dashboard-config/) | complete | —                |

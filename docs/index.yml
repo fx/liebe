@@ -291,7 +291,7 @@ changes:
     path: changes/0035-light-appearance-contrast.md
     description: Light-appearance contrast conformance — repin the domain -text companions, fix the glyph-on-tint pattern, and name the two remaining unlabelled controls
     spec: design-system
-    status: draft
+    status: complete
     depends_on: []
   - id: '0036'
     name: theming-contract-gaps
