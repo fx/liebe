@@ -12,15 +12,11 @@ const meta: Meta<InputSelectCardStoryProps> = {
   title: 'Cards/Inputs/InputSelectCard',
   component: InputSelectCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 3,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createInputSelectEntity()] },
@@ -111,25 +107,25 @@ export const EditMode: Story = {
  */
 export const TierGlance: Story = {
   name: 'Tier — glance (1×1)',
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /** Icon, meta and dropdown in a row. */
 export const TierRow: Story = {
   name: 'Tier — row (3×1)',
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
 }
 
 /** Icon on top, dropdown between, meta at the bottom. */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /** The row arrangement plus the option-count line, which is `full`-only. */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }
 
 /* ------------------------------------------------------------------ *
@@ -138,7 +134,7 @@ export const TierFull: Story = {
 
 /** `pills` where they fit: the `full` tier, with five options or fewer. */
 export const ControlStylePills: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   parameters: {
     liebe: {
       entities: [createInputSelectEntity()],
@@ -153,7 +149,7 @@ export const ControlStylePills: Story = {
  * is resized again.
  */
 export const ControlStylePillsDegradedByTier: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createInputSelectEntity()],
@@ -164,7 +160,7 @@ export const ControlStylePillsDegradedByTier: Story = {
 
 /** And the same fallback past five options, where a pill row would clip. */
 export const ControlStylePillsDegradedByCount: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   parameters: {
     liebe: {
       entities: [

@@ -48,7 +48,7 @@
 | 0026 | [Person Card](changes/0026-person-card.md)                                                                   | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
 | 0027 | [Scene, Script & Button Cards](changes/0027-scene-cards.md)                                                  | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
 | 0028 | [Slider Rendering Fixes](changes/0028-slider-rendering-fixes.md)                                             | [Design System](specs/design-system/)       | draft    | —                |
-| 0029 | [Workshop Tier Fidelity](changes/0029-workshop-tier-fidelity.md)                                             | [Storybook](specs/storybook/)               | draft    | —                |
+| 0029 | [Workshop Tier Fidelity](changes/0029-workshop-tier-fidelity.md)                                             | [Storybook](specs/storybook/)               | complete | —                |
 | 0030 | [Weather Forecast Legibility](changes/0030-weather-forecast-legibility.md)                                   | [Entity Cards](specs/entity-cards/)         | draft    | —                |
 | 0031 | [Sensor Graph Fill](changes/0031-sensor-graph-fill.md)                                                       | [Entity Cards](specs/entity-cards/)         | draft    | —                |
 | 0032 | [Card Content Alignment](changes/0032-card-content-alignment.md)                                             | [Entity Cards](specs/entity-cards/)         | draft    | —                |

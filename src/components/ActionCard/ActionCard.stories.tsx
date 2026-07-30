@@ -27,13 +27,9 @@ const meta: Meta<ActionCardStoryProps> = {
   title: 'Cards/ActionCard',
   component: ActionCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId: 'scene.movie_night',
-    tier: 'glance',
     // The family's own default dimensions — these are natural 1×1 tiles.
     gridWidth: 1,
     gridHeight: 1,
@@ -123,7 +119,7 @@ export const InputButton: Story = {
  * be permanently unusable.
  */
 export const NeverActivated: Story = {
-  args: { tier: 'row', gridWidth: 3, entityId: 'scene.movie_night' },
+  args: { gridWidth: 3, entityId: 'scene.movie_night' },
   parameters: {
     liebe: {
       itemConfig: { showLastActivated: true },
@@ -147,7 +143,7 @@ export const NeverActivated: Story = {
  * `unknown` there is genuinely indeterminate, and the card is inert.
  */
 export const ScriptUnknown: Story = {
-  args: { tier: 'row', gridWidth: 3, entityId: 'script.water_garden' },
+  args: { gridWidth: 3, entityId: 'script.water_garden' },
   parameters: { liebe: { entities: [createScriptEntity({ state: 'unknown' })] } },
   play: async ({ canvasElement }) => {
     await expect(tile(canvasElement)).toHaveAttribute('data-unavailable', 'true')
@@ -220,7 +216,7 @@ export const Unavailable: Story = {
 
 /** Running: the stop glyph, the active tint, and a state line offering the stop. */
 export const ScriptRunning: Story = {
-  args: { tier: 'row', gridWidth: 3, entityId: 'script.water_garden' },
+  args: { gridWidth: 3, entityId: 'script.water_garden' },
   parameters: { liebe: { entities: [createScriptEntity({ state: 'on' })] } },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('Running · tap to stop')
@@ -248,7 +244,7 @@ export const ScriptRunningGlance: Story = {
 
 /** `showLastActivated: false` — the default — leaves no state line at all. */
 export const LastActivatedOff: Story = {
-  args: { tier: 'row', gridWidth: 3 },
+  args: { gridWidth: 3 },
   parameters: { liebe: { entities: [createSceneEntity()] } },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBeNull()
@@ -257,7 +253,7 @@ export const LastActivatedOff: Story = {
 
 /** `showLastActivated: true` renders the relative time as the state line. */
 export const LastActivatedOn: Story = {
-  args: { tier: 'row', gridWidth: 3 },
+  args: { gridWidth: 3 },
   parameters: {
     liebe: {
       itemConfig: { showLastActivated: true },
@@ -272,7 +268,7 @@ export const LastActivatedOn: Story = {
 
 /** A script reads the time from `last_triggered`, not from its on/off state. */
 export const LastActivatedScript: Story = {
-  args: { tier: 'row', gridWidth: 3, entityId: 'script.water_garden' },
+  args: { gridWidth: 3, entityId: 'script.water_garden' },
   parameters: {
     liebe: {
       itemConfig: { showLastActivated: true },
@@ -393,7 +389,7 @@ export const ConfirmStop: Story = {
 
 /** `row`: icon and name side by side, with the time as the state line. */
 export const RowTier: Story = {
-  args: { tier: 'row', gridWidth: 3 },
+  args: { gridWidth: 3 },
   parameters: {
     liebe: { itemConfig: { showLastActivated: true }, entities: [createSceneEntity()] },
   },
@@ -407,7 +403,7 @@ export const RowTier: Story = {
 
 /** `tall`: icon on top, meta at the bottom. */
 export const TallTier: Story = {
-  args: { tier: 'tall', gridHeight: 2 },
+  args: { gridHeight: 2 },
   parameters: {
     liebe: { itemConfig: { showLastActivated: true }, entities: [createSceneEntity()] },
   },
@@ -421,7 +417,7 @@ export const TallTier: Story = {
 
 /** `full`: the row arrangement with the extra area as breathing room. */
 export const FullTier: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   parameters: {
     liebe: { itemConfig: { showLastActivated: true }, entities: [createSceneEntity()] },
   },

@@ -13,15 +13,11 @@ const meta: Meta<CoverCardStoryProps> = {
   title: 'Cards/CoverCard',
   component: CoverCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 3,
-    gridHeight: 4,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createCoverEntity()] },
@@ -30,6 +26,13 @@ const meta: Meta<CoverCardStoryProps> = {
 
 export default meta
 type Story = StoryObj<CoverCardStoryProps>
+
+/**
+ * The cell the `full`-tier stories are shown in. The tier is derived from the
+ * cell (`withGridCell`), so a story that wants `full` says so by sizing its
+ * cell — the meta's 3×1 default derives `row`.
+ */
+const FULL_CELL: Partial<CoverCardStoryProps> = { gridWidth: 3, gridHeight: 4 }
 
 /** The card's state line, which is where `stateLabels` and `invertPosition` land. */
 function readState(canvasElement: HTMLElement): string {
@@ -56,7 +59,7 @@ function readIconGlyph(canvasElement: HTMLElement): string {
  * live and the close button is disabled.
  */
 export const Closed: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       entities: [
@@ -77,7 +80,7 @@ export const Closed: Story = {
 
 /** Fully open — the active state, with both position and tilt sliders live. */
 export const Open: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       entities: [
@@ -101,7 +104,7 @@ export const Open: Story = {
  * exists for — keeps BOTH directions operable.
  */
 export const PartiallyOpen: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: { liebe: { entities: [createCoverEntity()] } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -113,7 +116,7 @@ export const PartiallyOpen: Story = {
 
 /** While moving, the status pill tracks the transition and Stop becomes live. */
 export const Opening: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       entities: [createCoverEntity({ state: 'opening', attributes: { current_position: 35 } })],
@@ -132,7 +135,7 @@ export const Opening: Story = {
  * option can put them back: capability gating wins over configuration.
  */
 export const ButtonsOnly: Story = {
-  args: { tier: 'full', gridHeight: 2 },
+  args: { gridHeight: 2 },
   parameters: {
     liebe: {
       itemConfig: { showPositionSlider: true, showTiltControls: true },
@@ -156,7 +159,6 @@ export const ButtonsOnly: Story = {
 }
 
 export const Unavailable: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [asUnavailable(createCoverEntity())] } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText('UNAVAILABLE')).toBeInTheDocument()
@@ -164,7 +166,6 @@ export const Unavailable: Story = {
 }
 
 export const Loading: Story = {
-  args: { gridHeight: 3 },
   parameters: { liebe: { entities: [], initialLoading: true } },
   play: async ({ canvasElement }) => {
     // The skeleton stands in for the tile, so nothing operable is on screen.
@@ -198,7 +199,6 @@ export const ServiceCallFailure: Story = {
 }
 
 export const Disconnected: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [createCoverEntity()], connected: false } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText('Disconnected')).toBeInTheDocument()
@@ -211,7 +211,6 @@ export const Disconnected: Story = {
  * rather than reporting the entity as missing.
  */
 export const UnknownEntity: Story = {
-  args: { gridHeight: 3 },
   parameters: { liebe: { entities: [] } },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector('.liebe-card')).toBeInTheDocument()
@@ -221,7 +220,7 @@ export const UnknownEntity: Story = {
 
 /** Edit mode hides the buttons and sliders and exposes the delete affordance. */
 export const EditMode: Story = {
-  args: { onDelete: () => {}, gridHeight: 2 },
+  args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createCoverEntity()], mode: 'edit' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -238,7 +237,7 @@ export const EditMode: Story = {
 
 /** 1×1: name and position, no controls at all. */
 export const TierGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByLabelText('Position')).not.toBeInTheDocument()
   },
@@ -246,7 +245,7 @@ export const TierGlance: Story = {
 
 /** 2×1: the position slider only — buttons and tilt are `full` content. */
 export const TierRow: Story = {
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByLabelText('Position')).toBeInTheDocument()
@@ -256,7 +255,7 @@ export const TierRow: Story = {
 
 /** 1×3: the position slider vertical, top of the track fully open. */
 export const TierTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     await expect(
       canvasElement.querySelector('.liebe-slider[data-orientation="vertical"]')
@@ -266,7 +265,7 @@ export const TierTall: Story = {
 
 /** 3×3: slider, the open/stop/close row, then the tilt controls. */
 export const TierFull: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 3 },
+  args: { gridWidth: 3, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByLabelText('Position')).toBeInTheDocument()
@@ -281,7 +280,7 @@ export const TierFull: Story = {
 
 /** `showPositionSlider: false` drops the slider at every tier that carries one. */
 export const WithoutPositionSlider: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: { itemConfig: { showPositionSlider: false }, entities: [createCoverEntity()] },
   },
@@ -294,7 +293,7 @@ export const WithoutPositionSlider: Story = {
 
 /** `showButtons: false` leaves the slider and the tilt block behind. */
 export const WithoutButtons: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: { liebe: { itemConfig: { showButtons: false }, entities: [createCoverEntity()] } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -306,7 +305,7 @@ export const WithoutButtons: Story = {
 
 /** `showTiltControls: false` removes the whole tilt block, slider included. */
 export const WithoutTiltControls: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: { itemConfig: { showTiltControls: false }, entities: [createCoverEntity()] },
   },
@@ -342,7 +341,7 @@ export const StateLabelsOpenClosed: Story = {
  * Paired with the story below, which is the same entity read the other way up.
  */
 export const NormalPositionScale: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       itemConfig: { invertPosition: false },
@@ -361,7 +360,7 @@ export const NormalPositionScale: Story = {
  * the unit tests) the `{ position }` the slider commits.
  */
 export const InvertedPositionScale: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       itemConfig: { invertPosition: true },
@@ -425,7 +424,7 @@ export const GenericIcon: Story = {
  * the dialog names the action rather than asking about "turning on" a door.
  */
 export const ConfirmBeforeOpening: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       itemConfig: { confirmOpen: true },
@@ -452,7 +451,7 @@ export const ConfirmBeforeOpening: Story = {
 
 /** `confirmOpen: false` opens the same door on the first press. */
 export const ConfirmationDisabled: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       itemConfig: { confirmOpen: false },

@@ -13,15 +13,11 @@ const meta: Meta<FanCardStoryProps> = {
   title: 'Cards/FanCard',
   component: FanCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 3,
-    gridHeight: 3,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createFanEntity()] },
@@ -30,6 +26,13 @@ const meta: Meta<FanCardStoryProps> = {
 
 export default meta
 type Story = StoryObj<FanCardStoryProps>
+
+/**
+ * The cell the `full`-tier stories are shown in. The tier is derived from the
+ * cell (`withGridCell`), so a story that wants `full` says so by sizing its
+ * cell — the meta's 3×1 default derives `row`.
+ */
+const FULL_CELL: Partial<FanCardStoryProps> = { gridWidth: 3, gridHeight: 3 }
 
 /** The state line, which is where `showPercentage` lands. */
 function readState(canvasElement: HTMLElement): string {
@@ -84,7 +87,7 @@ export const On: Story = {
  * speed control at `full` — they are independent controls, not alternatives.
  */
 export const WithPresetModes: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: {
       entities: [
@@ -110,7 +113,6 @@ export const WithPresetModes: Story = {
 
 /** A fan with no speed or preset support at all is a plain on/off tile. */
 export const OnOffOnly: Story = {
-  args: { gridHeight: 2 },
   parameters: {
     liebe: {
       entities: [
@@ -132,7 +134,6 @@ export const OnOffOnly: Story = {
 }
 
 export const Unavailable: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [asUnavailable(createFanEntity())] } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText('UNAVAILABLE')).toBeInTheDocument()
@@ -140,7 +141,6 @@ export const Unavailable: Story = {
 }
 
 export const Loading: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [], initialLoading: true } },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector('.liebe-card')).toBeInTheDocument()
@@ -171,7 +171,6 @@ export const ServiceCallFailure: Story = {
 }
 
 export const Disconnected: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [createFanEntity()], connected: false } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText('Disconnected')).toBeInTheDocument()
@@ -184,7 +183,6 @@ export const Disconnected: Story = {
  * rather than reporting the entity as missing.
  */
 export const UnknownEntity: Story = {
-  args: { gridHeight: 2 },
   parameters: { liebe: { entities: [] } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByText('Bedroom Fan')).not.toBeInTheDocument()
@@ -193,7 +191,7 @@ export const UnknownEntity: Story = {
 
 /** Edit mode hides the speed controls and exposes the delete affordance. */
 export const EditMode: Story = {
-  args: { onDelete: () => {}, gridHeight: 2 },
+  args: { onDelete: () => {} },
   parameters: { liebe: { entities: [createFanEntity()], mode: 'edit' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -210,7 +208,7 @@ export const EditMode: Story = {
 
 /** 1×1: name and state, no controls — the whole tile toggles. */
 export const TierGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByLabelText('Fan speed')).not.toBeInTheDocument()
   },
@@ -218,7 +216,7 @@ export const TierGlance: Story = {
 
 /** 2×1: icon, meta and the horizontal speed control. */
 export const TierRow: Story = {
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(
       canvasElement.querySelector('.liebe-slider[data-orientation="horizontal"]')
@@ -228,7 +226,7 @@ export const TierRow: Story = {
 
 /** 1×3: the speed slider standing up the middle of the tile. */
 export const TierTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     await expect(
       canvasElement.querySelector('.liebe-slider[data-orientation="vertical"]')
@@ -238,7 +236,7 @@ export const TierTall: Story = {
 
 /** 3×2: row content plus presets, oscillation and direction. */
 export const TierFull: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   parameters: {
     liebe: { itemConfig: { showDirection: true }, entities: [fullFeatured()] },
   },
@@ -257,7 +255,6 @@ export const TierFull: Story = {
 
 /** `speedControl: 'slider'` — the default, a continuous drag. */
 export const SpeedControlSlider: Story = {
-  args: { tier: 'row' },
   parameters: { liebe: { itemConfig: { speedControl: 'slider' } } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByLabelText('Fan speed')).toHaveAttribute(
@@ -273,7 +270,6 @@ export const SpeedControlSlider: Story = {
  * quartile row a hardcoded control would show.
  */
 export const SpeedControlSteps: Story = {
-  args: { tier: 'row' },
   parameters: { liebe: { itemConfig: { speedControl: 'steps' } } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -293,7 +289,6 @@ export const SpeedControlSteps: Story = {
 
 /** `speedControl: 'steps'` on a fan that publishes no usable step: quartiles. */
 export const SpeedControlStepsQuartileFallback: Story = {
-  args: { tier: 'row' },
   parameters: {
     liebe: {
       itemConfig: { speedControl: 'steps' },
@@ -312,7 +307,7 @@ export const SpeedControlStepsQuartileFallback: Story = {
 
 /** `speedControl: 'none'` — speed moves to the detail dialog, behind a hold. */
 export const SpeedControlNone: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: { liebe: { itemConfig: { speedControl: 'none' } } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByLabelText('Fan speed')).not.toBeInTheDocument()
@@ -321,7 +316,7 @@ export const SpeedControlNone: Story = {
 
 /** `showPresets: false` leaves the speed control behind. */
 export const WithoutPresets: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: { itemConfig: { showPresets: false }, entities: [fullFeatured()] },
   },
@@ -334,7 +329,7 @@ export const WithoutPresets: Story = {
 
 /** `showOscillate: true` (the default) on a fan that oscillates. */
 export const WithOscillation: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: { liebe: { entities: [fullFeatured({ oscillating: true })] } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole('button', { name: 'Oscillate' })).toHaveAttribute(
@@ -346,7 +341,7 @@ export const WithOscillation: Story = {
 
 /** `showOscillate: false` removes it. */
 export const WithoutOscillation: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: { itemConfig: { showOscillate: false }, entities: [fullFeatured()] },
   },
@@ -359,7 +354,7 @@ export const WithoutOscillation: Story = {
 
 /** `showDirection: true` — off by default, because it is a seasonal setting. */
 export const WithDirection: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: {
     liebe: { itemConfig: { showDirection: true }, entities: [fullFeatured()] },
   },
@@ -378,7 +373,7 @@ export const WithDirection: Story = {
 
 /** The default: no direction control, even on a fan that has one. */
 export const WithoutDirection: Story = {
-  args: { tier: 'full' },
+  args: FULL_CELL,
   parameters: { liebe: { entities: [fullFeatured()] } },
   play: async ({ canvasElement }) => {
     await expect(
@@ -389,7 +384,6 @@ export const WithoutDirection: Story = {
 
 /** `animateIcon: true` (the default) — the glyph turns while the fan runs. */
 export const AnimatedIcon: Story = {
-  args: { tier: 'row' },
   parameters: { liebe: { itemConfig: { animateIcon: true } } },
   play: async ({ canvasElement }) => {
     const spin = spinner(canvasElement)
@@ -400,7 +394,6 @@ export const AnimatedIcon: Story = {
 
 /** `animateIcon: false` — a still glyph, with tint and text carrying the state. */
 export const StaticIcon: Story = {
-  args: { tier: 'row' },
   parameters: { liebe: { itemConfig: { animateIcon: false } } },
   play: async ({ canvasElement }) => {
     await expect(spinner(canvasElement)).toBeNull()
@@ -411,7 +404,6 @@ export const StaticIcon: Story = {
 
 /** `showPercentage: true` (the default) — "ON · 66%". */
 export const WithPercentage: Story = {
-  args: { tier: 'row' },
   parameters: { liebe: { itemConfig: { showPercentage: true } } },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toContain('66%')
@@ -420,7 +412,6 @@ export const WithPercentage: Story = {
 
 /** `showPercentage: false` — the bare state. */
 export const WithoutPercentage: Story = {
-  args: { tier: 'row' },
   parameters: { liebe: { itemConfig: { showPercentage: false } } },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('ON')

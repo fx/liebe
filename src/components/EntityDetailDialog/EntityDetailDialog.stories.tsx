@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, userEvent, within } from 'storybook/test'
 import { EntityDetailDialog, type EntityDetailDialogProps } from './index'
-import { GridCardWithComponents as GridCard } from '../GridCard'
+import { GridCardWithComponents as GridCard, type GridCardProps } from '../GridCard'
 import { CardItemProvider } from '../cardItemContext'
 import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../../.storybook/decorators'
 import { createMockHass } from '../../../.storybook/mockHass'
@@ -238,15 +238,23 @@ export const HistoryUnsupported: Story = historyStory(
  * The gesture itself: press and hold the tile for half a second and the dialog
  * opens — no card-side wiring, because the shell owns both the gesture and the
  * dialog. A quick tap toggles the light instead.
+ *
+ * The tile takes the tier the decorator derives from the cell controls, like
+ * every other story in the workshop. A custom `render` is where that is easy to
+ * lose: this one ignored its args entirely, so the tile sat at the shell's `row`
+ * default inside a cell that says `full` and resizing the controls moved the box
+ * without moving the layout.
  */
-export const HoldACardToOpen: StoryObj<EntityDetailDialogProps & GridCellArgs> = {
+export const HoldACardToOpen: StoryObj<
+  EntityDetailDialogProps & GridCellArgs & Pick<GridCardProps, 'tier'>
+> = {
   decorators: [withGridCell],
   argTypes: gridCellArgTypes,
   args: { gridWidth: 2, gridHeight: 2 },
   parameters: { liebe: { entities: [createLightEntity()] } },
-  render: () => (
+  render: ({ tier }) => (
     <CardItemProvider entityId="light.living_room">
-      <GridCard domain="light" color="light" isOn>
+      <GridCard domain="light" color="light" isOn tier={tier}>
         <GridCard.Icon>💡</GridCard.Icon>
         <GridCard.Title>Living Room</GridCard.Title>
         <GridCard.Status>ON</GridCard.Status>
