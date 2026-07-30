@@ -61,11 +61,7 @@ describe('anatomyPart', () => {
 
   it('overrides the triplet inline for a data-driven colour', () => {
     // A bulb's real RGB is the one documented exception to token-only colour;
-    // the tint is mixed at the same 20% the token layer derives it at. The
-    // glyph role is overridden too, and to the live hue in both appearances:
-    // the pattern's per-appearance glyph step reaches for a darker step of the
-    // domain hue, and a live colour has none to reach for. Leaving it out would
-    // put the glyph on the token's hue inside a tint mixed from the bulb's.
+    // the tint is mixed at the same 20% the token layer derives it at.
     //
     // `--liebe-part-color` is the same value under the name the theming
     // contract publishes, and it has to move with the live hue rather than with
@@ -78,9 +74,42 @@ describe('anatomyPart', () => {
       '--liebe-part-color': 'rgb(255, 170, 80)',
       '--part-color': 'rgb(255, 170, 80)',
       '--part-tint': 'color-mix(in srgb, rgb(255, 170, 80) 20%, transparent)',
-      '--part-text': 'rgb(255, 170, 80)',
-      '--part-glyph': 'rgb(255, 170, 80)',
+      '--part-text': 'var(--liebe-fg)',
+      '--part-glyph': 'var(--liebe-fg)',
     })
+  })
+
+  it.each([
+    ['rgb(255, 255, 255)'],
+    ['rgb(255, 170, 80)'],
+    ['var(--gold-9)'],
+    ['color-mix(in srgb, red 50%, blue)'],
+  ])('leaves no foreground role holding the live hue %s', (hue) => {
+    // The rule this pins is an exclusion, and the exclusion is the whole of the
+    // fix: a live hue may reach the surface and the solid roles and MUST reach
+    // neither foreground one, because the tint is a 20% veil of that same hue
+    // and a foreground taken from it sits on a wash of itself — 1.01:1 for a
+    // bulb reporting white, measured (docs/changes/0035-light-appearance-contrast.md
+    // PR 4). Asserted for arbitrary hues rather than one, so a mechanism that
+    // special-cased white — or any single value — could not satisfy it.
+    const style = anatomyPart('liebe-icon', { color: 'light', domain: 'light', hue }).style as
+      | Record<string, string>
+      | undefined
+    const role = (name: string) => style?.[name]
+
+    expect(role('--part-glyph')).not.toContain(hue)
+    expect(role('--part-text')).not.toContain(hue)
+    // And they take the neutral foreground rather than some third colour, which
+    // is what keeps a nested light pane inside a dark root correct: the `var()`
+    // is substituted at the part, so it resolves against the nearest root.
+    expect(role('--part-glyph')).toBe('var(--liebe-fg)')
+    expect(role('--part-text')).toBe('var(--liebe-fg)')
+    // The surface and solid roles still carry it — a fix that dropped the hue
+    // entirely would clear the floor and delete the information the exception
+    // exists for.
+    expect(role('--part-tint')).toContain(hue)
+    expect(role('--part-color')).toBe(hue)
+    expect(role('--liebe-part-color')).toBe(hue)
   })
 })
 
