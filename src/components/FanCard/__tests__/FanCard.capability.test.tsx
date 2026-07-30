@@ -324,25 +324,22 @@ describe('a fan whose state carries no direction', () => {
        * because the tile declares itself unavailable, which is the second of the
        * two layers this state is enforced at.
        *
-       * **No dialog is asserted here, and that is a gap rather than an
-       * oversight.** `useCardActions.performDispatch` returns early for a
-       * `toggle` route while `unavailable`, BEFORE it would consult the card's
-       * `onToggle` — so the card cannot answer `'more-info'` the way it does for
-       * the capability gate, and this tap does nothing at all. At `glance`,
-       * where the tap is the only affordance, that is the operability
-       * regression the design system forbids. Measured, not assumed: asserting
-       * the dialog here fails with `Unable to find role="dialog"`.
-       *
-       * It is pre-existing, it belongs to every domain's unavailable tile
-       * rather than to fans, and the fix is one line in a shared hook — so it
-       * is reported rather than widened into this PR. What is asserted is the
-       * half this change owns and the spec requires: nothing is dispatched.
+       * **The dialog assertion is the half this test could not make when it was
+       * written.** `performDispatch` used to return early for a `toggle` route
+       * while `unavailable`, before it would consult the card's `onToggle`, so
+       * this tap dispatched nothing *and opened nothing* — inert at `glance`,
+       * where the tap is the only affordance. That comment recorded the gap
+       * rather than pinning it as intended behaviour; change 0043 PR 7 closed
+       * it by redirecting a `toggle` route to `more-info` at resolution, for
+       * every route and every domain, so the assertion below is now the real
+       * one.
        */
       seed(makeFan(state, SWITCHING))
       renderCard(<FanCard entityId={ENTITY_ID} tier={tier} />, { tapAction: 'toggle' })
 
       tapTile()
 
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
       await expectNoServiceCall()
     }
   )
