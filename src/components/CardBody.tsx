@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import type { CardTier } from '~/utils/cardTier'
 import type { SliderOrientation } from '~/store/sliderPlacement'
 import { CARD_BODY_ROLE, type CardBodyMarked } from './cardBodyMarker'
+import { observeContentBox, type ContentBoxSize } from './cardContentWidth'
 import { useCardContentWidth, useGridCardDisplay, useGridCardIconOnlyLabel } from './GridCard'
 import './CardBody.css'
 
@@ -147,33 +148,117 @@ export const CONTROL_LONG_AXIS_FLOOR_PX = 44
  *    a control inside the tile is that `CardBody.css` makes it cross-axis
  *    flexible, so it narrows with the row instead of overflowing it.
  *
- * `undefined` is "not observed", never "no room": a tree that was never laid out
- * carries no information about width, so the width-blind contract stands and the
- * control renders (`useCardContentWidth` owns that distinction). This is why the
- * unit suite and the workshop see every forced placement render.
+ * A **vertical** control in the `tall` band is bounded on BOTH axes, and it is
+ * the one case answered from the band rather than from the region: the band IS
+ * the control's box there, so `band.inlineSize` is the track's rendered
+ * thickness and `band.blockSize` its rendered length. Both floors are then
+ * measured "on the control as it renders" as the spec requires, rather than
+ * inferred from the tile — which matters in two directions the region alone
+ * cannot see. Short: "a tile that clears 120px can still leave a band that does
+ * not clear 44px", since the inset, the icon circle, the meta block and the gaps
+ * all come out first. Thin: `--liebe-control-height` is public theming API, so a
+ * theme may pin the track at 10px in a 35px region, and a region-only check
+ * would let a 10px track render. This is the tier's own placement rather than a
+ * forced one, so it is every `tall` light, cover, fan and `input_number` card
+ * that these two floors reach.
  *
- * **Two capacities are NOT checked here, and both are the same gap**: the long
- * axis of a vertical control — its band's height, which nothing publishes — and
- * a row line's leftover width once the icon and the gaps are out of it. A card
- * may not measure the DOM for either, and establishing those signals is change
- * 0042 PR 3's, which owns the identical question for the placements the tiers
- * choose on their own (the `tall` vertical slider has it today). Until then a
- * forced control narrows and shortens with the room it is given rather than
- * overflowing it, so the failure mode is a small control and never a clipped
- * one — which is where the tiers' own controls already stand.
+ * `undefined` is "not observed", never "no room": a tree that was never laid out
+ * carries no information about either axis, so the size-blind contract stands
+ * and the control renders (`useCardContentWidth` owns that distinction). This is
+ * why the unit suite and the workshop see every placement render.
+ *
+ * **One capacity is still NOT checked here**: a row line's leftover width, once
+ * the icon circle and the gaps are out of it. `contentWidth` is a coarse gate
+ * for that case rather than the exact one, and it is not a clip risk — the
+ * forced-placement rules in `CardBody.css` make that slot cross-axis flexible,
+ * so the control narrows with the row instead of overflowing it. What is left is
+ * that a vertical control on a very narrow row line may be thinner than the
+ * region suggests, which is a smaller control and never a cropped one. A row
+ * line has no band, so the box the `tall` case reads does not exist there.
  */
 export function controlFitsArrangement(
   orientation: SliderOrientation | undefined,
   arrangement: CardArrangement,
-  contentWidth: number | undefined
+  contentWidth: number | undefined,
+  band?: ContentBoxSize
 ): boolean {
-  if (orientation === undefined || contentWidth === undefined) return true
+  if (orientation === undefined) return true
 
   if (arrangement === 'tall') {
-    return orientation === 'vertical' || contentWidth >= CONTROL_LONG_AXIS_FLOOR_PX
+    if (orientation === 'horizontal') {
+      // The region's width IS this control's long axis, so it answers to the
+      // touch floor rather than to the cross-axis one. A horizontal control is
+      // not what the band is sized for, so the region is still the reading.
+      return contentWidth === undefined || contentWidth >= CONTROL_LONG_AXIS_FLOOR_PX
+    }
+
+    return (
+      band === undefined ||
+      (band.inlineSize >= CONTROL_CROSS_AXIS_FLOOR_PX &&
+        band.blockSize >= CONTROL_LONG_AXIS_FLOOR_PX)
+    )
   }
 
-  return orientation === 'horizontal' || contentWidth >= CONTROL_CROSS_AXIS_FLOOR_PX
+  return (
+    orientation === 'horizontal' ||
+    contentWidth === undefined ||
+    contentWidth >= CONTROL_CROSS_AXIS_FLOOR_PX
+  )
+}
+
+/**
+ * The `tall` control band's box, observed and published to the decision above —
+ * the capacity signal change 0042 PR 3 owes the cross-axis-fit rules
+ * (docs/specs/design-system/index.md — "Cross-axis fit").
+ *
+ * The band is the vertical control's own box: `CardBody.css` gives it
+ * `min(--liebe-control-height, 100%)` across and the tier's leftover height
+ * along, and the slot and the track inside read 100% of it. So this reports the
+ * control **as it renders**, which is what the floors are specified against —
+ * not the tile, and not the token.
+ *
+ * It is measured rather than derived because there is nothing to derive it from:
+ * the length is what the tile's height leaves after the inset, the icon circle,
+ * the meta block and the gaps, and of those only the inset is a token. The
+ * prohibition it has to respect is that a **card** never measures the DOM — this
+ * is the body, which owns the band element, is one implementation shared by every
+ * card, and uses the same shared instrument the shell's content width comes from
+ * (`cardContentWidth.ts`, whose header carries the argument in full).
+ *
+ * **The band stays in the DOM when the control is omitted**, keeping its own
+ * width with it (`data-band-axis`, not the body's survivor-only orientation
+ * stamp). That is what makes this a measurement rather than an oscillator: were
+ * either taken away with the control, the capacity would report `undefined` or
+ * `0`, and the control would either alternate forever or never come back on a
+ * tile that had grown. Kept, the box is the same whether or not a control is
+ * inside it — the width is definite, and the height is the body's leftover,
+ * which `flex-grow` absorbs any difference in flex basis into. An empty band
+ * also holds the tier's shape still as a tile is resized across a floor: the
+ * icon and the meta stay where they were and only the control comes and goes.
+ */
+function useControlBandBox(): {
+  band: ContentBoxSize | undefined
+  bandRef: (node: HTMLDivElement | null) => void
+} {
+  const [band, setBand] = useState<ContentBoxSize | undefined>(undefined)
+  const stopObserving = useRef<(() => void) | undefined>(undefined)
+
+  /*
+   * Driven from the ref callback rather than from an effect, for the reason the
+   * shell's own observation gives: React hands it the node on attach and `null`
+   * on detach, which is exactly the pair of events an observation needs.
+   */
+  const bandRef = useCallback((node: HTMLDivElement | null) => {
+    stopObserving.current?.()
+    stopObserving.current = node ? observeContentBox(node, setBand) : undefined
+
+    // Detached: the shape no longer has a band, so the capacity it published is
+    // no longer a fact about anything. Back to "not observed", which renders —
+    // a card that has just become `row` must not carry a `tall` band's verdict.
+    if (!node) setBand(undefined)
+  }, [])
+
+  return { band, bandRef }
 }
 
 /**
@@ -216,6 +301,7 @@ export function CardBody({
   const { iconOnly } = useGridCardDisplay()
   const iconOnlyLabel = useGridCardIconOnlyLabel()
   const contentWidth = useCardContentWidth()
+  const { band, bandRef } = useControlBandBox()
 
   /*
    * Omit-never-clip, applied where the shape and the control's fixed
@@ -224,7 +310,7 @@ export function CardBody({
    * nobody could hit, and emptied means genuinely absent from the DOM — the
    * same rule the tiers follow for content they have no room for.
    */
-  const control = controlFitsArrangement(controlOrientation, arrangement, contentWidth)
+  const control = controlFitsArrangement(controlOrientation, arrangement, contentWidth, band)
     ? requestedControl
     : undefined
 
@@ -301,10 +387,16 @@ export function CardBody({
    * whatever the card passed. The wrapper is the one element this component
    * owns, so it is the one that can be told to take the height.
    *
-   * Only when there is something to put in it: an empty growing box would eat
-   * the `space-between` that centres a tall tile whose card has no control.
+   * Only when the card HAS a control for it: an empty growing box would eat the
+   * `space-between` that centres a tall tile whose card has no control at all.
+   *
+   * `requestedControl` rather than `control`, so a control the floors omitted
+   * still leaves its band standing. That is not a cosmetic choice — the band is
+   * where the long-axis capacity is measured, and a band that disappeared with
+   * its control would take the measurement with it and oscillate (see
+   * `useControlBandBox`).
    */
-  const filling = arrangement === 'tall' && controlSize === 'fill' && Boolean(control)
+  const filling = arrangement === 'tall' && controlSize === 'fill' && Boolean(requestedControl)
 
   return (
     <div
@@ -321,7 +413,21 @@ export function CardBody({
           // `data-band-stretch` only where the card asked for it: the attribute
           // IS the opt-in, so a band with no attribute keeps the fit-content
           // width every control-bearing card depends on.
-          <div className="liebe-card-body-fill" data-band-stretch={stretchControlBand || undefined}>
+          <div
+            className="liebe-card-body-fill"
+            data-band-stretch={stretchControlBand || undefined}
+            /*
+             * The axis the band is SIZED for, which is the card's requested
+             * orientation rather than the survivor stamped on the body above.
+             * The distinction is the whole mechanism: the band's own width is
+             * what the floors are measured on, so it has to hold whether or not
+             * a control currently clears them — a band that lost its width with
+             * its control would report zero and never let one back
+             * (`useControlBandBox`, and the rule it drives in `CardBody.css`).
+             */
+            data-band-axis={controlOrientation}
+            ref={bandRef}
+          >
             {control}
           </div>
         ) : (

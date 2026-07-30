@@ -19,7 +19,7 @@ import {
 import { deriveDailyFromTwiceDaily, parseForecastResponse } from '~/services/forecastData'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan } from '~/utils/cardTier'
-import { resetContentWidthObserver } from '../../cardContentWidth'
+import { resetContentBoxObserver } from '../../cardContentWidth'
 import { WeatherCard } from '..'
 
 /**
@@ -630,7 +630,7 @@ describe('width-aware horizontal capacity', () => {
     // The shell's observer is shared and memoised across the module, so the
     // instance a previous spec's global produced has to go before this one's
     // is installed (`cardContentWidth.ts` — the seam's own comment).
-    resetContentWidthObserver()
+    resetContentBoxObserver()
 
     class WidthReportingResizeObserver {
       constructor(private readonly callback: ResizeObserverCallback) {}
@@ -656,7 +656,7 @@ describe('width-aware horizontal capacity', () => {
   })
 
   afterEach(() => {
-    resetContentWidthObserver()
+    resetContentBoxObserver()
     global.ResizeObserver = originalResizeObserver
   })
 

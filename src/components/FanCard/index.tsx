@@ -236,14 +236,48 @@ function FanCardComponent({
     })
   }
 
-  // Handle unavailable state
-  if (entity.state === 'unavailable') {
+  /*
+   * The two states that carry no direction, resolved **first** — before
+   * anything below can choose one (option doc — "Primary action":
+   * `unavailable`/`unknown` are inert, and only then is the direction picked).
+   * `unknown` used to fall through this branch and render an ordinary operable
+   * card, where `isOn` is false and so the tile's tap dispatched `fan.turn_on`
+   * at a fan nobody knows the state of.
+   *
+   * **Where this sits relative to the capability gate below is the whole
+   * ordering question, and the state wins twice over.** It wins here, because
+   * this return is above `defaultAction`, so a fan that is both inoperable and
+   * incapable never computes a second answer. And it wins in the shell
+   * independently: `isUnavailable` reaches `useCardActions` as `unavailable`,
+   * which resolves `default` to `more-info` whatever the card declared AND
+   * refuses a `toggle` route outright — so even a stored `tapAction: toggle`,
+   * which bypasses `defaultAction` entirely, dispatches nothing here. The two
+   * layers cannot disagree, because they resolve to the same answer the
+   * capability gate resolves to.
+   *
+   * That answer is also what keeps the tile operable: the tap opens the detail
+   * dialog rather than doing nothing, which is the no-operability-regression
+   * rule at `glance`, where the tap is the card's only affordance.
+   *
+   * The status is the entity's own state rather than a hardcoded `UNAVAILABLE`
+   * — labelling an `unknown` fan as unavailable is the same misreport this
+   * change fixed on the weather cards, one state rendered as a different one.
+   */
+  if (entity.state === 'unavailable' || entity.state === 'unknown') {
     return (
       <GridCard
         domain="fan"
         color="ok"
         tier={tier}
         isUnavailable={true}
+        // Selection is edit-mode chrome and has nothing to do with the entity's
+        // state: an inoperable card is still a card the user is arranging, and
+        // one that toggles selection without showing it is a tile the user
+        // cannot see they have picked (docs/specs/grid-layout — "Card Chrome").
+        // Omitted here since before this change, so an `unavailable` fan had it
+        // too; routing `unknown` through the same branch is what made it worth
+        // fixing rather than merely noticing.
+        isSelected={isSelected}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
       >
@@ -252,7 +286,7 @@ function FanCardComponent({
             <Fan size={24} />
           </GridCard.Icon>
           <GridCard.Title>{entity.attributes.friendly_name || entity.entity_id}</GridCard.Title>
-          <GridCard.Status>UNAVAILABLE</GridCard.Status>
+          <GridCard.Status>{entity.state.toUpperCase()}</GridCard.Status>
         </Flex>
       </GridCard>
     )
@@ -357,11 +391,12 @@ function FanCardComponent({
         {error
           ? 'ERROR'
           : isOn
-            ? // The state itself, not a hardcoded "OFF": `isOn` is false for
-              // `unknown` too, and a fan whose state nobody knows must not be
-              // reported as one that is definitely off.
-              (presetMode ?? 'ON')
-            : entity.state.toUpperCase()}
+            ? (presetMode ?? 'ON')
+            : // The state itself, not a hardcoded "OFF". `unknown` no longer
+              // reaches here — it is inert above — but `isOn` is a test for
+              // exactly `on`, so any state Home Assistant adds later lands in
+              // this arm and must be reported as itself rather than as off.
+              entity.state.toUpperCase()}
       </GridCard.Status>
     </GridCard.Meta>
   )
