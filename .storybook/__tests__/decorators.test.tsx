@@ -15,11 +15,35 @@
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import type { Decorator } from '@storybook/react-vite'
-import { gridCellSize, nestedGridCell, withGridCell } from '../decorators'
-import { deriveCardTier, type CardSpan } from '~/utils/cardTier'
+import { gridCellArgTypes, gridCellSize, nestedGridCell, withGridCell } from '../decorators'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 type StoryArgs = Record<string, unknown>
 type DecoratorArgs = Parameters<Decorator>
+
+/**
+ * The tier table as the design system states it, written out rather than
+ * imported (docs/specs/design-system — "Size-adaptive layouts").
+ *
+ * The duplication is the point. Asserting the decorator's answer against
+ * `deriveCardTier` compares the derivation with itself: true however wrong its
+ * boundaries become, so a mutation misbehaving only at width 9 passes — which is
+ * exactly what a probe of the first version of this suite showed. Restating the
+ * four-line contract is what makes the walk below a check of the table instead of
+ * a check of its own premise.
+ *
+ * That the decorator reuses the production derivation rather than carrying a copy
+ * is not observable from outside — a correct copy behaves identically. What is
+ * observable, and what these assertions deliver, is that a change to the
+ * renderer's boundaries moves the workshop with it: mutate `cardTier.ts` and this
+ * suite goes red.
+ */
+function expectedTier({ width, height }: CardSpan): CardTier {
+  if (width >= 2 && height >= 2) return 'full'
+  if (width >= 2) return 'row'
+  if (height >= 2) return 'tall'
+  return 'glance'
+}
 
 /**
  * Runs the decorator for real and captures what it passes down.
@@ -66,14 +90,36 @@ describe('withGridCell', () => {
     expect(args.span).toEqual({ width, height })
   })
 
-  it('derives the tier through the production derivation for every cell it can render', () => {
-    for (let width = 1; width <= 4; width += 1) {
-      for (let height = 1; height <= 4; height += 1) {
+  /*
+   * Every cell the controls can produce, not a sample near the origin. The whole
+   * point of the change is that no story can pin a tier its cell would not
+   * produce, and a boundary table checked only to 4×4 leaves the larger cells
+   * unverified — which is most of the grid, the desktop resolution being 12
+   * columns by 8 rows.
+   *
+   * The bounds come from the argTypes rather than from constants written here, so
+   * the range the test walks is the range the controls offer by construction: a
+   * grid that grows cannot leave the claim in this test's name behind.
+   */
+  it('derives the tier for every cell the controls can produce', () => {
+    const maxWidth = gridCellArgTypes.gridWidth.control.max
+    const maxHeight = gridCellArgTypes.gridHeight.control.max
+    const observed = new Set<unknown>()
+
+    for (let width = 1; width <= maxWidth; width += 1) {
+      for (let height = 1; height <= maxHeight; height += 1) {
         const { args } = renderThroughDecorator({ gridWidth: width, gridHeight: height })
 
-        expect(args.tier).toBe(deriveCardTier({ width, height }))
+        expect(args.tier).toBe(expectedTier({ width, height }))
+        expect(args.span).toEqual({ width, height })
+        observed.add(args.tier)
       }
     }
+
+    // The walk has to have reached all four regions of the table. Without this a
+    // loop that collapsed to its first iteration would still pass every
+    // assertion above, and the name would go on claiming the whole range.
+    expect(observed).toEqual(new Set(['glance', 'row', 'tall', 'full']))
   })
 
   /*
@@ -149,7 +195,6 @@ describe('nestedGridCell', () => {
     const nested = nestedGridCell(width, height)
 
     expect(nested.tier).toBe(tier)
-    expect(nested.tier).toBe(deriveCardTier({ width, height }))
     expect(nested.span).toEqual({ width, height })
   })
 
