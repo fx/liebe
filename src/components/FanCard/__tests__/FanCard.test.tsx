@@ -42,8 +42,11 @@ describe('FanCard', () => {
     attributes: {
       friendly_name: 'Living Room Fan',
       percentage: 50,
-      // SUPPORT_SET_SPEED
-      supported_features: 1,
+      // SET_SPEED | TURN_OFF | TURN_ON — the switching bits are what Home
+      // Assistant gates `fan.turn_on` / `turn_off` / `toggle` on, so a fixture
+      // without them is a fan this card must refuse to switch
+      // (docs/specs/entity-cards/options/fan.md — "Primary action").
+      supported_features: 49,
     },
     last_changed: '2023-01-01T00:00:00Z',
     last_updated: '2023-01-01T00:00:00Z',
@@ -192,9 +195,10 @@ describe('FanCard', () => {
     it('starts a fan with no speed control without dictating a percentage', async () => {
       withEntity({
         state: 'off',
-        // SUPPORT_PRESET_MODE only: `fan.turn_on` with a percentage would be a
-        // payload this fan cannot honour.
-        attributes: { ...entity.attributes, supported_features: 8, percentage: undefined },
+        // PRESET_MODE plus the switching bits, and no `SET_SPEED`:
+        // `fan.turn_on` with a percentage would be a payload this fan cannot
+        // honour.
+        attributes: { ...entity.attributes, supported_features: 56, percentage: undefined },
       })
       renderCard()
 
@@ -219,6 +223,24 @@ describe('FanCard', () => {
         entityId: 'fan.living_room',
         data: undefined,
       })
+    })
+
+    it('dispatches nothing at all on a fan that advertises no switching bit', async () => {
+      /*
+       * Asserted against the mask rather than against a rejection: Home
+       * Assistant refuses `turn_on`, `turn_off` and `toggle` alike on a fan
+       * advertising neither `TURN_ON` (32) nor `TURN_OFF` (16), so the card must
+       * not send one. A test that mocked the rejection would pass on a card that
+       * still dispatches. Where the gesture goes instead — the detail dialog,
+       * which needs the real shell to observe — is
+       * `FanCard.capability.test.tsx`'s subject.
+       */
+      withEntity({ attributes: { ...entity.attributes, supported_features: 15 } })
+      renderCard()
+
+      await clickTile()
+
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
     it('does nothing while a command is in flight', async () => {

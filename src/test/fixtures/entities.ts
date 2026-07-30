@@ -155,8 +155,16 @@ export function createFanEntity(overrides: EntityOverrides = {}): HassEntity {
       preset_mode: 'auto',
       oscillating: false,
       direction: 'forward',
-      // SET_SPEED | OSCILLATE | DIRECTION
-      supported_features: 7,
+      /*
+       * SET_SPEED | OSCILLATE | DIRECTION | TURN_OFF | TURN_ON.
+       *
+       * The switching bits are part of the ordinary fan, not decoration: Home
+       * Assistant gates `fan.turn_on`, `fan.turn_off` and `fan.toggle` on them,
+       * and a fixture omitting them describes a fan the card must refuse to
+       * switch — which is a premise no story about toggling a fan wants
+       * (docs/specs/entity-cards/options/fan.md — "Primary action").
+       */
+      supported_features: 55,
     },
     overrides
   )

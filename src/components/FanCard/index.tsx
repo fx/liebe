@@ -19,6 +19,7 @@ import {
 } from './speedSteps'
 import { fanHasPresets, readFanFeatures, readFanPresetModes, type FanAttributes } from './features'
 import type { CardTier } from '~/utils/cardTier'
+import type { ResolvedCardAction } from '~/store/cardActions'
 
 interface FanCardProps {
   entityId: string
@@ -40,6 +41,32 @@ interface FanCardProps {
  * `row` or `tall` (docs/changes/0019 — PR 2).
  */
 registerDetailControls('fan', FanDetailControls)
+
+/**
+ * The shell's confirmation gate, answered for a fan that cannot be switched:
+ * no route is ever gated.
+ *
+ * Declaring `defaultAction: 'more-info'` is not enough on its own, because the
+ * gate classifies a route by what it *is* rather than by what the card will do
+ * with it. A stored `tapAction: toggle` resolves to `toggle` without ever
+ * consulting the card's default, so `confirm: true` produced "Turn on Bedroom
+ * Fan?" in front of a dialog that switches nothing, under a button that turns
+ * nothing on.
+ *
+ * Returning `null` for **every** route rather than only for `toggle` is
+ * deliberate, and is what makes this expressible in the card at all: on a fan
+ * advertising neither switching bit there is no route this card resolves that
+ * actuates its power, so nothing is left for an on/off gate to guard. It is
+ * handed to the shell only in that case (the `CoverCard` pattern), because
+ * supplying a `confirmRoute` *replaces* the generic on/off rule rather than
+ * joining it — an ordinary fan must keep the shared gate untouched
+ * (docs/specs/entity-cards/options/fan.md — "Primary action").
+ *
+ * At module scope rather than a `useCallback`: it closes over nothing, and the
+ * card's early returns for the loading and error states sit above the point it
+ * would be declared at, where a hook would break the rules of hooks.
+ */
+const confirmNothingToSwitch = () => null
 
 function FanCardComponent({
   entityId,
@@ -118,18 +145,29 @@ function FanCardComponent({
    * The card's toggle semantics, which the shell calls when a gesture resolves
    * to `toggle`.
    *
+   * A fan advertising neither `TURN_ON` nor `TURN_OFF` is never switched from
+   * here: Home Assistant refuses `turn_on`, `turn_off` and `toggle` alike on
+   * one, so every such dispatch is a call the backend rejects. Returning
+   * `'more-info'` hands the gesture to the detail dialog instead of dropping it,
+   * which is what keeps the tile operable at `glance`, where the tap is the only
+   * affordance the card has (docs/specs/entity-cards/options/fan.md — "Primary
+   * action"). The guard sits here as well as in `defaultAction` below because a
+   * stored `tapAction: toggle` arrives at this callback having never consulted
+   * the card's default.
+   *
    * The 50% start is the shipped baseline, not a contract — whether tap-on
    * should send a bare `fan.turn_on` and let the device restore its own last
    * speed is an open question in the option doc. A fan with no `SET_SPEED`
    * gets no percentage at all: it is a payload that fan cannot honour.
    */
-  const handleToggle = useCallback(() => {
+  const handleToggle = useCallback((): void | 'more-info' => {
+    if (!features.toggle) return 'more-info'
     if (isLoading) return
     void dispatch(
       isOn ? 'turn_off' : 'turn_on',
       !isOn && features.speed ? { percentage: 50 } : undefined
     )
-  }, [dispatch, features.speed, isLoading, isOn])
+  }, [dispatch, features.speed, features.toggle, isLoading, isOn])
 
   /**
    * Set a speed.
@@ -225,6 +263,14 @@ function FanCardComponent({
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
+
+  /*
+   * What the stored literal `default` resolves to for this fan
+   * (docs/specs/entity-cards/options/fan.md — "Primary action"). A fan that
+   * cannot be switched declares the detail dialog rather than a toggle, so the
+   * resolution itself is honest about what the gesture will do.
+   */
+  const defaultAction: ResolvedCardAction = features.toggle ? 'toggle' : 'more-info'
 
   /*
    * What each tier carries (docs/specs/entity-cards/options/fan.md — "Tier
@@ -410,6 +456,8 @@ function FanCardComponent({
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleToggle}
+      defaultAction={defaultAction}
+      confirmRoute={features.toggle ? undefined : confirmNothingToSwitch}
       /*
        * Passed rather than left to the placed-item context: the shell needs an
        * entity to open the detail dialog, which is this card's control surface

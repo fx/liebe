@@ -102,7 +102,7 @@ The option contract — keys, defaults, tier layouts, colour precedence — is [
 
 ### FanCard
 
-**Services** (all `fan`, every one through the guarded non-retrying dispatcher): `set_percentage { percentage }`, and `turn_off` rather than `set_percentage: 0` for a zero speed; `set_preset_mode { preset_mode }`; `oscillate { oscillating }`; `set_direction { direction }`. Toggle sends `turn_off` when on and `turn_on` when off, carrying `{ percentage: 50 }` only where the fan advertises speed — a payload a speedless fan cannot honour.
+**Services** (all `fan`, every one through the guarded non-retrying dispatcher): `set_percentage { percentage }`, and `turn_off` rather than `set_percentage: 0` for a zero speed; `set_preset_mode { preset_mode }`; `oscillate { oscillating }`; `set_direction { direction }`. Toggle sends `turn_off` when on and `turn_on` when off, carrying `{ percentage: 50 }` only where the fan advertises speed — a payload a speedless fan cannot honour — and sends nothing at all where the fan advertises neither `TURN_ON` nor `TURN_OFF`, resolving to the detail dialog instead ([options/fan — primary action](./options/fan.md#primary-action) owns that contract).
 
 **Feature flags** (`src/components/FanCard/features.ts`): `SET_SPEED = 1`, `OSCILLATE = 2`, `DIRECTION = 4`, `PRESET_MODE = 8`, `TURN_OFF = 16`, `TURN_ON = 32`, resolved to booleans off a strictly-numeric mask (a masked bit would render as a stray `0`, and a string `"9"` advertises nothing). `fan.set_preset_mode` accepts **either** `SET_SPEED` or `PRESET_MODE`, so one alone is enough for presets; a preset control additionally needs `preset_modes` to publish labels this card can render. Reads `percentage`, `percentage_step`, `preset_mode`, `preset_modes`, `oscillating`, `direction`.
 

@@ -6,7 +6,13 @@ Extends the [common contract](./common.md); universal options apply as specified
 
 ## Primary action
 
-`tapAction: default` MUST toggle the fan — with `unavailable`/`unknown` resolved first as **inert** (no service dispatch against an unavailable device): `fan.turn_off` when the entity state is `on`, `fan.turn_on` for any other real state. The whole tile is the tap target; embedded controls (speed slider, step pills, preset pills, oscillate/direction toggles) consume their own events and MUST NOT trigger the tap action (per [common contract — Action type](./common.md#action-type)).
+`tapAction: default` MUST toggle the fan — with `unavailable`/`unknown` resolved first as **inert** (no service dispatch against an unavailable device): `fan.turn_off` when the entity state is `on`, `fan.turn_on` for any other real state. This is the rule for a fan that advertises the capability; the capability gate immediately below qualifies it, and the direction it names is what the one-bit gap would revisit. The whole tile is the tap target; embedded controls (speed slider, step pills, preset pills, oscillate/direction toggles) consume their own events and MUST NOT trigger the tap action (per [common contract — Action type](./common.md#action-type)).
+
+**No card gesture switches a fan advertising neither `TURN_ON` (32) nor `TURN_OFF` (16).** This covers the tile's primary action and every gesture that routes to a toggle; the embedded controls are a separate question, and one of them is the documented gap two paragraphs below. Home Assistant gates `fan.turn_on`, `fan.turn_off` and `fan.toggle` on that pair — either bit alone satisfies `fan.toggle`, and neither leaves all three refused with `ServiceNotSupported` — and as of 2026.7.2 the compatibility shim that used to supply the bits for entities implementing the methods is gone, so the mask is the whole answer. On such a fan `tapAction: default` MUST resolve to `more-info`, and a `toggle` stored on any gesture MUST reach the detail dialog rather than a service call. Falling back rather than suppressing the tap is deliberate: at `glance` the tap is the card's only affordance, so an inert tile would be an operability regression, and the dialog is where this card's speed and presets already live at that tier. **`confirm` MUST NOT prompt on such a fan**: the confirmation gate classifies a route by what it is rather than by what the card does with it, so a stored `toggle` would otherwise be announced as "Turn on …" in front of a dialog that switches nothing — a prompt naming an action the entity cannot perform. No gesture route this card resolves actuates the power of a fan advertising neither bit, so that gate — which sees resolved gestures and not embedded controls — has nothing left to guard.
+
+**A fan advertising exactly one of the pair is not covered by this gate, and is a known gap.** `fan.turn_on` requires `TURN_ON` and `fan.turn_off` requires `TURN_OFF` individually, so a `TURN_ON`-only fan that is already `on` — and a `TURN_OFF`-only fan that is already `off` — is still sent the service it lacks. The gate above reads the pair as a union because that is what `fan.toggle` requires, which answers "can this fan be switched at all" and not "can it be switched in the direction this tap implies". Making the resolution state-aware, or dispatching `fan.toggle` for a one-bit entity, are the two candidate answers; neither is specified here. Entities publishing exactly one of the pair are rare — the shim that supplied the bits supplied both — which is why this is recorded rather than guessed at.
+
+Setting a **speed** is outside this gate: `fan.set_percentage` carries no such requirement and implies turn-on, which is how a speed-capable fan of this kind is started. Its **zero** commit is not, and is a known gap rather than a contract — a slider committed at `0` dispatches `fan.turn_off` (below, "Slider committed at zero turns the fan off"), which this fan refuses for exactly the reason above. What a zero commit should do where the fan cannot be turned off is unsettled: clamping to the lowest non-zero speed and refusing the commit are both defensible, and neither is specified here.
 
 ## Options
 
@@ -93,6 +99,12 @@ Content that does not fit MUST be omitted, never clipped or scrolled. The active
 - **GIVEN** a fan with `supported_features: 1` (`SET_SPEED` only) on a `full`-tier card with `showOscillate: true` and `showDirection: true`
 - **WHEN** the card renders
 - **THEN** it shows the speed control but neither the oscillate toggle nor the direction control — the options are inert because the entity lacks the capabilities.
+
+### Scenario: A fan that cannot be switched opens its details
+
+- **GIVEN** an `on` fan with `supported_features: 15` — speed, oscillation, direction and presets, but neither switching bit — on a `glance`-tier card with default options
+- **WHEN** the user taps the tile
+- **THEN** the card dispatches no service call and the entity detail dialog opens; and the same tap on the same fan configured with `tapAction: toggle` does the same.
 
 ### Scenario: Slider committed at zero turns the fan off
 

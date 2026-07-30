@@ -118,7 +118,9 @@ export const OnOffOnly: Story = {
       entities: [
         createFanEntity({
           attributes: {
-            supported_features: 0,
+            // TURN_OFF | TURN_ON: switching is all this fan does, and it is what
+            // makes the tile's tap a toggle rather than the detail dialog.
+            supported_features: 48,
             percentage: undefined,
             preset_mode: undefined,
             preset_modes: undefined,
@@ -130,6 +132,34 @@ export const OnOffOnly: Story = {
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByLabelText('Fan speed')).not.toBeInTheDocument()
     await expect(readState(canvasElement)).toBe('ON')
+  },
+}
+
+/**
+ * The inverse of `OnOffOnly`: a fan that can be *adjusted* but not switched.
+ *
+ * Home Assistant gates `fan.turn_on`, `fan.turn_off` and `fan.toggle` on
+ * `TURN_ON` (32) / `TURN_OFF` (16), and this fan advertises neither — so the
+ * tile's tap resolves to the detail dialog rather than to a command the backend
+ * would refuse (docs/specs/entity-cards/options/fan.md — "Primary action"). The
+ * speed slider is untouched by the gate: `fan.set_percentage` implies turn-on,
+ * which is how such a fan is started.
+ */
+export const CannotBeSwitched: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createFanEntity({
+          // SET_SPEED | OSCILLATE | DIRECTION | PRESET_MODE — everything but
+          // switching.
+          attributes: { supported_features: 15 },
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByLabelText('Fan speed')).toBeInTheDocument()
+    await expect(readState(canvasElement)).toContain('66%')
   },
 }
 

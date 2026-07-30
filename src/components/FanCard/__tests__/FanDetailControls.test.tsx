@@ -23,8 +23,9 @@ import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
  * and the preset row is `full`-only — so without this a fan could be configured
  * into, or simply placed at, a size where it can only be switched on and off.
  *
- * The `glance` **tap stays toggle** per the fan contract; the dialog is reached
- * by holding, which is what the last case here drives.
+ * The `glance` **tap stays toggle** per the fan contract, for a fan that
+ * advertises switching; the dialog is reached by holding, which is what the last
+ * case here drives.
  */
 
 const ENTITY_ID = 'fan.bedroom'
@@ -37,7 +38,10 @@ function makeFan(state: string, attributes: Record<string, unknown> = {}): HassE
     state,
     attributes: {
       friendly_name: 'Bedroom Fan',
-      supported_features: 1,
+      // SET_SPEED | TURN_OFF | TURN_ON: switchable as well as adjustable, which
+      // the `glance` tap case below depends on
+      // (docs/specs/entity-cards/options/fan.md — "Primary action").
+      supported_features: 49,
       percentage: 50,
       ...attributes,
     } as HassEntity['attributes'],

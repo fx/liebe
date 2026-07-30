@@ -13,9 +13,9 @@
  *
  * Verified against the running Home Assistant rather than from memory:
  * `FanEntityFeature` in 2026.7.2 is exactly these six. `TURN_OFF` and `TURN_ON`
- * are listed even though nothing here gates on them yet, because a table that
- * stops at `8` reads as though `16` and `32` were free — which is how the cover
- * card came to treat stop-tilt as set-tilt-position.
+ * are what `readFanFeatures().toggle` reads; the table lists all six because one
+ * that stops at `8` reads as though `16` and `32` were free — which is how the
+ * cover card came to treat stop-tilt as set-tilt-position.
  */
 export const FAN_FEATURE = {
   SET_SPEED: 1,
@@ -57,6 +57,12 @@ export interface FanFeatures {
    * `PRESET_MODE`, not both. See `readFanFeatures`.
    */
   preset: boolean
+  /**
+   * Can be switched at all: accepts `fan.turn_on`, `fan.turn_off` or
+   * `fan.toggle`. False on a fan advertising neither switching bit, which Home
+   * Assistant refuses every one of the three for.
+   */
+  toggle: boolean
 }
 
 /**
@@ -94,6 +100,24 @@ export function readFanFeatures(attributes: FanAttributes | undefined): FanFeatu
      * came back callable.
      */
     preset: (mask & (FAN_FEATURE.SET_SPEED | FAN_FEATURE.PRESET_MODE)) !== 0,
+    /*
+     * Either switching bit, for the same "one satisfied feature set" reason as
+     * `preset` above: `fan.toggle` is registered with `[TURN_OFF, TURN_ON]`, so
+     * a fan advertising one of them can be switched. A fan advertising
+     * **neither** cannot be switched by any of the three services — Home
+     * Assistant raises `ServiceNotSupported`, and as of 2026.7.2 the
+     * compatibility shim that used to add these bits for entities implementing
+     * `async_turn_on`/`async_turn_off` is gone from the fan module, so the mask
+     * is now the whole answer. That is the capability the card's primary action
+     * is gated on (docs/specs/entity-cards/options/fan.md — "Primary action").
+     *
+     * Deliberately **not** read per direction, though `fan.turn_on` requires
+     * `TURN_ON` and `fan.turn_off` requires `TURN_OFF` individually: a fan
+     * publishing exactly one of the pair is what a directional read would be
+     * for, and this gate is the one the change document specifies
+     * (docs/changes/0037-card-state-and-capability-correctness.md — PR 2).
+     */
+    toggle: (mask & (FAN_FEATURE.TURN_OFF | FAN_FEATURE.TURN_ON)) !== 0,
   }
 }
 
