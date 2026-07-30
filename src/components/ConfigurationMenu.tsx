@@ -91,16 +91,33 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
    * tracked instead of accumulating for as long as the menu is mounted.
    */
   const pendingTimeouts = useRef(new Set<ReturnType<typeof setTimeout>>())
+  /*
+   * Both actions that schedule a reset do so *after* awaiting a service call,
+   * so unmounting mid-flight runs the cleanup first and the continuation
+   * afterwards — which would schedule a fresh timeout into a set nobody will
+   * drain again. Clearing on unmount alone therefore does not close the leak;
+   * refusing to schedule after unmount is what closes it.
+   *
+   * Set in the effect rather than only at construction so a StrictMode remount,
+   * which runs the cleanup and then the effect again, does not leave the menu
+   * permanently declining to schedule.
+   */
+  const mounted = useRef(true)
 
   useEffect(() => {
+    mounted.current = true
     const pending = pendingTimeouts.current
     return () => {
+      mounted.current = false
       pending.forEach(clearTimeout)
       pending.clear()
     }
   }, [])
 
   const clearAfter = (delayMs: number, reset: () => void) => {
+    if (!mounted.current) return
+    // No guard is needed inside the callback: a timeout only exists here if it
+    // was scheduled while mounted, and unmounting clears every one of those.
     const id = setTimeout(() => {
       pendingTimeouts.current.delete(id)
       reset()

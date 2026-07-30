@@ -284,6 +284,49 @@ describe('ConfigurationMenu', () => {
     }
   })
 
+  /*
+   * The confirmation is scheduled after an `await`, so the menu can unmount
+   * while the service call is still in flight: cleanup runs first and the
+   * continuation second, which is the one ordering where clearing on unmount
+   * cannot help — the timer it would have to clear does not exist yet.
+   */
+  it('schedules nothing when the action it was waiting on resolves after unmount', async () => {
+    vi.useFakeTimers()
+    try {
+      let completeImport!: () => void
+      vi.mocked(persistence.parseConfigurationFromFile).mockResolvedValueOnce({
+        config: { version: '1.0.0', screens: [], theme: 'auto' },
+        versionMessage: undefined,
+      })
+      vi.mocked(persistence.importConfigurationFromFile).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            completeImport = resolve
+          })
+      )
+
+      const { unmount } = renderWithTheme(<ConfigurationMenu />)
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+      const file = new File(['{}'], 'config.json', { type: 'application/json' })
+      fireEvent.change(fileInput, { target: { files: [file] } })
+
+      fireEvent.click(await vi.waitFor(() => screen.getByRole('button', { name: 'Import' })))
+      await vi.waitFor(() => expect(persistence.importConfigurationFromFile).toHaveBeenCalled())
+
+      // The import is in flight; the confirmation has not been scheduled yet.
+      unmount()
+
+      await act(async () => {
+        completeImport()
+      })
+
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('takes the import confirmation back down once its delay elapses', async () => {
     vi.useFakeTimers()
     try {
