@@ -313,6 +313,12 @@ function SensorCardComponent({
            why it is set even on a `row` whose graph is switched off: the flag
            describes the slot, and the slot is empty then. */
         controlSize={tier === 'row' || tier === 'tall' ? 'fill' : 'content'}
+        /* And in `tall` the band spans the tile as well: what it holds is the
+           value and the sparkline — the tier's own content — not a control whose
+           thickness is its own, and the sparkline is specified to take the tile's
+           full width (docs/specs/entity-cards/options/sensor.md — "the graph
+           claims the tile"). */
+        stretchControlBand={tier === 'tall'}
         lead={
           isGlance && showsValue ? (
             trend ? (
@@ -345,17 +351,11 @@ function SensorCardComponent({
             ) : undefined
           ) : tier === 'tall' ? (
             // Value above graph, both in the vertical band: the tier table's
-            // "big value centered, vertical-space sparkline beneath". The class
-            // is what lets `SensorCard.css` widen the box `CardBody` puts this
-            // band in — see the `liebe-sensor-band` rule there.
-            <Flex
-              className="liebe-sensor-band"
-              direction="column"
-              align="center"
-              gap="2"
-              width="100%"
-              height="100%"
-            >
+            // "big value centered, vertical-space sparkline beneath". `100%` of
+            // the band, which spans the tile because of `stretchControlBand`
+            // below — without it the band hugs this column and the width these
+            // percentages resolve against is the big value's text.
+            <Flex direction="column" align="center" gap="2" width="100%" height="100%">
               {showsValue ? value : null}
               {wantsGraph ? graph('band') : null}
             </Flex>

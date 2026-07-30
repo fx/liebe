@@ -50,6 +50,30 @@ export interface CardBodyProps {
   /** How much of the tier's room the control slot takes. */
   controlSize?: CardControlSize
   /**
+   * Whether a filling `tall` control's band spans the tile's width as well as
+   * the height the icon and the meta leave.
+   *
+   * Off by default, and the default is load-bearing: the band exists for
+   * controls whose thickness is their own — a vertical slider is 42px wide
+   * whatever the tile is — and a band sized to fit such a control is what puts
+   * it on the tile's midline (`CardBody.css`, and the measurements in
+   * `__tests__/cardBodyStyles.test.ts`).
+   *
+   * A card turns it on when what its band holds is the tier's own content
+   * rather than a control of fixed thickness. The sensor's `tall` sparkline is
+   * specified to span the tile's full width
+   * (docs/specs/entity-cards/options/sensor.md — "the graph claims the tile"),
+   * and inside a fit-content band it collapsed to the width of the big value's
+   * text, because the band was measured from its content and the band's content
+   * asked for `100%` of the band.
+   *
+   * An explicit prop rather than the card's stylesheet selecting this wrapper
+   * through `:has()`: layout state here is carried on data attributes, and
+   * `:has()`-based mechanisms are prototype-only
+   * (docs/specs/theming/index.md — "Constraints").
+   */
+  stretchControlBand?: boolean
+  /**
    * The tile's anchor — the icon circle for most cards, or whatever replaces it
    * where a card's option doc says so (a sensor's big value in `glance`).
    */
@@ -101,6 +125,7 @@ export interface CardBodyProps {
 export function CardBody({
   arrangement,
   controlSize = 'content',
+  stretchControlBand = false,
   lead,
   meta,
   control,
@@ -138,7 +163,12 @@ export function CardBody({
           beside the meta, so whatever control it keeps goes underneath. */}
       {arrangement === 'tall' ? (
         filling ? (
-          <div className="liebe-card-body-fill">{control}</div>
+          // `data-band-stretch` only where the card asked for it: the attribute
+          // IS the opt-in, so a band with no attribute keeps the fit-content
+          // width every control-bearing card depends on.
+          <div className="liebe-card-body-fill" data-band-stretch={stretchControlBand || undefined}>
+            {control}
+          </div>
         ) : (
           control
         )

@@ -44,24 +44,6 @@
   }
 
   /*
-   * The box that band sits in, so the sparkline spans the tile's width and not
-   * the big value's text width.
-   *
-   * The rule selects the wrapper rather than the band because the axis that
-   * collapses is the wrapper's: `CardBody` puts a filling `tall` control in a
-   * flex item of a body that centres its children on the inline axis, so the
-   * wrapper is sized to fit its content — and a band cannot widen itself inside
-   * a box that was measured from it (`inline-size: 100%` on the band resolves
-   * against that fitted width, which is where the collapse came from). Stretching
-   * the wrapper leaves its `justify-content: center` and every other card's band
-   * untouched: the reach is scoped to a wrapper holding THIS card's band
-   * (docs/specs/entity-cards/options/sensor.md — "the graph claims the tile").
-   */
-  .liebe-card-body-fill:has(> .liebe-sensor-band) {
-    align-self: stretch;
-  }
-
-  /*
    * `full`: the tier's own content, so it takes the height the value line and
    * the min/max footer leave rather than a fixed band with dead space around it
    * — a 3×3 card draws a visibly taller graph than a 2×2. No floor: this is the

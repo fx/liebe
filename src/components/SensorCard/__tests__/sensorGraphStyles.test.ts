@@ -92,12 +92,22 @@ describe('sensor graph stylesheet', () => {
     )
   })
 
-  it('stretches the tall band across the tile', () => {
+  it('stretches the tall band across the tile, on the card’s opt-in', () => {
     // The band's width collapsed to the big value's text, because the box
     // `CardBody` puts a filling `tall` control in is sized to fit its content.
-    expect(ruleBody(graphCss, '.liebe-card-body-fill:has(> .liebe-sensor-band)')).toContain(
+    // The stretch is keyed on the attribute `stretchControlBand` stamps, so a
+    // band holding a control of its own thickness — every other `tall` card —
+    // keeps the fit-content width that centres it.
+    expect(ruleBody(bodyCss, '.liebe-card-body-fill[data-band-stretch]')).toContain(
       'align-self: stretch;'
     )
+    // Not on the band itself, which would stretch every card's.
+    expect(ruleBody(bodyCss, '.liebe-card-body-fill')).not.toContain('align-self')
+    // And not through `:has()`: layout state here rides on data attributes, and
+    // `:has()`-based mechanisms are prototype-only (docs/specs/theming — the
+    // "Constraints" list). A browser without it would silently drop the fix.
+    expect(graphCss).not.toContain(':has(')
+    expect(bodyCss).not.toContain(':has(')
   })
 
   it('reserves the space the extremes will actually take', () => {

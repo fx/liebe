@@ -48,6 +48,8 @@ Acceptance is the spec's own scenario, [options/sensor — bigger tile, bigger g
 
 - **Grow the region, keep the SVG untouched**: the anatomy already stretches; only boxes change. No `Sparkline` API change.
 - **`row` stays line-height** — deliberate per the existing CSS comment and the spec's tier table; only its literal moves to a token.
+- **The `full` footer reserves two lines, and is allowed to wrap.** On a fixed tile, "show both extrema", "never reflow when the series lands" and "never clip" cannot all hold for arbitrary text: `unitOverride` takes any string, so no fixed reservation is total. Of the three, showing both extrema is the tier table's `MUST`, so the footer wraps rather than ellipsizing; the reservation is **two** lines because "Min 0.0 °C · Max 9.0 °C" is wider than the card's own default 2×2 tile, making two the height at the commonest `full` size rather than a pessimistic guess. A single line is centred in the reserved box, so a wide tile shows no gap. What remains is that a long enough unit wraps to three and costs the graph one line — the cheapest of the three failures, and the only one that neither hides a reading nor clips one.
+- **The `tall` band's width is an explicit `CardBody` opt-in** (`stretchControlBand`), not a `:has()` reach from the card's stylesheet: the band's fit-content default is what centres a vertical slider on the tile's midline, so the stretch has to be the exception rather than the rule, and [theming — constraints](../specs/theming/index.md#constraints) keeps layout state on data attributes with `:has()` prototype-only.
 
 ### Non-Goals
 

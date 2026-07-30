@@ -114,15 +114,14 @@ describe('SensorCard graph placement', () => {
     const band = document.querySelector('.liebe-card-body-fill')!
     expect(band).toContainElement(graphRegion() as HTMLElement)
     /*
-     * The column inside that slot carries the class the stylesheet widens the
-     * slot by (`.liebe-card-body-fill:has(> .liebe-sensor-band)`), and it is a
-     * DIRECT child of the slot — the `>` in that selector is load-bearing, and a
-     * wrapper appearing between them would silently collapse the band's width
-     * back to the value's text with every rendered assertion still passing.
+     * And the slot is stretched across the tile rather than hugging what it
+     * holds, which is the attribute `stretchControlBand` stamps and the
+     * stylesheet keys the stretch on (`sensorGraphStyles.test.ts`). Without it
+     * the band is measured from this column and the sparkline's `inline-size:
+     * 100%` resolves against the big value's text width — a collapse no other
+     * rendered assertion here can see.
      */
-    const column = document.querySelector('.liebe-sensor-band')!
-    expect(column.parentElement).toBe(band)
-    expect(column).toContainElement(graphRegion() as HTMLElement)
+    expect(band).toHaveAttribute('data-band-stretch')
     expect(band.querySelector('.liebe-value')).toHaveTextContent('21.4 °C')
     const body = Array.from(document.querySelector('.liebe-card-body')!.children)
     expect(body.findIndex((child) => child.querySelector('.liebe-icon'))).toBeLessThan(
