@@ -250,6 +250,169 @@ describe('useCardActions', () => {
     error.mockRestore()
   })
 
+  /**
+   * The routes a card's *default* cannot cover, which is where the defect lived
+   * (change 0043). A stored `toggle` never consults what `default` resolves to,
+   * so a redirect that only rewrote the default left every stored one
+   * suppressed at dispatch: nothing was sent, and nothing was opened either —
+   * the tap did nothing at all. At `glance`, where the tap is the only
+   * affordance a card has, that is the operability regression the design system
+   * forbids.
+   *
+   * Each case asserts BOTH halves. "Nothing dispatched" alone cannot fail here:
+   * it was already true of the broken code, which is exactly why the defect
+   * survived. What distinguishes the two is whether the gesture arrives
+   * somewhere.
+   */
+  describe('a toggle route on an unavailable entity', () => {
+    /*
+     * Tap and hold only. Naming `doubleTapAction` as well would make the
+     * double-tap route actionable, and `tap()` then waits out the double-tap
+     * window instead of dispatching — which reads as "the redirect did not
+     * work". The double-tap route is covered on its own below, where the timer
+     * is advanced deliberately.
+     */
+    const stored = { tapAction: 'toggle', holdAction: 'toggle' } as const
+
+    function unavailableCard() {
+      const onToggle = vi.fn()
+      const onMoreInfo = vi.fn()
+      const rendered = renderHook(() =>
+        useCardActions({
+          config: stored,
+          entityId: 'light.desk',
+          onToggle,
+          onMoreInfo,
+          unavailable: true,
+        })
+      )
+      return { onToggle, onMoreInfo, result: rendered.result }
+    }
+
+    it('sends a stored tapAction to the detail dialog', () => {
+      const { onToggle, onMoreInfo, result } = unavailableCard()
+
+      act(() => result.current.tap())
+
+      expect(onMoreInfo).toHaveBeenCalledTimes(1)
+      expect(onToggle).not.toHaveBeenCalled()
+    })
+
+    it('sends a stored holdAction there too', () => {
+      const { onToggle, onMoreInfo, result } = unavailableCard()
+
+      act(() => result.current.press())
+      act(() => vi.advanceTimersByTime(HOLD_DURATION_MS))
+
+      expect(onMoreInfo).toHaveBeenCalledTimes(1)
+      expect(onToggle).not.toHaveBeenCalled()
+    })
+
+    it('sends a stored doubleTapAction there as well', () => {
+      const onToggle = vi.fn()
+      const onMoreInfo = vi.fn()
+      const { result } = renderHook(() =>
+        useCardActions({
+          config: { ...stored, doubleTapAction: 'toggle' },
+          entityId: 'light.desk',
+          onToggle,
+          onMoreInfo,
+          unavailable: true,
+        })
+      )
+
+      // Two taps inside the window is the double-tap gesture.
+      act(() => result.current.tap())
+      act(() => result.current.tap())
+
+      expect(onMoreInfo).toHaveBeenCalledTimes(1)
+      expect(onToggle).not.toHaveBeenCalled()
+    })
+
+    it('reports the tile as having a tap action, so the shell arms the gesture', () => {
+      // The observable that made the old behaviour visible: a suppressed route
+      // is not actionable, so the shell rendered the tile as inert — no pointer
+      // cursor, no armed hold timer. A redirected one is actionable.
+      const { result } = unavailableCard()
+
+      expect(result.current.hasTapAction).toBe(true)
+    })
+
+    it('never consults the card while the entity is unavailable', () => {
+      /*
+       * The safety half, and the reason the redirect belongs at resolution
+       * rather than at dispatch. The alternative — ask the card first and
+       * honour a `'more-info'` return, the way the capability gates do — would
+       * make "no actuation of an indeterminate device" depend on every card
+       * answering correctly. A card whose handler dispatches would actuate.
+       */
+      const onToggle = vi.fn(() => {
+        throw new Error('the card must not be asked')
+      })
+      const onMoreInfo = vi.fn()
+      const { result } = renderHook(() =>
+        useCardActions({
+          config: stored,
+          entityId: 'light.desk',
+          onToggle,
+          onMoreInfo,
+          unavailable: true,
+        })
+      )
+
+      expect(() => act(() => result.current.tap())).not.toThrow()
+      expect(onToggle).not.toHaveBeenCalled()
+    })
+
+    it('still toggles the same card once the entity is available again', () => {
+      // The positive control. Without it every assertion above is satisfied by
+      // a hook that had simply stopped resolving anything.
+      const onToggle = vi.fn()
+      const onMoreInfo = vi.fn()
+      const { result } = renderHook(() =>
+        useCardActions({
+          config: stored,
+          entityId: 'light.desk',
+          onToggle,
+          onMoreInfo,
+          unavailable: false,
+        })
+      )
+
+      act(() => result.current.tap())
+
+      expect(onToggle).toHaveBeenCalledTimes(1)
+      expect(onMoreInfo).not.toHaveBeenCalled()
+    })
+
+    it('leaves a non-toggle route alone', () => {
+      /*
+       * The redirect is scoped to `toggle`, which is what the rule has always
+       * said: unavailability makes a *toggle* inert and leaves everything else
+       * available. A configured `call-service` still dispatches — widening the
+       * redirect to cover it would be a different decision, and not this one.
+       */
+      const hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
+      hassService.setHass(hass)
+      const onMoreInfo = vi.fn()
+      const { result } = renderHook(() =>
+        useCardActions({
+          config: { tapAction: { action: 'call-service', service: 'script.reset_hub' } },
+          entityId: 'light.desk',
+          onMoreInfo,
+          unavailable: true,
+        })
+      )
+
+      act(() => result.current.tap())
+
+      expect(hass.callService).toHaveBeenCalledWith('script', 'reset_hub', {
+        entity_id: 'light.desk',
+      })
+      expect(onMoreInfo).not.toHaveBeenCalled()
+    })
+  })
+
   it('resolves `default` to the detail dialog while the entity is unavailable', () => {
     // Whatever the card declares: a card must not actuate a device whose state
     // is indeterminate, and "why has this gone quiet?" is what the gesture is
