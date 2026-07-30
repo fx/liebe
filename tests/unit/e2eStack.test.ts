@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, describe, it, expect } from 'vitest'
 import {
   CHECKOUT_PATH,
   ENV_GO2RTC_PORT,
@@ -398,6 +401,10 @@ describe('parseProjectListing', () => {
 describe('inspectProjectOwnership', () => {
   const composePath = `${WORKTREE_B}/ha/docker-compose.yml`
   const ownName = 'liebe-e2e-0040b-015d904f'
+  const tempRoots: string[] = []
+  afterAll(() => {
+    for (const root of tempRoots) rmSync(root, { recursive: true, force: true })
+  })
 
   it('recognises this checkout’s own running stack', () => {
     expect(
@@ -484,6 +491,35 @@ describe('inspectProjectOwnership', () => {
         composePath,
       })
     ).toEqual({ ours: false, conflict: null })
+  })
+
+  it('sees through a symlinked checkout path', () => {
+    // Compose records the path it was GIVEN, while Node hands this script the
+    // physical one. A lexical comparison reads those as two different files, so
+    // an old stack on the same physical ha/config would go unseen — and the
+    // corruption it causes is invisible to the bundle-identity check, since both
+    // instances serve the same dist/.
+    const root = mkdtempSync(join(tmpdir(), 'liebe-e2e-stack-'))
+    tempRoots.push(root)
+    const physical = join(root, 'physical')
+    mkdirSync(join(physical, 'ha'), { recursive: true })
+    const physicalCompose = join(physical, 'ha', 'docker-compose.yml')
+    writeFileSync(physicalCompose, 'services: {}\n')
+    const link = join(root, 'linked')
+    symlinkSync(physical, link)
+
+    const result = inspectProjectOwnership({
+      projects: [
+        {
+          Name: 'ha',
+          Status: 'running(2)',
+          ConfigFiles: join(link, 'ha', 'docker-compose.yml'),
+        },
+      ],
+      projectName: ownName,
+      composePath: physicalCompose,
+    })
+    expect(result.conflict).toMatchObject({ kind: 'duplicate-stack', name: 'ha' })
   })
 
   it('compares compose files by resolved path across a multi-file project', () => {
@@ -577,6 +613,53 @@ describe('runStack', () => {
     expect(inherited[0].env).toEqual(stackEnv(config))
     // The pre-flight asks which compose projects exist before claiming a name.
     expect(calls).toContainEqual(['compose', 'ls', '--all', '--format', 'json'])
+  })
+
+  it('refuses to tear down a project another checkout created', async () => {
+    // `down -v` deletes volumes. With two checkouts sharing a LIEBE_E2E_PROJECT
+    // override, an unguarded cleanup destroys the neighbour's stack — the
+    // isolation failure this change removes, arriving through the tidy-up path.
+    const config = resolveStackConfig({ checkoutPath: WORKTREE_B, env: {} })
+    const { capture } = healthyDocker([
+      {
+        Name: config.projectName,
+        Status: 'running(2)',
+        ConfigFiles: '/workspace/liebe/ha/docker-compose.yml',
+      },
+    ])
+    const logged: string[] = []
+    const code = await runStack({
+      ...base,
+      argv: ['down'],
+      capture,
+      inherit: () => {
+        throw new Error('compose must not tear down a foreign project')
+      },
+      log: (message: string) => logged.push(message),
+    })
+    expect(code).toBe(1)
+    expect(logged.join('\n')).toMatch(/not from this checkout/)
+  })
+
+  it('tears down its own stack even while a stray project of this checkout is up', async () => {
+    // A stray under another name is `up`'s problem: refusing `down` on it would
+    // block the cleanup the stray's own message asks for.
+    const { capture } = healthyDocker([
+      { Name: 'ha', Status: 'running(2)', ConfigFiles: `${WORKTREE_B}/ha/docker-compose.yml` },
+    ])
+    let torn = false
+    const code = await runStack({
+      ...base,
+      argv: ['down'],
+      capture,
+      inherit: () => {
+        torn = true
+        return { status: 0 }
+      },
+      log: () => {},
+    })
+    expect(code).toBe(0)
+    expect(torn).toBe(true)
   })
 
   it.each([

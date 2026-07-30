@@ -31,6 +31,7 @@
 
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
+import { realpathSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -428,11 +429,28 @@ const holdsResources = (entry) => {
   const states = `${entry.Status ?? ''}`.match(/[a-z]+/gi) ?? []
   return states.length === 0 || states.some((state) => !RELEASED_STATES.has(state.toLowerCase()))
 }
+/**
+ * Compare compose-file paths by their PHYSICAL location. `resolve` normalises
+ * only lexically, and a stack started through a symlinked checkout has that
+ * symlinked path recorded in `ConfigFiles` while Node hands this script the
+ * physical one — the two would then read as different files and a stray stack
+ * on the same `ha/config` would go unseen. Unresolvable paths fall back to the
+ * lexical form, which is all a deleted or fictional path can be compared as.
+ */
+const canonical = (file) => {
+  const absolute = resolve(file)
+  try {
+    return realpathSync(absolute)
+  } catch {
+    return absolute
+  }
+}
+
 const usesComposeFile = (entry, composePath) =>
   `${entry.ConfigFiles ?? ''}`
     .split(',')
-    .map((file) => resolve(file.trim()))
-    .includes(composePath)
+    .map((file) => canonical(file.trim()))
+    .includes(canonical(composePath))
 
 /**
  * Decide whether an existing compose project is this checkout's, and catch the
@@ -574,8 +592,14 @@ export async function runStack({
   // compared against what `docker compose ls` reports for existing projects.
   const composePath = resolve(checkoutPath, COMPOSE_FILE)
 
-  if (command === 'up') {
-    let ownership
+  // `down -v` deletes containers AND volumes, so it needs the same ownership
+  // proof `up` does: with two checkouts sharing a LIEBE_E2E_PROJECT override, an
+  // unguarded cleanup destroys the other checkout's stack. `logs` is read-only
+  // and stays unguarded. A stray project under a DIFFERENT name is `up`'s
+  // problem alone — it is not what `down` is about to act on, and refusing on it
+  // would block the very cleanup the stray's own message asks for.
+  let ownership = { ours: false, conflict: null }
+  if (command === 'up' || command === 'down') {
     try {
       ownership = inspectProjectOwnership({
         projects: parseProjectListing(
@@ -588,10 +612,19 @@ export async function runStack({
       log(thrown.message)
       return 1
     }
-    if (ownership.conflict) {
-      log(describeOwnershipConflict({ conflict: ownership.conflict, config, composePath }))
+    const conflict =
+      command === 'up'
+        ? ownership.conflict
+        : ownership.conflict?.kind === 'foreign-project'
+          ? ownership.conflict
+          : null
+    if (conflict) {
+      log(describeOwnershipConflict({ conflict, config, composePath }))
       return 1
     }
+  }
+
+  if (command === 'up') {
     // An already-running stack of OUR project legitimately holds these ports;
     // only a foreign holder is a collision.
     if (!ownership.ours) {
