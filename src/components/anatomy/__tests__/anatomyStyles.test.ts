@@ -193,12 +193,21 @@ describe('domain colour', () => {
        * appearance NOWHERE — a reintroduced selector of either shape is the
        * defect, and asserting "none" is what forbids both.
        */
-      // `\b` after the word, not after the dot: `.dark-theme` and
-      // `.light-theme` must still be caught (a hyphen is a non-word
-      // character, so the boundary holds), while a hypothetical `.darken`
-      // must not — a substring match would forbid class names that have
-      // nothing to do with the appearance.
+      // All three ways CSS can key off the appearance, because forbidding
+      // only the one this sheet used to use would let the next author reach
+      // for either of the others and still pass:
+      //
+      //  - the CLASS, as the theme roots carry it. `\b` after the word rather
+      //    than after the dot, so `.dark-theme` and `.light-theme` are caught
+      //    (a hyphen is a non-word character) while `.darken` is not.
+      //  - the ATTRIBUTE, which the Radix root also stamps. Note this must
+      //    not catch `[data-color='light']` — a triplet that happens to be
+      //    named `light` is a domain colour, not an appearance.
+      //  - the MEDIA QUERY, which needs no root at all and would leak through
+      //    a nested theme exactly as an ancestor selector does.
       expect([...source.matchAll(/\.(dark|light)\b/g)]).toEqual([])
+      expect([...source.matchAll(/data-appearance/g)]).toEqual([])
+      expect([...source.matchAll(/prefers-color-scheme/g)]).toEqual([])
     })
   })
 })
