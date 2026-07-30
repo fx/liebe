@@ -145,6 +145,37 @@ describe('a fan advertising neither TURN_ON nor TURN_OFF', () => {
     await expectNoServiceCall()
   })
 
+  it('does not ask whether to switch it when a stored toggle is what routed there', async () => {
+    /*
+     * The same question as the case below, on the route that reaches the gate
+     * differently. A stored `toggle` resolves to `toggle` without consulting the
+     * card's default, so the shell's generic classifier sees a switching route
+     * and — before this card suppressed it — offered "Turn on Bedroom Fan?" with
+     * a button that turns nothing on. The card's default resolution cannot cover
+     * this one; the gate has to be answered as well.
+     */
+    seed(makeFan('off', NO_SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="row" />, { tapAction: 'toggle', confirm: true })
+
+    tapTile()
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    await expectNoServiceCall()
+  })
+
+  it('still asks before switching a fan that can be switched', async () => {
+    // The other half of the same rule: suppressing the prompt is scoped to the
+    // fan that cannot be switched, and must not disarm `confirm` generally.
+    seed(makeFan('off', SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="row" />, { tapAction: 'toggle', confirm: true })
+
+    tapTile()
+
+    await waitFor(() => expect(screen.getByRole('alertdialog')).toBeVisible())
+    await expectNoServiceCall()
+  })
+
   it('does not ask whether to switch it on the way to the dialog', async () => {
     /*
      * What the *resolution* has to get right, over and above the dispatch. The

@@ -42,6 +42,32 @@ interface FanCardProps {
  */
 registerDetailControls('fan', FanDetailControls)
 
+/**
+ * The shell's confirmation gate, answered for a fan that cannot be switched:
+ * no route is ever gated.
+ *
+ * Declaring `defaultAction: 'more-info'` is not enough on its own, because the
+ * gate classifies a route by what it *is* rather than by what the card will do
+ * with it. A stored `tapAction: toggle` resolves to `toggle` without ever
+ * consulting the card's default, so `confirm: true` produced "Turn on Bedroom
+ * Fan?" in front of a dialog that switches nothing, under a button that turns
+ * nothing on.
+ *
+ * Returning `null` for **every** route rather than only for `toggle` is
+ * deliberate, and is what makes this expressible in the card at all: on a fan
+ * advertising neither switching bit there is no route this card resolves that
+ * actuates its power, so nothing is left for an on/off gate to guard. It is
+ * handed to the shell only in that case (the `CoverCard` pattern), because
+ * supplying a `confirmRoute` *replaces* the generic on/off rule rather than
+ * joining it — an ordinary fan must keep the shared gate untouched
+ * (docs/specs/entity-cards/options/fan.md — "Primary action").
+ *
+ * At module scope rather than a `useCallback`: it closes over nothing, and the
+ * card's early returns for the loading and error states sit above the point it
+ * would be declared at, where a hook would break the rules of hooks.
+ */
+const confirmNothingToSwitch = () => null
+
 function FanCardComponent({
   entityId,
   tier = 'row',
@@ -241,10 +267,8 @@ function FanCardComponent({
   /*
    * What the stored literal `default` resolves to for this fan
    * (docs/specs/entity-cards/options/fan.md — "Primary action"). A fan that
-   * cannot be switched declares the detail dialog rather than a toggle, which is
-   * what makes the resolution itself honest: the confirmation gate classifies a
-   * route *after* resolution, so a `confirm: true` fan would otherwise ask
-   * whether to switch a fan before opening a dialog that switches nothing.
+   * cannot be switched declares the detail dialog rather than a toggle, so the
+   * resolution itself is honest about what the gesture will do.
    */
   const defaultAction: ResolvedCardAction = features.toggle ? 'toggle' : 'more-info'
 
@@ -433,6 +457,7 @@ function FanCardComponent({
       onDelete={onDelete}
       onClick={handleToggle}
       defaultAction={defaultAction}
+      confirmRoute={features.toggle ? undefined : confirmNothingToSwitch}
       /*
        * Passed rather than left to the placed-item context: the shell needs an
        * entity to open the detail dialog, which is this card's control surface
