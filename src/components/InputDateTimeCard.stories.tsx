@@ -38,11 +38,12 @@ export const DateAndTime: Story = {
 /**
  * `has_time: false` narrows the field to a date picker.
  *
- * Known defect this story exposes: HA publishes a date-only state as
- * `YYYY-MM-DD`, which `new Date(...)` parses as UTC midnight, so the rendered
- * date is a day early for viewers west of UTC. Fixing it is out of scope for
- * this change (workshop setup) — the story is here so the fix has somewhere to
- * be demonstrated.
+ * The readout shows the calendar date the helper published — 24 December 2026
+ * here — in every viewer's zone. HA publishes a date-only state as `YYYY-MM-DD`,
+ * which `new Date(...)` reads as UTC midnight and so rendered a day early behind
+ * UTC; the card now builds the date from its year/month/day components instead
+ * (docs/changes/0037-card-state-and-capability-correctness.md). Open this story
+ * with the browser set to a zone behind UTC to see the day hold.
  */
 export const DateOnly: Story = {
   parameters: {

@@ -3,6 +3,7 @@ import {
   buildSetDatetimePayload,
   describeInputDatetimeShape,
   toDatetimeInputValue,
+  toLocalCalendarDate,
 } from '../inputDatetime'
 
 const DATE_ONLY = { has_date: true, has_time: false }
@@ -96,6 +97,41 @@ describe('describeInputDatetimeShape', () => {
 
   it('treats absent attributes as a combined helper, as the payload builder does', () => {
     expect(describeInputDatetimeShape(id)).toBe(`${id} expects a date and time (YYYY-MM-DD HH:MM)`)
+  })
+})
+
+describe('toLocalCalendarDate', () => {
+  // The zone-sensitive half of this contract — that the date is read locally
+  // rather than as a UTC instant — is pinned west of UTC in
+  // src/components/__tests__/InputDateTimeCard.dateOnly.test.tsx. The
+  // assertions here hold in any zone, because a date built from local
+  // components reports those components back in the zone that built it.
+  it('names the year, month and day the state carries', () => {
+    const date = toLocalCalendarDate('2026-12-24')
+
+    expect(date?.getFullYear()).toBe(2026)
+    expect(date?.getMonth()).toBe(11)
+    expect(date?.getDate()).toBe(24)
+    expect(date?.getHours()).toBe(0)
+  })
+
+  it('takes the date half of a state that also carries a time', () => {
+    expect(toLocalCalendarDate('2026-12-24 06:30:00')?.getDate()).toBe(24)
+  })
+
+  it('keeps a year below 100 out of the 1900s', () => {
+    expect(toLocalCalendarDate('0099-12-24')?.getFullYear()).toBe(99)
+  })
+
+  it('refuses a date the calendar does not have rather than rolling it forward', () => {
+    expect(toLocalCalendarDate('2026-02-31')).toBeNull()
+    expect(toLocalCalendarDate('2026-13-01')).toBeNull()
+  })
+
+  it('refuses states carrying no date at all', () => {
+    expect(toLocalCalendarDate('06:30:00')).toBeNull()
+    expect(toLocalCalendarDate('unknown')).toBeNull()
+    expect(toLocalCalendarDate('')).toBeNull()
   })
 })
 
