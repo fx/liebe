@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, waitFor } from 'storybook/test'
+import { expect, waitFor, within } from 'storybook/test'
 import { CameraCard } from './index'
 import {
   asUnavailable,
@@ -161,6 +161,15 @@ export const Connecting: Story = {
  */
 export const StreamError: Story = {
   parameters: { liebe: { entities: [camera('streaming', { stream: 'error' })] } },
+  play: async ({ canvasElement }) => {
+    // The one story that distinguishes the workshop's two frames — the one it
+    // serves and the one it deliberately does not. Without an assertion here,
+    // a runner that answered `load` for every image would render the streaming
+    // surface for this fixture and nothing would say so.
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(canvas.getByRole('button', { name: /Retry/ })).toBeInTheDocument())
+    await expect(liveBadge(canvasElement)).toBeNull()
+  },
 }
 
 /* ------------------------------------------------------------------ *
@@ -277,9 +286,15 @@ export const OverlayWithoutState: Story = {
   args: { item: cameraItem({ hideState: true }) },
   parameters: { liebe: { entities: [camera('idle')] } },
   play: async ({ canvasElement }) => {
-    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    // The badge waits with the name rather than after it: the overlay renders
+    // as soon as the card does, while `LIVE` follows the stream reaching its
+    // streaming state, so asserting it outside the wait is a race this story
+    // lost the first time anything ran it.
+    await waitFor(() => {
+      expect(overlayName(canvasElement)).toBe('Driveway')
+      expect(liveBadge(canvasElement)).toBe('LIVE')
+    })
     await expect(overlayState(canvasElement)).toBeNull()
-    await expect(liveBadge(canvasElement)).toBe('LIVE')
   },
 }
 
