@@ -242,6 +242,8 @@ describe('portable configuration contract', () => {
         hideName: false,
         hideState: true,
         color: 'media',
+        alignHorizontal: 'end',
+        alignVertical: 'start',
         tapAction: 'toggle',
         // A key no rule in this build mentions. Forward compatibility requires
         // it back out of the far side untouched (docs/specs/dashboard-config —
@@ -297,6 +299,8 @@ describe('portable configuration contract', () => {
         hideName: false,
         hideState: true,
         color: 'media',
+        alignHorizontal: 'end',
+        alignVertical: 'start',
       })
     })
 
@@ -309,6 +313,19 @@ describe('portable configuration contract', () => {
       // (docs/specs/dashboard-config — "This rule starts where validation ends").
       await expect(importConfigurationFromFile(new File([yamlStr], 'config.yaml'))).rejects.toThrow(
         /screens\.0\.grid\.items\.0\.config\.color/
+      )
+    })
+
+    it('rejects an import whose alignment is outside the closed set', async () => {
+      // The same treatment as `color`, because it is the same kind of key: a
+      // closed enum whose author is a person sharing a document, not a build.
+      // `left` is the plausible mistake — it is what the text widget's own
+      // alignment calls this — so it is the one worth pinning.
+      storeWith({ ...configuredItem, config: { alignHorizontal: 'left' } })
+      const yamlStr = exportConfigurationAsYAML()
+
+      await expect(importConfigurationFromFile(new File([yamlStr], 'config.yaml'))).rejects.toThrow(
+        /screens\.0\.grid\.items\.0\.config\.alignHorizontal/
       )
     })
   })

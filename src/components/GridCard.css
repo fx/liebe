@@ -154,6 +154,67 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Content alignment
+   *
+   * The universal `alignHorizontal` / `alignVertical` pair
+   * (docs/specs/entity-cards/options/common.md — "Content alignment"), applied
+   * where the icon-only rule above already proves the approach works: on the
+   * tile's own content box, which is the one box every card renders into. A
+   * rule written against `CardBody`'s arrangements alone would be inert for a
+   * card that renders its own interior — the climate `dial` variant renders no
+   * body, and the loader pins every pre-0017 climate card onto it — so the
+   * tile is the floor and `CardBody.css` refines it onto the body's flex axes
+   * from there.
+   *
+   * Every rule in this section is scoped to an attribute the shell stamps only
+   * for a non-`auto` value, so `auto` — and a card with neither key stored —
+   * matches nothing here and renders exactly as it did before the option
+   * existed. That is the whole of why the tile keeps no `display` of its own
+   * above: block flow is what an unaligned card has always laid out in.
+   *
+   * The column direction is what makes one axis mean one thing: a tile's
+   * children stack down it as they do in block flow, so `justify-content` is
+   * the vertical axis and `align-items` the horizontal one, whatever a card
+   * renders. It also lands after the icon-only rule deliberately — at equal
+   * specificity the later rule wins, so an icon-only tile with `alignVertical`
+   * set turns into a column and puts its centred glyph at the requested end,
+   * which is the composition the contract asks for.
+   *
+   * Content that fills its axis has no free space to be moved within and
+   * ignores the override there — an intended outcome rather than a gap.
+   * ------------------------------------------------------------------ */
+
+  .liebe-card[data-align-h],
+  .liebe-card[data-align-v] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .liebe-card[data-align-h='start'] {
+    align-items: flex-start;
+  }
+
+  .liebe-card[data-align-h='center'] {
+    align-items: center;
+  }
+
+  .liebe-card[data-align-h='end'] {
+    align-items: flex-end;
+  }
+
+  .liebe-card[data-align-v='start'] {
+    justify-content: flex-start;
+  }
+
+  .liebe-card[data-align-v='center'] {
+    justify-content: center;
+  }
+
+  .liebe-card[data-align-v='end'] {
+    justify-content: flex-end;
+  }
+
+  /* ------------------------------------------------------------------ *
    * State treatments
    *
    * All four are `outline` rather than `border`: the token contract pins the

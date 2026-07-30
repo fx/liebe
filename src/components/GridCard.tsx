@@ -13,7 +13,12 @@ import { useCardItem } from './cardItemContext'
 import { EntityDetailDialog } from './EntityDetailDialog'
 import { ConfirmToggleDialog } from './ConfirmToggleDialog'
 import { CardMeta, CardName, CardState, IconCircle } from './anatomy'
-import { readCardDisplay, resolveCardColor, type CardDisplayOptions } from '~/store/cardDisplay'
+import {
+  readCardDisplay,
+  resolveCardColor,
+  type CardAlignOption,
+  type CardDisplayOptions,
+} from '~/store/cardDisplay'
 import { getIcon } from '~/utils/iconList'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
@@ -105,8 +110,9 @@ export interface GridCardProps {
   entityId?: string
   /**
    * The card's stored options (`item.config`) — the three action keys, and the
-   * five display keys (`name`, `icon`, `hideName`, `hideState`, `color`) the
-   * shell applies to the compound slots. Defaults to the grid's, as above.
+   * display keys (`name`, `icon`, `hideName`, `hideState`, `color`,
+   * `alignHorizontal`, `alignVertical`) the shell applies to the compound slots
+   * and to the tile. Defaults to the grid's, as above.
    */
   config?: Record<string, unknown>
   /**
@@ -357,6 +363,20 @@ export function resolveCardHue(
 ): string | undefined {
   if (danger) return undefined
   return display.color === 'auto' ? hue : undefined
+}
+
+/**
+ * One alignment axis as the tile stamps it, or nothing at all.
+ *
+ * `auto` is the absence of an attribute rather than an `auto` value, which is
+ * what makes the default provably free: every rule the alignment pair adds is
+ * scoped to `[data-align-h]` / `[data-align-v]`, so a card with neither key —
+ * which is every card placed before this option existed — matches none of them
+ * and cannot render differently than it did (docs/changes/0032). It is the same
+ * presence-only contract `data-active` and `data-icon-only` carry.
+ */
+function alignAttribute(value: CardAlignOption): CardAlignOption | undefined {
+  return value === 'auto' ? undefined : value
 }
 
 /**
@@ -715,6 +735,18 @@ export const GridCard = React.memo(
             data-color={resolvedColor}
             data-tier={tier}
             data-icon-only={isIconOnly ? 'true' : undefined}
+            /*
+             * The alignment pair, applied at the tile rather than inside any
+             * card. The tile is the one box every card renders into whatever
+             * it puts there — the climate `dial` variant renders no `CardBody`
+             * at all — so this is the seam that reaches all of them without a
+             * card opting in (docs/specs/entity-cards/options/common.md —
+             * "Content alignment"). `GridCard.css` places the tile's content
+             * box; `CardBody.css` refines that onto the body's own flex axes
+             * where a card renders through one.
+             */
+            data-align-h={alignAttribute(display.alignHorizontal)}
+            data-align-v={alignAttribute(display.alignVertical)}
             data-active={isOn ? 'true' : undefined}
             data-selected={isSelected && isEditMode ? 'true' : undefined}
             data-error={isError ? 'true' : undefined}
