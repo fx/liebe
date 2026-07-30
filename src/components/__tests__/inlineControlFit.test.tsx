@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { InputTextCard } from '../InputTextCard'
 import { InputDateTimeCard } from '../InputDateTimeCard'
@@ -123,39 +123,16 @@ describe('the text and datetime helpers at a tier that cannot hold their input',
     }
   })
 
-  it('declines the edit tap at `tall`, and passes the tile to the dialog instead', () => {
-    /*
-     * The half that keeps the entity operable, asserted on the card's own side
-     * of it. `input_text`'s tap focuses the field, entering edit state — with no
-     * field there is nothing to focus, so the card stops claiming the tap and
-     * declares `more-info` instead, exactly as it does at `glance` where the
-     * same reasoning has always applied
-     * (docs/specs/entity-cards/options/input-helpers.md — "Primary action").
-     *
-     * What is checked here is that the tap no longer enters edit state, which is
-     * this card's behaviour. That `defaultAction="more-info"` then opens the
-     * detail dialog is the shell's, and is pinned in
-     * `GridCard.actions.test.tsx` — asserting it again through a card would be
-     * testing the shell twice and this card not at all.
-     */
-    renderCard(<InputTextCard entityId="input_text.note" tier="tall" />)
-    const tile = document.querySelector('.liebe-card')
-    expect(tile, 'the card should have rendered a tile').not.toBeNull()
-    fireEvent.click(tile!)
-
-    expect(
-      screen.queryByLabelText('Value'),
-      'a tall tile has no field to enter edit state on'
-    ).not.toBeInTheDocument()
-  })
-
-  it('keeps the edit tap at the tiers that render a field', () => {
-    // The negative half, and what makes the assertion above about the tier
-    // rather than about the tap being broken everywhere.
-    renderCard(<InputTextCard entityId="input_text.note" tier="row" />)
-    const tile = document.querySelector('.liebe-card')
-    fireEvent.click(tile!)
-
-    expect(screen.getByLabelText('Value')).toBeInTheDocument()
-  })
+  /*
+   * THE TAP IS NOT ASSERTED HERE, and the omission is deliberate rather than a
+   * gap. A mutation probe established that it cannot be: with the control slot
+   * gone, `setIsEditing(true)` has nothing to render, so removing the card's
+   * `if (!controlOmitted)` guard changes no rendered output and every assertion
+   * a jsdom test could make about it passes either way. What actually carries
+   * the fallback is `defaultAction="more-info"`, which resolves inside the
+   * shell's gesture layer — a real click, in a real browser, opening a real
+   * dialog. `tests/e2e/tall-fixed-parts-fit.spec.ts` is where that is checked,
+   * and writing a jsdom test for it here would have recorded a green that
+   * establishes nothing.
+   */
 })

@@ -229,6 +229,24 @@ test('a tall text helper renders no input, and every tile’s icon fits its regi
   ).toBeLessThanOrEqual(TOLERANCE)
 
   /*
+   * CLAIM 3: the tap reaches the helper anyway. Omitting the input without
+   * moving the tap would leave the tile inert, which the floors are explicitly
+   * not allowed to do — "these floors outrank the no-last-control rule, and do
+   * not suspend it". The card declares `more-info` at this tier, and this is
+   * the environment that can prove it: a real click through the shell's gesture
+   * layer, opening the real dialog. A jsdom test cannot — with the slot gone
+   * there is nothing for an edit tap to render either way, so it passes on a
+   * card that had stopped declaring the fallback entirely.
+   */
+  await page.locator('.grid-item').filter({ hasText: secret }).click()
+  await expect(
+    page.getByRole('dialog'),
+    'a tall tile with no input must open the detail dialog on tap'
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+
+  /*
    * THE OTHER TIER, on the same entity family: `row` is at least two columns
    * and keeps its field. Without this the spec would pass on a card that had
    * dropped its input everywhere, which is the failure mode of a fix keyed on
