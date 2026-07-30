@@ -61,11 +61,12 @@ export const Active: Story = {
  * The per-appearance glyph step does not reach this case: a live hue overrides
  * every `--part-*` property with the same colour, so the glyph stays the bulb's
  * own in both appearances and its contrast against the tint is whatever the
- * bulb makes it — a bulb reporting white renders both at roughly 1:1. That is the
- * shipped behaviour of the `useLightColor` exception rather than anything this
- * pattern decides, and whether the exception is meant to reach the glyph is
- * unsettled in the option doc that grants it. See the design system's
- * domain-colour section.
+ * bulb makes it — a bulb reporting white renders both at roughly 1:1.
+ *
+ * That is **a tracked accessibility defect, not accepted behaviour**: it is in
+ * the design system's outstanding list, and it belongs to the light card's
+ * `useLightColor` contract rather than to this pattern, which cannot see a live
+ * hue coming. Judging this story means judging the exception, not the pattern.
  */
 export const LiveBulbColour: Story = {
   args: { active: true, hue: 'rgb(122, 209, 255)' },
