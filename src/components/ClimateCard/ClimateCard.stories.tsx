@@ -91,6 +91,42 @@ export const HeatCoolRange: Story = {
   },
 }
 
+/**
+ * A heat pump resting in a mode this build has never heard of.
+ *
+ * `hvac_modes` belongs to the integration, so the row renders every mode the
+ * entity reports: the unrecognised one takes the title-cased form of its own
+ * value for a label, the neutral triplet for a colour and the two-letter glyph
+ * fallback, and selecting it sends the raw value. Dropping it — which is what the
+ * row used to do — left a mode the thermostat has unselectable and invisible
+ * (change 0037 PR 1).
+ */
+export const VendorHvacMode: Story = {
+  args: { tier: 'full', gridWidth: 4, gridHeight: 5, span: { width: 4, height: 5 } },
+  parameters: {
+    liebe: {
+      entities: [
+        createClimateEntity({
+          state: 'heat_pump_boost',
+          attributes: {
+            hvac_action: 'heating',
+            hvac_modes: ['off', 'heat', 'cool', 'heat_pump_boost'],
+          },
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole('group', { name: 'HVAC mode' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: /heat pump boost/i })).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+  },
+}
+
 export const Unavailable: Story = {
   args: { gridHeight: 2 },
   parameters: { liebe: { entities: [asUnavailable(createClimateEntity())] } },

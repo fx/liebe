@@ -488,28 +488,74 @@ describe('ClimateCard', () => {
       }
     })
 
-    it('renders no mode row for a thermostat reporting only modes this build cannot name', () => {
-      // An empty pill group is a control that is not one, so the row is dropped
-      // rather than rendered blank.
+    it('offers a vendor mode this build cannot name, labelled from its own value', async () => {
+      /*
+       * `hvac_modes` belongs to the integration, so a heat pump can report a
+       * mode outside `HVAC_MODES`. Dropping it left the user unable to select a
+       * mode the thermostat has and with no indication it existed, which is the
+       * card claiming less than the entity (change 0037 PR 1). The pill is
+       * labelled from the value, glyphed by the fallback arm, and dispatches the
+       * RAW value — the integration expects `heat_pump_boost`, not the label.
+       */
       seed(
         createMockClimateEntity({
           state: 'heat',
-          attributes: { hvac_mode: 'heat', hvac_modes: ['eco', 'boost'] },
+          attributes: { hvac_mode: 'heat', hvac_modes: ['heat', 'heat_pump_boost'] },
         })
       )
 
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
 
-      expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      expect(modeButtons.map(pillLabel)).toEqual(['Heat', 'Heat pump boost'])
+
+      // The fallback glyph, reached through the card rather than only in a
+      // direct unit test: two letters of the derived label, no SVG. The icon is
+      // the pill's first child, ahead of `.liebe-pill-label`.
+      const vendorPill = modeButtons[1]
+      expect(vendorPill.querySelector('svg')).toBeNull()
+      expect(vendorPill.firstElementChild!.textContent).toBe('He')
+
+      await userEvent.click(vendorPill)
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'climate',
+        service: 'set_hvac_mode',
+        entityId: 'climate.test_thermostat',
+        data: { hvac_mode: 'heat_pump_boost' },
+      })
     })
 
-    it('drops a mode named after an inherited property rather than crashing', () => {
+    it('marks a vendor mode active when the thermostat is in it', () => {
+      // `entity.state` IS the HVAC mode, so a thermostat resting in a vendor
+      // mode had no pill to mark at all while unknown modes were dropped.
+      seed(
+        createMockClimateEntity({
+          state: 'heat_pump_boost',
+          attributes: { hvac_mode: 'heat_pump_boost', hvac_modes: ['heat', 'heat_pump_boost'] },
+        })
+      )
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      expect(modeButtons[1]).toHaveAttribute('data-active', 'true')
+      expect(modeButtons[0]).not.toHaveAttribute('data-active', 'true')
+    })
+
+    it('renders a mode named after an inherited property rather than crashing', () => {
       /*
        * `hvac_modes` comes off the entity, so a template sensor can put any
        * string in it — and `'toString' in HVAC_MODES` is `true`, because `in`
-       * walks the prototype chain. Such a mode passed the old filter and was
-       * then looked up as a config with no `label` and no `color`, which threw
-       * while rendering the row.
+       * walks the prototype chain. Such a mode looked up with `in` and then
+       * dereferenced yields a config with no `label` and no `color`, which threw
+       * while rendering the row. It now takes the unrecognised-mode path like any
+       * other vendor string: `hvacModeConfig`'s own-property check is what keeps
+       * it there instead of resolving `Object.prototype.toString` as a config.
        */
       seed(
         createMockClimateEntity({
@@ -517,7 +563,7 @@ describe('ClimateCard', () => {
           attributes: {
             friendly_name: 'Test Thermostat',
             hvac_mode: 'heat',
-            hvac_modes: ['toString', 'constructor', '__proto__', 'heat'],
+            hvac_modes: ['toString', 'constructor', 'heat'],
           },
         })
       )
@@ -527,26 +573,7 @@ describe('ClimateCard', () => {
       const modeButtons = screen
         .getAllByRole('button')
         .filter((btn) => btn.classList.contains('liebe-pill'))
-      // The heat glyph draws no text of its own, so the pill's whole text is
-      // its label.
-      expect(modeButtons.map((pill) => pill.textContent)).toEqual(['Heat'])
-    })
-
-    it('renders no row for a thermostat reporting only inherited names', () => {
-      seed(
-        createMockClimateEntity({
-          state: 'heat',
-          attributes: {
-            friendly_name: 'Test Thermostat',
-            hvac_mode: 'heat',
-            hvac_modes: ['toString', 'valueOf'],
-          },
-        })
-      )
-
-      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
-
-      expect(screen.queryByRole('group', { name: 'HVAC mode' })).not.toBeInTheDocument()
+      expect(modeButtons.map(pillLabel)).toEqual(['ToString', 'Constructor', 'Heat'])
     })
 
     it('survives an entity whose hvac_modes is not a list at all', () => {
@@ -831,10 +858,14 @@ describe('ClimateCard', () => {
 })
 
 /**
- * Exercised directly rather than through the card: the pill row drops every mode
- * outside `HVAC_MODES`, and all seven of that map's keys have a glyph, so
- * nothing the card can render reaches the fallback arm. It is still the arm an
- * eighth mode would land on.
+ * The glyph table on its own, one mode per assertion.
+ *
+ * The fallback arm is **reachable through the card**: the pill row renders every
+ * mode the entity reports, so a vendor `hvac_modes` entry lands on it, and that
+ * is pinned by "offers a vendor mode this build cannot name" above. These cases
+ * stay because they are the cheapest place to say which of the eight arms each
+ * mode takes, and because the fallback also covers an eighth `HVAC_MODES` key
+ * added without a glyph — which no entity can produce.
  */
 describe('HvacModeIcon', () => {
   it('draws a distinct glyph for each mode the map knows', () => {

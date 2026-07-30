@@ -9,13 +9,13 @@ import { Text } from '@radix-ui/themes'
  * throughout, so the pill's tint pattern colours them like every other anatomy
  * glyph.
  *
- * The final arm — the first two letters of the label — is the defensive
- * fallback for a mode with no glyph of its own. Do not delete it, and do not
- * narrow this export: the pill row's `if (!modeConfig) return null` guard drops
- * every mode outside `HVAC_MODES`, and each of that map's seven keys has an arm
- * above, so the fallback is unreachable through the card and is covered by a
- * direct unit test instead. It is what an eighth mode would render if one were
- * added to `HVAC_MODES` without a glyph.
+ * The final arm — the first two letters of the label — is the glyph for a mode
+ * with none of its own, and it is **reachable through the card**: the pill row
+ * renders every mode the entity reports, so a vendor-specific `hvac_modes` entry
+ * lands here with its title-cased value for a label (`ClimateModePills`). It
+ * covers an eighth `HVAC_MODES` key added without a glyph too. Do not delete it
+ * and do not narrow this export — it is the arm that keeps an unrecognised mode
+ * visible instead of dropped (docs/changes/0037 PR 1).
  */
 export function HvacModeIcon({ mode, label }: { mode: string; label: string }) {
   return mode === 'off' ? (

@@ -308,24 +308,76 @@ describe('entities that report less than a weather card expects', () => {
     }
   })
 
-  it('reports an unavailable entity, named or not', () => {
-    for (const state of ['unavailable', 'unknown']) {
-      for (const variant of WEATHER_VARIANTS) {
+  /*
+   * `unavailable` and `unknown` take the same inert card and NOT the same status
+   * line: the first means Home Assistant could not reach the entity, the second
+   * means it reached it and got no data. Asserted as two cases rather than one
+   * loop over both states, because a single parametrised case expecting one
+   * output is what hid the defect — the card printed `UNAVAILABLE` for both
+   * (change 0037 PR 1).
+   */
+  it('reports an unavailable entity as UNAVAILABLE, named or not', () => {
+    for (const variant of WEATHER_VARIANTS) {
+      seed(makeEntity('unavailable'))
+      const { unmount } = renderCard(
+        <WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />
+      )
+
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText('Home Weather')).toBeInTheDocument()
+      unmount()
+
+      seed(makeEntity('unavailable', { ...ATTRIBUTES, friendly_name: undefined }))
+      const second = renderCard(<WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />)
+
+      expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
+      expect(screen.getByText(ENTITY)).toBeInTheDocument()
+      second.unmount()
+    }
+  })
+
+  it('reports an unknown entity as UNKNOWN, named or not', () => {
+    for (const variant of WEATHER_VARIANTS) {
+      seed(makeEntity('unknown'))
+      const { unmount } = renderCard(
+        <WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />
+      )
+
+      expect(screen.getByText('UNKNOWN')).toBeInTheDocument()
+      // The state it is NOT: an unreachable device is a different fault from a
+      // reachable one reporting nothing, and the card must not claim the former.
+      expect(card().textContent).not.toContain('UNAVAILABLE')
+      expect(screen.getByText('Home Weather')).toBeInTheDocument()
+      unmount()
+
+      seed(makeEntity('unknown', { ...ATTRIBUTES, friendly_name: undefined }))
+      const second = renderCard(<WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />)
+
+      expect(screen.getByText('UNKNOWN')).toBeInTheDocument()
+      expect(screen.getByText(ENTITY)).toBeInTheDocument()
+      second.unmount()
+    }
+  })
+
+  it('gives an unknown entity the same inert treatment an unavailable one gets', () => {
+    // The status line is the only thing that differs. Neither state carries a
+    // condition or a temperature, so both take the shell's unavailable card and
+    // neither shows a reading.
+    for (const variant of WEATHER_VARIANTS) {
+      const rendered = ['unavailable', 'unknown'].map((state) => {
         seed(makeEntity(state))
         const { unmount } = renderCard(
           <WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />
         )
-
-        expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
-        expect(screen.getByText('Home Weather')).toBeInTheDocument()
+        const treatment = card().getAttribute('data-unavailable')
+        const text = card().textContent ?? ''
         unmount()
+        return { treatment, text }
+      })
 
-        seed(makeEntity(state, { ...ATTRIBUTES, friendly_name: undefined }))
-        const second = renderCard(<WeatherCard entityId={ENTITY} tier="row" config={{ variant }} />)
-
-        expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument()
-        expect(screen.getByText(ENTITY)).toBeInTheDocument()
-        second.unmount()
+      for (const { treatment, text } of rendered) {
+        expect(treatment).toBe('true')
+        expect(text).not.toMatch(/22|°C|65%/)
       }
     }
   })

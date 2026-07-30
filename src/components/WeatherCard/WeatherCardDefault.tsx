@@ -17,6 +17,7 @@ import {
   getWeatherValueStyles,
   resolveConditionBackground,
   resolveSecondaryReading,
+  resolveUnavailableStatus,
   supplementalReadings,
   type WeatherSecondaryReading,
 } from './presentation'
@@ -103,10 +104,10 @@ function WeatherCardDefaultContent(props: CardProps) {
     : resolveSecondaryReading(options.secondaryInfo, secondaryInput)
   const supplemental = isFull ? supplementalReadings(secondary, secondaryInput) : []
 
-  const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
+  const unavailableStatus = resolveUnavailableStatus(entity.state)
 
   // Handle unavailable state
-  if (isUnavailable) {
+  if (unavailableStatus) {
     return (
       <GridCard
         domain="weather"
@@ -133,7 +134,7 @@ function WeatherCardDefaultContent(props: CardProps) {
             </span>
           </GridCard.Icon>
           <GridCard.Title>{entity.attributes?.friendly_name || entityId}</GridCard.Title>
-          <GridCard.Status>UNAVAILABLE</GridCard.Status>
+          <GridCard.Status>{unavailableStatus}</GridCard.Status>
         </Flex>
       </GridCard>
     )
