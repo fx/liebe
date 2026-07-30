@@ -148,8 +148,16 @@ export class HassConnectionManager {
         context: state.context,
       }))
 
-      // Update all entities at once
-      entityStoreActions.updateEntities(entities)
+      /*
+       * RECONCILE rather than merge. A snapshot describes what Home Assistant
+       * had at one instant, so an id it does not carry — and that nothing newer
+       * has touched since — is a deletion, which is the only way one that
+       * happened while the socket was down can ever be noticed (change 0037
+       * PR 8). Merging left the map a permanent superset and `isMissing` blind
+       * to it. `replaceEntities` owns what "and nothing newer" means, in both
+       * directions.
+       */
+      entityStoreActions.replaceEntities(entities)
       entityStoreActions.setInitialLoading(false)
 
       // Log entity count

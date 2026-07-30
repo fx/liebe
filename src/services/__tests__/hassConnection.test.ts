@@ -27,6 +27,7 @@ vi.mock('../../store/entityStore', () => ({
     setError: vi.fn(),
     updateEntity: vi.fn(),
     updateEntities: vi.fn(),
+    replaceEntities: vi.fn(),
     removeEntity: vi.fn(),
     subscribeToEntity: vi.fn(),
     unsubscribeFromEntity: vi.fn(),
@@ -139,10 +140,21 @@ describe('HassConnectionManager', () => {
 
       // Should load initial states
       expect(entityStoreActions.setInitialLoading).toHaveBeenCalledWith(true)
-      expect(entityStoreActions.updateEntities).toHaveBeenCalledWith([
+      /*
+       * RECONCILE, not merge (change 0037 PR 8). A snapshot describes what
+       * Home Assistant had at one instant, so writing it through
+       * `updateEntities` left the map a permanent superset — an entity deleted
+       * while the socket was down survived from the previous session and
+       * `isMissing` never saw it.
+       * Asserting the action by name is the point: the two differ only in what
+       * they do with ids the snapshot does NOT carry, which no assertion about
+       * the ids it does carry can distinguish.
+       */
+      expect(entityStoreActions.replaceEntities).toHaveBeenCalledWith([
         expect.objectContaining({ entity_id: 'light.living_room' }),
         expect.objectContaining({ entity_id: 'switch.kitchen' }),
       ])
+      expect(entityStoreActions.updateEntities).not.toHaveBeenCalled()
       expect(entityStoreActions.setInitialLoading).toHaveBeenCalledWith(false)
 
       // Should subscribe to state changes

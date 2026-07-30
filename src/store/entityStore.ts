@@ -29,6 +29,25 @@ let connectionDebounceTimer: NodeJS.Timeout | null = null
  */
 const subscriptionCounts = new Map<string, number>()
 
+/**
+ * Whether the entity already in the map is a LATER reading than the incoming
+ * one — the test that lets a snapshot replace the map without discarding an
+ * update that raced it (`replaceEntities`).
+ *
+ * `Date.parse` rather than a string comparison: `last_updated` is ISO-8601 from
+ * Home Assistant and would usually compare correctly as text, but that is a
+ * property of the format rather than a guarantee of the contract, and a single
+ * offset or precision difference reverses the answer silently. `NaN` from either
+ * side makes this false, so anything unparseable defers to the snapshot.
+ */
+function isNewerThan(existing: HassEntity | undefined, incoming: HassEntity): boolean {
+  if (!existing) return false
+  const existingAt = Date.parse(existing.last_updated)
+  const incomingAt = Date.parse(incoming.last_updated)
+  if (Number.isNaN(existingAt) || Number.isNaN(incomingAt)) return false
+  return existingAt > incomingAt
+}
+
 export const entityStoreActions: EntityStoreActions = {
   setConnected: (connected: boolean) => {
     const currentState = entityStore.state
@@ -100,6 +119,146 @@ export const entityStoreActions: EntityStoreActions = {
       return {
         ...state,
         entities: newEntities,
+      }
+    })
+  },
+
+  /**
+   * Reconcile the map against a whole snapshot, rather than merging the
+   * snapshot into whatever the last session left behind.
+   *
+   * "Reconcile" rather than "replace" is exact and the difference matters: the
+   * result is the snapshot plus anything the map holds that demonstrably
+   * postdates it, which is not the same set as the snapshot. The two rules
+   * below are what make up that difference.
+   *
+   * **What it fixes.** `loadInitialStates` used `updateEntities`, which merges —
+   * so an entity DELETED WHILE THE SOCKET WAS DOWN survived from the previous
+   * session's snapshot and was absent from the fresh one, leaving the map a
+   * superset of the state machine forever after. `useEntity`'s `isMissing`
+   * therefore never fired for it and its card kept rendering, and dispatching
+   * against, an entity Home Assistant no longer has
+   * (docs/specs/entity-state/index.md — "Consumer Hooks", change 0037 PR 8). A
+   * live deletion was never affected: `state_changed` with a null `new_state`
+   * reaches `removeEntity`.
+   *
+   * **The ordering, which is the whole of this action.** A snapshot is a claim
+   * about one instant, and the obvious implementation — clear, then apply —
+   * turns this defect into a worse one: any live update that landed between the
+   * snapshot being read and being applied is dropped, so a card shows "Entity
+   * Not Found" for an entity that exists. The old bug UNDER-reports missing and
+   * can never be wrong in the other direction; a naive replace can, and an
+   * over-report is the strictly worse failure because it is visible and wrong
+   * rather than invisible and stale.
+   *
+   * So the replace reconciles rather than clobbering: an entity the snapshot
+   * carries is written **unless the map already holds a strictly newer one**,
+   * compared on Home Assistant's own `last_updated`. That is what makes the
+   * answer to "what happens to an update racing the snapshot" precise — it
+   * survives, because a change after the snapshot instant necessarily carries a
+   * later `last_updated` than the snapshot's copy of it.
+   *
+   * Deliberately not a guarantee about the current call order. Today
+   * `loadInitialStates` runs before `subscribeToStateChanges`, so no live update
+   * can interleave at all — but the correctness of a store action should not
+   * rest on the sequence one caller happens to use, and this holds whatever
+   * order a future caller picks.
+   *
+   * **Absence is the deletion signal, but only for entities the snapshot could
+   * have carried.** An id missing from a whole-state snapshot is an id Home
+   * Assistant did not have *when the snapshot was assembled* — which is the fact
+   * `isMissing` needs and the one the merge threw away. It is not the same as
+   * "does not have": an entity created after that instant is also absent, which
+   * is why the second rule below exists and why the result is a reconciliation
+   * rather than a strict replace.
+   */
+  replaceEntities: (entities: HassEntity[]) => {
+    entityStore.setState((state) => {
+      const nextEntities: Record<string, HassEntity> = {}
+
+      /*
+       * The instant the snapshot describes, taken from Home Assistant's own
+       * clock rather than ours: the latest reading it carries. Nothing in the
+       * snapshot is newer than this, so an entity the map holds with a LATER
+       * reading demonstrably changed after the snapshot was assembled — which
+       * is the one case where absence from it does not mean "deleted".
+       *
+       * A wall-clock capture time would have been the obvious alternative and
+       * is wrong: it compares the browser's clock against Home Assistant's
+       * timestamps, so any skew between them decides the answer.
+       *
+       * Unparseable readings are skipped rather than folded in, and the
+       * direction of that matters: `Math.max` with a `NaN` yields `NaN`, every
+       * later comparison against it is false, and the action would then drop
+       * every entity absent from the snapshot — including the ones created
+       * after it, which is the OVER-report this design exists to avoid. One
+       * malformed row would take the whole guarantee with it.
+       */
+      const snapshotAt = entities.reduce((latest, entity) => {
+        const at = Date.parse(entity.last_updated)
+        return Number.isNaN(at) ? latest : Math.max(latest, at)
+      }, Number.NEGATIVE_INFINITY)
+
+      entities.forEach((entity) => {
+        const existing = state.entities[entity.entity_id]
+        /*
+         * Keep the live update where it is newer than the snapshot's copy.
+         * `last_updated` moves on an attribute-only change as well as a state
+         * one, so it orders every update Home Assistant sends; an unparseable
+         * or absent value falls back to taking the snapshot, which is the
+         * conservative direction — the snapshot is the authority we just asked
+         * for.
+         */
+        nextEntities[entity.entity_id] = isNewerThan(existing, entity) ? existing! : entity
+      })
+
+      /*
+       * An ADDITION that raced the snapshot survives it, which the first
+       * version of this action got wrong: it built the next map from the
+       * snapshot alone, so an entity CREATED after the snapshot instant — in
+       * the map from a live `state_changed`, absent from the snapshot because
+       * it did not exist when the snapshot was taken — was deleted, and the
+       * card reported it missing. That is precisely the over-report this whole
+       * design exists to avoid, reached by the one path the update case does
+       * not cover (found in review before this landed).
+       *
+       * "Newer than everything the snapshot carries" is what separates the two
+       * meanings of absence. An entity deleted while the socket was down last
+       * changed before the disconnection, so it cannot clear that bar and is
+       * dropped as intended; anything that can clear it postdates the snapshot,
+       * and keeping it is the conservative direction if the bar is ever met by
+       * accident on a very quiet system.
+       */
+      for (const [entityId, existing] of Object.entries(state.entities)) {
+        if (entityId in nextEntities) continue
+
+        const existingAt = Date.parse(existing.last_updated)
+        if (!Number.isNaN(existingAt) && existingAt > snapshotAt) {
+          nextEntities[entityId] = existing
+          continue
+        }
+
+        /*
+         * Otherwise the snapshot's silence means deleted, and the subscription
+         * count goes with it — the same bookkeeping `removeEntity` does, since
+         * a count left behind would make the next subscribe to that id start
+         * from a stale number if it ever came back.
+         */
+        subscriptionCounts.delete(entityId)
+      }
+
+      const subscribedEntities = new Set(
+        [...state.subscribedEntities].filter((entityId) => entityId in nextEntities)
+      )
+      const staleEntities = new Set(
+        [...state.staleEntities].filter((entityId) => entityId in nextEntities)
+      )
+
+      return {
+        ...state,
+        entities: nextEntities,
+        subscribedEntities,
+        staleEntities,
       }
     })
   },
