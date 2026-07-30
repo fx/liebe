@@ -467,6 +467,15 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        */
       defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
+      /*
+       * The entity travels with the config for the same reason it does on the
+       * weather variant: the shell builds the icon-only tile's accessible name
+       * out of the entity, and both default to the published item — so a card
+       * that hands over one without the other suppresses every word on the tile
+       * and emits nothing in their place (docs/specs/entity-cards/options/common.md
+       * — "Visual suppression never removes accessible semantics").
+       */
+      entityId={entityId}
       config={storedConfig}
     >
       {/*

@@ -649,10 +649,21 @@ describe('the targets that bypassed the seam', () => {
        * where the two sources come apart, and it is a shape this repo renders:
        * a bare card with a literal `entityId` and `config` is what a story and the
        * configuration preview mount. So the assertion is that the tile agrees with
-       * the card — marker stamped, one anchor, nothing else left.
+       * the card — marker stamped, one anchor, nothing else left, and the name
+       * the words were taken from still on it.
+       *
+       * That last one is a second way to half-apply the option and the reason it
+       * is asserted here rather than left to the table: the entity defaults to
+       * the published item exactly as the config does, so a card that hands the
+       * shell its config and not its entity turns suppression on for a shell
+       * that cannot build the accessible name to replace it — a glyph tile that
+       * is anonymous to a screen reader, which the contract forbids
+       * (docs/specs/entity-cards/options/common.md — "Visual suppression never
+       * removes accessible semantics").
        */
-      const entityId =
-        entityFactories[name.startsWith('weather') ? 'weather' : 'input_number']().entity_id
+      const domain = name.startsWith('weather') ? 'weather' : 'input_number'
+      const entity = entityFactories[domain]()
+      const entityId = entity.entity_id
 
       const { container } = render(
         <Theme>
@@ -667,6 +678,9 @@ describe('the targets that bypassed the seam', () => {
       expect(anchorsIn(tile), name).toHaveLength(1)
       expect(tile.querySelector('.liebe-name'), name).toBeNull()
       expect(tile.querySelector('.liebe-value'), name).toBeNull()
+      expect(tile.querySelector('.liebe-card-body-label')?.textContent, name).toContain(
+        entity.attributes?.friendly_name
+      )
     }
   )
 })

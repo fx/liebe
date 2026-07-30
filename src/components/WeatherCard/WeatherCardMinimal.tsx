@@ -112,6 +112,17 @@ function WeatherCardMinimalContent(props: CardProps) {
       onConfigure={onConfigure}
       hasConfiguration={!!onConfigure}
       transparent={true}
+      /*
+       * Both, together. The config is what turns suppression on; the entity is
+       * what the shell builds the accessible name out of, and it too defaults to
+       * the published item — so passing one without the other is precisely how
+       * an icon-only tile ends up with a glyph and no name at all, which the
+       * contract forbids (docs/specs/entity-cards/options/common.md — "Visual
+       * suppression never removes accessible semantics"). Half the shells in
+       * this tree pass `entityId` already; this variant did not need to until
+       * it started resolving the option for itself.
+       */
+      entityId={entityId}
       config={storedConfig}
     >
       {/*
