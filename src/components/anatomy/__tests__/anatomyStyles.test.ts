@@ -127,6 +127,49 @@ describe('domain colour', () => {
     expect(source).not.toMatch(/\brgba?\(/i)
   })
 
+  it('makes the icon circle cross-axis flexible, and keeps it a circle', () => {
+    /*
+     * "A part MUST NOT rely on the tile's inset to absorb an overhang"
+     * (docs/specs/design-system — "Cross-axis fit"; change 0042 PR 4). The
+     * circle is `--liebe-icon-circle` = 40px and a `tall` tile's content region
+     * on a 12-column desktop grid is 35px, so a fixed circle overhung it by
+     * 2.5px per side and stayed uncropped only because the default theme's
+     * padding happened to be 14px.
+     *
+     * `min()` rather than a plain `max-inline-size`, because the token has to
+     * keep naming the size the part PREFERS — it is the same re-pin the slider's
+     * thickness took in PR 3, applied to the one part every card renders.
+     */
+    const icon = ruleBody('.liebe-icon')
+    expect(icon).toContain('inline-size: min(var(--liebe-icon-circle), 100%);')
+
+    /*
+     * And it stays round when it narrows. A clamp on the inline axis alone
+     * turns a 40px circle in a 35px region into an ellipse, which is the
+     * "fixed by shrinking" outcome that trades one defect for another — the
+     * block axis has no containing block to take a percentage of here, so the
+     * ratio is what carries it.
+     */
+    expect(icon).toContain('aspect-ratio: 1;')
+    expect(icon).toContain('block-size: auto;')
+
+    // `flex: none` survives: it is the main-axis rule for a row line — never
+    // squeezed by a long name beside it — and does not meet the clamp above.
+    expect(icon).toContain('flex: none;')
+
+    /*
+     * And the glyph inside it scales too. A card's icon is an SVG with its own
+     * width and height (20–24px across the set), so clamping only the circle
+     * would move the overhang one box inwards rather than remove it — a 24px
+     * glyph spilling over a circle narrowed to LCARS's 19px region. Found by
+     * the pre-PR review pass on 0042 PR 4, which is why it is asserted next to
+     * the clamp it completes rather than somewhere else.
+     */
+    const contents = ruleBody('.liebe-icon > *')
+    expect(contents).toContain('max-inline-size: 100%;')
+    expect(contents).toContain('max-block-size: 100%;')
+  })
+
   it('applies one tint pattern to every tinted part', () => {
     const active = ruleBody(
       '.liebe-icon[data-active],\n  .liebe-pill[data-active],\n  .liebe-chip[data-active]'

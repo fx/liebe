@@ -165,7 +165,15 @@ export function DateTimeHelperControl({
             value={localValue}
             onChange={(e) => setLocalValue(e.target.value)}
             autoFocus
-            style={{ minWidth: '200px' }}
+            /*
+             * Cross-axis flexible rather than a 200px minimum — the widest
+             * fixed inline size on any card, in the tier with the least room
+             * (docs/specs/design-system — "Cross-axis fit", change 0042 PR 4).
+             * A native date/time input has a preferred width of its own and
+             * will not shrink below its content, which is why the floor below
+             * omits it rather than this alone being the fix.
+             */
+            style={{ flex: 1, minWidth: 0 }}
           />
           <IconButton
             size="3"
@@ -199,7 +207,12 @@ export function DateTimeHelperControl({
           padding: '4px 12px',
           borderRadius: 'var(--radius-2)',
           backgroundColor: 'var(--gray-2)',
-          minWidth: '120px',
+          // As in `InputTextCard`: no inline minimum, and the formatted value
+          // ellipsizes rather than being cropped by the tile.
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
           textAlign: 'center',
         }}
       >
@@ -273,6 +286,17 @@ const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
   const isGlance = tier === 'glance'
 
   /*
+   * `tall` renders no inline input, and the tap goes to the detail dialog with
+   * it — the same decision `InputTextCard` makes, on a worse measurement: a
+   * native date/time input carries a 120px readout and a 200px edit field, the
+   * widest fixed inline sizes on any card, in the tier with the least room
+   * (35px on a 12-column desktop grid). Keyed on the tier rather than on a
+   * width, exactly as change 0042 PR 2 keyed the `input_number` stepper
+   * (docs/specs/design-system — "Cross-axis fit", change 0042 PR 4).
+   */
+  const controlOmitted = isGlance || tier === 'tall'
+
+  /*
    * The tile tap is the card's primary action: it opens the native picker on
    * the embedded input (the option doc's "Primary action"). At `glance` there
    * is no input to open, so the tap resolves to `more-info` instead and this
@@ -281,8 +305,20 @@ const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
    * `homeassistant.toggle` on an `input_datetime`.
    */
   const handleClick = useCallback(() => {
-    if (!isGlance) setIsEditing(true)
-  }, [isGlance])
+    if (controlOmitted) {
+      /*
+       * A configured `tapAction: toggle` resolves to this handler whatever the
+       * tier, so declaring `more-info` as the card's DEFAULT is not enough on
+       * its own — a tile with an explicit toggle would call this, find no input
+       * to focus, and do nothing at all. Returning `'more-info'` routes the
+       * gesture to the detail dialog instead, which is the escape hatch
+       * `GridCard`'s `onClick` contract exists for and that the fan and lock
+       * cards already use for their own uncontrollable states.
+       */
+      return 'more-info'
+    }
+    setIsEditing(true)
+  }, [controlOmitted])
 
   // Keyed on the prop rather than on the resolved entity: the control that
   // calls this only renders past the early returns below, so the entity exists
@@ -374,7 +410,7 @@ const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
        * helper (docs/specs/entity-cards/options/input-helpers.md — "In
        * `glance`, fall back to `more-info`").
        */
-      defaultAction={isGlance ? 'more-info' : undefined}
+      defaultAction={controlOmitted ? 'more-info' : undefined}
       title={error || undefined}
     >
       {/*
@@ -409,7 +445,7 @@ const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
           </GridCard.Meta>
         }
         control={
-          isGlance ? undefined : (
+          controlOmitted ? undefined : (
             <GridCard.Controls>
               <DateTimeHelperControl
                 entity={entity}

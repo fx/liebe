@@ -61,5 +61,5 @@
 | 0039 | [Responsive Drag Layout Integrity](changes/0039-responsive-drag-integrity.md)                                | [Grid Layout](specs/grid-layout/)           | complete | —                |
 | 0040 | [Test & CI Harness Reliability](changes/0040-test-harness-reliability.md)                                    | [Architecture](specs/architecture/)         | complete | —                |
 | 0041 | [Card Conventions & Reference Accuracy](changes/0041-card-conventions-and-reference.md)                      | [Entity Cards](specs/entity-cards/)         | complete | —                |
-| 0042 | [Tall-Tile Control Geometry](changes/0042-tall-tile-control-geometry.md)                                     | [Design System](specs/design-system/)       | draft    | —                |
+| 0042 | [Tall-Tile Control Geometry](changes/0042-tall-tile-control-geometry.md)                                     | [Design System](specs/design-system/)       | complete | —                |
 | 0043 | [Card-Tile Control Semantics & Error Recovery](changes/0043-card-tile-control-semantics.md)                  | [Design System](specs/design-system/)       | draft    | —                |
