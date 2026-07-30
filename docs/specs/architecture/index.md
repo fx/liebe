@@ -135,6 +135,28 @@ This subsection is the project's standing testing and quality bar; other specs l
 - **WHEN** its test renders in jsdom
 - **THEN** the polyfills in `src/test/setup.ts` provide `ResizeObserver`, `matchMedia`, and pointer-capture so the component mounts without throwing.
 
+### End-to-End Harness
+
+The Playwright suite drives the built panel inside a real, dockerized Home Assistant instance (`ha/docker-compose.yml`, change [0005](../../changes/0005-dockerized-ha-e2e.md)). CI is the gate for a merge decision; the requirements below are what makes a local run safe to take alongside other checkouts of the same repository.
+
+- A checkout's stack MUST be addressable independently of every other checkout's: the compose project name and every published port MUST be derived from the checkout's own absolute path, so concurrent worktrees never share containers, volumes, bind mounts or an instance (`scripts/e2eStack.mjs`, change 0040). Compose services MUST NOT carry a fixed `container_name`, which is global to the daemon and would collide across projects.
+- The suite MUST address the instance its own checkout started: the Playwright base URL and the onboarding script's URLs read the same derivation rather than a fixed port.
+- Two checkouts MAY derive the same port, and that case MUST fail loudly: startup MUST refuse to publish a port it does not already own, naming the port, and MUST NOT fall back to sharing an instance. Explicit project and port overrides MUST be available as the resolution, and an override that is unusable MUST be rejected rather than silently ignored — a rejected override is one instance, a fallback is two.
+- Scripted startup MUST detect a docker daemon that is missing, unreachable, unpermitted, or lacking the compose v2 plugin, and exit naming which of those it is. A permission-denied socket reports both "permission denied" and "cannot connect to the daemon", so reachability MUST NOT be diagnosed ahead of permission.
+- The suite MUST refuse to run against artifacts it did not build: global setup hashes every artifact the instance serves under the `module_url` its configuration declares and compares them against `dist/`, skipping only the allowlisted dev-server endpoint and failing closed on anything else (`tests/e2e/bundleIdentity.ts`, change 0040). This holds independently of the per-checkout derivation — a contaminated run is indistinguishable from a clean one, so a mismatch MUST invalidate the run rather than be scored by it.
+
+#### Scenario: Two worktrees run the suite at the same time
+
+- **GIVEN** two checkouts of the repository at different paths, each with its own built `dist/`
+- **WHEN** both run `npm run e2e:ha:up` and then the suite
+- **THEN** each addresses its own compose project on its own ports, serving its own bundle and its own Home Assistant configuration, and neither run observes the other's state.
+
+#### Scenario: The docker daemon is not usable
+
+- **GIVEN** a workspace whose docker daemon is stopped, or whose user is not in the `docker` group
+- **WHEN** the developer runs `npm run e2e:ha:up`
+- **THEN** startup exits non-zero with a message naming which of the two it is and the command that fixes it, rather than surfacing a raw socket error.
+
 ### Linting & Formatting
 
 - ESLint MUST use the flat-config file `eslint.config.js` (ESLint 9), composing `@eslint/js` recommended, `@typescript-eslint` recommended (type-aware via `parserOptions.project`), `eslint-plugin-react` recommended, and `eslint-plugin-react-hooks` recommended, with `eslint-config-prettier` last to disable stylistic conflicts (`eslint.config.js:1-79`).
@@ -230,13 +252,17 @@ Build-mode branching is entirely `NODE_ENV`/`--mode`-driven:
 - `.prettierrc` — formatting rules
 - `.husky/pre-commit`, `.husky/pre-push` — git hooks
 - `.github/workflows/ci.yml` — test + lint gates
+- `.github/workflows/e2e.yml` — dockerized Home Assistant e2e job
 - `.github/workflows/deploy.yml` — GitHub Pages deployment
+- `scripts/e2eStack.mjs`, `ha/docker-compose.yml`, `playwright.config.ts` — per-checkout e2e stack derivation and startup
+- `tests/e2e/bundleIdentity.ts`, `tests/e2e/global-setup.ts` — served-vs-built artifact identity gate
 - `src/config/panel.ts`, `src/router.tsx`, `src/panel.ts` — panel/env wiring
 - `mise.toml` — Node 22 toolchain
 - `README.md`, `CONTRIBUTING.md`, `AGENTS.md` — install, contribution, project rules
 
 ## Changelog
 
-| Date       | Change                                                     | Document |
-| ---------- | ---------------------------------------------------------- | -------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation) | —        |
+| Date       | Change                                                                                                                                     | Document                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                 | —                                                      |
+| 2026-07-30 | End-to-end harness section added: per-checkout stack derivation, loud port collisions, docker-daemon fault reporting, bundle-identity gate | [0040](../../changes/0040-test-harness-reliability.md) |

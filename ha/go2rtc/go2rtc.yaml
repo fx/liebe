@@ -21,5 +21,7 @@ webrtc:
     # local runs (browser on the compose host); set WEBRTC_CANDIDATE_HOST to a
     # remotely reachable address (e.g. the Tailscale hostname/IP, paired with
     # HA_BIND=0.0.0.0) so remote peers receive a usable candidate. The port
-    # must match the published 8555 port in ha/docker-compose.yml.
-    - ${WEBRTC_CANDIDATE_HOST:127.0.0.1}:8555
+    # must match the PUBLISHED host port in ha/docker-compose.yml, which is
+    # per-checkout (scripts/e2eStack.mjs) — compose passes it in as
+    # WEBRTC_CANDIDATE_PORT, defaulting to the historical 8555.
+    - ${WEBRTC_CANDIDATE_HOST:127.0.0.1}:${WEBRTC_CANDIDATE_PORT:8555}
