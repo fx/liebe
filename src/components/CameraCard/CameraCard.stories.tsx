@@ -80,16 +80,12 @@ const meta: Meta<CameraCardStoryProps> = {
   title: 'Cards/CameraCard',
   component: CameraCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    // `full`, because it is the only tier that mounts a live feed at all: below
-    // 2×2 the card degrades to a still thumbnail, which the degraded-tier
-    // stories below show on purpose.
-    tier: 'full',
+    // A cell that derives `full`, because that is the only tier which mounts a
+    // live feed at all: below 2×2 the card degrades to a still thumbnail, which
+    // the degraded-tier stories below show on purpose.
     gridWidth: 4,
     gridHeight: 3,
   },
@@ -360,7 +356,7 @@ export const MotionSensorUnavailable: Story = {
  * Tapping still opens fullscreen, where the stream is mounted lazily.
  */
 export const GlanceTier: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   parameters: { liebe: { entities: [camera('idle')] } },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
@@ -375,7 +371,7 @@ export const GlanceTier: Story = {
 
 /** ≥2×1 — the one degraded tier with the width for a state line beside the name. */
 export const RowTier: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: { liebe: { entities: [camera('idle')] } },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
@@ -387,7 +383,7 @@ export const RowTier: Story = {
 
 /** 1×≥2 — thumbnail on top, name below; the same degradation as `glance`. */
 export const TallTier: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   parameters: { liebe: { entities: [camera('idle')] } },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(canvasElement.querySelector('.camera-thumb')).not.toBeNull())
@@ -402,7 +398,6 @@ export const TallTier: Story = {
  */
 export const GlanceTierImageOnly: Story = {
   args: {
-    tier: 'glance',
     gridWidth: 1,
     gridHeight: 1,
     item: cameraItem({ hideName: true }),

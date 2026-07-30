@@ -24,14 +24,9 @@ const meta: Meta<MediaPlayerCardStoryProps> = {
   title: 'Cards/MediaPlayerCard',
   component: MediaPlayerCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'full',
-    span: { width: 2, height: 2 },
     gridWidth: 3,
     gridHeight: 3,
   },
@@ -138,7 +133,7 @@ export const Off: Story = {
 
 /** 1×1: artwork, name and the compact one-line state. No embedded controls. */
 export const Glance: Story = {
-  args: { tier: 'glance', span: { width: 1, height: 1 }, gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(nameLine(canvasElement)).toBe('Living Room Speaker')
     await expect(stateLine(canvasElement)).toBe('Espresso Bongo — Jimmy Smith')
@@ -148,7 +143,7 @@ export const Glance: Story = {
 
 /** 2×1: the compact media row — one play/pause button, no prev/next. */
 export const RowCompact: Story = {
-  args: { tier: 'row', span: { width: 2, height: 1 }, gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(nameLine(canvasElement)).toBe('Espresso Bongo')
     await expect(transport(canvasElement)).toEqual(['Pause'])
@@ -157,7 +152,7 @@ export const RowCompact: Story = {
 
 /** 4×1: the option doc's "full transport row" — the cluster appears at ≥4 wide. */
 export const RowWide: Story = {
-  args: { tier: 'row', span: { width: 4, height: 1 }, gridWidth: 4, gridHeight: 1 },
+  args: { gridWidth: 4, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(transport(canvasElement)).toEqual(['Previous track', 'Pause', 'Next track'])
   },
@@ -165,7 +160,7 @@ export const RowWide: Story = {
 
 /** 1×3: unspecified for this card, so it renders the `glance` layout. */
 export const Tall: Story = {
-  args: { tier: 'tall', span: { width: 1, height: 3 }, gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     await expect(nameLine(canvasElement)).toBe('Living Room Speaker')
     await expect(stateLine(canvasElement)).toBe('Espresso Bongo — Jimmy Smith')
@@ -204,7 +199,7 @@ export const ArtworkMissing: Story = {
  * doc, and everywhere in this build because the full-bleed form is PR 2.
  */
 export const ArtworkBackgroundDegrades: Story = {
-  args: { tier: 'row', span: { width: 2, height: 1 }, gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
   parameters: {
     liebe: { entities: [createMediaPlayerEntity()], itemConfig: { artworkMode: 'background' } },
   },
@@ -279,7 +274,7 @@ export const CollapsedWhenIdle: Story = {
 
 /** A TV with no track metadata: the state line falls back to `app_name`. */
 export const AppNameFallback: Story = {
-  args: { tier: 'glance', span: { width: 1, height: 1 }, gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [
@@ -296,7 +291,7 @@ export const AppNameFallback: Story = {
 
 /** A receiver publishing nothing at all: the chain reaches the raw state. */
 export const RawStateFallback: Story = {
-  args: { tier: 'glance', span: { width: 1, height: 1 }, gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [
@@ -391,7 +386,7 @@ export const VolumeMuteOnly: Story = {
 
 /** The wide row — the only `row` form that carries volume at all. */
 export const RowWideWithVolume: Story = {
-  args: { tier: 'row', span: { width: 4, height: 1 }, gridWidth: 4, gridHeight: 1 },
+  args: { gridWidth: 4, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createMediaPlayerEntity({ attributes: { supported_features: VOLUME_SLIDER } })],
@@ -468,7 +463,7 @@ export const BackgroundArtwork: Story = {
 
 /** The same card at 2×1: background degrades to the thumbnail, option unchanged. */
 export const BackgroundDegradesOnResize: Story = {
-  args: { tier: 'row', span: { width: 2, height: 1 }, gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createMediaPlayerEntity()],
@@ -483,7 +478,7 @@ export const BackgroundDegradesOnResize: Story = {
 
 /** Everything at once — the densest `full` card this option surface allows. */
 export const FullyLoaded: Story = {
-  args: { gridWidth: 4, gridHeight: 4, span: { width: 3, height: 3 } },
+  args: { gridWidth: 4, gridHeight: 4 },
   parameters: {
     liebe: {
       entities: [

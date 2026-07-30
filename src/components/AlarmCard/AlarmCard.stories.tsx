@@ -13,14 +13,9 @@ const meta: Meta<AlarmCardStoryProps> = {
   title: 'Cards/AlarmCard',
   component: AlarmCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'full',
-    span: { width: 3, height: 3 },
     gridWidth: 3,
     gridHeight: 3,
   },
@@ -219,7 +214,7 @@ export const Unknown: Story = {
 
 /** `glance` (1×1): read-only. Arming happens in the dialog the tap opens. */
 export const TierGlance: Story = {
-  args: { tier: 'glance', span: { width: 1, height: 1 }, gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(readState(canvasElement)).toBe('Disarmed')
@@ -229,7 +224,7 @@ export const TierGlance: Story = {
 
 /** `row` (≥2×1): one context pill — the first configured arm mode when disarmed. */
 export const TierRow: Story = {
-  args: { tier: 'row', span: { width: 3, height: 1 }, gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Arm away' })).toBeInTheDocument()
@@ -240,7 +235,7 @@ export const TierRow: Story = {
 
 /** `tall` (1×≥2): the same single context pill, stacked. */
 export const TierTall: Story = {
-  args: { tier: 'tall', span: { width: 1, height: 3 }, gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Arm away' })).toBeInTheDocument()
@@ -250,7 +245,7 @@ export const TierTall: Story = {
 
 /** `row` while armed: the context pill becomes Disarm. */
 export const TierRowArmed: Story = {
-  args: { tier: 'row', span: { width: 3, height: 1 }, gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: panelIn('armed_away'),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -260,7 +255,7 @@ export const TierRowArmed: Story = {
 
 /** `full` (≥2×≥2): the whole arm-mode row. */
 export const TierFull: Story = {
-  args: { tier: 'full', span: { width: 3, height: 3 } },
+  args: { gridWidth: 3, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     for (const label of ['Arm away', 'Arm home', 'Arm night', 'Arm vacation']) {

@@ -149,8 +149,15 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 
 ### Layout-Change Persistence
 
-- On every react-grid-layout `onLayoutChange`, the grid MUST scale each changed item's `x`/`width` back to the stored resolution (`resolution.columns / effectiveColumns`) and persist via `dashboardActions.updateGridItem(screenId, id, { x, y, width, height })`.
-- The grid MUST persist ONLY items whose scaled position or size actually differs from the stored item; unchanged items MUST NOT trigger an update.
+- A drag or resize MUST persist the affected item's new `x`/`y`/`width`/`height` against the screen's stored resolution, via `dashboardActions.updateGridItem(screenId, id, { x, y, width, height })`.
+- **An interaction that changes one item MUST NOT alter any other item's stored geometry**, at any breakpoint. An item nobody touched keeps the exact values it was stored with — not equivalent ones.
+- The same holds field by field within the touched item: a placement the interaction did not change MUST survive it unchanged. Dragging an item leaves its stored `width` exactly as it was; resizing from the east or south edge leaves its stored `x`. A resize from a west-facing handle does move `x`, and is a change to both fields.
+- An interaction MUST NOT push an item past the screen's own column count. Where recombining a changed field with an unchanged one would take `x + width` beyond `resolution.columns` — as a narrow breakpoint's coarser steps can, since one effective cell may be worth several stored columns — the field the interaction changed is clamped to fit. When it changed both, `width` is capped at the screen's columns and `x` at whatever the resulting span leaves.
+- A persisted `x` MUST NOT be negative, and a persisted `width` MUST be at least 1, whatever the arithmetic produces. An untouched field does not pass through the clamp above, so an item already wider than its screen leaves no room for a position at all — and that item can still be dragged, which writes.
+- An untouched field is never clamped, because its preservation is the invariant above. It follows that stored geometry already exceeding `resolution.columns` is not brought back into bounds here: repairing it would mean rewriting a field the user did not touch. Such an item stays as it is until the user moves the offending field themselves — and moving it then yields the nearest representable position rather than an invalid one.
+- Items whose resulting geometry equals what is already stored MUST NOT trigger an update.
+
+Why this needs stating: the stored-to-effective mapping is deliberately lossy in both directions — a span is floored at one cell and `x` is clamped into bounds — and the whole layout is reported back on every interaction, not just the item that moved. Round-tripping an untouched item through that mapping therefore rewrites it: a card stored at `width: 1` on a 12-column screen occupies one cell at the 4-column breakpoint, and scaling that cell back up yields 3. The damage is silent (the narrow view re-derives correctly), persistent (it reaches stored config and exported YAML) and cumulative.
 
 #### Scenario: Moved item is persisted
 
@@ -163,6 +170,36 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 - **GIVEN** a layout change touching a single item
 - **WHEN** `onLayoutChange` fires
 - **THEN** `updateGridItem` is called exactly once (`src/components/__tests__/GridLayoutSection.test.tsx:196`)
+
+#### Scenario: Nothing is written for the layout a breakpoint derived
+
+- **GIVEN** a 12-column screen rendered at the 4-column `mobile` breakpoint
+- **WHEN** `onLayoutChange` reports that derived layout back unchanged (as it does on mount and on a breakpoint change)
+- **THEN** `updateGridItem` is not called at all (`src/components/__tests__/GridLayoutSection.test.tsx`)
+
+#### Scenario: Dragging one card at a narrow breakpoint leaves the others alone
+
+- **GIVEN** a 12-column screen at the 4-column `mobile` breakpoint holding items stored at widths 1 and 2, all of which collapse to a single effective cell
+- **WHEN** one card is dragged and `onLayoutChange` fires with the whole layout
+- **THEN** `updateGridItem` is called exactly once, for the dragged card, and every other item's stored `x` and `width` are byte-identical to what was seeded (`src/components/__tests__/GridLayoutSection.test.tsx`)
+
+#### Scenario: A resize persists the new span and keeps the item's own position
+
+- **GIVEN** an item stored at `x: 4, width: 2` on a 12-column screen, laid out at the 4-column breakpoint as `x: 1, w: 1`
+- **WHEN** it is resized from its east edge to two effective cells
+- **THEN** `updateGridItem` persists `x: 4` — the stored value, untouched — with `width: 6`, the new span scaled back (`src/components/__tests__/GridLayoutSection.test.tsx`)
+
+#### Scenario: A drag that would overrun the screen clamps the position it moved
+
+- **GIVEN** an item stored at `x: 0, width: 4` on a 12-column screen, laid out at the 4-column breakpoint as a single cell
+- **WHEN** it is dragged to the last effective column, whose scaled-back position would put its right edge past column 12
+- **THEN** it is persisted at `x: 8` with `width: 4` intact — the moved field absorbs the shortfall (`src/components/__tests__/GridLayoutSection.test.tsx`)
+
+#### Scenario: A resize that would overrun the screen clamps the span it changed
+
+- **GIVEN** an item stored at `x: 7, width: 1` on a 12-column screen, laid out at the 4-column breakpoint as a single cell
+- **WHEN** it is widened by one effective cell, worth 3 stored columns where only 5 remain
+- **THEN** it is persisted at `width: 5` with `x: 7` intact — the resized field absorbs the shortfall (`src/components/__tests__/GridLayoutSection.test.tsx`)
 
 ### Card Chrome (GridCard)
 
@@ -351,26 +388,37 @@ Store actions consumed by the grid layer (defined in `../dashboard-config/`): `u
 
 ### Business Logic
 
-Responsive column scaling (`src/components/GridLayoutSection.tsx:34`):
+Responsive column scaling — the forward mapping, written once in `effectiveInlineOf` so the layout and the change handler read the same derivation:
 
 ```ts
-const columnRatio = effectiveColumns / resolution.columns
-const scaledWidth = Math.max(1, Math.round(item.width * columnRatio))
-const scaledX = Math.min(effectiveColumns - scaledWidth, Math.round(item.x * columnRatio))
+const columnRatio = effectiveColumns / storedColumns
+const width = Math.max(1, Math.round(item.width * columnRatio)) // scaleSpanToColumns
+// Both bounds: the upper one goes negative for an item wider than its screen,
+// and a derivation reporting a negative x could never equal the x the grid
+// reports back — so the change handler would read the item as moved.
+const x = Math.max(0, Math.min(effectiveColumns - width, Math.round(item.x * columnRatio)))
 ```
 
-Persistence scales back and diffs before writing (`src/components/GridLayoutSection.tsx:57`):
+Persistence inverts only what moved, clamps the moved field into bounds, then diffs before writing:
 
 ```ts
 const columnRatio = resolution.columns / effectiveColumns
-const scaledX = Math.round(layoutItem.x * columnRatio)
-const scaledWidth = Math.round(layoutItem.w * columnRatio)
+const derived = effectiveInlineOf(originalItem, resolution.columns, effectiveColumns)
+const xMoved = layoutItem.x !== derived.x
+const widthMoved = layoutItem.w !== derived.width
+
+const widthCap = xMoved ? resolution.columns : resolution.columns - originalItem.x
+const scaledWidth = widthMoved
+  ? Math.max(1, Math.min(widthCap, Math.round(layoutItem.w * columnRatio)))
+  : originalItem.width
+const scaledX = xMoved
+  ? Math.max(0, Math.min(resolution.columns - scaledWidth, Math.round(layoutItem.x * columnRatio)))
+  : originalItem.x
 if (
-  originalItem &&
-  (originalItem.x !== scaledX ||
-    originalItem.y !== layoutItem.y ||
-    originalItem.width !== scaledWidth ||
-    originalItem.height !== layoutItem.h)
+  originalItem.x !== scaledX ||
+  originalItem.y !== layoutItem.y ||
+  originalItem.width !== scaledWidth ||
+  originalItem.height !== layoutItem.h
 ) {
   dashboardActions.updateGridItem(screenId, layoutItem.i, {
     x: scaledX,
@@ -396,7 +444,7 @@ item.width >= 4 && item.height >= 3
 - **Radix-first styling**: cards are built on Radix `Card`/theme tokens; per project rules custom CSS and non-portal z-index are avoided. `GridCard` uses fixed-position action buttons at `zIndex: 10` and a fullscreen portal at `zIndex: 9999`.
 - **Absolute item positioning (`positionStrategy={absoluteStrategy}`)**: items are laid out with `top`/`left`, not `transform: translate(...)`. This is a deliberate global choice so no grid-item transform creates a containing block that would trap the camera card's in-place `position: fixed` fullscreen overlay ([../camera-streaming/](../camera-streaming/index.md#fullscreen)); the trade-off is `top`/`left` positioning instead of compositor-friendly transforms.
 - **compactType null + preventCollision**: user positions are never auto-compacted at render time; compaction happens only on explicit `reorderGrid`.
-- **Integer grid cells against stored resolution**: all persisted coordinates are integers relative to `resolution.columns`; scaling to/from responsive breakpoints uses `Math.round`, which can drift on repeated round-trips at non-integer ratios.
+- **Integer grid cells against stored resolution**: all persisted coordinates are integers relative to `resolution.columns`. The stored-to-effective mapping is deliberately lossy — a span floored at one cell and an `x` clamped into bounds cannot be inverted — so only a field the user actually moved is ever scaled back. A genuine move is therefore coarse: it is rounded to the nearest stored column, landing on an exact multiple of the ratio where the ratio is a whole number (a drag to effective column 2 of 4 stores `x: 6` of 12) and on a rounded approximation where it is not (12 columns at the 8-column `tablet` breakpoint), and it may be clamped further to keep the item on screen. Narrow breakpoints therefore offer coarser placement than the stored resolution, not corrupted placement.
 - **Touch targets**: coarse-pointer resize handles are enlarged to ≥32px; the project's 44px touch-target principle is only partially met by handle CSS.
 - **Whole-card drag**: dragging is enabled on the entire card, relying on `draggableCancel` to exclude interactive controls (buttons, inputs, `[role='button']`, `.no-drag`).
 
@@ -404,7 +452,6 @@ item.width >= 4 && item.height >= 3
 
 - **`src/utils/gridPacking.ts` and `src/utils/gridPositioning.ts` have no direct unit tests.** Their behavior (overlap avoidance, compaction, batch threading) is asserted only indirectly through store/UI usage. `packGridItems` (the simple top-left variant) currently has no callers — only `packGridItemsCompact` is used (by `reorderGrid`, `src/store/dashboardStore.ts:393`); the simple variant may be dead code.
 - **Duplicated size ternary.** The `large`/`medium`/`small` threshold logic is copy-pasted four times in `GridView` (text, separator, entity, plus the `EntityCard` call site) with no shared helper — a change to thresholds must be made in every copy. A `sizeFromDimensions(width, height)` utility would remove the duplication.
-- **Round-trip coordinate drift.** Scaling `x`/`width` down for a responsive breakpoint and back up on `onLayoutChange` uses `Math.round` in both directions; on `mobile`/`tablet` breakpoints a drag can persist coordinates that differ from a pure identity round-trip. No test currently pins this behavior.
 - **`Separator` size prop is inert.** `GridView` computes and passes a `size` to `Separator`, but `Separator` destructures it as `size: _size` and never uses it (text sizing is derived only from orientation, `src/components/Separator.tsx:37`).
 - **Stale tracking without display.** `GridCard` accepts `isStale` but deliberately renders nothing for it (`src/components/GridCard.tsx:123`); whether stale should ever surface visually is unresolved.
 
@@ -429,3 +476,4 @@ item.width >= 4 && item.height >= 3
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                                                           | —                                                           |
 | 2026-07-24 | Grid items position via `positionStrategy={absoluteStrategy}` (`top`/`left`) instead of `transform: translate(...)` — a global change enabling the camera card's in-place `position: fixed` fullscreen (no DOM move) | [0008](../../changes/0008-camera-fullscreen-no-dom-move.md) |
+| 2026-07-30 | Layout-change persistence inverts only genuinely moved fields, so an interaction at a narrow breakpoint no longer rewrites every other item's stored `x`/`width`                                                     | [0039](../../changes/0039-responsive-drag-integrity.md)     |

@@ -366,12 +366,16 @@
   }
 
   /*
-   * Radix positions the fill with inline `left`/`width` (or `bottom`/`height`),
-   * so only the cross-axis size is ours to give. Inactive it takes the same 5%
-   * neutral the tint pattern gives every other inactive part — the spec names
-   * slider fills in that rule — which lands *over* the track's own neutral and
-   * so stacks to roughly twice the alpha: the value stays legible without the
-   * fill carrying hue it has no state to justify.
+   * Radix positions the fill along its main axis with an inset PAIR — `left` and
+   * `right` when horizontal, `bottom` and `top` when vertical — and never writes
+   * a width or a height. So the whole cross axis is ours: its size *and* its
+   * position, which is the half that was missing.
+   *
+   * Inactive it takes the same 5% neutral the tint pattern gives every other
+   * inactive part — the spec names slider fills in that rule — which lands
+   * *over* the track's own neutral and so stacks to roughly twice the alpha: the
+   * value stays legible without the fill carrying hue it has no state to
+   * justify.
    */
   .liebe-slider-fill {
     background: var(--gray-a3);
@@ -383,8 +387,22 @@
     block-size: 100%;
   }
 
+  /*
+   * The vertical fill is anchored to both track edges rather than merely sized
+   * to them (docs/specs/design-system — "Vertical slider fill spans its track").
+   * An `inline-size: 100%` with no inset left the inline position to the static
+   * position, which is text flow — so the `text-align: center` a `tall` card
+   * body sets shifted a full-width fill to the track's midline and the track's
+   * own `overflow: hidden` clipped the half that hung past its edge. The fill
+   * then read as half-width, on every `tall` light, cover and fan card, while
+   * the workshop's anatomy stage — which sets no `text-align` — looked correct.
+   *
+   * Insets rather than a size plus an inset: with both edges pinned the width
+   * *is* the track's, so there is no second declaration to disagree with, and no
+   * inherited property can move it again.
+   */
   .liebe-slider[data-orientation='vertical'] .liebe-slider-fill {
-    inline-size: 100%;
+    inset-inline: 0;
   }
 
   .liebe-slider[data-active] .liebe-slider-fill {

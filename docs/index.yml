@@ -240,16 +240,16 @@ changes:
   - id: '0028'
     name: slider-rendering-fixes
     path: changes/0028-slider-rendering-fixes.md
-    description: Fix the vertical slider's half-width clipped fill, its left-flush placement in tall tiles, and the input_number card's missing fill band
+    description: Fix the vertical slider's fill so it spans the track's whole width instead of being clipped at its edge, and give the input_number card's tall slider the fill band it never received
     spec: design-system
-    status: draft
+    status: complete
     depends_on: []
   - id: '0029'
     name: workshop-tier-fidelity
     path: changes/0029-workshop-tier-fidelity.md
     description: Storybook grid-cell decorator derives the layout tier from the cell span like the real grid; story tier/cell mismatches reconciled
     spec: storybook
-    status: draft
+    status: complete
     depends_on: []
   - id: '0030'
     name: weather-forecast-legibility
@@ -319,7 +319,7 @@ changes:
     path: changes/0039-responsive-drag-integrity.md
     description: Stop a drag at a narrow breakpoint silently rewriting every other card's stored width and x through lossy inverse column scaling
     spec: grid-layout
-    status: draft
+    status: complete
     depends_on: []
   - id: '0040'
     name: test-harness-reliability
@@ -333,5 +333,12 @@ changes:
     path: changes/0041-card-conventions-and-reference.md
     description: Settle the per-card ErrorBoundary convention repo-wide and correct the card reference's stale file-to-folder paths, line citations and false no-test-file claim
     spec: entity-cards
+    status: draft
+    depends_on: []
+  - id: '0042'
+    name: tall-tile-control-geometry
+    path: changes/0042-tall-tile-control-geometry.md
+    description: Reconcile the 42px control height and 14px card padding with the ~35px content region a 1-wide desktop tile gives the tall tier — the input_number stepper is clipped there and the vertical slider bleeds into the padding
+    spec: design-system
     status: draft
     depends_on: []

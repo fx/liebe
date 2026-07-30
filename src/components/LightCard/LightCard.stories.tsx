@@ -14,15 +14,11 @@ const meta: Meta<LightCardStoryProps> = {
   title: 'Cards/LightCard',
   component: LightCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 2,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createLightEntity()] },
@@ -346,7 +342,8 @@ export const BulbColorWhileOff: Story = {
 /*
  * The `full`-tier colour controls (docs/specs/entity-cards/options/light.md —
  * "Color temperature" and "Color"). Both are `full` only, so every story below
- * sets the tier with the 3×2 cell it would be derived from.
+ * asks for that tier the only way it can: with a cell the decorator derives it
+ * from.
  */
 
 /** A bulb that does colour and colour temperature, with a real reported range. */
@@ -362,7 +359,8 @@ const fullColorBulb = (attributes: Record<string, unknown> = {}, state = 'on') =
     },
   })
 
-const FULL: Partial<LightCardStoryProps> = { tier: 'full', gridWidth: 3, gridHeight: 2 }
+/** The cell those stories are shown in; the meta's 2×1 default derives `row`. */
+const FULL: Partial<LightCardStoryProps> = { gridWidth: 3, gridHeight: 2 }
 
 const tempThumb = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('[aria-label="Colour temperature"]')
@@ -625,29 +623,29 @@ export const EditMode: Story = {
 
 /*
  * Layout tiers (docs/specs/design-system/index.md — "Size-adaptive layouts";
- * docs/specs/entity-cards/options/light.md — "Tier layouts"). Each story sets
- * the tier together with the grid cell it would be derived from, so the
- * workshop shows the card at the size the tier is for. What each tier keeps and
- * drops is asserted in `__tests__/controlCardTierLayouts.test.tsx` — a story shows the
- * layout, it does not pin it.
+ * docs/specs/entity-cards/options/light.md — "Tier layouts"). Each story names
+ * its tier and sets only the cell; the decorator derives the tier from it, so
+ * the workshop shows the card at the size the tier is for. What each tier keeps
+ * and drops is asserted in `__tests__/controlCardTierLayouts.test.tsx` — a story
+ * shows the layout, it does not pin it.
  */
 
 /** 1×1: icon over name and state. The whole tile toggles; no slider. */
 export const TierGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /** 2×1: icon and meta in a row with the horizontal brightness slider. */
 export const TierRow: Story = {
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
 }
 
 /** 1×3: the slider stands up and fills the height between icon and meta. */
 export const TierTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /** 3×2: the row content — colour and preset controls arrive with change 0016. */
 export const TierFull: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }

@@ -1,0 +1,98 @@
+# 0042 — Tall-Tile Control Geometry
+
+## Summary
+
+The embedded control's fixed 42px thickness (`--liebe-control-height`) and the tile's 14px inset (`--liebe-card-padding`) were never reconciled with the width a single grid column actually gives a tile, and the `tall` tier is by definition one column wide. On a 12-column desktop screen a 1-wide tile is about 63px, leaving a ~35px content region — so a 42px vertical slider bleeds ~3.5px per side into the padding (cosmetic, not clipped), and an `input_number` card at `tall` with `controlStyle: 'stepper'` renders a 156px control row in that same 35px, overflowing ~46.5px past each tile edge and getting cut off by the tile's own `overflow: hidden`. Both are pre-existing and share one cause; the fix is a design-system decision, because [design-system — card anatomy](../specs/design-system/index.md#card-anatomy) pins the slider at a "42px-tall track" and [options/input-helpers](../specs/entity-cards/options/input-helpers.md) calls for a "compact stepper" at `tall` that has never been defined.
+
+**Spec:** [design-system](../specs/design-system/index.md) → [card anatomy](../specs/design-system/index.md#card-anatomy) and [size-adaptive layouts](../specs/design-system/index.md#size-adaptive-layouts); [options/input-helpers](../specs/entity-cards/options/input-helpers.md) → tier layouts · **Status:** draft · **Depends on:** —
+
+## Motivation
+
+**The arithmetic, and where every figure comes from.** Both tokens are pinned in the design-system's geometry table and declared in `src/styles/tokens.css`: `--liebe-card-padding: 14px` (line 56) and `--liebe-control-height: 42px` (line 59). The column width is react-grid-layout's, `(containerWidth − margin × (cols − 1) − containerPadding × 2) / cols`, with `margin` and `containerPadding` both 16px at the two wide breakpoints (`app/utils/responsive.ts`) and the default screen resolution 12 columns (`src/store/dashboardStore.ts`). A tile's content region is that width less both insets:
+
+| Grid container | Columns | 1-wide tile | Content region | 42px control fits |
+| -------------- | ------- | ----------- | -------------- | ----------------- |
+| 960px          | 12      | 63px        | 35px           | no                |
+| 1000px         | 12      | 66px        | 38px           | no                |
+| 1024px         | 12      | 68px        | 40px           | no                |
+| 1048px         | 12      | 70px        | 42px           | exactly           |
+| 1392px         | 16      | 70px        | 42px           | exactly           |
+
+So the control fits a 1-wide tile only once the grid container reaches **1048px** at 12 columns (1392px for a screen stored at 16). A 1280×720 viewport — Playwright's `Desktop Chrome`, and an ordinary laptop — leaves roughly 960px after Home Assistant's sidebar and the panel's own inset, which is where the measured 63px tile and 35px content region come from. Everything below is a consequence of a 42px control in a 35px region.
+
+**Counterintuitively, the narrow breakpoints are the ones that are fine.** They override the screen's column count with their own — 4 on mobile, 8 on tablet — and fewer columns means _wider_ cells: a phone's 4-column grid at a 420px container gives a 90px tile and a 62px content region, and an 8-column tablet at 700px gives 70px and 42px. The defect is therefore a desktop-class phenomenon, which is the opposite of where one would look for a "too narrow" bug.
+
+**Consequence 1 — the vertical slider bleeds into the padding (cosmetic).** The vertical slider's thickness is the token (`.liebe-slider[data-orientation='vertical'] { inline-size: var(--liebe-control-height) }`, `anatomy.css:349`), so 42px in a 35px region overhangs 3.5px per side. It is **not** clipped — 3.5px is well inside the 14px padding — and it stays centred, so the visible symptom is only that the control eats about a quarter of the tile's inset on each side. It affects every card rendering a vertical slider at `tall`: light, cover, fan and `input_number`.
+
+**Consequence 2 — the `input_number` stepper is clipped (user-visible).** The stepper is two `size="3"` icon buttons around the value control, laid out by `.liebe-card-controls`' 8px gap: 40 + 8 + 60 + 8 + 40 = **156px** intrinsic (Radix `size="3"` resolves to `--space-7` = 40px square; the value button carries an inline `minWidth: 60px`). While the value field is being edited it is a `TextField` with an inline `width: 80px`, so the row grows to 176px. Radix's `.rt-BaseButton` sets `flex-shrink: 0`, so the row cannot compress into the space available: it overflows 60.5px per side of the 35px content region — 46.5px past each of the tile's own edges — and `.liebe-card`'s `overflow: hidden` (`GridCard.css`) cuts the buttons off. The clip is not a bug in the shell; the tile's `overflow: hidden` is itself part of the anatomy contract.
+
+**Two spec rules are violated by consequence 2.** [Size-adaptive layouts](../specs/design-system/index.md#size-adaptive-layouts) states: "A card MUST degrade gracefully: content that does not fit its tier MUST be omitted, never clipped or scrolled." And [options/input-helpers](../specs/entity-cards/options/input-helpers.md)' tier table already asks for something else at this tier — `tall (1×≥2)`: "Icon top, **vertical slider** (or compact stepper), meta bottom". What renders today is the `row` stepper unchanged, and "compact stepper" is named nowhere else in the corpus, so the tier's own requirement is both unmet and undefined.
+
+**Both consequences are independent of change [0028](./0028-slider-rendering-fixes.md)**, and that is worth recording because 0028 is where they were found. They were measured identical with and without its `controlSize` change: 0028 gives the `input_number` card the fill band it was missing at `tall`, which is what makes its control visible there at all, and the geometry underneath is the same before and after. 0028's own scenario — the fill spanning its track, centred in its region — is satisfied while the control it centres is wider than the region centring it.
+
+**Why this is a decision rather than a fix.** The spec pins the track at 42px, the token is public theming API ("token names, meanings, and value types MUST be documented in this spec and MUST NOT be renamed without a migration note"), and the tile's padding is what every theme inherits. Shrinking the control, thinning the padding at `tall`, or changing what the stepper renders there are three different contract changes with three different blast radii, and picking one silently inside a bugfix PR would settle the design system by accident. The options and their costs are laid out under Design Decisions and the choice is a task, not a foregone conclusion.
+
+## Requirements
+
+### Testing Requirements
+
+Per [architecture — Testing & Quality Conventions](../specs/architecture/index.md#testing--quality-conventions):
+
+- `npm test`, `npm run lint`, `npm run typecheck` MUST pass; `codecov/patch` 100%; `codecov/project` no regress.
+- **The regression MUST be pinned by a real-layout measurement, not by a stylesheet assertion.** jsdom performs no layout, so a unit test can assert which declarations exist and can never see a 156px row inside a 35px region. Whatever the fix, one browser-level assertion MUST measure the control's box against the tile's content box at `tall` on a 1-wide cell — the shape `tests/e2e/card-resize-tiers.spec.ts` already establishes.
+- **The measurement MUST be taken at a container width where the defect exists.** A viewport whose grid container clears 1048px at 12 columns fits the control and the test passes on the unfixed code. The fixture MUST record the container width it assumes, so a later viewport change cannot quietly turn the test into a no-op.
+- **Both consequences MUST be asserted separately.** The slider case is an overhang inside the padding and the stepper case is a clip past the tile edge; a single "control fits" assertion tuned to one tolerance would pass on the other.
+- **`controlStyle: 'stepper'` MUST be in the fixture explicitly.** The default follows the helper's `mode` attribute, and existing items are pinned to `stepper` by change [0022](./0022-switch-input-helpers-to-spec.md)'s migration — so a fixture that omits the option may render a slider and never exercise the clipped path at all.
+- **If the fix changes a token's value or adds one, the token contract test MUST cover it** and the design-system geometry table MUST be updated in the same PR; a theme overriding the old name silently loses its override otherwise.
+- **Touch targets MUST be re-asserted, not assumed.** Design-system requires discrete controls to be ≥44px in at least one dimension; any option that shrinks the control changes that number and MUST prove the hit area still meets the floor.
+
+Skipping or weakening any rule to land the PR is a bug in the PR.
+
+### Functional requirements
+
+[design-system — card anatomy](../specs/design-system/index.md#card-anatomy) owns the control's geometry and the token contract, [size-adaptive layouts](../specs/design-system/index.md#size-adaptive-layouts) owns the omit-never-clip rule and the touch-target floor, and [options/input-helpers](../specs/entity-cards/options/input-helpers.md) owns what `input_number` renders at each tier — this change's acceptance criteria, not restated here. What implementing them requires of this change:
+
+- **The design-system spec MUST state the relationship the tokens currently leave implicit**: a control whose fixed cross-axis size exceeds the content region of the narrowest tile its tier can occupy. Fixing the two symptoms without recording the constraint leaves the next fixed-size part (a chip, a pill group, a graph band) to rediscover it.
+- **The `tall` stepper MUST stop being clipped**, by whichever route the decision takes. If the route is omission, [size-adaptive layouts](../specs/design-system/index.md#size-adaptive-layouts) also requires that the tier MUST NOT remove the last way to operate the entity — and `input_number`'s tap action at `tall` does nothing today (tracked by [0037](./0037-card-state-and-capability-correctness.md)), so plain omission would strand the entity unless something reaches its control. Omitting the stepper in favour of the tier's vertical slider does not have that problem.
+- **"Compact stepper" MUST be defined or removed.** It appears in the input-helpers tier table as a parenthetical alternative and nowhere else; a phrase that reads as a requirement and specifies nothing is why the tier can be simultaneously implemented and unmet.
+- **The slider outcome MUST be recorded even if it is "accept it".** 3.5px per side inside a 14px inset is a defensible thing to keep, and an undocumented decision to keep it is indistinguishable from not having noticed.
+- **A theme MUST NOT be able to reintroduce the clip through the padding token.** The LCARS theme already sets `--liebe-card-padding: 12px 12px 12px 32px` (`src/theme/themes/lcars.css`), which leaves a 63px tile a **19px** content region — so any solution expressed as "there is enough padding to absorb the overhang" is false under a shipped theme. Whatever is decided has to hold for an asymmetric, larger inset.
+- **The fix MUST NOT change `row` or `full`.** The stepper is correct on a row line, where the tile is ≥2 columns wide and the control is sized by its content; only the 1-wide tier is implicated.
+
+## Design Decisions
+
+The decision itself is task 1's, deliberately not taken here. What is decided is the framing — the candidate routes, their costs, and the two that are already ruled out:
+
+- **(A) Shrink the control at `tall` — a narrower thickness for the vertical form.** Cheapest to implement and it fixes the slider's bleed exactly. It contradicts the spec's "42px-tall track" pin, so it needs either a second token (a vertical/narrow-tile thickness) or a re-pin of the existing one with a theming migration note, and it changes the touch-target arithmetic that the ≥44px floor depends on. It does nothing for the stepper: 156px does not become 35px by thinning a track.
+- **(B) Reduce the tile's inset at `tall`.** Leaves the control at 42px and buys 28px at most — enough for the slider, nowhere near enough for the stepper. It also costs the tile its uniform inset, which is inherited theming surface, and LCARS's 32px inline-start inset makes the tall content region _smaller_, not larger, so this route is strictly worse than it looks on the default theme.
+- **(C) Change what the stepper renders at `tall`** — define the compact stepper the input-helpers tier table already calls for (a vertical +/- stack, or +/- without the 60px value button, with the value carried by the meta line), or omit the stepper at `tall` and render the tier's vertical slider instead. This is the only route that addresses the clipped case, and the omit-in-favour-of-the-slider variant is the one the omit-never-clip rule points at while keeping the entity operable.
+- **(D) Accept and document the slider's overhang.** A real option for consequence 1 alone: 3.5px per side is inside the padding, uncropped and centred, and the alternatives all cost contract surface. It is not an option for consequence 2.
+- **(E) Ruled out — clamp the control to the content region mechanically** (`max-inline-size: 100%` on the control slot). It converts a clip into a silent contract violation: the slider's track stops being 42px whenever the tile is narrow, and the stepper's buttons shrink below the ≥44px touch floor. A rule the layout satisfies by quietly breaking two others is worse than the visible defect.
+- **(F) Ruled out — forbid the `tall` tier below some container width.** The tier is derived from the effective span and a user places a 1×2 card deliberately; refusing to honour it would trade a cosmetic overhang for a layout that ignores the user.
+
+Two further decisions this change does take:
+
+- **The two consequences are separate PRs even though the cause is one.** Their severity differs (a clipped control the user cannot press versus an overhang most users will not see), their blast radius differs (one card family's tier layout versus a token every card and every theme inherits), and their tests differ (a clip assertion versus a sub-pixel-tolerance overhang measurement). Most decisively, the slider half may be resolved as (D) — accept and document — which is a documentation PR; bundling it would put the user-visible fix behind a decision that may produce no code at all.
+- **The contract decision is its own PR, before either fix.** Both fixes are applications of it, and a spec change agreed in the abstract reviews very differently from the same change buried in a diff that also moves a card's layout.
+
+## Tasks
+
+- [ ] **PR 1 — Settle the tall-tier control-geometry contract** (spec only, no source changes): choose among routes A–D per consequence; design-system records the relationship between a fixed control size, the tile inset and the narrowest tile a tier can occupy, with the ≥44px touch floor and the omit-never-clip rule both explicitly satisfied by the choice; the geometry token table reflects any token added or re-pinned, with the theming migration note if a name or meaning changes; input-helpers either defines "compact stepper" or drops the phrase; changelog entries on both specs
+- [ ] **PR 2 — Stop the `input_number` stepper clipping at `tall`**: implement what PR 1 settled for the stepper, `row` and `full` untouched; unit coverage for the tier's control selection plus one browser-level assertion that the control's box stays inside the tile's content box at `tall` on a 1-wide cell, with the assumed container width recorded in the fixture and `controlStyle: 'stepper'` set explicitly
+- [ ] **PR 3 — Resolve the vertical slider's padding bleed**: implement what PR 1 settled for the slider thickness or padding across the light, cover, fan and `input_number` `tall` layouts — or, if PR 1 chose to accept the overhang, record that outcome and its rationale in the design-system spec and close this task with no source change; where code changes, a browser-level overhang measurement and, if a token moved, the token-contract test
+
+**Sequencing.** PR 1 MUST land first: PRs 2 and 3 are both applications of its decision, and either one taken first would settle the contract implicitly. PR 2 SHOULD precede PR 3 because it is the user-visible half and because PR 1's choice may make PR 3 empty — route A or B applied to the slider could equally be subsumed by a stepper decision that removes the fixed-width control from the tier altogether. PR 3 MUST NOT be resolved by reducing `tall` padding without re-checking PR 2's result: padding is shared, so a change made for the slider moves the stepper too, in the direction that reintroduces the clip under LCARS.
+
+## Out of Scope
+
+- **The `input_number` tap action at `tall`.** It does nothing today and [0037](./0037-card-state-and-capability-correctness.md) owns it. It is named in the requirements only because it constrains one of the routes: omitting the stepper outright would strand the entity while that gap is open.
+- **Change [0028](./0028-slider-rendering-fixes.md)'s fill geometry and centring.** Measured independent of this defect in both directions; 0028's scenario is satisfied while this one holds.
+- **The `row` and `full` stepper layouts.** Correct as they are — the tile is at least two columns wide there and the control is sized by its content.
+- **Background slider placement** ([0034](./0034-slider-placement.md)). An edge-to-edge track deliberately has no padding between it and the tile, so it does not have this geometry at all.
+- **The breakpoint column counts and the grid's margins.** They are the inputs to the arithmetic, not the defect; changing them to make a control fit would resize every card on every screen.
+- **A general narrow-tile audit of the other fixed-size parts** (chips at 34px, 38px pill groups, the icon circle at 40px). Same latent shape, no measured symptom, and each would need its own measurement — worth a change document of its own if PR 1's contract statement turns any of them up.
+
+## References
+
+- Spec: [design-system — card anatomy](../specs/design-system/index.md#card-anatomy), [design-system — size-adaptive layouts](../specs/design-system/index.md#size-adaptive-layouts), [options/input-helpers](../specs/entity-cards/options/input-helpers.md)
+- Related changes: [0028-slider-rendering-fixes](./0028-slider-rendering-fixes.md) (where this was measured), [0011-layout-tiers](./0011-layout-tiers.md) (the `tall` arrangement), [0022-switch-input-helpers-to-spec](./0022-switch-input-helpers-to-spec.md) (`controlStyle` and the stepper pin), [0034-slider-placement](./0034-slider-placement.md), [0037-card-state-and-capability-correctness](./0037-card-state-and-capability-correctness.md) (the `tall` tap action)

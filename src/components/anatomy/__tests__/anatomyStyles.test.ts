@@ -181,21 +181,56 @@ describe('embedded slider', () => {
     )
   })
 
-  it('gives the fill and the leading edge only their cross-axis size', () => {
-    // The long axis belongs to Radix, which positions both from the live value;
-    // declaring it here would fight the drag.
-    expect(ruleBody(".liebe-slider[data-orientation='horizontal'] .liebe-slider-fill")).toBe(
-      '\n    block-size: 100%;\n  '
+  it('leaves the long axis of the fill and the leading edge to Radix', () => {
+    // Radix positions both from the live value, with an inset pair on the main
+    // axis; declaring that axis here would fight the drag.
+    const horizontalFill = ruleBody(
+      ".liebe-slider[data-orientation='horizontal'] .liebe-slider-fill"
     )
-    expect(ruleBody(".liebe-slider[data-orientation='vertical'] .liebe-slider-fill")).toBe(
-      '\n    inline-size: 100%;\n  '
-    )
+    expect(horizontalFill).not.toMatch(/\binline-size:|\binset-inline/)
+
+    const verticalFill = ruleBody(".liebe-slider[data-orientation='vertical'] .liebe-slider-fill")
+    expect(verticalFill).not.toMatch(/\bblock-size:|\binset-block/)
+
     expect(ruleBody(".liebe-slider[data-orientation='horizontal'] .liebe-slider-thumb")).toContain(
       'block-size: var(--liebe-control-height);'
     )
     expect(ruleBody(".liebe-slider[data-orientation='vertical'] .liebe-slider-thumb")).toContain(
       'inline-size: var(--liebe-control-height);'
     )
+  })
+
+  it('covers the whole cross-axis of the track in both orientations', () => {
+    // "In **both** orientations the fill MUST cover the track's full cross-axis"
+    // (docs/specs/design-system — "Card anatomy"). Asserted on the declarations
+    // rather than on a measured box because jsdom lays nothing out; the
+    // browser-level measurement is `tests/e2e/slider-fill-geometry.spec.ts`.
+    expect(ruleBody(".liebe-slider[data-orientation='horizontal'] .liebe-slider-fill")).toContain(
+      'block-size: 100%;'
+    )
+    expect(ruleBody(".liebe-slider[data-orientation='vertical'] .liebe-slider-fill")).toContain(
+      'inset-inline: 0;'
+    )
+  })
+
+  it('anchors the vertical fill to the track rather than to the text flow', () => {
+    /*
+     * The vertical fill is absolutely positioned, so with no inline inset its
+     * inline position comes from the static position — text flow — and the
+     * `text-align: center` a `tall` card body sets moved a full-width fill to
+     * the track's midline, where the track's `overflow: hidden` clipped the half
+     * hanging past its edge. `inset-inline` pins both edges to the track, so no
+     * inherited property can move it again, and there is no cross-axis size
+     * declaration left to disagree with the insets.
+     */
+    const verticalFill = ruleBody(".liebe-slider[data-orientation='vertical'] .liebe-slider-fill")
+    expect(verticalFill).toContain('inset-inline: 0;')
+    expect(verticalFill).not.toMatch(/\binline-size:/)
+
+    // And the fill has to be the absolutely-positioned box those insets resolve
+    // against the track for — the track is what establishes the containing block.
+    expect(ruleBody('.liebe-slider-fill')).toContain('position: absolute;')
+    expect(ruleBody('.liebe-slider-track')).toContain('position: relative;')
   })
 
   it('reads the value out in the neutral foreground, off the pointer', () => {

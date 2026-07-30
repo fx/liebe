@@ -4,7 +4,7 @@
 
 Moving or resizing a single card on a narrow screen silently rewrites the stored geometry of **every other card on that screen**. `GridLayoutSection.handleLayoutChange` inverse-scales every item in the layout on any drag or resize, and that round-trip is lossy at the narrow breakpoints: a card stored at `width: 1` on a 12-column screen renders as 1 effective cell on a 4-column phone — the forward scaling floors at one cell, because a card cannot be narrower than that — and coming back, `round(1 × 12 / 4) = 3`. So a card the user saved as 1 wide is written back as 3 wide, the same arithmetic applies to `x`, and it applies to every item rather than only the one that moved. Preserve the original stored `x` and `width` whenever the effective layout still matches what the item would derive to, and inverse-scale only the fields that genuinely moved.
 
-**Spec:** [grid-layout](../specs/grid-layout/index.md) → [responsive column scaling](../specs/grid-layout/index.md#responsive-column-scaling) and [layout-change persistence](../specs/grid-layout/index.md#layout-change-persistence) · **Status:** draft · **Depends on:** —
+**Spec:** [grid-layout](../specs/grid-layout/index.md) → [responsive column scaling](../specs/grid-layout/index.md#responsive-column-scaling) and [layout-change persistence](../specs/grid-layout/index.md#layout-change-persistence) · **Status:** complete · **Depends on:** —
 
 Supersedes issue [#219](https://github.com/fx/liebe/issues/219).
 
@@ -49,7 +49,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ## Tasks
 
-- [ ] **PR 1 — Lossless inverse scaling**: preserve stored `x` and `width` for items whose effective geometry still matches their derivation, inverse-scaling only genuinely moved fields; responsive-drag regression test asserting byte-identical stored geometry for untouched items at a 4-column breakpoint with width-1 items present, plus persistence of the moved item; grid-layout spec's persistence section states the one-interaction-one-item invariant; changelog entry
+- [x] **PR 1 — Lossless inverse scaling**: preserve stored `x` and `width` for items whose effective geometry still matches their derivation, inverse-scaling only genuinely moved fields; responsive-drag regression test asserting byte-identical stored geometry for untouched items at a 4-column breakpoint with width-1 items present, plus persistence of the moved item; grid-layout spec's persistence section states the one-interaction-one-item invariant; changelog entry
 
 ## Out of Scope
 

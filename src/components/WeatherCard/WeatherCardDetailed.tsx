@@ -19,6 +19,7 @@ import {
   readWeatherReading,
   resolveConditionBackground,
   resolveSecondaryReading,
+  resolveUnavailableStatus,
   supplementalReadings,
   type WeatherSecondaryReading,
 } from './presentation'
@@ -71,7 +72,7 @@ function WeatherCardDetailedContent(props: CardProps) {
     options.temperatureUnit
   )
 
-  const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
+  const unavailableStatus = resolveUnavailableStatus(entity.state)
 
   /*
    * Tier layout (docs/specs/entity-cards/options/weather.md — "Tier layouts").
@@ -119,7 +120,7 @@ function WeatherCardDetailedContent(props: CardProps) {
   const emphasisStyles = getWeatherTextStyles(!!backgroundImage, 'emphasis')
 
   // Handle unavailable state
-  if (isUnavailable) {
+  if (unavailableStatus) {
     return (
       <GridCard
         domain="weather"
@@ -138,7 +139,7 @@ function WeatherCardDetailedContent(props: CardProps) {
             </span>
           </GridCard.Icon>
           <GridCard.Title>{entity.attributes?.friendly_name || entityId}</GridCard.Title>
-          <GridCard.Status>UNAVAILABLE</GridCard.Status>
+          <GridCard.Status>{unavailableStatus}</GridCard.Status>
         </Flex>
       </GridCard>
     )

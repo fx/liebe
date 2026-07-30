@@ -5,7 +5,7 @@
 Make the Storybook grid-cell decorator derive the layout tier from the configured cell span — exactly as the grid renderer does — and reconcile every card story whose hand-set `tier` arg contradicts its cell size. The rule this implements now lives in [storybook — global decorators](../specs/storybook/index.md#global-decorators--toolbar).
 
 **Spec:** [storybook](../specs/storybook/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -54,7 +54,7 @@ Acceptance is the spec's own scenario, [storybook — cell controls drive the ti
 
 ## Tasks
 
-- [ ] Derive the tier in `withGridCell` from the cell span via the production derivation; audit and reconcile every card story's `tier`/cell combination; update affected play assertions; add the gate-executed (Vitest) decorator derivation test
+- [x] Derive the tier in `withGridCell` from the cell span via the production derivation; audit and reconcile every card story's `tier`/cell combination; update affected play assertions; add the gate-executed (Vitest) decorator derivation test
 
 ## Open Questions
 

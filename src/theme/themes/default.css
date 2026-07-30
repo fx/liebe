@@ -7,8 +7,31 @@
  *
  *  - the base hue of each triplet, pinned to its Radix step 9 (the scale's
  *    solid, saturated step — glyphs, slider fills, dots);
- *  - the `-text` companion, pinned to step 11, because a raw step-9 hue does
- *    not carry text contrast on either ground.
+ *  - the `-text` companion, pinned per appearance, because a raw step-9 hue
+ *    does not carry text contrast on either ground.
+ *
+ * WHY `-text` IS PINNED PER APPEARANCE
+ * ------------------------------------
+ * Step 11 is a Radix scale's text step, and it is calibrated against steps 1–2
+ * of its OWN scale rather than against a neutral — so how it measures on
+ * Liebe's card surface depends on which surface that is. Against the dark card
+ * (`--liebe-card-bg` → `--gray-2`, #18191b) every hue clears the 4.5:1 text
+ * floor at step 11 with room to spare: 8.3:1 at worst. Against the light card
+ * (`--gray-1`, #fcfcfd) three of the ten fall under it:
+ *
+ *   --liebe-c-light-text    amber-11   #ab6400   4.497:1
+ *   --liebe-c-heat-text     orange-11  #cc4e00   4.398:1
+ *   --liebe-c-vacuum-text   teal-11    #008573   4.450:1
+ *
+ * Those three pin step 12 in **light** appearance (11.09:1, 11.33:1, 11.76:1)
+ * and are restored to step 11 in the dark block below. The other seven stay on
+ * step 11 in both: they already clear the floor, and pulling them darker to
+ * match would change the state line's weight on every card to fix a defect
+ * three hues have (change 0035 — measured figures in its PR).
+ *
+ * The light values are the unconditional ones and dark overrides them, which is
+ * how src/styles/tokens.css handles the surfaces for the same reason: Radix's
+ * classless default is light, so light is the base.
  *
  * The tints are deliberately NOT pinned: they stay derived from the base in the
  * base layer, so user CSS remapping a base recolours glyph and tint together.
@@ -29,10 +52,10 @@
 @layer liebe-theme {
   :where(.radix-themes) {
     --liebe-c-light: var(--amber-9);
-    --liebe-c-light-text: var(--amber-11);
+    --liebe-c-light-text: var(--amber-12);
 
     --liebe-c-heat: var(--orange-9);
-    --liebe-c-heat-text: var(--orange-11);
+    --liebe-c-heat-text: var(--orange-12);
 
     --liebe-c-cool: var(--sky-9);
     --liebe-c-cool-text: var(--sky-11);
@@ -47,7 +70,7 @@
     --liebe-c-media-text: var(--indigo-11);
 
     --liebe-c-vacuum: var(--teal-9);
-    --liebe-c-vacuum-text: var(--teal-11);
+    --liebe-c-vacuum-text: var(--teal-12);
 
     --liebe-c-water: var(--cyan-9);
     --liebe-c-water-text: var(--cyan-11);
@@ -57,5 +80,22 @@
 
     --liebe-c-brand: var(--crimson-9);
     --liebe-c-brand-text: var(--crimson-11);
+  }
+
+  /*
+   * Dark appearance. The selector list mirrors the base layer's, and Radix's
+   * own: the first branch is a theme root that declares itself dark, the second
+   * a nested theme inheriting darkness from an ancestor without overriding it.
+   *
+   * Only the three `-text` tokens the light block darkened appear here, and
+   * that is the whole purpose of the block — it undoes the light-appearance
+   * exception. Dark measures 8.3:1 at worst on step 11 and nothing here is
+   * meant to move it.
+   */
+  .radix-themes:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
+    --liebe-c-light-text: var(--amber-11);
+    --liebe-c-heat-text: var(--orange-11);
+    --liebe-c-vacuum-text: var(--teal-11);
   }
 }
