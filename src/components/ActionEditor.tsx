@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { useEffect } from 'react'
 import { Flex, Text, TextArea, TextField } from '@radix-ui/themes'
 import { Select } from '~/components/ui/portals'
 import yaml from 'js-yaml'
@@ -116,52 +115,43 @@ export function ActionEditor({
   const [dataError, setDataError] = React.useState<string | null>(null)
 
   /*
-   * `synced` is a ref rather than state because it is not rendered: it is the
-   * record of what the form last agreed with the store about, and keeping it out
-   * of the render output means an emission does not cost a second render pass.
-   * The comparison happens in an effect, so nothing is set during render.
+   * `synced` is the record of what the form last agreed with the store about —
+   * the previous-value guard of this repo's render-phase reset pattern
+   * (`CoverCard`, `LockCard`, `InputNumberCard`), which is what
+   * `react-hooks/set-state-in-effect` requires and what
+   * docs/changes/0040-test-harness-reliability.md moved this control onto. It
+   * was a ref compared inside an effect until then, invisible to the rule
+   * because the call was written `React.useEffect(...)`.
+   *
+   * State rather than the ref it used to be, because the comparison now happens
+   * during render and writing a ref there is the next rule over
+   * (`react-hooks/refs`). It costs no extra render pass in the case that
+   * matters: `emit` records and emits in one event handler, so the two updates
+   * are batched into the render the store change was going to cause anyway.
    */
   const storedJson = JSON.stringify(action)
-  const syncedRef = React.useRef(storedJson)
+  const [synced, setSynced] = React.useState(storedJson)
 
-  useEffect(() => {
-    // Only a value this control did not write resyncs the form. An unrelated
-    // re-render leaves `storedJson` equal to what was last agreed, so a
-    // half-typed service survives it; a genuinely new `value` does not match and
-    // replaces the fields wholesale.
-    if (syncedRef.current === storedJson) return
-    syncedRef.current = storedJson
+  // Only a value this control did not write resyncs the form. An unrelated
+  // re-render leaves `storedJson` equal to what was last agreed, so a half-typed
+  // service survives it; a genuinely new `value` does not match and replaces the
+  // fields wholesale. That guard is also what keeps this from cascading — it is
+  // the reason the reset is safe during render, where an effect would have had
+  // to schedule a second pass to do the same thing.
+  if (synced !== storedJson) {
+    setSynced(storedJson)
 
     const fields = fieldsOf(action)
-    /*
-     * Suppressed, not fixed — newly visible because this call was written
-     * `React.useEffect(...)`, which `react-hooks/set-state-in-effect` cannot
-     * see (docs/changes/0040-test-harness-reliability.md, PR 3).
-     *
-     * Note this one is not the same shape as `GridCard`'s two: those reset
-     * unconditionally, whereas this resyncs the form only when `storedJson`
-     * differs from what the control last emitted — so it does not cascade on
-     * every render, and the guard above is what stops it. That makes it the
-     * least alarming of the three and still a real report: the rule's objection
-     * is that a render can be triggered from an effect at all, and the honest
-     * answer is the render-phase pattern rather than a guard.
-     *
-     * REMOVE THIS SUPPRESSION IN PR 4, which audits all five member-call sites
-     * and moves the state-writing ones off effects. One disable covers the
-     * whole block: the rule reports the first setState in an effect body, and
-     * the four `set*` calls below are that same single resync.
-     */
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setKind(storedKind)
     setTarget(fields.target)
     setService(fields.service)
     setDataText(fields.dataText)
     setDataError(null)
-  }, [action, storedJson, storedKind])
+  }
 
   /** Records what this control emitted, so the echo does not resync the form. */
   const emit = (next: CardAction) => {
-    syncedRef.current = JSON.stringify(next)
+    setSynced(JSON.stringify(next))
     onChange(next)
   }
 

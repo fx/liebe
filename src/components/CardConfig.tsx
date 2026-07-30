@@ -880,10 +880,30 @@ function Modal({ open, onOpenChange, item, span, onSave }: ModalProps) {
 
   const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(getInitialConfig())
 
-  useEffect(() => {
+  /*
+   * Reseed the draft when the modal is pointed at another item, during render
+   * with a previous-value guard rather than in an effect — the repo's pattern
+   * (`CoverCard`, `LockCard`, `InputNumberCard`) and what
+   * `react-hooks/set-state-in-effect` requires.
+   *
+   * This is the fifth of the five call sites
+   * docs/changes/0040-test-harness-reliability.md sends PR 4 to audit, and the
+   * one the linter never reported: the React compiler bails on this component,
+   * so `set-state-in-effect` is silent here whatever form the call takes — a
+   * deliberately blatant violation planted in it reports nothing. It was found
+   * by reading, and a clean lint run over this file is not evidence about it.
+   *
+   * Two things improve besides the rule. The effect also fired on mount,
+   * replacing the initial draft with a freshly built object that was equal but
+   * not identical, so every open cost a second render for nothing. And it
+   * reseeded a commit late, so the frame in which the modal had been handed a
+   * new item still showed the previous item's values in its fields.
+   */
+  const [prevItem, setPrevItem] = React.useState(item)
+  if (item !== prevItem) {
+    setPrevItem(item)
     setLocalConfig(getInitialConfig())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item])
+  }
 
   const handleSave = () => {
     // For separator, we need to save the config as direct properties
