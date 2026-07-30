@@ -77,15 +77,30 @@ function isRooted(token: string): boolean {
 }
 
 /**
- * Whether a rooted citation resolves on disk.
+ * Whether a rooted citation resolves on disk **as the kind it claims to be**.
  *
- * Directory citations end in `/` and resolve to a directory; a citation may
- * carry a `*` (the document cites `__tests__/LightCard*.test.tsx` as a set),
- * which is matched against the directory's entries.
+ * A trailing `/` claims a directory and anything else claims a file, and the
+ * check is on the kind rather than on mere existence — `existsSync` alone is
+ * equally happy with a file sitting where the document says a folder is, which
+ * would make this assert something weaker than the sentence above it. That is
+ * the same defect as the document claiming things the tree does not support,
+ * one level up, and the whole point of the check is to fail on exactly that.
+ *
+ * A citation may carry a `*` — the document cites `__tests__/LightCard*.test.tsx`
+ * as a set — which is matched against the parent directory's entries, and the
+ * matched entry has to be the claimed kind too.
  */
 function rootedResolves(token: string): boolean {
-  const path = token.endsWith('/') ? token.slice(0, -1) : token
-  if (!path.includes('*')) return existsSync(join(REPO_ROOT, path))
+  const claimsDirectory = token.endsWith('/')
+  const path = claimsDirectory ? token.slice(0, -1) : token
+
+  const isClaimedKind = (absolute: string): boolean => {
+    if (!existsSync(absolute)) return false
+    const stats = statSync(absolute)
+    return claimsDirectory ? stats.isDirectory() : stats.isFile()
+  }
+
+  if (!path.includes('*')) return isClaimedKind(join(REPO_ROOT, path))
 
   const parent = join(REPO_ROOT, dirname(path))
   if (!existsSync(parent) || !statSync(parent).isDirectory()) return false
@@ -95,7 +110,9 @@ function rootedResolves(token: string): boolean {
       .map((literal) => literal.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
       .join('.*')}$`
   )
-  return readdirSync(parent).some((entry) => pattern.test(entry))
+  return readdirSync(parent).some(
+    (entry) => pattern.test(entry) && isClaimedKind(join(parent, entry))
+  )
 }
 
 describe(`${REFERENCE} path citations`, () => {
@@ -117,6 +134,44 @@ describe(`${REFERENCE} path citations`, () => {
       (token) => !isRooted(token) && PATH_SHAPED.test(token) && FILE_EXTENSION.test(token)
     )
     expect(bare).toEqual([])
+  })
+
+  /*
+   * The resolver's own negatives, asserted directly.
+   *
+   * Every check above passes by finding nothing, so on a correct document not
+   * one of `rootedResolves`'s rejection paths ever runs — the kind comparison
+   * included. A guard whose failure path is never executed is a guard nobody has
+   * seen work, which is how the weaker `existsSync` version read as correct.
+   */
+  describe('rootedResolves', () => {
+    const FILE = 'src/components/LightCard/index.tsx'
+    const FOLDER = 'src/components/LightCard'
+
+    it('accepts each kind cited as itself', () => {
+      expect(rootedResolves(FILE)).toBe(true)
+      expect(rootedResolves(`${FOLDER}/`)).toBe(true)
+      expect(rootedResolves('src/components/__tests__/LightCard*.test.tsx')).toBe(true)
+    })
+
+    it('rejects a citation whose kind disagrees with the tree', () => {
+      // A file cited as a folder, and a folder cited as a file — both of which
+      // plain existence checks accept.
+      expect(rootedResolves(`${FILE}/`)).toBe(false)
+      expect(rootedResolves(FOLDER)).toBe(false)
+      expect(rootedResolves('src/components/__tests__/LightCard*.test.tsx/')).toBe(false)
+    })
+
+    it('rejects a path that is not there at all', () => {
+      expect(rootedResolves('src/components/LightCard/bulbColor.ts')).toBe(false)
+      expect(rootedResolves('src/components/NoSuchCard/')).toBe(false)
+    })
+
+    it('rejects a glob that matches nothing, or whose parent is not a folder', () => {
+      expect(rootedResolves('src/components/LightCard/nothingMatches*.ts')).toBe(false)
+      expect(rootedResolves(`${FILE}/*.ts`)).toBe(false)
+      expect(rootedResolves('src/components/NoSuchCard/*.ts')).toBe(false)
+    })
   })
 
   it('cites no line numbers', () => {
