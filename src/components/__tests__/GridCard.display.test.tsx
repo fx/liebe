@@ -345,6 +345,58 @@ describe('GridCard display options', () => {
         expect(label).toHaveTextContent('on')
       })
 
+      it('says only the name when there is no state to report', () => {
+        /*
+         * A card placed for an entity the store does not hold — one Home
+         * Assistant has stopped publishing, or one whose first state has not
+         * arrived yet. There is no state and no error to append, and the label
+         * has to be the bare name rather than a name trailing an empty clause
+         * ("Reading lamp, ") or, worse, the word `undefined`.
+         *
+         * The name comes from the user's override here, which is the whole
+         * reason this tile is identifiable at all: with no entity in the store
+         * there is no `friendly_name` to fall back to.
+         */
+        render(
+          <GridCard
+            domain="light"
+            entityId="light.decommissioned"
+            config={{ iconOnly: true, name: 'Reading lamp' }}
+          >
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        expect(document.querySelector('.liebe-card-body-label')).toHaveTextContent(/^Reading lamp$/)
+      })
+
+      it('falls back to the entity id when nothing else names the tile', () => {
+        // No override and no entity: the id is the last thing that identifies
+        // the tile, and it beats an unlabelled glyph.
+        render(
+          <GridCard domain="light" entityId="light.decommissioned" config={{ iconOnly: true }}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        expect(document.querySelector('.liebe-card-body-label')).toHaveTextContent(
+          /^light\.decommissioned$/
+        )
+      })
+
+      it('renders no label at all for a tile with no entity behind it', () => {
+        // A text tile or a separator has nothing to name, and an empty clipped
+        // span would be noise in the accessibility tree rather than an
+        // identity.
+        render(
+          <GridCard domain="light" config={{ iconOnly: true }}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        expect(document.querySelector('.liebe-card-body-label')).toBeNull()
+      })
+
       it('strips the caller’s background paint, which is not an element to drop', () => {
         // The weather variants carry their condition artwork as an inline
         // `background-image` on the tile itself, which the themable-property
