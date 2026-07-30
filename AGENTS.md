@@ -172,7 +172,21 @@ The SDLC skills own the phases. What is specific to this repo:
 
    Inside your slot, rebuild and bring the stack up from your own worktree before running Playwright, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before — which is the same failure the slot exists to prevent, seen from the other side.
 
-5. **Playwright's own two prerequisites**
+5. **The unit suite and the workshop cannot reproduce how deeply Home Assistant nests the panel**
+
+   Both mount their tree in the document, or in a shadow root attached to an element that is a **direct child of `document.body`**. In Home Assistant the panel sits several shadow roots down — `<home-assistant>` → `<home-assistant-main>` → … → `<liebe-panel>` → its own shadow root. Any behaviour that depends on that depth is invisible to `npm test`, to the workshop, and to coverage, and shows up only in e2e.
+
+   Learned on [0036](docs/changes/0036-theming-contract-gaps.md) PR 2, where it cost a full implementation. Radix's modal overlays call `hideOthers` from the `aria-hidden` package to take the rest of the page out of the accessibility tree; it reconciles its target against `document.body` with `Node.contains`, and its one accommodation for shadow DOM climbs to the **first** host it meets and stops:
+
+   ```js
+   const unwrapHost = (node) => node && (node.host || unwrapHost(node.parentNode))
+   ```
+
+   One shadow root under `document.body` therefore resolves correctly and two do not. Portalling overlays into the panel's shadow root passed 5056 unit tests, both builds and 100% patch coverage, and in a real frontend hid `<home-assistant>` itself — the panel and the open dialog with it.
+
+   The general form, and the reason this is worth remembering past that one dependency: **a green suite is evidence about the environment it ran in.** When a change turns on where the panel sits in the DOM, on crossing a shadow boundary, or on anything the surrounding Home Assistant document owns, the local environments will agree with you regardless. Only CI's e2e job is evidence, which is also why it is the gate.
+
+6. **Playwright's own two prerequisites**
 
    A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
 
@@ -185,7 +199,7 @@ The SDLC skills own the phases. What is specific to this repo:
 
    `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
 
-6. **Merging `main` into a long-lived branch: the changelog tables**
+7. **Merging `main` into a long-lived branch: the changelog tables**
 
    Several specs end in a dated changelog table that every card change appends a row to, so two branches in flight almost always conflict there. There are **two** kinds of conflict in those tables and they take opposite resolutions.
 
