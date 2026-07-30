@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { Flex } from '@radix-ui/themes'
+import { Flex, Text } from '@radix-ui/themes'
 import { SunIcon } from '@radix-ui/react-icons'
 import { GridCardWithComponents as GridCard, type GridCardProps } from './GridCard'
 import { CardItemProvider } from './cardItemContext'
@@ -473,6 +473,176 @@ function AlignmentGallery({
       )}
     </Flex>
   )
+}
+
+/**
+ * `iconOnly` — the whole card reduced to its glyph, beside the card it reduced.
+ *
+ * Each pair is the same card twice: as configured, and with the option set. The
+ * comparison is the story — the option's claim is that everything but the icon
+ * goes *whatever the card renders*, so a gallery of icon-only tiles on their own
+ * would show tiles that look correct without showing what they no longer show.
+ *
+ * `data-icon-tile` is the marker the tile carries only in the right-hand column
+ * (docs/specs/theming — "Stable selector contract"); the state tint it will
+ * carry arrives with the rest of change 0033.
+ */
+function IconOnlyPair({
+  args,
+  label,
+  children,
+}: {
+  args: GridCardStoryProps
+  label: string
+  children: (config: Record<string, unknown>) => React.ReactNode
+}) {
+  const cell = nestedGridCell(2, 2)
+
+  return (
+    <Flex gap="4" align="start">
+      {[{}, { iconOnly: true }].map((config, index) => (
+        <div key={index} {...cell.frame}>
+          <PlacedCard {...args} tier={cell.tier} config={config}>
+            {children(config)}
+          </PlacedCard>
+        </div>
+      ))}
+      <Text size="1" color="gray">
+        {label}
+      </Text>
+    </Flex>
+  )
+}
+
+/**
+ * A control card: the light's brightness slider goes with everything else, and
+ * the tile is left with the glyph and its three universal actions.
+ */
+export const IconOnlyControlCard: Story = {
+  args: { gridWidth: 12, gridHeight: 3, domain: 'light', color: 'light', isOn: true },
+  render: (args) => (
+    <Flex direction="column" gap="4">
+      <IconOnlyPair args={args} label="on — the slider goes with the lines">
+        {() => (
+          <CardBody
+            arrangement={DEFAULT_TIER_ARRANGEMENT['full']}
+            lead={
+              <GridCard.Icon>
+                <SunIcon width={20} height={20} />
+              </GridCard.Icon>
+            }
+            meta={
+              <GridCard.Meta>
+                <GridCard.Title>Reading lamp</GridCard.Title>
+                <GridCard.Status>ON</GridCard.Status>
+              </GridCard.Meta>
+            }
+            control={
+              <GridCard.Controls>
+                <Slider
+                  domain="light"
+                  color="light"
+                  active
+                  label="Brightness"
+                  value={60}
+                  readout="60%"
+                  onValueChange={() => {}}
+                />
+              </GridCard.Controls>
+            }
+          />
+        )}
+      </IconOnlyPair>
+      <IconOnlyPair
+        args={{ ...args, isOn: false }}
+        label="off — the same glyph, and the tile that will carry the state"
+      >
+        {() => (
+          <CardBody
+            arrangement={DEFAULT_TIER_ARRANGEMENT['full']}
+            lead={
+              <GridCard.Icon>
+                <SunIcon width={20} height={20} />
+              </GridCard.Icon>
+            }
+            meta={
+              <GridCard.Meta>
+                <GridCard.Title>Reading lamp</GridCard.Title>
+                <GridCard.Status>OFF</GridCard.Status>
+              </GridCard.Meta>
+            }
+          />
+        )}
+      </IconOnlyPair>
+    </Flex>
+  ),
+}
+
+/**
+ * A read-only card with an interior: this is the case `hideName` + `hideState`
+ * could not reach. Emptying the two lines leaves the forecast row rendering;
+ * `iconOnly` is what takes it.
+ */
+export const IconOnlyReadOnlyCard: Story = {
+  args: { gridWidth: 12, gridHeight: 3, domain: 'weather', color: 'cool' },
+  render: (args) => (
+    <IconOnlyPair args={args} label="weather — the forecast row goes too">
+      {() => (
+        <CardBody
+          arrangement={DEFAULT_TIER_ARRANGEMENT['full']}
+          lead={
+            <GridCard.Icon>
+              <SunIcon width={20} height={20} />
+            </GridCard.Icon>
+          }
+          meta={
+            <GridCard.Meta>
+              <GridCard.Title>Outside</GridCard.Title>
+              <GridCard.Status>Rainy · 12°</GridCard.Status>
+            </GridCard.Meta>
+          }
+          extra={
+            <Flex gap="3" justify="between" width="100%">
+              {['Mon 14°', 'Tue 11°', 'Wed 15°'].map((day) => (
+                <Text key={day} size="1" color="gray">
+                  {day}
+                </Text>
+              ))}
+            </Flex>
+          }
+        />
+      )}
+    </IconOnlyPair>
+  ),
+}
+
+/**
+ * The danger floor. Both tiles below store `iconOnly: true`; the right-hand one
+ * is in a danger state, and renders its whole warning anyway — "a sounding
+ * smoke detector renders its full danger presentation, label included, whatever
+ * this option says" (docs/specs/entity-cards/options/common.md).
+ */
+export const IconOnlyDangerReversion: Story = {
+  args: { gridWidth: 12, gridHeight: 3, domain: 'binary_sensor' },
+  render: (args) => {
+    const cell = nestedGridCell(2, 2)
+    const config = { iconOnly: true }
+
+    return (
+      <Flex gap="4" align="start">
+        <div {...cell.frame}>
+          <PlacedCard {...args} tier={cell.tier} color="ok" config={config}>
+            <SampleContents label="Hallway smoke" state="CLEAR" />
+          </PlacedCard>
+        </div>
+        <div {...cell.frame}>
+          <PlacedCard {...args} tier={cell.tier} color="alert" danger config={config}>
+            <SampleContents label="Hallway smoke" state="SMOKE DETECTED" />
+          </PlacedCard>
+        </div>
+      </Flex>
+    )
+  },
 }
 
 /** `alignHorizontal` — the content block slid across the tile. */

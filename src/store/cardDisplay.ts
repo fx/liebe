@@ -77,6 +77,7 @@ export const CARD_DISPLAY_KEYS = [
   'hideName',
   'hideState',
   'color',
+  'iconOnly',
   'alignHorizontal',
   'alignVertical',
 ] as const
@@ -92,6 +93,22 @@ export interface CardDisplayOptions {
   hideName: boolean
   hideState: boolean
   color: CardColorOption
+  /**
+   * Reduce the card to its icon and its tile.
+   *
+   * The total version of `hideName` + `hideState`: those two empty the meta
+   * lines, and a card whose interior is more than meta lines — a forecast, a
+   * graph, a transport row, a thermostat dial — keeps rendering that interior.
+   * This one suppresses all of it (docs/specs/entity-cards/options/common.md —
+   * "Icon-only presentation").
+   *
+   * Deliberately NOT derived from the other two, and deliberately not implying
+   * them: the legacy both-hidden combination keeps its own meaning — a centred
+   * icon on a neutral tile, interior content intact — so a dashboard stored
+   * before this key existed renders exactly as it did. It is that separation
+   * the tile tint hangs off (docs/changes/0033-icon-only-cards.md).
+   */
+  iconOnly: boolean
   /** Where the content block sits on the tile's horizontal axis. */
   alignHorizontal: CardAlignOption
   /** Where the content block sits on the tile's vertical axis. */
@@ -99,7 +116,7 @@ export interface CardDisplayOptions {
 }
 
 /**
- * The stored defaults. All seven are "leave the card alone": an unconfigured
+ * The stored defaults. All eight are "leave the card alone": an unconfigured
  * card renders exactly what it rendered before the option existed.
  */
 export const CARD_DISPLAY_DEFAULTS: Readonly<CardDisplayOptions> = {
@@ -108,6 +125,7 @@ export const CARD_DISPLAY_DEFAULTS: Readonly<CardDisplayOptions> = {
   hideName: false,
   hideState: false,
   color: 'auto',
+  iconOnly: false,
   alignHorizontal: 'auto',
   alignVertical: 'auto',
 }
@@ -119,6 +137,7 @@ export const cardDisplayConfigSchema = z.object({
   hideName: z.boolean().optional(),
   hideState: z.boolean().optional(),
   color: cardColorSchema.optional(),
+  iconOnly: z.boolean().optional(),
   alignHorizontal: cardAlignSchema.optional(),
   alignVertical: cardAlignSchema.optional(),
 })
@@ -133,6 +152,7 @@ const displayKeySchemas: Readonly<Record<CardDisplayKey, z.ZodTypeAny>> = {
   hideName: z.boolean(),
   hideState: z.boolean(),
   color: cardColorSchema,
+  iconOnly: z.boolean(),
   alignHorizontal: cardAlignSchema,
   alignVertical: cardAlignSchema,
 }
@@ -150,11 +170,18 @@ export interface ReadCardDisplayOptions {
 /**
  * What a danger state takes back from the user's configuration.
  *
- * Colour, the two hide flags and the icon are all *signalling*: between them
- * they are how a card says something is wrong, and a configuration that pins a
- * jammed lock to `ok`, hides its state line, or swaps its glyph would produce a
- * card that looks fine while the door is not. Those revert to what the card
- * itself renders.
+ * Colour, the two hide flags, `iconOnly` and the icon are all *signalling*:
+ * between them they are how a card says something is wrong, and a configuration
+ * that pins a jammed lock to `ok`, hides its state line, or swaps its glyph
+ * would produce a card that looks fine while the door is not. Those revert to
+ * what the card itself renders.
+ *
+ * `iconOnly` is the strongest of them and reverts for the strongest version of
+ * the same reason: it removes not just the state line but every word on the
+ * tile, so a sounding smoke detector reduced to a glyph would be the quietest
+ * possible rendering of the loudest possible state
+ * (docs/specs/entity-cards/options/common.md — "Danger floor" under
+ * "Icon-only presentation").
  *
  * `name` is the exception and stays: it identifies the entity ("Back door")
  * rather than describing what it is doing, and a user who renamed a card still
@@ -176,6 +203,7 @@ function applyDangerFloor(display: CardDisplayOptions): CardDisplayOptions {
     hideName: CARD_DISPLAY_DEFAULTS.hideName,
     hideState: CARD_DISPLAY_DEFAULTS.hideState,
     color: CARD_DISPLAY_DEFAULTS.color,
+    iconOnly: CARD_DISPLAY_DEFAULTS.iconOnly,
   }
 }
 

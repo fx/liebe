@@ -15,6 +15,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore } from '~/store'
 import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '~/store/cardActions'
+import { readCardDisplay } from '~/store/cardDisplay'
 import { readMediaPlayerOptions } from '~/store/mediaPlayerOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
@@ -115,6 +116,12 @@ function MediaPlayerCardComponent({
 
   const { config } = useCardItem()
   const options = useMemo(() => readMediaPlayerOptions(config), [config])
+  /*
+   * Read without a danger flag, as this card passes none to its `GridCard`
+   * either, so the two resolutions cannot disagree (same reasoning as
+   * `CameraCard`).
+   */
+  const { iconOnly } = readCardDisplay(config)
 
   /*
    * Whether the artwork URL this card is currently holding failed to load.
@@ -285,7 +292,14 @@ function MediaPlayerCardComponent({
    * a component that read the clock during render would show a position that
    * only advanced when something *else* re-rendered it.
    */
-  const progressTicks = options.showProgress && tier === 'full' && state === 'playing'
+  /*
+   * `iconOnly` is the third half of "the bar actually renders": the seam
+   * suppresses the progress bar whatever the tier and the option say, so
+   * without this the ticker would re-render an icon-only tile once a second
+   * for a bar it does not draw — exactly the waste the two conditions beside
+   * it already rule out.
+   */
+  const progressTicks = options.showProgress && !iconOnly && tier === 'full' && state === 'playing'
 
   /*
    * The clock lives in state, and only this effect writes it.
@@ -405,7 +419,16 @@ function MediaPlayerCardComponent({
    */
   const artworkPresentation = resolveArtworkPresentation(options.artworkMode, tier)
   const hasArtwork = artworkUrl !== undefined && artworkUrl !== failedArtworkUrl
-  const showArtwork = !isCollapsed && artworkPresentation === 'thumbnail' && hasArtwork
+  /*
+   * `iconOnly` takes the album art with it, in both presentations. The option
+   * names exactly two cards whose identity anchor is not a glyph — the camera's
+   * thumbnail and the person's avatar — and a media player is not one of them:
+   * what identifies this tile is the speaker, not what happens to be playing on
+   * it (docs/specs/entity-cards/options/common.md — "Icon-only presentation").
+   * So the lead falls through to the icon circle, the same one that stands in
+   * whenever a track has no art.
+   */
+  const showArtwork = !isCollapsed && !iconOnly && artworkPresentation === 'thumbnail' && hasArtwork
 
   /*
    * Full-bleed artwork behind the whole tile, under a scrim.
@@ -420,7 +443,17 @@ function MediaPlayerCardComponent({
    * a background-image that 404s reports nothing, and the automatic icon
    * fallback would silently stop working in exactly this mode.
    */
-  const showBackgroundArtwork = !isCollapsed && artworkPresentation === 'background' && hasArtwork
+  /*
+   * `iconOnly` takes the background mode off the table, and it has to be read
+   * here rather than left to the shell's fence. The fence removes the backdrop
+   * element from an icon-only tile — it is one of the "backdrops, overlays,
+   * badges" the option suppresses — but the same flag is what decides this
+   * card has no lead at all, so fencing alone would leave a tile with the
+   * artwork gone and nothing in its place. Read here, the lead resolves to the
+   * thumbnail or the icon circle exactly as it does in every other mode.
+   */
+  const showBackgroundArtwork =
+    !isCollapsed && !iconOnly && artworkPresentation === 'background' && hasArtwork
 
   const backgroundArtwork = showBackgroundArtwork ? (
     <div className="liebe-media-backdrop" data-testid="media-backdrop">

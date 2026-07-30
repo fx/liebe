@@ -190,6 +190,29 @@ describe('card shell stylesheet', () => {
     expect(ruleBody('.liebe-card[data-icon-only] .liebe-meta:empty')).toContain('display: none;')
   })
 
+  it('centres the option’s own icon-only tile on a marker of its own', () => {
+    // `data-icon-tile` is what the `iconOnly` option stamps, and it is
+    // deliberately a second attribute rather than a second producer of the one
+    // above: the derived attribute is on every legacy `hideName` +
+    // `hideState` card, so a rule that means "the user asked for the icon-only
+    // presentation" — this centring today, the state tint next — needs a
+    // selector that reaches none of them
+    // (docs/specs/entity-cards/options/common.md — "Scenario: Existing
+    // hideName+hideState tiles are unaffected").
+    const iconTile = ruleBody('.liebe-card[data-icon-tile]')
+    expect(iconTile).toContain('display: flex;')
+    expect(iconTile).toContain('align-items: center;')
+    expect(iconTile).toContain('justify-content: center;')
+
+    // And the two are genuinely separate selectors: neither rule's selector
+    // list mentions the other attribute, so a theme (or the tint that follows)
+    // can target one without the other.
+    const centring = rulesIn(css).filter(({ selector }) =>
+      /^\.liebe-card\[data-icon-(only|tile)\]$/.test(selector)
+    )
+    expect(centring).toHaveLength(2)
+  })
+
   describe('the alignment pair', () => {
     it('leaves the unaligned tile in block flow, which is what makes auto free', () => {
       // The load-bearing half of "`auto` renders exactly as before": the tile
@@ -214,9 +237,16 @@ describe('card shell stylesheet', () => {
         .map(({ selector }) => selector)
         .filter((selector) => !/\[data-align-[hv]/.test(selector))
 
-      // Two pre-existing rules distribute content and are not part of the
-      // pair: the icon-only tile, and the row a card puts its control in.
-      expect(unscoped).toEqual(['.liebe-card[data-icon-only]', '.liebe-card-controls'])
+      // Three rules distribute content and are not part of the pair: the two
+      // icon-only tiles — the derived one and the option's own — and the row a
+      // card puts its control in. Both icon-only rules centre, and both are
+      // scoped to an attribute the shell stamps only for the configuration
+      // that produced them, so neither can reach an unconfigured card either.
+      expect(unscoped).toEqual([
+        '.liebe-card[data-icon-only]',
+        '.liebe-card[data-icon-tile]',
+        '.liebe-card-controls',
+      ])
     })
 
     it('turns the tile into a column, so each axis means one thing', () => {
@@ -308,6 +338,11 @@ describe('card shell stylesheet', () => {
       // `[data-align-h]` / `[data-align-v]` bare — the pair's shared rule, not
       // the per-value ones, whose attribute selectors carry a value.
       expect(at(/\[data-align-[hv]\](,|$)/)).toBeGreaterThan(at(/\[data-icon-only\]$/))
+      // The option's own marker sits under the same rule: "an icon-only tile
+      // with `alignVertical: start` shows its icon at the top of the tile"
+      // (docs/specs/entity-cards/options/common.md — the alignment pair "MUST
+      // compose with `hideName`/`hideState`/`iconOnly`").
+      expect(at(/\[data-align-[hv]\](,|$)/)).toBeGreaterThan(at(/\[data-icon-tile\]$/))
     })
   })
 

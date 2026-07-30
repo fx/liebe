@@ -242,6 +242,7 @@ describe('portable configuration contract', () => {
         hideName: false,
         hideState: true,
         color: 'media',
+        iconOnly: true,
         alignHorizontal: 'end',
         alignVertical: 'start',
         tapAction: 'toggle',
@@ -299,6 +300,12 @@ describe('portable configuration contract', () => {
         hideName: false,
         hideState: true,
         color: 'media',
+        // The icon-only key survives the same trip as every other display
+        // option, which is what makes a shared dashboard render as its author
+        // configured it (docs/specs/entity-cards/options/common.md — "Schema,
+        // config form, YAML round-trip … follow the same rules as every other
+        // display option").
+        iconOnly: true,
         alignHorizontal: 'end',
         alignVertical: 'start',
       })
