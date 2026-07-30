@@ -215,8 +215,29 @@ export const Disconnected: Story = {
 export const UnknownEntity: Story = {
   parameters: { liebe: { entities: [] } },
   play: async ({ canvasElement }) => {
-    await expect(canvasElement.querySelector('.liebe-card')).toBeInTheDocument()
-    await expect(within(canvasElement).queryByText('Living Room Blinds')).not.toBeInTheDocument()
+    const canvas = within(canvasElement)
+
+    /*
+     * Asserted on what the tile SAYS, not on the shell it renders inside.
+     *
+     * This used to require `.liebe-card`, and that assertion was correct about
+     * the contract and wrong about the code: `liebe-card` is the shell every
+     * entity card renders inside (`GridCard`), and all three lifecycle tiles —
+     * skeleton, not-found and disconnected — render outside it. So the
+     * assertion described a gap rather than a regression, and it went unnoticed
+     * until change 0040 PR 6 made play functions execute. Folding those tiles
+     * onto the shell is docs/changes/0043-card-tile-control-semantics.md PR 6,
+     * which owns restoring a shell assertion here.
+     *
+     * What replaces it is stronger for this story's own purpose. `Entity Not
+     * Found` is what separates this tile from the disconnected one and from a
+     * skeleton — all three are "something rendered instead of the card", and
+     * `.liebe-card` could not tell them apart — and the message names the
+     * entity, which is the half the docstring above is actually about.
+     */
+    await expect(canvas.getByText('Entity Not Found')).toBeInTheDocument()
+    await expect(canvas.getByText(entityId, { exact: false })).toBeInTheDocument()
+    await expect(canvas.queryByText('Living Room Blinds')).not.toBeInTheDocument()
   },
 }
 
