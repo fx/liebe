@@ -282,6 +282,18 @@ describe('input helper detail controls', () => {
 
       expect(within(controls()).getByRole('combobox')).toBeDisabled()
     })
+
+    it('names the dropdown after the helper', () => {
+      // The dialog mounts the card's own control, so it inherited the same
+      // anonymous trigger; naming it once at the control names both surfaces
+      // (docs/changes/0035-light-appearance-contrast.md).
+      seed(createInputSelectEntity())
+      openDialog('input_select.house_mode')
+
+      expect(
+        within(controls()).getByRole('combobox', { name: 'Select House Mode' })
+      ).toBeInTheDocument()
+    })
   })
 
   describe('input_text', () => {

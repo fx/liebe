@@ -73,11 +73,14 @@ const preview: Preview = {
             // `region` reports a story-isolation artifact, not a card defect: a
             // story renders a bare card with no surrounding landmark, while the
             // real panel DOES provide one. Measured against the built workshop,
-            // a stock `axe.run(document.body)` flags it on 127 of 165 stories
+            // a stock `axe.run(document.body)` flagged it on 127 of 165 stories
             // (301 nodes) — enough to bury the findings that ARE real defects,
-            // `button-name` (critical, 35 stories) and `aria-input-field-name`
-            // (serious, 6 stories), which stay reported and are tracked in
-            // issues #191 and #192.
+            // which at the time were `button-name` (critical, 35 stories) and
+            // `aria-input-field-name` (serious, 6 stories). Both now report
+            // zero: the sliders were named as the anatomy took them over
+            // (#192), and the last two unnamed controls by change 0035 PR 3
+            // (docs/changes/0035-light-appearance-contrast.md), which re-ran
+            // the audit across every story in both appearances.
             //
             // addon-a11y disables `region` in its own default rule set for this
             // exact reason, so today this entry is a no-op for the addon's
