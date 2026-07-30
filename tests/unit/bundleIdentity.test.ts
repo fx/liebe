@@ -1,26 +1,27 @@
 import { createHash } from 'node:crypto'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it, expect, vi } from 'vitest'
 import {
   DEV_SERVER_BUNDLE_URLS,
-  assertServedBundleMatchesDist,
+  assertServedArtifactsMatchDist,
   classifyBundleUrl,
   readPanelModuleUrl,
   type BundleFetch,
 } from '../e2e/bundleIdentity'
 
 // The e2e harness's bundle-identity gate. Lives outside tests/e2e's
-// Playwright-only exclusion so both of its branches are provable without
-// bringing the shared Home Assistant stack up: the allowlisted dev-server URL
-// skips, and EVERY other non-mounted URL fails closed. A gate that skipped on an
-// unrecognised URL would re-admit the contamination it exists to catch.
+// Playwright-only exclusion so every branch is provable without bringing the
+// shared Home Assistant stack up: the allowlisted dev-server URL skips, EVERY
+// other non-mounted URL fails closed, and a divergence in any served artifact —
+// not only module_url's bundle — is fatal. A gate that skipped on an unrecognised
+// URL, or that watched panel.js alone, would re-admit the contamination it exists
+// to catch.
 
-const HASS_URL = 'http://127.0.0.1:8123'
+const ORIGIN = 'http://localhost:8123'
 const MOUNTED_URL = '/local/dist/panel.js'
 const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
-
 const bytes = (text: string) => new TextEncoder().encode(text)
 
 /** Resolves with the thrown Error, and fails the test if nothing was thrown. */
@@ -34,17 +35,38 @@ async function rejectionOf(promise: Promise<unknown>): Promise<Error> {
   throw new Error('expected the bundle identity check to reject, but it resolved')
 }
 
-/** A fetch that serves fixed bytes, so a test can serve a bundle nobody built. */
-function serving(body: string, init: { ok?: boolean; status?: number } = {}) {
-  const impl: BundleFetch = vi.fn(async () => ({
-    ok: init.ok ?? true,
-    status: init.status ?? 200,
-    arrayBuffer: async () => {
-      const view = bytes(body)
-      return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer
-    },
-  }))
+/**
+ * A stack serving the given bodies per `/local/dist/` path, so a test can serve
+ * artifacts nobody built. A path mapped to `null` answers 404.
+ */
+function serving(bodies: Record<string, string | null>) {
+  const impl: BundleFetch = vi.fn(async (url: string) => {
+    const path = url.replace(`${ORIGIN}/local/dist/`, '')
+    const body = bodies[path]
+    if (body === undefined || body === null) {
+      return {
+        ok: false,
+        status: body === null ? 404 : 500,
+        arrayBuffer: async () => new ArrayBuffer(0),
+      }
+    }
+    const view = bytes(body)
+    return {
+      ok: true,
+      status: 200,
+      arrayBuffer: async () =>
+        view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer,
+    }
+  })
   return impl
+}
+
+/** A `dist/` holding the given bodies. */
+function built(bodies: Record<string, string>) {
+  return {
+    listLocalArtifacts: async () => Object.keys(bodies).sort(),
+    readLocalArtifact: async (path: string) => bytes(bodies[path]),
+  }
 }
 
 describe('readPanelModuleUrl', () => {
@@ -64,34 +86,36 @@ describe('readPanelModuleUrl', () => {
 
 describe('classifyBundleUrl', () => {
   it('resolves the mounted bundle to its served URL and its dist/ file', () => {
-    expect(classifyBundleUrl(MOUNTED_URL, HASS_URL)).toEqual({
+    expect(classifyBundleUrl(MOUNTED_URL, ORIGIN)).toEqual({
       kind: 'mounted',
-      url: `${HASS_URL}/local/dist/panel.js`,
+      url: `${ORIGIN}/local/dist/panel.js`,
       distFile: 'panel.js',
+      origin: ORIGIN,
     })
   })
 
   it('resolves a nested mounted bundle', () => {
-    expect(classifyBundleUrl('/local/dist/assets/panel.js', HASS_URL)).toEqual({
+    expect(classifyBundleUrl('/local/dist/assets/panel.js', ORIGIN)).toMatchObject({
       kind: 'mounted',
-      url: `${HASS_URL}/local/dist/assets/panel.js`,
+      url: `${ORIGIN}/local/dist/assets/panel.js`,
       distFile: 'assets/panel.js',
     })
   })
 
-  it('does not double the slash when hassUrl carries a trailing one', () => {
-    expect(classifyBundleUrl(MOUNTED_URL, 'http://127.0.0.1:8123/')).toMatchObject({
-      url: `${HASS_URL}/local/dist/panel.js`,
+  it('does not double the slash when the origin carries a trailing one', () => {
+    expect(classifyBundleUrl(MOUNTED_URL, 'http://localhost:8123/')).toMatchObject({
+      url: `${ORIGIN}/local/dist/panel.js`,
+      origin: ORIGIN,
     })
   })
 
   // Spelled out rather than driven off DEV_SERVER_BUNDLE_URLS: a case list
   // derived from the constant under test deletes itself when an entry is
-  // dropped, so it would report 21 green tests instead of a failure.
+  // dropped, so it would report green tests instead of a failure.
   it.each(['http://localhost:3000/panel.js', 'http://127.0.0.1:3000/panel.js'])(
     'exempts the allowlisted dev server %s',
     (url) => {
-      expect(classifyBundleUrl(url, HASS_URL)).toEqual({ kind: 'dev-server', url })
+      expect(classifyBundleUrl(url, ORIGIN)).toEqual({ kind: 'dev-server', url })
     }
   )
 
@@ -118,72 +142,128 @@ describe('classifyBundleUrl', () => {
     ['a query-string variant', '/local/dist/panel.js?v=2'],
     ['an empty module_url', ''],
   ])('fails closed on %s', (_label, moduleUrl) => {
-    expect(() => classifyBundleUrl(moduleUrl, HASS_URL)).toThrow(/cannot verify module_url/)
+    expect(() => classifyBundleUrl(moduleUrl, ORIGIN)).toThrow(/cannot verify module_url/)
   })
 })
 
-describe('assertServedBundleMatchesDist', () => {
-  it('passes when the served bundle is byte-identical to dist/', async () => {
-    const fetchImpl = serving('panel-bundle-v1')
+describe('assertServedArtifactsMatchDist', () => {
+  const clean = { 'panel.js': 'bundle-v1', 'liebe.css': 'styles-v1', 'fonts/a.woff2': 'font-v1' }
+
+  it('passes when every served artifact is byte-identical to dist/', async () => {
+    const fetchImpl = serving(clean)
     const log = vi.fn()
 
     await expect(
-      assertServedBundleMatchesDist({
+      assertServedArtifactsMatchDist({
         moduleUrl: MOUNTED_URL,
-        hassUrl: HASS_URL,
+        origin: ORIGIN,
         fetchImpl,
-        readLocalBundle: async () => bytes('panel-bundle-v1'),
+        ...built(clean),
         log,
       })
     ).resolves.toEqual({
       checked: true,
-      url: `${HASS_URL}/local/dist/panel.js`,
+      url: `${ORIGIN}/local/dist/panel.js`,
       distFile: 'panel.js',
-      sha256: sha256('panel-bundle-v1'),
-      bytes: bytes('panel-bundle-v1').byteLength,
+      sha256: sha256('bundle-v1'),
+      artifacts: 3,
     })
 
-    expect(fetchImpl).toHaveBeenCalledWith(`${HASS_URL}/local/dist/panel.js`, {
-      signal: expect.any(AbortSignal),
-    })
-    expect(log).toHaveBeenCalledWith(expect.stringContaining(sha256('panel-bundle-v1')))
+    // Every artifact is hashed, not only module_url's bundle.
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+    for (const path of Object.keys(clean)) {
+      expect(fetchImpl).toHaveBeenCalledWith(`${ORIGIN}/local/dist/${path}`, {
+        signal: expect.any(AbortSignal),
+      })
+    }
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(sha256('bundle-v1')))
   })
 
   it('throws naming BOTH hashes when the served bundle is a stale one', async () => {
     // The contamination this gate exists to catch: HA serves another worktree's
     // build while dist/ holds ours. The two digests are the evidence that every
     // result in the run would have been measured against foreign code.
-    const servedBody = 'panel-bundle-from-another-worktree'
-    const builtBody = 'panel-bundle-this-checkout-just-built'
-
     const error = await rejectionOf(
-      assertServedBundleMatchesDist({
+      assertServedArtifactsMatchDist({
         moduleUrl: MOUNTED_URL,
-        hassUrl: HASS_URL,
-        fetchImpl: serving(servedBody),
-        readLocalBundle: async () => bytes(builtBody),
+        origin: ORIGIN,
+        fetchImpl: serving({ ...clean, 'panel.js': 'bundle-from-another-worktree' }),
+        ...built(clean),
         log: vi.fn(),
       })
     )
 
     expect(error.message).toContain('bundle identity check FAILED')
-    expect(error.message).toContain(sha256(servedBody))
-    expect(error.message).toContain(sha256(builtBody))
-    expect(error.message).toContain(`${HASS_URL}/local/dist/panel.js`)
+    expect(error.message).toContain(sha256('bundle-from-another-worktree'))
+    expect(error.message).toContain(sha256('bundle-v1'))
+    expect(error.message).toContain(`${ORIGIN}/local/dist/panel.js`)
     expect(error.message).toContain('dist/panel.js')
   })
 
-  it('skips the allowlisted dev server without fetching anything', async () => {
-    const fetchImpl = serving('irrelevant')
-    const readLocalBundle = vi.fn()
+  it('catches a divergence in a served artifact panel.js cannot reveal', async () => {
+    // AGENTS.md's artifact-identity rule names this case: panel.js is
+    // byte-identical for a CSS-only change, so a check watching only the bundle
+    // is unguarded for exactly the probes that motivated it.
+    const error = await rejectionOf(
+      assertServedArtifactsMatchDist({
+        moduleUrl: MOUNTED_URL,
+        origin: ORIGIN,
+        fetchImpl: serving({ ...clean, 'liebe.css': 'styles-from-another-worktree' }),
+        ...built(clean),
+        log: vi.fn(),
+      })
+    )
+
+    expect(error.message).toContain('1 of 3 panel artifact(s)')
+    expect(error.message).toContain('dist/liebe.css')
+    expect(error.message).toContain(sha256('styles-from-another-worktree'))
+    expect(error.message).toContain(sha256('styles-v1'))
+    // The bundle itself matched, so its hash has no business in the report.
+    expect(error.message).not.toContain(sha256('bundle-v1'))
+  })
+
+  it('reports every diverging artifact, not just the first', async () => {
+    const error = await rejectionOf(
+      assertServedArtifactsMatchDist({
+        moduleUrl: MOUNTED_URL,
+        origin: ORIGIN,
+        fetchImpl: serving({ 'panel.js': 'other', 'liebe.css': 'other', 'fonts/a.woff2': 'other' }),
+        ...built(clean),
+        log: vi.fn(),
+      })
+    )
+
+    expect(error.message).toContain('3 of 3 panel artifact(s)')
+    expect(error.message).toContain('dist/fonts/a.woff2')
+  })
+
+  it('treats an artifact the mount does not serve as a mismatch', async () => {
+    const error = await rejectionOf(
+      assertServedArtifactsMatchDist({
+        moduleUrl: MOUNTED_URL,
+        origin: ORIGIN,
+        fetchImpl: serving({ ...clean, 'liebe.css': null }),
+        ...built(clean),
+        log: vi.fn(),
+      })
+    )
+
+    expect(error.message).toContain('answered HTTP 404')
+    expect(error.message).toContain('dist/liebe.css')
+    expect(error.message).toContain(sha256('styles-v1'))
+  })
+
+  it('skips the allowlisted dev server without fetching or reading anything', async () => {
+    const fetchImpl = serving(clean)
+    const listLocalArtifacts = vi.fn()
     const log = vi.fn()
 
     await expect(
-      assertServedBundleMatchesDist({
+      assertServedArtifactsMatchDist({
         moduleUrl: 'http://localhost:3000/panel.js',
-        hassUrl: HASS_URL,
+        origin: ORIGIN,
         fetchImpl,
-        readLocalBundle,
+        listLocalArtifacts,
         log,
       })
     ).resolves.toEqual({
@@ -193,57 +273,81 @@ describe('assertServedBundleMatchesDist', () => {
     })
 
     expect(fetchImpl).not.toHaveBeenCalled()
-    expect(readLocalBundle).not.toHaveBeenCalled()
+    expect(listLocalArtifacts).not.toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith(expect.stringContaining('skipped'))
   })
 
   it('fails closed on an unrecognised module_url instead of skipping it', async () => {
-    const fetchImpl = serving('irrelevant')
-    const readLocalBundle = vi.fn()
+    const fetchImpl = serving(clean)
+    const listLocalArtifacts = vi.fn()
 
     await expect(
-      assertServedBundleMatchesDist({
+      assertServedArtifactsMatchDist({
         moduleUrl: 'https://fx.github.io/liebe/panel.js',
-        hassUrl: HASS_URL,
+        origin: ORIGIN,
         fetchImpl,
-        readLocalBundle,
+        listLocalArtifacts,
         log: vi.fn(),
       })
     ).rejects.toThrow(/cannot verify module_url/)
 
     expect(fetchImpl).not.toHaveBeenCalled()
-    expect(readLocalBundle).not.toHaveBeenCalled()
+    expect(listLocalArtifacts).not.toHaveBeenCalled()
   })
 
-  it('throws when Home Assistant does not serve the mounted bundle at all', async () => {
+  it('names the build command when module_url points at a bundle dist/ does not hold', async () => {
     await expect(
-      assertServedBundleMatchesDist({
-        moduleUrl: MOUNTED_URL,
-        hassUrl: HASS_URL,
-        fetchImpl: serving('', { ok: false, status: 404 }),
-        readLocalBundle: async () => bytes('built'),
+      assertServedArtifactsMatchDist({
+        moduleUrl: '/local/dist/panel-never-built.js',
+        origin: ORIGIN,
+        fetchImpl: serving(clean),
+        ...built(clean),
         log: vi.fn(),
       })
-    ).rejects.toThrow(/could not fetch the served bundle .* \(HTTP 404\)/)
+    ).rejects.toThrow(/cannot find the built bundle dist\/panel-never-built\.js.*build:ha:prod/s)
   })
 
-  it('names the build command when the bundle module_url points at was never built', async () => {
-    // Exercises the DEFAULT reader against the repo's own dist/, with a filename
-    // that cannot exist there.
+  it('walks a real mount directory through its default readers', async () => {
+    // The defaults are what run in CI, and they are the part injection hides:
+    // this exercises the recursive listing and the on-disk reads against a real
+    // directory tree. A nested file must be enumerated too, or whole subtrees
+    // (fonts/, weather-backgrounds/) go unchecked while the gate reports green.
+    const dir = mkdtempSync(join(tmpdir(), 'liebe-dist-'))
+    mkdirSync(join(dir, 'fonts'))
+    writeFileSync(join(dir, 'panel.js'), 'bundle-v1')
+    writeFileSync(join(dir, 'liebe.css'), 'styles-v1')
+    writeFileSync(join(dir, 'fonts/a.woff2'), 'font-v1')
+
+    const seen: string[] = []
+    const fetchImpl = serving(clean)
+
+    const result = await assertServedArtifactsMatchDist({
+      moduleUrl: MOUNTED_URL,
+      origin: ORIGIN,
+      localDir: dir,
+      fetchImpl: (url, init) => {
+        seen.push(url.replace(`${ORIGIN}/local/dist/`, ''))
+        return fetchImpl(url, init)
+      },
+      log: vi.fn(),
+    })
+
+    expect(result).toMatchObject({ checked: true, artifacts: 3, sha256: sha256('bundle-v1') })
+    expect(seen).toEqual(['fonts/a.woff2', 'liebe.css', 'panel.js'])
+  })
+
+  it('names the build command when the mount directory does not exist', async () => {
     const error = await rejectionOf(
-      assertServedBundleMatchesDist({
-        moduleUrl: '/local/dist/panel-never-built.js',
-        hassUrl: HASS_URL,
-        fetchImpl: serving('served'),
+      assertServedArtifactsMatchDist({
+        moduleUrl: MOUNTED_URL,
+        origin: ORIGIN,
+        localDir: join(tmpdir(), 'liebe-dist-never-built'),
+        fetchImpl: serving(clean),
         log: vi.fn(),
       })
     )
 
-    expect(error.message).toMatch(
-      /cannot read the built bundle dist\/panel-never-built\.js.*build:ha:prod/s
-    )
-    // The cause must be a missing file — not a path/URL resolution failure
-    // dressed up in the same message.
+    expect(error.message).toMatch(/cannot read .*liebe-dist-never-built.*build:ha:prod/s)
     expect((error.cause as NodeJS.ErrnoException).code).toBe('ENOENT')
   })
 })
