@@ -238,6 +238,28 @@ describe.each(SCRIMS)('$name scrim', ({ source, scrim, scope, partScope, behind 
     expect(ruleBodies(source, scope)).toMatch(/isolation:\s*isolate;/)
   })
 
+  it('overrides the foreground roles only where the artwork is', () => {
+    /*
+     * The scope is what confines the treatment, and confinement is half of it:
+     * these values are white, so a rule that reached a card on its themed
+     * surface would render white on a pale one. Every declaration of every role
+     * has to sit behind the scope's class — asserted over the sheet rather than
+     * over the scope's own rules, which by construction could not fail.
+     */
+    const scopeClass = scope.slice(1)
+
+    for (const [, selector, body] of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      for (const { property } of FOREGROUND_TOKENS) {
+        if (!new RegExp(`${property}\\s*:`).test(body)) continue
+
+        expect(
+          selector,
+          `${property} is declared outside the artwork scope, by \`${selector.trim()}\``
+        ).toContain(scopeClass)
+      }
+    }
+  })
+
   it('lands in the base layer with no importance', () => {
     // An unlayered author rule outranks every cascade layer, and `!important`
     // reverses across layers — either would put the treatment beyond a theme.

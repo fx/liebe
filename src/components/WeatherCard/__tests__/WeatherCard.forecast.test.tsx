@@ -444,6 +444,10 @@ describe('what a column says', () => {
     expect(columns('hourly')).toHaveLength(4)
     expect(overArtwork).toHaveLength(0)
     expect(document.querySelector('.liebe-weather-scrim')).toBeNull()
+    // The scope carries the foreground tokens, so its absence is the other
+    // half of "no artwork treatment" — a scrim-less tile still scoped white
+    // would be white-on-white in a light theme.
+    expect(document.querySelector('.weather-card-artwork')).toBeNull()
   })
 
   it('sits on the scrim, and takes its colour from the token, over artwork', () => {
@@ -453,6 +457,7 @@ describe('what a column says', () => {
     renderWeather({ span: { width: 4, height: 3 } })
 
     expect(document.querySelector('.liebe-weather-scrim')).not.toBeNull()
+    expect(document.querySelector('.weather-card-artwork')).not.toBeNull()
 
     const pinned = Array.from(strip('hourly')!.querySelectorAll<HTMLElement>('[style]')).filter(
       (node) => /^(white|#fff|rgb)/i.test(node.style.color)

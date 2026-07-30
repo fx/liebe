@@ -90,11 +90,20 @@ const hasArtworkTreatment = () =>
   card().classList.contains('weather-card-artwork') &&
   card().querySelector('.liebe-weather-scrim') !== null
 
-/** Any node pinning a literal colour, which no theme could then reach. */
+/**
+ * Any node pinning a colour outside the token contract, which no theme could
+ * then reach.
+ *
+ * Written as "not a `var()` reference" rather than as a list of the spellings
+ * this card happens to have used. A predicate naming `white` and `#fff` passes
+ * a card that says `black`, `hsl(0 0% 100%)` or `color(display-p3 1 1 1)`, and
+ * the contract is about where the value COMES FROM, not what it looks like.
+ */
 const pinnedColourNodes = () =>
-  Array.from(card().querySelectorAll<HTMLElement>('[style]')).filter((node) =>
-    /^(white|#fff|rgb)/i.test(node.style.color)
-  )
+  Array.from(card().querySelectorAll<HTMLElement>('[style]')).filter((node) => {
+    const colour = node.style.color.trim()
+    return colour !== '' && !colour.startsWith('var(--')
+  })
 
 beforeEach(() => {
   dashboardActions.resetState()
