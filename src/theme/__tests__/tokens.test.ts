@@ -59,8 +59,19 @@ const base = declarations(baseRules)
  * The selector both sheets open their dark-appearance block with. Radix's
  * classless default is light, so light is the unconditional value and dark is
  * the override.
+ *
+ * Whitespace is optional everywhere CSS allows it, because the assertions below
+ * are about the selector list — `.dark` and `.dark-theme`, in that order, inside
+ * `:where()` on `.radix-themes`, with the trailing comma that makes the nested
+ * branch follow it — and not about how it happens to be formatted. Pinning the
+ * single space after the comma would fail on a cosmetic reflow that changes no
+ * selector, and a test that fails on formatting teaches the next reader to edit
+ * the assertion, which is how a real contract check gets hollowed out. It stays
+ * strict about everything that is semantic: no whitespace is tolerated between
+ * `.radix-themes` and `:where(`, where CSS would read it as a descendant
+ * combinator and mean something else entirely.
  */
-const DARK_SELECTOR = /\.radix-themes:where\(\.dark, \.dark-theme\),/
+const DARK_SELECTOR = /\.radix-themes:where\(\s*\.dark\s*,\s*\.dark-theme\s*\)\s*,/
 
 /**
  * The Default theme pins `-text` per appearance, so its sheet has to be read as
