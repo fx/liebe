@@ -118,6 +118,25 @@ describe('the bulb colour on a rendered card', () => {
     expect(sliderHue()).toBe('rgb(64, 120, 255)')
   })
 
+  it('keeps the bulb colour out of the glyph it would sit on', () => {
+    /*
+     * The tint is a 20% veil of the bulb's own colour, so a glyph drawn in that
+     * colour is a glyph on a wash of itself — 1.01:1 for a bulb reporting white,
+     * measured from painted pixels, which is no glyph at all
+     * (docs/changes/0035-light-appearance-contrast.md PR 4). White rather than
+     * the blue above because white is the case that vanishes, and because
+     * `useLightColor` reaches every bulb rather than the colourful ones.
+     */
+    seed(light({ rgb_color: [255, 255, 255] }))
+
+    renderCard(<LightCard entityId={LIGHT} tier="row" span={{ width: 2, height: 1 }} />)
+
+    const circle = document.querySelector('.liebe-icon') as HTMLElement
+
+    expect(circle.style.getPropertyValue('--part-tint')).toContain('rgb(255, 255, 255)')
+    expect(circle.style.getPropertyValue('--part-glyph')).not.toContain('rgb(255, 255, 255)')
+  })
+
   it('derives the same tint for both parts from hs_color alone', () => {
     // A different source format through the same wiring: whatever the chain
     // resolves, both parts must receive it, not just the one the shell owns.

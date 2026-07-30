@@ -164,6 +164,24 @@ describe('PersonCard', () => {
       expect(circle).toHaveAttribute('data-active', 'true')
     })
 
+    it('does not paint the initials themselves with it', () => {
+      /*
+       * The disc carries the identity colour; the letters on it must not. They
+       * are TEXT, so they answer to 4.5:1 rather than a glyph's 3:1, and the
+       * disc is a 20% tint of the very colour they would be drawn in — which
+       * measured 2.19–2.84:1 across the eight identity hues in both appearances
+       * before this was split (docs/changes/0035-light-appearance-contrast.md
+       * PR 4). Asserted here as well as on `hueStyle` because this card is one
+       * of only two that reach it, and the one whose floor is the stricter.
+       */
+      renderCard('home')
+
+      const circle = document.querySelector('.liebe-icon') as HTMLElement
+
+      expect(circle.style.getPropertyValue('--part-glyph')).not.toBe('var(--gold-9)')
+      expect(circle.style.getPropertyValue('--part-glyph')).toBe('var(--liebe-fg)')
+    })
+
     it('keeps the initials disc on an icon-only tile', () => {
       /*
        * An icon-only tile becomes the state tint surface, and `GridCard.css`
