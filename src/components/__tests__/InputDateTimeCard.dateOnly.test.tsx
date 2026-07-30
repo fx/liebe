@@ -43,6 +43,36 @@ const COMBINED = { has_date: true, has_time: true }
 /** What the defect printed: the same string read as an instant in UTC. */
 const asUtcInstant = (state: string) => new Date(state).toLocaleDateString()
 
+/**
+ * The locale every expectation below is formatted through — the same one the
+ * card's bare `toLocaleDateString()` resolves, captured so the assertions name
+ * it rather than assume it.
+ *
+ * It cannot be pinned the way the zone above is: Node fixes the default `Intl`
+ * locale at process startup, so assigning `process.env.LANG` mid-run does
+ * nothing (`TZ` is the exception, not the rule). The assertions are therefore
+ * made locale-agnostic by construction instead — a literal `'24'` would hold
+ * only where the ambient locale writes Western digits on a Gregorian calendar,
+ * while the token this reads out of the resolved locale's own date format holds
+ * in any of them, and still says what it is there to say: the **day the card
+ * rendered**.
+ *
+ * The token comes from `formatToParts` on the *same* default format
+ * `toLocaleDateString()` uses, rather than from a day-only or year-only format:
+ * a year-only format in the Buddhist calendar renders `พ.ศ. 2569`, whose era
+ * prefix is not a substring of the `1/1/2569` the card shows, so the narrower
+ * format fails on a locale the card handles correctly.
+ */
+const LOCALE = Intl.DateTimeFormat().resolvedOptions().locale
+
+const datePart = (date: Date, type: 'day' | 'year') => {
+  const part = new Intl.DateTimeFormat(LOCALE).formatToParts(date).find((p) => p.type === type)
+  // Throw rather than fall back: an absent part would make a `toContain` pass on
+  // the empty string and assert nothing at all.
+  if (!part) throw new Error(`the ${LOCALE} default date format carries no ${type}`)
+  return part.value
+}
+
 const createEntity = (state: string, shape: Record<string, boolean>): HassEntity => ({
   entity_id: 'input_datetime.holiday_start',
   state,
@@ -84,15 +114,18 @@ describe('date-only input_datetime, west of UTC', () => {
 
     expect(shown).toBe(new Date(2026, 11, 24).toLocaleDateString())
     expect(shown).not.toBe(asUtcInstant('2026-12-24'))
-    expect(shown).toContain('24')
+    // The day itself, not just a string that differs from the wrong one: a
+    // formatter that dropped the day entirely would satisfy both lines above.
+    expect(shown).toContain(datePart(new Date(2026, 11, 24), 'day'))
+    expect(shown).not.toContain(datePart(new Date(2026, 11, 23), 'day'))
   })
 
   it('does not roll a New Year date back into the previous year', () => {
     const shown = formatDatetimeDisplayValue('2026-01-01', DATE_ONLY)
 
     expect(shown).toBe(new Date(2026, 0, 1).toLocaleDateString())
-    expect(shown).toContain('2026')
-    expect(shown).not.toContain('2025')
+    expect(shown).toContain(datePart(new Date(2026, 0, 1), 'year'))
+    expect(shown).not.toContain(datePart(new Date(2025, 11, 31), 'year'))
   })
 
   it('reads the date half when a date-only helper publishes a time as well', () => {

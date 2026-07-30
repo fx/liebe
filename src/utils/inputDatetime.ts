@@ -135,8 +135,8 @@ export function toLocalCalendarDate(state: string): Date | null {
 
   const [year, month, day] = date.split('-').map(Number)
   const parsed = new Date(year, month - 1, day)
-  // The two-argument constructor reads a year below 100 as 19xx; assigning it
-  // back is what makes the year the state's own.
+  // `new Date(year, monthIndex, day)` maps a year of 0–99 onto 1900–1999;
+  // assigning the year back is what makes it the state's own.
   parsed.setFullYear(year)
 
   // `DATE_PATTERN` has already fixed the digit counts, so the only thing left to
