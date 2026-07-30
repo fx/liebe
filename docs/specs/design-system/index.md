@@ -164,7 +164,9 @@ Every part MUST also stamp the attributes of the [stable selector contract](../t
 
 A tile's **content region** is the width the grid lays it out at, less `--liebe-card-padding` on both inline sides. At `tall` the tile is one column wide by definition, so that region is the narrowest the design system ever hands a control, and **it has no lower bound this spec can pin**: the column count is the user's (a screen stored at 16 columns is honoured at both desktop breakpoints), the container width is Home Assistant's, and the inset is the theme's. The three compose, and they compose past zero — a 16-column screen in a 960px container lays out a 43px tile, which LCARS's 44px of inline inset leaves with no content region at all.
 
-The geometry tokens were never reconciled with any of that, which change [0042](../../changes/0042-tall-tile-control-geometry.md) measured and which these rules settle:
+The geometry tokens were never reconciled with any of that, which change [0042](../../changes/0042-tall-tile-control-geometry.md) measured and which these rules settle. They bind the parts laid out **inside** that region — everything the tier arrangements place. [Background slider placement](#background-slider-placement) is outside them by construction: its track is the tile edge to edge with no inset between the two, so it has no content region to overflow, consumes no layout space, and renders in every tier including `glance`. A theme's inset cannot shrink it and the floors below never omit it.
+
+For everything else:
 
 - **A part MUST NOT rely on the tile's inset to absorb an overhang.** The inset is a theme's to set and the tile clips (`overflow: hidden`), so a part sized past its content region stays uncropped only for the padding values its author happened to check — the default 14px leaves a 42px control 10.5px of clearance and LCARS leaves it 0.5px. "It fits inside the padding" is a property of one theme, never of the design system.
 - **A control rendered at a one-cell-wide tier MUST be cross-axis flexible**: it takes the content region's width, and its geometry token names the size it prefers rather than the size it always has. `--liebe-control-height` is exactly that for the vertical slider — the track is 42px where the region affords it and the region's width where it does not.
@@ -179,7 +181,7 @@ The geometry tokens were never reconciled with any of that, which change [0042](
 
 #### Scenario: Vertical slider fits the narrowest tile it can occupy
 
-- **GIVEN** a `tall` card on a 12-column grid whose container is 960px, so the tile is 63px wide and its content region 35px
+- **GIVEN** a card at 1×3 (`tall`) on a 12-column grid whose container is 960px, so the tile is 63px wide, its content region 35px, and its height leaves the control a band well over 44px
 - **WHEN** the vertical slider renders
 - **THEN** the track is 35px thick — the region's width, not the token's 42px — and no part of it extends past the tile's edge
 - **AND** the slider's own rendered length clears the 44px touch floor, so nothing is traded for the narrower track
@@ -188,7 +190,9 @@ The geometry tokens were never reconciled with any of that, which change [0042](
 - **WHEN** LCARS is active, whose asymmetric inset leaves that tile a 19px content region
 - **THEN** no slider renders at all — 19px is under the 24px floor — and the tile keeps its own primary action with the domain's controls behind the detail dialog
 - **WHEN** a screen stored at 16 columns lays out a 43px tile under LCARS, leaving no content region
-- **THEN** the same omission holds, and nothing renders at a width the user could not have hit.
+- **THEN** the same omission holds, and nothing renders at a width the user could not have hit
+- **WHEN** the card is instead at the minimum `tall` span of 1×2 on the default theme, where the inset, the icon circle and the meta block leave the control a band under 44px
+- **THEN** no slider renders either — the long-axis floor omits it exactly as the cross-axis one does, rather than shrinking it to a track too short to drag.
 
 #### Background slider placement
 
