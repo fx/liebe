@@ -293,11 +293,23 @@
    * Scoped to this slot, so the `tall` band's own vertical slider is untouched:
    * making that one flexible is change 0042 PR 3's, which owns the floors that
    * decide when a narrowed track should be omitted instead.
+   *
+   * The thumb takes the same treatment, and it is not a detail: the vertical
+   * thumb is a 3px-tall bar spanning the control's THICKNESS, so `anatomy.css`
+   * sizes it from the same token. Left rigid it stays 42px wide inside a
+   * narrowed root, and — being absolutely positioned and centred by Radix — it
+   * overhangs the track on both sides and is clipped by the tile. That is the
+   * original defect surviving in the one part that still had a fixed width.
    */
   .liebe-card-body[data-control-orientation='vertical']
     > .liebe-card-body-line
     > .liebe-card-controls
-    > .liebe-slider {
+    > .liebe-slider,
+  .liebe-card-body[data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls
+    > .liebe-slider
+    > .liebe-slider-thumb {
     inline-size: 100%;
     max-inline-size: var(--liebe-control-height);
   }

@@ -88,6 +88,8 @@ interface PlacementGeometry {
   orientation: string | null
   slider: Box | null
   track: Box | null
+  /** The leading edge, which is the thumb — sized from the same token as the track. */
+  thumb: Box | null
   /** The tile's own box, which nothing inside it may hang past. */
   card: Box
   /** The content region the tile's inset leaves, which bounds the parts inside. */
@@ -118,6 +120,7 @@ async function placementGeometry(page: Page, tier: string): Promise<PlacementGeo
 
     const slider = card.querySelector('.liebe-slider')
     const track = slider?.querySelector('.liebe-slider-track')
+    const thumb = slider?.querySelector('.liebe-slider-thumb')
 
     const box = (element: Element) => {
       const { left, right, top, bottom, width, height } = element.getBoundingClientRect()
@@ -128,6 +131,7 @@ async function placementGeometry(page: Page, tier: string): Promise<PlacementGeo
       orientation: slider?.getAttribute('data-orientation') ?? null,
       slider: slider ? box(slider) : null,
       track: track ? box(track) : null,
+      thumb: thumb ? box(thumb) : null,
       card: box(card),
       body: box(body),
       controlHeightToken: getComputedStyle(card).getPropertyValue('--liebe-control-height').trim(),
@@ -179,9 +183,10 @@ test('a forced placement gets a real axis, or is omitted rather than shrunk past
   // The premise: this is the wide tile, and the option turned its slider on end.
   expect(row!.orientation).toBe('vertical')
 
-  const { slider, track, card, body } = row!
+  const { slider, track, thumb, card, body } = row!
   expect(slider, 'the row card should render a slider').not.toBeNull()
   expect(track, 'the slider should render a track').not.toBeNull()
+  expect(thumb, 'the slider should render its leading edge').not.toBeNull()
 
   /*
    * THE ASSERTION THIS SPEC EXISTS FOR. A vertical slider takes its length from
@@ -207,6 +212,19 @@ test('a forced placement gets a real axis, or is omitted rather than shrunk past
   // the same control the tier would have drawn, turned.
   expect(Math.abs(slider!.width - controlHeight)).toBeLessThanOrEqual(TOLERANCE)
   expect(Math.abs(track!.width - controlHeight)).toBeLessThanOrEqual(TOLERANCE)
+
+  /*
+   * The leading edge spans the track and no more. It is sized from the same
+   * token as the track, absolutely positioned and centred by Radix, so a thumb
+   * left at the token's width inside a track that had narrowed to fit the row
+   * would hang past it on both sides — the same overflow one box further in,
+   * which is what the narrow-row rules relax it for. This tile is wide enough
+   * that both are at the token's thickness; what is asserted is the
+   * relationship, which has to hold at every width.
+   */
+  expect(thumb!.left).toBeGreaterThanOrEqual(track!.left - TOLERANCE)
+  expect(thumb!.right).toBeLessThanOrEqual(track!.right + TOLERANCE)
+  expect(Math.abs(thumb!.width - track!.width)).toBeLessThanOrEqual(TOLERANCE)
 
   // Nothing hangs past the tile, which clips (`overflow: hidden`). This is the
   // half that makes "forced means forced" safe to say.

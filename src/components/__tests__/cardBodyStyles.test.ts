@@ -95,13 +95,17 @@ function weighOf(pattern: RegExp): number {
  * source order, which is a fact about the sheet that a weight comparison cannot
  * express.
  */
-function ruleMatching(pattern: RegExp): { declarations: string; order: number } {
+function ruleMatching(pattern: RegExp): {
+  selector: string
+  declarations: string
+  order: number
+} {
   const matches = rulesIn(body)
     .map((rule, order) => ({ ...rule, selector: rule.selector.replace(/\s+/g, ' '), order }))
     .filter(({ selector }) => pattern.test(selector))
 
   expect(matches, `no rule matching ${pattern}`).toHaveLength(1)
-  return { declarations: matches[0].declarations, order: matches[0].order }
+  return matches[0]
 }
 
 describe('card body stylesheet', () => {
@@ -245,17 +249,28 @@ describe('a forced slider placement gets a definite axis to run along', () => {
      * keeps the token's meaning — the thickness the control PREFERS — while
      * letting the row decide when it cannot be afforded.
      */
-    const control = ruleMatching(
-      /data-control-orientation='vertical'\].* > \.liebe-slider$/
-    ).declarations
+    const control = ruleMatching(/data-control-orientation='vertical'\].*\.liebe-slider-thumb$/)
 
-    expect(control).toContain('inline-size: 100%;')
-    expect(control).toContain('max-inline-size: var(--liebe-control-height);')
+    expect(control.declarations).toContain('inline-size: 100%;')
+    expect(control.declarations).toContain('max-inline-size: var(--liebe-control-height);')
 
-    // The premise, from the anatomy sheet: the thickness this relaxes is a
-    // fixed one, so a rule that only shrank the slot would change nothing.
+    /*
+     * The track AND the thumb, in one rule, because relaxing either alone
+     * leaves the other overhanging: the vertical thumb is a 3px bar spanning
+     * the control's thickness, absolutely positioned and centred by Radix, so a
+     * rigid 42px thumb inside a narrowed root hangs past the track on both
+     * sides and is clipped by the tile — the original defect surviving in the
+     * one part that still had a fixed width.
+     */
+    expect(control.selector).toMatch(/> \.liebe-slider,/)
+
+    // The premise, from the anatomy sheet: both thicknesses this relaxes are
+    // fixed, so a rule that only shrank the slot would change nothing.
     expect(anatomy).toMatch(
       /\.liebe-slider\[data-orientation='vertical'\]\s*\{[^}]*inline-size:\s*var\(--liebe-control-height\);/
+    )
+    expect(anatomy).toMatch(
+      /\.liebe-slider\[data-orientation='vertical'\] \.liebe-slider-thumb\s*\{[^}]*inline-size:\s*var\(--liebe-control-height\);/
     )
   })
 
