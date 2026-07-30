@@ -116,13 +116,31 @@ export function hueStyle(hue: string): CSSProperties {
     '--part-color': hue,
     '--part-tint': `color-mix(in srgb, ${hue} 20%, transparent)`,
     /*
-     * `var()` rather than a resolved colour, and deliberately: a custom
-     * property is substituted at the element that DECLARES it, so writing
-     * these inline keeps `--liebe-fg` resolving at the part. A light pane
-     * nested inside a dark root — the workshop's appearance split, the panel's
+     * `var()` rather than a colour resolved here, and deliberately: this code
+     * cannot know the appearance, and the token does. A light pane nested
+     * inside a dark root — the workshop's appearance split, the panel's
      * fullscreen modal — therefore gets the light foreground on the parts
      * inside it, which is the same composition the per-appearance glyph step
      * relies on and the reason that step is declared on the root.
+     *
+     * WHEN `--liebe-fg` IS LOOKED UP, since this corner is misread often
+     * enough to be worth the citation. A `var()` inside a CUSTOM PROPERTY
+     * declaration is substituted at computed-value time on the element the
+     * declaration applies to — CSS Variables Level 1 gives custom properties
+     * the computed value "specified value with variables substituted"
+     * (§2 "Defining Custom Properties"), and §2.3 notes that this resolution
+     * "occurs before the value is inherited". Descendants inherit the already
+     * substituted value, not the token stream. That is the opposite of a
+     * `var()` in an ordinary property, which is resolved when that property is
+     * computed on whichever element consumes it.
+     *
+     * For THESE two declarations the distinction changes nothing, because they
+     * are written inline on the part that consumes them — both readings look
+     * up `--liebe-fg` at the part. It bites only where a `--part-*` is declared
+     * on an ANCESTOR: there the ancestor's `--liebe-fg` is what lands, and a
+     * descendant redeclaring the token cannot reach back into it. Verified in
+     * Chromium as well as read: `--a: var(--b)` on a parent, `--b` redefined on
+     * the child, resolves to the PARENT's value.
      */
     '--part-text': 'var(--liebe-fg)',
     '--part-glyph': 'var(--liebe-fg)',
