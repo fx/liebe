@@ -109,8 +109,12 @@ export function FullscreenModal({
 }: FullscreenModalProps) {
   // The container every Liebe overlay mounts into. `document.body` only where
   // there is no provider above this modal at all, which is the pre-container
-  // behaviour and leaves the content unthemed exactly as it was.
+  // behaviour and leaves the content unthemed exactly as it was — and nothing
+  // at all where there is no document, so a non-DOM render has nowhere to
+  // portal to rather than throwing on `document`.
   const liebePortalRoot = usePortalContainer()
+  const target =
+    portalContainer ?? liebePortalRoot ?? (typeof document === 'undefined' ? null : document.body)
 
   // Handle ESC key
   useEffect(() => {
@@ -125,7 +129,7 @@ export function FullscreenModal({
     }
   }, [open, closeOnEsc, onClose])
 
-  if (!open) return null
+  if (!open || !target) return null
 
   const content = (
     <>
@@ -162,8 +166,5 @@ export function FullscreenModal({
     </>
   )
 
-  return createPortal(
-    includeTheme ? <Theme>{content}</Theme> : content,
-    portalContainer ?? liebePortalRoot ?? document.body
-  )
+  return createPortal(includeTheme ? <Theme>{content}</Theme> : content, target)
 }

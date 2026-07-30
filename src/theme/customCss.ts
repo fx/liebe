@@ -65,6 +65,7 @@ import postcss, {
   type AtRule,
   type ChildNode,
   type Container,
+  type Document,
   type Node,
   type Root,
   type Rule,
@@ -779,9 +780,18 @@ const GROUPING_AT_RULES: ReadonlySet<string> = new Set([
  * bounded by whatever its parent was rewritten to, and a `@keyframes` step
  * (`from`, `50%`) is not a selector at all — rewriting one would turn the
  * animation into rules that match nothing.
+ *
+ * The whole ancestor chain, not the immediate parent: a conditional group may
+ * sit between a rule and the rule it is nested in — `.a { @media … { & .b {} } }`
+ * — and `& .b` is no more absolute for having an `@media` above it. Checking one
+ * level would rewrite it to `.liebe-portal-root:is(& .b)`, which is not a
+ * selector and drops the rule from the mirror entirely.
  */
 function isScopableRule(rule: Rule): boolean {
-  return rule.parent?.type !== 'rule'
+  for (let node: Container | Document | undefined = rule.parent; node; node = node.parent) {
+    if (node.type === 'rule') return false
+  }
+  return true
 }
 
 /**

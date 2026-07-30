@@ -535,6 +535,20 @@ describe('sanitizeCustomCss — the document-level mirror', () => {
     ])
   })
 
+  it('leaves a rule nested through a conditional group relative too', () => {
+    // A grouping at-rule between a rule and the rule it is nested in does not
+    // make the inner selector absolute. Rewriting `& .liebe-name` would emit
+    // `:is(& .liebe-name)`, which is not a selector, and lose the rule.
+    const nested: string[] = []
+    postcss
+      .parse(mirrored('.liebe-card { @media (min-width: 1px) { & .liebe-name { color: red } } }'))
+      .walkRules((rule) => {
+        if (rule.selector.startsWith('&')) nested.push(rule.selector)
+      })
+
+    expect(nested).toEqual(['& .liebe-name'])
+  })
+
   it('drops at-rules that register a document-global name', () => {
     // Selector rewriting bounds what a rule may MATCH and says nothing about a
     // construct that reaches the frontend without matching anything.
