@@ -196,23 +196,42 @@ describe('the icon-only audit', () => {
     }
   })
 
-  it.each(cases)('$name keeps an accessible name on its tile', ({ Card, name, domain }) => {
-    // "The tile MUST keep an accessible name carrying the entity's resolved
-    // name and, where the card has one, its state" — suppression takes every
-    // word off the tile, and an actionable tile with nothing but a glyph is
-    // anonymous to a screen reader (docs/specs/entity-cards/options/common.md
-    // — "Visual suppression never removes accessible semantics").
-    const friendlyName = entityFactories[domain as FixtureDomain]().attributes?.friendly_name
+  it.each(cases)('$name is still identified on its tile', ({ Card, name, domain }) => {
+    /*
+     * "The tile MUST keep an accessible name carrying the entity's resolved
+     * name": suppression takes every word off the tile, and an actionable tile
+     * with nothing but a glyph is anonymous to a screen reader
+     * (docs/specs/entity-cards/options/common.md — "Visual suppression never
+     * removes accessible semantics").
+     *
+     * Either delivery satisfies it, and which one a card gets is the point: a
+     * card that composes through a body has its name suppressed and gets the
+     * clipped label in its place, while one that renders its own layout — the
+     * climate `dial` variant — still has its name visible and must NOT also
+     * carry a copy, which would announce the same identity twice. So this asks
+     * the question the contract asks, "is this tile identified", rather than
+     * pinning the mechanism. It cannot be satisfied by a tile with neither,
+     * which is the failure it exists to catch.
+     */
+    const friendlyName = entityFactories[domain as FixtureDomain]().attributes?.friendly_name as
+      | string
+      | undefined
+    expect(friendlyName, domain).toBeTruthy()
 
     for (const tier of TIERS) {
       const { container, unmount } = renderTarget({ Card, name, domain }, tier, ICON_ONLY)
 
       for (const tile of tilesIn(container)) {
-        const label = tile.querySelector('.liebe-card-label')
-        expect(label, `${name} at ${tier}`).not.toBeNull()
-        expect(label!.textContent, `${name} at ${tier}`).toContain(friendlyName)
-        // The same string as the tile's own name, so the two cannot drift.
-        expect(tile.getAttribute('aria-label'), `${name} at ${tier}`).toBe(label!.textContent)
+        const label = tile.querySelector('.liebe-card-body-label')
+        const identified = label
+          ? label.textContent?.includes(friendlyName!)
+          : (tile.querySelector('.liebe-name')?.textContent?.includes(friendlyName!) ?? false)
+
+        expect(identified, `${name} at ${tier}`).toBe(true)
+
+        // And never both: the label replaces words that were removed, so a
+        // tile still showing its name must not carry a clipped copy of it.
+        if (label) expect(tile.querySelector('.liebe-name'), `${name} at ${tier}`).toBeNull()
       }
 
       unmount()
@@ -280,7 +299,7 @@ describe('the families the contract names', () => {
     const speaker = entityFactories.media_player()
     const { container } = renderCard('media_player', 'full', ICON_ONLY)
 
-    const label = container.querySelector('.liebe-card-label')!
+    const label = container.querySelector('.liebe-card-body-label')!
     expect(label.textContent).toContain(speaker.attributes?.friendly_name)
     expect(label.textContent).toContain(speaker.state)
     // The track title is what the suppressed meta carried, and it is not what
@@ -313,15 +332,14 @@ describe('the families the contract names', () => {
     )
 
     const tile = container.querySelector('.liebe-card')!
-    expect(tile.querySelector('.liebe-card-label')!.textContent).toContain(message)
-    expect(tile.getAttribute('aria-label')).toContain(message)
+    expect(tile.querySelector('.liebe-card-body-label')!.textContent).toContain(message)
     expect(tile).toHaveAttribute('data-error', 'true')
   })
 
   it('lets the user’s name override win, because that is the name they gave the tile', () => {
     const { container } = renderCard('light', 'full', { ...ICON_ONLY, name: 'Reading lamp' })
 
-    expect(container.querySelector('.liebe-card-label')!.textContent).toContain('Reading lamp')
+    expect(container.querySelector('.liebe-card-body-label')!.textContent).toContain('Reading lamp')
   })
 
   it('stops the sensor asking the recorder for a graph it will not draw', () => {

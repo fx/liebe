@@ -4,6 +4,7 @@ import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody } from '../CardBody'
 import { CardItemProvider } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
+import { entityStore } from '~/store/entityStore'
 import type { DashboardState } from '~/store/types'
 
 vi.mock('~/store', () => ({
@@ -27,6 +28,26 @@ describe('GridCard display options', () => {
       const state = { mode: 'view' } as Pick<DashboardState, 'mode'>
       return selector ? selector(state as DashboardState) : state
     })
+    /*
+     * One real entity, for the icon-only label. The shell builds it from the
+     * entity rather than from the slots, so a test that renders no entity gets
+     * `undefined` for it whatever the code does — which is exactly how a label
+     * assertion passes by accident. `~/store` is mocked above; the entity store
+     * is a different module and is not.
+     */
+    entityStore.setState((state) => ({
+      ...state,
+      entities: {
+        'fan.bedroom': {
+          entity_id: 'fan.bedroom',
+          state: 'on',
+          attributes: { friendly_name: 'Bedroom fan' },
+          last_changed: '',
+          last_updated: '',
+          context: { id: '', parent_id: null, user_id: null },
+        },
+      },
+    }))
   })
 
   function card() {
@@ -289,7 +310,7 @@ describe('GridCard display options', () => {
         // ("Card states outrank suppression"). Blanking the tile is worse than
         // suppressing too little, so the fence keeps its hands off.
         render(
-          <GridCard domain="fan" isUnavailable config={{ iconOnly: true }}>
+          <GridCard domain="fan" entityId="fan.bedroom" isUnavailable config={{ iconOnly: true }}>
             <div data-testid="unavailable-tile">
               <GridCard.Title>Bedroom fan</GridCard.Title>
               <GridCard.Status>Unavailable</GridCard.Status>
@@ -300,6 +321,28 @@ describe('GridCard display options', () => {
         expect(screen.getByTestId('unavailable-tile')).toBeInTheDocument()
         expect(name()).toHaveTextContent('Bedroom fan')
         expect(state()).toHaveTextContent('Unavailable')
+
+        // And no clipped label beside them. The label replaces words that were
+        // removed; here nothing was, so a copy would announce the same identity
+        // twice — once from the visible lines and once from the label. The
+        // entity is real and resolvable on purpose: without one the label comes
+        // out `undefined` whatever the code does, and this assertion would pass
+        // by accident rather than by behaviour.
+        expect(document.querySelector('.liebe-card-body-label')).toBeNull()
+      })
+
+      it('emits the label where a body did suppress the words', () => {
+        // The other side of the same rule, so neither assertion can be
+        // satisfied by a label that is never rendered at all.
+        render(
+          <GridCard domain="fan" entityId="fan.bedroom" config={{ iconOnly: true }}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        const label = document.querySelector('.liebe-card-body-label')
+        expect(label).toHaveTextContent('Bedroom fan')
+        expect(label).toHaveTextContent('on')
       })
 
       it('strips the caller’s background paint, which is not an element to drop', () => {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { CardTier } from '~/utils/cardTier'
 import { CARD_BODY_ROLE, type CardBodyMarked } from './cardBodyMarker'
-import { useGridCardDisplay } from './GridCard'
+import { useGridCardDisplay, useGridCardIconOnlyLabel } from './GridCard'
 import './CardBody.css'
 
 /**
@@ -134,6 +134,7 @@ export function CardBody({
   extra,
 }: CardBodyProps) {
   const { iconOnly } = useGridCardDisplay()
+  const iconOnlyLabel = useGridCardIconOnlyLabel()
 
   /*
    * The icon-only tile (docs/specs/entity-cards/options/common.md — "Icon-only
@@ -149,21 +150,29 @@ export function CardBody({
    * and stamping the requested value would have the sheet arrange one child
    * along an axis it is alone on.
    *
-   * The meta goes with the rest, and the accessible name the contract requires
-   * an icon-only tile to keep is the SHELL's — `GridCard` renders it, from the
-   * entity. Not from here, because what a card puts in its meta is not the
-   * entity's identity: `hideName`/`hideState` can empty it, a `tall` sensor
-   * carries its reading in the omitted control slot rather than in a meta line,
-   * and a media player's title line is the track rather than the speaker. A
-   * label built out of the slots would therefore be blank, incomplete or about
-   * something else exactly where it matters
+   * The meta goes with the rest, and a clipped label takes its place — the
+   * accessible name the contract requires an icon-only tile to keep, because
+   * "the interactive surface stays fully identified to assistive technology
+   * while the glyph alone identifies it visually"
    * (docs/specs/entity-cards/options/common.md — "Visual suppression never
-   * removes accessible semantics").
+   * removes accessible semantics"). An actionable tile whose only content is a
+   * glyph is anonymous to a screen reader otherwise.
+   *
+   * Its *text* comes from the shell, which is the only thing that knows the
+   * entity — a label built out of the slots below would be blank where the user
+   * also hid both lines, incomplete where a card carries its reading in the
+   * control slot rather than in a meta line (a `tall` sensor), and about the
+   * wrong thing where a card's title line is not the entity's name (a media
+   * player's is the track). Its *placement* is here, which is the only thing
+   * that knows the words were actually removed: a card that renders no body at
+   * all keeps its name and state on the tile, and a copy emitted alongside them
+   * would announce the same identity twice.
    */
   if (iconOnly) {
     return (
       <div className="liebe-card-body" data-arrangement="stack" data-control-size={controlSize}>
         {lead}
+        {iconOnlyLabel ? <span className="liebe-card-body-label">{iconOnlyLabel}</span> : null}
       </div>
     )
   }

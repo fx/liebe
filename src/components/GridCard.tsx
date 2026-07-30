@@ -329,6 +329,12 @@ interface GridCardContextValue {
   /** The stored display options, already resolved — see `readCardDisplay`. */
   display: CardDisplayOptions
   /**
+   * What an icon-only tile says to a screen reader, or nothing when the option
+   * is off. Resolved by the shell from the entity and read by `CardBody`, which
+   * is the component that knows suppression actually happened.
+   */
+  iconOnlyLabel?: string
+  /**
    * The data-driven colour that survived the precedence below, if any. Parts
    * read it from here rather than from the card, so the icon the shell renders
    * and a control the card renders cannot disagree about whether the tint
@@ -420,6 +426,24 @@ export function useGridCardHue(): string | undefined {
  */
 export function useGridCardDisplay(): CardDisplayOptions {
   return React.useContext(GridCardContext).display
+}
+
+/**
+ * The accessible name an icon-only tile keeps, for the component that renders
+ * it — see `CardBody`.
+ *
+ * The shell resolves it (only the shell knows the entity) and the body emits it
+ * (only the body knows suppression happened). Splitting it that way is not
+ * ceremony: emitting it from the shell instead means emitting it whenever the
+ * OPTION is set, and a card that renders no `CardBody` — the climate `dial`
+ * variant, or any card's bare unavailable tile — still has its name and state
+ * visible on the tile, so the clipped copy would announce the same identity
+ * twice. Emitted from the body, it appears exactly where the words it replaces
+ * were removed, including the camera's, whose body sits under a wrapper the
+ * shell's fence cannot see past.
+ */
+export function useGridCardIconOnlyLabel(): string | undefined {
+  return React.useContext(GridCardContext).iconOnlyLabel
 }
 
 /**
@@ -824,8 +848,17 @@ export const GridCard = React.memo(
       const effectiveHue = resolveCardHue(hue, display, danger)
 
       const contextValue = React.useMemo(
-        () => ({ tier, isLoading, domain, color: resolvedColor, isOn, display, hue: effectiveHue }),
-        [tier, isLoading, domain, resolvedColor, isOn, display, effectiveHue]
+        () => ({
+          tier,
+          isLoading,
+          domain,
+          color: resolvedColor,
+          isOn,
+          display,
+          hue: effectiveHue,
+          iconOnlyLabel,
+        }),
+        [tier, isLoading, domain, resolvedColor, isOn, display, effectiveHue, iconOnlyLabel]
       )
 
       /*
@@ -897,23 +930,8 @@ export const GridCard = React.memo(
             data-unavailable={isUnavailable ? 'true' : undefined}
             data-loading={isLoading ? 'true' : undefined}
             data-transparent={isTransparent ? 'true' : undefined}
-            /*
-             * The accessible name, for anything that treats the tile as the
-             * interactive surface it behaves as. The clipped text below is what
-             * actually reaches a reader today — a generic element's `aria-label`
-             * is not surfaced on its own — so the two are one label delivered
-             * twice rather than two labels.
-             */
-            aria-label={iconOnlyLabel}
             style={cardStyle}
           >
-            {/*
-             * The name and state, clipped out of sight. Rendered before the
-             * content so a reader meets the tile's identity first, and only
-             * under the option: without it the card's own lines are on the tile
-             * and this would say everything twice.
-             */}
-            {iconOnlyLabel ? <span className="liebe-card-label">{iconOnlyLabel}</span> : null}
             {/* Content — fenced to the card body while `iconOnly` holds, so a
                 backdrop or an overlay a card renders beside its body does not
                 survive the suppression its body just applied. */}

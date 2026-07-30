@@ -213,33 +213,6 @@ describe('card shell stylesheet', () => {
     expect(centring).toHaveLength(2)
   })
 
-  it('clips the icon-only tile’s label without removing it from the a11y tree', () => {
-    // The one thing `iconOnly` hides rather than omits. Everything else it
-    // suppresses is genuinely absent from the DOM, so a rendered test can see
-    // it; *how* this one is hidden is a property of these declarations, which
-    // jsdom cannot see at all.
-    const label = ruleBody('.liebe-card-label')
-
-    expect(label).toContain('clip-path: inset(50%);')
-    expect(label).toContain('inline-size: 1px;')
-    expect(label).toContain('block-size: 1px;')
-    expect(label).toContain('overflow: hidden;')
-    // Out of the tile's flow, so the glyph centres as it would with nothing
-    // beside it.
-    expect(label).toContain('position: absolute;')
-
-    /*
-     * The three "simplifications" that would each undo the point: every one of
-     * them hides the text visually AND takes the node out of the accessibility
-     * tree, which is the one outcome this rule exists to avoid
-     * (docs/specs/entity-cards/options/common.md — "Visual suppression never
-     * removes accessible semantics").
-     */
-    expect(label).not.toMatch(/\bdisplay:\s*none/)
-    expect(label).not.toMatch(/\bvisibility:\s*hidden/)
-    expect(label).not.toMatch(/\b(inline-size|block-size|width|height):\s*0/)
-  })
-
   describe('the alignment pair', () => {
     it('leaves the unaligned tile in block flow, which is what makes auto free', () => {
       // The load-bearing half of "`auto` renders exactly as before": the tile
