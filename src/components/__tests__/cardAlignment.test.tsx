@@ -9,9 +9,15 @@ import { entityStore } from '~/store/entityStore'
 import { entityHistoryService } from '~/services/entityHistory'
 import { dashboardActions } from '~/store'
 import { resetDispatchGuard } from '~/services/guardedDispatch'
-import { createAllDomainEntities, entityFactories, type FixtureDomain } from '~/test/fixtures'
+import {
+  createAllDomainEntities,
+  createCameraEntity,
+  entityFactories,
+  type FixtureDomain,
+} from '~/test/fixtures'
 import { CardItemProvider } from '../cardItemContext'
 import { domainToCard, type CardComponent, type CardProps } from '../cardRegistry'
+import { CameraCard } from '../CameraCard'
 import type { CardTier } from '~/utils/cardTier'
 
 /**
@@ -216,4 +222,51 @@ describe('the alignment audit', () => {
       }
     }
   )
+})
+
+/*
+ * A capability branch the registry table cannot see.
+ *
+ * The audit above renders each card against its default fixture, and a card
+ * that renders something else entirely for a differently-capable entity is a
+ * second layout the table never reaches. The camera has one: without
+ * `SUPPORT_STREAM` it draws a placeholder instead of a video surface, and until
+ * change 0032 that placeholder was an inline-filled `Flex` — `width` and
+ * `height: 100%` set inline, which outranks every cascade layer, so the icon
+ * sat at the tile's centre for every value of both axes while the option
+ * claimed to be universal (found by codex review, confirmed in Chromium).
+ *
+ * Pinned on the shared body rather than on the geometry, because the body is
+ * what makes the difference: the shell's rules reach a card's content through
+ * it, and a card that wraps its content in a box of its own sizing is
+ * unreachable however the rules are written.
+ */
+describe('a card’s capability branch', () => {
+  it('renders the stream-less camera through the shared body, where the rules reach', () => {
+    const camera = createCameraEntity({ attributes: { supported_features: 0 } })
+    entityStore.setState((state) => ({
+      ...state,
+      entities: { ...state.entities, [camera.entity_id]: camera },
+    }))
+
+    const { container } = render(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId={camera.entity_id} config={ALIGNED}>
+            <CameraCard entityId={camera.entity_id} tier="full" />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    const tile = container.querySelector('.liebe-card')!
+    expect(tile).toHaveAttribute('data-align-h', 'end')
+    expect(tile).toHaveAttribute('data-align-v', 'start')
+
+    const body = tile.querySelector('.liebe-card-body')
+    expect(body).not.toBeNull()
+    expect(body).toHaveAttribute('data-arrangement', 'stack')
+    // The icon is inside it, so what the alignment moves is the icon.
+    expect(body!.querySelector('.liebe-icon')).not.toBeNull()
+  })
 })
