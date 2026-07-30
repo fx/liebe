@@ -417,6 +417,28 @@
     color: var(--lcars-black);
   }
 
+  /*
+   * An icon-only tile is itself the tint surface (docs/specs/design-system —
+   * "Card anatomy", the icon-only exception), so the okudagram disc has to go
+   * there: the base sheet drops `.liebe-icon`'s background for that case, and
+   * this layer's rules above would otherwise put it straight back — a solid
+   * block of the hue sitting on a tile already tinted with it, which is both
+   * the doubled tint the base rule exists to prevent and a black glyph on a
+   * ground calibrated for a saturated one.
+   *
+   * The glyph takes the hue instead of the black it takes inside a block,
+   * which is the same move the base pattern makes in dark appearance — and
+   * LCARS is dark-only, so there is no second appearance to answer for.
+   */
+  .liebe-card[data-icon-tile] .liebe-icon,
+  .liebe-card[data-icon-tile] .liebe-icon[data-active] {
+    background: none;
+  }
+
+  .liebe-card[data-icon-tile] .liebe-icon[data-active] {
+    color: var(--lcars-hue);
+  }
+
   .liebe-pill[data-active],
   .liebe-chip[data-active] {
     background: color-mix(in srgb, var(--lcars-hue) 38%, var(--lcars-black));
