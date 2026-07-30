@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { InputTextCard } from '../InputTextCard'
 import { InputDateTimeCard } from '../InputDateTimeCard'
@@ -121,6 +121,41 @@ describe('the text and datetime helpers at a tier that cannot hold their input',
       expect(screen.getByLabelText('Edit value')).toBeInTheDocument()
       datetime.unmount()
     }
+  })
+
+  it('carries no fixed inline minimum on the tiers that do render an input', () => {
+    /*
+     * The other half of PR 4's `input_text` change, and the half that is NOT
+     * about `tall`: the field's 150px minimum and the readout's 100px one
+     * overflowed a two-column `row` region too — 113px on the same grid — so
+     * they were cropped at a tier nobody had measured. Both are now flexible,
+     * which is the treatment the contract asks of a part that CAN be sized
+     * down: "it takes the content region's width, and its geometry token names
+     * the size it prefers rather than the size it always has".
+     *
+     * Inline styles are in the DOM, so this is one of the few geometry claims
+     * jsdom can actually hold — it is reading the declaration, not a layout.
+     */
+    renderCard(<InputTextCard entityId="input_text.note" tier="row" />)
+
+    // The styled box is the readout's parent: `getByText` finds the `Text`
+    // inside it, and the sizing lives on the `Box` that wraps it.
+    const readout = screen.getByText('hello').parentElement!
+    expect(readout.style.minWidth, 'the readout must not pin an inline minimum').not.toMatch(
+      /\d+px/
+    )
+    // …and it truncates instead of pushing past the tile, which is what makes
+    // dropping the minimum safe rather than merely smaller.
+    expect(readout.style.textOverflow).toBe('ellipsis')
+
+    // The edit field takes the room it is given and shrinks with it.
+    fireEvent.click(screen.getByLabelText('Edit value'))
+    // Radix puts the accessible name on the `<input>` and the sizing on the
+    // root it wraps it in, so the style lives one level up — the same shape as
+    // the readout above.
+    const field = screen.getByLabelText('Value').parentElement!
+    expect(field.style.minWidth, 'the field must not pin an inline minimum').not.toMatch(/\d+px/)
+    expect(field.style.flex, 'the field must take the room the shape gives it').not.toBe('')
   })
 
   /*
