@@ -224,6 +224,15 @@ describe('LCARS stylesheet', () => {
     expect(
       iconOnlyRules.some(({ declarations }) => declarations.includes('color: var(--lcars-hue);'))
     ).toBe(true)
+
+    // …and gives way in turn to the person card, whose anchor IS a disc. The
+    // base layer keeps that one's background; a theme rule clearing every
+    // `.liebe-icon` would win across layers and leave bare initials on the
+    // tinted tile. The exception is by domain because that is the vocabulary a
+    // theme is allowed — `data-domain` is contract, an avatar class is not.
+    expect(
+      iconOnlyRules.every(({ selector }) => selector.includes(":not([data-domain='person'])"))
+    ).toBe(true)
   })
 
   it('renders in the bundled typeface, uppercase', () => {

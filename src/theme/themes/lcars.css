@@ -429,13 +429,21 @@
    * The glyph takes the hue instead of the black it takes inside a block,
    * which is the same move the base pattern makes in dark appearance — and
    * LCARS is dark-only, so there is no second appearance to answer for.
+   *
+   * The person card is excepted, because its anchor IS a disc: the base layer
+   * keeps the initials avatar's background for exactly that reason, and this
+   * rule would clear it again from a later layer. The exception is by domain
+   * rather than by the class the base sheet uses, because a theme may name
+   * only the stable selector contract — `data-domain` is in it, an avatar
+   * class is not — so LCARS leaves every person circle on its own okudagram
+   * treatment, which is the disc the contract asks for.
    */
-  .liebe-card[data-icon-tile] .liebe-icon,
-  .liebe-card[data-icon-tile] .liebe-icon[data-active] {
+  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon,
+  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
     background: none;
   }
 
-  .liebe-card[data-icon-tile] .liebe-icon[data-active] {
+  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
     color: var(--lcars-hue);
   }
 
