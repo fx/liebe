@@ -57,6 +57,10 @@ const cardText = (canvasElement: HTMLElement) =>
 const arrangement = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('.liebe-card-body')?.getAttribute('data-arrangement') ?? ''
 
+/** The condition glyph the line-art variants draw, by its icon-set class. */
+const conditionGlyph = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('.liebe-icon svg')?.getAttribute('class') ?? ''
+
 /** The condition artwork actually painted, or `''` for the flat surface. */
 const backgroundImage = (canvasElement: HTMLElement) =>
   (canvasElement.querySelector('.liebe-card') as HTMLElement | null)?.style.backgroundImage ?? ''
@@ -462,7 +466,11 @@ export const ExceptionalCondition: Story = {
   args: { gridWidth: 3, gridHeight: 1 },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'exceptional' })] } },
   play: async ({ canvasElement }) => {
-    await expect(cardText(canvasElement)).toContain('⚠️')
+    // The warning is the line-art `TriangleAlert`, not an emoji: change 0030
+    // retired the `default` variant's emoji header and `getConditionEmoji` with
+    // it (card-reference.md — "Condition→icon"). This story went on asserting
+    // `⚠️` for as long as nothing executed it.
+    await expect(conditionGlyph(canvasElement)).toContain('lucide-triangle-alert')
     await expect(backgroundImage(canvasElement)).toBe('')
   },
 }

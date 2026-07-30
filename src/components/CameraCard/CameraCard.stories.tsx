@@ -277,9 +277,15 @@ export const OverlayWithoutState: Story = {
   args: { item: cameraItem({ hideState: true }) },
   parameters: { liebe: { entities: [camera('idle')] } },
   play: async ({ canvasElement }) => {
-    await waitFor(() => expect(overlayName(canvasElement)).toBe('Driveway'))
+    // The badge waits with the name rather than after it: the overlay renders
+    // as soon as the card does, while `LIVE` follows the stream reaching its
+    // streaming state, so asserting it outside the wait is a race this story
+    // lost the first time anything ran it.
+    await waitFor(() => {
+      expect(overlayName(canvasElement)).toBe('Driveway')
+      expect(liveBadge(canvasElement)).toBe('LIVE')
+    })
     await expect(overlayState(canvasElement)).toBeNull()
-    await expect(liveBadge(canvasElement)).toBe('LIVE')
   },
 }
 

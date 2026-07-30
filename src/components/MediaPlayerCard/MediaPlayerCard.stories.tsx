@@ -12,13 +12,10 @@ type MediaPlayerCardStoryProps = ComponentProps<typeof MediaPlayerCard> & GridCe
 /**
  * The four canonical states × the four tiers × the option surface.
  *
- * These stories are **documentation**, not a gate. Nothing in this repo executes
- * Storybook `play` functions — there is no test-runner script, `*.stories.tsx`
- * is excluded from coverage, and `build-storybook` only proves they compile
- * (issue #259). The assertions below are kept because they say what each story
- * is *for*, but every behaviour they touch is independently pinned in
- * `__tests__/`, which does run. Nothing relies on this file to catch a
- * regression.
+ * The assertions below run: `src/__tests__/stories.test.tsx` composes every
+ * story and executes its `play` function as part of `npm test`. This docblock
+ * used to say the opposite — that nothing executed them and they were kept as
+ * documentation — and six of them were wrong at the time it said so.
  */
 const meta: Meta<MediaPlayerCardStoryProps> = {
   title: 'Cards/MediaPlayerCard',
@@ -55,8 +52,21 @@ const stateLine = (canvasElement: HTMLElement) =>
 const artwork = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('img.liebe-media-artwork')
 const iconCircle = (canvasElement: HTMLElement) => canvasElement.querySelector('.liebe-icon')
-const transport = (canvasElement: HTMLElement) =>
-  [...canvasElement.querySelectorAll('.liebe-pill')].map((pill) => pill.getAttribute('aria-label'))
+/**
+ * The transport cluster's own pills, by the group the card puts them in.
+ *
+ * Scoped to that group rather than to every `.liebe-pill` on the card: the mute
+ * toggle is a pill too, and it belongs to the volume presentation. Reading them
+ * all made every exact-list assertion below wrong the moment mute arrived — and
+ * nothing noticed, because until the story runner (docs/changes/0040-test-
+ * harness-reliability.md) nothing executed them.
+ */
+const transport = (canvasElement: HTMLElement) => {
+  const group = canvasElement.querySelector('[role="group"][aria-label="Media controls"]')
+  return [...(group?.querySelectorAll('.liebe-pill') ?? [])].map((pill) =>
+    pill.getAttribute('aria-label')
+  )
+}
 
 /* ------------------------------------------------------------------ *
  * The four canonical states
