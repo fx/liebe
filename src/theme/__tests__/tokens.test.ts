@@ -54,7 +54,62 @@ function cssImports(source: string): string[] {
 const baseRules = stripComments(baseCss)
 const themeRules = stripComments(defaultThemeCss)
 const base = declarations(baseRules)
-const theme = declarations(themeRules)
+
+/**
+ * The selector both sheets open their dark-appearance block with. Radix's
+ * classless default is light, so light is the unconditional value and dark is
+ * the override.
+ *
+ * Whitespace is optional everywhere CSS allows it, because the assertions below
+ * are about the selector list — `.dark` and `.dark-theme`, in that order, inside
+ * `:where()` on `.radix-themes`, with the trailing comma that makes the nested
+ * branch follow it — and not about how it happens to be formatted. Pinning the
+ * single space after the comma would fail on a cosmetic reflow that changes no
+ * selector, and a test that fails on formatting teaches the next reader to edit
+ * the assertion, which is how a real contract check gets hollowed out. It stays
+ * strict about everything that is semantic: no whitespace is tolerated between
+ * `.radix-themes` and `:where(`, where CSS would read it as a descendant
+ * combinator and mean something else entirely.
+ */
+const DARK_SELECTOR = /\.radix-themes:where\(\s*\.dark\s*,\s*\.dark-theme\s*\)\s*,/
+
+/**
+ * The same selector as a sheet writes it, for the failure messages below. The
+ * pattern's own `source` is what a reader would otherwise be shown, and with the
+ * whitespace classes in it that is a wall of backslashes naming nothing —
+ * `\.radix-themes:where\(\s*\.dark\s*,\s*…`. A test that has just failed should
+ * say which selector it went looking for, in the language of the file it was
+ * looking in.
+ */
+const DARK_SELECTOR_CSS = '.radix-themes:where(.dark, .dark-theme),'
+
+/**
+ * The Default theme pins `-text` per appearance, so its sheet has to be read as
+ * two blocks. A single whole-file `declarations()` map would return the dark
+ * value for any token both blocks declare and silently stop checking the light
+ * one — the appearance the defect was in.
+ */
+const [themeLightRules, themeDarkRules = ''] = themeRules.split(DARK_SELECTOR)
+const themeLight = declarations(themeLightRules)
+const themeDark = declarations(themeDarkRules)
+
+/**
+ * The hues whose Radix step 11 measures under the 4.5:1 text floor on the light
+ * card surface, with the step the Default theme pins them to there instead.
+ *
+ * Measured on rendered pixels against `--liebe-card-bg` (`--gray-1`, #fcfcfd):
+ * amber-11 4.497:1, orange-11 4.398:1, teal-11 4.450:1. Step 11 is calibrated
+ * against steps 1–2 of its own scale rather than against a neutral, which is
+ * why only the warm and warm-leaning hues fall short. Every other hue clears
+ * the floor at step 11 in light and stays there: pulling the passing hues
+ * darker would change the state line's weight on every card to fix a defect
+ * three hues have (change 0035).
+ */
+const LIGHT_TEXT_STEPS = new Map([
+  ['light', 12],
+  ['heat', 12],
+  ['vacuum', 12],
+])
 
 describe('token stylesheet', () => {
   it('declares every token the contract catalogues', () => {
@@ -88,13 +143,12 @@ describe('token stylesheet', () => {
     // Assert the delimiter before splitting on it: reformatting or renaming the
     // dark selector would otherwise leave `darkBlock` undefined and surface as a
     // TypeError inside `declarations`, hiding which selector went missing.
-    const darkSelector = /\.radix-themes:where\(\.dark, \.dark-theme\),/
     expect(
       baseRules,
-      `base sheet does not open its dark block with ${darkSelector.source}`
-    ).toMatch(darkSelector)
+      `base sheet does not open its dark block with \`${DARK_SELECTOR_CSS}\` (whitespace-insensitive)`
+    ).toMatch(DARK_SELECTOR)
 
-    const [, darkBlock] = baseRules.split(darkSelector)
+    const [, darkBlock] = baseRules.split(DARK_SELECTOR)
     expect([...declarations(darkBlock).keys()]).toEqual([
       '--liebe-bg',
       '--liebe-card-bg',
@@ -104,18 +158,50 @@ describe('token stylesheet', () => {
 })
 
 describe('default theme stylesheet', () => {
+  it('opens its dark block with the same selector the base sheet uses', () => {
+    // Without this the split above yields one block, `themeDark` is empty, and
+    // the per-appearance assertions below would read as "dark declares nothing
+    // extra" rather than "the dark block went missing".
+    expect(
+      themeRules,
+      `default theme sheet does not open its dark block with \`${DARK_SELECTOR_CSS}\` (whitespace-insensitive)`
+    ).toMatch(DARK_SELECTOR)
+  })
+
   it('carries a complete palette, so switching back to it restores every hue', () => {
     for (const { name, scale } of domainColors) {
       const { base: baseToken, text } = domainColorTokens(name)
-      expect(theme.get(baseToken)).toBe(`var(--${scale}-9)`)
-      // Step 9 is the solid hue; step 11 is the readable text step.
-      expect(theme.get(text)).toBe(`var(--${scale}-11)`)
+      // Step 9 is the solid hue, in both appearances; the text step is the one
+      // that varies, asserted per appearance below.
+      expect(themeLight.get(baseToken)).toBe(`var(--${scale}-9)`)
+      expect(themeLight.has(text)).toBe(true)
+    }
+  })
+
+  it('pins every text companion to the step that measures on the light card', () => {
+    for (const { name, scale } of domainColors) {
+      const step = LIGHT_TEXT_STEPS.get(name) ?? 11
+      expect(themeLight.get(domainColorTokens(name).text)).toBe(`var(--${scale}-${step})`)
+    }
+  })
+
+  it('restores step 11 in dark for exactly the hues light darkens', () => {
+    // Dark measures 8.3:1 at worst on step 11, so it has no defect to fix and
+    // change 0035 puts it out of scope. Asserting the dark block's full key list
+    // is what makes an unasked-for dark-appearance change fail: any other token
+    // appearing here moves a figure this change promised not to touch.
+    const darkened = domainColors.filter(({ name }) => LIGHT_TEXT_STEPS.has(name))
+    expect([...themeDark.keys()]).toEqual(darkened.map(({ name }) => domainColorTokens(name).text))
+    for (const { name, scale } of darkened) {
+      expect(themeDark.get(domainColorTokens(name).text)).toBe(`var(--${scale}-11)`)
     }
   })
 
   it('leaves the tints derived, so remapping a base recolours them', () => {
     for (const { name } of domainColors) {
-      expect(theme.has(domainColorTokens(name).tint)).toBe(false)
+      const { tint } = domainColorTokens(name)
+      expect(themeLight.has(tint)).toBe(false)
+      expect(themeDark.has(tint)).toBe(false)
     }
   })
 })
