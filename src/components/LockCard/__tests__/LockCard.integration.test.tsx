@@ -319,6 +319,36 @@ describe('a lock code on the real dispatch path', () => {
     })
   })
 
+  it('does not retry a coded unlock the lock rejected', async () => {
+    /*
+     * REVIEW.md — "Service-Call Safety": a consequential command takes the
+     * non-retrying path, and the proof is a boundary-level test that one
+     * gesture yields one call under a transient failure. A retried
+     * `lock.unlock` is a door unlocked twice; a retried *coded* one also
+     * resubmits the credential, which on a lock that counts failed attempts is
+     * how a correct code locks the user out.
+     */
+    seed(codedLock('locked'))
+    ;(hass.callService as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Invalid code'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    fireEvent.click(pill('Unlock'))
+    await waitFor(() => expect(screen.getByTestId('code-keypad')).toBeInTheDocument())
+    enter(CODE)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unlock' }).at(-1)!)
+
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+
+    /*
+     * Waited out rather than asserted immediately, and that is the whole test:
+     * `waitFor` above is satisfied by the FIRST call, so a retrying path would
+     * pass it and fire again afterwards. The retrying wrapper's first delay is
+     * 1000 ms, so this window covers it.
+     */
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+
   it('never writes the code into the dashboard configuration or its YAML export', async () => {
     /*
      * The security property, asserted where it can actually be observed: this
