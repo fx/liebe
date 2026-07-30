@@ -178,6 +178,22 @@ describe('resolveStackConfig', () => {
     ).toThrow(new RegExp(`${ENV_HA_PORT}="${value.replace('.', '\\.')}"`))
   })
 
+  it.each([
+    ['both set to one port', { [ENV_HA_PORT]: '19000', [ENV_GO2RTC_PORT]: '19000' }],
+    // The subtler one: overriding a single variable ONTO the other's derived
+    // value. The port pre-flight cannot see it — one free port probed twice
+    // answers free twice — so it would surface as a compose bind error naming
+    // neither variable.
+    [
+      'one set onto the other’s derived port',
+      { [ENV_HA_PORT]: String(deriveStackIdentity(WORKTREE_B).go2rtcPort) },
+    ],
+  ])('rejects %s, which cannot bind', (_label, env) => {
+    expect(() => resolveStackConfig({ checkoutPath: WORKTREE_B, env })).toThrow(
+      /would both publish port/
+    )
+  })
+
   it('rejects a project override docker compose would not accept', () => {
     expect(() =>
       resolveStackConfig({ checkoutPath: WORKTREE_B, env: { [ENV_PROJECT]: 'My Stack' } })
@@ -244,11 +260,14 @@ describe('classifyDockerProbe', () => {
     expect(fault?.message).not.toMatch(/service docker start/)
   })
 
-  it('names a missing compose v2 plugin', () => {
-    const fault = classifyDockerProbe({
-      status: 125,
-      stderr: "docker: 'compose' is not a docker command.\nSee 'docker --help'",
-    })
+  it.each([
+    // Docker has shipped two wordings for the same missing plugin, and they
+    // share no adjacent phrase — a pattern written from one silently
+    // misclassifies the other as an unrecognised failure.
+    ["docker: 'compose' is not a docker command.\nSee 'docker --help'"],
+    ['docker: unknown command: docker compose\n\nRun `docker --help` for more information'],
+  ])('names a missing compose v2 plugin from %j', (stderr) => {
+    const fault = classifyDockerProbe({ status: 125, stderr })
     expect(fault?.cause).toBe('compose-missing')
     expect(fault?.message).toMatch(/compose v2 plugin is not installed/)
   })

@@ -139,17 +139,25 @@ This subsection is the project's standing testing and quality bar; other specs l
 
 The Playwright suite drives the built panel inside a real, dockerized Home Assistant instance (`ha/docker-compose.yml`, change [0005](../../changes/0005-dockerized-ha-e2e.md)). CI is the gate for a merge decision; the requirements below are what makes a local run safe to take alongside other checkouts of the same repository.
 
-- A checkout's stack MUST be addressable independently of every other checkout's: the compose project name and every published port MUST be derived from the checkout's own absolute path, so concurrent worktrees never share containers, volumes, bind mounts or an instance (`scripts/e2eStack.mjs`, change 0040). Compose services MUST NOT carry a fixed `container_name`, which is global to the daemon and would collide across projects.
-- The suite MUST address the instance its own checkout started: the Playwright base URL and the onboarding script's URLs read the same derivation rather than a fixed port.
-- Two checkouts MAY derive the same port, and that case MUST fail loudly: startup MUST refuse to publish a port it does not already own, naming the port, and MUST NOT fall back to sharing an instance. Explicit project and port overrides MUST be available as the resolution, and an override that is unusable MUST be rejected rather than silently ignored — a rejected override is one instance, a fallback is two.
-- Scripted startup MUST detect a docker daemon that is missing, unreachable, unpermitted, or lacking the compose v2 plugin, and exit naming which of those it is. A permission-denied socket reports both "permission denied" and "cannot connect to the daemon", so reachability MUST NOT be diagnosed ahead of permission.
-- The suite MUST refuse to run against artifacts it did not build: global setup hashes every artifact the instance serves under the `module_url` its configuration declares and compares them against `dist/`, skipping only the allowlisted dev-server endpoint and failing closed on anything else (`tests/e2e/bundleIdentity.ts`, change 0040). This holds independently of the per-checkout derivation — a contaminated run is indistinguishable from a clean one, so a mismatch MUST invalidate the run rather than be scored by it.
+- Two checkouts of the repository MUST be able to run the suite at the same time without either observing the other: no containers, volumes, bind mounts, published ports or entity state in common. Each checkout's stack MUST be identified by its own path, so the same checkout addresses the same stack on every invocation with nothing on disk to get out of sync.
+- The suite MUST address the instance its own checkout started, not whichever instance is reachable at a conventional address.
+- Where isolation depends on a bounded resource, exhausting it MUST fail loudly rather than fall back to sharing: startup MUST refuse to take a published port it does not already own, naming the port. An explicit override MUST be available as the resolution, and an override that cannot work MUST be rejected at startup rather than silently ignored or deferred to a later error — a rejected override leaves one instance, a fallback leaves two.
+- Scripted startup MUST distinguish a docker daemon that is missing, unreachable, unpermitted, or lacking the compose v2 plugin, and exit naming which of those it is. A permission-denied socket reports both "permission denied" and "cannot connect to the daemon", so reachability MUST NOT be diagnosed ahead of permission.
+- The suite MUST refuse to run against artifacts it did not build: global setup compares every artifact the instance serves under the `module_url` its configuration declares against the local build, skipping only the allowlisted dev-server endpoint and failing closed on anything else (change 0040). This holds independently of the isolation above — a contaminated run is indistinguishable from a clean one, so a mismatch MUST invalidate the run rather than be scored by it.
+
+How this is met today (implementation, not contract): `scripts/e2eStack.mjs` derives the compose project name from a hash of the checkout's absolute path and both published ports from a bounded slot window over the same hash; `playwright.config.ts` and `scripts/onboard.mjs` read that derivation instead of a literal port; `tests/e2e/bundleIdentity.ts` hashes served against built artifacts. Compose services carry no fixed `container_name` — a container name is global to the daemon and would collide across projects however the project is named.
 
 #### Scenario: Two worktrees run the suite at the same time
 
-- **GIVEN** two checkouts of the repository at different paths, each with its own built `dist/`
+- **GIVEN** two checkouts of the repository at different paths, each with its own built `dist/`, whose stacks were both able to claim their published ports
 - **WHEN** both run `npm run e2e:ha:up` and then the suite
 - **THEN** each addresses its own compose project on its own ports, serving its own bundle and its own Home Assistant configuration, and neither run observes the other's state.
+
+#### Scenario: Two checkouts want the same port
+
+- **GIVEN** one checkout's stack is already published on a port a second checkout would also publish on
+- **WHEN** the second runs `npm run e2e:ha:up`
+- **THEN** it exits non-zero naming the port rather than starting, and succeeds once given an explicit port override — at no point do the two share an instance.
 
 #### Scenario: The docker daemon is not usable
 

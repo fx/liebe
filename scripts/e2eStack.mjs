@@ -158,6 +158,17 @@ export function resolveStackConfig({ checkoutPath = CHECKOUT_PATH, env = process
 
   const haPort = readPortOverride(env, ENV_HA_PORT) ?? derived.haPort
   const go2rtcPort = readPortOverride(env, ENV_GO2RTC_PORT) ?? derived.go2rtcPort
+  // Reachable by overriding one port onto the other's derived value, not only
+  // by setting both the same. The pre-flight cannot see it — one free port
+  // probed twice answers free twice — so it would surface as a compose bind
+  // error naming neither variable.
+  if (haPort === go2rtcPort) {
+    throw new Error(
+      `Home Assistant and go2rtc would both publish port ${haPort}, which cannot bind. ` +
+        `Check ${ENV_HA_PORT} and ${ENV_GO2RTC_PORT}: they must differ from each other, and ` +
+        `an override of one has to clear the other's derived port too.`
+    )
+  }
   const projectName = projectOverride || derived.projectName
   const bind = env.HA_BIND || '127.0.0.1'
 
@@ -240,7 +251,10 @@ export function classifyDockerProbe({ error, status, stderr = '' } = {}) {
         '  sudo service docker start',
     }
   }
-  if (/is not a docker command|unknown docker command/i.test(text)) {
+  // Two spellings in the wild for the same missing plugin, and they share no
+  // adjacent phrase: `docker: 'compose' is not a docker command.` and
+  // `docker: unknown command: docker compose`.
+  if (/is not a docker command|unknown (docker )?command/i.test(text)) {
     return {
       cause: 'compose-missing',
       message:

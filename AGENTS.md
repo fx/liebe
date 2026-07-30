@@ -143,18 +143,25 @@ The SDLC skills own the phases. What is specific to this repo:
 
    **The CI `Home Assistant E2E` job is the gate for a merge decision.** CI brings up its own stack per pull request, against that branch's own bundle. A local run is for _debugging_ — it does not qualify a PR.
 
-   It is, however, safe to take. `npm run e2e:ha:up` goes through `scripts/e2eStack.mjs`, which derives the compose project name **and both published ports** from this checkout's absolute path, so every worktree gets its own containers, its own volumes, its own `dist/` and `ha/config` mounts, and its own Home Assistant. Concurrent worktrees no longer meet. `npm run e2e:ha:env` prints what your checkout resolved to; `npm run e2e:ha:down` and `npm run e2e:ha:logs` address the same stack. `playwright.config.ts` and `scripts/onboard.mjs` read the same derivation, so the suite talks to the instance you started rather than to whatever holds 8123.
+   It is, however, safe to take alongside other worktrees. **[architecture — end-to-end harness](docs/specs/architecture/index.md#end-to-end-harness) owns what the harness guarantees**; what follows is how to drive it here.
 
-   This replaces the exclusive-slot rule that used to live here, and the harm that rule existed to prevent is worth keeping in view because it is what the machinery is now shaped around. One worktree recreating the shared stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 2). The bundle-identity check in `tests/e2e/bundleIdentity.ts` remains the fail-closed backstop for any mismatch that reaches the suite by some other route.
+   ```bash
+   npm run e2e:ha:up     # start this checkout's stack
+   npm run e2e:ha:env    # print the project, ports and URLs it resolved to
+   npm run e2e:ha:logs   # compose logs for this checkout's project
+   npm run e2e:ha:down   # stop it and drop its volumes
+   ```
 
-   **Two derivations, two different guarantees.** The project name carries 32 bits of the path's sha256, so distinct checkouts effectively never share one — containers and mounts cannot collide. The ports come from a bounded 5000-slot window (20000–29999, two ports per stack), so two checkouts _can_ land on the same slot, and an unrelated service can simply be listening there. That case is made loud rather than silent: `up` refuses to start on a port it does not already own, names the port and the slot, and offers the override. Set your own and export the same values for the run:
+   There is **no fixed port** any more — ask `e2e:ha:env` rather than assuming 8123, and note that the whole point is that your neighbour's stack is a different one. If `up` refuses to start because something already holds a port, pin your own and export the same values for the run:
 
    ```bash
    LIEBE_E2E_HA_PORT=28123 LIEBE_E2E_GO2RTC_PORT=28555 npm run e2e:ha:up
    LIEBE_E2E_HA_PORT=28123 LIEBE_E2E_GO2RTC_PORT=28555 npm run e2e
    ```
 
-   `LIEBE_E2E_PROJECT` overrides the project name the same way, and `HA_BIND=0.0.0.0` still exposes the instance beyond loopback. An override that is not a usable port or a valid compose project name is rejected rather than quietly ignored — falling back would point `up` at one instance and the tests at another.
+   `LIEBE_E2E_PROJECT` overrides the project name the same way, and `HA_BIND=0.0.0.0` still exposes the instance beyond loopback.
+
+   This replaces the exclusive-slot rule that used to live here, and the harm that rule existed to prevent is worth keeping in view because it is what the machinery is now shaped around. One worktree recreating the shared stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 2). The bundle-identity check in `tests/e2e/bundleIdentity.ts` remains the fail-closed backstop for any mismatch that reaches the suite by some other route.
 
    **The daemon prerequisites, which the script now names for you.** `npm run e2e:ha:up` needs the Docker daemon, which is not always up in a fresh workspace. Unlike the dev server, this one you may start yourself:
 
