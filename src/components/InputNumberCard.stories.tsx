@@ -12,15 +12,11 @@ const meta: Meta<InputNumberCardStoryProps> = {
   title: 'Cards/Inputs/InputNumberCard',
   component: InputNumberCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 3,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createInputNumberEntity()] },
@@ -126,25 +122,25 @@ export const EditMode: Story = {
  */
 export const TierGlance: Story = {
   name: 'Tier — glance (1×1)',
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /** Icon, meta and the whole stepper in a row. */
 export const TierRow: Story = {
   name: 'Tier — row (3×1)',
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
 }
 
 /** Icon on top, stepper between, meta at the bottom. */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /** The row control plus the `min – max` range line, which is `full`-only. */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }
 
 /* ------------------------------------------------------------------ *
@@ -156,13 +152,13 @@ export const TierFull: Story = {
  * `mode: slider`, so the slider is what an unconfigured card shows.
  */
 export const ControlStyleFromEntityMode: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: { liebe: { entities: [createInputNumberEntity()] } },
 }
 
 /** `stepper` overrides that: the +/- buttons around the click-to-edit readout. */
 export const ControlStyleStepper: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createInputNumberEntity()],
@@ -173,7 +169,7 @@ export const ControlStyleStepper: Story = {
 
 /** `slider` on a `mode: box` helper — the override works in both directions. */
 export const ControlStyleSlider: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createInputNumberEntity({ attributes: { mode: 'box' } })],
@@ -184,7 +180,7 @@ export const ControlStyleSlider: Story = {
 
 /** The slider goes vertical at `tall`, where the tile's height is the travel. */
 export const ControlStyleSliderTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [createInputNumberEntity()],

@@ -12,15 +12,11 @@ const meta: Meta<InputDateTimeCardStoryProps> = {
   title: 'Cards/Inputs/InputDateTimeCard',
   component: InputDateTimeCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 4,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createInputDateTimeEntity()] },
@@ -141,23 +137,23 @@ export const EditMode: Story = {
  */
 export const TierGlance: Story = {
   name: 'Tier — glance (1×1)',
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /** Icon, meta and the native input in a row. */
 export const TierRow: Story = {
   name: 'Tier — row (3×1)',
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
 }
 
 /** Icon on top, input between, meta at the bottom. */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /** The row arrangement plus the date/time mode line, which is `full`-only. */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }

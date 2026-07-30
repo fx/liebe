@@ -18,15 +18,11 @@ const meta: Meta<PersonCardStoryProps> = {
   title: 'Cards/PersonCard',
   component: PersonCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 3,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createPersonEntity()] },
@@ -177,7 +173,7 @@ export const NonLatinName: Story = {
 
 /** `glance`: avatar, name, presence. No duration — there is no room for one. */
 export const TierGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('Home')
     await expect(readBadge(canvasElement)).toBe('home')
@@ -187,7 +183,7 @@ export const TierGlance: Story = {
 
 /** `row`: the showcase — everything this card has, on one line. */
 export const TierRow: Story = {
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('Jane Doe')).toBeInTheDocument()
@@ -197,7 +193,7 @@ export const TierRow: Story = {
 
 /** `tall`: avatar over name, and deliberately no secondary metadata. */
 export const TierTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 2 },
+  args: { gridWidth: 1, gridHeight: 2 },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('Home')
     await expect(canvasElement.querySelector('[data-testid="person-since"]')).toBeNull()
@@ -210,7 +206,7 @@ export const TierTall: Story = {
  * data source behind them yet.
  */
 export const TierFull: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('Home')
     await expect(canvasElement.querySelector('[data-testid="person-since"]')).not.toBeNull()
