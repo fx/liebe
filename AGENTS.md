@@ -261,8 +261,12 @@ The SDLC skills own the phases. What is specific to this repo:
 
    **Exclude the separator row from that key.** Its padding is dashes rather than spaces, so stripping whitespace leaves `| ---- |` and `| --------- |` two different strings: main's reflowed separator reads as a row only one side has, and the obvious correction restores it as a second separator in the middle of the table. "Normalise the padding" sounds total and is not — it covers the padding made of spaces.
 
+   **A repeated column HEADER is the same trap one step along, and the separator rule above does not cover it.** `| Token | Default | Purpose |` is not made of dashes — it is ordinary words — so every correction aimed at the separator's padding leaves it firing. It fires on `docs/specs/design-system/index.md` in particular because that spec has **two token tables**, so the row appears twice in **both parents**: the merged file then carries a duplicate count of 1 that the merge did not introduce. Two agents hit it independently on that one file within the same hour — PR [#325](https://github.com/fx/liebe/pull/325) and PR [#329](https://github.com/fx/liebe/pull/329) — each with a row extractor that excluded separators and counted headers as rows, and **each read it as a real duplicate to remove before tracing it**. Removing a header that legitimately appears twice breaks the second table, which is item 7's own warning arriving twice in one hour: the false positive is the dangerous direction, because it invites "fixing" something that was right.
+
+   Two forms of the fix work, and the first is better: **key rows within their own table**, so an identical row in a different table is a different key — which also handles two tables that legitimately share a _data_ row; or **exclude the header row of every table**, not only the separator, which does not. Neither is needed if the count is taken as "no duplicate the merge introduced" per the bullet above — the subtraction handles the header case, both instances above, and whatever the third turns out to be. The row-type exclusions are belt-and-braces for a check applied without it.
+
    Then verify, on a normalised key, in this order:
-   - **Duplicate count** — `len(rows) - len(set(rows))` must be `0`.
+   - **Duplicate count** — the threshold is **not** "zero duplicates in the merged file", it is **no duplicate the merge introduced**: `len(rows) - len(set(rows))`, minus each parent's own duplicate count. A document may legitimately repeat a row, and subtracting the parents is what makes that fall out instead of needing an exception per row type. See below for the case that taught it.
    - **Sequence** — main's rows and this branch's rows must each keep their relative order in the merge. **Appended rows only**: see below.
    - **Set difference in both directions** — merged∖expected and expected∖merged must both be empty, where expected is main's rows ∪ this branch's rows.
    - **Whole-file** — the merged file should differ from `origin/main` by this branch's own additions and nothing else, every hunk a `+`. Additions, not added rows: see below.
@@ -284,6 +288,10 @@ The SDLC skills own the phases. What is specific to this repo:
 `fx-dev:pr-preparer` owns the PR itself. Three things about this repo's gates that it cannot know:
 
 1. **Patch coverage is a hard gate, and it is the one people miss.** `codecov/patch` requires every new or modified line to be exercised. Run `npm run test:coverage` locally before opening the PR — discovering it in CI costs a round trip, and the fix is usually a test you would rather have written while the code was fresh.
+
+   **On a red tree the patch check has no input, and both of its failure modes look like a check that ran.** Vitest with the v8 provider writes no `coverage/lcov.info` when the run fails **and clears the previous one**, so a patch-coverage check taken while anything is failing is reading either a stale file or nothing at all — and "nothing", intersected with the diff, yields no uncovered lines, which is a **pass**. That is the dangerous half: the check reports clean about a tree it never measured. It bites whenever `main` is red, which is exactly when a branch is most likely to be re-verified.
+
+   The workaround, needed twice on 2026-07-30 while a main-side story test was failing: rerun with `--exclude '<the failing spec>'` so the reporter gets a clean run to write, and **state the exclusion alongside the number**. The exclusion is invisible in the figure, so a percentage quoted without it is a claim about a suite nobody ran (change [0042](docs/changes/0042-tall-tile-control-geometry.md) PR 3, PR [#325](https://github.com/fx/liebe/pull/325)).
 
 2. **The PR body MUST name the change document** it works on — `docs/changes/<NNNN>-<name>.md` and which task it completes. That link is how a reviewer finds the requirements the PR is claiming to satisfy; without it they are reviewing the diff against nothing.
 
