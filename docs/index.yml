@@ -326,7 +326,7 @@ changes:
     path: changes/0040-test-harness-reliability.md
     description: Gates that cannot pass falsely — per-worktree e2e stacks with a served-bundle identity check, executed Storybook assertions, the ConfigurationMenu timer leak and suite timeouts, and a lint rule that sees React.useEffect
     spec: architecture
-    status: draft
+    status: complete
     depends_on: []
   - id: '0041'
     name: card-conventions-and-reference
