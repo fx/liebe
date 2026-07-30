@@ -28,9 +28,17 @@ import { load } from 'js-yaml'
 // `docker inspect` would be unavailable in exactly the environment where the
 // contamination happened, since the runner there cannot reach the docker socket
 // without `sudo`. Hashing what the server returns needs no privileges and is
-// conclusive on its own. Its one blind spot follows from that: HTTP offers no
-// directory listing, so an artifact the served mount has and `dist/` does not is
-// invisible here.
+// conclusive on its own. Two blind spots follow from that, both narrower than
+// what the check closes and both worth knowing before trusting it further:
+//   - HTTP offers no directory listing, so an artifact the served mount has and
+//     `dist/` does not is invisible here.
+//   - `module_url` is read from THIS checkout's ha/config/configuration.yaml,
+//     while a stack another worktree created is running that worktree's copy of
+//     the same file. The committed value is identical in both, so the mounted
+//     path is compared correctly either way; a checkout that locally edits the
+//     value — to the dev server, say — would classify against a registration the
+//     running instance does not have. Reading the live registration would answer
+//     that; removing the shared stack (change 0040, PR 2) removes the question.
 //
 // Lives outside a `*.spec.ts` so every branch is unit-testable from tests/unit
 // without Playwright and without bringing the stack up — same arrangement as
@@ -68,8 +76,13 @@ const REBUILD_HINT =
 export type BundleSource =
   /** The allowlisted dev server: nothing to compare against. */
   | { kind: 'dev-server'; url: string }
-  /** The bundle compose mounts from `dist/`, served by HA under /local/dist/. */
-  | { kind: 'mounted'; url: string; distFile: string; origin: string }
+  /**
+   * The bundle compose mounts from `dist/`, served by HA under /local/dist/.
+   * `query` is the cache-busting `?v=…`/`#…` suffix, if any: it belongs on the
+   * bundle's own URL and nowhere else, since `panel.js` derives sibling asset
+   * URLs from the containing directory (`src/panel.ts`).
+   */
+  | { kind: 'mounted'; url: string; distFile: string; origin: string; query: string }
 
 /** A response shape narrow enough that a unit test can hand one over. */
 export interface BundleResponse {
@@ -143,15 +156,28 @@ export function readPanelModuleUrl(
  * skipped.
  */
 export function classifyBundleUrl(moduleUrl: string, origin: string): BundleSource {
-  if ((DEV_SERVER_BUNDLE_URLS as readonly string[]).includes(moduleUrl)) {
+  // A cache-busting `?v=123` or `#hash` on module_url is a supported
+  // configuration (docs/specs/panel-lifecycle — the panel resolves asset URLs
+  // from the containing directory precisely so it survives one), so it must not
+  // make an otherwise verifiable bundle unverifiable. Classify on the path and
+  // carry the suffix through to the fetch.
+  const [, path = '', query = ''] = /^([^?#]*)([?#].*)?$/.exec(moduleUrl) ?? []
+
+  if ((DEV_SERVER_BUNDLE_URLS as readonly string[]).includes(path)) {
     return { kind: 'dev-server', url: moduleUrl }
   }
 
   const pattern = new RegExp(`^${MOUNT_SERVED_PREFIX}([A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)$`)
-  const distFile = pattern.exec(moduleUrl)?.[1]
+  const distFile = pattern.exec(path)?.[1]
   const trimmedOrigin = origin.replace(/\/$/, '')
   if (distFile !== undefined && !distFile.split('/').includes('..')) {
-    return { kind: 'mounted', url: `${trimmedOrigin}${moduleUrl}`, distFile, origin: trimmedOrigin }
+    return {
+      kind: 'mounted',
+      url: `${trimmedOrigin}${path}${query}`,
+      distFile,
+      origin: trimmedOrigin,
+      query,
+    }
   }
 
   throw new Error(
@@ -206,7 +232,10 @@ export async function assertServedArtifactsMatchDist({
   let bundleHash = ''
 
   for (const relativePath of artifacts) {
-    const url = `${source.origin}${MOUNT_SERVED_PREFIX}${relativePath}`
+    // The cache-busting suffix rides on the bundle's own URL only: that is the
+    // one Home Assistant requests, and siblings resolve off the bare directory.
+    const suffix = relativePath === source.distFile ? source.query : ''
+    const url = `${source.origin}${MOUNT_SERVED_PREFIX}${relativePath}${suffix}`
     const built = await readLocalArtifact(relativePath)
     const builtDigest = { sha256: sha256(built), bytes: built.byteLength }
     if (relativePath === source.distFile) bundleHash = builtDigest.sha256

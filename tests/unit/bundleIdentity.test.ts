@@ -91,6 +91,7 @@ describe('classifyBundleUrl', () => {
       url: `${ORIGIN}/local/dist/panel.js`,
       distFile: 'panel.js',
       origin: ORIGIN,
+      query: '',
     })
   })
 
@@ -99,6 +100,29 @@ describe('classifyBundleUrl', () => {
       kind: 'mounted',
       url: `${ORIGIN}/local/dist/assets/panel.js`,
       distFile: 'assets/panel.js',
+    })
+  })
+
+  // A cache-busting suffix on module_url is a supported configuration
+  // (docs/specs/panel-lifecycle), so it must not turn a verifiable bundle into an
+  // unverifiable one — the suffix belongs on the served URL, not in the filename.
+  it.each([
+    ['a cache-busting query', '?v=123'],
+    ['a fragment', '#build-7'],
+  ])('verifies a mounted bundle carrying %s', (_label, query) => {
+    expect(classifyBundleUrl(`${MOUNTED_URL}${query}`, ORIGIN)).toEqual({
+      kind: 'mounted',
+      url: `${ORIGIN}/local/dist/panel.js${query}`,
+      distFile: 'panel.js',
+      origin: ORIGIN,
+      query,
+    })
+  })
+
+  it('exempts the dev server even with a cache-busting query', () => {
+    expect(classifyBundleUrl('http://localhost:3000/panel.js?v=123', ORIGIN)).toEqual({
+      kind: 'dev-server',
+      url: 'http://localhost:3000/panel.js?v=123',
     })
   })
 
@@ -139,7 +163,7 @@ describe('classifyBundleUrl', () => {
     ['a bundle outside the mount', '/local/panel.js'],
     ['a remote bundle', 'https://fx.github.io/liebe/panel.js'],
     ['a traversal out of the mount', '/local/dist/../../etc/passwd'],
-    ['a query-string variant', '/local/dist/panel.js?v=2'],
+    ['a cache-busted stale path', '/local/dist-old/panel.js?v=2'],
     ['an empty module_url', ''],
   ])('fails closed on %s', (_label, moduleUrl) => {
     expect(() => classifyBundleUrl(moduleUrl, ORIGIN)).toThrow(/cannot verify module_url/)
@@ -177,6 +201,30 @@ describe('assertServedArtifactsMatchDist', () => {
       })
     }
     expect(log).toHaveBeenCalledWith(expect.stringContaining(sha256('bundle-v1')))
+  })
+
+  it('requests the cache-busting query on the bundle only', async () => {
+    // Home Assistant requests the bundle with the suffix; `panel.js` then derives
+    // sibling asset URLs from the bare directory, so carrying the query onto them
+    // would ask for URLs nothing loads.
+    const requested: string[] = []
+    const result = await assertServedArtifactsMatchDist({
+      moduleUrl: `${MOUNTED_URL}?v=123`,
+      origin: ORIGIN,
+      fetchImpl: (url, init) => {
+        requested.push(url)
+        return serving(clean)(url.replace('?v=123', ''), init)
+      },
+      ...built(clean),
+      log: vi.fn(),
+    })
+
+    expect(result).toMatchObject({ checked: true, artifacts: 3 })
+    expect(requested).toEqual([
+      `${ORIGIN}/local/dist/fonts/a.woff2`,
+      `${ORIGIN}/local/dist/liebe.css`,
+      `${ORIGIN}/local/dist/panel.js?v=123`,
+    ])
   })
 
   it('throws naming BOTH hashes when the served bundle is a stale one', async () => {
