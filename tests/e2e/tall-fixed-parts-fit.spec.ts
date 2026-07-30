@@ -162,6 +162,14 @@ test('a tall text helper renders no input, and every tile’s icon fits its regi
           y: 0,
           width: 1,
           height: 3,
+          /*
+           * An EXPLICIT toggle, which is the case that made this assertion
+           * necessary: `defaultAction` only covers a tile whose action is
+           * `default`, so a stored `toggle` resolves to the card's own handler
+           * whatever the tier — and with no input to focus it did nothing at
+           * all until the handler learned to return `'more-info'`.
+           */
+          config: { tapAction: 'toggle' },
         },
       ],
     })
@@ -229,14 +237,20 @@ test('a tall text helper renders no input, and every tile’s icon fits its regi
   ).toBeLessThanOrEqual(TOLERANCE)
 
   /*
-   * CLAIM 3: the tap reaches the helper anyway. Omitting the input without
-   * moving the tap would leave the tile inert, which the floors are explicitly
-   * not allowed to do — "these floors outrank the no-last-control rule, and do
-   * not suspend it". The card declares `more-info` at this tier, and this is
-   * the environment that can prove it: a real click through the shell's gesture
-   * layer, opening the real dialog. A jsdom test cannot — with the slot gone
-   * there is nothing for an edit tap to render either way, so it passes on a
-   * card that had stopped declaring the fallback entirely.
+   * CLAIM 3: the tap reaches the helper anyway, and on the hardest route.
+   * Omitting the input without moving the tap would leave the tile inert, which
+   * the floors are explicitly not allowed to do — "these floors outrank the
+   * no-last-control rule, and do not suspend it". The fixture stores an
+   * explicit `tapAction: toggle`, so this is NOT the `defaultAction` path: the
+   * gesture resolves to the card's own handler, which must answer `'more-info'`
+   * rather than doing nothing.
+   *
+   * **Asserted as the dialog OPENING, and only here.** The jsdom form was
+   * written twice and thrown out both times by a mutation probe: with the input
+   * omitted there is nothing to enter edit state either way, so a negative
+   * assertion passes on a handler that returns nothing, and the shell's gesture
+   * layer does not resolve a click in that environment at all. This is the one
+   * place the claim can fail.
    */
   await page.locator('.grid-item').filter({ hasText: secret }).click()
   await expect(

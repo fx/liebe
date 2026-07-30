@@ -5,6 +5,7 @@ import { Theme } from '@radix-ui/themes'
 import { InputTextCard } from '../InputTextCard'
 import { InputDateTimeCard } from '../InputDateTimeCard'
 import { CardItemProvider } from '../cardItemContext'
+import { dashboardActions } from '~/store'
 import { entityStore } from '~/store/entityStore'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
@@ -71,6 +72,10 @@ describe('the text and datetime helpers at a tier that cannot hold their input',
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // View mode explicitly: the detail dialog is suppressed in edit mode, so a
+    // dialog assertion below would pass or fail on the store's leftover state
+    // rather than on the card.
+    dashboardActions.resetState()
     hass = createMockHomeAssistant()
     seed(entity('input_text.note', 'hello', { friendly_name: 'Note', mode: 'text' }))
     seed(
@@ -163,40 +168,21 @@ describe('the text and datetime helpers at a tier that cannot hold their input',
     expect(field.style.flex, 'the field must take the room the shape gives it').not.toBe('')
   })
 
-  it('routes a configured toggle to the dialog rather than doing nothing', () => {
-    /*
-     * `defaultAction` covers the tile whose action is `default`. A tile with an
-     * explicit `tapAction: toggle` resolves to the card's own click handler
-     * whatever the tier — so with no input to focus it would call the handler
-     * and do nothing at all, which is the inert tile the floors are not allowed
-     * to produce. The handler returns `'more-info'` instead, the escape hatch
-     * `GridCard`'s `onClick` contract exists for.
-     *
-     * Asserted on the handler's return rather than on a rendered dialog: the
-     * gesture layer is the shell's and is pinned in `GridCard.actions.test.tsx`,
-     * and what this card owns is which answer it gives.
-     */
-    const { container } = renderCard(<InputTextCard entityId="input_text.note" tier="tall" />)
-    expect(container.querySelector('.liebe-card')).not.toBeNull()
-
-    // The card is rendered through the real shell, so the handler is reached
-    // the way a configured toggle reaches it — by clicking the tile.
-    fireEvent.click(container.querySelector('.liebe-card')!)
-    // Nothing entered edit state, and nothing threw: the handler declined and
-    // handed the gesture on rather than silently succeeding.
-    expect(screen.queryByLabelText('Value')).not.toBeInTheDocument()
-  })
-
   /*
    * THE TAP IS NOT ASSERTED HERE, and the omission is deliberate rather than a
-   * gap. A mutation probe established that it cannot be: with the control slot
-   * gone, `setIsEditing(true)` has nothing to render, so removing the card's
-   * `if (!controlOmitted)` guard changes no rendered output and every assertion
-   * a jsdom test could make about it passes either way. What actually carries
-   * the fallback is `defaultAction="more-info"`, which resolves inside the
-   * shell's gesture layer — a real click, in a real browser, opening a real
-   * dialog. `tests/e2e/tall-fixed-parts-fit.spec.ts` is where that is checked,
-   * and writing a jsdom test for it here would have recorded a green that
-   * establishes nothing.
+   * gap — established twice, by two mutation probes.
+   *
+   * The negative form ("no edit state after a tap") passes on the broken card:
+   * with the control slot gone there is nothing to enter edit state either way,
+   * so it survives a handler that has stopped returning `'more-info'`. The
+   * positive form ("the dialog opens") cannot be written here either — the
+   * shell's gesture layer does not resolve a click into an action in jsdom, so
+   * the assertion fails on correct code.
+   *
+   * `tests/e2e/tall-fixed-parts-fit.spec.ts` asserts it where it can fail: a
+   * real click, on a tile carrying an explicit `tapAction: toggle`, opening a
+   * real dialog. Writing a jsdom stand-in here would have recorded a green that
+   * establishes nothing, which is the outcome the seventh probe rule exists to
+   * refuse.
    */
 })
