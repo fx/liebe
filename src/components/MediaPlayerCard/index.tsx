@@ -15,6 +15,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore } from '~/store'
 import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '~/store/cardActions'
+import { readCardDisplay } from '~/store/cardDisplay'
 import { readMediaPlayerOptions } from '~/store/mediaPlayerOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
@@ -115,6 +116,12 @@ function MediaPlayerCardComponent({
 
   const { config } = useCardItem()
   const options = useMemo(() => readMediaPlayerOptions(config), [config])
+  /*
+   * Read without a danger flag, as this card passes none to its `GridCard`
+   * either, so the two resolutions cannot disagree (same reasoning as
+   * `CameraCard`).
+   */
+  const { iconOnly } = readCardDisplay(config)
 
   /*
    * Whether the artwork URL this card is currently holding failed to load.
@@ -420,7 +427,17 @@ function MediaPlayerCardComponent({
    * a background-image that 404s reports nothing, and the automatic icon
    * fallback would silently stop working in exactly this mode.
    */
-  const showBackgroundArtwork = !isCollapsed && artworkPresentation === 'background' && hasArtwork
+  /*
+   * `iconOnly` takes the background mode off the table, and it has to be read
+   * here rather than left to the shell's fence. The fence removes the backdrop
+   * element from an icon-only tile — it is one of the "backdrops, overlays,
+   * badges" the option suppresses — but the same flag is what decides this
+   * card has no lead at all, so fencing alone would leave a tile with the
+   * artwork gone and nothing in its place. Read here, the lead resolves to the
+   * thumbnail or the icon circle exactly as it does in every other mode.
+   */
+  const showBackgroundArtwork =
+    !isCollapsed && !iconOnly && artworkPresentation === 'background' && hasArtwork
 
   const backgroundArtwork = showBackgroundArtwork ? (
     <div className="liebe-media-backdrop" data-testid="media-backdrop">

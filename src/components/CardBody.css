@@ -36,6 +36,31 @@
     min-inline-size: 0;
   }
 
+  /*
+   * The accessible name an icon-only tile keeps.
+   *
+   * `iconOnly` suppresses every line on the tile, and the contract is explicit
+   * that this MUST NOT reach assistive technology with it: "the interactive
+   * surface stays fully identified to assistive technology while the glyph
+   * alone identifies it visually" (docs/specs/entity-cards/options/common.md —
+   * "Icon-only presentation"). So the meta is kept and taken out of the visual
+   * layout, rather than dropped like the rest of the body's slots.
+   *
+   * `clip-path` plus a 1px box rather than `display: none`, `visibility:
+   * hidden` or `width: 0`: each of those removes the node from the
+   * accessibility tree as well, which is the one thing this must not do.
+   * `position: absolute` is what keeps it out of the body's flow, so the glyph
+   * centres exactly as it would with nothing beside it.
+   */
+  .liebe-card-body-label {
+    block-size: 1px;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+  }
+
   /* `glance`: everything centred in a column, because the whole tile is the
      target and there is no room for a leading edge to align to. */
   .liebe-card-body[data-arrangement='stack'] {

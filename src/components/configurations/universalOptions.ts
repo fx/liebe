@@ -94,6 +94,13 @@ export const displayConfigOptions: ConfigDefinition = {
     // would reject — nor miss one it would accept.
     options: CARD_COLOR_OPTIONS.map((value) => ({ value, label: COLOR_LABELS[value] })),
   },
+  iconOnly: {
+    type: 'boolean',
+    default: CARD_DISPLAY_DEFAULTS.iconOnly,
+    label: 'Icon only',
+    description:
+      'Reduces the card to its centred icon. Everything else — lines, controls, graphs, artwork — goes.',
+  },
   alignHorizontal: {
     type: 'select',
     default: CARD_DISPLAY_DEFAULTS.alignHorizontal,

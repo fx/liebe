@@ -19,6 +19,7 @@ import {
   type CardAlignOption,
   type CardDisplayOptions,
 } from '~/store/cardDisplay'
+import { isCardBodyElement } from './cardBodyMarker'
 import { getIcon } from '~/utils/iconList'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
@@ -400,6 +401,77 @@ export function useGridCardHue(): string | undefined {
   return React.useContext(GridCardContext).hue
 }
 
+/**
+ * The resolved display options, for a part of the composition seam that is not
+ * one of the shell's own compound slots.
+ *
+ * `CardBody` is the only consumer and the reason this exists: the body is where
+ * `iconOnly` collapses a card to its lead, and the body is rendered by the card
+ * rather than by the shell, so it cannot be handed the options as props without
+ * every card passing them. Outside a shell — a story, the config preview — this
+ * is the same "leave the card alone" default an unconfigured item resolves to.
+ *
+ * Not for cards. A card that needs an option reads it from its own
+ * `readCardDisplay(config)` (several already do), which is the same object: the
+ * shell resolves the stored config it was given, so the two readings agree by
+ * construction as long as the danger flag matches.
+ */
+export function useGridCardDisplay(): CardDisplayOptions {
+  return React.useContext(GridCardContext).display
+}
+
+/**
+ * What the tile renders under `iconOnly`, out of the children the card handed
+ * it.
+ *
+ * The body seam reaches everything a card composes through `CardBody`, and
+ * nothing it renders *beside* one — the weather variants' condition scrim, the
+ * media player's artwork backdrop. Those are the "backdrops, overlays, badges"
+ * the option's suppression rule names, and they are the shell's to fence
+ * because no card should have to check a flag to know it is not being shown
+ * (docs/changes/0033-icon-only-cards.md — "Suppression mechanism").
+ *
+ * Keeping the bodies rather than dropping the non-bodies, and only when a body
+ * is actually among them: a card that renders no `CardBody` at this level is
+ * either one whose own icon-only form is still owed (the climate `dial`
+ * variant) or a **replacement state surface** — the bare centred `Flex` a
+ * dozen cards render in place of themselves while unavailable — and the
+ * contract is explicit that `iconOnly` does not reduce those ("Card states
+ * outrank suppression"). Blanking a tile is the one outcome worse than
+ * suppressing too little, so the fence declines to act rather than guessing.
+ */
+function fenceToCardBody(children: React.ReactNode): React.ReactNode {
+  const bodies = React.Children.toArray(children).filter(isCardBodyElement)
+  return bodies.length > 0 ? bodies : children
+}
+
+/**
+ * The background paint the caller asked for, dropped for an icon-only tile.
+ *
+ * The other half of the same fence, for the layer that is not an element at
+ * all: the weather variants carry their condition artwork as an inline
+ * `background-image` on the tile itself, which `THEMABLE_PROPERTIES`
+ * deliberately lets through as card data. Under `iconOnly` it is exactly the
+ * "artwork chrome" the option suppresses, and hiding the scrim element while
+ * leaving the artwork under it would be worse than doing neither.
+ *
+ * The themed half of the family (`background`, `background-color`) is already
+ * fenced for every card, so this only ever removes the paint layers.
+ */
+const BACKGROUND_PAINT_PROPERTIES: ReadonlySet<string> = new Set(
+  ['background-image', 'background-size', 'background-position', 'background-repeat'].map(
+    normalizeProperty
+  )
+)
+
+function withoutBackgroundPaint(style: React.CSSProperties): React.CSSProperties {
+  return Object.fromEntries(
+    Object.entries(style).filter(
+      ([property]) => !BACKGROUND_PAINT_PROPERTIES.has(normalizeProperty(property))
+    )
+  ) as React.CSSProperties
+}
+
 // Context for compound components
 const GridCardContext = React.createContext<GridCardContextValue>({
   tier: 'row',
@@ -504,6 +576,28 @@ export const GridCard = React.memo(
        * wants the same treatment at every size.
        */
       const isIconOnly = display.hideName && display.hideState
+
+      /*
+       * The `iconOnly` option, which is a different thing from the attribute
+       * above and stamps a marker of its own.
+       *
+       * `data-icon-only` is derived — it says "both meta lines are hidden, so
+       * centre what is left" — and it keeps meaning exactly that, for exactly
+       * the configurations that produced it before this option existed.
+       * `data-icon-tile` says "the user asked for the icon-only presentation",
+       * which is a stronger claim: it is what the suppression, and the tile
+       * tint that follows it, are allowed to key on. Hanging either on the
+       * derived attribute would reach every legacy `hideName` + `hideState`
+       * card, which the contract's unchanged-tiles scenario forbids
+       * (docs/specs/entity-cards/options/common.md — "Scenario: Existing
+       * hideName+hideState tiles are unaffected"; docs/specs/theming —
+       * "Stable selector contract", where `data-icon-tile` is the public name
+       * and `data-icon-only` is deliberately not contract).
+       *
+       * Reads off the resolved options, so the danger floor has already had
+       * it: a jammed lock renders its whole warning whatever the config says.
+       */
+      const iconOnly = display.iconOnly
 
       // Handle ESC key press to exit fullscreen
       useEffect(() => {
@@ -713,7 +807,9 @@ export const GridCard = React.memo(
         ...(backdrop !== undefined && backdrop !== true
           ? { '--liebe-card-blur': backdrop === false ? 'none' : backdrop }
           : {}),
-        ...withoutThemableProperties(style),
+        ...(iconOnly
+          ? withoutBackgroundPaint(withoutThemableProperties(style))
+          : withoutThemableProperties(style)),
       } as React.CSSProperties
 
       return (
@@ -735,6 +831,7 @@ export const GridCard = React.memo(
             data-color={resolvedColor}
             data-tier={tier}
             data-icon-only={isIconOnly ? 'true' : undefined}
+            data-icon-tile={iconOnly ? 'true' : undefined}
             /*
              * The alignment pair, applied at the tile rather than inside any
              * card. The tile is the one box every card renders into whatever
@@ -755,8 +852,10 @@ export const GridCard = React.memo(
             data-transparent={isTransparent ? 'true' : undefined}
             style={cardStyle}
           >
-            {/* Content */}
-            {children}
+            {/* Content — fenced to the card body while `iconOnly` holds, so a
+                backdrop or an overlay a card renders beside its body does not
+                survive the suppression its body just applied. */}
+            {iconOnly ? fenceToCardBody(children) : children}
 
             {/*
              * Edit affordances, hidden in fullscreen. Rendered AFTER the

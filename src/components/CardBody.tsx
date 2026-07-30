@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import type { CardTier } from '~/utils/cardTier'
+import { CARD_BODY_ROLE, type CardBodyMarked } from './cardBodyMarker'
+import { useGridCardDisplay } from './GridCard'
 import './CardBody.css'
 
 /**
@@ -131,6 +133,42 @@ export function CardBody({
   control,
   extra,
 }: CardBodyProps) {
+  const { iconOnly } = useGridCardDisplay()
+
+  /*
+   * The icon-only tile (docs/specs/entity-cards/options/common.md — "Icon-only
+   * presentation").
+   *
+   * This is the seam the whole option works through: every slot but the lead
+   * goes, for every card that composes through a body, without any of them
+   * checking a flag — the 0014 lesson that "a card cannot forget to honour an
+   * option it never sees", applied where forgetting would mean a forecast
+   * bleeding through an icon tile. Which tier the card asked for no longer
+   * decides anything, so the arrangement is stamped `stack` rather than the
+   * requested one: what is left IS the centred column that arrangement names,
+   * and stamping the requested value would have the sheet arrange one child
+   * along an axis it is alone on.
+   *
+   * The meta stays in the DOM, visually hidden, rather than being dropped with
+   * the rest — the one deliberate exception to this component's
+   * omit-never-hide rule, and the contract asks for it in as many words:
+   * "Visual suppression never removes accessible semantics … the interactive
+   * surface stays fully identified to assistive technology while the glyph
+   * alone identifies it visually". An actionable tile whose only content is a
+   * glyph is anonymous to a screen reader otherwise. It carries whatever the
+   * card put in its meta, which is the entity's resolved name and, where the
+   * card has one, its state — and the shell's own `hideName`/`hideState` still
+   * apply inside it, so a user who hid a line does not get it back here.
+   */
+  if (iconOnly) {
+    return (
+      <div className="liebe-card-body" data-arrangement="stack" data-control-size={controlSize}>
+        {lead}
+        {meta ? <div className="liebe-card-body-label">{meta}</div> : null}
+      </div>
+    )
+  }
+
   if (arrangement === 'row') {
     return (
       <div className="liebe-card-body" data-arrangement="row" data-control-size={controlSize}>
@@ -179,3 +217,9 @@ export function CardBody({
     </div>
   )
 }
+
+/*
+ * The marker the shell's icon-only fence looks for — see `cardBodyMarker.ts`
+ * for why it is a static property rather than an identity comparison.
+ */
+;(CardBody as CardBodyMarked).liebeRole = CARD_BODY_ROLE

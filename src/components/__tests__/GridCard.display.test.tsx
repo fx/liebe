@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardBody } from '../CardBody'
 import { CardItemProvider } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import type { DashboardState } from '~/store/types'
@@ -181,6 +182,156 @@ describe('GridCard display options', () => {
       renderCard({ color: 'chartreuse' })
 
       expect(card()).toHaveAttribute('data-color', 'light')
+    })
+  })
+
+  describe('iconOnly', () => {
+    it('stamps its own marker on the tile', () => {
+      renderCard({ iconOnly: true })
+
+      expect(card()).toHaveAttribute('data-icon-tile', 'true')
+    })
+
+    it('stamps nothing for the default, so no rule it adds can match', () => {
+      // Presence-only, like `data-active` and the alignment pair: every rule
+      // this option adds — the centring today, the state tint next — is scoped
+      // to the attribute, so a card without the key matches none of them.
+      renderCard()
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+
+      renderCard({ iconOnly: false })
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+    })
+
+    it('leaves a legacy hideName+hideState tile unmarked', () => {
+      // The compatibility scenario, at the seam that decides it: the derived
+      // attribute is stamped, the option's own is not — which is what lets the
+      // state tint reach one and not the other
+      // (docs/specs/entity-cards/options/common.md — "Scenario: Existing
+      // hideName+hideState tiles are unaffected").
+      renderCard({ hideName: true, hideState: true })
+
+      expect(card()).toHaveAttribute('data-icon-only', 'true')
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+    })
+
+    it('does not stamp the derived attribute on its own account', () => {
+      // The other direction of the same separation. `data-icon-only` keeps its
+      // formula — both meta lines hidden — so the two attributes stay
+      // independent signals rather than one implying the other.
+      renderCard({ iconOnly: true })
+
+      expect(card()).toHaveAttribute('data-icon-tile', 'true')
+      expect(card()).not.toHaveAttribute('data-icon-only')
+    })
+
+    it('reverts under a danger state', () => {
+      // "A sounding smoke detector renders its full danger presentation, label
+      // included, whatever this option says"
+      // (docs/specs/entity-cards/options/common.md — "Scenario: Danger
+      // overrides icon-only").
+      render(
+        <GridCard domain="binary_sensor" color="alert" danger config={{ iconOnly: true }}>
+          <GridCard.Meta>
+            <GridCard.Title>Hallway smoke</GridCard.Title>
+            <GridCard.Status>SMOKE DETECTED</GridCard.Status>
+          </GridCard.Meta>
+        </GridCard>
+      )
+
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+      expect(name()).toHaveTextContent('Hallway smoke')
+      expect(state()).toHaveTextContent('SMOKE DETECTED')
+    })
+
+    it('composes with the alignment pair', () => {
+      // "An icon-only tile with `alignVertical: start` shows its icon at the
+      // top of the tile" — both markers are stamped, and the sheet's ordering
+      // is what makes the alignment win.
+      renderCard({ iconOnly: true, alignVertical: 'start' })
+
+      expect(card()).toHaveAttribute('data-icon-tile', 'true')
+      expect(card()).toHaveAttribute('data-align-v', 'start')
+    })
+
+    describe('the fence over what a card renders beside its body', () => {
+      function renderWithBackdrop(config?: Record<string, unknown>) {
+        return render(
+          <GridCard domain="weather" config={config}>
+            <div data-testid="backdrop" />
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+      }
+
+      it('drops the layers beside the body', () => {
+        // The weather variants' condition scrim and the media player's artwork
+        // backdrop are the live cases: a body that has suppressed its own slots
+        // sitting on top of full-bleed artwork is not an icon-only tile
+        // (docs/changes/0033 — "Suppression mechanism").
+        renderWithBackdrop({ iconOnly: true })
+
+        expect(screen.queryByTestId('backdrop')).not.toBeInTheDocument()
+        expect(screen.getByTestId('lead')).toBeInTheDocument()
+      })
+
+      it('leaves them alone without the option', () => {
+        renderWithBackdrop()
+
+        expect(screen.getByTestId('backdrop')).toBeInTheDocument()
+      })
+
+      it('declines to act where the card renders no body', () => {
+        // A card with no `CardBody` at this level is either one still owed its
+        // own icon-only form, or a replacement state surface — the bare centred
+        // stack a dozen cards render in place of themselves while unavailable —
+        // and the contract is explicit that `iconOnly` does not reduce those
+        // ("Card states outrank suppression"). Blanking the tile is worse than
+        // suppressing too little, so the fence keeps its hands off.
+        render(
+          <GridCard domain="fan" isUnavailable config={{ iconOnly: true }}>
+            <div data-testid="unavailable-tile">
+              <GridCard.Title>Bedroom fan</GridCard.Title>
+              <GridCard.Status>Unavailable</GridCard.Status>
+            </div>
+          </GridCard>
+        )
+
+        expect(screen.getByTestId('unavailable-tile')).toBeInTheDocument()
+        expect(name()).toHaveTextContent('Bedroom fan')
+        expect(state()).toHaveTextContent('Unavailable')
+      })
+
+      it('strips the caller’s background paint, which is not an element to drop', () => {
+        // The weather variants carry their condition artwork as an inline
+        // `background-image` on the tile itself, which the themable-property
+        // fence deliberately lets through as card data. Hiding the scrim
+        // element while leaving the artwork under it would suppress nothing a
+        // user could see.
+        const artwork = { backgroundImage: 'url(rainy.png)', backgroundSize: 'cover' } as const
+
+        render(
+          <GridCard domain="weather" config={{ iconOnly: true }} style={artwork}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+        expect(card().style.backgroundImage).toBe('')
+        expect(card().style.backgroundSize).toBe('')
+
+        cleanup()
+
+        // And it is the option that removes it, not the shell forgetting how to
+        // paint: without the key the same style still reaches the tile.
+        render(
+          <GridCard domain="weather" style={artwork}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+        // Serialized by the engine, quotes and all — asserted on the value it
+        // reports rather than on the string that was passed in.
+        expect(card().style.backgroundImage).toBe('url("rainy.png")')
+        expect(card().style.backgroundSize).toBe('cover')
+      })
     })
   })
 
