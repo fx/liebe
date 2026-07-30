@@ -286,10 +286,21 @@ describe('card shell stylesheet', () => {
         const matching = rulesIn(css).filter(({ selector }) => pattern.test(selector))
         expect(matching, `expected exactly one rule matching ${pattern}`).toHaveLength(1)
 
-        const index = css.indexOf(matching[0].selector)
-        expect(index, `selector not found in the sheet: ${matching[0].selector}`).toBeGreaterThan(
-          -1
-        )
+        /*
+         * Where that rule OPENS — its selector followed by its brace.
+         *
+         * `indexOf(selector)` is what this said first, and it could not fail:
+         * `.liebe-card[data-icon-only]` is a prefix of
+         * `.liebe-card[data-icon-only] .liebe-meta:empty`, which sits above the
+         * alignment block and does not move, so `indexOf` kept reporting the
+         * old position and the comparison stayed green while the icon-only rule
+         * sat at the bottom of the sheet. Requiring the brace is what tells a
+         * rule apart from one whose selector merely starts the same way —
+         * without bringing brace *whitespace* back into the question.
+         */
+        const escaped = matching[0].selector.replace(/[[\]().*+?^$|\\]/g, '\\$&')
+        const index = css.search(new RegExp(`${escaped}\\s*\\{`))
+        expect(index, `rule not found in the sheet: ${matching[0].selector}`).toBeGreaterThan(-1)
 
         return index
       }
