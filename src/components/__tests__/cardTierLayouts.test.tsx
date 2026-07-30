@@ -361,11 +361,12 @@ describe('InputNumberCard tiers', () => {
 
   it.each([
     ['row', 'row'],
-    ['tall', 'tall'],
     ['full', 'row'],
   ] as const)('gives %s the whole stepper when the card asks for one', (tier, shape) => {
     // The fixture helper is `mode: slider`, which is now the default this card
-    // follows; the stepper is what an explicit `controlStyle` selects.
+    // follows; the stepper is what an explicit `controlStyle` selects. Both
+    // tiers here are at least two columns wide, which is the whole condition —
+    // see `tall` below.
     renderCard(
       <InputNumberCard
         entityId="input_number.target_humidity"
@@ -378,6 +379,31 @@ describe('InputNumberCard tiers', () => {
     expect(part('.liebe-icon')).not.toBeNull()
     expect(screen.getByLabelText('Decrease value')).toBeInTheDocument()
     expect(screen.getByLabelText('Increase value')).toBeInTheDocument()
+  })
+
+  it('gives tall the vertical slider instead, however the card is configured', () => {
+    /*
+     * `tall` is one column wide by definition, and the stepper is a row of
+     * buttons sized by its contents — 156px of them against a 35px content
+     * region on a 12-column desktop grid, which the tile clipped. The tier
+     * renders its own vertical slider instead and leaves the stored option
+     * alone (docs/specs/entity-cards/options/input-helpers.md — `input_number`;
+     * docs/specs/design-system — cross-axis fit; change 0042).
+     */
+    renderCard(
+      <InputNumberCard
+        entityId="input_number.target_humidity"
+        tier="tall"
+        config={{ controlStyle: 'stepper' }}
+      />
+    )
+
+    expect(arrangement()).toBe('tall')
+    expect(part('.liebe-icon')).not.toBeNull()
+    expect(part('.liebe-slider')).toHaveAttribute('data-orientation', 'vertical')
+    expect(screen.queryByLabelText('Decrease value')).toBeNull()
+    expect(screen.queryByLabelText('Increase value')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Set value/ })).toBeNull()
   })
 
   it.each(['glance', 'row', 'tall'] as const)('omits the range line at %s', (tier) => {

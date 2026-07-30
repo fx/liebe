@@ -1057,12 +1057,18 @@ describe('control-set cards — the shared body', () => {
 
   it('gives the number helper’s vertical slider the same band', () => {
     /*
-     * `tall` for an `input_number` is specified as "Icon top, **vertical
-     * slider** (or compact stepper), meta bottom"
+     * `tall` for an `input_number` is specified as "Icon top, **always the
+     * vertical slider** regardless of the stored `controlStyle`, meta bottom"
      * (docs/specs/entity-cards/options/input-helpers.md — the tier table), and a
      * slider with no band has no length: the helper was the one slider card
      * left asking the body for a content-sized slot, so its `tall` tile showed
      * a vertical control with no travel at all.
+     *
+     * The tier table's earlier "(or compact stepper)" was dropped by change
+     * 0042 PR 1, which found a stepper cannot be narrowed to a one-column
+     * tile's content region at all; PR 2 is what makes a stored `stepper` give
+     * way here, and it is covered in `inputHelperControlStyle.test.tsx`. This
+     * case is the unconfigured card, whose slider was always what rendered.
      */
     seed(numberHelper)
     renderCard(<InputNumberCard entityId="input_number.target_volume" tier="tall" />)
