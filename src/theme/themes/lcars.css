@@ -479,9 +479,9 @@
    * the doubled tint the base rule exists to prevent and a black glyph on a
    * ground calibrated for a saturated one.
    *
-   * The glyph takes the hue instead of the black it takes inside a block,
-   * which is the same move the base pattern makes in dark appearance — and
-   * LCARS is dark-only, so there is no second appearance to answer for.
+   * The glyph therefore takes something lighter than the black it takes inside
+   * a block — LCARS is dark-only, so there is no second appearance to answer
+   * for.
    *
    * The person card is excepted, because its anchor IS a disc: the base layer
    * keeps the initials avatar's background for exactly that reason, and this
@@ -496,8 +496,39 @@
     background: none;
   }
 
+  /*
+   * `--part-glyph`, not `--liebe-part-color`, and this is the one rule on this
+   * tile where the difference is the whole thing.
+   *
+   * The two are the same colour for all ten triplets — every `-text` companion
+   * here is pinned to its own hue — so this reads identically for every domain
+   * the theme calibrated. They part company on the one input the theme never
+   * saw: a **live** hue. `--liebe-part-color` is then the bulb's own RGB, and
+   * painting the glyph in it puts a colour on a 20% veil of itself. Measured
+   * through the real card in a real frontend, a pure-blue bulb gives
+   * `rgb(0, 0, 255)` on `rgb(0, 0, 51)` = **2.33:1** against the 3:1 glyph
+   * floor, with `rgb(128, 0, 255)` next at 3.08:1 — so the whole dark end of the
+   * hue circle sits at or under the line, not one pathological colour
+   * (docs/changes/0035-light-appearance-contrast.md PR 7,
+   * `tests/e2e/lcars-icon-tile-glyph.spec.ts`).
+   *
+   * `--part-glyph` is where that question has already been answered. Under a
+   * live hue `hueStyle` sets it to the neutral foreground, because "a live hue
+   * colours the surface, and the foreground it lands on is neutral" — the same
+   * decision the base pattern took for this exact composite, and the same one
+   * `anatomy.css` applies to a pill label and a slider readout. Reading the role
+   * token rather than the published hue is this theme consuming that answer
+   * instead of re-deriving one.
+   *
+   * Note what is NOT the fix here. `contrast-color()` answers the disc above,
+   * where the ground IS the hue; on this tile the ground is a 20% tint of the
+   * hue over the card, so a foreground chosen against the hue is chosen against
+   * the wrong colour — for a yellow bulb it picks black, which lands at 1.6:1 on
+   * the near-black tint. Deleting the rule is not the fix either: the glyph
+   * would fall back to the disc's `--lcars-black`, on a tile that has no disc.
+   */
   .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
-    color: var(--liebe-part-color);
+    color: var(--part-glyph);
   }
 
   /*
