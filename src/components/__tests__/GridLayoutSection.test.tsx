@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 // `react-grid-layout/core` is the real module (only the package root is mocked
 // below), so this is the exact `absoluteStrategy` object the component passes.
 import { absoluteStrategy } from 'react-grid-layout/core'
@@ -14,6 +14,20 @@ import * as React from 'react'
 // CSS-transform one. Hoisted so the vi.mock factory (which is hoisted above
 // imports) can safely reference it.
 const positionStrategyCapture = vi.hoisted(() => ({ current: undefined as unknown }))
+
+/**
+ * The layout <GridLayout> was handed, and the `onLayoutChange` it was given.
+ *
+ * Lets a test replay an arbitrary layout back at the component — the incoming
+ * layout is exactly what react-grid-layout would hand back — instead of only the
+ * single "move by one column" the mocked click simulates.
+ */
+const gridLayoutCapture = vi.hoisted(() => ({
+  layout: undefined as Array<{ i: string; x: number; y: number; w: number; h: number }> | undefined,
+  onLayoutChange: undefined as
+    | ((layout: Array<{ i: string; x: number; y: number; w: number; h: number }>) => void)
+    | undefined,
+}))
 
 // Mock react-grid-layout
 vi.mock('react-grid-layout', () => {
@@ -37,6 +51,8 @@ vi.mock('react-grid-layout', () => {
       positionStrategy?: unknown
     }) => {
       positionStrategyCapture.current = positionStrategy
+      gridLayoutCapture.layout = layout
+      gridLayoutCapture.onLayoutChange = onLayoutChange
       return React.createElement(
         'div',
         {
@@ -130,6 +146,8 @@ describe('GridLayoutSection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     positionStrategyCapture.current = undefined
+    gridLayoutCapture.layout = undefined
+    gridLayoutCapture.onLayoutChange = undefined
   })
 
   it('forwards the absolute (top/left) positionStrategy to GridLayout', () => {
@@ -385,6 +403,178 @@ describe('GridLayoutSection', () => {
         const laidOut = JSON.parse(element.getAttribute('data-grid')!)
         expect(spans[laidOut.i]).toEqual({ width: laidOut.w, height: laidOut.h })
       }
+    })
+  })
+
+  /*
+   * An interaction at a narrow breakpoint must not rewrite the stored geometry
+   * of the cards it did not touch (docs/specs/grid-layout — "Layout-Change
+   * Persistence", docs/changes/0039-responsive-drag-integrity.md).
+   *
+   * The forward mapping floors a span at one cell and clamps `x` into bounds, so
+   * it is not invertible: every fixture item below derives to a single effective
+   * cell whose unconditional inverse — `round(1 × 12 / 4)` — is 3, and every
+   * one of their stored `x` values likewise fails to survive the round trip. The
+   * assertions are equality against the seeded values, not tolerances, because a
+   * tolerance is exactly what the defect fits inside.
+   */
+  describe('persistence at a narrow breakpoint', () => {
+    const originalWidth = window.innerWidth
+
+    /**
+     * Stored against a 12-column screen. Every item is lossy in **both** `x` and
+     * `width` when the 4-column derivation is inverted, so a fix applied to only
+     * one of the two fields fails these tests.
+     */
+    const storedItems: GridItem[] = [
+      { id: 'moved', type: 'entity', entityId: 'light.a', x: 0, y: 0, width: 1, height: 1 },
+      { id: 'narrow', type: 'entity', entityId: 'light.b', x: 1, y: 1, width: 1, height: 1 },
+      { id: 'wide', type: 'entity', entityId: 'light.c', x: 4, y: 2, width: 2, height: 2 },
+      { id: 'edge', type: 'entity', entityId: 'light.d', x: 11, y: 3, width: 1, height: 1 },
+      // The two that can only be recombined by giving something up: `spanning`
+      // is too wide to also sit at the far right, and `crowded` has fewer stored
+      // columns left than one effective cell is worth.
+      { id: 'spanning', type: 'entity', entityId: 'light.e', x: 0, y: 4, width: 4, height: 1 },
+      { id: 'crowded', type: 'entity', entityId: 'light.f', x: 7, y: 5, width: 1, height: 1 },
+    ]
+
+    /** What the items above derive to on a 4-column grid. */
+    const derived = { moved: 0, narrow: 0, wide: 1, edge: 3, spanning: 0, crowded: 2 }
+
+    afterEach(() => {
+      window.innerWidth = originalWidth
+    })
+
+    /**
+     * Renders at the mobile breakpoint (4 effective columns) and replays a
+     * layout back through `onLayoutChange`, with `edits` applied on top of the
+     * layout the grid was actually given.
+     */
+    function replayLayout(edits: Record<string, { x?: number; w?: number }> = {}) {
+      window.innerWidth = 400
+
+      render(<GridLayoutSection {...defaultProps} items={storedItems} />)
+
+      const laidOut = gridLayoutCapture.layout!
+      // The derivation the component is being held to, asserted rather than
+      // assumed: a fixture that did not actually collapse to one cell would make
+      // every assertion below vacuous.
+      expect(laidOut.map(({ i, x, w }) => [i, x, w])).toEqual([
+        ['moved', derived.moved, 1],
+        ['narrow', derived.narrow, 1],
+        ['wide', derived.wide, 1],
+        ['edge', derived.edge, 1],
+        ['spanning', derived.spanning, 1],
+        ['crowded', derived.crowded, 1],
+      ])
+
+      act(() => {
+        gridLayoutCapture.onLayoutChange!(laidOut.map((item) => ({ ...item, ...edits[item.i] })))
+      })
+    }
+
+    it('writes nothing when the layout is exactly what the breakpoint derived', () => {
+      // react-grid-layout reports a layout on mount and on every breakpoint
+      // change. Nothing was dragged, so nothing may be persisted.
+      replayLayout()
+
+      expect(dashboardActions.updateGridItem).not.toHaveBeenCalled()
+    })
+
+    it('leaves every untouched item byte-identical when one card is dragged', () => {
+      // `moved` slides from effective column 0 to 2 — a genuine drag.
+      replayLayout({ moved: { x: 2 } })
+
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledTimes(1)
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledWith('screen-1', 'moved', {
+        x: 6, // 2 effective columns back up to the stored 12: 2 × 3
+        y: 0,
+        width: 1, // never resized, so the stored width stands
+        height: 1,
+      })
+    })
+
+    it('persists a resize while keeping the resized item’s untouched x', () => {
+      // `wide` is stretched from one effective cell to two, from the east edge,
+      // so its position is unchanged and only the span moved.
+      replayLayout({ wide: { w: 2 } })
+
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledTimes(1)
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledWith('screen-1', 'wide', {
+        x: 4, // stored, not the 3 that inverting the clamped effective 1 would give
+        y: 2,
+        width: 6, // 2 effective columns back up to the stored 12: 2 × 3
+        height: 2,
+      })
+    })
+
+    it('keeps a dragged item inside the screen by giving ground on the moved x', () => {
+      // `spanning` is 4 stored columns wide and slides to the last effective
+      // column. Scaling that position back lands on 9, which would put its right
+      // edge at column 13 of 12 — so the moved field is the one that yields.
+      replayLayout({ spanning: { x: 3 } })
+
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledTimes(1)
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledWith('screen-1', 'spanning', {
+        x: 8, // clamped from 9 so x + width lands exactly on the 12th column
+        y: 4,
+        width: 4, // untouched, so it is not the field that gives way
+        height: 1,
+      })
+    })
+
+    it('keeps a resized item inside the screen by giving ground on the new width', () => {
+      // `crowded` sits at stored column 7 and is widened by one effective cell —
+      // worth 3 stored columns, where only 5 remain. Its position was not
+      // touched, so the span is what shrinks to fit.
+      replayLayout({ crowded: { w: 2 } })
+
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledTimes(1)
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledWith('screen-1', 'crowded', {
+        x: 7, // untouched, so it is not the field that gives way
+        y: 5,
+        width: 5, // clamped from 6 to the columns actually left after x
+        height: 1,
+      })
+    })
+
+    it('leaves an item wider than its own screen alone', () => {
+      // A screen whose resolution was reduced after the fact can hold an item
+      // wider than the grid. There is no in-bounds position for it, so the grid
+      // lays it out at column 0 — and that must read as "not moved", not as a
+      // drag to the left edge.
+      window.innerWidth = 1440 // wide: the screen keeps its own 8 columns
+
+      const oversized: GridItem[] = [
+        { id: 'oversized', type: 'entity', entityId: 'light.g', x: 3, y: 0, width: 12, height: 1 },
+      ]
+      render(
+        <GridLayoutSection
+          {...defaultProps}
+          items={oversized}
+          resolution={{ columns: 8, rows: 8 }}
+        />
+      )
+
+      const laidOut = gridLayoutCapture.layout!
+      expect(laidOut[0]).toMatchObject({ i: 'oversized', x: 0, w: 12 })
+
+      act(() => {
+        gridLayoutCapture.onLayoutChange!(laidOut)
+      })
+
+      expect(dashboardActions.updateGridItem).not.toHaveBeenCalled()
+    })
+
+    it('ignores a layout entry with no stored item', () => {
+      window.innerWidth = 400
+      render(<GridLayoutSection {...defaultProps} items={storedItems} />)
+
+      act(() => {
+        gridLayoutCapture.onLayoutChange!([{ i: 'gone', x: 1, y: 1, w: 1, h: 1 }])
+      })
+
+      expect(dashboardActions.updateGridItem).not.toHaveBeenCalled()
     })
   })
 })

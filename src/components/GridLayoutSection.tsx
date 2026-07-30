@@ -15,6 +15,35 @@ import { scaleSpanToColumns, type CardSpan } from '../utils/cardTier'
 // Preserve v1 behavior: no auto-compaction, and block items from overlapping.
 const freeFormCompactor = getCompactor(null, false, true)
 
+/**
+ * The inline-axis geometry the grid actually lays a stored item out at.
+ *
+ * The forward mapping, written once so the two readers cannot drift: the layout
+ * handed to react-grid-layout, and the change handler that has to recognise the
+ * values it gets back. It is deliberately not invertible — `scaleSpanToColumns`
+ * floors a span at one cell and `x` is clamped into bounds — which is why the
+ * handler compares against it rather than trying to undo it
+ * (docs/changes/0039-responsive-drag-integrity.md).
+ */
+function effectiveInlineOf(
+  item: GridItem,
+  storedColumns: number,
+  effectiveColumns: number
+): { x: number; width: number } {
+  const columnRatio = effectiveColumns / storedColumns
+  const { width } = scaleSpanToColumns(item, storedColumns, effectiveColumns)
+
+  return {
+    // Both bounds, because the upper one goes negative for an item wider than
+    // the screen it is on — which a screen whose resolution was reduced after
+    // the item was placed will have. A derivation that reported a negative `x`
+    // could never equal the `x` the grid reports back, so the change handler
+    // would read every such item as moved and rewrite it.
+    x: Math.max(0, Math.min(effectiveColumns - width, Math.round(item.x * columnRatio))),
+    width,
+  }
+}
+
 interface GridLayoutSectionProps {
   screenId: string
   items: GridItem[]
@@ -64,9 +93,11 @@ export function GridLayoutSection({
   // Convert GridItem[] to react-grid-layout's Layout (readonly LayoutItem[])
   const layouts: LayoutItem[] = items.map((item) => {
     // Scale item dimensions based on column ratio
-    const columnRatio = effectiveColumns / resolution.columns
-    const scaledWidth = effectiveSpanOf(item).width
-    const scaledX = Math.min(effectiveColumns - scaledWidth, Math.round(item.x * columnRatio))
+    const { x: scaledX, width: scaledWidth } = effectiveInlineOf(
+      item,
+      resolution.columns,
+      effectiveColumns
+    )
 
     return {
       i: item.id,
@@ -91,16 +122,48 @@ export function GridLayoutSection({
       newLayout.forEach((layoutItem) => {
         const originalItem = items.find((item) => item.id === layoutItem.i)
 
-        // Scale coordinates back to original resolution for storage
-        const scaledX = Math.round(layoutItem.x * columnRatio)
-        const scaledWidth = Math.round(layoutItem.w * columnRatio)
+        if (!originalItem) return
+
+        /*
+         * Only genuinely moved fields are scaled back.
+         *
+         * The forward mapping floors a span at one cell, so it is not
+         * invertible: a stored width of 1 on a 12-column screen renders as 1
+         * cell on a 4-column phone, and `round(1 × 12 / 4)` comes back as 3. A
+         * handler that inverse-scaled unconditionally rewrote every item on the
+         * screen — including the ones the user never touched — on any drag or
+         * resize. Comparing against the derivation is what makes the untouched
+         * case exactly lossless.
+         */
+        const derived = effectiveInlineOf(originalItem, resolution.columns, effectiveColumns)
+        const xMoved = layoutItem.x !== derived.x
+        const widthMoved = layoutItem.w !== derived.width
+
+        /*
+         * Recombining a preserved field with a scaled one can overrun the
+         * screen: one effective cell is three stored columns at a 12→4
+         * breakpoint, so widening an item stored at `x: 7` by a single cell asks
+         * for six columns where five remain. Something has to give, and it is
+         * the field the interaction changed — clamping the untouched one would
+         * be the very rewrite this handler exists to prevent. Which also means
+         * an item whose stored geometry is *already* out of bounds is left
+         * exactly as it is until the user moves it (0039 — existing damage is
+         * not repaired here, because a widened card is indistinguishable from a
+         * deliberately wide one).
+         */
+        const widthCap = xMoved ? resolution.columns : resolution.columns - originalItem.x
+        const scaledWidth = widthMoved
+          ? Math.max(1, Math.min(widthCap, Math.round(layoutItem.w * columnRatio)))
+          : originalItem.width
+        const scaledX = xMoved
+          ? Math.min(resolution.columns - scaledWidth, Math.round(layoutItem.x * columnRatio))
+          : originalItem.x
 
         if (
-          originalItem &&
-          (originalItem.x !== scaledX ||
-            originalItem.y !== layoutItem.y ||
-            originalItem.width !== scaledWidth ||
-            originalItem.height !== layoutItem.h)
+          originalItem.x !== scaledX ||
+          originalItem.y !== layoutItem.y ||
+          originalItem.width !== scaledWidth ||
+          originalItem.height !== layoutItem.h
         ) {
           dashboardActions.updateGridItem(screenId, layoutItem.i, {
             x: scaledX,
