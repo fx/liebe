@@ -74,6 +74,16 @@ const base = declarations(baseRules)
 const DARK_SELECTOR = /\.radix-themes:where\(\s*\.dark\s*,\s*\.dark-theme\s*\)\s*,/
 
 /**
+ * The same selector as a sheet writes it, for the failure messages below. The
+ * pattern's own `source` is what a reader would otherwise be shown, and with the
+ * whitespace classes in it that is a wall of backslashes naming nothing —
+ * `\.radix-themes:where\(\s*\.dark\s*,\s*…`. A test that has just failed should
+ * say which selector it went looking for, in the language of the file it was
+ * looking in.
+ */
+const DARK_SELECTOR_CSS = '.radix-themes:where(.dark, .dark-theme),'
+
+/**
  * The Default theme pins `-text` per appearance, so its sheet has to be read as
  * two blocks. A single whole-file `declarations()` map would return the dark
  * value for any token both blocks declare and silently stop checking the light
@@ -135,7 +145,7 @@ describe('token stylesheet', () => {
     // TypeError inside `declarations`, hiding which selector went missing.
     expect(
       baseRules,
-      `base sheet does not open its dark block with ${DARK_SELECTOR.source}`
+      `base sheet does not open its dark block with \`${DARK_SELECTOR_CSS}\` (whitespace-insensitive)`
     ).toMatch(DARK_SELECTOR)
 
     const [, darkBlock] = baseRules.split(DARK_SELECTOR)
@@ -154,7 +164,7 @@ describe('default theme stylesheet', () => {
     // extra" rather than "the dark block went missing".
     expect(
       themeRules,
-      `default theme sheet does not open its dark block with ${DARK_SELECTOR.source}`
+      `default theme sheet does not open its dark block with \`${DARK_SELECTOR_CSS}\` (whitespace-insensitive)`
     ).toMatch(DARK_SELECTOR)
   })
 
