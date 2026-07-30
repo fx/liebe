@@ -323,5 +323,29 @@ describe('entityStore', () => {
       expect([...entityStore.state.subscribedEntities]).toEqual(['light.kept'])
       expect([...entityStore.state.staleEntities]).toEqual([])
     })
+
+    it('starts a re-added entity subscription count from zero', () => {
+      /*
+       * The subscription COUNT is module-private, so the Set assertion above
+       * cannot see it — a mutation probe removing the `subscriptionCounts`
+       * delete passed every test in this file. This is the observable
+       * consequence: a count left behind outlives its entity, so an id that
+       * comes back starts at 1 instead of 0, and the first unsubscribe leaves
+       * it subscribed to something no view is showing.
+       */
+      entityStoreActions.updateEntities([entity('light.cycles', 'on', '2026-07-30T10:00:00Z')])
+      entityStoreActions.subscribeToEntity('light.cycles')
+
+      // Deleted while the socket was down…
+      entityStoreActions.replaceEntities([])
+      // …and created again before the next snapshot.
+      entityStoreActions.replaceEntities([entity('light.cycles', 'on', '2026-07-30T11:00:00Z')])
+
+      // One view subscribes to the returned entity, then goes away.
+      entityStoreActions.subscribeToEntity('light.cycles')
+      entityStoreActions.unsubscribeFromEntity('light.cycles')
+
+      expect([...entityStore.state.subscribedEntities]).toEqual([])
+    })
   })
 })
