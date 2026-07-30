@@ -344,6 +344,66 @@ export const SpeedControlNone: Story = {
   },
 }
 
+/* ------------------------------------------------------------------ *
+ * `sliderPlacement` (docs/specs/entity-cards/options/common.md — "Shared
+ * slider placement"; the fan's own row is in options/fan.md). It applies to the
+ * slider only, so each story sets `speedControl: 'slider'` explicitly rather
+ * than leaning on the default — and the last one shows what "inert for steps"
+ * looks like. `background` arrives with change 0034's second task.
+ * ------------------------------------------------------------------ */
+
+/** `auto` — the tier decides, which on a 3×1 is the slider across the row. */
+export const PlacementAuto: Story = {
+  args: { gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: { itemConfig: { speedControl: 'slider', sliderPlacement: 'auto' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-orientation="horizontal"]')
+    ).toBeInTheDocument()
+  },
+}
+
+/** `vertical` — the same wide tile, with the speed slider stood up. */
+export const PlacementVertical: Story = {
+  args: { gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: { itemConfig: { speedControl: 'slider', sliderPlacement: 'vertical' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-orientation="vertical"]')
+    ).toBeInTheDocument()
+  },
+}
+
+/** `horizontal` — a 1×3 tile that would have stood the slider up, laid across. */
+export const PlacementHorizontal: Story = {
+  args: { gridWidth: 1, gridHeight: 3 },
+  parameters: {
+    liebe: { itemConfig: { speedControl: 'slider', sliderPlacement: 'horizontal' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-orientation="horizontal"]')
+    ).toBeInTheDocument()
+  },
+}
+
+/** The same key under `speedControl: 'steps'`: inert, because there is no slider. */
+export const PlacementInertUnderSteps: Story = {
+  args: { gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: { itemConfig: { speedControl: 'steps', sliderPlacement: 'vertical' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-pill-group[data-orientation="horizontal"]')
+    ).toBeInTheDocument()
+  },
+}
+
 /** `showPresets: false` leaves the speed control behind. */
 export const WithoutPresets: Story = {
   args: FULL_CELL,

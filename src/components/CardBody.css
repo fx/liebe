@@ -199,6 +199,103 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Forced slider placement
+   *
+   * `sliderPlacement: horizontal | vertical` forces the primary slider's axis
+   * in every tier that renders one (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"). Flipping the orientation prop alone does not
+   * produce a slider, in either direction, because a slider has no length of
+   * its own on either axis: `anatomy.css` gives the vertical one `block-size:
+   * 100%` and the horizontal one `inline-size: 100%`, and a percentage resolves
+   * only against a containing block with a definite size on that axis. The
+   * shapes each provide one of the two, for the orientation they were built to
+   * host, so each forced case is the other shape's missing half
+   * (docs/changes/0034-slider-placement.md — "Approach").
+   *
+   * Both rules below give the control the same sizing contract the `tall` fill
+   * band already gives a vertical one, rather than inventing a length: whatever
+   * the shape has left after the parts around it, and nothing more. That is what
+   * keeps a forced placement inside its tile — a control that runs out of room
+   * gets shorter, never clipped. `CardBody`'s own floors are what omit it before
+   * it gets too short to use.
+   * ------------------------------------------------------------------ */
+
+  /*
+   * A vertical control on a row line: the line takes the body's leftover height
+   * so the control has a definite long axis to fill. Without this the line is
+   * as tall as the icon circle it contains, which is a height derived from
+   * content — so the control's `block-size: 100%` has nothing to resolve
+   * against and the track collapses to nothing.
+   *
+   * `min-block-size: 0` for the reason the band above carries it: a flex item's
+   * automatic minimum size is its content, and without it a tall line would
+   * push a `full` tier's secondary content off the tile instead of shrinking.
+   */
+  .liebe-card-body[data-control-orientation='vertical'] > .liebe-card-body-line {
+    flex: 1 1 auto;
+    min-block-size: 0;
+  }
+
+  /*
+   * And the control slot takes that whole height rather than being centred in
+   * it — the same `align-self: stretch` the fill band's slot carries, and for
+   * the same reason: a vertical slider's length IS the room the shape gave it.
+   *
+   * On the inline axis it goes the other way: `flex: 0 0 auto` and an automatic
+   * width, so a 42px control stays 42px on a row that has hundreds to spare
+   * instead of being stretched into a track whose thumb is the only part the
+   * finger can reach. `justify-content: center` is the vertical slider's
+   * centring rule applied inside the slot, restated at a weight that outranks
+   * the content-alignment rules further down for the same reason the band's
+   * copy is (docs/specs/design-system — "Card anatomy").
+   *
+   * `[data-control-size]` — an attribute the body always stamps — is in the
+   * selector only for its weight: this must outrank the `fill` sizing above,
+   * which is otherwise exactly as specific, and a rule that depends on which
+   * order the two were written in is one refactor from being silently reversed.
+   */
+  .liebe-card-body[data-control-size][data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls {
+    align-self: stretch;
+    flex: 0 0 auto;
+    inline-size: auto;
+    justify-content: center;
+  }
+
+  /*
+   * The meta goes back to taking the line's leftover width, which the control
+   * has just stopped taking — otherwise a forced vertical slider sits against
+   * the name rather than on the tile's trailing edge, with the free space piled
+   * up beyond it.
+   *
+   * Deliberately no more specific than the content-alignment rule that undoes
+   * this further down, and written above it, so an explicitly aligned card
+   * still distributes its line as change 0032 specifies: the block moves as a
+   * whole, and this rule is the unaligned default it moves away from.
+   */
+  .liebe-card-body[data-control-orientation='vertical'] > .liebe-card-body-line > .liebe-meta {
+    flex: 1 1 auto;
+  }
+
+  /*
+   * A horizontal control in the `tall` band: the band spans the tile's width so
+   * the control has a definite inline axis to fill. The band hugs its content
+   * by default — which is what puts a 42px vertical slider on the tile's
+   * midline — and inside a fit-content box a horizontal track's `inline-size:
+   * 100%` resolves against a width measured from that same track, the collapse
+   * `stretchControlBand` was added for (docs/specs/entity-cards/options/
+   * sensor.md — "the graph claims the tile").
+   *
+   * The card does not have to ask for the stretch here: it is a consequence of
+   * the orientation it already resolved, and a card that had to remember to
+   * pass both could pass one.
+   */
+  .liebe-card-body[data-control-orientation='horizontal'] > .liebe-card-body-fill {
+    align-self: stretch;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Content alignment
    *
    * The refinement half of the universal alignment pair

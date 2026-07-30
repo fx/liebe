@@ -61,8 +61,10 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 ## Tasks
 
-- [ ] `sliderPlacement` option with forced `horizontal`/`vertical`: shared placement module, per-card config rows (light/cover/fan), tier-suite orientation tests plus the stylesheet/e2e geometry locks for forced placements, stories per value
+- [x] `sliderPlacement` option with forced `horizontal`/`vertical`: shared placement module, per-card config rows (light/cover/fan), tier-suite orientation tests plus the stylesheet/e2e geometry locks for forced placements, stories per value
 - [ ] `background` placement: card-surface slider anatomy, gesture split on the shared press pipeline (travel threshold; tap/hold/double-tap preserved), cover `confirmOpen` routing, `iconOnly` composition, gesture + gate tests, e2e on the real grid, stories
+
+**Sequencing with [0042](./0042-tall-tile-control-geometry.md).** The forced placements land the omission path only on the axis the shell already publishes — the content width — which covers a forced `horizontal` slider at `tall`, the case with a real symptom. The **long axis of a forced `vertical` slider outside `tall` is not bounded here**, because nothing publishes the height its band gets and a card may not measure the DOM for it; establishing that capacity signal is 0042 PR 3's, for every vertical slider rather than only the forced ones. Until it lands a forced vertical control shortens with its band rather than overflowing it, so the failure mode is a short control and never a clipped one.
 
 ## Open Questions
 

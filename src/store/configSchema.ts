@@ -17,6 +17,7 @@ import { weatherOptionsConfigSchema } from './weatherOptions'
 import { mediaPlayerOptionsConfigSchema } from './mediaPlayerOptions'
 import { vacuumOptionsConfigSchema } from './vacuumOptions'
 import { personOptionsConfigSchema } from './personOptions'
+import { sliderPlacementConfigSchema } from './sliderPlacement'
 import type { DashboardConfig } from './types'
 
 /**
@@ -147,6 +148,15 @@ const gridItemSchema = z
       .merge(alarmOptionsConfigSchema)
       .merge(vacuumOptionsConfigSchema)
       .merge(personOptionsConfigSchema)
+      /*
+       * `sliderPlacement` is offered by the light, cover and fan families and
+       * is therefore declared once, in `./sliderPlacement`, and merged once
+       * here — the same treatment `confirm` gets, for the same reason: three
+       * fragments declaring one key would put its validation at the mercy of
+       * this chain's order (docs/specs/entity-cards/options/common.md —
+       * "Shared slider placement").
+       */
+      .merge(sliderPlacementConfigSchema)
       /*
        * The one key this gate deliberately accepts in two shapes, and the only
        * place a legacy spelling is tolerated here rather than rejected.

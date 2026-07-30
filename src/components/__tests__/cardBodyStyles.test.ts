@@ -41,6 +41,12 @@ const body = stripComments(read('../CardBody.css'))
  * inside it.
  */
 const shell = stripComments(read('../GridCard.css'))
+/**
+ * And the anatomy sheet, for the one fact the forced placements turn on: a
+ * slider has no length of its own on either axis, so what a shape has to supply
+ * is a containing block with a DEFINITE size on the axis the control runs along.
+ */
+const anatomy = stripComments(read('../anatomy/anatomy.css'))
 
 /**
  * Every style rule in a sheet, as selector and declarations.
@@ -76,6 +82,26 @@ function weighOf(pattern: RegExp): number {
   expect(matches, `no rule matching ${pattern}`).toHaveLength(1)
 
   return (matches[0].selector.match(/\.[\w-]+|\[[^\]]*\]/g) ?? []).length
+}
+
+/**
+ * The one rule in the body sheet whose selector matches, with the position it
+ * holds in the sheet.
+ *
+ * Selected by pattern rather than by exact selector, and on a
+ * whitespace-normalised copy, because Prettier wraps a long descendant selector
+ * across lines — a literal string comparison would depend on where it chose to
+ * break. The index is here because two rules of equal weight are settled by
+ * source order, which is a fact about the sheet that a weight comparison cannot
+ * express.
+ */
+function ruleMatching(pattern: RegExp): { declarations: string; order: number } {
+  const matches = rulesIn(body)
+    .map((rule, order) => ({ ...rule, selector: rule.selector.replace(/\s+/g, ' '), order }))
+    .filter(({ selector }) => pattern.test(selector))
+
+  expect(matches, `no rule matching ${pattern}`).toHaveLength(1)
+  return { declarations: matches[0].declarations, order: matches[0].order }
 }
 
 describe('card body stylesheet', () => {
@@ -145,6 +171,113 @@ describe('the tall arrangement centres its vertical control', () => {
   })
 })
 
+describe('a forced slider placement gets a definite axis to run along', () => {
+  /**
+   * `sliderPlacement: horizontal | vertical` puts the slider on an axis its
+   * shape was not built to host (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"), and the orientation prop alone does not produce
+   * one: a slider has no length of its own, so `block-size: 100%` and
+   * `inline-size: 100%` are what give it one, and a percentage resolves only
+   * against a containing block with a definite size on that axis.
+   *
+   * This is exactly the class of claim jsdom cannot make — it applies no
+   * stylesheet and lays nothing out, so a bare orientation flip renders an
+   * identical DOM and passes every rendered assertion while the track is
+   * invisible. The browser-level half is
+   * `tests/e2e/forced-slider-placement.spec.ts`.
+   */
+  it('starts from a slider with no length of its own, on either axis', () => {
+    // The premise, read off the anatomy sheet rather than assumed: without
+    // these two declarations there would be nothing for the rules below to
+    // resolve against, and nothing for a missing definite size to break.
+    expect(anatomy).toMatch(
+      /\.liebe-slider\[data-orientation='vertical'\]\s*\{[^}]*block-size:\s*100%;/
+    )
+    expect(anatomy).toMatch(
+      /\.liebe-slider\[data-orientation='horizontal'\]\s*\{[^}]*inline-size:\s*100%;/
+    )
+  })
+
+  it('gives a vertical control on a row line the body’s leftover height', () => {
+    // The line is otherwise as tall as the icon circle inside it — a height
+    // derived from content, which a percentage cannot resolve against. `flex: 1
+    // 1 auto` makes it the body's leftover instead, and `min-block-size: 0`
+    // stops a `full` tier's secondary content being pushed off the tile.
+    const line = ruleMatching(
+      /^\.liebe-card-body\[data-control-orientation='vertical'\] > \.liebe-card-body-line$/
+    ).declarations
+
+    expect(line).toContain('flex: 1 1 auto;')
+    expect(line).toContain('min-block-size: 0;')
+  })
+
+  it('hands that height to the control slot, and keeps the control its own width', () => {
+    const slot = ruleMatching(
+      /data-control-orientation='vertical'\].* > \.liebe-card-controls$/
+    ).declarations
+
+    // The long axis: the slot takes the whole line rather than being centred in
+    // it, which is the same contract the `tall` band's slot carries.
+    expect(slot).toContain('align-self: stretch;')
+    // And the cross axis goes the other way — a 42px control on a row with
+    // hundreds of pixels to spare stays 42px, instead of being stretched into a
+    // track only its thumb can be grabbed by.
+    expect(slot).toContain('flex: 0 0 auto;')
+    expect(slot).toContain('inline-size: auto;')
+    // The vertical slider's centring rule, applied inside the slot.
+    expect(slot).toContain('justify-content: center;')
+  })
+
+  it('outranks the `fill` sizing it has to override, by weight rather than by order', () => {
+    // Both rules address the same slot and are otherwise equally specific, so
+    // without the extra attribute selector the winner would be whichever was
+    // written last — one reorder away from silently reversing.
+    expect(
+      weighOf(/data-control-orientation='vertical'\][^,{]*liebe-card-controls$/)
+    ).toBeGreaterThan(
+      weighOf(/^\.liebe-card-body\[data-control-size='fill'\][^,{]*liebe-card-controls$/)
+    )
+  })
+
+  it('lets the meta take the width the control stopped taking, until an alignment says otherwise', () => {
+    // Otherwise the vertical slider sits against the name with the free space
+    // piled up beyond it, rather than on the tile's trailing edge.
+    const meta = ruleMatching(
+      /^\.liebe-card-body\[data-control-orientation='vertical'\] > \.liebe-card-body-line > \.liebe-meta$/
+    )
+    expect(meta.declarations).toContain('flex: 1 1 auto;')
+
+    /*
+     * And change 0032 still wins where a card stored an alignment: the
+     * contract there is that the content block moves as a whole, which needs
+     * the meta back at `0 1 auto` so the line has free space to distribute.
+     * Equal weight, so this is settled by source order — asserted, because it
+     * is the whole of what holds it.
+     */
+    const aligned = ruleMatching(
+      /^\.liebe-card\[data-align-h\] \.liebe-card-body-line > \.liebe-meta$/
+    )
+    expect(aligned.declarations).toContain('flex: 0 1 auto;')
+    expect(
+      weighOf(/^\.liebe-card-body\[data-control-orientation='vertical'\][^,{]*liebe-meta$/)
+    ).toBe(weighOf(/^\.liebe-card\[data-align-h\] \.liebe-card-body-line > \.liebe-meta$/))
+    expect(meta.order).toBeLessThan(aligned.order)
+  })
+
+  it('spans the tall band for a horizontal control, which otherwise has no width to fill', () => {
+    // The band hugs its content by default — that is what puts a 42px vertical
+    // slider on the tile's midline — and inside a fit-content box a horizontal
+    // track's `inline-size: 100%` resolves against a width measured from that
+    // same track. This is the collapse `stretchControlBand` exists for, applied
+    // without the card having to ask for it twice.
+    expect(
+      ruleMatching(
+        /^\.liebe-card-body\[data-control-orientation='horizontal'\] > \.liebe-card-body-fill$/
+      ).declarations
+    ).toContain('align-self: stretch;')
+  })
+})
+
 describe('the alignment pair inside the body', () => {
   /**
    * The refinement half of change 0032: the tile's own rules reach every card,
@@ -172,8 +305,10 @@ describe('the alignment pair inside the body', () => {
 
     // Exactly the rules that were here before the pair — the arrangements' own
     // distribution, the row line's trailing edge and its `fill` exception, and
-    // the tall band's centring.
-    expect(unscoped).toEqual([
+    // the tall band's centring — plus the forced-placement slot, which is a
+    // card's own stored option rather than an alignment and belongs on this
+    // list for the same reason the `fill` exception does.
+    expect(unscoped.map((selector) => selector.replace(/\s+/g, ' '))).toEqual([
       '.liebe-card-body',
       ".liebe-card-body[data-arrangement='stack']",
       ".liebe-card-body[data-arrangement='tall']",
@@ -182,6 +317,7 @@ describe('the alignment pair inside the body', () => {
       ".liebe-card-body[data-control-size='fill'] > .liebe-card-body-line > .liebe-card-controls",
       '.liebe-card-body-fill',
       '.liebe-card-body-fill > .liebe-card-controls',
+      ".liebe-card-body[data-control-size][data-control-orientation='vertical'] > .liebe-card-body-line > .liebe-card-controls",
     ])
   })
 
