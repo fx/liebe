@@ -49,9 +49,28 @@
     position: relative;
   }
 
+  /*
+   * Behind the content, which is not what DOM order alone was doing.
+   *
+   * A positioned element at `z-index: auto` paints in the positioned-descendant
+   * step, which comes AFTER in-flow inline content — so the backdrop and its
+   * scrim were painting ON TOP of the name, the title and the progress
+   * readouts, darkening the text by exactly as much as the ground beneath it.
+   * Measured in Chromium on this card's own `BackgroundArtwork` story: the
+   * artist line came out at 1.01:1 against the brightest pixel behind it,
+   * because a scrim over both text and ground scales both and separates
+   * neither. `elementFromPoint` over any of those lines answered
+   * `liebe-media-scrim`, which is the cheap tell.
+   *
+   * `z-index: -1` inside the `isolation: isolate` scope below puts it after the
+   * tile's own background and before the tile's content — the one ordering that
+   * makes a scrim a scrim. Inside the project's `auto` / `0` / `-1` rule
+   * (AGENTS.md — Radix styling).
+   */
   .liebe-media-backdrop {
     inset: 0;
     position: absolute;
+    z-index: -1;
   }
 
   .liebe-media-backdrop-image {
@@ -62,9 +81,18 @@
 
   /*
    * The scrim, and the reason background mode is legible at all: album art is
-   * arbitrary, so text over it is unknown-on-unknown. A downward gradient rather
-   * than a flat wash keeps the top of the image visible while darkening most
-   * under the control stack, which is where the text actually sits.
+   * arbitrary, so text over it is unknown-on-unknown. It still deepens downward,
+   * because that is where the control stack sits — but every stop now clears the
+   * design-system floor on its own (docs/specs/design-system/index.md — "Text
+   * over content imagery sits on a scrim"), which is what makes the floor
+   * image-independent instead of a property of the album art that happened to be
+   * playing.
+   *
+   * The top stop was 25%, and 25% black is not a ground: measured against a
+   * white cover it left the name at 2.75:1 and the artist line at 1.47:1. At 62%
+   * the worst a cover can do is 6.2:1 for `--liebe-fg` and 5.0:1 for the 85%
+   * `--liebe-muted` below — the two foregrounds anything overlaid here resolves
+   * to.
    *
    * Deliberately not themable-away: a theme that removed it would produce
    * unreadable cards, and the token contract governs colour, not whether
@@ -73,9 +101,9 @@
   .liebe-media-scrim {
     background: linear-gradient(
       to bottom,
-      rgb(0 0 0 / 25%) 0%,
-      rgb(0 0 0 / 55%) 55%,
-      rgb(0 0 0 / 80%) 100%
+      rgb(0 0 0 / 62%) 0%,
+      rgb(0 0 0 / 70%) 55%,
+      rgb(0 0 0 / 82%) 100%
     );
     inset: 0;
     position: absolute;
@@ -105,6 +133,27 @@
   .media-player-card-backdrop {
     --liebe-fg: #fff;
     --liebe-muted: rgb(255 255 255 / 85%);
+  }
+
+  /*
+   * The domain's text step, which an ACTIVE state line takes in place of the
+   * muted foreground (`anatomy.css` — `.liebe-state[data-active]`). A playing
+   * card is active by definition, so the artist line resolved to the media hue
+   * and stayed blue on the photograph: 3.62:1 against a white cover with the
+   * scrim already under it, measured. It is a hue rather than a foreground,
+   * which is why the two overrides above do not reach it, and why the option
+   * doc says "**every** overlaid element ... including any that would otherwise
+   * carry a colour of its own".
+   *
+   * On the parts rather than on the scope, and that is the whole reason this is
+   * a second rule: every anatomy part resolves `--part-text` from its OWN
+   * `[data-color]` rule, and a declaration on the element beats an inherited
+   * value however far up the scope sits. Two attribute-bearing selectors
+   * outrank the anatomy's one, so this lands on the part where the value is
+   * actually read.
+   */
+  .media-player-card-backdrop [data-color] {
+    --part-text: #fff;
   }
 
   /* `text-shadow` inherits on its own, so the scope carries it for every line. */

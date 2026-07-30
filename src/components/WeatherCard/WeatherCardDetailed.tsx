@@ -10,17 +10,18 @@ import { readWeatherOptions } from '~/store/weatherOptions'
 import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
+import { WeatherScrim, weatherArtworkClass } from './WeatherArtwork'
 import {
   formatTemperature,
   getConditionGlyph,
   getTemperatureDisplay,
   getWeatherTextColor,
   getWeatherTextStyles,
-  getWeatherValueStyles,
   readWeatherReading,
   resolveConditionBackground,
   resolveSecondaryReading,
   resolveUnavailableStatus,
+  WEATHER_ARTWORK_FG,
   supplementalReadings,
   type WeatherSecondaryReading,
 } from './presentation'
@@ -167,7 +168,7 @@ function WeatherCardDetailedContent(props: CardProps) {
       </Text>,
       createElement(reading.icon, {
         size: 18,
-        style: { ...styles.icon, color: backgroundImage ? 'white' : 'var(--gray-9)' },
+        style: { ...styles.icon, color: backgroundImage ? WEATHER_ARTWORK_FG : 'var(--gray-9)' },
       })
     )
 
@@ -175,7 +176,7 @@ function WeatherCardDetailedContent(props: CardProps) {
     ? labelledRow(
         'Temperature',
         isFull ? (
-          <div style={getWeatherValueStyles(!!backgroundImage)}>
+          <div style={emphasisStyles.text}>
             <CardValue
               domain="weather"
               value={Math.round(tempDisplay.value)}
@@ -191,7 +192,11 @@ function WeatherCardDetailedContent(props: CardProps) {
           size={20}
           style={{
             ...styles.icon,
-            color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--gray-9)',
+            color: backgroundImage
+              ? WEATHER_ARTWORK_FG
+              : isStale
+                ? 'var(--orange-9)'
+                : 'var(--gray-9)',
           }}
         />
       )
@@ -239,6 +244,7 @@ function WeatherCardDetailedContent(props: CardProps) {
       hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}
       backdrop={!backgroundImage}
+      className={weatherArtworkClass(!!backgroundImage)}
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
         backgroundSize: 'cover',
@@ -247,6 +253,8 @@ function WeatherCardDetailedContent(props: CardProps) {
         position: 'relative',
       }}
     >
+      <WeatherScrim hasBackground={!!backgroundImage} />
+
       <CardBody
         // `tall` runs glyph → data → meta down the tile like every other card;
         // the other three tiers take the default shapes.

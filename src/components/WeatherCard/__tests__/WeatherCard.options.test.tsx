@@ -22,8 +22,9 @@ import { WeatherCard } from '..'
  *
  * The condition background gets the most attention on purpose: the entity-cards
  * spec recorded it as shipped-but-untested, and it is three separate claims —
- * the artwork resolves, the text over it turns white, and turning the option off
- * puts the card back on its themed surface with neither of those.
+ * the artwork resolves, the text over it sits on a scrim whose scope carries the
+ * foreground tokens, and turning the option off puts the card back on its themed
+ * surface with neither of those.
  */
 
 const ENTITY = 'weather.home'
@@ -76,10 +77,23 @@ const name = () => document.querySelector('.liebe-name') as HTMLElement
 const arrangement = () =>
   document.querySelector('.liebe-card-body')!.getAttribute('data-arrangement')
 
-/** Whether any node under the card carries the white-over-artwork treatment. */
-const hasWhiteTextTreatment = () =>
-  Array.from(card().querySelectorAll<HTMLElement>('[style]')).some(
-    (node) => node.style.color === 'white' && node.style.textShadow !== ''
+/**
+ * Whether the tile carries the artwork treatment: the scrim layer AND the scope
+ * that overrides the foreground tokens over it.
+ *
+ * Both or neither. The scrim without the scope leaves themed text on a darkened
+ * photograph; the scope without the scrim is white text on an undarkened one,
+ * which is the defect #215 recorded. Asserting them together is what stops one
+ * shipping without the other.
+ */
+const hasArtworkTreatment = () =>
+  card().classList.contains('weather-card-artwork') &&
+  card().querySelector('.liebe-weather-scrim') !== null
+
+/** Any node pinning a literal colour, which no theme could then reach. */
+const pinnedColourNodes = () =>
+  Array.from(card().querySelectorAll<HTMLElement>('[style]')).filter((node) =>
+    /^(white|#fff|rgb)/i.test(node.style.color)
   )
 
 beforeEach(() => {
@@ -91,7 +105,7 @@ describe('showConditionBackground', () => {
   /** The three variants that paint artwork; `minimal` is its own case below. */
   const painting = ['default', 'modern', 'detailed'] as const
 
-  it('paints the condition artwork and switches the text to white', () => {
+  it('paints the condition artwork under a scrim, with the tokens scoped to it', () => {
     for (const variant of painting) {
       const { unmount } = renderCard(
         <WeatherCard entityId={ENTITY} tier="full" config={{ variant }} />
@@ -102,7 +116,11 @@ describe('showConditionBackground', () => {
       // The card's own blur is turned off through the shell's token channel, so
       // the artwork is not read through frosted glass.
       expect(card().style.getPropertyValue('--liebe-card-blur')).toBe('none')
-      expect(hasWhiteTextTreatment()).toBe(true)
+      expect(hasArtworkTreatment()).toBe(true)
+      // The other half of the design-system rule: the treatment travels through
+      // the token contract, so nothing over the artwork pins a colour a theme
+      // could not restyle.
+      expect(pinnedColourNodes()).toHaveLength(0)
       unmount()
     }
   })
@@ -118,14 +136,34 @@ describe('showConditionBackground', () => {
       )
 
       // The option doc's scenario: a `rainy` entity, which resolves artwork,
-      // with the option off — no image, no shadowed white text, and the tile
-      // back on `--liebe-card-bg` with its normal backdrop.
+      // with the option off — no image, no scrim, no scoped tokens, and the
+      // tile back on `--liebe-card-bg` with its normal backdrop.
       expect(card().style.backgroundImage).toBe('')
       expect(card().style.getPropertyValue('--liebe-card-blur')).toBe('')
-      expect(hasWhiteTextTreatment()).toBe(false)
+      expect(hasArtworkTreatment()).toBe(false)
+      expect(card().querySelector('.liebe-weather-scrim')).toBeNull()
       // The card is otherwise unchanged — this option moves no content.
       expect(screen.getByText('Home Weather')).toBeInTheDocument()
       unmount()
+    }
+  })
+
+  it('carries the scrim at every tier, not only where the big readout is', () => {
+    // "The scrim applies wherever the card paints condition artwork — every
+    // tier, every artwork-bearing variant" (option doc — Condition background).
+    // A `glance` tile is small, not exempt: its name and temperature sit on the
+    // same photograph.
+    const tiers = ['glance', 'row', 'tall', 'full'] as const
+
+    for (const variant of painting) {
+      for (const tier of tiers) {
+        const { unmount } = renderCard(
+          <WeatherCard entityId={ENTITY} tier={tier} config={{ variant }} />
+        )
+
+        expect(hasArtworkTreatment(), `${variant} at ${tier}`).toBe(true)
+        unmount()
+      }
     }
   })
 
@@ -141,7 +179,7 @@ describe('showConditionBackground', () => {
       )
 
       expect(card().style.backgroundImage).toBe('')
-      expect(hasWhiteTextTreatment()).toBe(false)
+      expect(hasArtworkTreatment()).toBe(false)
       unmount()
     }
   })
@@ -157,7 +195,7 @@ describe('showConditionBackground', () => {
       )
 
       expect(card().style.backgroundImage).toBe('')
-      expect(hasWhiteTextTreatment()).toBe(false)
+      expect(hasArtworkTreatment()).toBe(false)
       unmount()
     }
   })
@@ -384,8 +422,7 @@ describe('entities that report less than a weather card expects', () => {
 
   it('keeps the token colours at row when the condition maps to no artwork', () => {
     // The other side of the treatment branch at a tier that is not `full`: the
-    // compact readout takes theme colours rather than the white-over-artwork
-    // ones.
+    // compact readout takes theme colours rather than the artwork scope's.
     seed(makeEntity('exceptional'))
 
     for (const variant of WEATHER_VARIANTS) {
@@ -394,7 +431,7 @@ describe('entities that report less than a weather card expects', () => {
       )
 
       expect(card().style.backgroundImage).toBe('')
-      expect(hasWhiteTextTreatment()).toBe(false)
+      expect(hasArtworkTreatment()).toBe(false)
       unmount()
     }
   })
