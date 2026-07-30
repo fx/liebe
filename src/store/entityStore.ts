@@ -178,6 +178,13 @@ export const entityStoreActions: EntityStoreActions = {
        * A wall-clock capture time would have been the obvious alternative and
        * is wrong: it compares the browser's clock against Home Assistant's
        * timestamps, so any skew between them decides the answer.
+       *
+       * Unparseable readings are skipped rather than folded in, and the
+       * direction of that matters: `Math.max` with a `NaN` yields `NaN`, every
+       * later comparison against it is false, and the action would then drop
+       * every entity absent from the snapshot — including the ones created
+       * after it, which is the OVER-report this design exists to avoid. One
+       * malformed row would take the whole guarantee with it.
        */
       const snapshotAt = entities.reduce((latest, entity) => {
         const at = Date.parse(entity.last_updated)

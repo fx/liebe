@@ -331,20 +331,30 @@ describe('entityStore', () => {
     it('dates the snapshot by its usable readings only', () => {
       /*
        * An unparseable `last_updated` in the snapshot contributes nothing to
-       * the instant it is dated by, rather than poisoning it — otherwise one
-       * malformed row would make the whole snapshot undatable and every absent
-       * entity look newer than it, silently restoring the merge this PR
-       * replaces.
+       * the instant it is dated by, rather than poisoning it. `Math.max` with a
+       * `NaN` yields `NaN` and every comparison against it is false, so a
+       * poisoned date would drop EVERY entity absent from the snapshot —
+       * including one created after it, which is the over-report this design
+       * exists to avoid. One malformed row would take the whole guarantee.
+       *
+       * (An earlier version of this test asserted the deleted entity still
+       * went, and a probe showed that holds either way: a `NaN` date drops it
+       * too. The assertion has to be on what a poisoned date would WRONGLY
+       * drop, which is the entity it should have kept.)
        */
-      entityStoreActions.updateEntities([entity('light.deleted', 'on', '2026-07-30T09:00:00Z')])
+      entityStoreActions.updateEntities([entity('light.born', 'on', '2026-07-30T12:00:09Z')])
 
       entityStoreActions.replaceEntities([
         entity('light.broken', 'on', 'not-a-timestamp'),
         entity('light.fine', 'on', '2026-07-30T12:00:00Z'),
       ])
 
-      // The deleted one still goes: `light.fine` dated the snapshot.
-      expect(Object.keys(entityStore.state.entities).sort()).toEqual(['light.broken', 'light.fine'])
+      // `light.fine` dated the snapshot, so the newer creation is still kept.
+      expect(Object.keys(entityStore.state.entities).sort()).toEqual([
+        'light.born',
+        'light.broken',
+        'light.fine',
+      ])
     })
 
     it('takes the snapshot when either timestamp is unusable', () => {
