@@ -11,7 +11,7 @@ import {
   registerDetailControls,
   type EntityDetailControlsProps,
 } from './EntityDetailDialog/detailControls'
-import { toDatetimeInputValue } from '~/utils/inputDatetime'
+import { toDatetimeInputValue, toLocalCalendarDate } from '~/utils/inputDatetime'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 
@@ -53,13 +53,26 @@ export function formatDatetimeDisplayValue(
 ): string {
   if (!value || value === 'unknown') return '(not set)'
 
+  const { hasDate, hasTime } = shapeOf(attributes)
+
+  /*
+   * A date-only helper publishes a calendar date, and only a local reading of it
+   * is the date the user set: `new Date('2026-12-24')` is UTC midnight, so
+   * formatting it anywhere behind UTC printed Christmas Eve as the 23rd
+   * (docs/changes/0037-card-state-and-capability-correctness.md). The combined
+   * and time-only forms below carry a time component and already parse as local.
+   */
+  if (hasDate && !hasTime) {
+    const calendarDate = toLocalCalendarDate(value)
+    return calendarDate ? calendarDate.toLocaleDateString() : value
+  }
+
   const date = new Date(value)
   if (isNaN(date.getTime())) return value
 
-  const { hasDate, hasTime } = shapeOf(attributes)
-
-  if (hasDate && hasTime) return date.toLocaleString()
-  if (hasDate) return date.toLocaleDateString()
+  // Only the combined and time-only shapes reach here; the date-only one
+  // returned above and a helper carrying neither half has no format at all.
+  if (hasDate) return date.toLocaleString()
   if (hasTime) return date.toLocaleTimeString()
   return value
 }

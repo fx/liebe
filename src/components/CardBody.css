@@ -126,6 +126,23 @@
   }
 
   /*
+   * The band spanning the tile's width as well, for a card that asked
+   * (`stretchControlBand`). Its content is then the tier's own content rather
+   * than a control of fixed thickness: a sensor's `tall` sparkline is specified
+   * to span the tile, and the band above hugs its content — so `inline-size:
+   * 100%` inside it resolved against a width measured from that same content and
+   * collapsed to the big value's text
+   * (docs/specs/entity-cards/options/sensor.md — "the graph claims the tile").
+   *
+   * On the attribute rather than on the band, because a stretched band is the
+   * exception: the fit-content default is what puts a 42px vertical slider on
+   * the tile's midline, and the rule below is what keeps that true here anyway.
+   */
+  .liebe-card-body-fill[data-band-stretch] {
+    align-self: stretch;
+  }
+
+  /*
    * A control slot in that band takes the whole of it rather than being centred
    * in it: a vertical slider's length IS the height the tier gave it
    * (`.liebe-slider[data-orientation='vertical']` is `block-size: 100%`, which

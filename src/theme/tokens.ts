@@ -65,6 +65,14 @@ export const tokenGroups: readonly TokenGroup[] = [
         name: '--liebe-card-min-height-tall',
         purpose: 'Height floor for the multi-row tiers (tall, full)',
       },
+      {
+        name: '--liebe-graph-height-inline',
+        purpose: 'Sparkline band sharing a line with other content',
+      },
+      {
+        name: '--liebe-graph-height-dialog',
+        purpose: 'History graph in the entity detail dialog',
+      },
     ],
   },
   {

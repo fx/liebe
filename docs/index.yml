@@ -263,7 +263,7 @@ changes:
     path: changes/0031-sensor-graph-fill.md
     description: Sensor history graph claims its tile — full-tier graph grows with the card, tall band spans the tile width, graph-height literals onto tokens
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: []
   - id: '0032'
     name: card-content-alignment
