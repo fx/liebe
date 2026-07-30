@@ -196,7 +196,7 @@ describe('LCARS stylesheet', () => {
     expect(rules).not.toContain('38%')
   })
 
-  it('declares every token override on the root and none on a part', () => {
+  it('declares every token on the root rule and nowhere else', () => {
     // A token declared on a descendant is the value that descendant uses
     // however the cascade went above it, so a theme setting one on a pill
     // would beat a user's `.liebe-root { … }` in the LAST layer — inverting
@@ -204,10 +204,20 @@ describe('LCARS stylesheet', () => {
     // existed ("Configuration & selection": the root is the element themes and
     // user CSS MUST declare token overrides on); nothing enforced it, and the
     // first draft of the label fix broke it.
+    //
+    // EXCLUSIVITY, not membership, and the distinction is the whole test. The
+    // first version of this assertion collected every declared name and every
+    // name on the root and required the first set to be contained in the
+    // second — which passes when a token sits on the root AND on a part,
+    // because the root copy answers for the name. That is exactly the
+    // regression this exists to catch: the part copy still wins over an
+    // inherited user override, and the root copy is what makes it invisible.
+    // So the check is on the text OUTSIDE the root rule, where a declaration
+    // has no root copy to hide behind.
     const rootBlock = ruleBody(':where(.liebe-root)')
-    const declared = [...rules.matchAll(/(--liebe-[\w-]+)\s*:/g)].map(([, name]) => name)
-    const onRoot = [...rootBlock.matchAll(/(--liebe-[\w-]+)\s*:/g)].map(([, name]) => name)
-    expect(declared.filter((name) => !onRoot.includes(name))).toEqual([])
+    const outsideRoot = rules.replace(rootBlock, '')
+    const strays = [...outsideRoot.matchAll(/(--liebe-[\w-]+)\s*:/g)].map(([, name]) => name)
+    expect(strays, 'declared outside the root rule').toEqual([])
   })
 
   it('leaves the inactive label neutral', () => {

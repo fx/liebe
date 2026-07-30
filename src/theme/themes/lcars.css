@@ -47,8 +47,13 @@
  * derived ships unreadable state text (docs/specs/design-system/index.md —
  * "every theme MUST pin all ten"). Here each `-text` is pinned to its own hue,
  * which is both the authentic okudagram look and safe: measured against the
- * black card, the whole palette runs 5.05:1 (lilac) to 13.27:1 (almond-creme),
- * so the tightest domain still clears the 4.5:1 floor. The tints stay derived,
+ * black card, the ten domain hues run 5.05:1 (lilac) to 11.32:1 (barley), so
+ * the tightest domain still clears the 4.5:1 floor. Almond-creme is NOT among
+ * them — it is `--liebe-fg`, the neutral body text, and no `-text` companion or
+ * domain base resolves to it, so its 13.27:1 was never a figure this range
+ * could reach. Corrected on the measurement change 0036 PR 3 took over the
+ * completed pill and chip fills, which reads the same hues against the same
+ * black. The tints stay derived,
  * as under Liquid Glass, so user CSS remapping a base still recolours its
  * surface with it.
  *
@@ -370,7 +375,8 @@
    * which is the okudagram treatment the spec describes ("solid color fills
    * with black glyphs/labels") and the reason the palette is what it is: black
    * on the tightest hue in the set — lilac, the `vacuum` triplet — measures
-   * 5.05:1, and the rest run to 13.27:1 on almond-creme.
+   * 5.05:1, and the widest is 11.32:1 on barley, the `light` triplet. Measured
+   * per hue on pill and chip alike, decoded from painted pixels.
    *
    * The icon circle has rendered that way since 0013. Pills and chips could
    * not, and shipped a 38% block of the hue with the base layer's neutral
