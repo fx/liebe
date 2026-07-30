@@ -200,8 +200,11 @@ test('a tall card’s vertical slider fill spans its track and is centred in it'
   // it — a collapsed track would make every comparison below trivially true.
   expect(track.width).toBeGreaterThan(0)
 
-  // The fill spans the track's width, flush with both edges.
-  expect(fill.width).toBeCloseTo(track.width, 1)
+  // The fill spans the track's width, flush with both edges — on the same
+  // tolerance as the edges themselves, since it is the same claim measured a
+  // second way (`toBeCloseTo(…, 1)` would hold the width to 0.05, tighter than
+  // the edges it is derived from).
+  expect(Math.abs(fill.width - track.width)).toBeLessThanOrEqual(TOLERANCE)
   expect(Math.abs(fill.left - track.left)).toBeLessThanOrEqual(TOLERANCE)
   expect(Math.abs(fill.right - track.right)).toBeLessThanOrEqual(TOLERANCE)
 
