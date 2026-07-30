@@ -87,12 +87,25 @@ export function renderCardLifecycle({
   showButton = false,
   size,
 }: CardLifecycleProps): ReactElement {
-  // Pending. `!entity && isConnected` is the defensive half: a caller that
-  // reports neither flag for an absent entity on a live connection has not
-  // established that Home Assistant lacks it, and waiting is the answer that
-  // cannot be wrong about that. `!isMissing` is what stops this arm swallowing
-  // the state below, as it did for every card before this existed.
-  if (isLoading || (!entity && isConnected && !isMissing)) {
+  /*
+   * Pending, and the whole arm is gated on the connection — including
+   * `isLoading`, which is the half that used to escape it.
+   *
+   * `useEntity` computes `isLoading` as `isInitialLoading && !entity`, and
+   * `entityStore` starts at `{ isConnected: false, isInitialLoading: true }`
+   * with `isInitialLoading` set false only by `loadInitialStates()`. A panel
+   * that never reaches Home Assistant never runs that, so an ungated
+   * `isLoading ||` renders a skeleton that can never resolve: this change's own
+   * defect, on the connection instead of on the entity. Waiting is only honest
+   * over a socket something can arrive on.
+   *
+   * `!entity && !isMissing` is the defensive half: a caller that reports
+   * neither flag for an absent entity on a live connection has not established
+   * that Home Assistant lacks it, and waiting cannot be wrong about that.
+   * `!isMissing` is what stops this arm swallowing the state below, as it did
+   * for every card before this existed.
+   */
+  if (isConnected && (isLoading || (!entity && !isMissing))) {
     return <SkeletonCard tier={tier} showIcon={showIcon} lines={lines} showButton={showButton} />
   }
 
@@ -108,8 +121,11 @@ export function renderCardLifecycle({
     )
   }
 
-  // Connection down. Last rather than guarded, because it is what remains once
-  // the two states that need a live connection to be true have been ruled out.
+  // Connection down. Last rather than guarded, because both arms above require
+  // `isConnected` — so once neither has taken the render, the connection is
+  // what is left to report. That is an invariant of the code above rather than
+  // an aspiration: an arm reachable while disconnected would make this comment
+  // false and put a skeleton in front of a panel that cannot load.
   return (
     <ErrorDisplay
       error="Disconnected from Home Assistant"

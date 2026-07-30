@@ -49,6 +49,17 @@ vi.mock('~/hooks/useEntity', () => ({
 const PENDING = { entity: undefined, isConnected: true, isLoading: true, isMissing: false } as const
 const MISSING = { entity: undefined, isConnected: true, isLoading: false, isMissing: true } as const
 const DOWN = { entity: undefined, isConnected: false, isLoading: false, isMissing: false } as const
+/**
+ * Disconnected while the store is still in its initial-loading state — a panel
+ * that started with Home Assistant unreachable. `isLoading` is true here and
+ * stays true, because only `loadInitialStates()` clears it and it never runs.
+ */
+const DOWN_AT_FIRST_LOAD = {
+  entity: undefined,
+  isConnected: false,
+  isLoading: true,
+  isMissing: false,
+} as const
 
 interface CardCase {
   name: string
@@ -154,6 +165,20 @@ describe('the lifecycle tile a registered card renders instead of itself', () =>
     expect(screen.queryByText('Entity Not Found')).toBeNull()
     expect(container.querySelector('.rt-Skeleton')).toBeNull()
   })
+
+  it.each(cases)(
+    '$name reports the disconnection even before its first load completed',
+    (testCase) => {
+      // The pending arm is gated on the connection, so a panel that never
+      // reached Home Assistant gets the tile with the reload on it rather than
+      // a skeleton that can never resolve (Copilot, PR #322).
+      state = { ...state, ...DOWN_AT_FIRST_LOAD }
+      const { container } = renderCard(testCase)
+
+      expect(screen.getByText('Disconnected')).toBeInTheDocument()
+      expect(container.querySelector('.rt-Skeleton')).toBeNull()
+    }
+  )
 
   it.each(cases)('$name reports a missing entity at glance too', (testCase) => {
     // `glance` is the tier with no room for the message, so the tile becomes a

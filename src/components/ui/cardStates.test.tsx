@@ -257,6 +257,16 @@ describe('renderCardLifecycle', () => {
     context: { id: '1', parent_id: null, user_id: null },
   }
 
+  /**
+   * An entity id is `domain.object_id`, and the dot is a regex wildcard — a
+   * pattern built from a raw id matches a tile naming a *different* entity.
+   * The same class codex raised on the registry table; fixing it there did not
+   * fix it here, which is the point worth remembering about a class of defect.
+   */
+  function literal(text: string): RegExp {
+    return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  }
+
   function lifecycle(overrides: Partial<CardLifecycleProps> = {}) {
     return renderCardLifecycle({
       entityId: ENTITY_ID,
@@ -288,7 +298,7 @@ describe('renderCardLifecycle', () => {
     const { container } = renderInTheme(lifecycle({ isMissing: true }))
 
     expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
-    expect(screen.getByText(new RegExp(ENTITY_ID))).toBeInTheDocument()
+    expect(screen.getByText(literal(ENTITY_ID))).toBeInTheDocument()
     // A skeleton here would be the defect: it reads as progress towards a load
     // that will never finish.
     expect(container.querySelector('.rt-Skeleton')).toBeNull()
@@ -306,6 +316,36 @@ describe('renderCardLifecycle', () => {
     expect(screen.getByText(/reconfigure this card/)).toBeInTheDocument()
   })
 
+  it('reports the disconnection rather than waiting, when the first load never happened', () => {
+    /*
+     * The state a panel is in when it starts with Home Assistant unreachable.
+     * `entityStore` begins at `{ isConnected: false, isInitialLoading: true }`,
+     * and `isInitialLoading` is set false only by `loadInitialStates()` — which
+     * a panel that never reaches Home Assistant never runs. So `isLoading` is
+     * true and stays true.
+     *
+     * What this forbids is the pending arm being reachable while disconnected:
+     * a skeleton here reads as progress towards a load that cannot start, which
+     * is this change's own defect wearing the connection's hat rather than the
+     * entity's. Found by Copilot on PR #322; none of the seven mutation probes
+     * could have reached it, because each moved a conjunct in the other arm.
+     */
+    const { container } = renderInTheme(lifecycle({ isConnected: false, isLoading: true }))
+
+    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Retry/ })).toBeInTheDocument()
+    expect(container.querySelector('.rt-Skeleton')).toBeNull()
+  })
+
+  it('waits only over a connection something can arrive on', () => {
+    // The pair, so the assertion above cannot pass by the tile having become
+    // unconditional: the same absent entity with the socket up still waits.
+    const { container } = renderInTheme(lifecycle({ isConnected: true, isLoading: true }))
+
+    expect(container.querySelector('.rt-Skeleton')).not.toBeNull()
+    expect(screen.queryByText('Disconnected')).toBeNull()
+  })
+
   it('reports a dropped connection rather than a missing entity', () => {
     // The state most easily conflated with missing, and the one where getting
     // it wrong is most expensive: a disconnected panel has learned nothing
@@ -315,7 +355,7 @@ describe('renderCardLifecycle', () => {
 
     expect(screen.getByText('Disconnected')).toBeInTheDocument()
     expect(screen.queryByText('Entity Not Found')).toBeNull()
-    expect(screen.queryByText(new RegExp(ENTITY_ID))).toBeNull()
+    expect(screen.queryByText(literal(ENTITY_ID))).toBeNull()
   })
 
   it('offers the reload that can actually fix a dropped connection', async () => {
@@ -363,7 +403,7 @@ describe('renderCardLifecycle', () => {
 
       // The detail is announced rather than dropped, which is what keeps a 1×1
       // failed tile as informative as a larger one.
-      expect(screen.getByRole('button', { name: new RegExp(name) })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: literal(name) })).toBeInTheDocument()
       unmount()
     }
   })
