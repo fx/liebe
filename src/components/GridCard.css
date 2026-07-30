@@ -183,6 +183,30 @@
     justify-content: center;
   }
 
+  /*
+   * The accessible name that tile keeps, clipped out of sight.
+   *
+   * `iconOnly` takes every word off the tile, and the contract is explicit that
+   * this MUST NOT reach assistive technology with it: "the interactive surface
+   * stays fully identified to assistive technology while the glyph alone
+   * identifies it visually" (docs/specs/entity-cards/options/common.md —
+   * "Icon-only presentation").
+   *
+   * `clip-path` plus a 1px box rather than `display: none`, `visibility:
+   * hidden` or a zero size: each of those takes the node out of the
+   * accessibility tree as well, which is the one thing this must not do.
+   * `position: absolute` keeps it out of the tile's flow, so the glyph centres
+   * exactly as it would with nothing beside it.
+   */
+  .liebe-card-label {
+    block-size: 1px;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+  }
+
   /* ------------------------------------------------------------------ *
    * Content alignment
    *

@@ -3,7 +3,9 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconButton, Spinner } from '@radix-ui/themes'
 import { X, Settings } from 'lucide-react'
+import { useStore } from '@tanstack/react-store'
 import { useDashboardStore } from '~/store'
+import { entityStore } from '~/store/entityStore'
 import {
   useCardActions,
   type CardConfirmPrompt,
@@ -638,6 +640,40 @@ export const GridCard = React.memo(
        * dialogs behind it. A card that passes its own `onMoreInfo` keeps it.
        */
       const detailEntityId = entityId ?? item.entityId
+
+      /*
+       * What an icon-only tile says to a screen reader.
+       *
+       * `iconOnly` takes every word off the tile, and the contract is explicit
+       * that this must not reach assistive technology with it: "The tile MUST
+       * keep an accessible name carrying the entity's resolved name and, where
+       * the card has one, its state ('Reading lamp, on') … Hiding the name from
+       * a screen reader too would make an actionable tile anonymous"
+       * (docs/specs/entity-cards/options/common.md — "Icon-only presentation").
+       *
+       * Built from the ENTITY rather than from what the card rendered, which is
+       * the whole reason it lives in the shell. A label assembled out of the
+       * suppressed slots would be blank where the user also hid both lines,
+       * incomplete where a card carries its reading somewhere other than a meta
+       * line (a `tall` sensor puts it in the control slot), and about the wrong
+       * thing where a card's title line is not the entity's name at all (a
+       * media player's is the track). The user's `name` override still wins,
+       * because that is the name they gave this tile.
+       *
+       * The selector returns a string, so it re-runs on every store change and
+       * re-renders on none of them unless the answer moved — and it answers
+       * `undefined` whenever the option is off, which is every card on a
+       * dashboard that does not use it.
+       */
+      const iconOnlyLabel = useStore(entityStore, (state) => {
+        if (!iconOnly) return undefined
+
+        const entity = detailEntityId ? state.entities[detailEntityId] : undefined
+        const resolved = display.name || entity?.attributes?.friendly_name || detailEntityId
+        if (!resolved) return undefined
+
+        return entity?.state ? `${resolved}, ${entity.state}` : resolved
+      })
       // The entity the dialog is open for, rather than a boolean: it is the
       // same state, and holding the id means the render below needs no second
       // check that a card with no entity somehow opened one.
@@ -850,8 +886,23 @@ export const GridCard = React.memo(
             data-unavailable={isUnavailable ? 'true' : undefined}
             data-loading={isLoading ? 'true' : undefined}
             data-transparent={isTransparent ? 'true' : undefined}
+            /*
+             * The accessible name, for anything that treats the tile as the
+             * interactive surface it behaves as. The clipped text below is what
+             * actually reaches a reader today — a generic element's `aria-label`
+             * is not surfaced on its own — so the two are one label delivered
+             * twice rather than two labels.
+             */
+            aria-label={iconOnlyLabel}
             style={cardStyle}
           >
+            {/*
+             * The name and state, clipped out of sight. Rendered before the
+             * content so a reader meets the tile's identity first, and only
+             * under the option: without it the card's own lines are on the tile
+             * and this would say everything twice.
+             */}
+            {iconOnlyLabel ? <span className="liebe-card-label">{iconOnlyLabel}</span> : null}
             {/* Content — fenced to the card body while `iconOnly` holds, so a
                 backdrop or an overlay a card renders beside its body does not
                 survive the suppression its body just applied. */}

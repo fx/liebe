@@ -254,67 +254,6 @@ describe('GridCard display options', () => {
       expect(card()).toHaveAttribute('data-align-v', 'start')
     })
 
-    describe('the accessible name the tile keeps', () => {
-      function renderBody(config?: Record<string, unknown>) {
-        return render(
-          <GridCard domain="light" config={config}>
-            <CardBody
-              arrangement="row"
-              lead={<svg data-testid="lead" />}
-              meta={
-                <GridCard.Meta>
-                  <GridCard.Title>Reading lamp</GridCard.Title>
-                  <GridCard.Status>ON</GridCard.Status>
-                </GridCard.Meta>
-              }
-            />
-          </GridCard>
-        )
-      }
-
-      it('carries the name and the state, out of the visible layout', () => {
-        // "The tile MUST keep an accessible name carrying the entity's resolved
-        // name and, where the card has one, its state ('Reading lamp, on'): the
-        // interactive surface stays fully identified to assistive technology
-        // while the glyph alone identifies it visually"
-        // (docs/specs/entity-cards/options/common.md — "Icon-only
-        // presentation"). Hiding it from a screen reader too would leave an
-        // actionable tile anonymous.
-        renderBody({ iconOnly: true })
-
-        const label = document.querySelector('.liebe-card-body-label')
-        expect(label).toHaveTextContent('Reading lamp')
-        expect(label).toHaveTextContent('ON')
-
-        // Inside the label rather than beside the lead — which is what makes it
-        // invisible. How it is hidden without leaving the accessibility tree is
-        // a property of the declarations, asserted in `cardBodyStyles.test.ts`.
-        expect(
-          document.querySelector('.liebe-meta')?.closest('.liebe-card-body-label')
-        ).not.toBeNull()
-      })
-
-      it('is not rendered at all without the option', () => {
-        // The label is the option's, not the body's: a card that never asked
-        // for the icon-only presentation gets its meta in the layout, where it
-        // has always been.
-        renderBody()
-
-        expect(document.querySelector('.liebe-card-body-label')).toBeNull()
-        expect(name()).toHaveTextContent('Reading lamp')
-      })
-
-      it('still honours a line the user hid', () => {
-        // The label is what survives suppression, not a way around the two hide
-        // options: a user who hid the state line does not get it back here.
-        renderBody({ iconOnly: true, hideState: true })
-
-        const label = document.querySelector('.liebe-card-body-label')
-        expect(label).toHaveTextContent('Reading lamp')
-        expect(label).not.toHaveTextContent('ON')
-      })
-    })
-
     describe('the fence over what a card renders beside its body', () => {
       function renderWithBackdrop(config?: Record<string, unknown>) {
         return render(

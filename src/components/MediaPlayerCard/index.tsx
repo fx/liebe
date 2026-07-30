@@ -292,7 +292,14 @@ function MediaPlayerCardComponent({
    * a component that read the clock during render would show a position that
    * only advanced when something *else* re-rendered it.
    */
-  const progressTicks = options.showProgress && tier === 'full' && state === 'playing'
+  /*
+   * `iconOnly` is the third half of "the bar actually renders": the seam
+   * suppresses the progress bar whatever the tier and the option say, so
+   * without this the ticker would re-render an icon-only tile once a second
+   * for a bar it does not draw — exactly the waste the two conditions beside
+   * it already rule out.
+   */
+  const progressTicks = options.showProgress && !iconOnly && tier === 'full' && state === 'playing'
 
   /*
    * The clock lives in state, and only this effect writes it.

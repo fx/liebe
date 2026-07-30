@@ -186,13 +186,31 @@ describe('the icon-only audit', () => {
           expect(body.querySelector(part), `${name} at ${tier} — ${part}`).toBeNull()
         }
 
-        // The meta lines survive only inside the accessible label — visually
-        // suppressed, still identified to assistive technology
-        // (docs/specs/entity-cards/options/common.md — "Visual suppression
-        // never removes accessible semantics").
-        for (const meta of body.querySelectorAll('.liebe-meta')) {
-          expect(meta.closest('.liebe-card-body-label'), `${name} at ${tier}`).not.toBeNull()
-        }
+        // And the meta lines, which the tile's own clipped label replaces.
+        expect(body.querySelector('.liebe-meta'), `${name} at ${tier}`).toBeNull()
+      }
+
+      unmount()
+    }
+  })
+
+  it.each(cases)('$name keeps an accessible name on its tile', ({ Card, name, domain }) => {
+    // "The tile MUST keep an accessible name carrying the entity's resolved
+    // name and, where the card has one, its state" — suppression takes every
+    // word off the tile, and an actionable tile with nothing but a glyph is
+    // anonymous to a screen reader (docs/specs/entity-cards/options/common.md
+    // — "Visual suppression never removes accessible semantics").
+    const friendlyName = entityFactories[domain as FixtureDomain]().attributes?.friendly_name
+
+    for (const tier of TIERS) {
+      const { container, unmount } = renderTarget({ Card, name, domain }, tier, ICON_ONLY)
+
+      for (const tile of tilesIn(container)) {
+        const label = tile.querySelector('.liebe-card-label')
+        expect(label, `${name} at ${tier}`).not.toBeNull()
+        expect(label!.textContent, `${name} at ${tier}`).toContain(friendlyName)
+        // The same string as the tile's own name, so the two cannot drift.
+        expect(tile.getAttribute('aria-label'), `${name} at ${tier}`).toBe(label!.textContent)
       }
 
       unmount()
@@ -249,6 +267,61 @@ describe('the families the contract names', () => {
     // the value, which is what makes the assertion above about something.
     const { container: plain } = renderCard('sensor', 'glance', {})
     expect(plain.querySelector('.liebe-card .liebe-value')).not.toBeNull()
+  })
+
+  it('names the tile from the entity rather than from the slots it suppressed', () => {
+    // The label is built in the shell, from the entity, because what a card put
+    // in its meta is not the entity's identity: a media player's title line is
+    // the track, and a `tall` sensor's reading is in the control slot rather
+    // than in a meta line. So the two cards whose slots would give the wrong
+    // answer are the ones worth pinning.
+    const speaker = entityFactories.media_player()
+    const { container } = renderCard('media_player', 'full', ICON_ONLY)
+
+    const label = container.querySelector('.liebe-card-label')!
+    expect(label.textContent).toContain(speaker.attributes?.friendly_name)
+    expect(label.textContent).toContain(speaker.state)
+    // The track title is what the suppressed meta carried, and it is not what
+    // identifies this tile.
+    expect(label.textContent).not.toContain(speaker.attributes?.media_title)
+  })
+
+  it('lets the user’s name override win, because that is the name they gave the tile', () => {
+    const { container } = renderCard('light', 'full', { ...ICON_ONLY, name: 'Reading lamp' })
+
+    expect(container.querySelector('.liebe-card-label')!.textContent).toContain('Reading lamp')
+  })
+
+  it('stops the sensor asking the recorder for a graph it will not draw', () => {
+    // Suppressed content that keeps costing something is suppressed only for
+    // the user: the sparkline is gone, and without this gate the card would go
+    // on registering interest in a history window to draw it from, on every
+    // such tile on the dashboard.
+    const subscribe = vi.spyOn(entityHistoryService, 'subscribe')
+
+    renderCard('sensor', 'full', ICON_ONLY)
+    expect(subscribe).not.toHaveBeenCalled()
+
+    // Without the option the same tier does register interest, so the assertion
+    // above is about the option rather than about a card that never asks.
+    renderCard('sensor', 'full', {})
+    expect(subscribe).toHaveBeenCalled()
+
+    subscribe.mockRestore()
+  })
+
+  it('stops the media player ticking a progress bar it will not draw', () => {
+    // Same shape, with a timer instead of a subscription: the ticker re-renders
+    // the card once a second to advance a bar the seam has already suppressed.
+    const interval = vi.spyOn(globalThis, 'setInterval')
+
+    renderCard('media_player', 'full', { ...ICON_ONLY, showProgress: true })
+    expect(interval).not.toHaveBeenCalled()
+
+    renderCard('media_player', 'full', { showProgress: true })
+    expect(interval).toHaveBeenCalled()
+
+    interval.mockRestore()
   })
 
   it('keeps the person card’s avatar, which is its anchor rather than a glyph', () => {

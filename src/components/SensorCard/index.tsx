@@ -169,7 +169,15 @@ function SensorCardComponent({
     options.graphMode,
     readStringAttribute(entity, 'state_class')
   )
-  const wantsGraph = !isGlance && options.showGraph
+  /*
+   * `iconOnly` gates this as firmly as `showGraph: false` does, and for the
+   * same reason: the flag decides what history this card asks the recorder for,
+   * and an icon-only tile draws no graph at any tier. Left ungated the card
+   * would keep issuing history requests and holding a subscription for a
+   * sparkline the seam has already suppressed — invisible work, on every such
+   * tile on the dashboard.
+   */
+  const wantsGraph = !isGlance && options.showGraph && !iconOnly
   const wantsBars = wantsGraph && graphMode === 'bar'
   const wantsTrend = isGlance && options.showTrend && showsValue
   const wantsSamples = wantsGraph && (!wantsBars || tier === 'full')

@@ -149,22 +149,21 @@ export function CardBody({
    * and stamping the requested value would have the sheet arrange one child
    * along an axis it is alone on.
    *
-   * The meta stays in the DOM, visually hidden, rather than being dropped with
-   * the rest — the one deliberate exception to this component's
-   * omit-never-hide rule, and the contract asks for it in as many words:
-   * "Visual suppression never removes accessible semantics … the interactive
-   * surface stays fully identified to assistive technology while the glyph
-   * alone identifies it visually". An actionable tile whose only content is a
-   * glyph is anonymous to a screen reader otherwise. It carries whatever the
-   * card put in its meta, which is the entity's resolved name and, where the
-   * card has one, its state — and the shell's own `hideName`/`hideState` still
-   * apply inside it, so a user who hid a line does not get it back here.
+   * The meta goes with the rest, and the accessible name the contract requires
+   * an icon-only tile to keep is the SHELL's — `GridCard` renders it, from the
+   * entity. Not from here, because what a card puts in its meta is not the
+   * entity's identity: `hideName`/`hideState` can empty it, a `tall` sensor
+   * carries its reading in the omitted control slot rather than in a meta line,
+   * and a media player's title line is the track rather than the speaker. A
+   * label built out of the slots would therefore be blank, incomplete or about
+   * something else exactly where it matters
+   * (docs/specs/entity-cards/options/common.md — "Visual suppression never
+   * removes accessible semantics").
    */
   if (iconOnly) {
     return (
       <div className="liebe-card-body" data-arrangement="stack" data-control-size={controlSize}>
         {lead}
-        {meta ? <div className="liebe-card-body-label">{meta}</div> : null}
       </div>
     )
   }
