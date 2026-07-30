@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   COVER_OPTION_DEFAULTS,
   COVER_OPTION_KEYS,
-  COVER_STATE_LABELS_AUTO,
+  COVER_STATE_LABEL_STYLE_AUTO,
   coverOptionsConfigSchema,
   isSecurityCover,
   readCoverOptions,
@@ -21,7 +21,7 @@ describe('readCoverOptions', () => {
       showTiltControls: true,
       invertPosition: false,
       deviceClassIcon: true,
-      stateLabels: undefined,
+      stateLabelStyle: undefined,
       confirmOpen: true,
     })
     expect(readCoverOptions({})).toEqual(COVER_OPTION_DEFAULTS)
@@ -35,7 +35,7 @@ describe('readCoverOptions', () => {
         showTiltControls: false,
         invertPosition: true,
         deviceClassIcon: false,
-        stateLabels: 'open-closed',
+        stateLabelStyle: 'open-closed',
         confirmOpen: false,
       })
     ).toEqual({
@@ -44,30 +44,32 @@ describe('readCoverOptions', () => {
       showTiltControls: false,
       invertPosition: true,
       deviceClassIcon: false,
-      stateLabels: 'open-closed',
+      stateLabelStyle: 'open-closed',
       confirmOpen: false,
     })
   })
 
   it('accepts both concrete label styles, and derives from an absent key', () => {
-    for (const stateLabels of ['percent', 'open-closed'] as const) {
-      expect(readCoverOptions({ stateLabels }).stateLabels).toBe(stateLabels)
+    for (const stateLabelStyle of ['percent', 'open-closed'] as const) {
+      expect(readCoverOptions({ stateLabelStyle }).stateLabelStyle).toBe(stateLabelStyle)
     }
-    expect(readCoverOptions({}).stateLabels).toBeUndefined()
+    expect(readCoverOptions({}).stateLabelStyle).toBeUndefined()
     // The form's own spelling of absence never reaches the stored config, and
     // resolves like any other unrecognised value if a document carries it.
-    expect(readCoverOptions({ stateLabels: COVER_STATE_LABELS_AUTO }).stateLabels).toBeUndefined()
+    expect(
+      readCoverOptions({ stateLabelStyle: COVER_STATE_LABEL_STYLE_AUTO }).stateLabelStyle
+    ).toBeUndefined()
   })
 
   it('falls back per key, so one bad value costs only its own key', () => {
     const options = readCoverOptions({
       invertPosition: 'yes',
-      stateLabels: 'pct',
+      stateLabelStyle: 'pct',
       showButtons: false,
     })
 
     expect(options.invertPosition).toBe(false)
-    expect(options.stateLabels).toBeUndefined()
+    expect(options.stateLabelStyle).toBeUndefined()
     // Still honoured: the neighbouring key was valid.
     expect(options.showButtons).toBe(false)
   })
@@ -85,7 +87,7 @@ describe('readCoverOptions', () => {
   })
 
   it('reads every key back out of a config that sets them all', () => {
-    const stored = readCoverOptions({ stateLabels: 'percent' })
+    const stored = readCoverOptions({ stateLabelStyle: 'percent' })
     expect(Object.keys(stored).sort()).toEqual([...COVER_OPTION_KEYS].sort())
   })
 })
@@ -100,7 +102,7 @@ describe('coverOptionsConfigSchema', () => {
     // The import gate tells the author; `readCoverOptions` is only the render
     // path declining to crash over what got past it.
     expect(coverOptionsConfigSchema.safeParse({ invertPosition: 'yes' }).success).toBe(false)
-    expect(coverOptionsConfigSchema.safeParse({ stateLabels: 'pct' }).success).toBe(false)
+    expect(coverOptionsConfigSchema.safeParse({ stateLabelStyle: 'pct' }).success).toBe(false)
     expect(coverOptionsConfigSchema.safeParse({ confirmOpen: 'false' }).success).toBe(false)
   })
 })

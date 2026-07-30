@@ -4,14 +4,14 @@ import { actionOptionsConfigSchema } from './actionOptions'
 import { binarySensorOptionsConfigSchema } from './binarySensorOptions'
 import { cameraOptionsConfigSchema } from './cameraOptions'
 import { climateOptionsConfigSchema } from './climateOptions'
-import { coverOptionsConfigSchema } from './coverOptions'
+import { coverOptionsConfigSchema, coverStateLabelStyleSchema } from './coverOptions'
 import { fanOptionsConfigSchema } from './fanOptions'
 import { lightOptionsConfigSchema } from './lightOptions'
 import { lockOptionsConfigSchema } from './lockOptions'
 import { alarmOptionsConfigSchema } from './alarmOptions'
 import { cardDisplayConfigSchema } from './cardDisplay'
 import { sensorOptionsConfigSchema } from './sensorOptions'
-import { switchOptionsConfigSchema } from './switchOptions'
+import { switchOptionsConfigSchema, switchStateLabelsSchema } from './switchOptions'
 import { inputHelperOptionsConfigSchema } from './inputHelperOptions'
 import { weatherOptionsConfigSchema } from './weatherOptions'
 import { mediaPlayerOptionsConfigSchema } from './mediaPlayerOptions'
@@ -125,7 +125,10 @@ const gridItemSchema = z
     // fragments merge; the duplicate below is the same object, so the order of
     // these lines cannot change what `confirm` accepts. Any future key added to
     // two fragments needs the same treatment or an explicit decision recorded
-    // here — `stateLabels` is what happens without one (see `./confirmOption`).
+    // here — `stateLabels` is what happens without one, which cost the cover
+    // family a rename (docs/changes/0038-option-key-collision.md; see also
+    // `./confirmOption`), and `__tests__/configSchema.keyCollisions.test.ts`
+    // now fails the build the moment a third one is introduced.
     config: cardActionsConfigSchema
       .merge(cardDisplayConfigSchema)
       .merge(actionOptionsConfigSchema)
@@ -144,6 +147,32 @@ const gridItemSchema = z
       .merge(alarmOptionsConfigSchema)
       .merge(vacuumOptionsConfigSchema)
       .merge(personOptionsConfigSchema)
+      /*
+       * The one key this gate deliberately accepts in two shapes, and the only
+       * place a legacy spelling is tolerated here rather than rejected.
+       *
+       * `stateLabels` is the switch and fallback cards' `{ onLabel, offLabel }`
+       * text pair. Until change 0038 the cover family declared the same key as
+       * its position-display style, and every cover card configured before that
+       * rename stores a string in it. The rename is a loader migration
+       * (`migrateCoverCardConfig`) and the loader runs *after* this gate on the
+       * import routes — so validating the object shape alone would reject those
+       * documents outright, before the migration that fixes them could run,
+       * which is the same user-visible failure change 0038 exists to end, just
+       * pointed at the other family. Accepting the legacy string here is what
+       * makes a shared YAML from an older build importable; nothing writes it
+       * back out, because the loader has renamed it by the time the store sees
+       * the document.
+       *
+       * Not narrower than "either shape, for any card": one item schema serves
+       * every domain (the reason climate's and weather's `variant` stay out of
+       * this gate entirely), so it cannot tell which family an item belongs to.
+       * A switch card carrying a style string is a document nothing writes, and
+       * `readSwitchOptions` resolves it to the default rather than rendering it.
+       */
+      .extend({
+        stateLabels: z.union([switchStateLabelsSchema, coverStateLabelStyleSchema]).optional(),
+      })
       .passthrough()
       .optional(),
     // Grid geometry is measured in whole grid cells: positions are non-negative

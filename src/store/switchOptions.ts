@@ -52,7 +52,13 @@ export const SWITCH_OPTION_DEFAULTS: Readonly<SwitchCardOptions> = {
   showLastChanged: false,
 }
 
-const stateLabelsSchema = z
+/**
+ * The stored shape of the label pair. Exported so the import gate can spell out
+ * the one legacy tolerance it carries for this key — a cover card written before
+ * change 0038 stores a style *string* here (see `./configSchema`) — without
+ * restating the shape and letting the two drift.
+ */
+export const switchStateLabelsSchema = z
   .object({
     onLabel: z.string().optional(),
     offLabel: z.string().optional(),
@@ -71,7 +77,7 @@ const stateLabelsSchema = z
 export const switchOptionsConfigSchema = z
   .object({
     deviceClassIcon: z.boolean().optional(),
-    stateLabels: stateLabelsSchema.optional(),
+    stateLabels: switchStateLabelsSchema.optional(),
     showLastChanged: z.boolean().optional(),
   })
   .merge(confirmOptionsConfigSchema)
@@ -80,7 +86,7 @@ export const switchOptionsConfigSchema = z
 const switchKeySchemas: Readonly<Record<SwitchOptionKey, z.ZodTypeAny>> = {
   confirm: confirmOptionSchema,
   deviceClassIcon: z.boolean(),
-  stateLabels: stateLabelsSchema,
+  stateLabels: switchStateLabelsSchema,
   showLastChanged: z.boolean(),
 }
 
