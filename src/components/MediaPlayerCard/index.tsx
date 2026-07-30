@@ -19,7 +19,7 @@ import { readCardDisplay } from '~/store/cardDisplay'
 import { readMediaPlayerOptions } from '~/store/mediaPlayerOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup, Slider } from '../anatomy'
@@ -101,7 +101,13 @@ function MediaPlayerCardComponent({
   isSelected = false,
   onSelect,
 }: MediaPlayerCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   /*
    * Every command this card issues is non-idempotent in the way the guarded path
    * exists for: a retried `media_next_track` skips two tracks, and a repeated
@@ -357,26 +363,16 @@ function MediaPlayerCardComponent({
   const handlePrevious = useCallback(() => dispatch('media_previous_track'), [dispatch])
   const handleNext = useCallback(() => dispatch('media_next_track'), [dispatch])
 
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} showButton={true} />
-  }
-
-  /*
-   * Disconnected. The `!entity` half narrows the type rather than naming a
-   * second case: an entity missing while the connection is up is the skeleton
-   * above, because `useEntity` cannot tell "not loaded yet" from "does not
-   * exist".
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      showButton: true,
+    })
   }
 
   if (state === 'unavailable') {

@@ -45,6 +45,7 @@ describe('LockCard', () => {
       isConnected: true,
       isStale: false,
       isLoading: false,
+      isMissing: false,
     }))
 
     /*
@@ -774,6 +775,7 @@ describe('LockCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: true,
+        isMissing: false,
       })
 
       const { container } = render(<LockCard entityId={ENTITY_ID} />)
@@ -788,6 +790,7 @@ describe('LockCard', () => {
         isConnected: false,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
       const reload = vi.fn()
       Object.defineProperty(window, 'location', {

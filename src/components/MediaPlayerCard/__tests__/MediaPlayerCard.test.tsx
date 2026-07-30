@@ -785,9 +785,11 @@ describe('MediaPlayerCard lifecycle states', () => {
   })
 
   /**
-   * Disconnected, which is a different case from "entity missing": `useEntity`
-   * cannot tell "not loaded yet" from "does not exist", so a card never reports
-   * an entity as absent while the connection is up.
+   * Disconnected, which is a different case from "entity missing". A dropped
+   * socket has told the panel nothing about what exists, so the tile says the
+   * connection is down and offers the reload that can fix it — reporting the
+   * entity as deleted here would send the user to reconfigure a card that is
+   * fine (docs/specs/entity-state — "Consumer Hooks").
    */
   it('reports the disconnection rather than an absent entity', () => {
     entityStore.setState((state) => ({

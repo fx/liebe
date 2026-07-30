@@ -31,5 +31,9 @@ export { SkeletonCard } from './SkeletonCard'
 // Export error components
 export { ErrorDisplay, ConnectionError } from './ErrorDisplay'
 
+// Export the shared lifecycle treatment every card renders instead of itself
+export { renderCardLifecycle } from './cardStates'
+export type { CardLifecycleProps } from './cardStates'
+
 // Export error boundary components
 export { ErrorBoundary, withErrorBoundary, EntityErrorBoundary } from '../ErrorBoundary'

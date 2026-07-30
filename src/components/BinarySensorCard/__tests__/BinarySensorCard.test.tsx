@@ -259,11 +259,17 @@ describe('BinarySensorCard icons', () => {
 })
 
 describe('BinarySensorCard states without a card', () => {
-  it('holds a skeleton for an entity the store has not got', () => {
+  it('reports an entity the received state machine does not contain', () => {
+    // Seeding leaves the store connected and no longer initially loading, so
+    // this id is absent from a state machine we have all of — which is what a
+    // renamed or deleted entity looks like. The skeleton would say "still
+    // working on it" about a card that will never load.
     seed(createBinarySensorEntity())
     renderCard(<BinarySensorCard entityId="binary_sensor.absent" />)
 
-    expect(document.querySelector('.rt-Skeleton')).not.toBeNull()
+    expect(document.querySelector('.rt-Skeleton')).toBeNull()
+    expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
+    expect(screen.getByText(/binary_sensor\.absent is not in Home Assistant/)).toBeInTheDocument()
   })
 
   it('offers a reload when the connection is down', async () => {

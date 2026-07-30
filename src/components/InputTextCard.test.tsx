@@ -37,6 +37,7 @@ describe('InputTextCard', () => {
       entity: defaultEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -75,6 +76,7 @@ describe('InputTextCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -183,6 +185,7 @@ describe('InputTextCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -215,6 +218,7 @@ describe('InputTextCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -262,6 +266,7 @@ describe('InputTextCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -310,6 +315,7 @@ describe('InputTextCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -339,6 +345,7 @@ describe('InputTextCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -445,6 +452,7 @@ describe('InputTextCard', () => {
         entity: { ...defaultEntity, state: 'unavailable' },
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 

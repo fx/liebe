@@ -61,6 +61,7 @@ describe('LightCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
     vi.mocked(hooks.useServiceCall).mockReturnValue(mockServiceCallHandlers)
@@ -79,6 +80,7 @@ describe('LightCard', () => {
       entity: { ...mockEntity, state: 'off' },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -107,6 +109,7 @@ describe('LightCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -130,6 +133,7 @@ describe('LightCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -162,6 +166,7 @@ describe('LightCard', () => {
       entity: { ...mockEntity, state: 'unavailable' },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -176,6 +181,7 @@ describe('LightCard', () => {
       entity: undefined,
       isConnected: false,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -216,6 +222,7 @@ describe('LightCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: true,
     })
 

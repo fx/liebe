@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
 import { SkeletonCard } from './SkeletonCard'
 import { ErrorDisplay } from './ErrorDisplay'
+import { renderCardLifecycle, type CardLifecycleProps } from './cardStates'
+import type { HassEntity } from '~/store/entityTypes'
 
 /**
  * The states a card renders *instead of* itself — loading and failed — are
@@ -230,5 +232,189 @@ describe('ErrorDisplay card tiers', () => {
     )
 
     expect(queryByText('Disconnected from Home Assistant')).toBeInTheDocument()
+  })
+})
+
+/**
+ * The shared lifecycle treatment (docs/specs/entity-cards — "Common card shell,
+ * sizing, and lifecycle states"; docs/changes/0037 PR 3).
+ *
+ * Three states, three tiles, one decision — and the decision is the part that
+ * used to be wrong everywhere at once, because each card made it alone and each
+ * card made it the same way: by waiting. What these assertions forbid is any
+ * two of the three collapsing into one tile, so each names what it must NOT be
+ * as well as what it is.
+ */
+describe('renderCardLifecycle', () => {
+  const ENTITY_ID = 'light.living_room'
+
+  const entity: HassEntity = {
+    entity_id: ENTITY_ID,
+    state: 'on',
+    attributes: {},
+    last_changed: '2026-07-30T00:00:00Z',
+    last_updated: '2026-07-30T00:00:00Z',
+    context: { id: '1', parent_id: null, user_id: null },
+  }
+
+  /**
+   * An entity id is `domain.object_id`, and the dot is a regex wildcard — a
+   * pattern built from a raw id matches a tile naming a *different* entity.
+   * The same class codex raised on the registry table; fixing it there did not
+   * fix it here, which is the point worth remembering about a class of defect.
+   */
+  function literal(text: string): RegExp {
+    return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  }
+
+  function lifecycle(overrides: Partial<CardLifecycleProps> = {}) {
+    return renderCardLifecycle({
+      entityId: ENTITY_ID,
+      entity: undefined,
+      isConnected: true,
+      isLoading: false,
+      isMissing: false,
+      ...overrides,
+    })
+  }
+
+  it('waits with a skeleton while the entity has not arrived', () => {
+    const { container } = renderInTheme(lifecycle({ isLoading: true }))
+
+    expect(container.querySelector('.rt-Skeleton')).not.toBeNull()
+    expect(screen.queryByText('Entity Not Found')).toBeNull()
+    expect(screen.queryByText('Disconnected')).toBeNull()
+  })
+
+  it('still waits when nothing has arrived yet and nothing says the entity is missing', () => {
+    // The reconnect window: the map has been cleared and the fresh snapshot has
+    // not landed, so neither flag is set and waiting is the only honest answer.
+    const { container } = renderInTheme(lifecycle())
+
+    expect(container.querySelector('.rt-Skeleton')).not.toBeNull()
+  })
+
+  it('reports a missing entity by name instead of holding a skeleton', () => {
+    const { container } = renderInTheme(lifecycle({ isMissing: true }))
+
+    expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
+    expect(screen.getByText(literal(ENTITY_ID))).toBeInTheDocument()
+    // A skeleton here would be the defect: it reads as progress towards a load
+    // that will never finish.
+    expect(container.querySelector('.rt-Skeleton')).toBeNull()
+  })
+
+  it('offers no way out of a missing entity, because there is none', () => {
+    // Not "has no actions by omission": a Retry on this tile would be a button
+    // whose only possible outcome is the same tile, and a Dismiss would dismiss
+    // a card into the state it is already in. The fix is reconfiguring the
+    // card, which is what the message says.
+    renderInTheme(lifecycle({ isMissing: true }))
+
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull()
+    expect(screen.getByText(/reconfigure this card/)).toBeInTheDocument()
+  })
+
+  it('reports the disconnection rather than waiting, when the first load never happened', () => {
+    /*
+     * The state a panel is in when it starts with Home Assistant unreachable.
+     * `entityStore` begins at `{ isConnected: false, isInitialLoading: true }`,
+     * and `isInitialLoading` is set false only by `loadInitialStates()` — which
+     * a panel that never reaches Home Assistant never runs. So `isLoading` is
+     * true and stays true.
+     *
+     * What this forbids is the pending arm being reachable while disconnected:
+     * a skeleton here reads as progress towards a load that cannot start, which
+     * is this change's own defect wearing the connection's hat rather than the
+     * entity's. Found by Copilot on PR #322; none of the seven mutation probes
+     * could have reached it, because each moved a conjunct in the other arm.
+     */
+    const { container } = renderInTheme(lifecycle({ isConnected: false, isLoading: true }))
+
+    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Retry/ })).toBeInTheDocument()
+    expect(container.querySelector('.rt-Skeleton')).toBeNull()
+  })
+
+  it('waits only over a connection something can arrive on', () => {
+    // The pair, so the assertion above cannot pass by the tile having become
+    // unconditional: the same absent entity with the socket up still waits.
+    const { container } = renderInTheme(lifecycle({ isConnected: true, isLoading: true }))
+
+    expect(container.querySelector('.rt-Skeleton')).not.toBeNull()
+    expect(screen.queryByText('Disconnected')).toBeNull()
+  })
+
+  it('reports a dropped connection rather than a missing entity', () => {
+    // The state most easily conflated with missing, and the one where getting
+    // it wrong is most expensive: a disconnected panel has learned nothing
+    // about what exists, so naming the entity as gone would send the user to
+    // reconfigure a card that is fine.
+    renderInTheme(lifecycle({ isConnected: false }))
+
+    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    expect(screen.queryByText('Entity Not Found')).toBeNull()
+    expect(screen.queryByText(literal(ENTITY_ID))).toBeNull()
+  })
+
+  it('offers the reload that can actually fix a dropped connection', async () => {
+    const user = userEvent.setup()
+    const reload = vi.fn()
+    const original = window.location
+    Object.defineProperty(window, 'location', { configurable: true, value: { reload } })
+
+    try {
+      renderInTheme(lifecycle({ isConnected: false }))
+      await user.click(screen.getByRole('button', { name: /Retry/ }))
+      expect(reload).toHaveBeenCalledOnce()
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original })
+    }
+  })
+
+  it('reports the disconnection even when the entity is still held', () => {
+    // An entity in hand says nothing about whether the panel can command it, so
+    // a live card over a dead socket would offer controls that dispatch into
+    // nothing.
+    renderInTheme(lifecycle({ entity, isConnected: false }))
+
+    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+  })
+
+  it('takes the tier down to the tile it renders, on every state', () => {
+    // A lifecycle tile occupies one card's cell, so it degrades like one. The
+    // discriminators are the ones the tiers above already pin: a `glance`
+    // skeleton drops to a 24px glyph, and a `glance` error tile drops its
+    // message into the button's accessible name.
+    const pending = renderInTheme(lifecycle({ isLoading: true, tier: 'glance' }))
+    expect(
+      pending.container
+        .querySelector<HTMLElement>('.rt-Skeleton')!
+        .style.getPropertyValue('--width')
+    ).toBe('24px')
+    pending.unmount()
+
+    for (const [state, name] of [
+      [{ isMissing: true }, `Entity Not Found: ${ENTITY_ID} is not in Home Assistant.`],
+      [{ isConnected: false }, 'Disconnected: Disconnected from Home Assistant'],
+    ] as const) {
+      const { unmount } = renderInTheme(lifecycle({ ...state, tier: 'glance' }))
+
+      // The detail is announced rather than dropped, which is what keeps a 1×1
+      // failed tile as informative as a larger one.
+      expect(screen.getByRole('button', { name: literal(name) })).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('passes the skeleton shape the card asked for through to the placeholder', () => {
+    const { container } = renderInTheme(
+      lifecycle({ isLoading: true, tier: 'full', lines: 3, showIcon: false, showButton: true })
+    )
+
+    // Three lines and a control placeholder, no glyph — a card whose loading
+    // tile did not match its loaded one would jump on arrival.
+    expect(container.querySelectorAll('.rt-Skeleton')).toHaveLength(4)
   })
 })

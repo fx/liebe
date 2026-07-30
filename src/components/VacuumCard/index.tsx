@@ -17,7 +17,7 @@ import { useDashboardStore } from '~/store'
 import { readVacuumOptions } from '~/store/vacuumOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup } from '../anatomy'
@@ -72,7 +72,13 @@ function VacuumCardComponent({
   isSelected = false,
   onSelect,
 }: VacuumCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   /*
    * Every command this card issues is non-idempotent in the way the guarded path
    * exists for: a retried `vacuum.start` restarts a run that had already begun,
@@ -140,26 +146,16 @@ function VacuumCardComponent({
     [clearError, dispatchGuarded, entityId, error]
   )
 
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} showButton={true} />
-  }
-
-  /*
-   * Disconnected. The `!entity` half narrows the type rather than naming a
-   * second case: an entity missing while the connection is up is the skeleton
-   * above, because `useEntity` cannot tell "not loaded yet" from "does not
-   * exist".
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      showButton: true,
+    })
   }
 
   if (state === 'unavailable') {
