@@ -43,16 +43,14 @@
  * to step 9: change 0012 swaps this layer per theme, so the Default theme has
  * to carry a complete palette to restore after switching away from LCARS.
  *
- * Declared on `.liebe-root` — the same root the base layer uses, which is what
- * keeps the derived tints re-deriving, and what leaves the theme roots Radix
- * generates around portalled overlays free to inherit rather than re-declare.
- * See src/styles/tokens.css.
+ * Declared on `.radix-themes` — the same root the base layer uses, which is
+ * what keeps the derived tints re-deriving. See src/styles/tokens.css.
  */
 
 @layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-theme {
-  :where(.liebe-root) {
+  :where(.radix-themes) {
     --liebe-c-light: var(--amber-9);
     --liebe-c-light-text: var(--amber-12);
 
@@ -94,8 +92,8 @@
    * exception. Dark measures 8.3:1 at worst on step 11 and nothing here is
    * meant to move it.
    */
-  .liebe-root:where(.dark, .dark-theme),
-  :is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme)) {
+  .radix-themes:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
     --liebe-c-light-text: var(--amber-11);
     --liebe-c-heat-text: var(--orange-11);
     --liebe-c-vacuum-text: var(--teal-11);

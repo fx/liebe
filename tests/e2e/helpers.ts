@@ -771,8 +771,8 @@ export async function documentFontLoaded(page: Page, font: string): Promise<bool
   }, font)
 }
 
-// Open the taskbar's configuration menu. Its content portals into the host
-// inside the panel's shadow root — Playwright's engines pierce shadow roots.
+// Open the taskbar's configuration menu. Its content portals to document.body,
+// outside the panel's shadow root — Playwright's engines pierce both.
 export async function openConfigurationMenu(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Configuration menu' }).click()
   await expect(page.getByRole('menu')).toBeVisible()
@@ -789,60 +789,22 @@ export async function selectTheme(page: Page, name: string): Promise<void> {
   await expect(page.getByRole('menu')).toBeHidden()
 }
 
-// The open menu read as a portalled overlay: where it actually landed, and what
-// the requested tokens compute to there. This is the only place the cascade can
-// be judged by its effect rather than by the presence of a `<style>` element —
-// a token reads the same in the sheet whether or not the overlay is inside the
-// scope that sheet applies to.
-//
-// `insideThemeRoot` is deliberately two conditions rather than one. Being in the
-// shadow root is what puts the overlay inside the injected layers; being under
-// `.liebe-root` is what puts it inside the token scope, which is declared on
-// that element and reaches the overlay only by inheritance. An overlay that
-// satisfied the first and not the second would render layered and tokenless,
-// and a single check would call that a pass.
+// The open menu read as a portalled overlay: whether it really did escape the
+// shadow root, and what the requested tokens compute to out there. This is the
+// only place the layer mirroring can be judged by its effect rather than by the
+// presence of a `<style>` element.
 export async function overlayTokens(
   page: Page,
   tokens: string[]
-): Promise<{
-  insideThemeRoot: boolean
-  leakedIntoDocument: boolean
-  values: Record<string, string>
-}> {
+): Promise<{ outsideShadowRoot: boolean; values: Record<string, string> }> {
   return page.evaluate((names) => {
-    const panel = (window as unknown as { __liebePanel?: PanelHandle }).__liebePanel
-    const menu = panel?.shadowRoot?.querySelector('[role="menu"]')
-    const leakedIntoDocument = document.querySelector('[role="menu"]') !== null
-    if (!menu) return { insideThemeRoot: false, leakedIntoDocument, values: {} }
-
+    const menu = document.querySelector('[role="menu"]')
+    if (!menu) return { outsideShadowRoot: false, values: {} }
     const style = getComputedStyle(menu)
     const values: Record<string, string> = {}
     for (const name of names) values[name] = style.getPropertyValue(name).trim()
-
-    return {
-      insideThemeRoot: menu.getRootNode() !== document && menu.closest('.liebe-root') !== null,
-      leakedIntoDocument,
-      values,
-    }
+    return { outsideShadowRoot: menu.getRootNode() === document, values }
   }, tokens)
-}
-
-// What Liebe has put into the Home Assistant document, and what the surrounding
-// frontend computes to. The containment property is security-adjacent — an
-// imported configuration's custom CSS must not be able to restyle Home
-// Assistant — so it gets its own reading rather than being inferred from the
-// panel looking right.
-export async function documentLevelLeak(page: Page): Promise<{
-  liebeSheets: number
-  bodyDisplay: string
-}> {
-  return page.evaluate(() => ({
-    // Both mirrors the engine used to keep: the bundled baseline cloned into
-    // `document.head`, and the theme layer re-injected there on every switch.
-    liebeSheets: document.head.querySelectorAll('style[data-liebe], link[href*="liebe.css"]')
-      .length,
-    bodyDisplay: getComputedStyle(document.body).display,
-  }))
 }
 
 // --- REST helpers (bypass the UI to set up / verify state deterministically) ---

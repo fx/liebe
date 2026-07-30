@@ -16,13 +16,18 @@ import {
 } from './portals'
 
 /**
- * Every one of these overlays defaults to `document.body`, which in the panel
- * is outside the shadow root and so outside the three layers the theming engine
+ * Every one of these overlays defaults to `document.body`, which in the panel is
+ * outside the shadow root and so outside the three layers the theming engine
  * injects there — a dialog that renders perfectly on the Default theme and
- * silently ignores the user's custom CSS. The assertion each test makes is
- * therefore always the same one: the open overlay is a DESCENDANT OF THE HOST,
- * because that is what puts it under `liebe-root` and inside the layers
- * (docs/specs/theming — "Portalled UI MUST stay inside the token scope").
+ * silently ignores the user's custom CSS. The wrappers exist so that one change
+ * of mount point moves all of them, and the assertion each test makes is
+ * therefore always the same one: with a host above it, the open overlay is a
+ * DESCENDANT OF THAT HOST.
+ *
+ * Nothing in the panel mounts a host yet (see the module's own note), so these
+ * tests are what holds the wrappers to their contract until the
+ * `liebe-portal-root` container arrives — including the case that matters most
+ * today, the last one: with no host above it, an overlay must still render.
  */
 function host(): HTMLElement {
   const found = document.querySelector('.liebe-portal-host')
@@ -55,10 +60,10 @@ describe('PortalHost', () => {
     expect(screen.getByTestId('probe').parentElement).toBe(host())
   })
 
-  it('renders the host inside the theme root, not beside it', () => {
-    // The placement is the point. The layers reach anything in the shadow root,
-    // but the `--liebe-*` contract is declared on `liebe-root` — an overlay
-    // outside it would be layered and tokenless.
+  it('renders the host where it is placed, so a container can position it', () => {
+    // Which container that is, is the caller's decision and the open question
+    // change 0036 carries: an overlay has to be inside the layers AND inside the
+    // token scope, and only a `liebe-root`-carrying host delivers the second.
     renderInHost(<span />)
 
     expect(host().closest('.radix-themes')).not.toBeNull()
@@ -223,9 +228,9 @@ describe('portalled overlays', () => {
   })
 
   it('falls back to the Radix default with no host above it', () => {
-    // The workshop and unit trees that render a bare `Theme`: there is no panel
-    // shadow root to stay inside, and an overlay that refused to render would
-    // be a worse answer than one in `document.body`.
+    // The path the whole panel is on today, so this is the assertion that says
+    // these wrappers changed no behaviour: no host, no container prop, and the
+    // overlay lands where Radix would have put it anyway.
     render(
       <Theme>
         <Dialog.Root open>

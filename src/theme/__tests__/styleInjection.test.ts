@@ -82,7 +82,7 @@ describe('applyThemeCss', () => {
     expect(style.textContent).toBe(before)
   })
 
-  it('finds the root of a node inside a shadow tree, and stays in it', () => {
+  it('finds the root of a node inside a shadow tree, and mirrors it for portals', () => {
     const root = shadowRoot()
     const child = document.createElement('div')
     root.appendChild(child)
@@ -90,13 +90,12 @@ describe('applyThemeCss', () => {
     const style = applyThemeCssToRootOf(child, '@layer liebe-theme { .a { color: red } }')
 
     expect(style?.parentNode).toBe(root)
-    // The theme layer used to be copied into the owning document as well, for
-    // overlays portalled to `document.body`. They portal into a host inside the
-    // shadow root now, so the copy would style nothing Liebe renders.
-    expect(document.head.querySelector(SLOT_SELECTOR)).toBeNull()
+    // Radix dialogs portal to `document.body`, outside the shadow root and its
+    // layers; without the mirror they would render off the active palette.
+    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toBe(style?.textContent)
   })
 
-  it('injects once for a tree that already lives in the document', () => {
+  it('does not mirror when the tree already lives in the document', () => {
     const child = document.createElement('div')
     document.body.appendChild(child)
 
@@ -159,7 +158,7 @@ describe('applyUserCss', () => {
     expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe('')
   })
 
-  it('never leaves the shadow root', () => {
+  it('never leaves the shadow root, unlike the theme layer', () => {
     const root = shadowRoot()
     const child = document.createElement('div')
     root.appendChild(child)
@@ -167,9 +166,10 @@ describe('applyUserCss', () => {
     const style = applyUserCssToRootOf(child, SANITIZED)
 
     expect(style?.parentNode).toBe(root)
-    // The one layer that could never be copied out, whatever the portals did:
-    // the sanitizer judges what a declaration may fetch, not what it may match,
-    // so a `body { display: none }` from an imported config would restyle Home
+    // The theme mirror is safe because theme CSS is first-party and scoped to
+    // the Radix theme root. Custom CSS is neither: the sanitizer judges what a
+    // declaration may fetch, not what it may match, so a mirrored
+    // `body { display: none }` from an imported config would restyle Home
     // Assistant itself.
     expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
   })
@@ -180,7 +180,7 @@ describe('applyUserCss', () => {
   })
 })
 
-describe('the shadow-root boundary', () => {
+describe('the mirror boundary', () => {
   const THEME_CSS = '@layer liebe-theme { .liebe-root { color: red } }'
   // What a hostile — or merely careless — imported configuration can carry: a
   // selector that matches nothing in Liebe and everything around it. The
@@ -189,7 +189,7 @@ describe('the shadow-root boundary', () => {
   // the Home Assistant document.
   const HOSTILE_USER_CSS = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\nbody { display: none }\n}\n`
 
-  it('keeps every layer inside the shadow root, the theme layer included', () => {
+  it('mirrors the theme layer out of the shadow root, and never the user layer', () => {
     const root = shadowRoot()
     const child = document.createElement('div')
     root.appendChild(child)
@@ -197,14 +197,14 @@ describe('the shadow-root boundary', () => {
     applyThemeCssToRootOf(child, THEME_CSS)
     applyUserCssToRootOf(child, HOSTILE_USER_CSS)
 
+    // Theme CSS is first-party and scoped to the Radix theme root, so the copy
+    // in the owning document only ever reaches Liebe's own portalled overlays.
     expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
-    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(HOSTILE_USER_CSS)
+    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
 
-    // Nothing of Liebe's is copied into the owning document any more. The theme
-    // layer no longer needs to be — overlays portal into a host inside the
-    // shadow root — and the user layer never could, because mirroring it would
-    // hide the Home Assistant frontend around the panel.
-    expect(document.head.querySelector(SLOT_SELECTOR)).toBeNull()
+    // User CSS stays in the shadow root, where it cannot reach past Liebe.
+    // Mirroring it would hide the Home Assistant frontend around the panel.
+    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(HOSTILE_USER_CSS)
     expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
     expect(document.head.textContent).not.toContain('display: none')
   })

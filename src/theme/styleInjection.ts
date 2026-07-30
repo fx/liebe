@@ -95,19 +95,22 @@ export function applyUserCss(root: StyleRoot, css: string): HTMLStyleElement {
  * returning `null` rather than throwing keeps that a non-event, and the next
  * render in a real root injects.
  *
- * **Nothing is mirrored out of the shadow root.** The theme layer used to be
- * copied into the owning document, because Radix dialogs and dropdowns portalled
- * to `document.body` and would otherwise have rendered off the active palette;
- * the user layer never was, because user CSS selectors are the author's own and
- * nothing scopes them to Liebe, so a copy in the Home Assistant document would
- * let a `body { display: none }` out of an imported configuration restyle the
- * frontend around the panel. That asymmetry — reach for the theme, containment
- * for the user — was the stopgap the theming spec's portal host replaces
- * ("Portalled UI MUST stay inside the token scope"). Overlays now portal into a
- * host inside the shadow root (`src/components/ui/portals.tsx`), so all three
- * layers apply to them by being where they are, and none of Liebe's CSS reaches
- * anything outside the panel. Pinned by "the shadow-root boundary" in
- * `styleInjection.test.ts`.
+ * From a shadow root the layer is mirrored into the owning document as well,
+ * because Radix dialogs and dropdowns portal to `document.body` — outside the
+ * shadow root and its layers. What gets mirrored is the *theme* layer, and only
+ * that: `applyThemeCssToRootOf` is the sole caller. The mirror is inert
+ * elsewhere in the Home Assistant frontend because theme CSS is first-party and
+ * every rule in it is scoped to the Radix theme root, a class only Liebe's own
+ * trees carry. It is a stopgap for the portal host the theming spec calls for
+ * ("Portalled UI MUST stay inside the token scope"), not a replacement for it.
+ *
+ * Custom CSS is deliberately *not* mirrored, and `applyUserCssToRootOf` must not
+ * be rewired through this function to give portalled overlays the user layer.
+ * User CSS is arbitrary author input: its selectors are the user's, and nothing
+ * scopes them to Liebe, so a copy in the Home Assistant document would let a
+ * `body { display: none }` out of an imported configuration restyle the
+ * frontend around the panel instead of only Liebe's own trees. The asymmetry is
+ * pinned by "the mirror boundary" in `styleInjection.test.ts`.
  */
 function applyLayerToRootOf(
   node: Node | null | undefined,
@@ -117,6 +120,7 @@ function applyLayerToRootOf(
   const root = node?.getRootNode()
   if (!isStyleRoot(root)) return null
 
+  if (root instanceof ShadowRoot) apply(root.ownerDocument, css)
   return apply(root, css)
 }
 
@@ -128,10 +132,25 @@ export function applyThemeCssToRootOf(
   return applyLayerToRootOf(node, css, applyThemeCss)
 }
 
-/** Applies sanitized custom CSS to whichever root `node` is mounted in. */
+/**
+ * Applies sanitized custom CSS to whichever root `node` is mounted in — and to
+ * that root only.
+ *
+ * Deliberately unmirrored, unlike the theme layer. Mirroring copies a sheet
+ * into the Home Assistant document, where the theme layer is inert because it
+ * is first-party CSS scoped to the Radix theme root. Custom CSS is neither: its
+ * selectors are the user's, and the sanitizer judges what a declaration may
+ * *fetch*, not what it may *match* — so a mirrored `body { display: none }`
+ * from an imported configuration would restyle the frontend around the panel.
+ * Containment wins over reach: overlays portalled out of the shadow root render
+ * with base and theme tokens but without custom CSS until the scoped
+ * `.liebe-portal-root` host the theming spec calls for exists.
+ */
 export function applyUserCssToRootOf(
   node: Node | null | undefined,
   css: string
 ): HTMLStyleElement | null {
-  return applyLayerToRootOf(node, css, applyUserCss)
+  const root = node?.getRootNode()
+  if (!isStyleRoot(root)) return null
+  return applyUserCss(root, css)
 }

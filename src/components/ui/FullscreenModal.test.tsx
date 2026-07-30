@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render } from '@testing-library/react'
-import { FullscreenModal } from './FullscreenModal'
-import { PortalHost } from './portals'
+import { cleanup, fireEvent, render, renderHook, act } from '@testing-library/react'
+import {
+  FullscreenModal,
+  resolvePanelPortalContainer,
+  usePanelPortalContainer,
+} from './FullscreenModal'
 
 describe('FullscreenModal portal target', () => {
   afterEach(() => {
@@ -17,7 +20,7 @@ describe('FullscreenModal portal target', () => {
     expect(document.querySelector('[data-testid="modal-content"]')).toBeNull()
   })
 
-  it('portals into document.body when there is no portal host above it', () => {
+  it('portals into document.body by default', () => {
     render(
       <FullscreenModal open onClose={() => {}} includeTheme={false}>
         <span data-testid="modal-content">hi</span>
@@ -26,22 +29,6 @@ describe('FullscreenModal portal target', () => {
     const content = document.querySelector('[data-testid="modal-content"]')
     expect(content).not.toBeNull()
     expect(content?.closest('body')).toBe(document.body)
-  })
-
-  it('portals into the panel portal host when one is above it', () => {
-    // What `LiebeThemeProvider` puts inside the theme root: the entity browser
-    // opens through this modal, and outside that host it would render without
-    // the theme and user layers the panel injects into its shadow root
-    // (docs/specs/theming — "Portalled UI MUST stay inside the token scope").
-    render(
-      <PortalHost>
-        <FullscreenModal open onClose={() => {}} includeTheme={false}>
-          <span data-testid="modal-content">hi</span>
-        </FullscreenModal>
-      </PortalHost>
-    )
-    const content = document.querySelector('[data-testid="modal-content"]')
-    expect(content?.closest('.liebe-portal-host')).not.toBeNull()
   })
 
   it('wraps content in the Radix Theme by default', () => {
@@ -115,5 +102,96 @@ describe('FullscreenModal portal target', () => {
     expect(onClose).not.toHaveBeenCalled()
     fireEvent.click(content.parentElement!.parentElement!)
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('resolvePanelPortalContainer', () => {
+  it('returns document.body for null', () => {
+    expect(resolvePanelPortalContainer(null)).toBe(document.body)
+  })
+
+  it('returns document.body for a light-DOM element', () => {
+    const el = document.createElement('span')
+    document.body.appendChild(el)
+    try {
+      expect(resolvePanelPortalContainer(el)).toBe(document.body)
+    } finally {
+      el.remove()
+    }
+  })
+
+  it('returns the React root container div inside the panel shadow root', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    try {
+      const shadow = host.attachShadow({ mode: 'open' })
+      // Mirrors panel.ts: a container <div> is the React mount point.
+      const container = document.createElement('div')
+      shadow.appendChild(container)
+      const inner = document.createElement('span')
+      container.appendChild(inner)
+      expect(resolvePanelPortalContainer(inner)).toBe(container)
+    } finally {
+      host.remove()
+    }
+  })
+
+  it('prefers the data-liebe-root tagged container over the first div', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    try {
+      const shadow = host.attachShadow({ mode: 'open' })
+      // An untagged div (e.g. an injected style host) precedes the tagged
+      // React root, mirroring the panel.ts contract.
+      shadow.appendChild(document.createElement('div'))
+      const tagged = document.createElement('div')
+      tagged.setAttribute('data-liebe-root', '')
+      shadow.appendChild(tagged)
+      const inner = document.createElement('span')
+      tagged.appendChild(inner)
+      expect(resolvePanelPortalContainer(inner)).toBe(tagged)
+    } finally {
+      host.remove()
+    }
+  })
+
+  it('falls back to document.body when the shadow root has no div container', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    try {
+      const shadow = host.attachShadow({ mode: 'open' })
+      const inner = document.createElement('span')
+      shadow.appendChild(inner)
+      expect(resolvePanelPortalContainer(inner)).toBe(document.body)
+    } finally {
+      host.remove()
+    }
+  })
+})
+
+describe('usePanelPortalContainer', () => {
+  it('resolves the container once the callback ref receives an element', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    try {
+      const shadow = host.attachShadow({ mode: 'open' })
+      const root = document.createElement('div')
+      root.setAttribute('data-liebe-root', '')
+      shadow.appendChild(root)
+      const inner = document.createElement('span')
+      root.appendChild(inner)
+
+      const { result } = renderHook(() => usePanelPortalContainer())
+      expect(result.current.container).toBeUndefined()
+
+      act(() => result.current.ref(inner))
+      expect(result.current.container).toBe(root)
+
+      // Detach (null ref) keeps the last resolved container.
+      act(() => result.current.ref(null))
+      expect(result.current.container).toBe(root)
+    } finally {
+      host.remove()
+    }
   })
 })

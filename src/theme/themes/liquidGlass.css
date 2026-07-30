@@ -20,9 +20,10 @@
  *
  * WHERE IT DECLARES
  * -----------------
- * On `.liebe-root`, the same root the base layer uses (src/styles/tokens.css) —
- * custom properties inherit downward only, so an override on a descendant would
- * leave the derived `-tint` companions resolving against the base layer's hue. Light values sit on the zero-specificity root rule because Radix's
+ * On `.radix-themes`, the same root the base layer uses (src/styles/tokens.css)
+ * — custom properties inherit downward only, so an override on a descendant
+ * would leave the derived `-tint` companions resolving against the base layer's
+ * hue. Light values sit on the zero-specificity root rule because Radix's
  * classless default is light; the dark block below mirrors Radix's own dark
  * selector pair and overrides only what actually differs.
  *
@@ -82,7 +83,7 @@
    * important declaration here would outrank the user layer that is meant to
    * win.
    */
-  :where(.liebe-root) {
+  :where(.radix-themes) {
     /*
      * The wallpaper. Three radial glows over a pale lavender ground, in one
      * `background` shorthand because that is what `--liebe-bg` is consumed by
@@ -155,8 +156,8 @@
    * base sheet, which copies Radix's own: a theme root that declares itself
    * dark, and a nested theme inheriting darkness without overriding it.
    */
-  .liebe-root:where(.dark, .dark-theme),
-  :is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme)) {
+  .radix-themes:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
     /*
      * The same mesh over near-black. Two things are deliberate about it.
      *

@@ -32,8 +32,8 @@ describe('LiebePanel custom element', () => {
       try {
         document.body.appendChild(panel)
         const container = panel.shadowRoot?.querySelector('[data-liebe-root]') as HTMLElement | null
-        // The tag marks the React root, so anything walking the shadow root can
-        // find it without guessing at the first div.
+        // Contract with resolvePanelPortalContainer: the tagged div is the
+        // React root that in-panel portals target.
         expect(container).not.toBeNull()
         expect(container?.style.height).toBe('100%')
         expect(container?.parentNode).toBe(panel.shadowRoot)
@@ -45,9 +45,9 @@ describe('LiebePanel custom element', () => {
 
   // Mounts the panel with `scriptSrc` standing in for the served bundle and
   // asserts it publishes `expectedBaseUrl`. The panel keeps global state
-  // (`window.__LIEBE_ASSET_BASE_URL__`), so this snapshots the document first
-  // and restores exactly what it changed — nothing pre-existing is deleted or
-  // clobbered.
+  // (`window.__LIEBE_ASSET_BASE_URL__`, a `<link>` in `document.head`), so this
+  // snapshots the document first and restores exactly what it changed —
+  // nothing pre-existing is deleted or clobbered.
   const expectAssetBaseUrl = async (scriptSrc: string, expectedBaseUrl: string) => {
     await import('../panel')
 
@@ -78,13 +78,6 @@ describe('LiebePanel custom element', () => {
       // WeatherCard reads this global to resolve its background images.
       expect(window.__LIEBE_ASSET_BASE_URL__).toBe(expectedBaseUrl)
       expect(panel.shadowRoot?.querySelector(cssLinkSelector)).not.toBeNull()
-
-      // …and into the shadow root ONLY. A clone used to go into `document.head`
-      // so that overlays portalled to `document.body` were styled; they portal
-      // into a host inside the shadow root now, so the clone styles nothing
-      // Liebe renders and only widens what an imported configuration's custom
-      // CSS could reach (docs/specs/panel-lifecycle — "Shadow-DOM Mount").
-      expect(new Set(document.head.querySelectorAll(cssLinkSelector))).toEqual(preExistingLinks)
     } finally {
       panel.remove()
       script.remove()
