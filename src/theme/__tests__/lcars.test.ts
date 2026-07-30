@@ -346,11 +346,28 @@ describe('LCARS stylesheet', () => {
           declarations.includes('background: none;')
       )
     ).toBe(true)
+    /*
+     * `revert-layer`, and specifically not a colour.
+     *
+     * This pinned `color: var(--liebe-part-color);` until change 0035 PR 7
+     * measured what that produces for a hue the theme never saw: on a tile
+     * already tinted 20% with the bulb's own colour, painting the glyph in that
+     * same colour gave 2.33:1 against the 3:1 glyph floor. The base layer
+     * resolves the right foreground for both cases — the domain's `-text`
+     * companion for a triplet, the neutral for a live hue — so the theme's job
+     * on this tile is to stop overriding, not to pick a different value.
+     *
+     * Asserted as `revert-layer` rather than as "not `--liebe-part-color`",
+     * because the whole family of wrong answers here is "some colour derived
+     * from the hue": `contrast-color(var(--liebe-part-color))` is also wrong on
+     * this tile and would pass a negative assertion. Only declining to override
+     * is right, and only one keyword says that.
+     */
     expect(
       iconOnlyRules.some(
         ({ selector, declarations }) =>
           selector.includes('.liebe-icon[data-active]') &&
-          declarations.includes('color: var(--liebe-part-color);')
+          declarations.includes('color: revert-layer;')
       )
     ).toBe(true)
 

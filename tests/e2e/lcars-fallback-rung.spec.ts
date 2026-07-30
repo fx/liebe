@@ -129,16 +129,18 @@ async function fallbackRungDeclaration(page: Page): Promise<string> {
     return { matches }
   })
 
-  expect(
-    'matches' in found,
-    `could not read the panel's stylesheets: ${JSON.stringify(found)}`
-  ).toBe(true)
-  const matches = 'matches' in found ? found.matches : []
+  const matches = 'matches' in found ? found.matches : undefined
+  expect(matches, `could not read the panel's stylesheets: ${JSON.stringify(found)}`).toBeDefined()
   expect(
     matches,
     'exactly one rule under `@supports not (contrast-color)` should colour the active glyph — the fallback rung'
   ).toHaveLength(1)
-  return matches[0]
+
+  const [declaration] = matches ?? []
+  if (declaration === undefined) {
+    throw new Error(`the fallback rung was not found: ${JSON.stringify(found)}`)
+  }
+  return declaration
 }
 
 test('the fallback rung reproduces contrast-color() for every hue a part can take', async ({
