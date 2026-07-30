@@ -94,28 +94,46 @@ const EXHAUSTIVE_DEPS_DIRECTIVE = `eslint-disable-next-line react-hooks/exhausti
 const COMMENT_PATTERN = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g
 
 /**
- * A suppression naming the rule, inside one comment, in any order and across
- * however many lines the comment spans.
+ * A suppression naming the rule, anywhere in one comment, in any order and
+ * across however many lines the comment spans.
  *
- * Applied to comment *bodies* rather than to the whole file, which is what
- * makes it total: the opener may be `//`, `/*` or `/**`, the leading `*` of a
+ * Unanchored on purpose. What this is guarding against is the **React compiler
+ * bail** rather than an ESLint suppression, and the compiler reads the comment
+ * text — so the opener may be `//`, `/*` or `/**`, the leading `*` of a
  * continuation line may sit between the words, and the rule name may be on a
- * different line from the `eslint-disable` — every one of those is a spelling
- * ESLint honours, and a pattern anchored on the opener misses most of them.
+ * later line than the `eslint-disable`. Which of those the compiler honours has
+ * not been enumerated, and it does not need to be: none of them belongs in this
+ * repo, so the scan rejects the shape rather than trying to predict the effect.
  */
 const RULE_SUPPRESSION_PATTERN =
   /eslint-disable(?:-next-line|-line)?\b[\s\S]*react-hooks\/exhaustive-deps/
 
 /**
- * Whether a source file suppresses the rule from a comment.
+ * A rule-**less** blanket disable — `/* eslint-disable *\/` and its relatives.
+ *
+ * A different mechanism with the same result, and the reason it is worth its
+ * own pattern: it does not bail the compiler, it suppresses **every** rule
+ * ESLint would report in that file, `set-state-in-effect` included. Measured,
+ * not assumed — a file-level blanket disable is in fact the only directive form
+ * that silences `set-state-in-effect` at all; every *named* next-line form
+ * leaves it reporting, because the rule's report lands on a line the directive
+ * does not cover.
+ *
+ * Anchored, unlike the pattern above, because ESLint only honours a directive
+ * when the comment *begins* with it — and because an unanchored version would
+ * flag ordinary prose that ends a sentence on the word.
+ */
+const BLANKET_SUPPRESSION_PATTERN = /^[\s*]*eslint-disable(?:-next-line|-line)?[\s*]*$/
+
+/**
+ * Whether a source file disarms the rule from a comment, by either route.
  *
  * Matching one spelling is the mistake this whole change document exists to
  * correct: PR 3's defect was a rule that saw `useEffect(...)` and not
  * `React.useEffect(...)`, and a scan keyed on the next-line form alone is the
- * same shape of hole. A block disable for a whole file, the `-line` suffix, a
- * multi-rule list naming some other rule first, a `/**` opener and a
- * continuation line all silence exactly the same thing, and every one of them
- * would read as clean.
+ * same shape of hole — a block disable for a whole file, the `-line` suffix, a
+ * multi-rule list naming some other rule first, a `/**` opener, a continuation
+ * line and a rule-less blanket disable would every one read as clean.
  *
  * Scoping to comments buys the accuracy and one property besides: the patterns
  * above are *code*, so they cannot match themselves however they are written,
@@ -124,9 +142,11 @@ const RULE_SUPPRESSION_PATTERN =
  * fixture's directive is assembled at runtime rather than written here.
  */
 function suppressesRuleFromAComment(source: string): boolean {
-  return (source.match(COMMENT_PATTERN) ?? []).some((comment) =>
-    RULE_SUPPRESSION_PATTERN.test(comment)
-  )
+  return (source.match(COMMENT_PATTERN) ?? [])
+    .map((comment) =>
+      comment.startsWith('//') ? comment.slice(2) : comment.slice(2, -2).replace(/^\*/, '')
+    )
+    .some((body) => RULE_SUPPRESSION_PATTERN.test(body) || BLANKET_SUPPRESSION_PATTERN.test(body))
 }
 
 /**
@@ -467,7 +487,21 @@ describe('an exhaustive-deps suppression silences the rule for its whole functio
    * report it.
    */
   it('leaves no exhaustive-deps directive anywhere under src/', () => {
-    const sources = sourceFilesUnderSrc()
+    /*
+     * Generated files are out of scope, and `src/routeTree.gen.ts` is the one
+     * that matters: TanStack Router writes it wholesale, it opens with a blanket
+     * disable, and nobody edits it — a suppression there is the generator's, not
+     * an author's.
+     *
+     * Excluded by the `.gen.ts` suffix rather than by asking
+     * `ESLint#isPathIgnored`, which was tried first and answers **false** for it.
+     * The config's `ignores` entry is `'*.gen.ts'`, and a bare `*` in a flat
+     * config does not cross `/`, so it never matches anything under `src/`. That
+     * file is lint-clean today only because of its own blanket disable. Worth
+     * knowing before someone "tidies" either: the ignore entry is inert, and the
+     * disable is what is actually holding.
+     */
+    const sources = sourceFilesUnderSrc().filter((path) => !path.endsWith('.gen.ts'))
 
     // Guards against passing on an empty or truncated walk, which reads exactly
     // like a clean repo. Anchored on the two files this task is about rather
