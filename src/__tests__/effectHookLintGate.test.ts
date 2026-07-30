@@ -450,9 +450,13 @@ describe('an exhaustive-deps suppression silences the rule for its whole functio
   it('leaves no exhaustive-deps directive anywhere under src/', () => {
     const sources = sourceFilesUnderSrc()
 
-    // Guards the scan against passing on an empty set — the shape in which a
-    // walk that silently found nothing reads exactly like a clean repo.
-    expect(sources.length).toBeGreaterThan(100)
+    // Guards against passing on an empty or truncated walk, which reads exactly
+    // like a clean repo. Anchored on the two files this task is about rather
+    // than on a count: a count couples the scan to repo size, and these are the
+    // files whose omission would matter most.
+    expect(sources).toEqual(
+      expect.arrayContaining(['src/theme/tokens.stories.tsx', 'src/theme/customCss.stories.tsx'])
+    )
 
     const offenders = sources.filter((path) =>
       EXHAUSTIVE_DEPS_DIRECTIVE_PATTERN.test(readFileSync(join(repoRoot, path), 'utf8'))
