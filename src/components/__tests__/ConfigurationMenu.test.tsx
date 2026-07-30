@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Theme } from '@radix-ui/themes'
 import { ConfigurationMenu } from '../ConfigurationMenu'
@@ -237,6 +237,109 @@ describe('ConfigurationMenu', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Storage is nearly full/)).toBeInTheDocument()
+    })
+  })
+
+  /*
+   * A confirmation flag that clears itself on a delay leaves a timeout running,
+   * and unmounting does not stop one. What fires afterwards is a state write on
+   * a tree that is gone — in the panel a no-op React warns about, and under the
+   * runner an *unhandled* error after teardown (`window is not defined`), which
+   * the suite reports as a pass. That is the shape of the defect: green suite,
+   * failing process (docs/changes/0040-test-harness-reliability.md, PR 5).
+   *
+   * The import path is used because it reaches a delayed reset without opening
+   * the dropdown, so what the count measures is unambiguous: the menu schedules
+   * nothing at all until an action is confirmed.
+   */
+  it('leaves no timer running once the menu unmounts', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(persistence.parseConfigurationFromFile).mockResolvedValueOnce({
+        config: { version: '1.0.0', screens: [], theme: 'auto' },
+        versionMessage: undefined,
+      })
+      vi.mocked(persistence.importConfigurationFromFile).mockResolvedValueOnce(undefined)
+
+      const { unmount } = renderWithTheme(<ConfigurationMenu />)
+      expect(vi.getTimerCount()).toBe(0)
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+      const file = new File(['{}'], 'config.json', { type: 'application/json' })
+      fireEvent.change(fileInput, { target: { files: [file] } })
+
+      fireEvent.click(await vi.waitFor(() => screen.getByRole('button', { name: 'Import' })))
+      await vi.waitFor(() =>
+        expect(screen.getByText('Configuration imported successfully!')).toBeInTheDocument()
+      )
+
+      // The confirmation is on screen, so its own reset is queued.
+      expect(vi.getTimerCount()).toBe(1)
+
+      unmount()
+
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('takes the import confirmation back down once its delay elapses', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(persistence.parseConfigurationFromFile).mockResolvedValueOnce({
+        config: { version: '1.0.0', screens: [], theme: 'auto' },
+        versionMessage: undefined,
+      })
+      vi.mocked(persistence.importConfigurationFromFile).mockResolvedValueOnce(undefined)
+
+      renderWithTheme(<ConfigurationMenu />)
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+      const file = new File(['{}'], 'config.json', { type: 'application/json' })
+      fireEvent.change(fileInput, { target: { files: [file] } })
+
+      fireEvent.click(await vi.waitFor(() => screen.getByRole('button', { name: 'Import' })))
+      await vi.waitFor(() =>
+        expect(screen.getByText('Configuration imported successfully!')).toBeInTheDocument()
+      )
+
+      await act(async () => {
+        vi.advanceTimersByTime(3000)
+      })
+
+      expect(screen.queryByText('Configuration imported successfully!')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  /*
+   * On a real clock, deliberately. Reaching this action means opening the
+   * dropdown, and driving Radix's menu through `user-event` under fake timers
+   * deadlocks — worse, a test that times out never reaches its `finally`, so
+   * the fake clock stays installed and every later test in the file hangs too.
+   *
+   * Only the settled state is asserted. Activating the item closes the menu and
+   * unmounts its content, so the confirmation can only be read by reopening,
+   * and any assertion that the label still reads `Copied!` at that moment would
+   * be racing the 2 s reset — which is the load-sensitive shape this very
+   * change exists to stop writing. Waiting for the label to come back is safe
+   * in the other direction: without the reset it never does.
+   */
+  it('takes the copy confirmation back down once its delay elapses', async () => {
+    const user = userEvent.setup()
+    vi.mocked(persistence.copyYAMLToClipboard).mockResolvedValueOnce(undefined)
+
+    renderWithTheme(<ConfigurationMenu />)
+
+    const trigger = screen.getByRole('button', { name: /configuration/i })
+    await user.click(trigger)
+    await user.click(screen.getByText('Copy YAML to Clipboard'))
+
+    await user.click(trigger)
+    await waitFor(() => expect(screen.getByText('Copy YAML to Clipboard')).toBeInTheDocument(), {
+      timeout: 6000,
     })
   })
 

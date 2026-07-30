@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { DropdownMenu, Button, Callout, AlertModal, Flex, Text } from '~/components/ui'
 import {
   GearIcon,
@@ -76,6 +76,38 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  /*
+   * The two confirmation flags above are cleared on a delay, and the menu can
+   * go away before that delay elapses — the panel unmounting, or a test ending
+   * while a reset is still queued. A timeout left running then fires into a
+   * tree that is no longer there: in the panel that is a state write on an
+   * unmounted component, and under the test runner it lands after teardown and
+   * throws `window is not defined` as an *unhandled* error rather than a test
+   * failure, so the suite reports green while the process fails
+   * (docs/changes/0040-test-harness-reliability.md, PR 5).
+   *
+   * Held in a ref rather than in state because nothing renders from it, and as
+   * a set rather than a list so a timeout that has already fired stops being
+   * tracked instead of accumulating for as long as the menu is mounted.
+   */
+  const pendingTimeouts = useRef(new Set<ReturnType<typeof setTimeout>>())
+
+  useEffect(() => {
+    const pending = pendingTimeouts.current
+    return () => {
+      pending.forEach(clearTimeout)
+      pending.clear()
+    }
+  }, [])
+
+  const clearAfter = (delayMs: number, reset: () => void) => {
+    const id = setTimeout(() => {
+      pendingTimeouts.current.delete(id)
+      reset()
+    }, delayMs)
+    pendingTimeouts.current.add(id)
+  }
+
   const handleExportJSON = () => {
     try {
       exportConfigurationToFile()
@@ -96,7 +128,7 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
     try {
       await copyYAMLToClipboard()
       setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)
+      clearAfter(2000, () => setCopySuccess(false))
     } catch (error) {
       console.error('Copy to clipboard failed:', error)
     }
@@ -143,7 +175,7 @@ export function ConfigurationMenu({ showText }: ConfigurationMenuProps = {}) {
       }
 
       setImportSuccess('Configuration imported successfully!')
-      setTimeout(() => setImportSuccess(null), 3000)
+      clearAfter(3000, () => setImportSuccess(null))
       setPreviewDialogOpen(false)
       setPendingFile(null)
     } catch (error) {
