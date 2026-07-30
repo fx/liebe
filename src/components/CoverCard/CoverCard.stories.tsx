@@ -278,6 +278,53 @@ export const TierFull: Story = {
  * Options (docs/specs/entity-cards/options/cover.md — "Options")
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * `sliderPlacement` (docs/specs/entity-cards/options/common.md — "Shared
+ * slider placement"; the cover's own row is in options/cover.md). One story per
+ * value, each on the cell where that value is visible: `auto` and `vertical`
+ * differ only on a wide tile, and `auto` and `horizontal` only on a tall one.
+ * `background` arrives with change 0034's second task.
+ * ------------------------------------------------------------------ */
+
+/** `auto` — the tier decides, which on a 3×1 is the slider across the row. */
+export const PlacementAuto: Story = {
+  args: { gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: { itemConfig: { sliderPlacement: 'auto' }, entities: [createCoverEntity()] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-orientation="horizontal"]')
+    ).toBeInTheDocument()
+  },
+}
+
+/** `vertical` — the same wide tile, with the slider stood up on its trailing edge. */
+export const PlacementVertical: Story = {
+  args: { gridWidth: 3, gridHeight: 1 },
+  parameters: {
+    liebe: { itemConfig: { sliderPlacement: 'vertical' }, entities: [createCoverEntity()] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-orientation="vertical"]')
+    ).toBeInTheDocument()
+  },
+}
+
+/** `horizontal` — a 1×3 tile that would have stood the slider up, laid across instead. */
+export const PlacementHorizontal: Story = {
+  args: { gridWidth: 1, gridHeight: 3 },
+  parameters: {
+    liebe: { itemConfig: { sliderPlacement: 'horizontal' }, entities: [createCoverEntity()] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-orientation="horizontal"]')
+    ).toBeInTheDocument()
+  },
+}
+
 /** `showPositionSlider: false` drops the slider at every tier that carries one. */
 export const WithoutPositionSlider: Story = {
   args: FULL_CELL,

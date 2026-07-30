@@ -17,6 +17,7 @@ import { useCardItem } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import { readCardDisplay } from '~/store/cardDisplay'
 import { isSecurityCover, readCoverOptions } from '~/store/coverOptions'
+import { readSliderOrientation } from '~/store/sliderPlacement'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { CoverDetailControls } from './CoverDetailControls'
 import {
@@ -491,10 +492,17 @@ function CoverCardComponent({
    *   full    row content plus the open/stop/close row, then the tilt controls
    *           when the cover supports tilt.
    */
-  const isTall = tier === 'tall'
   const isFull = tier === 'full'
-  const showPositionSlider =
-    tier !== 'glance' && !isEditMode && supportsSetPosition && options.showPositionSlider
+
+  /*
+   * Where the position slider runs, and whether the tier renders one at all
+   * (docs/specs/entity-cards/options/cover.md — `sliderPlacement`; the contract
+   * is options/common's). Vertical keeps top = open whichever tier forced it,
+   * because that is the slider's own value mapping and not a property of the
+   * tier that asked for it.
+   */
+  const sliderOrientation = readSliderOrientation(config, tier)
+  const showPositionSlider = !isEditMode && supportsSetPosition && options.showPositionSlider
   const showButtons = isFull && !isEditMode && options.showButtons
   const showTilt = isFull && !isEditMode && supportsTilt && options.showTiltControls
 
@@ -512,23 +520,25 @@ function CoverCardComponent({
     </GridCard.Meta>
   )
 
-  const positionSlider = showPositionSlider ? (
-    <GridCard.Controls>
-      <Slider
-        domain="cover"
-        color={stateColor}
-        active={displayPosition > 0}
-        label="Position"
-        // Vertical in `tall`, where the top of the track is fully open and the
-        // control reads as a miniature of the blind it drives.
-        orientation={isTall ? 'vertical' : 'horizontal'}
-        value={displayPosition}
-        readout={`${displayPosition}%`}
-        onValueChange={handlePositionChange}
-        onValueCommit={handlePositionCommit}
-      />
-    </GridCard.Controls>
-  ) : undefined
+  const positionSlider =
+    showPositionSlider && sliderOrientation ? (
+      <GridCard.Controls>
+        <Slider
+          domain="cover"
+          color={stateColor}
+          active={displayPosition > 0}
+          label="Position"
+          // Vertical in `tall` — where the top of the track is fully open and the
+          // control reads as a miniature of the blind it drives — and wherever
+          // `sliderPlacement` asks for it.
+          orientation={sliderOrientation}
+          value={displayPosition}
+          readout={`${displayPosition}%`}
+          onValueChange={handlePositionChange}
+          onValueCommit={handlePositionCommit}
+        />
+      </GridCard.Controls>
+    ) : undefined
 
   const buttons = (
     <GridCard.Controls>
@@ -700,6 +710,7 @@ function CoverCardComponent({
         <CardBody
           arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
           controlSize="fill"
+          controlOrientation={sliderOrientation}
           lead={icon}
           meta={meta}
           control={positionSlider}

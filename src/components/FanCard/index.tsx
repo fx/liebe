@@ -9,6 +9,7 @@ import { Pill, PillGroup, Slider } from '../anatomy'
 import { useCardItem } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import { readFanOptions } from '~/store/fanOptions'
+import { readSliderOrientation } from '~/store/sliderPlacement'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { FanDetailControls } from './FanDetailControls'
 import {
@@ -289,6 +290,18 @@ function FanCardComponent({
   const isFull = tier === 'full'
   const controlsVisible = !isEditMode && tier !== 'glance'
   const showSpeed = controlsVisible && features.speed && options.speedControl !== 'none' && isOn
+
+  /*
+   * Which way the speed slider runs — and, once `showSpeed` has decided the slot
+   * renders at all, whether the slot holds a slider rather than the step pills.
+   *
+   * `sliderPlacement` applies only under `speedControl: slider` and is inert for
+   * `steps` and `none` (docs/specs/entity-cards/options/fan.md); the contract
+   * itself is options/common's. The resolver's `undefined` is `glance`, which
+   * `controlsVisible` has already ruled out by the time this is read.
+   */
+  const sliderOrientation =
+    options.speedControl === 'slider' ? readSliderOrientation(config, tier) : undefined
   const showPresets = isFull && !isEditMode && options.showPresets && fanHasPresets(fanAttributes)
   const showOscillate = isFull && !isEditMode && options.showOscillate && features.oscillate
   const showDirection = isFull && !isEditMode && options.showDirection && features.direction
@@ -352,13 +365,13 @@ function FanCardComponent({
 
   const speedControl = showSpeed ? (
     <GridCard.Controls>
-      {options.speedControl === 'slider' ? (
+      {sliderOrientation ? (
         <Slider
           domain="fan"
           color="ok"
           active={displayPercentage > 0}
           label="Fan speed"
-          orientation={isTall ? 'vertical' : 'horizontal'}
+          orientation={sliderOrientation}
           value={displayPercentage}
           readout={`${displayPercentage}%`}
           onValueChange={handleSliderChange}
@@ -471,6 +484,7 @@ function FanCardComponent({
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
         controlSize="fill"
+        controlOrientation={sliderOrientation}
         lead={icon}
         meta={meta}
         control={speedControl}
