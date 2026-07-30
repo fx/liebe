@@ -414,12 +414,20 @@ export const NoConditionBackground: Story = {
   },
 }
 
-/** The same card with the option at its default — artwork and white text. */
+/**
+ * The same card with the option at its default — artwork under a scrim, with
+ * the foreground tokens scoped to it.
+ *
+ * The scrim is the whole of the legibility here: the shadow that used to carry
+ * it traces glyphs rather than establishing a ground, and measured 1.01:1 over
+ * this build's own artwork (#215).
+ */
 export const ConditionBackground: Story = {
   args: { gridWidth: 4, gridHeight: 3, config: { showConditionBackground: true } },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'rainy' })] } },
   play: async ({ canvasElement }) => {
     await expect(backgroundImage(canvasElement)).toContain('weather-backgrounds/rain.png')
+    await expect(canvasElement.querySelector('.liebe-weather-scrim')).not.toBeNull()
   },
 }
 
@@ -476,6 +484,25 @@ export const Forecasts: Story = {
   play: async ({ canvasElement }) => {
     await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
     await expect(forecastColumnCount(canvasElement, 'daily')).toBe(4)
+  },
+}
+
+/**
+ * Both forecast sections with `showConditionBackground: false`.
+ *
+ * The comparison story for `Forecasts` above, and the one that shows the half a
+ * scrim must NOT do: on the flat themed surface there is no scrim, no scoped
+ * foreground token, and the columns take the theme's own colours — which is
+ * what keeps the strip legible in a light theme instead of white-on-white.
+ */
+export const ForecastsWithoutConditionBackground: Story = {
+  args: { gridWidth: 4, gridHeight: 3, config: { showConditionBackground: false } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(4)
+    await expect(backgroundImage(canvasElement)).toBe('')
+    await expect(canvasElement.querySelector('.liebe-weather-scrim')).toBeNull()
   },
 }
 

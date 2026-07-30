@@ -476,6 +476,35 @@ export const BackgroundDegradesOnResize: Story = {
   },
 }
 
+/**
+ * Background artwork with the source picker — the densest thing `full` renders
+ * over a photograph, and the one combination no story covered.
+ *
+ * It exists because that gap is why nobody saw the defect it now shows: the
+ * `Select.Trigger` is a Radix control, so it colours itself from a Radix scale
+ * and reads none of the foreground tokens the artwork scope overrides. In light
+ * appearance it renders dark-on-dark over the scrim. Measured and tracked as a
+ * task on docs/changes/0030-weather-forecast-legibility.md; the fix is an
+ * appearance-scoping decision under the design-system scrim rule, not a
+ * per-control override.
+ */
+export const BackgroundArtworkWithSourcePicker: Story = {
+  parameters: {
+    liebe: {
+      entities: [
+        createMediaPlayerEntity({
+          attributes: { supported_features: VOLUME_SLIDER | SOURCE, source: 'Radio' },
+        }),
+      ],
+      itemConfig: { artworkMode: 'background', showSourcePicker: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-media-scrim')).not.toBeNull()
+    await expect(within(canvasElement).getByLabelText('Source')).toBeInTheDocument()
+  },
+}
+
 /** Everything at once — the densest `full` card this option surface allows. */
 export const FullyLoaded: Story = {
   args: { gridWidth: 4, gridHeight: 4 },

@@ -8,13 +8,13 @@ import {
   getWeatherBackground,
   getWeatherTextColor,
   getWeatherTextStyles,
-  getWeatherValueStyles,
   readWeatherNumber,
   readWeatherReading,
   resolveConditionBackground,
   resolveSecondaryReading,
   resolveUnavailableStatus,
   supplementalReadings,
+  WEATHER_ARTWORK_FG,
 } from '../presentation'
 import { WEATHER_SECONDARY_INFO } from '~/store/weatherOptions'
 
@@ -448,37 +448,42 @@ describe('resolveConditionBackground', () => {
 })
 
 describe('text treatment', () => {
-  it('goes white with a shadow only over artwork', () => {
+  it('carries a shadow accent over artwork and nothing at all without one', () => {
     const plain = getWeatherTextStyles(false)
     expect(plain.text).toEqual({})
     expect(plain.icon).toEqual({})
 
     const over = getWeatherTextStyles(true)
-    expect(over.text.color).toBe('white')
     expect(over.text.textShadow).toContain('rgba(0,0,0,0.9)')
-    expect(over.icon.color).toBe('white')
     expect(over.icon.filter).toContain('drop-shadow')
 
-    // The emphasis variant is a stronger shadow on the same white.
+    // The emphasis variant is a stronger shadow; the two arms still differ.
     expect(getWeatherTextStyles(true, 'emphasis').text.textShadow).not.toBe(over.text.textShadow)
     expect(getWeatherTextStyles(true, 'default').text.textShadow).toBe(over.text.textShadow)
   })
 
-  it('yields the Radix colour prop to the white treatment, and keeps it otherwise', () => {
+  it('pins no colour, so the theme layer keeps reaching the text', () => {
+    // The design-system rule requires the scrim AND that overlaid text stay
+    // reachable by the theme layer. A `color: white` here is the second half
+    // failing: it is a declaration no theme can restyle, and it was also what
+    // let the card claim legibility that a 1.01:1 measurement disagreed with.
+    const over = getWeatherTextStyles(true)
+    expect(over.text.color).toBeUndefined()
+    expect(over.icon.color).toBeUndefined()
+    expect(getWeatherTextStyles(true, 'emphasis').text.color).toBeUndefined()
+  })
+
+  it('yields the Radix colour prop over artwork, and keeps it otherwise', () => {
     expect(getWeatherTextColor(true, 'gray')).toBeUndefined()
     expect(getWeatherTextColor(false, 'gray')).toBe('gray')
     expect(getWeatherTextColor(false)).toBeUndefined()
   })
 
-  it('reaches the anatomy readout through its tokens rather than a colour', () => {
-    // `.liebe-value` colours itself from `--liebe-fg` in a cascade layer, so an
-    // inline `color` would never reach it — the treatment has to arrive as a
-    // token override or not at all.
-    expect(getWeatherValueStyles(false)).toEqual({})
-
-    const over = getWeatherValueStyles(true) as Record<string, string>
-    expect(over['--liebe-fg']).toBe('white')
-    expect(over['--liebe-muted']).toContain('255, 255, 255')
-    expect(over.textShadow).toContain('rgba(0,0,0,0.9)')
+  it('colours the nodes that must be told through the foreground token', () => {
+    // A lucide glyph would otherwise keep `var(--gray-9)` on the photograph.
+    // Naming the token rather than `white` is what keeps that one declaration
+    // inside the theming channel — the value is the same while the artwork
+    // scope is in force, and a theme can still restyle it.
+    expect(WEATHER_ARTWORK_FG).toBe('var(--liebe-fg)')
   })
 })

@@ -555,14 +555,22 @@ interface WeatherTextStyles {
 }
 
 /**
- * The text/icon treatment over a condition background.
+ * The text/icon treatment over a condition background — an **accent** on top of
+ * the scrim, never the legibility itself.
  *
- * Artwork is photographic and its luminance is not knowable in advance, so text
- * over it goes white with a shadow rather than taking a theme colour that might
- * land on a bright sky (option doc — "Condition background"). Without a
- * background the card is on its themed surface and this returns nothing at all,
- * so the token colours apply untouched — which is the half a `false`
- * `showConditionBackground` depends on.
+ * The colour used to be here, pinned to `white` per node, and the shadow was
+ * the whole of the separation from the photograph. Both halves were wrong:
+ * a shadow traces a glyph rather than establishing a ground, which is how card
+ * text measured 1.01:1 over the shipped artwork (#215), and a per-node `color`
+ * is a declaration no theme can reach. The ground is now the scrim, and the
+ * colour comes from the tokens the scrim's scope overrides
+ * (`WeatherCard.css` — `.weather-card-artwork`), so what is left here is the
+ * shadow that sharpens glyph edges against a busy image.
+ *
+ * The `emphasis` / `default` split stays: it is what makes the big readout
+ * sit forward of the meta line over artwork, and it costs nothing now that
+ * neither arm carries a colour. Without a background this returns nothing at
+ * all, which is the half a `false` `showConditionBackground` depends on.
  */
 export function getWeatherTextStyles(
   hasBackground: boolean,
@@ -577,39 +585,25 @@ export function getWeatherTextStyles(
 
   return {
     text: {
-      color: 'white',
       textShadow: variant === 'emphasis' ? emphasisTextShadow : standardTextShadow,
     },
     icon: {
-      color: 'white',
       filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
     },
   }
 }
 
 /**
- * The same treatment for the big `liebe-value` readout, which cannot take the
- * one above.
+ * What a glyph or a Radix node should set `color` to over artwork.
  *
- * The anatomy parts colour themselves from `--liebe-fg` / `--liebe-muted` in
- * the `liebe-base` cascade layer, so an inline `color` on a wrapper would never
- * reach them. Custom properties do: they inherit, and the part's own
- * `color: var(--liebe-fg)` then resolves to the value set here. Overriding a
- * token in a scope is using the theming channel rather than going around it —
- * the same mechanism the card shell's `backdrop` prop uses — where a hard-coded
- * `color` on `.liebe-value` would be a declaration no theme could reach.
- *
- * `text-shadow` inherits on its own, so the wrapper carries it for both spans.
+ * `var(--liebe-fg)` rather than `white`: the value is identical while the
+ * artwork scope is in force, and the difference is that a theme can restyle
+ * this one. Nodes that colour themselves — a lucide glyph's `currentColor`, a
+ * Radix `<Text>` given no `color` prop — need nothing at all and are left
+ * inheriting; this is for the ones that would otherwise keep a themed colour of
+ * their own on the photograph.
  */
-export function getWeatherValueStyles(hasBackground: boolean): CSSProperties {
-  if (!hasBackground) return {}
-
-  return {
-    '--liebe-fg': 'white',
-    '--liebe-muted': 'rgba(255, 255, 255, 0.85)',
-    textShadow: '0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)',
-  } as CSSProperties
-}
+export const WEATHER_ARTWORK_FG = 'var(--liebe-fg)'
 
 /**
  * The Radix `color` prop for a text node: `undefined` over a background, where
