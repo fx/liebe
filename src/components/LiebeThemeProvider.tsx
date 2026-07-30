@@ -1,8 +1,10 @@
 import { Theme } from '@radix-ui/themes'
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { PortalHost } from '~/components/ui/portals'
 import { useCameraFullscreenActive, CAMERA_FULLSCREEN_Z_INDEX } from '~/store/cameraFullscreenStore'
 import { sanitizeCustomCss } from '~/theme/customCss'
 import { registerThemeFonts } from '~/theme/fontRegistration'
+import { LIEBE_ROOT_CLASS } from '~/theme/rootSelectors'
 import { applyThemeCssToRootOf, applyUserCssToRootOf } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from '~/theme/themeRegistry'
 
@@ -56,6 +58,10 @@ export interface LiebeThemeProviderProps {
  *    sanitized custom CSS are injected into the root this tree is mounted in —
  *    the shadow root in Home Assistant, the document in the workshop — so
  *    switching themes and editing custom CSS apply live.
+ *  - **The portal container.** `PortalHost` mounts the `liebe-portal-root`
+ *    container every overlay portals into, stamped from the same values as the
+ *    root above so a theme's scoped rules reach a dialog exactly as they reach
+ *    the dashboard (src/components/ui/portals.tsx).
  */
 export function LiebeThemeProvider({
   children,
@@ -109,13 +115,13 @@ export function LiebeThemeProvider({
     // dashboard is already wearing. The editor is where the rejection is
     // reported (`sanitizeCustomCss` returns the notices).
     if (sanitized.rejected) return
-    applyUserCssToRootOf(themeRoot.current, sanitized.css)
+    applyUserCssToRootOf(themeRoot.current, sanitized.css, sanitized.portalCss)
   }, [sanitized])
 
   return (
     <Theme
       ref={themeRoot}
-      className="liebe-root"
+      className={LIEBE_ROOT_CLASS}
       data-liebe-theme={activeThemeId}
       data-appearance={appearance}
       appearance={appearance}
@@ -125,7 +131,15 @@ export function LiebeThemeProvider({
           : undefined
       }
     >
-      {children}
+      {/*
+       * Inside the theme root rather than around it, so the container it mounts
+       * inherits this tree's React context — including Radix's own theme
+       * context, which is what makes it a NESTED theme and so free of the root
+       * theme's stacking context.
+       */}
+      <PortalHost themeId={activeThemeId} appearance={appearance}>
+        {children}
+      </PortalHost>
     </Theme>
   )
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createPortal } from 'react-dom'
 import { render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
@@ -10,6 +10,7 @@ import {
   HoverCard,
   Popover,
   PortalHost,
+  portalMountPoint,
   Select,
   Tooltip,
   usePortalContainer,
@@ -22,16 +23,16 @@ import {
  * silently ignores the user's custom CSS. The wrappers exist so that one change
  * of mount point moves all of them, and the assertion each test makes is
  * therefore always the same one: with a host above it, the open overlay is a
- * DESCENDANT OF THAT HOST.
+ * DESCENDANT OF THE `liebe-portal-root` CONTAINER.
  *
- * Nothing in the panel mounts a host yet (see the module's own note), so these
- * tests are what holds the wrappers to their contract until the
- * `liebe-portal-root` container arrives — including the case that matters most
- * today, the last one: with no host above it, an overlay must still render.
+ * What these CANNOT show is the half only a real Home Assistant frontend can:
+ * the container is what it is because the panel sits several shadow roots deep
+ * there, and jsdom puts everything one level under `document.body`. The e2e
+ * theming specs own that half.
  */
 function host(): HTMLElement {
-  const found = document.querySelector('.liebe-portal-host')
-  if (!found) throw new Error('no portal host rendered')
+  const found = document.querySelector('.liebe-portal-root')
+  if (!found) throw new Error('no portal container rendered')
   return found as HTMLElement
 }
 
@@ -40,13 +41,34 @@ function renderInHost(ui: React.ReactNode) {
   // theme root renders — and because it is what the panel does.
   return render(
     <Theme>
-      <PortalHost>{ui}</PortalHost>
+      <PortalHost themeId="default" appearance="dark">
+        {ui}
+      </PortalHost>
     </Theme>
   )
 }
 
+describe('portalMountPoint', () => {
+  it('is the document body', () => {
+    expect(portalMountPoint()).toBe(document.body)
+  })
+
+  it('is nothing outside a document, so a DOM-less render does not throw', () => {
+    // A prerender pass has no `document`, and reading the global would take the
+    // render down rather than simply leaving the overlay to Radix's default.
+    // Both callers — the container below and `FullscreenModal`'s fallback —
+    // route through here so the case is decided once.
+    vi.stubGlobal('document', undefined)
+    try {
+      expect(portalMountPoint()).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
 describe('PortalHost', () => {
-  it('publishes the host element it renders', () => {
+  it('publishes the container element it mounts', () => {
     // Read back through a portal rather than into a captured variable: what the
     // hook is FOR is being handed to `createPortal`, and assigning during render
     // is the side effect `react-hooks/globals` rejects.
@@ -60,25 +82,61 @@ describe('PortalHost', () => {
     expect(screen.getByTestId('probe').parentElement).toBe(host())
   })
 
-  it('renders the host where it is placed, so a container can position it', () => {
-    // Which container that is, is the caller's decision and the open question
-    // change 0036 carries: an overlay has to be inside the layers AND inside the
-    // token scope, and only a `liebe-root`-carrying host delivers the second.
+  it('mounts the container at the document level, where hideOthers can resolve it', () => {
+    // The whole reason the container is here and not in the shadow root: Radix's
+    // modal overlays reconcile their target against `document.body` and climb
+    // only to the first shadow host, which in Home Assistant is not enough.
     renderInHost(<span />)
 
-    expect(host().closest('.radix-themes')).not.toBeNull()
+    expect(host().parentElement).toBe(document.body)
   })
 
-  it('leaves the host empty, so React never reconciles portalled content away', () => {
+  it('is itself a Radix theme root carrying liebe-root, so overlays inherit the tokens', () => {
+    // Both halves are load-bearing and fail differently: without `liebe-root`
+    // the container declares no `--liebe-*` at all, and without `radix-themes`
+    // every one of them that aliases a Radix variable computes to nothing.
+    renderInHost(<span />)
+
+    expect(host().classList.contains('liebe-root')).toBe(true)
+    expect(host().classList.contains('radix-themes')).toBe(true)
+  })
+
+  it('is a nested theme, so it establishes no stacking context', () => {
+    // Radix gives `position: relative; z-index: 0; min-height: 100vh` to the
+    // ROOT theme only. A stacking context here would cap a full-viewport overlay
+    // below Home Assistant's chrome (docs/changes/0008-…), which is why the
+    // container is rendered inside the provider's theme rather than beside it.
+    renderInHost(<span />)
+
+    expect(host().getAttribute('data-is-root-theme')).toBe('false')
+  })
+
+  it('carries the same stamps as the panel root, so scoped theme rules reach an overlay', () => {
+    renderInHost(<span />)
+
+    expect(host().getAttribute('data-liebe-theme')).toBe('default')
+    expect(host().getAttribute('data-appearance')).toBe('dark')
+  })
+
+  it('leaves the container empty, so React never reconciles portalled content away', () => {
     renderInHost(<span data-testid="child" />)
 
-    expect(screen.getByTestId('child').closest('.liebe-portal-host')).toBeNull()
+    expect(screen.getByTestId('child').closest('.liebe-portal-root')).toBeNull()
     expect(host().childNodes).toHaveLength(0)
+  })
+
+  it('takes the container out of the document when the tree unmounts', () => {
+    const { unmount } = renderInHost(<span />)
+    expect(document.querySelector('.liebe-portal-root')).not.toBeNull()
+
+    unmount()
+
+    expect(document.querySelector('.liebe-portal-root')).toBeNull()
   })
 })
 
 describe('portalled overlays', () => {
-  it('mounts a Dialog in the host', () => {
+  it('mounts a Dialog in the container', () => {
     renderInHost(
       <Dialog.Root open>
         <Dialog.Content>
@@ -88,10 +146,10 @@ describe('portalled overlays', () => {
       </Dialog.Root>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
-  it('mounts an AlertDialog in the host', () => {
+  it('mounts an AlertDialog in the container', () => {
     renderInHost(
       <AlertDialog.Root open>
         <AlertDialog.Content>
@@ -101,10 +159,10 @@ describe('portalled overlays', () => {
       </AlertDialog.Root>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
-  it('mounts a DropdownMenu and its submenu in the host', () => {
+  it('mounts a DropdownMenu and its submenu in the container', () => {
     renderInHost(
       <DropdownMenu.Root open>
         <DropdownMenu.Trigger>
@@ -122,11 +180,11 @@ describe('portalled overlays', () => {
       </DropdownMenu.Root>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
-    expect(screen.getByTestId('sub-overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
+    expect(screen.getByTestId('sub-overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
-  it('mounts a Select in the host', () => {
+  it('mounts a Select in the container', () => {
     renderInHost(
       <Select.Root open value="a">
         <Select.Trigger />
@@ -141,10 +199,10 @@ describe('portalled overlays', () => {
       </Select.Root>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
-  it('mounts a Popover in the host', () => {
+  it('mounts a Popover in the container', () => {
     renderInHost(
       <Popover.Root open>
         <Popover.Trigger>
@@ -156,10 +214,10 @@ describe('portalled overlays', () => {
       </Popover.Root>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
-  it('mounts a ContextMenu and its submenu in the host', () => {
+  it('mounts a ContextMenu and its submenu in the container', () => {
     // No call site in the panel yet. Wrapped and asserted anyway, because
     // `~/components/ui` re-exports the whole Radix library: an unwrapped
     // portalling component stays reachable through the barrel that everything
@@ -178,11 +236,11 @@ describe('portalled overlays', () => {
       </ContextMenu.Root>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
-    expect(screen.getByTestId('sub-overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
+    expect(screen.getByTestId('sub-overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
-  it('mounts a HoverCard in the host', () => {
+  it('mounts a HoverCard in the container', () => {
     renderInHost(
       <HoverCard.Root open>
         <HoverCard.Trigger>
@@ -192,10 +250,10 @@ describe('portalled overlays', () => {
       </HoverCard.Root>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
-  it('mounts a Tooltip in the host', () => {
+  it('mounts a Tooltip in the container', () => {
     renderInHost(
       // On the content element for the same reason as Select: Radix renders a
       // visually hidden copy of the tip for assistive technology.
@@ -204,7 +262,7 @@ describe('portalled overlays', () => {
       </Tooltip>
     )
 
-    expect(screen.getByTestId('overlay').closest('.liebe-portal-host')).toBe(host())
+    expect(screen.getByTestId('overlay').closest('.liebe-portal-root')).toBe(host())
   })
 
   it('lets an explicit container win, for content that must land elsewhere', () => {
@@ -228,9 +286,9 @@ describe('portalled overlays', () => {
   })
 
   it('falls back to the Radix default with no host above it', () => {
-    // The path the whole panel is on today, so this is the assertion that says
-    // these wrappers changed no behaviour: no host, no container prop, and the
-    // overlay lands where Radix would have put it anyway.
+    // A tree rendered outside `LiebeThemeProvider` — a bare story, a unit test —
+    // has no container above it, and must still render its overlay where Radix
+    // would have put it.
     render(
       <Theme>
         <Dialog.Root open>
@@ -242,7 +300,7 @@ describe('portalled overlays', () => {
       </Theme>
     )
 
-    expect(document.querySelector('.liebe-portal-host')).toBeNull()
+    expect(document.querySelector('.liebe-portal-root')).toBeNull()
     expect(screen.getByTestId('overlay')).toBeTruthy()
   })
 })

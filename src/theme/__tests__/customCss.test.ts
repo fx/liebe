@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import postcss, { list } from 'postcss'
 import { sanitizeCustomCss, scanValue, unescapeCss } from '../customCss'
 import { isFullyLayered, USER_LAYER } from '../cssLayers'
 
@@ -24,6 +25,11 @@ function sanitize(css: string, baseUrl = BASE) {
 /** The declarations that survived, as flat text. */
 function applied(css: string, baseUrl = BASE): string {
   return sanitize(css, baseUrl).css
+}
+
+/** The same sheet as it may be mirrored into the Home Assistant document. */
+function mirrored(css: string, baseUrl = BASE): string {
+  return sanitize(css, baseUrl).portalCss
 }
 
 describe('unescapeCss', () => {
@@ -88,8 +94,8 @@ describe('scanValue', () => {
 
 describe('sanitizeCustomCss — what it lets through', () => {
   it('returns nothing for empty input', () => {
-    expect(sanitize('')).toEqual({ css: '', notices: [], rejected: false })
-    expect(sanitize('   \n  ')).toEqual({ css: '', notices: [], rejected: false })
+    expect(sanitize('')).toEqual({ css: '', portalCss: '', notices: [], rejected: false })
+    expect(sanitize('   \n  ')).toEqual({ css: '', portalCss: '', notices: [], rejected: false })
   })
 
   it('wraps surviving rules in the user layer', () => {
@@ -373,6 +379,239 @@ describe('sanitizeCustomCss — laundering through selector scope', () => {
 
   it('keeps the guards inside the user layer', () => {
     expect(isFullyLayered(applied('.a { --brand: red; }'))).toBe(true)
+  })
+})
+
+describe('sanitizeCustomCss — the document-level mirror', () => {
+  /**
+   * The mirror is the one place Liebe copies ARBITRARY AUTHOR CSS into a
+   * document it does not own. Everything below is the same question asked of a
+   * different construct: can anything in this sheet reach a Home Assistant
+   * element? The sanitizer cannot help here — it judges what a declaration may
+   * *fetch*, never what it may *match* — so containment is entirely this
+   * rewrite's job.
+   */
+
+  /** Every absolute selector the mirrored sheet declares, one per rule. */
+  function mirroredSelectors(css: string): string[] {
+    const selectors: string[] = []
+    postcss.parse(mirrored(css)).walkRules((rule) => {
+      if (rule.parent?.type !== 'rule') selectors.push(...list.comma(rule.selector))
+    })
+    return selectors
+  }
+
+  it('bounds every selector to the container, however the sheet is written', () => {
+    // The invariant, stated once over a sheet that mixes everything: a subject
+    // is the container or inside it, and there is no third case.
+    const selectors = mirroredSelectors(`
+      body { display: none }
+      .liebe-root { --liebe-card-bg: red }
+      html > * { color: red }
+      @media (min-width: 1px) { .liebe-card:hover .liebe-name { color: red } }
+      @supports (display: grid) { :root { color: red } }
+    `)
+
+    expect(selectors.length).toBeGreaterThan(0)
+    for (const selector of selectors) {
+      expect(selector).toMatch(/^\.liebe-portal-root[ :]/)
+    }
+  })
+
+  it('covers the container itself as well as its descendants', () => {
+    // User CSS is documented to target `.liebe-root`, and the container carries
+    // that class — so a rewrite that only reached descendants would mirror the
+    // token overrides to an element that never matches.
+    expect(mirroredSelectors('.liebe-root { --liebe-card-bg: red }')).toEqual([
+      '.liebe-portal-root:is(.liebe-root)',
+      '.liebe-portal-root :is(.liebe-root)',
+    ])
+  })
+
+  it('leaves a document-level selector matching nothing', () => {
+    // The named threat: `body` survives sanitization intact, because nothing
+    // about it fetches. Neither rewritten form can ever have `body` as its
+    // subject — the container is not `body`, and `body` is not inside it.
+    const css = mirrored('body { display: none }')
+
+    expect(css).toContain('display: none')
+    expect(mirroredSelectors('body { display: none }')).toEqual([
+      '.liebe-portal-root:is(body)',
+      '.liebe-portal-root :is(body)',
+    ])
+  })
+
+  it('rewrites each selector of a list separately, so specificity does not leak', () => {
+    // One `:is()` around the whole list would lend `#brand`'s specificity to the
+    // `.a` branch — `:is()` takes its most specific argument — and silently
+    // reorder the user's own rules against each other.
+    expect(mirroredSelectors('.a, #brand { color: red }')).toEqual([
+      '.liebe-portal-root:is(.a)',
+      '.liebe-portal-root :is(.a)',
+      '.liebe-portal-root:is(#brand)',
+      '.liebe-portal-root :is(#brand)',
+    ])
+  })
+
+  it('rewrites inside a conditional group, and keeps the group', () => {
+    const css = mirrored('@media (min-width: 1px) { .liebe-card { color: red } }')
+
+    expect(css).toContain('@media (min-width: 1px)')
+    expect(css).toContain('.liebe-portal-root:is(.liebe-card)')
+  })
+
+  it('leaves a nested rule relative to the parent it is already bounded by', () => {
+    // Scoping it a second time would produce a selector relative to a container
+    // that is not its ancestor, and the rule would match nothing.
+    const selectors: string[] = []
+    postcss.parse(mirrored('.liebe-card { & .liebe-name { color: red } }')).walkRules((rule) => {
+      if (rule.parent?.type === 'rule') selectors.push(rule.selector)
+    })
+
+    expect(selectors).toEqual(['& .liebe-name'])
+  })
+
+  it('keeps a pseudo-element outside the :is(), where it is still a pseudo-element', () => {
+    // `:is()` rejects pseudo-elements AND is forgiving, so wrapping the
+    // selector whole would not error — it would drop the entry and match
+    // nothing, silently taking every `::before` rule out of overlays. Which is
+    // most of a theme-shaped stylesheet: the selector contract exists partly so
+    // decoration can hang on pseudo-elements.
+    expect(mirroredSelectors('.liebe-card::before { content: "" }')).toEqual([
+      '.liebe-portal-root:is(.liebe-card)::before',
+      '.liebe-portal-root :is(.liebe-card)::before',
+    ])
+  })
+
+  it('splits the one-colon form too, and only for the four names that take it', () => {
+    // `:before` is a pseudo-element written the old way; `:hover` is a
+    // pseudo-CLASS and belongs inside the `:is()` with the rest of the subject.
+    expect(mirroredSelectors('.liebe-card:before { content: "" }')).toEqual([
+      '.liebe-portal-root:is(.liebe-card):before',
+      '.liebe-portal-root :is(.liebe-card):before',
+    ])
+    expect(mirroredSelectors('.liebe-card:hover { color: red }')).toEqual([
+      '.liebe-portal-root:is(.liebe-card:hover)',
+      '.liebe-portal-root :is(.liebe-card:hover)',
+    ])
+  })
+
+  it('keeps a user-action pseudo-class with the pseudo-element it follows', () => {
+    expect(mirroredSelectors('.liebe-card::before:hover { color: red }')).toEqual([
+      '.liebe-portal-root:is(.liebe-card)::before:hover',
+      '.liebe-portal-root :is(.liebe-card)::before:hover',
+    ])
+  })
+
+  it("ignores a colon that is not the subject's own", () => {
+    // Inside `:not()` and inside an attribute value, `::` and `:before` are not
+    // this selector's pseudo-element — a scan that pattern-matched the last
+    // `::` would split the selector in the middle of a functional notation.
+    expect(mirroredSelectors('.liebe-card:not(.a::before) { color: red }')).toEqual([
+      '.liebe-portal-root:is(.liebe-card:not(.a::before))',
+      '.liebe-portal-root :is(.liebe-card:not(.a::before))',
+    ])
+    expect(mirroredSelectors('[data-x=":before"] { color: red }')).toEqual([
+      '.liebe-portal-root:is([data-x=":before"])',
+      '.liebe-portal-root :is([data-x=":before"])',
+    ])
+  })
+
+  it('does not read an escaped colon as a pseudo-element', () => {
+    // `.a\:before` is the class literally named `a:before`. Escapes are why the
+    // scan cannot be a pattern over `:` — the same reason the sanitizer
+    // unescapes every name before comparing it.
+    expect(mirroredSelectors('.a\\:before { color: red }')).toEqual([
+      '.liebe-portal-root:is(.a\\:before)',
+      '.liebe-portal-root :is(.a\\:before)',
+    ])
+  })
+
+  it('gives a bare pseudo-element a subject to hang on', () => {
+    // `::selection` is valid on its own, and `:is()` may not be empty.
+    expect(mirroredSelectors('::selection { color: red }')).toEqual([
+      '.liebe-portal-root:is(*)::selection',
+      '.liebe-portal-root :is(*)::selection',
+    ])
+  })
+
+  it('leaves a rule nested through a conditional group relative too', () => {
+    // A grouping at-rule between a rule and the rule it is nested in does not
+    // make the inner selector absolute. Rewriting `& .liebe-name` would emit
+    // `:is(& .liebe-name)`, which is not a selector, and lose the rule.
+    const nested: string[] = []
+    postcss
+      .parse(mirrored('.liebe-card { @media (min-width: 1px) { & .liebe-name { color: red } } }'))
+      .walkRules((rule) => {
+        if (rule.selector.startsWith('&')) nested.push(rule.selector)
+      })
+
+    expect(nested).toEqual(['& .liebe-name'])
+  })
+
+  it('drops at-rules that register a document-global name', () => {
+    // Selector rewriting bounds what a rule may MATCH and says nothing about a
+    // construct that reaches the frontend without matching anything.
+    // `@property --primary-color { syntax: "<length>" }` makes Home Assistant's
+    // own `--primary-color: #03a9f4` invalid at computed-value time; a
+    // `@keyframes` or `@font-face` shadows a name the frontend already uses.
+    const source = `
+      @property --primary-color { syntax: "*"; inherits: true; initial-value: red }
+      @keyframes spin { from { opacity: 0 } }
+      @font-face { font-family: Roboto; src: url(data:font/woff2;base64,AA) }
+      .liebe-card { color: red }
+    `
+
+    const inPanel = applied(source)
+    expect(inPanel).toContain('@property --primary-color')
+    expect(inPanel).toContain('@keyframes spin')
+    expect(inPanel).toContain('@font-face')
+
+    const outside = mirrored(source)
+    expect(outside).not.toContain('@property')
+    expect(outside).not.toContain('@keyframes')
+    expect(outside).not.toContain('@font-face')
+    expect(outside).toContain('.liebe-portal-root:is(.liebe-card)')
+  })
+
+  it('names the at-rules it kept out of overlays, since the dashboard still has them', () => {
+    // The asymmetry an author cannot deduce: the animation plays on a card and
+    // not in a dialog. Everything stripped is named (docs/specs/theming —
+    // "Configuration & selection").
+    const { notices } = sanitize('@keyframes spin { from { opacity: 0 } } .a { color: red }')
+
+    expect(notices).toEqual([
+      '@keyframes spin applies to the dashboard but not inside dialogs and menus: it registers a name for the whole Home Assistant page, so it is not copied out of the panel.',
+    ])
+  })
+
+  it('mirrors nothing when nothing survives the scoping', () => {
+    // A layer block holding only guards is a sheet nothing in the document
+    // reads, so it is not injected at all.
+    expect(mirrored('@keyframes spin { from { opacity: 0 } }')).toBe('')
+  })
+
+  it('guards the container against inherited values, and names no shadow host', () => {
+    // The same hole `:where(.liebe-root)` closes inside the panel: a name the
+    // sheet defines under a selector that never matches would otherwise read
+    // whatever the Home Assistant document inherits into it. There is no
+    // `:host` out here to close it on.
+    const css = mirrored('.never { --brand: red; } .liebe-root { background: var(--brand); }')
+
+    expect(css).toContain(':where(.liebe-portal-root) { --brand: initial; }')
+    expect(css).not.toContain(':host')
+  })
+
+  it('leaves the engine tokens unpinned on the container, which declares them', () => {
+    expect(mirrored('.never { --liebe-card-bg: red; }')).not.toContain(
+      ':where(.liebe-portal-root) { --liebe-card-bg'
+    )
+  })
+
+  it('keeps the whole mirror inside the user layer', () => {
+    // Same structural guarantee as the in-panel sheet: it is serialised from
+    // the AST inside the layer block, so the rewrite cannot have let a rule out.
+    expect(isFullyLayered(mirrored('body { display: none } .a { color: red }'))).toBe(true)
   })
 })
 

@@ -130,9 +130,9 @@ describe('domain colour', () => {
    * figures themselves come from decoded pixels, recorded in the PR.
    */
   describe('the glyph on its tint', () => {
-    const LIGHT_ROOT = ':where(.radix-themes)'
+    const LIGHT_ROOT = ':where(.liebe-root)'
     const DARK_ROOT =
-      '.radix-themes:where(.dark, .dark-theme),\n  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme))'
+      '.liebe-root:where(.dark, .dark-theme),\n  :is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme))'
 
     it('takes the glyph role, not the saturated solid one', () => {
       const active = ruleBody(
@@ -188,8 +188,8 @@ describe('domain colour', () => {
       // any third selector mentioning the appearance would be one that reaches
       // past the root it is meant to describe.
       expect(appearanceSelectors).toEqual([
-        '.radix-themes:where(.dark, .dark-theme)',
-        ':is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme))',
+        '.liebe-root:where(.dark, .dark-theme)',
+        ':is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme))',
       ])
     })
   })

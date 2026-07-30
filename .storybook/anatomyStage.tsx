@@ -52,14 +52,22 @@ export interface AppearanceSplitProps {
 
 /**
  * Renders its children twice, once per appearance. Each pane is its own Radix
- * `Theme`, which is where the `--liebe-*` tokens are declared, so the two sides
- * resolve independently rather than sharing the toolbar's choice.
+ * `Theme` stamped `liebe-root` — the selector the `--liebe-*` tokens are
+ * declared on — so the two sides resolve independently rather than sharing the
+ * toolbar's choice. Without the class the panes would inherit one appearance's
+ * tokens from the provider above and the split would show the same values
+ * twice.
  */
 export function AppearanceSplit({ children }: AppearanceSplitProps) {
   return (
     <Flex direction={{ initial: 'column', md: 'row' }} gap="4" align="stretch">
       {(['dark', 'light'] as const).map((appearance) => (
-        <Theme key={appearance} appearance={appearance} style={{ flex: 1, minWidth: 0 }}>
+        <Theme
+          key={appearance}
+          appearance={appearance}
+          className="liebe-root"
+          style={{ flex: 1, minWidth: 0 }}
+        >
           <Flex
             direction="column"
             gap="2"

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, act } from '@testing-library/react'
+import { Theme } from '@radix-ui/themes'
+import { PortalHost } from './portals'
 import {
   FullscreenModal,
   resolvePanelPortalContainer,
@@ -39,6 +41,25 @@ describe('FullscreenModal portal target', () => {
     )
     const content = document.querySelector('[data-testid="modal-content"]')
     expect(content?.closest('.radix-themes')).not.toBeNull()
+  })
+
+  it('portals into the liebe-portal-root container when there is one', () => {
+    // The entity browser opens through this modal, and it is the one overlay
+    // with no Radix machinery behind it. With the token contract declared on
+    // `.liebe-root`, landing anywhere else in `document.body` leaves its Theme
+    // wrapper with no `--liebe-*` in scope at all.
+    render(
+      <Theme>
+        <PortalHost>
+          <FullscreenModal open onClose={() => {}}>
+            <span data-testid="modal-content">hi</span>
+          </FullscreenModal>
+        </PortalHost>
+      </Theme>
+    )
+
+    const content = document.querySelector('[data-testid="modal-content"]')
+    expect(content?.closest('.liebe-portal-root')).not.toBeNull()
   })
 
   it('portals into a custom portalContainer when provided', () => {

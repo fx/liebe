@@ -10,34 +10,57 @@
  * twenty-odd call sites, and an ESLint `no-restricted-imports` rule keeps the
  * raw ones from being reached for by accident.
  *
- * **Nothing mounts a `PortalHost` yet, so today every overlay still lands in
- * `document.body` — exactly as before this module existed.** That is deliberate
- * and the reason is worth reading before wiring one up, because the obvious
- * placement does not work:
- *
+ * WHERE THE CONTAINER GOES, AND WHY NOT THE OBVIOUS PLACE
+ * ------------------------------------------------------
  * A host INSIDE the shadow root is what the theming spec prefers and what
- * change 0036 PR 2 attempted. It is unavailable. Every Radix overlay marked
- * `modal` — which `Dialog.Root` hardcodes — calls `hideOthers(content)` from the
- * `aria-hidden` package, which reconciles its target against `document.body`
- * with `Node.contains` and climbs only to the FIRST shadow host it meets. From
- * inside the panel that host is `<liebe-panel>`, which `document.body` does not
- * contain either, because Home Assistant nests it several shadow roots deep. The
- * helper then keeps no target at all and hides every child of `document.body` —
- * `<home-assistant>` included, and with it the panel and the overlay that just
- * opened. See docs/changes/0036-theming-contract-gaps.md for the measurement.
+ * change 0036 PR 2 attempted first. It is unavailable. Every Radix overlay
+ * marked `modal` — which `Dialog.Root` hardcodes — calls `hideOthers(content)`
+ * from the `aria-hidden` package, which reconciles its target against
+ * `document.body` with `Node.contains` and climbs only to the FIRST shadow host
+ * it meets. From inside the panel that host is `<liebe-panel>`, which
+ * `document.body` does not contain either, because Home Assistant nests it
+ * several shadow roots deep. The helper then keeps no target at all and hides
+ * every child of `document.body` — `<home-assistant>` included, and with it the
+ * panel and the overlay that just opened. See
+ * docs/changes/0036-theming-contract-gaps.md for the measurement.
  *
- * What remains is the spec's `liebe-portal-root` container at the document
- * level, which is where a `PortalHost` belongs. It MUST carry `liebe-root`, or
- * the overlays in it will be layered and tokenless: Radix stamps `radix-themes`
- * on the theme root it wraps around every portal, and that is the selector the
- * token contract is declared on, so an overlay re-declares the whole contract on
- * itself and an element's own declaration beats anything an ancestor says.
+ * So the container sits at the document level, a direct child of
+ * `document.body`, which is the case `hideOthers` handles correctly — and is
+ * also exactly where Radix put the overlays before this module existed, so the
+ * modality and the stacking they had are unchanged.
  *
- * Nothing here sets a z-index. Radix's portalled content manages its own
- * stacking (see AGENTS.md, "Radix UI Styling Best Practices").
+ * WHY IT IS A `<Theme>`, AND WHY IT CARRIES `liebe-root`
+ * -----------------------------------------------------
+ * Two independent reasons, and the container fails differently without each:
+ *
+ *  - **`liebe-root`** is the selector the token contract is declared on. Radix
+ *    stamps `radix-themes` on the theme root it wraps around EVERY portal, so
+ *    while the contract was declared on that class each open overlay
+ *    re-declared the whole of it on itself — and an element's own declaration
+ *    is the value it uses however its ancestors were overridden. That, not the
+ *    overlay's location, is why custom CSS reached the dashboard and stopped at
+ *    the edge of every dialog. The declarations moved to `.liebe-root` in the
+ *    same change; without this container they would then reach no overlay at
+ *    all, which is why the two ship together.
+ *  - **A Radix `<Theme>`** because almost every `--liebe-*` token aliases a
+ *    Radix one, and a `var()` in a custom property substitutes at the element
+ *    that declares it. A plain `<div class="liebe-root">` in `document.body`
+ *    has none of Radix's variables in scope, so the whole contract would
+ *    compute to nothing on it.
+ *
+ * It is deliberately a NESTED theme (`data-is-root-theme="false"`): Radix gives
+ * only the root theme `position: relative; z-index: 0; min-height: 100vh`, and
+ * a stacking context here would cap full-viewport overlays below Home
+ * Assistant's chrome — the trap 0008 met from the other side. Nothing here sets
+ * a z-index either; Radix's portalled content manages its own stacking (see
+ * AGENTS.md, "Radix UI Styling Best Practices").
  */
 
 import { createContext, useContext, useState, type ComponentProps, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { Theme } from '@radix-ui/themes'
+import { LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from '~/theme/rootSelectors'
+import type { ThemeAppearance } from '~/theme/themeRegistry'
 // This module is the wrapper the rest of the panel imports instead, so it is
 // the one place the raw portalled components may be named.
 /* eslint-disable no-restricted-imports */
@@ -55,8 +78,8 @@ import {
 
 /**
  * The element overlays mount into, or `null` with no `PortalHost` above them —
- * which is every tree in the panel today, and is what keeps this module's
- * behaviour identical to importing Radix directly.
+ * a tree rendered outside `LiebeThemeProvider`, which then behaves exactly as
+ * importing Radix directly would.
  */
 const PortalContainerContext = createContext<HTMLElement | null>(null)
 
@@ -71,30 +94,87 @@ export function usePortalContainer(): HTMLElement | undefined {
   return useContext(PortalContainerContext) ?? undefined
 }
 
+export interface PortalHostProps {
+  children: ReactNode
+  /**
+   * The stamps the panel root carries, mirrored onto the container so a theme's
+   * scoped rules select an overlay exactly as they select the dashboard.
+   * `LiebeThemeProvider` passes what it resolved.
+   */
+  themeId?: string
+  appearance?: ThemeAppearance
+}
+
 /**
- * Renders the portal host beside `children` and publishes it.
+ * Where a Liebe overlay lands when nothing nearer has claimed it: the body of
+ * the document this code is running in, or `null` where there is no document at
+ * all.
  *
- * The seam the `liebe-portal-root` container will mount, and today exercised
- * only by this module's tests — see the note at the top of the file for why
- * nothing mounts it in the panel yet.
+ * The DOM-less case is why this is a function rather than `document.body`
+ * written at each site. A render with no document — a prerender pass — must not
+ * throw on the global, and there are two places that need the answer: the
+ * container's own mount point below, and `FullscreenModal`'s last-resort
+ * fallback, which is the one overlay in the panel with no Radix machinery to
+ * default for it. One decision, one place, one test.
+ */
+export function portalMountPoint(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.body
+}
+
+/**
+ * The mount point of the `liebe-portal-root` container, held for the life of
+ * the tree.
+ *
+ * Read once, in state, rather than at every render — `document.body` does not
+ * change under a mounted panel, and reading it during render keeps the portal
+ * available on the first commit. With no document there is no container, and
+ * every overlay falls back to Radix's own default.
+ */
+function usePortalMountPoint(): HTMLElement | null {
+  const [mountPoint] = useState<HTMLElement | null>(portalMountPoint)
+  return mountPoint
+}
+
+/**
+ * Mounts the `liebe-portal-root` container at the document level and publishes
+ * it as the portal target for everything below.
  *
  * A callback ref into state rather than a `useRef`, because the container has
- * to be a value React re-renders on: the first render has no host yet, and an
- * overlay opened later must see the element rather than a ref object that was
- * empty when it was read.
+ * to be a value React re-renders on: the first render has no container yet, and
+ * an overlay opened later must see the element rather than a ref object that
+ * was empty when it was read.
  */
-export function PortalHost({ children }: { children: ReactNode }) {
-  const [host, setHost] = useState<HTMLDivElement | null>(null)
+export function PortalHost({ children, themeId, appearance }: PortalHostProps) {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null)
+  const mountPoint = usePortalMountPoint()
 
   return (
-    <PortalContainerContext.Provider value={host}>
+    <PortalContainerContext.Provider value={container}>
       {children}
-      {/*
-       * Deliberately empty and last. React never renders into it, so the
-       * portalled subtrees it holds are nobody's to reconcile away, and an
-       * empty block box at the end of the theme root adds no layout.
-       */}
-      <div ref={setHost} className="liebe-portal-host" />
+      {mountPoint &&
+        createPortal(
+          /*
+           * Deliberately childless. React never renders into it, so the
+           * portalled subtrees it ends up holding are nobody's to reconcile
+           * away — and since every overlay Radix puts in it is positioned
+           * `fixed`, the container itself stays a zero-height box that adds
+           * nothing to Home Assistant's layout.
+           *
+           * `hasBackground={false}` for the same reason it has no z-index: the
+           * container is a scope, not a surface. Radix would otherwise paint
+           * `--color-background` on it, since an explicitly passed appearance
+           * is what its `hasBackground` default keys off.
+           */
+          <Theme
+            ref={setContainer}
+            className={`${LIEBE_ROOT_CLASS} ${PORTAL_ROOT_CLASS}`}
+            data-liebe-theme={themeId}
+            data-appearance={appearance}
+            appearance={appearance}
+            hasBackground={false}
+          />,
+          mountPoint
+        )}
     </PortalContainerContext.Provider>
   )
 }
