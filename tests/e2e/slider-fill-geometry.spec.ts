@@ -19,6 +19,14 @@ import { buildSeedConfig, callService, DEMO_LIGHT, E2E_FLAG, openPanel } from '.
  * one directly — the tier is derived from the span the grid lays out, which for
  * a 1×3 item on a 12-column desktop grid is `tall` without a drag.
  *
+ * WHAT THIS SPEC DOES NOT ASSERT, and why: the design system's other vertical-
+ * slider rule — centred in its hosting region — is unfalsifiable at this tier,
+ * because `tall` is one column wide and that column leaves the control no
+ * leftover space to be off-centre in. The reasoning and the measurements are at
+ * the thickness assertion near the end. It is pinned in
+ * `src/components/__tests__/cardBodyStyles.test.ts` instead, on the declarations
+ * that enforce it, where a mutation does turn it red.
+ *
  * Everything is read off `getBoundingClientRect`, never off a screenshot.
  */
 
@@ -66,22 +74,23 @@ interface SliderGeometry {
   orientation: string | null
   track: Box
   fill: Box
-  /** The slider root, whose centring within its host region is the second rule. */
+  /** The slider root, whose thickness is the token's and whose fill is measured. */
   slider: Box
   /**
-   * The region hosting it, which the centring rule is about: the `tall` body's
-   * inline extent — the tile's content box.
+   * The region hosting the control — the `tall` body's inline extent.
    *
-   * Deliberately NOT the control band (`.liebe-card-body-fill`). The `tall`
-   * arrangement centres its items, so the band is a fit-content box that hugs
-   * the 42px control: measured in Chromium, band and slider are the same 42px to
-   * the pixel, which makes "the slider is centred in the band" true of a
-   * stretched slider and of a centred one alike. A precondition on that pair
-   * cannot be satisfied, and the assertion under it cannot fail. The body is the
-   * box with room to be off-centre in — 64px against the control's 42px — so it
-   * is the pair the rule governs and the pair measured here.
+   * Measured for the thickness assertion below rather than for a centring one.
+   * See the note there: at this tier's real width the region is NARROWER than
+   * the control, which is what makes an end-to-end centring assertion
+   * impossible here and a thickness one worth making.
    */
   region: Box
+  /**
+   * `--liebe-control-height` as it resolves on the slider — the token the
+   * control's thickness comes from, read rather than hardcoded so a theme that
+   * retunes it moves the assertion with it.
+   */
+  controlHeightToken: string
 }
 
 /** The friendly name the panel currently knows for an entity. */
@@ -155,11 +164,14 @@ async function sliderGeometry(page: Page, name: string): Promise<SliderGeometry 
       fill: box(fill),
       slider: box(slider),
       region: box(region),
+      controlHeightToken: getComputedStyle(slider)
+        .getPropertyValue('--liebe-control-height')
+        .trim(),
     }
   }, name)
 }
 
-test('a tall card’s vertical slider fill spans its track and is centred in it', async ({
+test('a tall card’s vertical slider fill spans its track, at the token’s thickness', async ({
   page,
 }) => {
   const { accessToken } = await openPanel(page, seedFillGeometryConfig())
@@ -234,18 +246,45 @@ test('a tall card’s vertical slider fill spans its track and is centred in it'
   expect(Math.abs(fill.bottom - track.bottom)).toBeLessThanOrEqual(TOLERANCE)
 
   /*
-   * The second rule: the slider sits centred in the region hosting it, not
-   * against its leading edge.
+   * The control keeps the thickness its token gives it, even though the region
+   * hosting it is narrower than that.
    *
-   * The precondition earns its place — it is what makes the claim below capable
-   * of failing, and it is why this measures the body rather than the control
-   * band. A control that filled its region cannot be off-centre in it, so the
-   * assertion would hold whatever the CSS did. Measured in Chromium, the body is
-   * 64px against the control's 42px, and removing both declarations that centre
-   * it moves the slider 11px — half the leftover — off the region's midline.
+   * WHY THIS RATHER THAN THE CENTRING RULE. The design system also requires a
+   * vertical slider to be "horizontally centred within whatever region hosts it,
+   * not pinned to the region's leading edge", and that rule CANNOT be falsified
+   * at this tier end to end. `tall` is one column wide by definition, which on
+   * the 12-column desktop grid is a 63px tile — 35px of content box inside the
+   * 14px padding — against a 42px control. There is no leftover inline space to
+   * distribute, so "centred" and "leading-edge flush" are the same place.
+   * Measured in Chromium against every panel stylesheet and the real rendered
+   * markup, at that 63px tile: region 35, control 42, offset from the region's
+   * midline 0.00 — and with BOTH declarations that centre it removed, the
+   * control does not move off centre, it shrinks to 35 and stays centred. A
+   * centring assertion here would pass either way.
+   *
+   * So the centring rule is pinned where it can fail — on the declarations, in
+   * `src/components/__tests__/cardBodyStyles.test.ts`, mutation-verified — and
+   * what is asserted here is the geometry that DOES distinguish the two states:
+   * the control at its token thickness (42) versus squeezed to the region (35).
+   * That is the token contract, and it is the shipped CSS's observable effect at
+   * the one tile width this tier actually gets.
+   *
+   * The region-narrower-than-control relationship itself is deliberately NOT
+   * asserted: it is a defect reported for its own change document, not a
+   * behaviour to pin.
    */
-  expect(region.width).toBeGreaterThan(slider.width)
-  const sliderCentre = slider.left + slider.width / 2
-  const regionCentre = region.left + region.width / 2
-  expect(Math.abs(sliderCentre - regionCentre)).toBeLessThanOrEqual(1)
+  const controlHeight = Number.parseFloat(geometry!.controlHeightToken)
+  expect(
+    Number.isFinite(controlHeight),
+    `--liebe-control-height should resolve to a length, got "${geometry!.controlHeightToken}"`
+  ).toBe(true)
+  expect(Math.abs(slider.width - controlHeight)).toBeLessThanOrEqual(TOLERANCE)
+
+  // The track spans that thickness, so the fill measured above spans the
+  // control rather than a box narrower than it.
+  expect(Math.abs(track.width - controlHeight)).toBeLessThanOrEqual(TOLERANCE)
+
+  // And the region is a real box, so the measurement above was taken against a
+  // laid-out card rather than a collapsed one.
+  expect(region.width).toBeGreaterThan(0)
 })
