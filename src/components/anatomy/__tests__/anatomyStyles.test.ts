@@ -193,7 +193,12 @@ describe('domain colour', () => {
        * appearance NOWHERE — a reintroduced selector of either shape is the
        * defect, and asserting "none" is what forbids both.
        */
-      expect([...source.matchAll(/\.dark|\.light\b/g)]).toEqual([])
+      // `\b` after the word, not after the dot: `.dark-theme` and
+      // `.light-theme` must still be caught (a hyphen is a non-word
+      // character, so the boundary holds), while a hypothetical `.darken`
+      // must not — a substring match would forbid class names that have
+      // nothing to do with the appearance.
+      expect([...source.matchAll(/\.(dark|light)\b/g)]).toEqual([])
     })
   })
 })
