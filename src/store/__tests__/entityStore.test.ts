@@ -207,4 +207,121 @@ describe('entityStore', () => {
       expect(entityStore.state.subscribedEntities.size).toBe(0)
     })
   })
+
+  describe('replaceEntities — a snapshot is the whole state machine', () => {
+    /**
+     * `loadInitialStates` used to write its snapshot through `updateEntities`,
+     * which MERGES — so an entity deleted while the socket was down survived
+     * from the previous session's snapshot and was absent from the fresh one,
+     * leaving the map a permanent superset. `useEntity`'s `isMissing` therefore
+     * never fired for it and its card kept rendering, and dispatching against,
+     * an entity Home Assistant no longer has
+     * (docs/specs/entity-state — "Consumer Hooks", change 0037 PR 8).
+     */
+    const entity = (entityId: string, state: string, lastUpdated: string): HassEntity => ({
+      entity_id: entityId,
+      state,
+      attributes: {},
+      last_changed: lastUpdated,
+      last_updated: lastUpdated,
+      context: { id: 'seed', parent_id: null, user_id: null },
+    })
+
+    it('drops an entity the snapshot does not carry', () => {
+      // The defect, stated directly: `light.gone` was deleted while the socket
+      // was down, so the fresh snapshot has no such id.
+      entityStoreActions.updateEntities([
+        entity('light.kept', 'on', '2026-07-30T10:00:00Z'),
+        entity('light.gone', 'on', '2026-07-30T10:00:00Z'),
+      ])
+
+      entityStoreActions.replaceEntities([entity('light.kept', 'on', '2026-07-30T11:00:00Z')])
+
+      expect(Object.keys(entityStore.state.entities)).toEqual(['light.kept'])
+      // …and `isMissing`'s input is what changed: the id is genuinely absent
+      // rather than present-but-stale.
+      expect(entityStore.state.entities['light.gone']).toBeUndefined()
+    })
+
+    it('still merges on updateEntities, which live batches depend on', () => {
+      // The two actions differ ONLY in what they do with ids the incoming list
+      // does not carry, and the live path must keep merging — a batch of two
+      // changed entities is not a claim about the other four hundred.
+      entityStoreActions.updateEntities([entity('light.a', 'on', '2026-07-30T10:00:00Z')])
+      entityStoreActions.updateEntities([entity('light.b', 'on', '2026-07-30T10:00:00Z')])
+
+      expect(Object.keys(entityStore.state.entities).sort()).toEqual(['light.a', 'light.b'])
+    })
+
+    it('adds an entity that appeared while the socket was down', () => {
+      // The other half of "the snapshot is the whole state machine": ids it
+      // carries that the map has never seen are additions, and there is no
+      // prior reading for them to lose a comparison against.
+      entityStoreActions.updateEntities([entity('light.old', 'on', '2026-07-30T10:00:00Z')])
+
+      entityStoreActions.replaceEntities([
+        entity('light.old', 'on', '2026-07-30T11:00:00Z'),
+        entity('light.new', 'off', '2026-07-30T11:00:00Z'),
+      ])
+
+      expect(Object.keys(entityStore.state.entities).sort()).toEqual(['light.new', 'light.old'])
+      expect(entityStore.state.entities['light.new'].state).toBe('off')
+    })
+
+    it('keeps an update that raced the snapshot, rather than reverting it', () => {
+      /*
+       * The ordering hazard, and the reason this is a reconciliation rather
+       * than a clear-and-apply. A snapshot is a claim about one instant; an
+       * update that landed after that instant carries a later `last_updated`,
+       * and dropping it would turn an under-report into an OVER-report — a card
+       * showing a stale value, or "Entity Not Found" for an entity that exists.
+       * That is the strictly worse direction, which is why the naive replace is
+       * not what this does.
+       */
+      entityStoreActions.updateEntities([entity('light.raced', 'on', '2026-07-30T12:00:05Z')])
+
+      // The snapshot was read BEFORE that update and carries the older reading.
+      entityStoreActions.replaceEntities([entity('light.raced', 'off', '2026-07-30T12:00:00Z')])
+
+      expect(entityStore.state.entities['light.raced'].state).toBe('on')
+    })
+
+    it('takes the snapshot where it is the newer reading', () => {
+      // The other direction, which is the ordinary case: nothing raced, so the
+      // snapshot is simply the truth.
+      entityStoreActions.updateEntities([entity('light.normal', 'on', '2026-07-30T12:00:00Z')])
+      entityStoreActions.replaceEntities([entity('light.normal', 'off', '2026-07-30T12:00:05Z')])
+
+      expect(entityStore.state.entities['light.normal'].state).toBe('off')
+    })
+
+    it('takes the snapshot when either timestamp is unusable', () => {
+      // Anything unparseable defers to the snapshot, which is the conservative
+      // direction: it is the reading we just asked Home Assistant for.
+      entityStoreActions.updateEntities([entity('light.odd', 'on', 'not-a-timestamp')])
+      entityStoreActions.replaceEntities([entity('light.odd', 'off', '2026-07-30T12:00:00Z')])
+
+      expect(entityStore.state.entities['light.odd'].state).toBe('off')
+    })
+
+    it('forgets the subscriptions and staleness of entities it dropped', () => {
+      /*
+       * The same bookkeeping `removeEntity` does, for the same reason: a count
+       * or a stale mark left behind outlives the entity it described, and would
+       * be read by the next subscribe to that id if it ever came back.
+       */
+      entityStoreActions.updateEntities([
+        entity('light.kept', 'on', '2026-07-30T10:00:00Z'),
+        entity('light.gone', 'on', '2026-07-30T10:00:00Z'),
+      ])
+      entityStoreActions.subscribeToEntity('light.kept')
+      entityStoreActions.subscribeToEntity('light.gone')
+      entityStoreActions.markEntityStale('light.gone')
+
+      entityStoreActions.replaceEntities([entity('light.kept', 'on', '2026-07-30T11:00:00Z')])
+
+      expect([...entityStore.state.subscribedEntities]).toEqual(['light.kept'])
+      expect([...entityStore.state.staleEntities]).toEqual([])
+    })
+  })
 })

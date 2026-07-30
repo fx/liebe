@@ -148,8 +148,14 @@ export class HassConnectionManager {
         context: state.context,
       }))
 
-      // Update all entities at once
-      entityStoreActions.updateEntities(entities)
+      /*
+       * REPLACE rather than merge. A snapshot is the state machine's whole
+       * contents, so an id it does not carry is an id Home Assistant does not
+       * have — which is the only way a deletion that happened while the socket
+       * was down can ever be noticed (change 0037 PR 8). Merging left the map a
+       * permanent superset and `isMissing` blind to it.
+       */
+      entityStoreActions.replaceEntities(entities)
       entityStoreActions.setInitialLoading(false)
 
       // Log entity count
