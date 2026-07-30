@@ -76,6 +76,29 @@ export function readNumberControlStyle(
   return readStyle(config, NUMBER_CONTROL_STYLES, mode === 'slider' ? 'slider' : 'stepper')
 }
 
+/**
+ * What the number card actually renders, which is not always what is stored.
+ *
+ * The stepper is a row of buttons around a value field, sized by its contents
+ * on the only axis a `tall` tile is narrow: one column. It cannot be taken down
+ * to that tile's content region without dropping its buttons under the touch
+ * floor, and rendering it anyway hangs it past the tile's own edge, where the
+ * tile clips it — so `tall` renders the vertical slider instead, which is
+ * cross-axis flexible and is what that tier's layout asks for anyway
+ * (docs/specs/design-system — cross-axis fit;
+ * docs/specs/entity-cards/options/input-helpers.md — `input_number`).
+ *
+ * Presentation only, exactly as `resolveSelectPresentation` is: resolved at
+ * render, the stored `controlStyle` is never rewritten, and the card returns to
+ * the stepper the moment it is two columns wide again.
+ */
+export function resolveNumberPresentation(
+  style: NumberControlStyle,
+  tier: string
+): NumberControlStyle {
+  return style === 'stepper' && tier === 'tall' ? 'slider' : style
+}
+
 export function readSelectControlStyle(
   config: Record<string, unknown> | undefined
 ): SelectControlStyle {
