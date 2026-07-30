@@ -5,7 +5,7 @@ import { buildSeedConfig, DEMO_LIGHT, dragResizeHandle, gridItemFor, openPanel }
  * The grid's resize-handle geometry, which is a cascade fact and therefore not
  * observable anywhere but here.
  *
- * [grid-layout](../../docs/specs/grid-layout/index.md#touch--pointer) states a
+ * [grid-layout](../../docs/specs/grid-layout/index.md#touch-first-sizing) states a
  * MUST: resize handles grow to at least `32×32` on a coarse pointer, edge
  * handles to `32×60` / `60×32`. `GridLayoutSection.css` has always contained
  * exactly those rules — and until change [0036](../../docs/changes/0036-theming-contract-gaps.md)

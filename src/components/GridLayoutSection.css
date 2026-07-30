@@ -292,7 +292,7 @@
   /*
    * Touch-friendly adjustments.
    *
-   * The floor [grid-layout](../../docs/specs/grid-layout/index.md#touch--pointer)
+   * The floor [grid-layout](../../docs/specs/grid-layout/index.md#touch-first-sizing)
    * states as a MUST, and the reason the whole block above had to become live:
    * these three rules are the grid's half of the project's touch-target
    * principle, and for as long as the vendor sheets outranked them a coarse
