@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
-import { Flex, Text, Box, IconButton, Dialog, Button, TextField, Select } from '@radix-ui/themes'
+import { Flex, Text, Box, IconButton, Button, TextField } from '@radix-ui/themes'
+import { Dialog, Select } from '~/components/ui/portals'
 import { TextIcon, DividerHorizontalIcon, DividerVerticalIcon } from '@radix-ui/react-icons'
 import { dashboardActions } from '~/store'
 import type { GridItem } from '~/store/types'

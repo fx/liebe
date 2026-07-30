@@ -1,4 +1,5 @@
-import { Dialog, Flex, Text, ScrollArea, Badge, Button, Code, Box } from '@radix-ui/themes'
+import { Flex, Text, ScrollArea, Badge, Button, Code, Box } from '@radix-ui/themes'
+import { Dialog } from '~/components/ui/portals'
 import { ClockIcon, InfoCircledIcon } from '@radix-ui/react-icons'
 import { useStore } from '@tanstack/react-store'
 import { connectionStore, connectionActions } from '~/store/connectionStore'

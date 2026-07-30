@@ -1,4 +1,5 @@
-import { Dialog, Flex } from '@radix-ui/themes'
+import { Flex } from '@radix-ui/themes'
+import { Dialog } from '~/components/ui/portals'
 import { createElement, memo, useCallback, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { SkeletonCard, ErrorDisplay } from '../ui'

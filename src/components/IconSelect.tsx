@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react'
-import { TextField, ScrollArea, Grid, Button, Text, Box, Popover, Flex } from '@radix-ui/themes'
+import { TextField, ScrollArea, Grid, Button, Text, Box, Flex } from '@radix-ui/themes'
+import { Popover } from '~/components/ui/portals'
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { ICONS, getIcon } from '~/utils/iconList'
 

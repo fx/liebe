@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Dialog, Button, Flex } from '@radix-ui/themes'
-
+import { Button, Flex } from '@radix-ui/themes'
+import { Dialog } from './portals'
 interface ModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
