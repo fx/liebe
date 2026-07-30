@@ -67,9 +67,10 @@ const preview: Preview = {
       // workshop records the violations it finds as issues, and fixing them is
       // deliberately out of scope here (change 0009, PR 2). The naming rules
       // below have since been driven to zero, and this stays `todo` because
-      // `color-contrast` has not — 71 nodes at the last full run, mostly the
-      // live-hue defect that is change 0035's fourth task. Flipping to `error`
-      // is that task's decision to make, not this comment's.
+      // `color-contrast` has not — 71 nodes at the last full run, the largest
+      // group of them (32) the live-hue defect that is change 0035's fourth
+      // task. Flipping to `error` is that task's decision to make, not this
+      // comment's.
       test: 'todo',
       config: {
         rules: [
