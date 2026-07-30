@@ -17,15 +17,11 @@ const meta: Meta<ButtonCardStoryProps> = {
   title: 'Cards/ButtonCard',
   component: ButtonCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 2,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createSwitchEntity()] },
@@ -97,7 +93,7 @@ export const Disconnected: Story = {
  * both. Liebe runs on wall tablets, so a hover tooltip would reach neither user.
  */
 export const DisconnectedGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   parameters: { liebe: { entities: [createSwitchEntity()], connected: false } },
 }
 
@@ -128,19 +124,19 @@ export const EditMode: Story = {
 /** Icon over name and state, centred. The whole tile toggles. */
 export const TierGlance: Story = {
   name: 'Tier — glance (1×1)',
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /** Icon and meta in a row; still no embedded control. */
 export const TierRow: Story = {
   name: 'Tier — row (3×1)',
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
 }
 
 /** Icon on top, meta at the bottom. */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /**
@@ -149,7 +145,7 @@ export const TierTall: Story = {
  */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }
 
 /* ------------------------------------------------------------------ *
@@ -213,7 +209,7 @@ export const CustomStateLabels: Story = {
 
 /** `showLastChanged` at `row`: how long the entity has held its state, muted. */
 export const ShowLastChanged: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createSwitchEntity({ state: 'on', last_changed: twoHoursAgo })],
@@ -224,7 +220,7 @@ export const ShowLastChanged: Story = {
 
 /** The same at `tall`, where the line rides under the state in the meta block. */
 export const ShowLastChangedTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [createSwitchEntity({ state: 'on', last_changed: twoHoursAgo })],
@@ -238,7 +234,7 @@ export const ShowLastChangedTall: Story = {
  * line, so the option degrades rather than the card clipping.
  */
 export const ShowLastChangedGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [createSwitchEntity({ state: 'on', last_changed: twoHoursAgo })],
@@ -255,7 +251,7 @@ export const ShowLastChangedGlance: Story = {
  * the recency line — which needs nothing but `last_changed` — still works.
  */
 export const FallbackDomain: Story = {
-  args: { entityId: 'siren.garage', tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { entityId: 'siren.garage', gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [

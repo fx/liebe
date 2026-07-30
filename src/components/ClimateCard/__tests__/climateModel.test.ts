@@ -46,6 +46,33 @@ describe('readHvacModes', () => {
     expect(readHvacModes(['off', 'heat', 3, null, 'cool'])).toEqual(['off', 'heat', 'cool'])
   })
 
+  it('drops a blank mode, which a pill row would otherwise offer unlabelled', () => {
+    // The row renders every mode it is handed, so an empty string would become a
+    // nameless pill dispatching `set_hvac_mode` with nothing in it.
+    expect(readHvacModes(['heat', '', '   ', 'cool'])).toEqual(['heat', 'cool'])
+  })
+
+  it('keeps the first of a repeated mode', () => {
+    // Two identical pills, and two React children under one key.
+    expect(readHvacModes(['heat', 'cool', 'heat'])).toEqual(['heat', 'cool'])
+  })
+
+  it('trims each mode, so padding cannot smuggle a duplicate past the check', () => {
+    /*
+     * The disguised version of the case above: untrimmed, `' heat '` is a
+     * distinct key to React and an identical pill to the user. Trimming is also
+     * what gets SENT — Home Assistant rejects `' heat '`, and the card has no way
+     * to show why.
+     */
+    expect(readHvacModes(['heat', ' heat ', '\tcool\n'])).toEqual(['heat', 'cool'])
+  })
+
+  it('keeps the order the entity published, not a sorted one', () => {
+    // The row is read left to right and the entity's order is the thermostat's
+    // own; de-duplicating must not reshuffle it.
+    expect(readHvacModes(['cool', 'off', 'cool', 'heat'])).toEqual(['cool', 'off', 'heat'])
+  })
+
   it.each([
     ['absent', undefined],
     ['a string', 'heat,cool'],

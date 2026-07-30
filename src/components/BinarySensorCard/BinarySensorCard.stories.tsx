@@ -13,15 +13,11 @@ const meta: Meta<BinarySensorCardStoryProps> = {
   title: 'Cards/BinarySensorCard',
   component: BinarySensorCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 2,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createBinarySensorEntity()] },
@@ -144,13 +140,13 @@ export const EditMode: Story = {
 /** Icon circle over name and state label, stacked and centred. */
 export const TierGlance: Story = {
   name: 'Tier — glance (1×1)',
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /** Icon and name/state meta in a row. */
 export const TierRow: Story = {
   name: 'Tier — row (3×1)',
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
 }
 
 /**
@@ -160,7 +156,7 @@ export const TierRow: Story = {
  */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /**
@@ -169,7 +165,7 @@ export const TierTall: Story = {
  */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }
 
 /* ------------------------------------------------------------------ *
@@ -181,7 +177,7 @@ export const TierFull: Story = {
  * the default every unconfigured binary sensor gets.
  */
 export const DeviceClassLabels: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: { liebe: { entities: [sensor('moisture', 'on', 'Under Sink')] } },
   play: async ({ canvasElement }) => {
     await expect(readState(canvasElement)).toBe('Wet')
@@ -272,7 +268,7 @@ export const LightClassActive: Story = {
  * inverted, with its state and name hidden — still renders as an alarm.
  */
 export const HazardIsNotRestylable: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [sensor('smoke', 'on', 'Kitchen Smoke')],
@@ -297,7 +293,7 @@ export const HazardIsNotRestylable: Story = {
 
 /** The same detector quiet: every one of those options applies normally again. */
 export const HazardQuietHonoursOptions: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: {
     liebe: {
       entities: [sensor('smoke', 'off', 'Kitchen Smoke')],
@@ -317,7 +313,7 @@ const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
 
 /** The `full` tier's one addition: how long the sensor has held its state. */
 export const FullTierSince: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   parameters: {
     liebe: {
       entities: [createBinarySensorEntity({ state: 'off', last_changed: twoHoursAgo })],
@@ -335,7 +331,7 @@ export const FullTierSince: Story = {
  * reading "for NaN min" — the sensor has not said how long anything has held.
  */
 export const FullTierSinceUnparseable: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   parameters: {
     liebe: {
       entities: [

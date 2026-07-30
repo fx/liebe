@@ -1,5 +1,6 @@
 import { Pill, PillGroup } from '../anatomy'
 import { HvacModeIcon } from './HvacModeIcon'
+import { humanizeMode } from './ClimatePillRow'
 import { hvacModeConfig } from './climateModel'
 
 export interface ClimateModePillsProps {
@@ -13,39 +14,49 @@ export interface ClimateModePillsProps {
 /**
  * The HVAC mode row, shared by both variants' `full` tier.
  *
- * Modes outside `HVAC_MODES` are dropped rather than rendered with a made-up
- * label and no colour: the row's job is to say what the thermostat is set to,
- * and a pill this build cannot name or colour cannot do that. A thermostat
- * reporting only unknown modes therefore renders no row at all, which is also
- * what an entity with no `hvac_modes` gets — an empty pill group is a control
- * that is not one.
+ * **Every mode the entity reports gets a pill**, including one outside
+ * `HVAC_MODES`. `hvac_modes` belongs to the integration — a heat pump with a
+ * vendor-specific mode, or a mode a later Home Assistant adds — and dropping
+ * what this build cannot name made the card quietly less capable than the
+ * thermostat: the mode was unselectable and the user had no indication it
+ * existed (docs/changes/0037 — "Unknown HVAC modes render rather than being
+ * dropped"). A mode with no entry takes the title-cased form of its own value
+ * for a label, the neutral triplet for a colour, and the glyph fallback
+ * `HvacModeIcon` already carries for exactly this case. The label is presented;
+ * `onSelect` still receives the raw value the entity published, so the service
+ * call carries what the integration expects.
  *
- * Resolved once per mode rather than filtered and then looked up again, so
- * "known" means "we have a config in hand" instead of "a second lookup will
- * find one" — which is what let an inherited key through when the filter used
- * `in` (see `hvacModeConfig`).
+ * The one thing that still renders nothing is an **empty** list — an entity that
+ * exposes no mode control, or whose `hvac_modes` was not a list at all. An empty
+ * pill group is a control that is not one.
+ *
+ * `hvacModeConfig` rather than an index, because `hvac_modes` comes off the
+ * entity: `'toString' in HVAC_MODES` is `true`, and the own-property check is
+ * what keeps such a mode on the fallback path instead of dereferencing a
+ * function as a config.
  */
 export function ClimateModePills({ modes, activeMode, disabled, onSelect }: ClimateModePillsProps) {
-  const known = modes.flatMap((mode) => {
-    const config = hvacModeConfig(mode)
-    return config ? [{ mode, config }] : []
-  })
-  if (known.length === 0) return null
+  if (modes.length === 0) return null
 
   return (
     <PillGroup label="HVAC mode" className="climate-card-modes">
-      {known.map(({ mode, config }) => (
-        <Pill
-          key={mode}
-          domain="climate"
-          color={config.color}
-          active={activeMode === mode}
-          label={config.label}
-          icon={<HvacModeIcon mode={mode} label={config.label} />}
-          disabled={disabled}
-          onClick={() => onSelect(mode)}
-        />
-      ))}
+      {modes.map((mode) => {
+        const config = hvacModeConfig(mode)
+        const label = config?.label ?? humanizeMode(mode)
+
+        return (
+          <Pill
+            key={mode}
+            domain="climate"
+            color={config?.color ?? 'default'}
+            active={activeMode === mode}
+            label={label}
+            icon={<HvacModeIcon mode={mode} label={label} />}
+            disabled={disabled}
+            onClick={() => onSelect(mode)}
+          />
+        )
+      })}
     </PillGroup>
   )
 }

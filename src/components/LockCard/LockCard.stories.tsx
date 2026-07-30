@@ -14,15 +14,11 @@ const meta: Meta<LockCardStoryProps> = {
   title: 'Cards/LockCard',
   component: LockCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 3,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createLockEntity()] },
@@ -197,7 +193,7 @@ export const Unknown: Story = {
 
 /** `glance` (1×1): icon, name and state. No pills — the tap opens more-info. */
 export const TierGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(readState(canvasElement)).toBe('Locked')
@@ -207,7 +203,7 @@ export const TierGlance: Story = {
 
 /** `row` (≥2×1): the pill pair beside the meta. */
 export const TierRow: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Lock' })).toBeInTheDocument()
@@ -217,7 +213,7 @@ export const TierRow: Story = {
 
 /** `tall` (1×≥2): icon on top, pills in the middle, meta below. */
 export const TierTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Lock' })).toBeInTheDocument()
@@ -227,7 +223,7 @@ export const TierTall: Story = {
 
 /** `full` (≥2×≥2): the row layout with the pills full-width beneath it. */
 export const TierFull: Story = {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 3 },
+  args: { gridWidth: 3, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Lock' })).toBeInTheDocument()
@@ -243,7 +239,7 @@ export const TierFull: Story = {
 
 /** `showButtons: false` leaves a display-only card. */
 export const WithoutButtons: Story = {
-  args: { tier: 'full' },
+  args: { gridHeight: 2 },
   parameters: {
     liebe: { entities: [createLockEntity()], itemConfig: { showButtons: false } },
   },
