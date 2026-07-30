@@ -286,6 +286,39 @@ describe('entityStore', () => {
       expect(entityStore.state.entities['light.raced'].state).toBe('on')
     })
 
+    it('keeps an entity CREATED after the snapshot instant', () => {
+      /*
+       * The other racing case, and the one the update case does not cover: an
+       * entity created after the snapshot was assembled is in the map from a
+       * live `state_changed` and absent from the snapshot — because it did not
+       * exist when the snapshot was taken, not because it was deleted. Dropping
+       * it is the over-report this design exists to avoid, and the first
+       * version of the action did exactly that (found in review).
+       *
+       * What separates the two meanings of absence is "newer than everything
+       * the snapshot carries": an entity deleted while the socket was down last
+       * changed before the disconnection and cannot clear that bar.
+       */
+      entityStoreActions.updateEntities([entity('light.born', 'on', '2026-07-30T12:00:09Z')])
+
+      // A snapshot assembled a moment earlier — it has no such id.
+      entityStoreActions.replaceEntities([entity('light.old', 'on', '2026-07-30T12:00:00Z')])
+
+      expect(Object.keys(entityStore.state.entities).sort()).toEqual(['light.born', 'light.old'])
+      expect(entityStore.state.entities['light.born'].state).toBe('on')
+    })
+
+    it('still drops one deleted offline, whose reading predates the snapshot', () => {
+      // The discriminating half: same shape, older reading. This is what makes
+      // the rule above a distinction rather than a blanket "keep everything",
+      // which would restore the defect this PR fixes.
+      entityStoreActions.updateEntities([entity('light.deleted', 'on', '2026-07-30T09:00:00Z')])
+
+      entityStoreActions.replaceEntities([entity('light.old', 'on', '2026-07-30T12:00:00Z')])
+
+      expect(Object.keys(entityStore.state.entities)).toEqual(['light.old'])
+    })
+
     it('takes the snapshot where it is the newer reading', () => {
       // The other direction, which is the ordinary case: nothing raced, so the
       // snapshot is simply the truth.
@@ -293,6 +326,25 @@ describe('entityStore', () => {
       entityStoreActions.replaceEntities([entity('light.normal', 'off', '2026-07-30T12:00:05Z')])
 
       expect(entityStore.state.entities['light.normal'].state).toBe('off')
+    })
+
+    it('dates the snapshot by its usable readings only', () => {
+      /*
+       * An unparseable `last_updated` in the snapshot contributes nothing to
+       * the instant it is dated by, rather than poisoning it — otherwise one
+       * malformed row would make the whole snapshot undatable and every absent
+       * entity look newer than it, silently restoring the merge this PR
+       * replaces.
+       */
+      entityStoreActions.updateEntities([entity('light.deleted', 'on', '2026-07-30T09:00:00Z')])
+
+      entityStoreActions.replaceEntities([
+        entity('light.broken', 'on', 'not-a-timestamp'),
+        entity('light.fine', 'on', '2026-07-30T12:00:00Z'),
+      ])
+
+      // The deleted one still goes: `light.fine` dated the snapshot.
+      expect(Object.keys(entityStore.state.entities).sort()).toEqual(['light.broken', 'light.fine'])
     })
 
     it('takes the snapshot when either timestamp is unusable', () => {
@@ -336,10 +388,19 @@ describe('entityStore', () => {
       entityStoreActions.updateEntities([entity('light.cycles', 'on', '2026-07-30T10:00:00Z')])
       entityStoreActions.subscribeToEntity('light.cycles')
 
-      // Deleted while the socket was down…
-      entityStoreActions.replaceEntities([])
+      /*
+       * Deleted while the socket was down — the snapshot carries a later
+       * reading of something else, so the missing id's older one is genuinely
+       * absent rather than newer than the snapshot instant. (An EMPTY snapshot
+       * would not do: with nothing to date it by, the action keeps everything,
+       * which is the conservative reading of a snapshot that carried nothing.)
+       */
+      entityStoreActions.replaceEntities([entity('light.other', 'on', '2026-07-30T11:00:00Z')])
       // …and created again before the next snapshot.
-      entityStoreActions.replaceEntities([entity('light.cycles', 'on', '2026-07-30T11:00:00Z')])
+      entityStoreActions.replaceEntities([
+        entity('light.other', 'on', '2026-07-30T11:30:00Z'),
+        entity('light.cycles', 'on', '2026-07-30T11:30:00Z'),
+      ])
 
       // One view subscribes to the returned entity, then goes away.
       entityStoreActions.subscribeToEntity('light.cycles')

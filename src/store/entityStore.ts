@@ -168,6 +168,22 @@ export const entityStoreActions: EntityStoreActions = {
     entityStore.setState((state) => {
       const nextEntities: Record<string, HassEntity> = {}
 
+      /*
+       * The instant the snapshot describes, taken from Home Assistant's own
+       * clock rather than ours: the latest reading it carries. Nothing in the
+       * snapshot is newer than this, so an entity the map holds with a LATER
+       * reading demonstrably changed after the snapshot was assembled — which
+       * is the one case where absence from it does not mean "deleted".
+       *
+       * A wall-clock capture time would have been the obvious alternative and
+       * is wrong: it compares the browser's clock against Home Assistant's
+       * timestamps, so any skew between them decides the answer.
+       */
+      const snapshotAt = entities.reduce((latest, entity) => {
+        const at = Date.parse(entity.last_updated)
+        return Number.isNaN(at) ? latest : Math.max(latest, at)
+      }, Number.NEGATIVE_INFINITY)
+
       entities.forEach((entity) => {
         const existing = state.entities[entity.entity_id]
         /*
@@ -182,13 +198,38 @@ export const entityStoreActions: EntityStoreActions = {
       })
 
       /*
-       * Subscription counts for entities the snapshot dropped go with them, the
-       * same bookkeeping `removeEntity` does: a count left behind would make the
-       * next subscribe to that id start from a stale number if it ever came
-       * back.
+       * An ADDITION that raced the snapshot survives it, which the first
+       * version of this action got wrong: it built the next map from the
+       * snapshot alone, so an entity CREATED after the snapshot instant — in
+       * the map from a live `state_changed`, absent from the snapshot because
+       * it did not exist when the snapshot was taken — was deleted, and the
+       * card reported it missing. That is precisely the over-report this whole
+       * design exists to avoid, reached by the one path the update case does
+       * not cover (found in review before this landed).
+       *
+       * "Newer than everything the snapshot carries" is what separates the two
+       * meanings of absence. An entity deleted while the socket was down last
+       * changed before the disconnection, so it cannot clear that bar and is
+       * dropped as intended; anything that can clear it postdates the snapshot,
+       * and keeping it is the conservative direction if the bar is ever met by
+       * accident on a very quiet system.
        */
-      for (const entityId of Object.keys(state.entities)) {
-        if (!(entityId in nextEntities)) subscriptionCounts.delete(entityId)
+      for (const [entityId, existing] of Object.entries(state.entities)) {
+        if (entityId in nextEntities) continue
+
+        const existingAt = Date.parse(existing.last_updated)
+        if (!Number.isNaN(existingAt) && existingAt > snapshotAt) {
+          nextEntities[entityId] = existing
+          continue
+        }
+
+        /*
+         * Otherwise the snapshot's silence means deleted, and the subscription
+         * count goes with it — the same bookkeeping `removeEntity` does, since
+         * a count left behind would make the next subscribe to that id start
+         * from a stale number if it ever came back.
+         */
+        subscriptionCounts.delete(entityId)
       }
 
       const subscribedEntities = new Set(
