@@ -31,7 +31,6 @@ You are working on a custom Home Assistant dashboard project that integrates as 
 ## Development Environment
 
 - **Home Assistant Instance**: Check .env.local for development instance credentials
-- **Repository**: Use GitHub Projects for task management
 - **Framework**: TanStack Start with React (SPA Mode)
 - **UI Library**: Radix UI Theme (not just primitives, use default theme)
 - **Integration**: Custom Panel in Home Assistant
@@ -39,6 +38,15 @@ You are working on a custom Home Assistant dashboard project that integrates as 
 ## Task Tracking
 
 **You MUST load the `/project-management` skill before creating, modifying, or completing any task.** It owns all task-tracking rules and knows where tasks belong. Do not manage tasks without it.
+
+**This project configures no external task tracker.** Work is tracked in the repository:
+
+- **`docs/changes/NNNN-name.md`** — the primary home. Anything relating to a spec in `docs/specs/` belongs in a change document, existing or new.
+- **`docs/tasks.md`** — orphan work only, meaning work that relates to no spec and no change document.
+
+**Do not open GitHub issues to record work, findings or follow-ups.** Issues are not this project's task list, and filing them there splits tracking across two systems that nothing reconciles. A defect found mid-task is a change document — or a task line in an existing one — not an issue. If you believe something genuinely cannot be expressed as a change document, stop and ask rather than reaching for the issue tracker.
+
+This section is the answer to "where do tasks go?" — it exists so nobody has to infer it from the shape of the surrounding workflow.
 
 ## Development Workflow
 
@@ -89,22 +97,19 @@ Note: The custom element name in panel_custom must match the name in customEleme
 
 ### Starting a New Task
 
-1. **Select Task from GitHub Project**
+1. **Select the task**
 
-```bash
-gh issue list --assignee @me
-gh issue view <issue-number>
-```
+   Load `/project-management` and follow its Task Source Priority: uncompleted `- [ ]` items in `docs/changes/` first, then `docs/tasks.md` for orphan work.
 
 2. **Create Feature Branch**
 
    ```bash
    git checkout main
    git pull origin main
-   git checkout -b <branch-type>/<issue-number>-<brief-description>
+   git checkout -b <branch-type>/<change-number>-<brief-description>
    ```
 
-   Branch types: `feat/`, `fix/`, `docs/`, `refactor/`
+   Branch types: `feat/`, `fix/`, `docs/`, `refactor/`. Name the branch after the change document it implements — `feat/0025-vacuum-card` — so the branch, the change document and the PR agree about what the work is.
 
 3. **Update Todo List**
    - Add task to TodoWrite tool
@@ -282,8 +287,8 @@ gh issue view <issue-number>
    ## Summary
    - Brief description of changes
 
-   ## Related Issue
-   Closes #<issue-number>
+   ## Change
+   docs/changes/<NNNN>-<name>.md — which task this PR completes
 
    ## Testing
    - [ ] All tests pass locally (`npm test`)
@@ -298,34 +303,17 @@ gh issue view <issue-number>
    )"
    ```
 
-### Closing Epics
+### Closing a Change
 
-When completing the final sub-issue of an epic, close the epic in the same pull request:
+The PR completing a change document's **last** task carries the closure, in the same commit:
 
-1. **In the PR body**, add both the sub-issue and epic:
+1. `**Status:** draft` → `**Status:** complete` in `docs/changes/<NNNN>-*.md`
+2. `status: draft` → `status: complete` for that change's entry in `docs/index.yml`
+3. The corresponding row in `docs/index.md`
 
-   ```
-   Closes #<sub-issue-number>
-   Closes #<epic-number>
-   ```
+All three, or the indexes drift from the documents they index. `/project-management` Workflow 5 owns this rule; it is repeated here because it is the step most often missed.
 
-2. **Verify all sub-issues are complete** before closing:
-
-   ```bash
-   # Check all issues linked to an epic
-   gh issue list --repo fx/liebe --search "Epic: #<epic-number>"
-   ```
-
-3. **Example PR body for final sub-issue**:
-
-   ```
-   ## Summary
-   - Implements the final weather widget enhancements
-
-   ## Related Issues
-   Closes #69  # The sub-issue
-   Closes #6   # The epic (if this is the last sub-issue)
-   ```
+**Verify the flips after committing, and again after any merge of `main`** — a merge is where a status flip gets clobbered, and `docs/index.*` auto-merging is what makes it silent. Check by count rather than by grepping your own line: `docs/index.yml`'s `status: complete` count should rise by exactly the number of changes you closed. A revert elsewhere nets to zero and a single-line grep cannot see it.
 
 ## Technical Guidelines
 
@@ -685,9 +673,9 @@ When adding new sections, use this format:
 
 [Specific information, code examples, commands]
 
-### Related Issues
+### Provenance
 
-[Link to GitHub issues if applicable]
+[The change document or PR this was learned on, if applicable]
 ```
 
 ## Scripts Directory
@@ -695,16 +683,6 @@ When adding new sections, use this format:
 All project automation scripts should be maintained in the `/scripts` directory. This keeps the project root clean and makes scripts easy to find.
 
 ### Available Scripts
-
-- **`scripts/link-sub-issues.sh`** - Links GitHub sub-issues to their parent issues/epics
-
-  ```bash
-  # Usage: Link multiple issues to a parent
-  ./scripts/link-sub-issues.sh <parent-issue> <child-issue> [<child-issue>...]
-
-  # Example: Link issues 12, 13, 14 to epic 1
-  ./scripts/link-sub-issues.sh 1 12 13 14
-  ```
 
 - **`scripts/check-rtsp-leak.sh`** - CI gate that fails if tracked files contain a credentialed RTSP URL or the literal `$RTSP_TEST_URL` value (only env-var placeholder references may be committed — go2rtc `${RTSP_TEST_URL:}` / Compose `${RTSP_TEST_URL:-}` — never the value)
 
@@ -758,49 +736,13 @@ polling and merge again.
 Run this **before** the first poll, not after several — it is one local command
 and it converts an open-ended wait into a decision.
 
-## GitHub Issue Linking
+## Breaking Work Into Units
 
-### Important: Linking Sub-Issues to Epics
+A change document's `## Tasks` list is where work is decomposed. One top-level task is one PR, and a change that needs several PRs lists several tasks — the change document is the parent, and the tasks are the children. There is no second hierarchy to maintain.
 
-GitHub has a specific feature for linking issues as sub-issues to epics. This is NOT done by simply mentioning the epic number in the description (e.g., "Epic: #1"). Instead, issues must be properly linked using GitHub's issue tracking features.
+`/project-management` Workflow 3 owns how to write those task lists. Prefer more, smaller tasks: a PR that closes one task reviews far better than one closing four.
 
-**How to Link Sub-Issues via API:**
-
-1. **Use the provided script**:
-
-   ```bash
-   ./scripts/link-sub-issues.sh
-   ```
-
-2. **Manual API calls** (if needed):
-
-   ```bash
-   # Get issue ID for a specific issue
-   gh api graphql -F owner="fx" -f repository="liebe" -F number="7" -f query='
-   query ($owner: String!, $repository: String!, $number: Int!) {
-     repository(owner: $owner, name: $repository) {
-       issue(number: $number) {
-         id
-       }
-     }
-   }' --jq '.data.repository.issue.id'
-
-   # Link child issue to parent issue
-   gh api graphql -H GraphQL-Features:issue_types -H GraphQL-Features:sub_issues \
-     -f parentIssueId="<PARENT_ID>" -f childIssueId="<CHILD_ID>" -f query='
-   mutation($parentIssueId: ID!, $childIssueId: ID!) {
-     addSubIssue(input: { issueId: $parentIssueId, subIssueId: $childIssueId }) {
-       issue {
-         title
-         number
-       }
-     }
-   }'
-   ```
-
-**Reference:** Based on https://github.com/joshjohanning/github-misc-scripts/blob/main/gh-cli/add-sub-issue-to-issue.sh
-
-**Note:** Simply updating the epic's description with issue numbers (e.g., `- [ ] #7`) creates task references but may not create the proper sub-issue relationship that appears in GitHub's UI.
+Sequencing between tasks belongs **in the change document**, as prose next to the task list — which task must land first and why. It is the kind of decision a change document exists to record, and it is the thing a reader needs before picking up task three.
 
 ## Entity Card Registration
 
@@ -848,17 +790,13 @@ const registeredCards = {
 
 1. **Never commit sensitive data** (tokens, passwords, URLs)
 2. **Always test in both dev and HA environments**
-3. **Keep PRs focused** - one feature/fix per PR (create separate branches for each sub-issue)
+3. **Keep PRs focused** - one task per PR, one branch per task
 4. **Update documentation** as you add features
 5. **Use semantic commit messages**
 6. **Mark todos as completed** immediately after finishing tasks
 7. **UPDATE THIS FILE** whenever you learn something new about the project
-8. **ALWAYS check GitHub issues first** - Use `gh issue` commands to get task requirements, not the PRD
-9. **GitHub issue linking** - When creating epics with sub-issues:
-   - Create the epic first
-   - Create all sub-issues with "Epic: #<number>" in description
-   - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
-10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
+8. **ALWAYS read the change document first** — `docs/changes/` is where requirements live, and `/project-management` is what tells you which task is next. Never open a GitHub issue to record work; see "Task Tracking"
+9. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
 
 ## 🚨 CRITICAL: Development Server Management 🚨
 
