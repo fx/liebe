@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { test, expect } from '@playwright/test'
 import { load } from 'js-yaml'
+import { classifyBundleUrl, MOUNT_SERVED_PREFIX } from './bundleIdentity'
 import { openPanel, panelInfo, collectConsoleErrors } from './helpers'
 import { getPanelConfig } from '../../src/config/panel'
 
@@ -32,9 +33,15 @@ test('configuration.yaml panel entry matches src/config/panel.ts', () => {
   // module_url must point under /local/dist and the referenced bundle must exist
   // in dist/ — the same artifact the compose file mounts. Without this, renaming
   // the bundle would leave HA serving a stale/missing file while tests still pass.
+  // Parsed through the bundle-identity classifier rather than a second regex, so
+  // both agree about what a module_url means — including that a cache-busting
+  // `?v=123` names the same file (docs/specs/panel-lifecycle).
   const moduleUrl = entry?.module_url ?? ''
-  const bundle = /^\/local\/dist\/(.+)$/.exec(moduleUrl)?.[1]
-  expect(bundle, `module_url "${moduleUrl}" must be under /local/dist/`).toBeTruthy()
+  const source = classifyBundleUrl(moduleUrl, 'http://localhost:8123')
+  expect(source.kind, `module_url "${moduleUrl}" must be under ${MOUNT_SERVED_PREFIX}`).toBe(
+    'mounted'
+  )
+  const bundle = source.kind === 'mounted' ? source.distFile : ''
   expect(
     existsSync(new URL(`../../dist/${bundle}`, import.meta.url)),
     `built bundle dist/${bundle} referenced by module_url must exist`
@@ -45,8 +52,7 @@ test('configuration.yaml panel entry matches src/config/panel.ts', () => {
   // serve a stale/missing bundle even though the file exists in dist/. Assert the
   // full source:target:mode contract exactly — a near-miss like
   // /config/www/dist-old or a dropped :ro mode must fail.
-  const servedDir = moduleUrl.replace(/\/[^/]+$/, '') // /local/dist
-  const containerDir = servedDir.replace(/^\/local\//, '/config/www/') // /config/www/dist
+  const containerDir = MOUNT_SERVED_PREFIX.replace(/^\/local\//, '/config/www/').replace(/\/$/, '')
   const expectedMount = `../dist:${containerDir}:ro`
   const compose = load(
     readFileSync(new URL('../../ha/docker-compose.yml', import.meta.url), 'utf8')
