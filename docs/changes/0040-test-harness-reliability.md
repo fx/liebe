@@ -62,7 +62,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ## Tasks
 
-- [ ] **PR 1 — Bundle identity in e2e global setup**: hash `dist/panel.js` and the bundle served at the `module_url` parsed from `configuration.yaml`, compare, throw with both hashes; skip only for the allowlisted dev-server endpoint and fail closed for every other non-mounted URL, with a test per branch; demonstrated failing against a deliberately stale bundle
+- [x] **PR 1 — Bundle identity in e2e global setup**: hash every artifact under `dist/` against what the instance serves under the `module_url` parsed from `configuration.yaml` — `panel.js` alone is byte-identical for a CSS-only change — compare, throw with both hashes; skip only for the allowlisted dev-server endpoint and fail closed for every other non-mounted URL, with a test per branch; demonstrated failing against a deliberately stale bundle
 - [ ] **PR 2 — Per-worktree e2e stack**: derive `COMPOSE_PROJECT_NAME` and ports from the checkout path; scripted startup detects an unreachable or unpermitted docker daemon and exits naming the cause; `AGENTS.md`'s e2e section and the architecture spec reconciled with the working scripted path
 - [ ] **PR 3 — Lint sees member-call effects**: `react-hooks/set-state-in-effect` matches `React.useEffect`, or `React.useEffect` is banned in favour of the imported form; demonstrated firing on the `GridCard.tsx` `setDetailFor(null)` case
 - [ ] **PR 4 — Fix what the rule finds**: move the shell's state-writing effects to the render-phase pattern the cards already use; audit all five `React.useEffect` call sites, not only the inspected one
