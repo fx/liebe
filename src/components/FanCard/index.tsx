@@ -2,7 +2,7 @@ import { Flex } from '@radix-ui/themes'
 import { Fan, RotateCw, Wind } from 'lucide-react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useCallback, useMemo, useState } from 'react'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup, Slider } from '../anatomy'
@@ -77,7 +77,13 @@ function FanCardComponent({
   isSelected = false,
   onSelect,
 }: FanCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   /*
    * Guarded, non-retrying dispatch for every command on this card. A fan is not
    * a cover — nothing moves twice — but `fan.set_percentage` is still a command
@@ -219,27 +225,15 @@ function FanCardComponent({
     [dispatch]
   )
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  /*
-   * Disconnected. The `!entity` half narrows the type rather than naming a
-   * second case: a missing entity while the connection is up is the skeleton
-   * above, because `useEntity` cannot tell "not loaded yet" from "does not
-   * exist".
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   // Handle unavailable state

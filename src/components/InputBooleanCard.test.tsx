@@ -36,6 +36,7 @@ describe('InputBooleanCard', () => {
       entity: defaultEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -84,6 +85,7 @@ describe('InputBooleanCard', () => {
       entity: { ...defaultEntity, state: 'on' },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     } as unknown as ReturnType<typeof useEntity>)
     rerender(<InputBooleanCard entityId="input_boolean.test_toggle" isSelected />)
@@ -116,6 +118,7 @@ describe('InputBooleanCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -131,6 +134,7 @@ describe('InputBooleanCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -290,6 +294,7 @@ describe('InputBooleanCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: true,
     })
 
@@ -307,6 +312,7 @@ describe('InputBooleanCard', () => {
       entity: undefined,
       isConnected: false,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -320,6 +326,7 @@ describe('InputBooleanCard', () => {
       entity: undefined,
       isConnected: false,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -337,6 +344,7 @@ describe('InputBooleanCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -357,6 +365,7 @@ describe('InputBooleanCard', () => {
       entity: undefined,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 

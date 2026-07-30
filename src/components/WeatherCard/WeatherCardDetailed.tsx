@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { Flex, Text, Heading, Box } from '@radix-ui/themes'
 import { Thermometer } from 'lucide-react'
 import { useEntity } from '../../hooks'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { useCardItem } from '../cardItemContext'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
@@ -50,7 +50,13 @@ function WeatherCardDetailedContent(props: CardProps) {
    */
   const config = configProp ?? publishedItem.config
   const options = readWeatherOptions(config)
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
 
   // Before the early returns, because a hook cannot be called after one; a
   // section this tier or these options switch off subscribes to nothing.
@@ -62,22 +68,16 @@ function WeatherCardDetailedContent(props: CardProps) {
     entityUnit: entity?.attributes?.temperature_unit,
   })
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={3} />
-  }
-
-  // Show error state when disconnected or entity not found
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
-        variant="card"
-        tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      lines: 3,
+    })
   }
 
   const attributes = entity.attributes as Record<string, unknown> | undefined

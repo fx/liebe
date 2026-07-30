@@ -62,6 +62,7 @@ describe('AlarmCard', () => {
       isConnected: true,
       isStale: false,
       isLoading: false,
+      isMissing: false,
     })
     entityStoreActions.updateEntities([entity as unknown as HassEntity])
 
@@ -460,6 +461,7 @@ describe('AlarmCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
       rerender(
         <CardItemProvider entityId="alarm_control_panel.garage">
@@ -510,6 +512,7 @@ describe('AlarmCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
       entityStoreActions.updateEntities([entity as unknown as HassEntity])
 
@@ -729,6 +732,7 @@ describe('AlarmCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: true,
+        isMissing: false,
       })
 
       const { container } = render(<AlarmCard entityId={ENTITY_ID} />)
@@ -742,6 +746,7 @@ describe('AlarmCard', () => {
         isConnected: false,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
       const reload = vi.fn()
       Object.defineProperty(window, 'location', {
@@ -802,6 +807,7 @@ describe('AlarmCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       render(
@@ -822,6 +828,7 @@ describe('AlarmCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       const card = (props: Record<string, unknown>) => (
@@ -876,6 +883,7 @@ describe('AlarmCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
       ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
 

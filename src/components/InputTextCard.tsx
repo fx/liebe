@@ -5,7 +5,7 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
-import { SkeletonCard, ErrorDisplay } from './ui'
+import { renderCardLifecycle } from './ui'
 import { DetailControlSection } from './EntityDetailDialog/DetailControlSection'
 import {
   registerDetailControls,
@@ -268,7 +268,7 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
   isSelected = false,
   onSelect,
 }: InputTextCardProps) {
-  const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
+  const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
 
   const [isEditing, setIsEditing] = useState(false)
@@ -296,22 +296,15 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
     [entityId, setValue]
   )
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  // Show error state when disconnected or entity not found
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
-        variant="card"
-        tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   // Handle unavailable entities

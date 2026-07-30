@@ -551,15 +551,17 @@ describe('SensorCard formatting options', () => {
 })
 
 describe('SensorCard states without a card', () => {
-  it('holds a skeleton for an entity the store has not got', () => {
+  it('reports an entity the received state machine does not contain', () => {
     seed(createSensorEntity())
     renderCard(<SensorCard entityId="sensor.not_here" tier="row" />)
 
-    // `useEntity` cannot tell "not loaded yet" from "does not exist", so the
-    // card waits rather than reporting a missing entity — which is why the
-    // error branch below has only one case to render.
-    expect(document.querySelector('.rt-Skeleton')).not.toBeNull()
+    // Seeding leaves the store connected and past its initial load, so an id
+    // absent from it is absent from Home Assistant. That is a different answer
+    // from "Disconnected" — the connection here is fine — and a different one
+    // from the skeleton, which would claim the card is still arriving.
+    expect(document.querySelector('.rt-Skeleton')).toBeNull()
     expect(screen.queryByText('Disconnected')).toBeNull()
+    expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
   })
 
   it('offers a reload when the connection is down', async () => {

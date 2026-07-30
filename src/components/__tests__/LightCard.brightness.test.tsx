@@ -58,6 +58,7 @@ describe('LightCard Brightness Slider', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -89,6 +90,7 @@ describe('LightCard Brightness Slider', () => {
       entity: { ...mockEntity, state: 'off' },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -110,6 +112,7 @@ describe('LightCard Brightness Slider', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -132,6 +135,7 @@ describe('LightCard Brightness Slider', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -156,6 +160,7 @@ describe('LightCard Brightness Slider', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -202,6 +207,7 @@ describe('LightCard Brightness Slider', () => {
         },
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -232,6 +238,7 @@ describe('LightCard Brightness Slider', () => {
         },
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -338,6 +345,7 @@ describe('LightCard Brightness Slider', () => {
         },
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -363,6 +371,7 @@ describe('LightCard Brightness Slider', () => {
         },
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 

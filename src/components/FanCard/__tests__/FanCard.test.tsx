@@ -81,6 +81,7 @@ describe('FanCard', () => {
       entity: { ...entity, ...overrides } as HassEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
   }
@@ -95,6 +96,7 @@ describe('FanCard', () => {
       entity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
     vi.mocked(useServiceCall).mockReturnValue(serviceCall())
@@ -412,13 +414,14 @@ describe('FanCard', () => {
         entity: undefined,
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
       renderCard()
 
-      // `useEntity` cannot tell "not loaded yet" from "does not exist", so the
-      // card waits rather than reporting the entity missing.
+      // Pending, not missing: `isMissing` is false, so the state machine has
+      // not finished arriving and waiting is the honest answer.
       expect(screen.queryByText('Living Room Fan')).not.toBeInTheDocument()
     })
 
@@ -427,6 +430,7 @@ describe('FanCard', () => {
         entity: undefined,
         isConnected: false,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 

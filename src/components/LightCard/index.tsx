@@ -1,7 +1,7 @@
 import { SunIcon } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard, useGridCardHue } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup, Slider } from '../anatomy'
@@ -274,7 +274,13 @@ function LightCardComponent({
   onSelect,
   item,
 }: LightCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
   const { mode, currentScreenId } = useDashboardStore()
   const isEditMode = mode === 'edit'
@@ -478,34 +484,15 @@ function LightCardComponent({
 
   const displayBrightness = dragValue('brightness') ?? currentBrightness
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  /*
-   * Disconnection is the only failure that reaches here, so the message does
-   * not choose between two.
-   *
-   * `useEntity` cannot tell "not loaded yet" from "does not exist", so a missing
-   * entity on a live connection is held by the skeleton above and never falls
-   * through — which leaves `!isConnected` as the only way in. The three
-   * ternaries that used to pick between "Disconnected" and "Entity Not Found"
-   * could therefore each take only one side, and an unreachable arm reads as a
-   * handled case: someone maintaining this would believe a missing entity is
-   * reported when it is silently pending instead. Reporting one properly means
-   * `useEntity` learning to tell the two apart, which is its own change.
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   const isUnavailable = entity.state === 'unavailable'

@@ -8,7 +8,7 @@ import {
 } from '@radix-ui/react-icons'
 import { useEntity, useServiceCall } from '~/hooks'
 import { createElement, memo, useCallback, useMemo, useState } from 'react'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { ConfirmToggleDialog } from '../ConfirmToggleDialog'
@@ -73,7 +73,13 @@ function CoverCardComponent({
   isSelected = false,
   onSelect,
 }: CoverCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   /*
    * Every control here dispatches through the guarded, non-retrying path. A
    * cover is the case the rule is written for: a retried or repeated
@@ -433,27 +439,16 @@ function CoverCardComponent({
     })
   }, [dispatchGuarded, entityId, error, clearError])
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} showButton={true} />
-  }
-
-  /*
-   * Disconnected. The `!entity` half is there to narrow the type, not to name a
-   * second case: an entity that is missing while the connection is up is the
-   * skeleton above — `useEntity` cannot tell "not loaded yet" from "does not
-   * exist", so a card never reports an entity as absent.
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      showButton: true,
+    })
   }
 
   // Handle unavailable state

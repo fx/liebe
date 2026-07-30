@@ -62,6 +62,7 @@ describe('ButtonCard', () => {
       entity: undefined,
       isConnected: false,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -77,6 +78,7 @@ describe('ButtonCard', () => {
       entity: undefined,
       isConnected: false,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -91,6 +93,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -108,6 +111,7 @@ describe('ButtonCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -122,6 +126,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
     mockDispatchGuarded.mockResolvedValue({ success: true })
@@ -155,6 +160,7 @@ describe('ButtonCard', () => {
       entity: switchEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -187,6 +193,7 @@ describe('ButtonCard', () => {
       entity: inputBooleanEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -211,6 +218,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -247,6 +255,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -282,6 +291,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -314,6 +324,7 @@ describe('ButtonCard', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -330,6 +341,7 @@ describe('ButtonCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -346,6 +358,7 @@ describe('ButtonCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -364,6 +377,7 @@ describe('ButtonCard', () => {
       entity: undefined,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 

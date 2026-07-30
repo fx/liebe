@@ -139,6 +139,7 @@ function mockEntityReturn(
     entity: makeEntity(),
     isConnected: true,
     isLoading: false,
+    isMissing: false,
     isStale: false,
     ...overrides,
   }
@@ -151,6 +152,7 @@ function mockEntityReturn(
           entity: linkedEntities[entityId],
           isConnected: camera.isConnected,
           isLoading: false,
+          isMissing: false,
           isStale: false,
         }
   )

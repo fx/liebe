@@ -10,7 +10,7 @@ import type { CardSpan, CardTier } from '~/utils/cardTier'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { useRelativeSince } from '../ButtonCard/lastChanged'
 import { GridCardWithComponents as GridCard } from '../GridCard'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { useCardItem } from '../cardItemContext'
 import { PersonAvatar } from './PersonAvatar'
 import { resolvePersonBattery } from './battery'
@@ -75,7 +75,13 @@ function PersonCardComponent({
   isSelected = false,
   onSelect,
 }: PersonCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
 
   const { config } = useCardItem()
   const options = useMemo(() => readPersonOptions(config), [config])
@@ -162,25 +168,15 @@ function PersonCardComponent({
    */
   const handleToggle = useCallback((): 'more-info' => 'more-info', [])
 
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  /*
-   * The one error state this read-only card can reach: a missing entity on a
-   * live connection returns at the skeleton above, so everything here is a
-   * disconnection.
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id
