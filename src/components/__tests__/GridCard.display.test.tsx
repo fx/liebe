@@ -292,8 +292,7 @@ describe('GridCard display options', () => {
       ]
         .filter(
           ([, selector, declarations]) =>
-            !selector.trim().startsWith('@') &&
-            /--liebe-icon-tile-tint|linear-gradient/.test(declarations)
+            !selector.trim().startsWith('@') && /--liebe-icon-tile-tint/.test(declarations)
         )
         .map(([, selector]) => selector.trim())
 
@@ -398,6 +397,11 @@ describe('GridCard display options', () => {
           </GridCard>
         )
 
+        // `--part-color` is the one the tile's own composite reads — it mixes
+        // the base into the card surface at the 20% the `-tint` companion is
+        // derived at — and `--part-tint` rides along for anything inside the
+        // tile that resolves a part's tint from the same override.
+        expect(card().style.getPropertyValue('--part-color')).toBe('rgb(255, 136, 0)')
         expect(card().style.getPropertyValue('--part-tint')).toBe(
           'color-mix(in srgb, rgb(255, 136, 0) 20%, transparent)'
         )
@@ -422,6 +426,7 @@ describe('GridCard display options', () => {
         )
 
         expect(card()).toHaveAttribute('data-color', 'cool')
+        expect(card().style.getPropertyValue('--part-color')).toBe('')
         expect(card().style.getPropertyValue('--part-tint')).toBe('')
       })
     })

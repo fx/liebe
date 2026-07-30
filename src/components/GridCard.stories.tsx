@@ -716,9 +716,9 @@ export const IconOnlyStateTint: Story = {
  * The same tile across the domain triplets, and on a bulb's own reported
  * colour.
  *
- * The tint resolves through `--part-tint` rather than naming a hue, so a theme
- * remapping a triplet recolours these tiles with everything else — and the
- * bulb-colour exception (`useLightColor`) reaches the tile exactly as it
+ * The tint resolves through the `data-color` triplet rather than naming a hue,
+ * so a theme remapping the triplet recolours these tiles with everything else —
+ * and the bulb-colour exception (`useLightColor`) reaches the tile exactly as it
  * reaches the glyph, because both read the one value `resolveCardHue` let
  * through.
  */

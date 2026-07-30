@@ -223,30 +223,39 @@ describe('card shell stylesheet', () => {
 
     /** Every rule whose body declares part of the tint. */
     const tintRules = rulesIn(css).filter(({ declarations }) =>
-      /--liebe-icon-tile-tint|linear-gradient/.test(declarations)
+      /--liebe-icon-tile-tint/.test(declarations)
     )
 
-    it('paints the tint OVER the card surface rather than in place of it', () => {
-      // The spec's wording is load-bearing: "active renders the domain's
-      // `-tint` token **over the card surface**" (docs/specs/design-system —
-      // "Card anatomy"). `--part-tint` is a ~20% wash, so assigning it to
-      // `background` — which is how the selection state does it — would
-      // replace `--liebe-card-bg` and let the dashboard ground show through
-      // the tile. A single-colour gradient composites it over the background
-      // colour instead, and leaves that colour a theme's to set.
-      expect(flat(ruleBody('.liebe-card[data-icon-tile]'))).toContain(
-        'background-image: linear-gradient(var(--liebe-icon-tile-tint), var(--liebe-icon-tile-tint));'
+    it('composites the tint ONTO the card surface rather than in place of it', () => {
+      // The spec's wording is load-bearing: the tint renders "over the card
+      // surface" (docs/specs/design-system — "Card anatomy"). A ~20% wash
+      // assigned to the background — which is how the selection state does it
+      // — would REPLACE `--liebe-card-bg` and leave the tile showing whatever
+      // is behind the card. That is not hypothetical: a transparent card has
+      // no surface of its own, and `WeatherCardMinimal` passes `transparent`
+      // while forwarding `iconOnly`, so both the tint and the glyph contrast
+      // calibrated against it would follow the dashboard ground.
+      //
+      // So the mix names the surface token as the thing being mixed into, and
+      // the result is an opaque colour the tile paints as its background.
+      const active = flat(ruleBody('.liebe-card[data-icon-tile][data-active]'))
+
+      expect(active).toContain('var(--liebe-card-bg)')
+      expect(active).not.toContain('transparent')
+      expect(ruleBody('.liebe-card[data-icon-tile]')).toContain(
+        'background-color: var(--liebe-icon-tile-tint);'
       )
-      expect(ruleBody('.liebe-card[data-icon-tile]')).not.toMatch(/\bbackground(-color)?:/)
     })
 
     it('resolves the hue through the triplet, so a theme remapping it follows', () => {
-      // `--part-tint` is what `anatomy.css` maps `data-color` onto, and what a
+      // `--part-color` is what `anatomy.css` maps `data-color` onto, and what a
       // bulb's live colour overrides inline — one resolution for the tile and
-      // for the glyph on it. A Radix scale named here would be a second
-      // colour source the token contract cannot reach.
+      // for the glyph on it. It is mixed at the same 20% the `-tint` companion
+      // is derived at, so the composite is that companion resolved against the
+      // surface instead of against `transparent`. A Radix scale named here
+      // would be a second colour source the token contract cannot reach.
       expect(flat(ruleBody('.liebe-card[data-icon-tile][data-active]'))).toContain(
-        '--liebe-icon-tile-tint: color-mix( in srgb, var(--part-tint) var(--liebe-icon-tile-strength), transparent );'
+        '--liebe-icon-tile-tint: color-mix( in srgb, var(--part-color) calc(20% * var(--liebe-icon-tile-strength)), var(--liebe-card-bg) );'
       )
 
       const hues = domainColors.map(({ scale }) => scale).join('|')
@@ -255,9 +264,25 @@ describe('card shell stylesheet', () => {
       }
     })
 
-    it('rests an inactive tile on the neutral wash instead of a hue', () => {
+    it('outranks the transparent card’s cleared surface', () => {
+      // `[data-transparent]` and `[data-icon-tile]` are the same specificity,
+      // so which one paints the tile is decided by source order alone — and
+      // the pair really co-occurs: `WeatherCardMinimal` passes `transparent`
+      // and forwards `iconOnly`. The tint must win, because an icon-only tile
+      // IS the state surface: composited onto nothing, both it and the glyph
+      // contrast measured against it would follow the dashboard ground.
+      const at = (selector: string) => {
+        const index = css.indexOf(`${selector} {`)
+        expect(index, `rule not found in the sheet: ${selector}`).toBeGreaterThan(-1)
+        return index
+      }
+
+      expect(at('.liebe-card[data-icon-tile]')).toBeGreaterThan(at('.liebe-card[data-transparent]'))
+    })
+
+    it('rests an inactive tile on the neutral step instead of a hue', () => {
       expect(ruleBody('.liebe-card[data-icon-tile]')).toContain(
-        '--liebe-icon-tile-tint: var(--gray-a3);'
+        '--liebe-icon-tile-tint: var(--gray-3);'
       )
     })
 
@@ -268,11 +293,11 @@ describe('card shell stylesheet', () => {
       //
       // Both halves of the expression are asserted because each answers a
       // different requirement: the `1` fallback is what leaves a card with no
-      // level — a switch, a lock — carrying the undimmed tint, and the 40%
+      // level — a switch, a lock — carrying the undimmed tint, and the 0.4
       // floor is what keeps a lamp at 1% visibly on rather than fading its one
       // remaining state signal to nothing.
       expect(flat(ruleBody('.liebe-card[data-icon-tile]'))).toContain(
-        '--liebe-icon-tile-strength: calc(40% + 60% * var(--liebe-icon-tile-level, 1));'
+        '--liebe-icon-tile-strength: calc(0.4 + 0.6 * var(--liebe-icon-tile-level, 1));'
       )
     })
 
@@ -302,17 +327,16 @@ describe('card shell stylesheet', () => {
       expect(circle).not.toMatch(/\bcolor:/)
     })
 
-    it('moves the tint at the duration the motion rule gives, and not under reduced motion', () => {
-      // The tile's own transition list covers `background-color`, which a
-      // gradient layer is not — so the tint needs its own entry or it snaps.
-      expect(ruleBody('.liebe-card[data-icon-tile]')).toContain('background-image 280ms ease-out')
-
-      // And that redeclaration is at a higher specificity than `.liebe-card`,
-      // so the reduced-motion block has to name the marker itself: without it
-      // the tint would keep animating for a user who asked for no motion.
-      expect(ruleBody('@media (prefers-reduced-motion: reduce)')).toContain(
-        '.liebe-card[data-icon-tile],'
-      )
+    it('moves the tint at the duration the motion rule gives', () => {
+      // Carried by the tile's own transition list rather than by a
+      // redeclaration here, which is the point of compositing to a colour:
+      // `background-color` is animatable, a `background-image` gradient layer
+      // only discretely, so a layered wash would snap however it was declared.
+      // Being the same declaration also means the reduced-motion block already
+      // covers it — a redeclaration at higher specificity would have escaped
+      // that rule and kept animating for a user who asked for no motion.
+      expect(ruleBody('.liebe-card')).toContain('background-color 280ms ease-out')
+      expect(ruleBody('.liebe-card[data-icon-tile]')).not.toMatch(/\btransition:/)
     })
   })
 

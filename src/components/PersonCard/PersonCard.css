@@ -64,6 +64,29 @@
   }
 
   /*
+   * The initials avatar keeps its disc on an icon-only tile.
+   *
+   * `GridCard.css` strips `.liebe-icon`'s background there, because on every
+   * other card the circle is a container for a glyph and the tile itself has
+   * become the tint surface — two stacked tints would put the glyph on a ground
+   * nothing has measured. This card is the exception the contract names: "the
+   * person card's [icon-only tile] is its avatar"
+   * (docs/specs/entity-cards/options/common.md — "Icon-only presentation"), and
+   * the avatar is the disc, not something drawn on one. Stripped, an icon-only
+   * person would show bare initials floating on the state tint — the identity
+   * anchor half removed.
+   *
+   * The tint is the identity hue rather than the state's, as it is at every
+   * other size: it arrives inline from `resolveAvatarHue` through the anatomy's
+   * data-colour exception, so this rule only has to stop the disc being erased.
+   * The glyph fallback beside it (`person-avatar-glyph`) is an ordinary glyph
+   * circle and takes the ordinary treatment.
+   */
+  .liebe-card[data-icon-tile] .liebe-icon.person-avatar-initials {
+    background: var(--part-tint);
+  }
+
+  /*
    * The presence badge — bottom-trailing, overlapping the avatar's edge.
    *
    * `inset-inline-end` / `inset-block-end` rather than right/bottom so the badge

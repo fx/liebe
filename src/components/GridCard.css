@@ -183,33 +183,47 @@
    * "has surrendered every part that could carry state, so the tile becomes the
    * tint surface" (docs/specs/design-system — "Card anatomy", one of exactly
    * two exceptions to the neutral-tile rule). It is the same active-state
-   * pattern the icon circle implements, at tile scale and off the same
-   * resolution: `--part-tint` and `--part-glyph` come from the `data-color`
-   * triplet `anatomy.css` maps, or — for a bulb reporting its own colour —
-   * from the inline override the shell writes for the survivor of
+   * pattern the icon circle implements, at tile scale, off the same
+   * `data-color` resolution `anatomy.css` maps — or, for a bulb reporting its
+   * own colour, off the inline override the shell writes for the survivor of
    * `resolveCardHue`. Nothing here names a hue, which is what makes a theme
    * remapping the triplet recolour these tiles with everything else.
    *
-   * Painted as a background *image* layer rather than as the background
-   * colour, because the spec says the tint renders **over the card surface**:
-   * `--part-tint` is a ~20% wash, so assigning it to `background` would
-   * replace `--liebe-card-bg` and let the dashboard ground show through
-   * instead of the card. A single-colour gradient is the one way CSS composites
-   * a translucent layer over a background colour without a second element, and
-   * it keeps `--liebe-card-bg` reachable by a theme underneath.
+   * WHY THE TINT IS COMPOSITED RATHER THAN LAYERED
+   * ---------------------------------------------
+   * The spec says the tint renders **over the card surface**, and the tile has
+   * one background to say that with. `--part-tint` is a ~20% wash, so painting
+   * it as the background would replace `--liebe-card-bg` and leave the tile
+   * showing whatever is behind the card — which is not a detail: a transparent
+   * card (`WeatherCardMinimal` passes `transparent` and forwards `iconOnly`)
+   * has no surface of its own at all, so the tint and the glyph contrast
+   * calibrated against it would both depend on the dashboard ground.
    *
-   * `transition` is redeclared here for one added property: the tile's own
-   * transition list covers `background-color`, which a gradient layer is not,
-   * so without this the tint would snap between states instead of taking the
-   * ~280ms the motion rule gives a state-driven colour change.
+   * So the composite is computed instead: `--part-color` mixed into
+   * `--liebe-card-bg` at the same 20% the `-tint` companion is derived at.
+   * That is the tint's own formula resolved against the surface rather than
+   * against `transparent`, and it buys two things a layered wash cannot. It is
+   * an opaque colour, so `background-color` carries it — the one property the
+   * tile already transitions, which is what gives the treatment the ~280ms the
+   * motion rule asks of a state-driven colour change (`background-image` is
+   * animatable only discretely, so a gradient layer would snap however it was
+   * declared). And it stands on the surface token whatever else has been said
+   * about the tile's background, transparency included.
+   *
+   * The one case where this differs from reading `--part-tint` directly is a
+   * theme that pins a triplet's `-tint` to something that is not a veil of its
+   * own base. No built-in theme does — all three leave the tints derived — and
+   * the contract's supported remap is the base, through which this follows.
    */
   .liebe-card[data-icon-tile] {
     /*
-     * Inactive: "the standard ~5%-alpha neutral", the same wash the icon
-     * circle rests on when it is not active, so an off tile reads as a tile
-     * rather than as a colour.
+     * Inactive: "the standard ~5%-alpha neutral", one step of the neutral
+     * scale, so an off tile reads as a tile rather than as a colour. The solid
+     * step rather than `--gray-a3` for the reason above — this is a background
+     * colour, and Radix derives the alpha step to land on the solid one over
+     * the surface anyway.
      */
-    --liebe-icon-tile-tint: var(--gray-a3);
+    --liebe-icon-tile-tint: var(--gray-3);
     /*
      * Level → tint strength (docs/specs/design-system — "a level-bearing
      * active entity … SHOULD modulate the tint's strength with its level so a
@@ -218,42 +232,36 @@
      * one; the fallback is what every other card gets, and it is `1` so a tile
      * with no level to report carries the full tint.
      *
-     * Floored at 40% rather than scaling from zero: a lamp at 1% is ON, and a
+     * Floored at 0.4 rather than scaling from zero: a lamp at 1% is ON, and a
      * tint that faded to nothing would make the tile's one remaining state
      * signal disappear exactly where the card is still actionable. The floor
      * is the strength an active tile never goes below; the top of the range is
      * the undimmed tint.
      */
-    --liebe-icon-tile-strength: calc(40% + 60% * var(--liebe-icon-tile-level, 1));
+    --liebe-icon-tile-strength: calc(0.4 + 0.6 * var(--liebe-icon-tile-level, 1));
 
     align-items: center;
-    background-image: linear-gradient(var(--liebe-icon-tile-tint), var(--liebe-icon-tile-tint));
+    background-color: var(--liebe-icon-tile-tint);
     display: flex;
     justify-content: center;
-    transition:
-      background-color 280ms ease-out,
-      background-image 280ms ease-out,
-      box-shadow 280ms ease-out,
-      opacity 280ms ease-out,
-      outline-color 280ms ease-out;
   }
 
   /*
-   * Active: the domain's own tint, at the strength its level asks for. Keyed
-   * off `data-active`, which is the same attribute the icon circle takes its
-   * active treatment from, so the tile and the glyph cannot disagree about
-   * whether the entity is on.
+   * Active: the domain's own tint over the surface, at the strength its level
+   * asks for. Keyed off `data-active`, which is the same attribute the icon
+   * circle takes its active treatment from, so the tile and the glyph cannot
+   * disagree about whether the entity is on.
    */
   .liebe-card[data-icon-tile][data-active] {
     --liebe-icon-tile-tint: color-mix(
       in srgb,
-      var(--part-tint) var(--liebe-icon-tile-strength),
-      transparent
+      var(--part-color) calc(20% * var(--liebe-icon-tile-strength)),
+      var(--liebe-card-bg)
     );
   }
 
   /*
-   * The icon circle stops carrying its own tint on this tile, in both states.
+   * The icon circle stops carrying its own tint on this tile.
    *
    * Not decoration: the glyph's contrast is calibrated against ONE 20% tint
    * over the card surface (docs/specs/design-system — "Domain color
@@ -264,6 +272,11 @@
    * composite the pattern was calibrated for, so the measured figures carry
    * over unchanged. The circle's own `color` — `--part-glyph` when active,
    * `--liebe-faint` when not — is untouched, and is what makes the glyph read.
+   *
+   * A card whose identity anchor IS a coloured disc rather than a glyph on one
+   * keeps its background, and says so where it owns it: the person card's
+   * initials avatar restores it in `PersonCard.css`. The rule here is about
+   * glyph circles, which is what every other card's anchor is.
    */
   .liebe-card[data-icon-tile] .liebe-icon {
     background: none;
@@ -467,15 +480,8 @@
    * ------------------------------------------------------------------ */
 
   @media (prefers-reduced-motion: reduce) {
-    /*
-     * `[data-icon-tile]` is listed in its own right because it redeclares
-     * `transition` at a higher specificity than `.liebe-card` does — a
-     * reduced-motion rule that only named the bare class would lose to it and
-     * leave the state tint animating.
-     */
     .liebe-card,
     .liebe-card[data-error],
-    .liebe-card[data-icon-tile],
     .liebe-card[data-loading] {
       animation: none;
       transition: none;
