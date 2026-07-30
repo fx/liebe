@@ -1,6 +1,6 @@
 # Card Options — Common Contract
 
-Part of the [entity-cards spec](../index.md). **Status: implemented** by change [0014](../../../changes/0014-universal-card-options.md) — the universal option keys, the action system, the entity detail dialog `more-info` opens, and the shared configuration controls the per-card docs build on (action editor, entity picker, number array, ordered multi-select). The per-card documents in this folder remain **specified, not yet implemented**: each domain's own options land with its own change (0016–0027), so current per-card config is still sparse (see [card-reference](../card-reference.md)). The tier-composition rule below is stated here and verified by [0011](../../../changes/0011-layout-tiers.md).
+Part of the [entity-cards spec](../index.md). **Status: implemented** by change [0014](../../../changes/0014-universal-card-options.md) — the universal option keys, the action system, the entity detail dialog `more-info` opens, and the shared configuration controls the per-card docs build on (action editor, entity picker, number array, ordered multi-select). The per-card documents in this folder remain **specified, not yet implemented**: each domain's own options land with its own change (0016–0027), so current per-card config is still sparse (see [card-reference](../card-reference.md)). The tier-composition rule below is stated here and verified by [0011](../../../changes/0011-layout-tiers.md). **Three later additions are specified but not yet implemented:** the alignment pair (`alignHorizontal`/`alignVertical`, change [0032](../../../changes/0032-card-content-alignment.md)), `iconOnly` (change [0033](../../../changes/0033-icon-only-cards.md)), and the shared `sliderPlacement` contract for slider-bearing cards (change [0034](../../../changes/0034-slider-placement.md)).
 
 Options are stored under `item.config`, are editable from the card's own configuration UI in edit mode, and MUST round-trip through YAML export/import ([dashboard-config](../../dashboard-config/)). Per-card docs in this folder specify domain-specific options; this file specifies what **every** entity card MUST support.
 
@@ -15,12 +15,68 @@ Every entity card MUST expose these options with these exact keys and defaults:
 | `hideName`        | boolean | `false`     | Hides the name line (icon/state remain)                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `hideState`       | boolean | `false`     | Hides the state line                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `color`           | select  | `auto`      | Canonical enum, persisted verbatim: `auto \| light \| heat \| cool \| ok \| alert \| media \| vacuum \| water \| default` — each non-`auto` value maps to the token `--liebe-c-<value>` ([design-system color table](../../design-system/index.md#domain-color-discipline)). `auto` uses the card's state-aware domain resolution; a named value pins that single token for the card's active treatment. No other values are valid (schema-validated). |
+| `iconOnly`        | boolean | `false`     | Reduces the card to its icon and its tile: every other content — name, state, controls, graphs, forecasts, artwork chrome — is suppressed, the icon centres in the tile, and the tile itself carries the active/inactive state tint ([design-system — card anatomy](../../design-system/index.md#card-anatomy)). All tiers. _Specified by change [0033](../../../changes/0033-icon-only-cards.md), not yet implemented._                               |
+| `alignHorizontal` | select  | `auto`      | `auto \| start \| center \| end` — where the card's content block sits on the tile's horizontal axis. `auto` keeps each tier's own arrangement; a named value overrides it. All tiers. _Specified by change [0032](../../../changes/0032-card-content-alignment.md), not yet implemented._                                                                                                                                                             |
+| `alignVertical`   | select  | `auto`      | `auto \| start \| center \| end` — where the card's content block sits on the tile's vertical axis. Same value rules as `alignHorizontal`. All tiers. _Specified by change [0032](../../../changes/0032-card-content-alignment.md), not yet implemented._                                                                                                                                                                                              |
 | `tapAction`       | action  | `default`   | Action on tap/click of the card body                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `holdAction`      | action  | `more-info` | Action on press-and-hold (≈500ms)                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `doubleTapAction` | action  | `none`      | Action on double tap                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 - The **stored** `tapAction` default is always the literal `default` — for every card, including read-only ones; schema defaults, config controls, and YAML persistence use that literal. What varies per card is what `default` **resolves to**: read-only cards (sensor, weather, person) resolve it to `more-info` instead of a control action; per-card docs state each card's resolution.
 - `hideName` and `hideState` MUST compose with the layout tiers ([design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)): hiding both in `glance` tier leaves an icon-only tile, which MUST remain a valid layout with a centered icon.
+
+### Content alignment (`alignHorizontal` / `alignVertical`)
+
+_Specified by change [0032](../../../changes/0032-card-content-alignment.md), not yet implemented._
+
+- The pair positions the card's **content block as a whole** within the tile; it MUST NOT change what a tier renders, reorder content, or resize anything. It is the tier's arrangement, slid along one or both axes.
+- `auto` (the default for both) preserves each tier's own arrangement exactly as it renders today — the pair being absent from a config MUST be indistinguishable from both being `auto`, so no existing dashboard shifts.
+- A named value overrides only its own axis; the other axis keeps its `auto` behavior.
+- Alignment is universal by construction: every entity card MUST honour it, on every tier and variant, without per-card opt-in — a card on which a non-`auto` value is visibly inert (where free space exists on that axis) is a defect. Content that **fills** its axis (a `fill`-sized control, a full-width graph, an edge-to-edge background) has no free space on that axis and visibly ignores the override there; that is correct behavior, not an error. How universality is delivered is the implementing change's design decision ([0032](../../../changes/0032-card-content-alignment.md)).
+- Alignment MUST compose with `hideName`/`hideState`/`iconOnly`: what survives those options is what gets aligned (an icon-only tile with `alignVertical: start` shows its icon at the top of the tile).
+- Values outside the closed set MUST fall back to `auto` at render time without rewriting the stored document (untrusted-config rule, matching the text widget's alignment handling).
+- Alignment is layout, not signalling: the danger floor ([0014](../../../changes/0014-universal-card-options.md)) leaves it in effect — a hazard tile may be top-aligned, it just cannot hide what it says.
+
+#### Scenario: Vertical alignment moves the glance stack
+
+- **GIVEN** a 1×1 (`glance`) light card with `alignVertical: start` and defaults otherwise
+- **WHEN** the card renders
+- **THEN** the icon/name/state stack sits at the top of the tile instead of centred, horizontally unchanged; and **WHEN** `alignVertical` is removed, **THEN** the stack returns to the tier's centred default.
+
+### Icon-only presentation (`iconOnly`)
+
+_Specified by change [0033](../../../changes/0033-icon-only-cards.md), not yet implemented._
+
+`hideName` + `hideState` already leave simple cards icon-only, but any card with an interior beyond the meta lines — forecasts, graphs, transport controls, a thermostat dial — still renders that interior. `iconOnly` is the total version, for every card:
+
+- When `true`, in the card's **ordinary states**, the card MUST render exactly two things: its tile and its icon, centred (subject to the alignment pair). Every other ordinary content is suppressed — meta lines, embedded controls, secondary content, badges and overlays — regardless of tier, variant, or other options. The tier still governs the tile's floor sizing; it no longer governs content. This default is refined by the rules below: identity anchors substitute for the icon where a card's anchor is not a glyph, and danger and card states outrank suppression entirely.
+- The icon is the card's resolved icon (universal `icon` override, else the domain/state icon the card would show anyway). Cards whose identity anchor is not a glyph keep their anchor instead of inventing one: the camera's icon-only tile is its image-only thumbnail (its existing `hideName` form), the person card's is its avatar.
+- **Every card and every registered variant MUST resolve an icon-only form** — the option is universal, so "this presentation has no icon to fall back on" is not an available answer. A variant that renders its own layout instead of the shared card body, or that shows no icon at all today, MUST still resolve one from its domain and state (the climate `dial` variant renders neither the shared body nor an icon circle; the weather `minimal` variant renders no icon). A blank icon-only tile, or one that keeps rendering the interior the option suppresses, is a defect of that card rather than an exemption from this rule.
+- The tile MUST carry the active/inactive state tint per [design-system — card anatomy](../../design-system/index.md#card-anatomy) (icon-only tile exception), which owns the whole visual treatment — colour resolution (including the light card's bulb colour under `useLightColor`) and level modulation alike; none of it is respecified here.
+- The whole tile remains the tap target and all three universal actions keep working; with no embedded controls rendered, tap/hold/double-tap are the card's entire interaction surface. Read-only cards keep resolving `default` to `more-info`.
+- **Visual suppression never removes accessible semantics.** The tile MUST keep an accessible name carrying the entity's resolved name and, where the card has one, its state ("Reading lamp, on"): the interactive surface stays fully identified to assistive technology while the glyph alone identifies it visually. Hiding the name from a screen reader too would make an actionable tile anonymous — the same trap the error-tile rule guards against.
+- `iconOnly` MUST compose with the slider placement contract (below): `sliderPlacement: background` under `iconOnly` yields a tile that is simultaneously the slider and the icon-only surface — the fill is the state tint.
+- **Danger floor:** `iconOnly` is a presentation option and MUST revert under a danger state exactly as `hideName`/`hideState` do — a sounding smoke detector renders its full danger presentation, label included, whatever this option says.
+- **Card states outrank suppression.** Loading, unavailable/disconnected and error presentations are **not** uniformly replacement surfaces — several cards render them inline on their normal layout (a light keeps rendering with its unavailable/error marks; binary sensor and person likewise) — so the exemption cannot be "replacement states render first". The rule binds the rendered output: where a state presentation replaces the card (the skeleton, the error surface), `iconOnly` does not reduce it; where it renders inline, `iconOnly` MUST NOT be what hides it — the shell's tile-level state marks (unavailable and error outlines, the loading pulse) are unaffected by suppression, and where suppression removes the text that identifies the state or the control that resolves it (Retry), the icon-only tile MUST satisfy the omitted-not-omitted rule ([design-system — size-adaptive layouts](../../design-system/index.md#size-adaptive-layouts)) exactly as a `glance` error tile does: the message becomes the tile's accessible name and pressing the tile reaches the full message and the recovery actions. This is the same precedence the danger floor sets; presentation options never suppress a card's ability to report or recover from its own state.
+- Schema, config form, YAML round-trip, and per-key tolerance follow the same rules as every other display option.
+
+#### Scenario: Icon-only weather tile
+
+- **GIVEN** a 1×1 weather card with `iconOnly: true` whose entity reports `rainy`
+- **WHEN** the card renders
+- **THEN** the tile shows only the centred condition icon on the card surface — no temperature, no forecast, no condition text — and tapping it opens the entity detail dialog (`default` → `more-info` for read-only cards).
+
+#### Scenario: Danger overrides icon-only
+
+- **GIVEN** a `binary_sensor` card with `device_class: smoke` and `iconOnly: true`
+- **WHEN** the raw state becomes `on`
+- **THEN** the card renders the full danger presentation — alert colour, active hazard glyph, visible hazard label — as if `iconOnly` were `false`.
+
+#### Scenario: Existing hideName+hideState tiles are unaffected
+
+- **GIVEN** a card stored with `hideName: true, hideState: true` and no `iconOnly` key
+- **WHEN** the dashboard loads after `iconOnly` ships
+- **THEN** the card renders exactly as before — centred icon, neutral tile, interior content still rendered where the card has any — because `iconOnly` defaults to `false` and the legacy both-hidden combination keeps its existing meaning (centring only, no tile tint).
 
 ### Action type
 
@@ -57,6 +113,32 @@ Actions MUST NOT fire from taps on embedded controls (sliders, pills, buttons) �
 - **GIVEN** a card configured with `name: "Reading lamp"`, `hideState: true`
 - **WHEN** the dashboard YAML is exported and re-imported
 - **THEN** the card renders "Reading lamp" with no state line.
+
+## Shared slider placement (`sliderPlacement`)
+
+_Specified by change [0034](../../../changes/0034-slider-placement.md), not yet implemented._
+
+Not universal — this contract is defined once here so the per-card docs that adopt it cannot drift. Each participating card's doc lists the key in its own table and links here; the semantics below are identical everywhere.
+
+The cards that carry it today are the three whose **primary embedded control is the slider anatomy and is domain-derived**: light brightness, cover position, and fan speed under `speedControl: slider`. The `input_number` card's slider (under `controlStyle: slider`, [options/input-helpers](./input-helpers.md#input_number)) is the same anatomy but is deliberately **not** a consumer yet: which control that card renders already follows the helper's own `mode` attribute, so layering placement over an entity-derived control style is a decision belonging to the input-helpers contract, and change [0034](../../../changes/0034-slider-placement.md) records it as an open question rather than assuming it. A card adopting `sliderPlacement` later adopts these semantics unchanged — the list of consumers grows, the contract does not fork.
+
+| Key               | Type   | Default | Behavior                                                                                                                                      |
+| ----------------- | ------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sliderPlacement` | select | `auto`  | `auto \| horizontal \| vertical \| background` — where and how the card's primary slider renders. Values outside the set fall back to `auto`. |
+
+- **`auto`** keeps the tier layouts' own placement — horizontal on the row line in `row`/`full`, vertical filling the middle in `tall`, none in `glance` — exactly as each card's tier table specifies today. An absent key MUST be indistinguishable from `auto`.
+- **`horizontal` / `vertical`** force the slider's orientation in every tier that shows a slider at all; the tier keeps deciding _whether_ the slider renders (still never in `glance` under these two values) and what else renders around it. A forced orientation the surrounding arrangement cannot host sensibly still renders — forced means forced — but content that then does not fit is omitted, never clipped, per the tier rules.
+- **`background`** renders the slider as the card surface itself, per [design-system — background slider placement](../../design-system/index.md#background-slider-placement): track edge to edge, tint fill as the state surface, card content overlaid. Background placement renders in **every** tier including `glance` — it consumes no layout space, which is exactly what makes a 1×1 dimmable tile possible.
+- **Gestures in `background` placement (the one exception to "controls consume their own events"):** the tile is simultaneously the control and the action surface, so the two are split by gesture kind — a **drag** adjusts the slider (optimistic drag, commit on release, per the card's own slider rules) and MUST NOT fire any action; a **tap** (press and release without meaningful travel) falls through to `tapAction`; hold and double-tap keep their universal meanings. A drag that ends outside the tile commits like any other slider drag.
+- The value the slider adjusts, its commit semantics (0% turn-off rules, turn-on-implied rules), its colour, and its capability gating are the card's own and do not change with placement. A card whose slider is capability-gated off (or hidden by its `show*` option) renders no slider in any placement — `background` then falls back to the plain tile.
+- In edit mode the slider is inert like every embedded control; selection semantics apply to the tile.
+- The key follows convention 7's pinning boundary: `auto` reproduces today's operation exactly, so introducing the option requires no migration.
+
+### Scenario: Background placement on a glance light
+
+- **GIVEN** an `on` dimmable light at 40% on a 1×1 card with `sliderPlacement: background`
+- **WHEN** the card renders
+- **THEN** the tile's lower 40% carries the tint fill with the saturated leading edge, the icon (and any surviving meta) overlays it; **WHEN** the user drags upward across the tile and releases at ~70%, **THEN** the card commits brightness ≈70% and no tap action fires; and **WHEN** the user taps the tile without travel, **THEN** the light toggles.
 
 ## Conventions for per-card options
 

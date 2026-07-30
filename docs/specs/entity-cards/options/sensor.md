@@ -1,6 +1,6 @@
 # Card Options — Sensor & Binary Sensor
 
-Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) — universal options (`name`, `icon`, `hideName`, `hideState`, `color`, actions) are not repeated here. **Status: implemented** by change [0018](../../../changes/0018-sensor-cards-to-spec.md) — every option in both tables ships, along with the tier layouts, the hazard rule, and the `device_class` label and glyph tables. See [card reference — Sensors](../card-reference.md#sensors-and-binary-sensors) for what each card is built from.
+Part of the [entity-cards spec](../index.md); builds on the [common contract](./common.md) — the universal options are not repeated here. **Status: implemented** by change [0018](../../../changes/0018-sensor-cards-to-spec.md) — every option in both tables ships, along with the tier layouts, the hazard rule, and the `device_class` label and glyph tables. See [card reference — Sensors](../card-reference.md#sensors-and-binary-sensors) for what each card is built from.
 
 Both cards are **read-only**: they MUST NOT call services from any built-in interaction, and every option below tunes presentation only (per [common — conventions](./common.md#conventions-for-per-card-options), options never enable something the entity cannot do).
 
@@ -72,6 +72,7 @@ Tiers per [design-system — size-adaptive layouts](../../design-system/index.md
 - The `full` footer MUST show the window's minimum and maximum formatted with the same `displayPrecision`/`valueScale`/`unitOverride` pipeline as the main value.
 - With `showGraph: false`, `row`/`tall`/`full` fall back to the meta-plus-value arrangement without the graph region; non-numeric sensors always render this fallback.
 - `hideState` hides the state/value line per the common contract; in `glance` the big value **is** the state line, so `hideState` there triggers the fallback defined in the tier table (icon + name; icon-only when `hideName` too).
+- **The graph claims the tile** (_change [0031](../../../changes/0031-sensor-graph-fill.md), not yet implemented_): "large graph" in the `full` row means the graph region MUST grow to fill the tile's height left over after the value line and the min/max footer — a 3×3 card renders a visibly taller graph than a 2×2, never the same fixed band with dead space above and below. In `tall`, the sparkline band MUST span the tile's full width as well as the leftover height. The `row` sparkline deliberately keeps its single-line height (it shares the row with the meta). The loading placeholder reserves the region the graph **and its min/max footer** will take — the footer's line height is part of the reservation, since extrema exist only once the series lands and a flexible graph would otherwise borrow the footer's space and shrink when it appears — so the card does not reflow when the series lands. Any fixed graph dimension that remains MUST be expressed as a theme-reachable token rather than a stylesheet literal.
 
 ### Binary sensor
 
@@ -84,6 +85,12 @@ Tiers per [design-system — size-adaptive layouts](../../design-system/index.md
 Binary sensors have no numeric history, so no graph options apply; the extra `full` real estate stays calm rather than inventing content.
 
 ## Scenarios
+
+### Scenario: Bigger tile, bigger graph
+
+- **GIVEN** a numeric sensor with history on a 2×2 (`full`) card
+- **WHEN** the card is resized to 3×3
+- **THEN** the graph region's height grows by the added tile height, the value line and min/max footer unchanged, with no dead band above or below the content.
 
 #### Scenario: Power sensor formatting survives with zero config
 

@@ -237,3 +237,52 @@ changes:
     spec: entity-cards
     status: complete
     depends_on: ['0011', '0014']
+  - id: '0028'
+    name: slider-rendering-fixes
+    path: changes/0028-slider-rendering-fixes.md
+    description: Fix the vertical slider's half-width clipped fill, its left-flush placement in tall tiles, and the input_number card's missing fill band
+    spec: design-system
+    status: draft
+    depends_on: []
+  - id: '0029'
+    name: workshop-tier-fidelity
+    path: changes/0029-workshop-tier-fidelity.md
+    description: Storybook grid-cell decorator derives the layout tier from the cell span like the real grid; story tier/cell mismatches reconciled
+    spec: storybook
+    status: draft
+    depends_on: []
+  - id: '0030'
+    name: weather-forecast-legibility
+    path: changes/0030-weather-forecast-legibility.md
+    description: 'Weather forecast visual pass — labelled distinguishable hourly/daily sections, column rhythm, high–low emphasis, degree-only cells, one icon language — plus the artwork scrim closing #215'
+    spec: entity-cards
+    status: draft
+    depends_on: []
+  - id: '0031'
+    name: sensor-graph-fill
+    path: changes/0031-sensor-graph-fill.md
+    description: Sensor history graph claims its tile — full-tier graph grows with the card, tall band spans the tile width, graph-height literals onto tokens
+    spec: entity-cards
+    status: draft
+    depends_on: []
+  - id: '0032'
+    name: card-content-alignment
+    path: changes/0032-card-content-alignment.md
+    description: Universal alignHorizontal/alignVertical display options positioning any card's content block on both tile axes, applied centrally by the shell
+    spec: entity-cards
+    status: draft
+    depends_on: []
+  - id: '0033'
+    name: icon-only-cards
+    path: changes/0033-icon-only-cards.md
+    description: Universal iconOnly display option — any card reduces to its centred icon on a tile that itself carries the state tint, level-modulated
+    spec: entity-cards
+    status: draft
+    depends_on: []
+  - id: '0034'
+    name: slider-placement
+    path: changes/0034-slider-placement.md
+    description: Shared sliderPlacement option for light/cover/fan — force horizontal/vertical, or background placement making the whole tile the slider
+    spec: entity-cards
+    status: draft
+    depends_on: ['0028', '0033']
