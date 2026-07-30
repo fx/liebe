@@ -72,6 +72,16 @@ describe('deriveStackIdentity', () => {
     expect(deriveStackIdentity(WORKTREE_B).projectName).toMatch(/^liebe-e2e-0040b-[0-9a-f]{8}$/)
   })
 
+  it('separates two checkouts that share a directory name', () => {
+    // The readable half of the name is the directory, and worktrees named after
+    // the change they implement collide on it constantly — `0040b` under two
+    // different parents is the ordinary case, not a contrived one. Only the
+    // path hash tells them apart, so this is what the hash is FOR.
+    expect(deriveStackIdentity('/workspace/a/worktrees/0040b').projectName).not.toBe(
+      deriveStackIdentity('/workspace/b/worktrees/0040b').projectName
+    )
+  })
+
   it('falls back to a placeholder slug when the directory name has nothing usable', () => {
     expect(deriveStackIdentity('/srv/___').projectName).toMatch(/^liebe-e2e-checkout-[0-9a-f]{8}$/)
   })
