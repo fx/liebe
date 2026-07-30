@@ -20,7 +20,7 @@ import type { CardTier } from '~/utils/cardTier'
 /**
  * The universal `iconOnly` option, audited across the cards the registry
  * dispatches to (docs/specs/entity-cards/options/common.md — "Icon-only
- * presentation"; docs/changes/0033-icon-only-cards.md, first task).
+ * presentation"; docs/changes/0033-icon-only-cards.md, first and second tasks).
  *
  * What this file is about is the **seam**: the option suppresses content at the
  * composition seam — the shared card body, plus the shell's fence over what a
@@ -36,15 +36,20 @@ import type { CardTier } from '~/utils/cardTier'
  *    body under the option carries the lead and nothing else — no meta, no
  *    control slot, no secondary content. What identifies the tile instead is
  *    the shell's own clipped label, built from the entity.
+ *  - **Exactly one identity anchor survives.** "Every card and every registered
+ *    variant MUST resolve an icon-only form" — the second task's bar, and the
+ *    one the seam alone cannot deliver, because a card that renders its own
+ *    layout instead of a body, or a body with no lead in it, is reached by
+ *    nothing the two claims above assert. Both directions are the point: zero
+ *    anchors is a blank tile, more than one is a reduction that did not happen.
  *
- * What it is NOT is the per-card anchor audit. "Every card and every registered
- * variant MUST resolve an icon-only form" is the second task of change 0033,
- * and the cards that bypass the seam entirely — the climate `dial` variant
- * renders no body, the weather `minimal` variant renders no lead — are still
- * owed theirs. Asserting a lead here would either fail on those or be written
- * loosely enough to pass on a blank tile, and a loose assertion that cannot
- * fail is worse than none (REVIEW.md — "Tests Pin Intent, Not Implementation").
- * The named families below are the ones this task does deliver.
+ * The first task deliberately stopped short of the third claim, because two
+ * variants would have failed it — the climate `dial` renders no body, the
+ * weather `minimal` no lead — and an assertion written loosely enough to pass
+ * on a blank tile is worse than none (REVIEW.md — "Tests Pin Intent, Not
+ * Implementation"). Both now resolve a form, as does the `input_number` card's
+ * `glance` tier, whose lead is the reading rather than a glyph; the audit is
+ * what found the third one.
  *
  * jsdom applies no stylesheet, so "suppressed" is asserted as absent from the
  * DOM rather than as an invisible box. That is the mechanism: the body omits
@@ -116,6 +121,37 @@ function renderTarget({ Card, domain }: CardCase, tier: CardTier, config: Record
 
 const tilesIn = (root: HTMLElement) => Array.from(root.querySelectorAll('.liebe-card'))
 const bodiesIn = (root: HTMLElement) => Array.from(root.querySelectorAll('.liebe-card-body'))
+
+/**
+ * What can be a tile's identity anchor.
+ *
+ * The contract names two of these and implies the third: the anchor is "the
+ * card's resolved icon", except that "cards whose identity anchor is not a
+ * glyph keep their anchor instead of inventing one: the camera's icon-only tile
+ * is its image-only thumbnail, the person card's is its avatar"
+ * (docs/specs/entity-cards/options/common.md — "Icon-only presentation"). The
+ * bare `svg` and `img` are what make the rule about the *rendered mark* rather
+ * than about a class name: the weather `modern` variant's glyph is a large
+ * line-art mark rendered outside an icon circle, and a rule written as
+ * `.liebe-icon` would have called that tile blank and demanded a second glyph on
+ * top of the one it shows.
+ */
+const ANCHOR_SELECTOR = '.liebe-icon, .liebe-person-avatar, .camera-thumb, svg, img'
+
+/**
+ * The anchors on a tile — outermost only.
+ *
+ * Anchors nest, and the nesting is one mark rather than two: a glyph inside an
+ * icon circle, initials or a photo inside the person card's avatar, a still
+ * image inside the camera's thumbnail. Counting every match would make the
+ * cards with the richest anchor look like the ones that failed to reduce, which
+ * is the assertion reporting the opposite of what it is for.
+ */
+function anchorsIn(tile: Element): Element[] {
+  return Array.from(tile.querySelectorAll(ANCHOR_SELECTOR)).filter(
+    (element) => !element.parentElement?.closest(ANCHOR_SELECTOR)
+  )
+}
 
 beforeEach(() => {
   dashboardActions.resetState()
@@ -236,6 +272,80 @@ describe('the icon-only audit', () => {
 
       unmount()
     }
+  })
+
+  it.each(cases)('$name resolves exactly one identity anchor', ({ Card, name, domain }) => {
+    /*
+     * The second task's bar, and the whole of it: "Every card and every
+     * registered variant MUST resolve an icon-only form — the option is
+     * universal, so 'this presentation has no icon to fall back on' is not an
+     * available answer … A blank icon-only tile, or one that keeps rendering the
+     * interior the option suppresses, is a defect of that card"
+     * (docs/specs/entity-cards/options/common.md — "Icon-only presentation").
+     *
+     * Both halves of that sentence are one count. Zero anchors is the blank
+     * tile — the weather `minimal` variant's body had no lead to keep, and the
+     * `input_number` card's `glance` lead was its reading rather than a glyph.
+     * More than one is the interior surviving — the climate `dial` rendered its
+     * arc, its handles and its mode pills, nine marks on a tile that was
+     * supposed to have one. Neither failure is visible to a test that asks
+     * whether an icon is present.
+     */
+    for (const tier of TIERS) {
+      const { container, unmount } = renderTarget({ Card, name, domain }, tier, ICON_ONLY)
+
+      for (const tile of tilesIn(container)) {
+        const anchors = anchorsIn(tile)
+        expect(
+          anchors.map((anchor) => anchor.className || anchor.tagName),
+          `${name} at ${tier}`
+        ).toHaveLength(1)
+      }
+
+      unmount()
+    }
+  })
+
+  it('counts a tile with no mark as none and a tile that kept its interior as many', () => {
+    /*
+     * The assertion above is only worth its name if it can fail in both
+     * directions, and "exactly one" is exactly the shape that quietly cannot:
+     * a helper that found the lead by construction would report one for every
+     * tile, including a blank one, and every case above would pass while
+     * pinning nothing (REVIEW.md — "Tests Pin Intent, Not Implementation").
+     *
+     * So both failures are constructed here, through the real shell under the
+     * real option, and asserted to be counted as failures. These are the two
+     * card shapes the audit actually found, reduced to their essentials: a body
+     * with no lead in it, and a card rendering its own layout with the interior
+     * still in it.
+     */
+    const blank = render(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard domain="light" entityId="light.living_room" config={ICON_ONLY}>
+            <CardBody arrangement="stack" />
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(anchorsIn(blank.container.querySelector('.liebe-card')!)).toHaveLength(0)
+
+    const unreduced = render(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard domain="climate" entityId="climate.hallway" config={ICON_ONLY}>
+            {/* No `CardBody`, so the shell's fence declines to act and the
+                card's own layout is what the tile shows — the dial's shape. */}
+            <div>
+              <svg data-testid="dial" />
+              <svg data-testid="handle" />
+            </div>
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(anchorsIn(unreduced.container.querySelector('.liebe-card')!)).toHaveLength(2)
   })
 })
 
@@ -442,3 +552,82 @@ describe('the families the contract names', () => {
     expect(plain.querySelector('.liebe-card .liebe-media-artwork')).not.toBeNull()
   })
 })
+
+/**
+ * The three targets the audit found bypassing the seam, each rendered whole.
+ *
+ * The table above counts anchors, which is what makes "every card resolves a
+ * form" checkable; these say what each of the three forms IS, and — through a
+ * second render without the key — that the option is what produced it. A card
+ * that happened to render a glyph anyway would satisfy a count and pin nothing.
+ */
+describe('the targets that bypassed the seam', () => {
+  function renderVariant(
+    domain: FixtureDomain,
+    variant: string,
+    tier: CardTier,
+    config: Record<string, unknown>
+  ) {
+    const Card = domainToCard[domain].variants![variant]
+    return renderTarget({ name: `${domain} (${variant})`, Card, domain }, tier, config)
+  }
+
+  it('takes the climate dial off its arc and onto the glyph its sibling variant shows', () => {
+    /*
+     * `full` is the only tier the dial renders at — below it the variant
+     * already delegates to the compact layout — so it is the whole of this
+     * variant's bypass: no `CardBody` for the seam to reach, and no icon circle
+     * to reduce to. Every pre-0017 climate card is pinned onto this variant by
+     * the loader migration, so it is a shipped configuration rather than an
+     * edge case (docs/changes/0033-icon-only-cards.md).
+     */
+    const { container } = renderVariant('climate', 'dial', 'full', ICON_ONLY)
+
+    const tile = container.querySelector('.liebe-card')!
+    expect(tile.querySelector('.liebe-icon')).not.toBeNull()
+    // The dial's own controls and the mode pills below it: the interior the
+    // option suppresses, and what nine anchors on this tile used to be.
+    expect(tile.querySelector('[aria-label="Increase temperature"]')).toBeNull()
+    expect(tile.querySelector('.liebe-pill')).toBeNull()
+
+    // Without the key the same tier draws the dial, so the assertions above are
+    // about the option rather than about a variant that stopped working.
+    const { container: plain } = renderVariant('climate', 'dial', 'full', {})
+    expect(plain.querySelector('.liebe-card [aria-label="Increase temperature"]')).not.toBeNull()
+    expect(plain.querySelector('.liebe-card .liebe-pill')).not.toBeNull()
+  })
+
+  it('gives the weather minimal variant the condition glyph it never renders', () => {
+    // `minimal` is the variant specified to render no glyph at any tier, which
+    // leaves it the one card whose body has no lead to keep — the seam
+    // suppressed its name and its temperature and left an empty tile.
+    const { container } = renderVariant('weather', 'minimal', 'full', ICON_ONLY)
+
+    const tile = container.querySelector('.liebe-card')!
+    expect(tile.querySelector('.liebe-icon')).not.toBeNull()
+    expect(tile.querySelector('.liebe-value')).toBeNull()
+
+    // And it stays the minimal variant everywhere else: the glyph is the
+    // icon-only form, not a new part of the variant.
+    const { container: plain } = renderVariant('weather', 'minimal', 'full', {})
+    expect(plain.querySelector('.liebe-card .liebe-icon')).toBeNull()
+  })
+
+  it('falls the number helper back to its glyph instead of its reading', () => {
+    // The same shape as the sensor's, at the same tier and for the same reason:
+    // `glance` anchors the tile on the value, so collapsing the slots alone
+    // leaves a number on a tile with no icon.
+    const { container } = renderCardIn('input_number', 'glance', ICON_ONLY)
+
+    const tile = container.querySelector('.liebe-card')!
+    expect(tile.querySelector('.liebe-icon')).not.toBeNull()
+    expect(tile.querySelector('.liebe-value')).toBeNull()
+
+    const { container: plain } = renderCardIn('input_number', 'glance', {})
+    expect(plain.querySelector('.liebe-card .liebe-value')).not.toBeNull()
+  })
+})
+
+function renderCardIn(domain: FixtureDomain, tier: CardTier, config: Record<string, unknown>) {
+  return renderTarget({ name: domain, Card: domainToCard[domain], domain }, tier, config)
+}

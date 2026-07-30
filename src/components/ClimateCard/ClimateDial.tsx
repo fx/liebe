@@ -1,6 +1,7 @@
 import { Box, Flex, IconButton, Text } from '@radix-ui/themes'
 import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { readCardDisplay } from '~/store/cardDisplay'
 import { readClimateOptions } from '~/store/climateOptions'
 import { useDashboardStore } from '~/store'
 import { GridCardWithComponents as GridCard } from '../GridCard'
@@ -104,10 +105,37 @@ export function arrowKeyDelta(key: string, step: number): number {
 }
 
 export function ClimateDialContent(props: CardProps) {
+  const { config } = useCardItem()
+  /*
+   * This variant's icon-only form (docs/specs/entity-cards/options/common.md —
+   * "Every card and every registered variant MUST resolve an icon-only form").
+   *
+   * The dial is the seam bypass the option's audit was written to find: it
+   * renders no `CardBody`, so nothing the body suppresses reaches it, and no
+   * icon circle, so there is nothing for the option to reduce it *to* — an
+   * icon-only dial would have rendered the whole arc, its handles and its
+   * secondary rows.
+   *
+   * Resolved by rendering the compact layout, which is this file's existing
+   * answer to "the dial cannot be what this tile shows" — the same delegation
+   * every tier below `full` already takes — and whose lead is the glyph the
+   * `compact` variant resolves for the same entity. So an icon-only thermostat
+   * shows one mark whichever variant it is configured with, which is what the
+   * contract asks for ("resolve one from its domain and state") and what
+   * resolving a second glyph here would have broken. The change document
+   * sketched `HvacModeIcon` for this; that is the mode *pills'* glyph, and using
+   * it would have made the two variants of one domain disagree about what an
+   * icon-only thermostat looks like.
+   *
+   * Read before the branch below, so the hook order is settled the same way the
+   * tier settles it: whichever component renders, it renders from the top.
+   */
+  const { iconOnly } = readCardDisplay(props.config ?? config)
+
   // The tier decides which component renders at all, so it is settled before any
   // hook runs — the dial and the compact layout do not share a hook order, and
   // this wrapper is what keeps them from having to.
-  if ((props.tier ?? 'row') !== 'full') return <ClimateCompactContent {...props} />
+  if ((props.tier ?? 'row') !== 'full' || iconOnly) return <ClimateCompactContent {...props} />
 
   return <ClimateDialFull {...props} />
 }

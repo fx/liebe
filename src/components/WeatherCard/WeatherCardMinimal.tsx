@@ -1,12 +1,20 @@
+import { createElement } from 'react'
 import { Flex } from '@radix-ui/themes'
 import { useEntity } from '../../hooks'
 import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
+import { readCardDisplay } from '~/store/cardDisplay'
 import { readWeatherOptions } from '~/store/weatherOptions'
+import { useCardItem } from '../cardItemContext'
 import type { CardProps } from '../cardRegistry'
-import { formatTemperature, getTemperatureDisplay, resolveUnavailableStatus } from './presentation'
+import {
+  formatTemperature,
+  getConditionGlyph,
+  getTemperatureDisplay,
+  resolveUnavailableStatus,
+} from './presentation'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 function WeatherCardMinimalContent(props: CardProps) {
@@ -19,7 +27,22 @@ function WeatherCardMinimalContent(props: CardProps) {
     config,
     onConfigure,
   } = props
+  const publishedItem = useCardItem()
   const options = readWeatherOptions(config)
+  /*
+   * The one universal option this variant has to read for itself. The seam
+   * suppresses every slot but the lead, and this is the variant with no lead to
+   * keep — so under `iconOnly` a body that only collapsed its slots would leave
+   * an empty tile, which is the outcome the option's audit exists to catch
+   * (docs/specs/entity-cards/options/common.md — "Every card and every
+   * registered variant MUST resolve an icon-only form").
+   *
+   * Off the prop when the renderer passed one and off the published item
+   * otherwise, because both are real: the grid hands a placed card both, while
+   * anything that publishes only the item context (the configuration preview) is
+   * still a card the option has to reach.
+   */
+  const { iconOnly } = readCardDisplay(config ?? publishedItem.config)
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
 
   // Show skeleton while loading initial data
@@ -95,6 +118,23 @@ function WeatherCardMinimalContent(props: CardProps) {
        */}
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        /*
+         * `undefined` normally — "no condition glyph at any tier" is what makes
+         * this variant the minimal one — and the condition glyph under
+         * `iconOnly`, which is the only presentation where the variant's own
+         * content is gone. The glyph is the one its siblings already resolve
+         * from the same state (`getConditionGlyph`, in `default` and
+         * `detailed`'s icon circle), so an icon-only weather tile shows the same
+         * mark whichever variant the user picked, rather than each variant
+         * inventing one.
+         */
+        lead={
+          iconOnly ? (
+            <GridCard.Icon>
+              {createElement(getConditionGlyph(entity.state), { size: 20 })}
+            </GridCard.Icon>
+          ) : undefined
+        }
         meta={
           <GridCard.Meta>
             <GridCard.Title>{entity.attributes?.friendly_name || entity.entity_id}</GridCard.Title>

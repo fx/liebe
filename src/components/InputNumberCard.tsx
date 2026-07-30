@@ -18,6 +18,7 @@ import {
   readNumberControlStyle,
   type NumberControlStyle,
 } from '~/store/inputHelperOptions'
+import { readCardDisplay } from '~/store/cardDisplay'
 import { useCardItem } from './cardItemContext'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
@@ -424,6 +425,19 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    */
   const controlStyle = readNumberControlStyle(config ?? publishedItem.config, attributes.mode)
 
+  /*
+   * `iconOnly` has to reach the lead, which is the one slot the seam keeps.
+   *
+   * The same shape as the sensor's, and for the same reason: in `glance` this
+   * card's lead is the big value rather than the glyph, so a tile that only had
+   * its slots collapsed would be an "icon-only" tile carrying a number and no
+   * icon at all. The helper's own glyph is its identity anchor under the option
+   * (docs/specs/entity-cards/options/common.md — "Icon-only presentation": the
+   * card's resolved icon, and only the camera's thumbnail and the person's
+   * avatar are anchors of another kind).
+   */
+  const { iconOnly } = readCardDisplay(config ?? publishedItem.config)
+
   return (
     <GridCard
       // Input helpers have no domain row of their own; `default` is the
@@ -474,7 +488,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
          */
         controlSize={tier === 'tall' ? 'fill' : 'content'}
         lead={
-          isGlance ? (
+          isGlance && !iconOnly ? (
             <CardValue
               domain="input_number"
               color="default"
