@@ -898,10 +898,34 @@ function Modal({ open, onOpenChange, item, span, onSave }: ModalProps) {
    * not identical, so every open cost a second render for nothing. And it
    * reseeded a commit late, so the frame in which the modal had been handed a
    * new item still showed the previous item's values in its fields.
+   *
+   * **Keyed on `item.id`, and it has to be.** "Pointed at another item" is a
+   * statement about identity, not about object identity, and the two come apart
+   * here because `dashboardActions.updateGridItem` rebuilds the matching item
+   * (`item.id === itemId ? { ...item, ...updates } : item`) — so *every* store
+   * write touching this item hands the modal a fresh reference for the same
+   * card. Comparing references made any such write reseed the draft and throw
+   * away whatever the user had typed.
+   *
+   * The exposure is the card-owned modals rather than the grid's. `GridView`
+   * snapshots the item into `useState` when the modal opens, so a store write
+   * cannot change what it passes; `LightCard`, `CameraCard`, `WeatherCard`,
+   * `BinarySensorCard` and `ButtonCard` pass the live item straight from the
+   * grid's render, and those did lose keystrokes.
+   *
+   * The reference comparison predates this change — the effect it replaced was
+   * keyed `[item]`, the same mistake — but moving the reseed into render made
+   * it bite harder, wiping the field before the user's own keystroke had been
+   * painted rather than a commit afterwards. Found by Copilot on this PR.
+   *
+   * The deliberate consequence of keying on the id: an external write to the
+   * *same* item no longer clobbers an open draft. That is what a draft editor
+   * owes the person typing in it — the modal's own Save is how their edit
+   * reaches the store, and Cancel is how they discard it.
    */
-  const [prevItem, setPrevItem] = React.useState(item)
-  if (item !== prevItem) {
-    setPrevItem(item)
+  const [prevItemId, setPrevItemId] = React.useState(item.id)
+  if (item.id !== prevItemId) {
+    setPrevItemId(item.id)
     setLocalConfig(getInitialConfig())
   }
 

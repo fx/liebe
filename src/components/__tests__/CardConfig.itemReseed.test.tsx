@@ -95,6 +95,35 @@ describe('CardConfig modal draft', () => {
     expect(contentField()).toHaveValue('Half-typed card')
   })
 
+  it('survives a store write that rebuilds the same item', async () => {
+    /*
+     * The regression Copilot caught on this PR, and the reason the guard is
+     * keyed on `item.id` rather than on the object.
+     *
+     * `dashboardActions.updateGridItem` rebuilds the matching item —
+     * `item.id === itemId ? { ...item, ...updates } : item` — so any store
+     * write touching this card hands the modal a **fresh reference for the same
+     * item**. The cards that own a configuration modal (`LightCard`,
+     * `CameraCard`, `WeatherCard`, `BinarySensorCard`, `ButtonCard`) pass the
+     * live item straight from the grid's render rather than a snapshot, so a
+     * reference comparison reseeded the draft and threw away what was being
+     * typed. `GridView`'s own modal snapshots the item and was never exposed,
+     * which is why the defect could sit behind a passing suite.
+     *
+     * The rebuild is reproduced literally here — same id, unrelated field
+     * changed, new object — because that is the shape the store produces.
+     */
+    const user = userEvent.setup()
+    const { rerender } = render(tree(FIRST, vi.fn()))
+
+    await user.clear(contentField())
+    await user.type(contentField(), 'Half-typed card')
+
+    rerender(tree({ ...FIRST, x: FIRST.x + 1 }, vi.fn()))
+
+    expect(contentField()).toHaveValue('Half-typed card')
+  })
+
   it('shows the new item in the very commit it is handed one', () => {
     /*
      * The only assertion here that can tell a render-phase reseed from an
