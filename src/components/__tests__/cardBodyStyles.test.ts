@@ -1,0 +1,123 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+/**
+ * Source-level assertions on the card body — the sheet that turns `CardBody`'s
+ * four slots into the tier shapes, in the same spirit as
+ * `cardShellStyles.test.ts` and `anatomy/__tests__/anatomyStyles.test.ts`.
+ *
+ * The body's shape is the one part of a tier that jsdom cannot see at all: it
+ * applies no stylesheet and lays nothing out, so `data-arrangement` and
+ * `data-control-size` are the whole of what a rendered test can check (they are
+ * pinned by `controlCardTierLayouts.test.tsx`). Where a control lands *inside*
+ * the shape the attribute selected is a property of these declarations, and this
+ * file is where that is checkable — the vertical slider sitting against a
+ * `tall` tile's leading edge was exactly such a defect, invisible to every
+ * rendered assertion (docs/changes/0028-slider-rendering-fixes.md).
+ */
+
+/**
+ * The specifier goes through a variable deliberately: Vite rewrites a *literal*
+ * `new URL('./x', import.meta.url)` into an asset URL, which is no longer a
+ * `file:` URL and cannot be read from disk.
+ */
+function read(relativePath: string): string {
+  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8')
+}
+
+/**
+ * Comments are stripped before anything is asserted, so the prose in the sheets
+ * — which names the very declarations these tests look for — can neither satisfy
+ * an assertion nor break one.
+ */
+const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '')
+
+const body = stripComments(read('../CardBody.css'))
+/**
+ * The shell's sheet is read too, for the one cross-sheet fact the centring
+ * depends on: `.liebe-card-controls` is declared there, and it is *because* that
+ * row spans the band that the band's own centring cannot reach the control
+ * inside it.
+ */
+const shell = stripComments(read('../GridCard.css'))
+
+/** Body of the first rule with the given selector, in the given sheet. */
+function ruleBody(css: string, selector: string): string {
+  const escaped = selector.replace(/[[\]().*+?^$|\\]/g, '\\$&')
+  const match = css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))
+  expect(match, `no rule for ${selector}`).not.toBeNull()
+  return match![1]
+}
+
+describe('card body stylesheet', () => {
+  it('lands entirely in the base layer, with the layer order declared', () => {
+    // An unlayered author rule outranks every cascade layer, so a stray rule
+    // outside the block would put card layout beyond a theme's reach.
+    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    expect(body).toContain(statement)
+
+    const rules = body.replace(statement, '').trim()
+    expect(rules.startsWith('@layer liebe-base {')).toBe(true)
+    expect(rules.endsWith('}')).toBe(true)
+    expect(rules.indexOf('@layer')).toBe(rules.lastIndexOf('@layer'))
+  })
+
+  it('uses no importance, which layers reverse', () => {
+    expect(body).not.toContain('!important')
+  })
+})
+
+describe('the tall fill band', () => {
+  it('distributes its control on the inline axis while stretching it on the block axis', () => {
+    /*
+     * A vertical slider is `--liebe-control-height` wide inside a control row
+     * that spans the band, so the band's own `justify-content` has nothing left
+     * to centre — the control has to be distributed by the row it is in, or it
+     * sits against the tile's leading edge. That is the second half of the
+     * defect the design system now rules out: "A vertical slider MUST also
+     * render horizontally centred within whatever region hosts it, not pinned to
+     * the region's leading edge" (docs/specs/design-system — "Card anatomy").
+     *
+     * The block axis is the other half of the same rule and is asserted with it:
+     * the band exists to give a vertical control the height the icon and the
+     * meta leave, which it only gets by stretching.
+     */
+    expect(ruleBody(shell, '.liebe-card-controls')).toContain('inline-size: 100%;')
+
+    const band = ruleBody(body, '.liebe-card-body-fill > .liebe-card-controls')
+    expect(band).toContain('justify-content: center;')
+    expect(band).toContain('align-self: stretch;')
+  })
+
+  it('takes the room the icon and the meta leave, without pushing them off the tile', () => {
+    // The band's own contract, which the centring above rides on: it grows into
+    // the leftover height and shrinks rather than overflowing (a flex item's
+    // automatic minimum size is its content).
+    const band = ruleBody(body, '.liebe-card-body-fill')
+    expect(band).toContain('flex: 1 1 auto;')
+    expect(band).toContain('min-block-size: 0;')
+  })
+})
+
+describe('the row line', () => {
+  it('keeps its own distribution, which the band’s centring must not reach', () => {
+    /*
+     * `row` and `full` put the control on the line, where a content-width
+     * control is sized against the tile's trailing edge and a filling one takes
+     * the free space from its leading edge. Neither is centred, and the centring
+     * above is scoped to the band precisely so it cannot become so: the two
+     * selectors are siblings under `.liebe-card-body`, and a rule written on
+     * `.liebe-card-controls` alone would have restyled every row.
+     */
+    expect(ruleBody(body, '.liebe-card-body-line > .liebe-card-controls')).toContain(
+      'justify-content: flex-end;'
+    )
+    expect(
+      ruleBody(
+        body,
+        ".liebe-card-body[data-control-size='fill'] > .liebe-card-body-line > .liebe-card-controls"
+      )
+    ).toContain('justify-content: normal;')
+  })
+})

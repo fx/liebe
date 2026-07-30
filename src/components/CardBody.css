@@ -132,8 +132,17 @@
    * resolves against this). Anything that should stay its own size — a step
    * pill group, a stepper — is centred by `.liebe-card-controls`' own
    * `align-items`, or by the band itself when the card passes something else.
+   *
+   * On the inline axis it distributes its content instead, because it does not
+   * hug it: `.liebe-card-controls` is `inline-size: 100%`, so the band's own
+   * `justify-content: center` has nothing left to centre and a vertical control
+   * — 42px wide inside a full-width row — sat against the tile's leading edge
+   * (docs/specs/design-system — "Vertical slider fill spans its track"). Scoped
+   * to the band, so the trailing-edge and free-space distribution `row` and
+   * `full` set on `.liebe-card-body-line > .liebe-card-controls` is untouched.
    */
   .liebe-card-body-fill > .liebe-card-controls {
     align-self: stretch;
+    justify-content: center;
   }
 }

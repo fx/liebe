@@ -5,7 +5,7 @@
 Fix the three rendering defects in the embedded slider's vertical form: the fill covering only half the track's width (and being clipped at its edge), the vertical slider sitting left-flush instead of centred in a `tall` tile, and the `input_number` card's `tall` slider getting no travel because it never receives the fill band. The slider anatomy rules these violate now live in [design-system — card anatomy](../specs/design-system/index.md#card-anatomy).
 
 **Spec:** [design-system](../specs/design-system/), [entity-cards options — input-helpers](../specs/entity-cards/options/input-helpers.md)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -61,7 +61,7 @@ CSS-first, three small fixes plus tests:
 
 ## Tasks
 
-- [ ] Fix vertical slider rendering: fill cross-axis anchor in `anatomy.css`, `tall`-band centring, `InputNumberCard` fill sizing; stylesheet + tier-layout unit tests and the e2e fill-geometry assertion
+- [x] Fix vertical slider rendering: fill cross-axis anchor in `anatomy.css`, `tall`-band centring, `InputNumberCard` fill sizing; stylesheet + tier-layout unit tests and the e2e fill-geometry assertion
 
 ## Open Questions
 

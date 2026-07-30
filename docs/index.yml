@@ -242,7 +242,7 @@ changes:
     path: changes/0028-slider-rendering-fixes.md
     description: Fix the vertical slider's half-width clipped fill, its left-flush placement in tall tiles, and the input_number card's missing fill band
     spec: design-system
-    status: draft
+    status: complete
     depends_on: []
   - id: '0029'
     name: workshop-tier-fidelity

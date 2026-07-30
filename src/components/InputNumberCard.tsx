@@ -458,6 +458,20 @@ export const InputNumberCard = memo(function InputNumberCard({
        */}
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
+        /*
+         * `tall` gives the control the height the icon and the meta leave, the
+         * same sizing the light, cover and fan cards ask for: the vertical
+         * slider below has no intrinsic length, so sized by its content it gets
+         * no travel at all — and a vertical slider filling the middle is what
+         * this helper's `tall` tier is specified to be
+         * (docs/specs/entity-cards/options/input-helpers.md — the tier table).
+         *
+         * The other tiers stay content-sized, as the thermostat's do: `row` and
+         * `full` render the control on the line, where a stepper grown to the
+         * free width would float its buttons apart from the readout between
+         * them.
+         */
+        controlSize={tier === 'tall' ? 'fill' : 'content'}
         lead={
           isGlance ? (
             <CardValue
