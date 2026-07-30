@@ -3,6 +3,7 @@ import { CardConfig } from '../CardConfig'
 import { dashboardActions, useDashboardStore } from '~/store'
 import { migrateWeatherCardConfig, readWeatherOptions } from '~/store/weatherOptions'
 import type { CardProps } from '../cardRegistry'
+import { useCardItem } from '../cardItemContext'
 import type { GridItem } from '~/store/types'
 import { WeatherCardDefault } from './WeatherCardDefault'
 import { WeatherCardMinimal } from './WeatherCardMinimal'
@@ -44,8 +45,16 @@ function WeatherCardContent(props: CardProps) {
    * story, the configuration preview, a card handed a literal — still renders
    * the variant it was saved with, and a value this build has no component for
    * lands on `default` rather than on a blank tile.
+   *
+   * Read prop-then-published-item, the resolution every variant below now
+   * makes: the grid hands a placed card both, so this only decides what a
+   * renderer publishing the item WITHOUT repeating it as a prop dispatches to —
+   * and picking `default` there while the variant it picked went on to honour
+   * the rest of the same stored options is the family disagreeing with itself
+   * about where its configuration lives.
    */
-  const { variant } = readWeatherOptions(props.config)
+  const publishedItem = useCardItem()
+  const { variant } = readWeatherOptions(props.config ?? publishedItem.config)
   const VariantComponent = VARIANT_COMPONENTS[variant]
 
   const handleConfigSave = (updates: Partial<GridItem>) => {
