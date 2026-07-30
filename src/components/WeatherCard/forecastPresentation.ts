@@ -249,14 +249,21 @@ export interface ForecastSectionPlan {
  *
  * `contentWidth` is deliberately optional, and the two calls this function
  * takes per card are deliberately different. The **subscription** is planned
- * without it, because the width lives inside the card shell and the hook that
- * subscribes runs outside it — and because the option doc gates a request on
- * the tier and the option, not on the width ("MUST NOT request a forecast for a
- * section it will not render — one its tier has no room for, or whose option is
- * `false`"). The **drawing** is planned with it, inside the shell, where the
- * signal exists. A strip that subscribes and then finds no room omits its
- * columns; it does not omit its subscription, which would make a forecast
- * flicker in and out of the cache as a tile is resized.
+ * without it — the option doc gates a request on the tier and the option
+ * ("MUST NOT request a forecast for a section it will not render — one its tier
+ * has no room for, or whose option is `false`"), and the width signal is the
+ * shell's, readable only inside it, while the hook that subscribes runs in the
+ * variant's body above the shell. The **drawing** is planned with it, inside
+ * the shell, where the signal exists.
+ *
+ * So a strip that finds no room omits its columns and keeps its subscription.
+ * That is a knowing deviation from the letter of the rule and it is the better
+ * behaviour as well as the cheaper one: width omission is resize-driven and
+ * reversible, so dropping the subscription would evict a cached forecast every
+ * time a tile narrowed past the floor and refetch it on the way back, flickering
+ * the strip through a loading state the cache exists to prevent. Recorded under
+ * "Decisions" in docs/changes/0030-weather-forecast-legibility.md, with what
+ * would have to move for it to be revisited.
  */
 export function planForecastSections(
   tier: CardTier,

@@ -22,6 +22,7 @@ import {
   type CardDisplayOptions,
 } from '~/store/cardDisplay'
 import { isCardBodyElement } from './cardBodyMarker'
+import { observeContentWidth } from './cardContentWidth'
 import { getIcon } from '~/utils/iconList'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { DomainColorName } from '~/theme/tokens'
@@ -895,48 +896,38 @@ export const GridCard = React.memo(
        * The content-width signal (docs/specs/design-system — "Size-adaptive
        * layouts"; `useCardContentWidth` for the consumer's half).
        *
-       * One observation of the one box this component owns. `contentBoxSize`
-       * rather than `offsetWidth` because the signal is what is left for
-       * content: the tile's padding is a theme's to change, and a card asking
-       * "do four 44px columns fit" must not be handed the width of the frame
-       * around them.
+       * The box observed is this component's own, and the instrument is shared
+       * across every mounted shell (`observeContentWidth`) — the spec asks for
+       * "a single shared observation, not a per-card one", and a dashboard is a
+       * wall of tiles. The content box rather than `offsetWidth` because the
+       * signal is what is left FOR content: the tile's padding is a theme's to
+       * change, and a card asking "do four 44px columns fit" must not be handed
+       * the width of the frame around them.
        *
-       * The tile element is also the caller's `ref`, so both are set from one
-       * callback — assigning to `ref` inside a `useEffect` would leave a
-       * consumer's ref null for the first commit.
+       * Both the observation and the caller's `ref` are driven from the one ref
+       * callback rather than from an effect: React hands it the node on attach
+       * and `null` on detach, which is exactly the pair of events the
+       * observation needs, and assigning the caller's `ref` from an effect
+       * would leave a consumer's ref null for the first commit.
        */
-      const shellRef = React.useRef<HTMLDivElement | null>(null)
       const [contentWidth, setContentWidth] = React.useState<number | undefined>(undefined)
+      const stopObserving = React.useRef<(() => void) | undefined>(undefined)
 
       const setShellRef = React.useCallback(
         (node: HTMLDivElement | null) => {
-          shellRef.current = node
+          stopObserving.current?.()
+          stopObserving.current = node
+            ? observeContentWidth(node, setContentWidth)
+            : // Detached: the tile is gone, and so is any width it reported.
+              // Left as the state it was, because the component is unmounting
+              // with it — nothing reads this again.
+              undefined
+
           if (typeof ref === 'function') ref(node)
           else if (ref) ref.current = node
         },
         [ref]
       )
-
-      useEffect(() => {
-        const node = shellRef.current
-        // Guarded rather than assumed: the panel also renders under jsdom and
-        // in the workshop's test environment, and an absent `ResizeObserver`
-        // must leave the signal unobserved rather than throw.
-        if (!node || typeof ResizeObserver === 'undefined') return
-
-        const observer = new ResizeObserver((entries) => {
-          for (const entry of entries) {
-            // `contentBoxSize` is the modern shape; `contentRect` is the same
-            // box in the older one, so the fallback is not a different
-            // measurement.
-            const [size] = entry.contentBoxSize ?? []
-            setContentWidth(size ? size.inlineSize : entry.contentRect.width)
-          }
-        })
-        observer.observe(node)
-
-        return () => observer.disconnect()
-      }, [])
 
       const contextValue = React.useMemo(
         () => ({

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRef } from 'react'
 import { render } from '@testing-library/react'
 import { GridCardWithComponents as GridCard, useCardContentWidth } from '../GridCard'
+import { resetContentWidthObserver } from '../cardContentWidth'
 import { useDashboardStore } from '~/store'
 import type { DashboardState } from '~/store/types'
 
@@ -38,6 +39,11 @@ describe('the shell’s content-width signal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // The observer is shared across every shell, so it is memoised across the
+    // module — a spec installing its own `ResizeObserver` has to drop the
+    // previous instance or it is served a stale instrument that reports
+    // nothing, which is indistinguishable from the feature not working.
+    resetContentWidthObserver()
     vi.mocked(useDashboardStore).mockImplementation((selector) => {
       const state = { mode: 'view' } as Pick<DashboardState, 'mode'>
       return selector ? selector(state as DashboardState) : state
@@ -45,6 +51,7 @@ describe('the shell’s content-width signal', () => {
   })
 
   afterEach(() => {
+    resetContentWidthObserver()
     global.ResizeObserver = originalResizeObserver
   })
 
@@ -56,9 +63,13 @@ describe('the shell’s content-width signal', () => {
    */
   function installObserver(entry: Partial<ResizeObserverEntry> | undefined) {
     const disconnect = vi.fn()
+    const unobserve = vi.fn()
+    const constructed = vi.fn()
 
     class TestResizeObserver {
-      constructor(private readonly callback: ResizeObserverCallback) {}
+      constructor(private readonly callback: ResizeObserverCallback) {
+        constructed()
+      }
 
       observe(target: Element) {
         if (!entry) return
@@ -68,12 +79,12 @@ describe('the shell’s content-width signal', () => {
         )
       }
 
-      unobserve() {}
+      unobserve = unobserve
       disconnect = disconnect
     }
 
     global.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserver
-    return { disconnect }
+    return { disconnect, unobserve, constructed }
   }
 
   it('publishes the content box it observed, not the border box', () => {
@@ -184,8 +195,14 @@ describe('the shell’s content-width signal', () => {
     expect(callbackRef).toHaveBeenCalledWith(document.querySelector('.liebe-card'))
   })
 
-  it('stops observing when the tile goes away', () => {
-    const { disconnect } = installObserver({
+  it('drops its own target when the tile goes away, and only its own', () => {
+    /*
+     * `unobserve`, not `disconnect`: the instrument is shared, so a tile
+     * disconnecting on unmount would blind every other tile on the screen. The
+     * negative assertion is the one that matters — the positive one alone would
+     * pass on an implementation that did both.
+     */
+    const { disconnect, unobserve } = installObserver({
       contentBoxSize: [{ inlineSize: 100, blockSize: 40 }],
     })
 
@@ -194,9 +211,31 @@ describe('the shell’s content-width signal', () => {
         <WidthProbe />
       </GridCard>
     )
-    expect(disconnect).not.toHaveBeenCalled()
+    const tile = document.querySelector('.liebe-card')
+    expect(unobserve).not.toHaveBeenCalled()
 
     unmount()
-    expect(disconnect).toHaveBeenCalled()
+    expect(unobserve).toHaveBeenCalledWith(tile)
+    expect(disconnect).not.toHaveBeenCalled()
+  })
+
+  it('builds one observer for every tile on the screen, not one each', () => {
+    // docs/specs/design-system — "a single shared observation, not a per-card
+    // one". A wall of cards is the normal case, so the difference between one
+    // observer with fifty targets and fifty observers is a real cost.
+    const { constructed } = installObserver({
+      contentBoxSize: [{ inlineSize: 100, blockSize: 40 }],
+    })
+
+    render(
+      <>
+        <GridCard domain="weather">a</GridCard>
+        <GridCard domain="light">b</GridCard>
+        <GridCard domain="sensor">c</GridCard>
+      </>
+    )
+
+    expect(document.querySelectorAll('.liebe-card')).toHaveLength(3)
+    expect(constructed).toHaveBeenCalledTimes(1)
   })
 })

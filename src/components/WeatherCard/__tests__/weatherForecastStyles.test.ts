@@ -70,6 +70,24 @@ describe('the forecast stylesheet', () => {
     expect(source).not.toMatch(/repeat\(/)
   })
 
+  it('spends no width between the tracks the capacity rule counted', () => {
+    /*
+     * `floor(contentWidth / minColumnWidth)` is the option doc's formula and it
+     * budgets columns only — so a gap between tracks is width the rule cannot
+     * see, and every track pays for it. At 220px the rule picks five 44px
+     * hourly columns; four 4px gaps would leave 40.8px each, which is the
+     * shrink-below-the-floor the rule exists to prevent. Separation comes from
+     * padding inside the track instead.
+     */
+    const strip = ruleBody('.weather-forecast-strip')
+    expect(strip).toContain('column-gap: 0')
+    expect(strip).not.toMatch(/^\s*gap:/m)
+    // The row gap survives: `tall` spaces its rows down an axis no capacity
+    // rule budgets.
+    expect(strip).toContain('row-gap: var(--space-1)')
+    expect(ruleBody('.weather-forecast-column')).toContain('padding-inline')
+  })
+
   it('runs the tall tier’s strip down the tile instead', () => {
     const vertical = ruleBody("[data-orientation='vertical'] > .weather-forecast-strip")
     expect(vertical).toContain('grid-auto-flow: row')
