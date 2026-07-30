@@ -228,7 +228,16 @@ describe('a forced slider placement gets a definite axis to run along', () => {
     // its thumb can be grabbed by, and gives way on a row that cannot afford
     // it rather than pushing the line past the tile's edge.
     expect(slot).toContain('flex: 0 1 auto;')
-    expect(slot).toContain('inline-size: auto;')
+    /*
+     * The slot is where the token lands, and that direction is load-bearing.
+     * Everything inside it sizes as a percentage, so the chain needs one
+     * definite width at its head: an `inline-size: auto` slot takes its width
+     * from content that is asking for 100% of the slot, and the circular pair
+     * resolves to zero — the control vanishes entirely, in a stylesheet that
+     * still reads correctly and a jsdom tree that lays nothing out. Measured at
+     * 0 against the token's 42 by `tests/e2e/forced-slider-placement.spec.ts`.
+     */
+    expect(slot).toContain('inline-size: var(--liebe-control-height);')
     // Without this the shrink above is inert: a flex item's automatic minimum
     // size is its content, and this slot's content has a fixed thickness.
     expect(slot).toContain('min-inline-size: 0;')
@@ -251,6 +260,8 @@ describe('a forced slider placement gets a definite axis to run along', () => {
      */
     const control = ruleMatching(/data-control-orientation='vertical'\].*\.liebe-slider-thumb$/)
 
+    // 100% OF THE SLOT, whose own width is the token — see the slot's assertion
+    // above for why the definite size has to sit there and not here.
     expect(control.declarations).toContain('inline-size: 100%;')
     expect(control.declarations).toContain('max-inline-size: var(--liebe-control-height);')
 

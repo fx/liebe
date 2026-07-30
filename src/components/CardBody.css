@@ -254,6 +254,28 @@
    * leaves a two-cell tile about 58px of content region — and the tile clips,
    * which is the one outcome the tier rules forbid outright.
    *
+   * **The slot carries the token, and the control below reads 100% of the
+   * slot** — not the other way round, which is the arrangement that looks
+   * equivalent and renders nothing. Everything under this slot sizes itself as
+   * a percentage, so the chain needs exactly one definite width at its head; an
+   * `inline-size: auto` slot takes its width from its content, the content asks
+   * for 100% of the slot, and the circular pair resolves to **zero**. That is
+   * not a subtle degradation — the whole control disappears, and only a browser
+   * can see it: jsdom lays nothing out, and the stylesheet reads correctly.
+   * `tests/e2e/forced-slider-placement.spec.ts` measured 0 against the token's
+   * 42 and is what caught it.
+   *
+   * `flex-grow: 0` keeps the slot at the token on a row with hundreds of pixels
+   * to spare, rather than stretching the control into a track whose thumb is
+   * the only part a finger can reach. `flex-shrink: 1` is the half that keeps
+   * the row inside its tile: "a control rendered at a one-cell-wide tier MUST be
+   * cross-axis flexible … its geometry token names the size it prefers rather
+   * than the size it always has" (docs/specs/design-system — "Cross-axis fit").
+   * A rigid 42px slot beside the icon circle's fixed 40px overflows a narrow
+   * tile — a 16-column screen at 960px under LCARS leaves a two-cell tile about
+   * 58px of content region — and the tile clips, which is the one outcome the
+   * tier rules forbid outright.
+   *
    * `justify-content: center` is the vertical slider's centring rule applied
    * inside the slot, restated at a weight that outranks the content-alignment
    * rules further down for the same reason the band's copy is
@@ -269,7 +291,7 @@
     > .liebe-card-controls {
     align-self: stretch;
     flex: 0 1 auto;
-    inline-size: auto;
+    inline-size: var(--liebe-control-height);
     justify-content: center;
     /* A flex item's automatic minimum size is its content, and the content here
        is a control with a fixed thickness — so without this the slot refuses to
