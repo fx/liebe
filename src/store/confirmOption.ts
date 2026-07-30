@@ -21,11 +21,15 @@ import { z } from 'zod'
  * failing. Pointing both at this one object makes the merge a no-op by
  * construction: there is nothing for the two to disagree about.
  *
- * That failure mode is not hypothetical. `stateLabels` is declared as an object
- * in `switchOptions.ts` and as a string enum in `coverOptions.ts`; cover merges
- * last, so a switch card's documented `stateLabels: { onLabel, offLabel }` is
- * rejected outright by the import gate today. This module exists so `confirm`
- * cannot join it.
+ * That failure mode is not hypothetical, and this module exists because
+ * `confirm` was about to be its second instance. `stateLabels` was declared as
+ * an object in `switchOptions.ts` and as a string enum in `coverOptions.ts`;
+ * cover merged last, so a switch card's documented
+ * `stateLabels: { onLabel, offLabel }` was rejected outright by the import gate
+ * for as long as both declarations stood. Change 0038 renamed the cover's key to
+ * `stateLabelStyle` (docs/changes/0038-option-key-collision.md), which is the
+ * other resolution available: give the key a family-specific name, or share one
+ * fragment the way this module does.
  */
 
 /** Off, so a card is only ever gated because a document asked for it. */
