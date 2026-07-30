@@ -20,8 +20,13 @@ export default defineConfig({
      * reliability.md, PR 5). Five full `--coverage` runs, worst default-governed
      * test per run: 1632 / 1838 / 2019 / 2081 ms as load average rose from 3 to
      * 49, then 4923 ms on a deliberately oversubscribed run (96 workers on 32
-     * cores). The worst this class has ever been recorded at is 5987 ms. 20 s
-     * clears that by 3.3x and the oversubscribed measurement by 4.1x.
+     * cores). Two independent timeouts have been recorded against the 5000 ms
+     * default, and the number is set against both rather than either:
+     * `WeatherCard.configSave.test.tsx` at 5987 ms and
+     * `CardConfig.controlStyle.test.tsx` at 5464 ms, each of which the runs
+     * above independently reproduce as the worst default-governed test in at
+     * least one run. 20 s clears the larger of the two by 3.3x and the
+     * oversubscribed measurement by 4.1x.
      *
      * The cost of the headroom is bounded and was weighed: a genuinely hung
      * test now takes 20 s to report instead of 5 s, against a suite that
