@@ -276,3 +276,174 @@ describe('a fan that advertises switching', () => {
     )
   })
 })
+
+/**
+ * The two states that carry no direction (change 0037 PR 7; option doc —
+ * "Primary action": `unavailable`/`unknown` are resolved FIRST as inert, before
+ * the direction is chosen).
+ *
+ * `unavailable` was already handled; `unknown` fell through and rendered an
+ * ordinary operable card, where `isOn` is false and so a tap dispatched
+ * `fan.turn_on` at a fan whose state nobody knows. Both states are asserted
+ * together at every tier, because the defect was precisely that they were told
+ * apart when the spec says they are not.
+ *
+ * Nothing here asserts on a rejection, for the same reason the mask cases above
+ * do not: Home Assistant may well accept `turn_on` on an `unknown` fan, so a
+ * test built on a refusal would pass against a card that dispatches. The
+ * requirement is that nothing leaves the card.
+ */
+describe('a fan whose state carries no direction', () => {
+  const INOPERABLE = ['unavailable', 'unknown'] as const
+
+  const cases = TIERS.flatMap((tier) => INOPERABLE.map((state) => ({ tier, state })))
+
+  it.each(cases)('is inert on tap at $tier when $state', async ({ tier, state }) => {
+    // SWITCHING deliberately: the fan advertises every bit it needs to be
+    // turned on, so the only thing stopping the dispatch is its state.
+    seed(makeFan(state, SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier={tier} />)
+
+    tapTile()
+
+    // Both halves. Inert about the device, operable as a tile: suppressing the
+    // tap outright would leave a `glance` fan with no affordance at all, which
+    // is the operability regression the design system forbids — so the gesture
+    // goes to the detail dialog, exactly as it does for a fan that cannot be
+    // switched.
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
+    await expectNoServiceCall()
+  })
+
+  it.each(cases)(
+    'refuses a stored tapAction: toggle at $tier when $state',
+    async ({ tier, state }) => {
+      /*
+       * The route a card-level early return cannot cover on its own: a stored
+       * `toggle` never consults what `default` resolves to. The shell refuses it
+       * because the tile declares itself unavailable, which is the second of the
+       * two layers this state is enforced at.
+       *
+       * **No dialog is asserted here, and that is a gap rather than an
+       * oversight.** `useCardActions.performDispatch` returns early for a
+       * `toggle` route while `unavailable`, BEFORE it would consult the card's
+       * `onToggle` — so the card cannot answer `'more-info'` the way it does for
+       * the capability gate, and this tap does nothing at all. At `glance`,
+       * where the tap is the only affordance, that is the operability
+       * regression the design system forbids. Measured, not assumed: asserting
+       * the dialog here fails with `Unable to find role="dialog"`.
+       *
+       * It is pre-existing, it belongs to every domain's unavailable tile
+       * rather than to fans, and the fix is one line in a shared hook — so it
+       * is reported rather than widened into this PR. What is asserted is the
+       * half this change owns and the spec requires: nothing is dispatched.
+       */
+      seed(makeFan(state, SWITCHING))
+      renderCard(<FanCard entityId={ENTITY_ID} tier={tier} />, { tapAction: 'toggle' })
+
+      tapTile()
+
+      await expectNoServiceCall()
+    }
+  )
+
+  it.each(INOPERABLE)('reports %s as itself rather than as the other one', (state) => {
+    // One state rendered as a different one is the misreport this change fixed
+    // on the weather cards; an `unknown` fan labelled UNAVAILABLE would be the
+    // same defect in a third place.
+    seed(makeFan(state, SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="full" />)
+
+    expect(screen.getByText(state.toUpperCase())).toBeInTheDocument()
+    const other = state === 'unknown' ? 'UNAVAILABLE' : 'UNKNOWN'
+    expect(screen.queryByText(other)).not.toBeInTheDocument()
+  })
+
+  it.each(INOPERABLE)('renders no speed control while %s', (state) => {
+    // "Every control absent" — a slider or a pill row built from the attributes
+    // of an entity in this state would command a speed against a reading nobody
+    // has.
+    seed(makeFan(state, SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="full" />, { speedControl: 'steps' })
+
+    expect(screen.queryByRole('group', { name: 'Fan speed' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+  })
+
+  it('does not prompt before an action it will not take', async () => {
+    // The confirmation gate classifies a route after resolution, so a card that
+    // reached it would offer "Turn on Bedroom Fan?" in front of a dialog that
+    // turns nothing on — the same false prompt the capability gate had to
+    // answer, arriving by the state rather than by the mask.
+    seed(makeFan('unknown', SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="row" />, { confirm: true })
+
+    tapTile()
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    await expectNoServiceCall()
+  })
+
+  it('still switches the same fan once its state means something', async () => {
+    /*
+     * The positive control, and it is what stops every assertion above being
+     * vacuous: identical entity, identical mask, one field different. Without
+     * it a card that had simply stopped dispatching — or stopped rendering —
+     * would satisfy the whole block.
+     */
+    seed(makeFan('off', SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="row" />)
+
+    tapTile()
+
+    // Deliberately not pinning the payload. The 50% start is an OPEN QUESTION in
+    // the option doc and expressly out of this change's scope, so a control
+    // whose job is to prove that a dispatch happens must not quietly become a
+    // second pin on a behaviour nobody has settled. The cases above own it.
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith(
+        'fan',
+        'turn_on',
+        expect.objectContaining({ entity_id: ENTITY_ID })
+      )
+    )
+  })
+
+  it.each(INOPERABLE)('still shows edit-mode selection while %s', (state) => {
+    /*
+     * Inert is about the device, not about the card. Selection is edit-mode
+     * chrome — the user is arranging tiles, and one that toggles selection
+     * without showing it is a tile they cannot see they have picked
+     * (docs/specs/grid-layout — "Card Chrome"). The branch omitted `isSelected`
+     * before this change, so `unavailable` had the same hole; routing `unknown`
+     * through it is what turned a noticed defect into one worth fixing.
+     */
+    dashboardActions.setMode('edit')
+    seed(makeFan(state, SWITCHING))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="row" isSelected onSelect={() => {}} />)
+
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-selected', 'true')
+  })
+
+  it.each(INOPERABLE)(
+    'is inert while %s even on a fan that advertises no switching bit either',
+    async (state) => {
+      /*
+       * Where the state gate and the capability gate meet. Both would intercept
+       * this tap, and the card must reach one answer rather than two: the state
+       * is resolved first — above the card's `defaultAction` — and the shell
+       * then refuses the toggle route independently, so the mask never gets a
+       * say. Both roads lead to the detail dialog, which is why the two cannot
+       * contradict each other.
+       */
+      seed(makeFan(state, NO_SWITCHING))
+      renderCard(<FanCard entityId={ENTITY_ID} tier="glance" />)
+
+      tapTile()
+
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible())
+      await expectNoServiceCall()
+    }
+  )
+})
