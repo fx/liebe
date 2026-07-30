@@ -64,7 +64,7 @@ The [design system](../specs/design-system/index.md) owns the token contract, th
 
 Spec restatements update **in the same PR** as each behaviour change they describe (repo consistency rule — the living spec must never lag a merged PR).
 
-- [ ] **PR 1 — `-text` contrast**: repin the failing `-text` companions per appearance; update the design system's domain-colour bullet and the token contract test; measured before/after figures for all ten hues in both appearances; drop #197 from the spec's outstanding list
+- [x] **PR 1 — `-text` contrast**: repin the failing `-text` companions per appearance; update the design system's domain-colour bullet and the token contract test; measured before/after figures for all ten hues in both appearances; drop #197 from the spec's outstanding list
 - [ ] **PR 2 — Glyph on tint**: amend the 20%-tint active pattern so the glyph clears 3:1 in light appearance on every built-in theme; pixel-measured evidence per domain hue per theme; update the design system's pattern rule and the affected theme stories; drop #210 from the outstanding list
 - [ ] **PR 3 — Residual accessible names**: name `InputSelectCard`'s select trigger and the switch `InputBooleanCard` renders in its own tile at `controlStyle: switch` (**not** the detail-controls switch, which is already named); re-run the `button-name` audit across every story in both appearances and record the resulting count; drop #191 from the outstanding list
 

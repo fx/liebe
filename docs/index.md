@@ -47,7 +47,7 @@
 | 0025 | [Vacuum Card](changes/0025-vacuum-card.md)                                                                   | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
 | 0026 | [Person Card](changes/0026-person-card.md)                                                                   | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
 | 0027 | [Scene, Script & Button Cards](changes/0027-scene-cards.md)                                                  | [Entity Cards](specs/entity-cards/)         | complete | 0011, 0014       |
-| 0028 | [Slider Rendering Fixes](changes/0028-slider-rendering-fixes.md)                                             | [Design System](specs/design-system/)       | draft    | —                |
+| 0028 | [Slider Rendering Fixes](changes/0028-slider-rendering-fixes.md)                                             | [Design System](specs/design-system/)       | complete | —                |
 | 0029 | [Workshop Tier Fidelity](changes/0029-workshop-tier-fidelity.md)                                             | [Storybook](specs/storybook/)               | complete | —                |
 | 0030 | [Weather Forecast Legibility](changes/0030-weather-forecast-legibility.md)                                   | [Entity Cards](specs/entity-cards/)         | draft    | —                |
 | 0031 | [Sensor Graph Fill](changes/0031-sensor-graph-fill.md)                                                       | [Entity Cards](specs/entity-cards/)         | draft    | —                |
@@ -61,3 +61,4 @@
 | 0039 | [Responsive Drag Layout Integrity](changes/0039-responsive-drag-integrity.md)                                | [Grid Layout](specs/grid-layout/)           | complete | —                |
 | 0040 | [Test & CI Harness Reliability](changes/0040-test-harness-reliability.md)                                    | [Architecture](specs/architecture/)         | draft    | —                |
 | 0041 | [Card Conventions & Reference Accuracy](changes/0041-card-conventions-and-reference.md)                      | [Entity Cards](specs/entity-cards/)         | draft    | —                |
+| 0042 | [Tall-Tile Control Geometry](changes/0042-tall-tile-control-geometry.md)                                     | [Design System](specs/design-system/)       | draft    | —                |
