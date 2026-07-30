@@ -106,7 +106,7 @@ const sliderPlacementOption = {
     { value: 'horizontal', label: 'Across' },
     { value: 'vertical', label: 'Up the tile' },
   ],
-} as const satisfies ConfigOption
+} satisfies ConfigOption
 
 /** The four domains the action family serves, and how each names itself. */
 const actionCardTitles: Readonly<Record<string, string>> = {

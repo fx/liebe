@@ -106,6 +106,14 @@ export interface CardBodyProps {
    * orientation — a vertical control needs a definite long axis, a horizontal
    * one a definite inline axis, and which of those the shape already provides
    * is exactly what this component knows and the card does not.
+   *
+   * **Two shapes, not three.** `CardBody.css` sizes the row line and the `tall`
+   * band, and has nothing for `stack`, which is deliberate rather than missed:
+   * `stack` is the `glance` shape, the contract renders no inline slider there
+   * under any placement value, and the resolver returns `undefined` for that
+   * tier — so a stacked body never receives an orientation to honour. A card
+   * that reached this prop by some other route would get the arrangement's own
+   * layout, which is the same answer it gets today with no option set.
    */
   controlOrientation?: SliderOrientation
 }
@@ -131,12 +139,13 @@ export const CONTROL_LONG_AXIS_FLOOR_PX = 44
  *    width is its long axis and the 44px touch floor applies. This is the case
  *    with a real symptom: `tall` is one column wide, which on a 12-column
  *    desktop grid is a 35px content region — a track too short to drag.
- *  - a **vertical** control in a row shape is bounded across it, so the 24px
- *    cross-axis floor applies. The region is not the whole of what bounds it —
- *    the icon circle and the gaps beside it come out first — so this is a
- *    coarse gate rather than the exact one: what keeps such a control inside
- *    the tile is that `CardBody.css` makes it cross-axis flexible, so it
- *    narrows with the row instead of overflowing it.
+ *  - a **vertical** control in a row shape — or, hypothetically, a stacked one;
+ *    see `controlOrientation` for why no card produces that — is bounded across
+ *    it, so the 24px cross-axis floor applies. The region is not the whole of
+ *    what bounds it, since the icon circle and the gaps beside it come out
+ *    first, so this is a coarse gate rather than the exact one: what keeps such
+ *    a control inside the tile is that `CardBody.css` makes it cross-axis
+ *    flexible, so it narrows with the row instead of overflowing it.
  *
  * `undefined` is "not observed", never "no room": a tree that was never laid out
  * carries no information about width, so the width-blind contract stands and the

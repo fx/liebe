@@ -20,10 +20,13 @@ import { buildSeedConfig, callService, DEMO_LIGHT, openPanel } from './helpers'
  *      slider across. It must come out standing up, at the token's thickness,
  *      with a real length, inside the tile.
  *   2. `horizontal` on a 1×3 `tall` tile — the mirror, and the case the floors
- *      answer rather than the stylesheet. One column on the 12-column desktop
- *      grid is a 63px tile whose content region is 35px, and a 35px track is
- *      under the 44px a finger needs, so nothing renders at all. Forced means
- *      forced, but omit-never-clip outranks it.
+ *      answer rather than the stylesheet. Forced means forced, but
+ *      omit-never-clip outranks it: a track under the 44px a finger needs is
+ *      omitted rather than rendered short. Asserted as that implication rather
+ *      than as the outcome one viewport produces — a one-column region is 35px
+ *      at 1280px wide and more than that on a larger screen, and a spec pinned
+ *      to the narrow case would fail on the wide one without anything having
+ *      regressed.
  *
  * Everything is read off `getBoundingClientRect`, never off a screenshot.
  */
@@ -174,11 +177,17 @@ test('a forced placement gets a real axis, or is omitted rather than shrunk past
 
   const TOLERANCE = 0.5
 
-  const controlHeight = Number.parseFloat(row!.controlHeightToken)
+  /*
+   * The token has to resolve to PIXELS, not merely to a length: every
+   * comparison below puts it beside a `getBoundingClientRect` reading, and a
+   * `2.5rem` would parse to a finite 2.5 and be compared against 40 as though
+   * the control had shrunk to nothing.
+   */
   expect(
-    Number.isFinite(controlHeight),
-    `--liebe-control-height should resolve to a length, got "${row!.controlHeightToken}"`
-  ).toBe(true)
+    row!.controlHeightToken,
+    '--liebe-control-height must resolve to a px length for these comparisons'
+  ).toMatch(/^\d+(\.\d+)?px$/)
+  const controlHeight = Number.parseFloat(row!.controlHeightToken)
 
   // The premise: this is the wide tile, and the option turned its slider on end.
   expect(row!.orientation).toBe('vertical')
@@ -236,15 +245,39 @@ test('a forced placement gets a real axis, or is omitted rather than shrunk past
   /*
    * The mirror, and the omission path. A `tall` tile is one column wide by
    * definition, so forcing the slider across it asks for a track as long as the
-   * content region — 35px on this grid, under the 44px floor. The rule is that
-   * such a control is omitted rather than rendered, so what is asserted is that
-   * nothing rendered AND that the region really is under the floor, since an
-   * absence with no measurement beside it would also pass on a card that failed
-   * to render at all.
+   * content region, and the rule is that a track under the 44px touch floor is
+   * omitted rather than rendered short.
+   *
+   * Asserted as the RULE rather than as one of its outcomes. The arithmetic
+   * behind "the region is 35px" — a 63px tile on a 12-column grid in a 1280px
+   * viewport — belongs to the environment this spec happens to run in, and a
+   * wider viewport gives the same tile a region that clears the floor. Pinning
+   * the outcome would then fail for a reason that is not a regression, which is
+   * the way an environment-coupled assertion wastes a CI run; pinning the
+   * implication holds either way, and the measured width is reported with it so
+   * a failure says which side of the floor it was on.
    */
   const tall = await placementGeometry(page, 'tall')
   expect(tall, 'the 1×3 card should render at the tall tier').not.toBeNull()
+
+  // A real box, so the branch below is taken on a measurement rather than on a
+  // card that never laid out.
   expect(tall!.body.width).toBeGreaterThan(0)
-  expect(tall!.body.width).toBeLessThan(44)
-  expect(tall!.slider, 'a track under the touch floor must be omitted, not shrunk').toBeNull()
+
+  if (tall!.body.width < 44) {
+    expect(
+      tall!.slider,
+      `a ${tall!.body.width}px region is under the 44px touch floor, so the forced horizontal track must be omitted rather than shrunk`
+    ).toBeNull()
+  } else {
+    expect(
+      tall!.slider,
+      `a ${tall!.body.width}px region clears the 44px touch floor, so the forced horizontal track must render`
+    ).not.toBeNull()
+    expect(tall!.orientation).toBe('horizontal')
+    // And it stays inside the tile it was forced into, which is the same
+    // omit-never-clip claim from the other side.
+    expect(tall!.slider!.left).toBeGreaterThanOrEqual(tall!.card.left - TOLERANCE)
+    expect(tall!.slider!.right).toBeLessThanOrEqual(tall!.card.right + TOLERANCE)
+  }
 })

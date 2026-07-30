@@ -81,8 +81,14 @@ describe('controlFitsArrangement', () => {
     // target anyone could hit, whatever the row's height allows.
     expect(controlFitsArrangement('vertical', 'row', 20)).toBe(false)
     expect(controlFitsArrangement('vertical', 'row', 24)).toBe(true)
-    // `stack` too — the `full` tier uses the `row` arrangement, so the two
-    // shapes here are the only ones a control that is not `tall`'s can land in.
+    /*
+     * `stack` answers the same way, and the case is totality rather than a
+     * reachable state: the `full` tier uses the `row` arrangement, and `stack`
+     * is `glance`, where the placement contract renders no inline slider at all.
+     * A predicate on the omit-never-clip path should have an answer for every
+     * shape it can be handed rather than a gap where a caller might one day
+     * arrive.
+     */
     expect(controlFitsArrangement('vertical', 'stack', 20)).toBe(false)
   })
 

@@ -82,7 +82,10 @@ const sliderOrientation = (label: string) =>
  * can check about them.
  */
 const stampedControlOrientation = () =>
-  document.querySelector('.liebe-card-body')!.getAttribute('data-control-orientation')
+  document.querySelector('.liebe-card-body')?.getAttribute('data-control-orientation') ?? null
+
+/** The body itself, so an "unstamped" assertion cannot pass on a missing body. */
+const cardBody = () => document.querySelector('.liebe-card-body')
 
 const light = makeEntity('light.living_room', 'on', {
   friendly_name: 'Living Room',
@@ -227,6 +230,9 @@ describe('the light card’s brightness placement', () => {
     )
 
     expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
+    // The body is there and carries no orientation — not "there is no body",
+    // which would satisfy the same assertion for a card that failed to render.
+    expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
   })
 
@@ -261,6 +267,7 @@ describe('the light card’s brightness placement', () => {
 
     expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
     expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
+    expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
   })
 })
@@ -312,6 +319,7 @@ describe('the cover card’s position placement', () => {
     withConfig(<CoverCard entityId="cover.simple" tier="row" />, { sliderPlacement: 'vertical' })
 
     expect(screen.queryByLabelText('Position')).not.toBeInTheDocument()
+    expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
   })
 })
@@ -356,6 +364,7 @@ describe('the fan card’s speed placement', () => {
       'data-orientation',
       'horizontal'
     )
+    expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
   })
 })
