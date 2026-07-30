@@ -334,6 +334,24 @@ describe('baseline stylesheets', () => {
     expect(allSheets).toEqual(expect.arrayContaining(FONT_SHEETS))
   })
 
+  /**
+   * `@property` registrations, which are lifted out before a sheet is judged.
+   *
+   * The second exception, and no more an exemption than the font one: the rule
+   * is about *overridable declarations*, and a registration declares no style
+   * at all — it gives a custom property a syntax, an inherit flag and an
+   * initial value, none of which a theme could want to outrank. What it does
+   * is make the property animatable, which is why it cannot be layered:
+   * `@property` is a TOP-LEVEL at-rule, and a parser is entitled to ignore a
+   * nested one, leaving the property unregistered and any transition on it
+   * inert (`src/components/GridCard.css` — the icon-only tile's tint colour).
+   *
+   * So the carve-out is the narrowest shape that admits it: only `@property`
+   * blocks, only where they are already outside every layer, and the sheet's
+   * remaining body still has to be wholly layered.
+   */
+  const PROPERTY_RULE = /@property\s+[^{]+\{[^}]*\}/g
+
   it.each(sheets)('%s puts all of its CSS inside a cascade layer', (sheet) => {
     const rules = stripComments(read(`../../../${sheet}`)).trim()
     const statement =
@@ -341,10 +359,28 @@ describe('baseline stylesheets', () => {
 
     expect(rules).toContain(statement)
 
-    const body = rules.replace(statement, '').trim()
+    const body = rules.replace(statement, '').replace(PROPERTY_RULE, '').trim()
     expect(body.startsWith('@layer ')).toBe(true)
     expect(isFullyLayered(body)).toBe(true)
     expect(topLevelLayerBlocks(body)).toBe(1)
+  })
+
+  it.each(sheets)('%s keeps any @property registration outside every layer', (sheet) => {
+    // The other half of the carve-out above, and the half that makes it safe:
+    // stripping `@property` unconditionally would also hide one NESTED inside
+    // the layer — the exact defect that silently unregisters the property and
+    // kills the fade. So every registration a sheet has must appear before the
+    // layer block opens.
+    //
+    // Sheets with none pass vacuously and that is correct; the registrations
+    // that exist are pinned in the sheet's own test as well
+    // (`cardShellStyles.test.ts`), where the count is not vacuous.
+    const rules = stripComments(read(`../../../${sheet}`)).trim()
+    const layerBlock = rules.indexOf('@layer liebe-base {')
+
+    for (const match of rules.matchAll(PROPERTY_RULE)) {
+      expect(match.index, `${sheet}: @property is nested inside a layer`).toBeLessThan(layerBlock)
+    }
   })
 })
 

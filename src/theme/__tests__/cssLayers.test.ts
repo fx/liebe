@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   BASE_LAYER,
@@ -225,6 +226,65 @@ describe('prepareBaselineCss', () => {
     expect(prepared).toContain(`@layer ${BASE_LAYER} {`)
     expect(prepared).toContain('color: red;')
     expect(prepared).toContain('display: block !important')
+  })
+})
+
+describe('@property registrations', () => {
+  /**
+   * `@property` is a top-level at-rule. Nested inside `@layer`, a parser is
+   * entitled to ignore it — the property is then unregistered and any
+   * transition on it silently does not run, which is the whole reason a sheet
+   * registers one (`src/components/GridCard.css` — the icon-only tile's tint
+   * fades because its colour is registered).
+   *
+   * That makes the SHIPPED shape the thing worth asserting rather than the
+   * authored one: a registration written correctly at the top of a sheet is
+   * still wrapped by the baseline transform unless this module hoists it, so
+   * source placement alone proves nothing about what reaches the browser.
+   */
+  const REGISTRATION = '@property --x { syntax: "<color>"; inherits: false; initial-value: red }'
+
+  /** Brace depth at `needle`; 0 is top level, anything more is nested. */
+  function depthAt(css: string, needle: string): number {
+    const index = css.indexOf(needle)
+    expect(index, `not found: ${needle}`).toBeGreaterThan(-1)
+
+    let depth = 0
+    for (const character of css.slice(0, index)) {
+      if (character === '{') depth += 1
+      else if (character === '}') depth -= 1
+    }
+    return depth
+  }
+
+  it('reads a sheet with one as fully layered, so it passes through', () => {
+    const sheet = `${LAYER_ORDER_STATEMENT}\n${REGISTRATION}\n@layer ${BASE_LAYER} { .a { color: red } }`
+
+    expect(isFullyLayered(sheet)).toBe(true)
+    expect(wrapInLayer(sheet, BASE_LAYER)).toBe(sheet)
+  })
+
+  it('hoists one out of the wrapper it adds to an unlayered sheet', () => {
+    const wrapped = wrapInLayer(`${REGISTRATION}\n.a { color: red }`, BASE_LAYER)
+
+    expect(depthAt(wrapped, '@property')).toBe(0)
+    // And the rule beside it is still enclosed — hoisting the registration must
+    // not carry ordinary CSS out with it.
+    expect(depthAt(wrapped, '.a {')).toBe(1)
+  })
+
+  it('leaves the card shell’s own registration at top level as it ships', () => {
+    // The real sheet through the real transform, which is the only form of this
+    // that could have caught the defect: the authored file had the registration
+    // at top level and the baseline wrapper put it back inside the layer.
+    // The specifier goes through a variable deliberately: Vite rewrites a
+    // *literal* `new URL('./x', import.meta.url)` into an asset URL, which is
+    // no longer a `file:` URL and cannot be read from disk.
+    const sheetPath = '../../components/GridCard.css'
+    const sheet = readFileSync(fileURLToPath(new URL(sheetPath, import.meta.url)), 'utf8')
+    const prepared = prepareBaselineCss(sheet)
+
+    expect(depthAt(prepared, '@property --liebe-icon-tile-tint')).toBe(0)
   })
 })
 

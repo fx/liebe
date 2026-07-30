@@ -201,6 +201,19 @@ function isAllowedStatement(text: string): boolean {
 }
 
 /**
+ * A top-level `@property` block — a registration, which is not a rule to layer.
+ *
+ * `@property` gives a custom property a syntax, an inherit flag and an initial
+ * value. It declares no style, so there is nothing in it for a theme to want to
+ * outrank — and it is a **top-level** at-rule: nested inside `@layer`, a parser
+ * is entitled to ignore it, which silently leaves the property unregistered and
+ * any transition on it inert. So it is the one construct this module hoists out
+ * of the wrapper rather than enclosing (docs/specs/theming — "Application
+ * mechanism"; the shipped case is the icon-only tile's tint colour).
+ */
+const PROPERTY_RULE = /@property\s+[^{};]+\{[^{}]*\}/gi
+
+/**
  * Whether every rule in a sheet is already inside a cascade layer.
  *
  * Deliberately structural rather than "does the text contain `@layer`": a sheet
@@ -210,12 +223,16 @@ function isAllowedStatement(text: string): boolean {
  * module exists to prevent. Being wrong in the safe direction costs only a
  * redundant wrapper (a nested layer still sorts inside its parent), so anything
  * this cannot read as fully enclosed is treated as not enclosed.
+ *
+ * `@property` registrations are read past rather than counted against the
+ * sheet: see `PROPERTY_RULE`. They are the reason a Liebe sheet can be
+ * "fully layered" while text sits outside the block.
  */
 export function isFullyLayered(css: string): boolean {
   let depth = 0
   let pending = ''
 
-  for (const character of css.replace(COMMENT, '')) {
+  for (const character of css.replace(COMMENT, '').replace(PROPERTY_RULE, '')) {
     if (character === '{') {
       if (depth === 0 && !pending.trim().toLowerCase().startsWith('@layer')) return false
       depth += 1
@@ -247,15 +264,25 @@ export function isFullyLayered(css: string): boolean {
  * unchanged; vendored sheets and any future unlayered CSS get wrapped. The
  * order statement is prepended either way, so a root that only ever sees this
  * one sheet still gets the order right.
+ *
+ * `@property` registrations are lifted OUT of the wrapper before it goes on,
+ * and that is not a nicety: wrapping one puts it inside `@layer`, where a
+ * parser may ignore it — so a registration that is correct in the source would
+ * arrive at the browser unregistered, and the only symptom is a transition that
+ * silently does not run. Source-level placement is therefore not sufficient on
+ * its own; `__tests__/cssLayers.test.ts` pins the shipped shape.
  */
 export function wrapInLayer(css: string, layer: string): string {
   const layered = isFullyLayered(css)
   if (layered && css.includes(LAYER_ORDER_STATEMENT)) return css
 
   const { charset, body } = splitCharset(css)
-  const rules = layered ? body : `@layer ${layer} {\n${body}\n}\n`
+  const registrations = body.match(PROPERTY_RULE) ?? []
+  const withoutRegistrations = registrations.length ? body.replace(PROPERTY_RULE, '') : body
+  const rules = layered ? withoutRegistrations : `@layer ${layer} {\n${withoutRegistrations}\n}\n`
+  const hoisted = registrations.length ? `${registrations.join('\n')}\n` : ''
 
-  return `${charset}${LAYER_ORDER_STATEMENT}\n${rules}`
+  return `${charset}${LAYER_ORDER_STATEMENT}\n${hoisted}${rules}`
 }
 
 /**
