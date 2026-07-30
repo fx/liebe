@@ -154,6 +154,28 @@
    */
   .media-player-card-backdrop [data-color] {
     --part-text: #fff;
+    --part-glyph: #fff;
+  }
+
+  /*
+   * The glyph roles, which are neither of the two above.
+   *
+   * An anatomy glyph takes `--liebe-faint` while inactive and `--part-glyph`
+   * while active (`anatomy.css`), and over artwork both are wrong for the same
+   * reason `--part-text` was: one is a low-alpha neutral calibrated for the card
+   * surface, the other is a hue. The option contract is explicit that this has
+   * no exceptions — "**every** overlaid element MUST take that treatment,
+   * including any that would otherwise carry a colour of its own" — and a
+   * transport button a viewer cannot find is the same defect as a title they
+   * cannot read.
+   *
+   * 80% rather than the muted 85%: a glyph is a large graphical object at the
+   * 3:1 floor, and 80% white clears 5.2:1 over the weakest point of the scrim
+   * against a white image, so the faint role stays visibly subordinate without
+   * going under any floor.
+   */
+  .media-player-card-backdrop {
+    --liebe-faint: rgb(255 255 255 / 80%);
   }
 
   /* `text-shadow` inherits on its own, so the scope carries it for every line. */

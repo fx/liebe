@@ -171,28 +171,38 @@ const SCRIMS = [
 ]
 
 /**
- * The tokens every overlaid foreground resolves to.
+ * Every foreground role something overlaid on artwork can resolve to, with the
+ * floor that role answers to.
  *
  * `--liebe-fg` for names and big readouts, `--liebe-muted` for state lines and
  * supporting values, `--part-text` for an ACTIVE state line, which takes the
- * domain's text step instead of the muted foreground (`anatomy.css`). All three
- * have to clear the floor, and the third is the one that got away: it is a hue
- * rather than a foreground, so scoping the first two left the media card's
- * artist line coloured by its domain on top of the photograph.
+ * domain's text step instead of the muted foreground (`anatomy.css`). Those are
+ * text, at 4.5:1. `--part-glyph` and `--liebe-faint` colour the active and
+ * inactive glyph, which is a large graphical object at 3:1 — the floor the
+ * [active-state pattern](docs/specs/design-system/index.md#domain-color-discipline)
+ * calibrates a glyph against, and the one the icon-only tile rule restates.
+ *
+ * The list is the whole point. Scoping the first two and stopping is exactly
+ * what left the media card's artist line coloured by its domain and its
+ * transport glyphs on a neutral calibrated for the card surface: neither is a
+ * foreground token, so neither saw the override, and both sit on the
+ * photograph.
  */
 const FOREGROUND_TOKENS = [
-  { property: '--liebe-fg', on: 'scope' },
-  { property: '--liebe-muted', on: 'scope' },
-  { property: '--part-text', on: 'partScope' },
+  { property: '--liebe-fg', on: 'scope', floor: 4.5 },
+  { property: '--liebe-muted', on: 'scope', floor: 4.5 },
+  { property: '--part-text', on: 'partScope', floor: 4.5 },
+  { property: '--part-glyph', on: 'partScope', floor: 3 },
+  { property: '--liebe-faint', on: 'scope', floor: 3 },
 ] as const
 
 describe.each(SCRIMS)('$name scrim', ({ source, scrim, scope, partScope, behind }) => {
   const scopeFor = (on: 'scope' | 'partScope') => (on === 'scope' ? scope : partScope)
 
-  it('holds the 4.5:1 text floor at every point, against the worst image', () => {
+  it('holds each role’s floor at every point, against the worst image', () => {
     const alphas = scrimAlphas(source, scrim)
 
-    for (const { property, on } of FOREGROUND_TOKENS) {
+    for (const { property, on, floor } of FOREGROUND_TOKENS) {
       const foreground = token(source, scopeFor(on), property)
 
       for (const alpha of alphas) {
@@ -202,8 +212,8 @@ describe.each(SCRIMS)('$name scrim', ({ source, scrim, scope, partScope, behind 
 
         expect(
           ratio,
-          `${property} over ${scrim} at ${(alpha * 100).toFixed(0)}% measured ${ratio.toFixed(2)}:1`
-        ).toBeGreaterThanOrEqual(4.5)
+          `${property} over ${scrim} at ${(alpha * 100).toFixed(0)}% measured ${ratio.toFixed(2)}:1, floor ${floor}:1`
+        ).toBeGreaterThanOrEqual(floor)
       }
     }
   })

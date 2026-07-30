@@ -263,7 +263,12 @@ function WeatherCardDetailedContent(props: CardProps) {
           <GridCard.Icon>
             <span
               style={{
-                color: isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+                ...styles.icon,
+                color: backgroundImage
+                  ? WEATHER_ARTWORK_FG
+                  : isStale
+                    ? 'var(--orange-9)'
+                    : 'var(--accent-9)',
                 opacity: isStale ? 0.6 : 1,
               }}
             >
