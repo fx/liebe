@@ -204,6 +204,32 @@ describe('LCARS stylesheet', () => {
     expect(rules).not.toContain('38%')
   })
 
+  it('chooses the glyph against the disc rather than fixing it, for a live hue', () => {
+    /*
+     * The disc is `--liebe-part-color`, and on the two data-driven paths — a
+     * bulb's own RGB, a person's identity colour — that is a value no theme has
+     * seen. A FIXED dark glyph on it is whatever the data makes it: 2.44:1 for
+     * a pure-blue bulb against the 3:1 floor, and 3.90:1 for the worst identity
+     * hue against the 4.5:1 an avatar's initials answer to (change 0035 PR 6,
+     * decoded pixels).
+     *
+     * What this forbids is the fixed colour standing ALONE. The rule above
+     * still declares it — deliberately, as the fallback for browsers without
+     * `contrast-color()` — so asserting "the sheet mentions contrast-color"
+     * would pass on a sheet that never applied it to this part. The assertion
+     * is therefore that the derived colour is applied to the same three parts,
+     * from the same token the background reads.
+     */
+    const derived = ruleBody(
+      '.liebe-icon[data-active],\n    .liebe-pill[data-active],\n    .liebe-chip[data-active]'
+    )
+    expect(derived).toContain('color: contrast-color(var(--liebe-part-color));')
+
+    // Behind a support query, so a browser without the function keeps the
+    // treatment it has today rather than losing the declaration entirely.
+    expect(rules).toContain('@supports (color: contrast-color(red))')
+  })
+
   it('declares every token on the root rule and nowhere else', () => {
     // A token declared on a descendant is the value that descendant uses
     // however the cascade went above it, so a theme setting one on a pill

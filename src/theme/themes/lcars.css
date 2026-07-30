@@ -409,6 +409,68 @@
   }
 
   /*
+   * The glyph is chosen AGAINST the disc rather than fixed, because the disc
+   * is not always a colour this theme picked.
+   *
+   * `--liebe-part-color` carries whatever the part resolved to, and for the two
+   * data-driven paths — a bulb's own RGB under `useLightColor`, a person's
+   * identity colour — that is a value no theme has seen (docs/specs/design-system
+   * — "Domain color discipline"). A fixed dark glyph on it is whatever the data
+   * makes it: measured 2.44:1 for a pure-blue bulb against the 3:1 glyph floor,
+   * and 3.90:1 for the worst identity hue against the 4.5:1 an avatar's initials
+   * answer to as text (change 0035 PR 6).
+   *
+   * `contrast-color()` returns black or white, whichever contrasts more, so it
+   * can only equal or beat the fixed black it replaces — and it needs no token
+   * this theme does not already read. That is the finding this rule records:
+   * the theming contract was sufficient, and the gap was that this theme
+   * declared a colour where it could derive one.
+   *
+   * Behind `@supports` and layered after the fixed-black rule so the older
+   * browsers that lack the function keep exactly the treatment they have today,
+   * rather than losing the declaration and inheriting something arbitrary.
+   */
+  @supports (color: contrast-color(red)) {
+    .liebe-icon[data-active],
+    .liebe-pill[data-active],
+    .liebe-chip[data-active] {
+      color: contrast-color(var(--liebe-part-color));
+    }
+  }
+
+  /*
+   * The middle rung, for browsers that have relative colour syntax but not
+   * `contrast-color()` — a much wider set, since the latter is very new.
+   *
+   * Same job by hand: read the disc's own lightness and snap the glyph to black
+   * or white. `clamp()` does the branching CSS otherwise cannot — the inner
+   * expression is hugely positive below the threshold and hugely negative above
+   * it, so it saturates to 1 or 0 and the chroma of 0 keeps the result neutral.
+   * The threshold is measured rather than derived, and it does NOT fully
+   * reproduce the function above: swept at 0.45 / 0.50 / 0.56 / 0.62 / 0.70,
+   * the best value leaves one of the eight identity hues at 4.42:1 against the
+   * 4.5:1 an avatar's initials answer to as text. No single lightness cut can
+   * reproduce `contrast-color()` for chromatic colours, because Oklch L does
+   * not track WCAG relative luminance across hues. This rung is therefore a
+   * NARROWING, not a closure: on a browser without the function it takes the
+   * failing composites from six to one, and the residual is recorded in change
+   * 0035 PR 7 rather than papered over.
+   *
+   * Nested inside `not (contrast-color)` so the two rungs are mutually
+   * exclusive rather than racing on source order, and so a browser with both
+   * takes the purpose-built function.
+   */
+  @supports not (color: contrast-color(red)) {
+    @supports (color: oklch(from red l c h)) {
+      .liebe-icon[data-active],
+      .liebe-pill[data-active],
+      .liebe-chip[data-active] {
+        color: oklch(from var(--liebe-part-color) clamp(0, (l - 0.56) * -1000, 1) 0 h);
+      }
+    }
+  }
+
+  /*
    * An icon-only tile is itself the tint surface (docs/specs/design-system —
    * "Card anatomy", the icon-only exception), so the okudagram disc has to go
    * there: the base sheet drops `.liebe-icon`'s background for that case, and
