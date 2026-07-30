@@ -87,13 +87,20 @@ npm run e2e:full
 
 # Or step by step:
 npm run build:ha:prod   # build dist/panel.js the container serves
-npm run e2e:ha:up       # start Home Assistant on http://localhost:8123 (waits until healthy)
+npm run e2e:ha:up       # start this checkout's Home Assistant (waits until healthy)
 npm run e2e             # run the Playwright suite
+npm run e2e:ha:env      # print the project name, ports and URLs it resolved to
 npm run e2e:ha:down     # stop and remove the stack
 ```
 
 Details:
 
+- **The stack is per checkout**, so several worktrees can run the suite at once —
+  see [architecture — end-to-end harness](docs/specs/architecture/index.md#end-to-end-harness)
+  for what that guarantees. Practically: there is no fixed port, so ask
+  `npm run e2e:ha:env` for the URL rather than assuming 8123. `LIEBE_E2E_HA_PORT`
+  and `LIEBE_E2E_GO2RTC_PORT` pin your own (export them for the test run too);
+  `LIEBE_E2E_PROJECT` pins the compose project name.
 - The stack pins a Home Assistant image and mounts the built `dist/` read-only at
   `/local/dist`, registering the panel via `panel_custom` as `liebe-panel`.
 - `scripts/onboard.mjs` onboards a fresh instance (or logs into a persisted one)

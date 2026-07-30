@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 import { useServiceCall } from '~/hooks'
 import { Pill, PillGroup } from '../anatomy'
 import { ConfirmToggleDialog } from '../ConfirmToggleDialog'
-import { Keypad } from './Keypad'
+import { Keypad } from '~/components/Keypad'
 import { ALARM_OPTION_DEFAULTS, type ArmMode } from '~/store/alarmOptions'
 import {
   ARM_CONFIRM_PROMPT,

@@ -125,11 +125,11 @@ describe('AlarmDetailControls', () => {
     render(<AlarmDetailControls entity={panel('armed_away', { code_format: 'number' })} />)
 
     fireEvent.click(button('Disarm'))
-    expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+    expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
 
     fireEvent.click(button('Cancel'))
 
-    expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
     expect(mockDispatchGuarded).not.toHaveBeenCalled()
   })
 

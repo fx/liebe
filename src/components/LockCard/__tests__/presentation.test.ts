@@ -5,6 +5,7 @@ import {
   LOCK_STATE,
   UNLOCK_CONFIRM_PROMPT,
   classifyLockRoute,
+  lockKeypadShownFor,
   requiresLockConfirmation,
   resolveDoorFragment,
   resolveLockPresentation,
@@ -247,48 +248,113 @@ describe('classifyLockRoute', () => {
   })
 })
 
+describe('lockKeypadShownFor', () => {
+  const context = (state: string) => ({ entityId: ENTITY_ID, state })
+
+  it.each([LOCK_STATE.LOCKED, LOCK_STATE.UNLOCKED, LOCK_STATE.OPEN])(
+    'shows the keypad for a toggle in %s on a coded lock',
+    (state) => {
+      expect(lockKeypadShownFor('toggle', context(state), 'number')).toBe(true)
+    }
+  )
+
+  it.each([LOCK_STATE.LOCKED, LOCK_STATE.UNLOCKED])(
+    'shows none in %s when the lock publishes no code_format',
+    (state) => {
+      // The regression case for every lock that exists today: with no format,
+      // this answers false everywhere and the gates stand where they always did.
+      expect(lockKeypadShownFor('toggle', context(state), undefined)).toBe(false)
+    }
+  )
+
+  it.each([LOCK_STATE.JAMMED, LOCK_STATE.LOCKING, LOCK_STATE.UNLOCKING, LOCK_STATE.OPENING])(
+    'shows none in %s, where the toggle dispatches nothing to collect a code for',
+    (state) => {
+      expect(lockKeypadShownFor('toggle', context(state), 'number')).toBe(false)
+    }
+  )
+
+  it.each(['unavailable', 'unknown', ''])('shows none in %j, which is indeterminate', (state) => {
+    expect(lockKeypadShownFor('toggle', context(state), 'number')).toBe(false)
+  })
+
+  it.each([
+    { action: 'call-service', service: 'lock.unlock' },
+    { action: 'call-service', service: 'lock.lock' },
+    { action: 'call-service', service: 'lock.open' },
+    { action: 'call-service', service: 'homeassistant.turn_off' },
+    'more-info',
+    'none',
+  ] as ResolvedCardAction[])('shows none for %j, which the shell dispatches itself', (action) => {
+    /*
+     * The load-bearing case. The shell sends a configured `call-service` with
+     * the payload the user wrote and no keypad of this card's intervenes — so
+     * answering `true` here would suppress the confirmation in favour of a
+     * keypad that never appears, leaving a coded lock's re-routed unlock
+     * ungated. That is strictly worse than the double-prompt this helper exists
+     * to avoid.
+     */
+    expect(lockKeypadShownFor(action, context(LOCK_STATE.LOCKED), 'number')).toBe(false)
+  })
+})
+
 describe('requiresLockConfirmation', () => {
+  it('is suppressed by a keypad, which is the stronger gate', () => {
+    /*
+     * Entering a code is a more deliberate act than answering "Unlock Front
+     * Door?", so the keypad replaces the dialog rather than joining it — two
+     * prompts for one intent is how a confirmation becomes something people
+     * click past. It overrides `confirmUnlock` at its default, which is the
+     * whole point: the default is on, and a coded lock must still see one gate
+     * rather than two.
+     */
+    expect(requiresLockConfirmation('unlocking', bothGates, true)).toBe(false)
+    expect(requiresLockConfirmation('locking', bothGates, true)).toBe(false)
+    expect(requiresLockConfirmation('unclassifiable', bothGates, true)).toBe(false)
+    expect(requiresLockConfirmation('unlocking', LOCK_OPTION_DEFAULTS, true)).toBe(false)
+  })
+
   it('gates unlocking on confirmUnlock and locking on confirmLock', () => {
-    expect(requiresLockConfirmation('unlocking', { confirmUnlock: true, confirmLock: false })).toBe(
-      true
-    )
-    expect(requiresLockConfirmation('unlocking', { confirmUnlock: false, confirmLock: true })).toBe(
-      false
-    )
-    expect(requiresLockConfirmation('locking', { confirmUnlock: false, confirmLock: true })).toBe(
-      true
-    )
-    expect(requiresLockConfirmation('locking', { confirmUnlock: true, confirmLock: false })).toBe(
-      false
-    )
+    expect(
+      requiresLockConfirmation('unlocking', { confirmUnlock: true, confirmLock: false }, false)
+    ).toBe(true)
+    expect(
+      requiresLockConfirmation('unlocking', { confirmUnlock: false, confirmLock: true }, false)
+    ).toBe(false)
+    expect(
+      requiresLockConfirmation('locking', { confirmUnlock: false, confirmLock: true }, false)
+    ).toBe(true)
+    expect(
+      requiresLockConfirmation('locking', { confirmUnlock: true, confirmLock: false }, false)
+    ).toBe(false)
   })
 
   it('never gates a route that does not actuate this lock', () => {
-    expect(requiresLockConfirmation('neutral', bothGates)).toBe(false)
+    expect(requiresLockConfirmation('neutral', bothGates, false)).toBe(false)
   })
 
   it('gates an unclassifiable route whenever EITHER gate is on', () => {
-    expect(requiresLockConfirmation('unclassifiable', bothGates)).toBe(true)
+    expect(requiresLockConfirmation('unclassifiable', bothGates, false)).toBe(true)
     expect(
-      requiresLockConfirmation('unclassifiable', { confirmUnlock: true, confirmLock: false })
+      requiresLockConfirmation('unclassifiable', { confirmUnlock: true, confirmLock: false }, false)
     ).toBe(true)
     expect(
-      requiresLockConfirmation('unclassifiable', { confirmUnlock: false, confirmLock: true })
+      requiresLockConfirmation('unclassifiable', { confirmUnlock: false, confirmLock: true }, false)
     ).toBe(true)
   })
 
   it('respects a household that switched both gates off', () => {
     // The one case an unclassifiable route passes: nothing is gated on this
     // card at all, so holding it would be a dialog nobody asked for.
-    expect(requiresLockConfirmation('unclassifiable', neitherGate)).toBe(false)
+    expect(requiresLockConfirmation('unclassifiable', neitherGate, false)).toBe(false)
   })
 
   it('gates the unlock direction at the shipped defaults', () => {
-    expect(requiresLockConfirmation('unlocking', LOCK_OPTION_DEFAULTS)).toBe(true)
-    expect(requiresLockConfirmation('locking', LOCK_OPTION_DEFAULTS)).toBe(false)
+    expect(requiresLockConfirmation('unlocking', LOCK_OPTION_DEFAULTS, false)).toBe(true)
+    expect(requiresLockConfirmation('locking', LOCK_OPTION_DEFAULTS, false)).toBe(false)
     // An unconfigured card still holds an ambiguous route, because
     // `confirmUnlock` is on.
-    expect(requiresLockConfirmation('unclassifiable', LOCK_OPTION_DEFAULTS)).toBe(true)
+    expect(requiresLockConfirmation('unclassifiable', LOCK_OPTION_DEFAULTS, false)).toBe(true)
   })
 
   /*
@@ -300,7 +366,9 @@ describe('requiresLockConfirmation', () => {
   it('confirms every direction except the one proven harmless', () => {
     const directions: LockRouteDirection[] = ['unlocking', 'locking', 'neutral', 'unclassifiable']
 
-    const passed = directions.filter((direction) => !requiresLockConfirmation(direction, bothGates))
+    const passed = directions.filter(
+      (direction) => !requiresLockConfirmation(direction, bothGates, false)
+    )
 
     expect(passed).toEqual(['neutral'])
   })
