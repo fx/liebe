@@ -105,7 +105,10 @@ export function arrowKeyDelta(key: string, step: number): number {
 }
 
 export function ClimateDialContent(props: CardProps) {
-  const { config } = useCardItem()
+  const { config: publishedConfig } = useCardItem()
+  // One name for the resolved options, as in the two components below — see
+  // `ClimateCompactContent` for why the unresolved prop is not left beside it.
+  const config = props.config ?? publishedConfig
   /*
    * This variant's icon-only form (docs/specs/entity-cards/options/common.md —
    * "Every card and every registered variant MUST resolve an icon-only form").
@@ -137,7 +140,7 @@ export function ClimateDialContent(props: CardProps) {
    * Read before the branch below, so the hook order is settled the same way the
    * tier settles it: whichever component renders, it renders from the top.
    */
-  const { iconOnly } = readCardDisplay(props.config ?? config)
+  const { iconOnly } = readCardDisplay(config)
 
   // The tier decides which component renders at all, so it is settled before any
   // hook runs — the dial and the compact layout do not share a hook order, and

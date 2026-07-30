@@ -24,10 +24,27 @@ function WeatherCardMinimalContent(props: CardProps) {
     onDelete,
     isSelected = false,
     onSelect,
-    config,
+    config: configProp,
     onConfigure,
   } = props
   const publishedItem = useCardItem()
+  /*
+   * The card's stored options, from the renderer's prop when it passed one and
+   * off the published item otherwise, because both are real: the grid hands a
+   * placed card both, while anything that publishes only the item context (the
+   * configuration preview) is still a card the options have to reach.
+   *
+   * Bound to the name `config` rather than resolved into a second variable
+   * beside the raw prop, and that is the point rather than a style choice: a
+   * component holding both an unresolved `config` and a resolved `storedConfig`
+   * invites the next option read to take whichever is nearer, and the two
+   * disagree on exactly one path. This variant shipped that: the `iconOnly` read
+   * below took the resolved value while `readWeatherOptions` a line above kept
+   * the bare prop, so a card rendered through `CardItemProvider` with no prop
+   * ignored its persisted `temperatureUnit`. One name, one source, nothing left
+   * to pick wrongly.
+   */
+  const config = configProp ?? publishedItem.config
   const options = readWeatherOptions(config)
   /*
    * The one universal option this variant has to read for itself. The seam
@@ -37,18 +54,13 @@ function WeatherCardMinimalContent(props: CardProps) {
    * (docs/specs/entity-cards/options/common.md — "Every card and every
    * registered variant MUST resolve an icon-only form").
    *
-   * Off the prop when the renderer passed one and off the published item
-   * otherwise, because both are real: the grid hands a placed card both, while
-   * anything that publishes only the item context (the configuration preview) is
-   * still a card the option has to reach. The **same** resolution then goes to
-   * the shell below, which is the part that cannot be skipped: a card that reads
-   * one source while its shell reads another renders half the option — this
-   * glyph on a tile that never suppressed anything and never stamped the
-   * marker. `ActionCard` and `CameraCard` pass their resolved config down for
-   * exactly this reason.
+   * The same resolution goes to the shell below, which is the part that cannot
+   * be skipped: a card that reads one source while its shell reads another
+   * renders half the option — this glyph on a tile that never suppressed
+   * anything and never stamped the marker. `ActionCard` and `CameraCard` pass
+   * their resolved config down for exactly this reason.
    */
-  const storedConfig = config ?? publishedItem.config
-  const { iconOnly } = readCardDisplay(storedConfig)
+  const { iconOnly } = readCardDisplay(config)
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
 
   // Show skeleton while loading initial data
@@ -123,7 +135,7 @@ function WeatherCardMinimalContent(props: CardProps) {
        * it started resolving the option for itself.
        */
       entityId={entityId}
-      config={storedConfig}
+      config={config}
     >
       {/*
        * `minimal` is the variant that renders LESS than its tier allows, which

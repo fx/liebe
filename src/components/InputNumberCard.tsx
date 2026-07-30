@@ -342,11 +342,19 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
   onDelete,
   isSelected = false,
   onSelect,
-  config,
+  config: configProp,
 }: InputNumberCardProps) {
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
   const publishedItem = useCardItem()
+  /*
+   * The renderer's config when it passed one, the published item's otherwise —
+   * bound to one name so every option read below resolves from one source. The
+   * unresolved prop is deliberately not left in scope beside it: a component
+   * holding both is one where the next read takes whichever is nearer, and the
+   * two disagree on the path where only the context is supplied.
+   */
+  const config = configProp ?? publishedItem.config
 
   const handleClick = useCallback(() => {
     // Card click is handled by GridCard
@@ -424,8 +432,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    * built with the stepper, so the loader pins them to it; the attribute
    * default reaches new cards only (common contract, convention 7).
    */
-  const storedConfig = config ?? publishedItem.config
-  const controlStyle = readNumberControlStyle(storedConfig, attributes.mode)
+  const controlStyle = readNumberControlStyle(config, attributes.mode)
   /*
    * ...and what the tier lets that style render. `tall` is one column wide, so
    * the stepper gives way to the vertical slider there; the stored value is
@@ -449,7 +456,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    * cannot disagree about the option: read here and not there, the glyph would
    * land on a tile that suppressed nothing and stamped no marker.
    */
-  const { iconOnly } = readCardDisplay(storedConfig)
+  const { iconOnly } = readCardDisplay(config)
 
   return (
     <GridCard
@@ -484,7 +491,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        * — "Visual suppression never removes accessible semantics").
        */
       entityId={entityId}
-      config={storedConfig}
+      config={config}
     >
       {/*
        * `glance` is the value and the name, and nothing else: the reading is the
