@@ -42,32 +42,57 @@ import { join, dirname } from 'node:path'
  *     it says the ban has become redundant and can be reconsidered. Asserting
  *     it is the difference between "we chose to ban this" and "we can no longer
  *     remember why we banned this".
- *  4. The ban also fires on the three spellings that evade a naive version of
- *     it — an aliased namespace, computed access, and destructuring off the
- *     namespace. Each of those was a real hole found in review, not a
- *     hypothetical; the destructured one evaded the rule as well as the ban.
+ *  4. The imported binding is **not** restricted. This is the half a ban is
+ *     most likely to break, and the half whose breakage a "does it fire?" test
+ *     cannot see: a selector that grew to match the direct import would leave
+ *     no legal way to write an effect at all.
+ *  5. The ban also fires on the spellings that evade a naive version of it — an
+ *     aliased namespace, computed access in both static spellings, and
+ *     destructuring off the namespace likewise. Each of those was a real hole
+ *     found in review, not a hypothetical; the destructured one evaded the rule
+ *     as well as the ban.
+ *
+ * 1, 3 and 4 run across all three hooks the ban names rather than `useEffect`
+ * alone, so a regression narrowing the selectors to one hook goes red.
  */
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+/**
+ * The three hooks the ban covers, which is exactly the set
+ * `react-hooks/set-state-in-effect` inspects. All three are exercised in every
+ * form rather than only `useEffect`: the selectors name all three, so a
+ * regression dropping two of them would otherwise leave this file green.
+ */
+const EFFECT_HOOKS = ['useEffect', 'useLayoutEffect', 'useInsertionEffect'] as const
 
 /**
  * A component that resets state from an effect — the pattern the rule rejects.
  *
  * `prelude` is for the spellings that are established before the call rather
  * than at it: destructuring off the namespace produces a plain identifier at
- * the call site, so there is nothing there to key on.
+ * the call site, so there is nothing there to key on. `imports` is a named
+ * import list, present only for the fixtures whose call site is the imported
+ * binding — the form that must stay *permitted*.
  */
-function fixture(effectCall: string, prelude = '') {
+function fixture({
+  call,
+  prelude = '',
+  imports = '',
+}: {
+  call: string
+  prelude?: string
+  imports?: string
+}) {
   return `import * as React from 'react'
 import * as Hooks from 'react'
-import { useEffect } from 'react'
-
+${imports ? `import { ${imports} } from 'react'\n` : ''}
 void Hooks
 ${prelude}
 
 export function Probe() {
   const [value, setValue] = React.useState<string | null>(null)
-  ${effectCall}(() => {
+  ${call}(() => {
     setValue(null)
   }, [])
   return <div>{value}</div>
@@ -115,36 +140,49 @@ beforeAll(async () => {
   rmSync(fixtureDir, { recursive: true, force: true })
   mkdirSync(fixtureDir, { recursive: true })
 
-  const cases = [
-    ['React.useEffect', join(fixtureDir, 'member.tsx'), ''],
-    ['useEffect', join(fixtureDir, 'imported.tsx'), ''],
-    // The spellings that would slip past a ban keyed on an object literally
-    // named `React` — an aliased namespace import, and computed access.
-    ['Hooks.useEffect', join(fixtureDir, 'aliased.tsx'), ''],
-    ["React['useEffect']", join(fixtureDir, 'computed.tsx'), ''],
-    // And the two that are not a member call at the call site at all, keyed by
-    // an identifier and by a string literal respectively.
-    [
-      'scopedEffect',
-      join(fixtureDir, 'destructured.tsx'),
-      'const { useEffect: scopedEffect } = React',
-    ],
-    [
-      'stringKeyedEffect',
-      join(fixtureDir, 'destructured-string-key.tsx'),
-      "const { ['useEffect']: stringKeyedEffect } = React",
-    ],
-    // The backtick spellings of the two computed forms above. Statically known,
-    // so there is no excuse for missing them — unlike `React[name]`.
-    ['React[`useEffect`]', join(fixtureDir, 'computed-template.tsx'), ''],
-    [
-      'templateKeyedEffect',
-      join(fixtureDir, 'destructured-template-key.tsx'),
-      'const { [`useEffect`]: templateKeyedEffect } = React',
-    ],
-  ] as const
+  /*
+   * Keyed by an id rather than by the call text, because the same call text now
+   * appears under different hooks. Every hook gets all three core forms; the
+   * exotic spellings that were each a real review finding are exercised on
+   * `useEffect`, since they test the selector's shape rather than its hook set.
+   */
+  const cases: { id: string; file: string; call: string; prelude?: string; imports?: string }[] =
+    EFFECT_HOOKS.flatMap((hook) => [
+      { id: `member:${hook}`, file: `member-${hook}.tsx`, call: `React.${hook}` },
+      // The permitted form. Asserted *not* restricted, so a selector that grew
+      // to ban the direct import — which would leave no legal way to write an
+      // effect — cannot pass unnoticed.
+      { id: `imported:${hook}`, file: `imported-${hook}.tsx`, call: hook, imports: hook },
+      {
+        id: `destructured:${hook}`,
+        file: `destructured-${hook}.tsx`,
+        call: `scoped_${hook}`,
+        prelude: `const { ${hook}: scoped_${hook} } = React`,
+      },
+    ])
+      .concat([
+        // Would slip past a ban keyed on an object literally named `React`.
+        { id: 'aliased', file: 'aliased.tsx', call: 'Hooks.useEffect' },
+        // Computed access, in both statically-known spellings.
+        { id: 'computed-string', file: 'computed-string.tsx', call: "React['useEffect']" },
+        { id: 'computed-template', file: 'computed-template.tsx', call: 'React[`useEffect`]' },
+        // Destructuring with a non-identifier key, likewise in both spellings.
+        {
+          id: 'destructured-string-key',
+          file: 'destructured-string-key.tsx',
+          call: 'stringKeyed',
+          prelude: "const { ['useEffect']: stringKeyed } = React",
+        },
+        {
+          id: 'destructured-template-key',
+          file: 'destructured-template-key.tsx',
+          call: 'templateKeyed',
+          prelude: 'const { [`useEffect`]: templateKeyed } = React',
+        },
+      ])
+      .map((c) => ({ ...c, file: join(fixtureDir, c.file) }))
 
-  for (const [effectCall, file, prelude] of cases) writeFileSync(file, fixture(effectCall, prelude))
+  for (const c of cases) writeFileSync(c.file, fixture(c))
 
   /*
    * One instance, one invocation: both the config and the TypeScript program
@@ -156,13 +194,13 @@ beforeAll(async () => {
    * every assertion would pass vacuously.
    */
   const eslint = new ESLint({ cwd: repoRoot, ignore: false })
-  const results = await eslint.lintFiles(cases.map(([, file]) => file))
+  const results = await eslint.lintFiles(cases.map((c) => c.file))
 
-  for (const [effectCall, file] of cases) {
-    const result = results.find((r) => r.filePath === file)
-    if (result === undefined) throw new Error(`no lint result for ${file}`)
+  for (const c of cases) {
+    const result = results.find((r) => r.filePath === c.file)
+    if (result === undefined) throw new Error(`no lint result for ${c.file}`)
     reported.set(
-      effectCall,
+      c.id,
       result.messages.filter((m) => m.severity === 2).map((m) => m.ruleId ?? '<fatal>')
     )
   }
@@ -173,45 +211,62 @@ afterAll(() => {
 })
 
 describe('effect hooks must be called through the imported binding', () => {
-  it('rejects the React.useEffect member-call form', () => {
-    expect(reported.get('React.useEffect')).toContain('no-restricted-syntax')
+  /*
+   * Every hook in the ban's set, in both spellings that evade the rule. Run
+   * across all three rather than on `useEffect` alone: the selectors name three
+   * hooks, so a regression narrowing them to one would otherwise go unnoticed.
+   */
+  it.each(EFFECT_HOOKS)('rejects the React.%s member-call form', (hook) => {
+    expect(reported.get(`member:${hook}`)).toContain('no-restricted-syntax')
+  })
+
+  it.each(EFFECT_HOOKS)('rejects %s destructured off the namespace', (hook) => {
+    expect(reported.get(`destructured:${hook}`)).toContain('no-restricted-syntax')
+  })
+
+  /*
+   * The other half of the contract, and the half a ban is most likely to break:
+   * the imported binding is the form the codebase is being pushed *towards*, so
+   * it must stay permitted. A selector that grew to match the direct import
+   * would leave no legal way to write an effect at all, and without this
+   * assertion the suite would happily report that as the gate working.
+   */
+  it.each(EFFECT_HOOKS)('permits the imported %s binding', (hook) => {
+    expect(reported.get(`imported:${hook}`)).not.toContain('no-restricted-syntax')
   })
 
   it('reports a state-writing effect written in the imported form', () => {
-    expect(reported.get('useEffect')).toContain('react-hooks/set-state-in-effect')
+    expect(reported.get('imported:useEffect')).toContain('react-hooks/set-state-in-effect')
   })
 
   it('does not report the same state write when the effect is a member call', () => {
     // The blind spot itself. If this ever contains the rule, the upstream bug
     // is fixed and the `no-restricted-syntax` ban can be revisited.
-    expect(reported.get('React.useEffect')).not.toContain('react-hooks/set-state-in-effect')
+    expect(reported.get('member:useEffect')).not.toContain('react-hooks/set-state-in-effect')
   })
 
   /*
-   * The ban is keyed on the property rather than on an object named `React`,
-   * because the blind spot follows the member call and not the receiver's name.
-   * These two spellings are what a selector pinned to `React` would have let
-   * through — and both are ordinary things to write, not contrivances: aliasing
-   * a namespace import is legal and `Hooks.useEffect(...)` reads fine.
+   * The spellings that were each a real review finding rather than a
+   * hypothetical, and that a naive version of the ban let through:
+   *
+   *  - `aliased` — a namespace import bound to something other than `React`,
+   *    which a selector pinned to that name misses;
+   *  - the computed pair — `React['useEffect']` and its backtick form;
+   *  - the destructured-key pair — the same two spellings as an object-pattern
+   *    key.
+   *
+   * The destructured ones are the worst of them: the call site is a bare
+   * identifier, so `set-state-in-effect` stays silent too. That fixture linted
+   * completely clean, with a setState inside an effect, before the selector
+   * existed.
    */
-  it.each(['Hooks.useEffect', "React['useEffect']", 'React[`useEffect`]'])(
-    'rejects %s too',
-    (effectCall) => {
-      expect(reported.get(effectCall)).toContain('no-restricted-syntax')
-    }
-  )
-
-  /*
-   * `const { useEffect } = React` is the spelling with two holes rather than
-   * one: the call site is a bare identifier, so neither member selector applies,
-   * and `set-state-in-effect` stays silent as well because the binding did not
-   * come from an import it recognises. Verified directly — that fixture linted
-   * clean, with a setState in an effect, before this selector existed.
-   */
-  it.each(['scopedEffect', 'stringKeyedEffect', 'templateKeyedEffect'])(
-    'rejects an effect hook destructured off the namespace (%s)',
-    (effectCall) => {
-      expect(reported.get(effectCall)).toContain('no-restricted-syntax')
-    }
-  )
+  it.each([
+    'aliased',
+    'computed-string',
+    'computed-template',
+    'destructured-string-key',
+    'destructured-template-key',
+  ])('rejects the %s spelling', (id) => {
+    expect(reported.get(id)).toContain('no-restricted-syntax')
+  })
 })
