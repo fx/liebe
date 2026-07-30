@@ -4,6 +4,7 @@ import { Thermometer } from 'lucide-react'
 import { useEntity } from '../../hooks'
 import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { useCardItem } from '../cardItemContext'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
@@ -31,9 +32,21 @@ function WeatherCardDefaultContent(props: CardProps) {
     onDelete,
     isSelected = false,
     onSelect,
-    config,
+    config: configProp,
     onConfigure,
   } = props
+  const publishedItem = useCardItem()
+  /*
+   * The card's stored options: the renderer's prop when it passed one, the
+   * published item's otherwise. The grid hands a placed card both, so this only
+   * changes what a renderer that publishes the item WITHOUT repeating it as a
+   * prop gets — the configuration preview among them, which was rendering this
+   * variant's defaults rather than its stored options. One name for the
+   * resolution, so a second option read cannot pick up the unresolved prop
+   * instead (which is how `WeatherCardMinimal` came to honour `iconOnly` from
+   * one source and `temperatureUnit` from another).
+   */
+  const config = configProp ?? publishedItem.config
   const options = readWeatherOptions(config)
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
 
