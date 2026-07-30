@@ -49,7 +49,10 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 /** A component that resets state from an effect — the pattern the rule rejects. */
 function fixture(effectCall: string) {
   return `import * as React from 'react'
+import * as Hooks from 'react'
 import { useEffect } from 'react'
+
+void Hooks
 
 export function Probe() {
   const [value, setValue] = React.useState<string | null>(null)
@@ -94,6 +97,10 @@ beforeAll(async () => {
   const cases = [
     ['React.useEffect', join(fixtureDir, 'member.tsx')],
     ['useEffect', join(fixtureDir, 'imported.tsx')],
+    // The two spellings that would slip past a ban keyed on an object literally
+    // named `React` — an aliased namespace import, and computed access.
+    ['Hooks.useEffect', join(fixtureDir, 'aliased.tsx')],
+    ["React['useEffect']", join(fixtureDir, 'computed.tsx')],
   ] as const
 
   for (const [effectCall, file] of cases) writeFileSync(file, fixture(effectCall))
@@ -130,5 +137,16 @@ describe('effect hooks must be called through the imported binding', () => {
     // The blind spot itself. If this ever contains the rule, the upstream bug
     // is fixed and the `no-restricted-syntax` ban can be revisited.
     expect(reported.get('React.useEffect')).not.toContain('react-hooks/set-state-in-effect')
+  })
+
+  /*
+   * The ban is keyed on the property rather than on an object named `React`,
+   * because the blind spot follows the member call and not the receiver's name.
+   * These two spellings are what a selector pinned to `React` would have let
+   * through — and both are ordinary things to write, not contrivances: aliasing
+   * a namespace import is legal and `Hooks.useEffect(...)` reads fine.
+   */
+  it.each(['Hooks.useEffect', "React['useEffect']"])('rejects %s too', (effectCall) => {
+    expect(reported.get(effectCall)).toContain('no-restricted-syntax')
   })
 })

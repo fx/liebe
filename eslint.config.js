@@ -65,6 +65,18 @@ export default [
        * as the blind spot. `React.useState` and friends are unaffected: the
        * member form of those resolves correctly, verified by probe.
        *
+       * Keyed on the **property**, not on an object named `React`. The blind
+       * spot is a property of the member call itself — the pass mis-reads the
+       * receiver whatever the receiver is called — so a selector pinned to
+       * `React` would let `import * as Hooks from 'react'; Hooks.useEffect(…)`
+       * through, and the hole it was written to close would still be open under
+       * a different name. The second selector is the same ban for the computed
+       * spelling, `React['useEffect']`.
+       *
+       * Nothing statically catches a fully dynamic access (`React[name]`), and
+       * nothing needs to: that defeats the rule's own analysis too, so it is a
+       * limitation of the underlying rule rather than of this ban.
+       *
        * `exhaustive-deps` is the AST-based rule and does see member calls; only
        * the compiler-backed rules have this hole.
        */
@@ -72,9 +84,15 @@ export default [
         'error',
         {
           selector:
-            "MemberExpression[object.name='React'][property.name=/^use(Layout|Insertion)?Effect$/]",
+            'MemberExpression[computed=false][property.name=/^use(Layout|Insertion)?Effect$/]',
           message:
-            "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as `React.useEffect`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
+            "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a member call like `React.useEffect`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
+        },
+        {
+          selector:
+            'MemberExpression[computed=true][property.value=/^use(Layout|Insertion)?Effect$/]',
+          message:
+            "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a computed member call like `React['useEffect']`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
         },
       ],
     },
