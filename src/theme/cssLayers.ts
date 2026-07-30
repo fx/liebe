@@ -336,24 +336,35 @@ export function prepareVendorCss(css: string): string {
  * against a cascade in which they never applied and which nobody has ever seen
  * render.
  *
- * `react-grid-layout` is the measured instance. Its handle rules are
+ * `react-grid-layout` is the instance that made the point, and is now the
+ * instance that shows what joining costs. Its handle rules are
  * `.react-grid-item > .react-resizable-handle.react-resizable-handle-s`, three
  * class selectors deep, while `GridLayoutSection.css` styles the same handles as
- * `.react-resizable-handle-s` — so the sheet has always won and Liebe's version
- * has never rendered. Demoting it swapped the south handle from a 28×28 rotated
- * square to a 40×20 bar shifted 16px left, and the east handle from 28×28 to
- * 20×40, which was enough for a resize handle to cover a card's action button
- * and swallow its click. Those first-party rules may well be the better design —
- * they carry the same touch-target intent as the coarse-pointer floor — but
- * making them live changes how the grid is operated, and that is a change with
- * its own evidence to gather, not a side effect of a cascade fix
- * (docs/changes/0036-theming-contract-gaps.md).
+ * `.react-resizable-handle-s` — so the sheet won every property both set and
+ * Liebe's version had never rendered, the coarse-pointer touch floor included.
+ * When [0036](../../docs/changes/0036-theming-contract-gaps.md) PR 1 first tried
+ * demoting it, the south handle went from a 28×28 rotated square to a 40×20 bar
+ * shifted 16px left and the east handle from 28×28 to 20×40 — enough for a
+ * handle to cover a card's action button and swallow its click — so it stayed
+ * out until the reconciliation had been done and measured.
+ *
+ * PR 5 did that work: the vendor's own centring (`margin-left: -10px`) and
+ * rotations are neutralised where Liebe positions the same handle itself, so
+ * exactly one set of geometry applies. `tests/e2e/grid-handle-geometry.spec.ts`
+ * is the evidence, and it is e2e because none of this is a text fact — the
+ * stylesheet said `32×32` throughout the years the handle measured 20×20.
  *
  * So a package joins this list when something needs to outrank it and the
  * consequences have been measured. Radix Themes is here because the 44px touch
- * floor is written on bare element selectors that its `.rt-reset` outranks.
+ * floor is written on bare element selectors that its `.rt-reset` outranks;
+ * `react-grid-layout` and `react-resizable` are here because the same floor,
+ * written for the grid's handles, is one class shallower than either ships.
+ *
+ * Both grid packages, not one: `react-resizable` styles `.react-resizable-handle`
+ * and `react-grid-layout` styles `.react-grid-item > .react-resizable-handle`,
+ * so demoting either alone leaves the other unlayered and still winning.
  */
-const DEMOTED_VENDOR_PACKAGES = ['@radix-ui/themes']
+const DEMOTED_VENDOR_PACKAGES = ['@radix-ui/themes', 'react-grid-layout', 'react-resizable']
 
 /**
  * Whether a stylesheet belongs in the layer below Liebe's own baseline.

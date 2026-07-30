@@ -346,21 +346,37 @@ describe('isDemotedVendorSheet', () => {
   })
 
   /*
-   * The grid packages stay in `liebe-base`, and this is the assertion that says
-   * so rather than an omission that happens to.
+   * The grid packages, which this test used to pin the other way round.
    *
-   * Demoting them activates every first-party rule that was losing to them, and
-   * `GridLayoutSection.css` is full of handle rules that have never rendered
-   * because react-grid-layout selects the same handles one class deeper. Live,
-   * they resize the drag handles enough to cover a card's action button. Being
-   * vendored is therefore not the test — needing to be outranked is, and nothing
-   * yet needs to outrank these.
+   * They stayed in `liebe-base` for as long as nothing needed to outrank them,
+   * because demoting a sheet activates every first-party rule that was losing to
+   * it — and `GridLayoutSection.css` was full of handle rules nobody had seen
+   * render. [0036](../../../docs/changes/0036-theming-contract-gaps.md) PR 5 did
+   * the reconciliation those rules needed and demoted both: the coarse-pointer
+   * touch floor `grid-layout` states as a MUST is one of the rules that was
+   * losing, so something does need to outrank them now.
+   *
+   * Both packages rather than one. `react-resizable` styles
+   * `.react-resizable-handle` and `react-grid-layout` styles
+   * `.react-grid-item > .react-resizable-handle`, so demoting either alone
+   * leaves the other unlayered and still winning — which would look like a
+   * partial fix and behave like none.
    */
   it.each([
     '/repo/node_modules/react-grid-layout/css/styles.css',
     '/repo/node_modules/react-resizable/css/styles.css',
-  ])('leaves %s in the baseline layer', (id) => {
-    expect(isDemotedVendorSheet(id)).toBe(false)
+  ])('demotes the grid package %s', (id) => {
+    expect(isDemotedVendorSheet(id)).toBe(true)
+  })
+
+  /*
+   * A vendored package that is NOT on the list, so the discriminator is still
+   * exercised. Without this the suite could not tell "demotes what it should"
+   * from "demotes everything under node_modules", which is the rule the list
+   * exists to avoid being.
+   */
+  it('leaves a vendored package nothing needs to outrank in the baseline layer', () => {
+    expect(isDemotedVendorSheet('/repo/node_modules/react-markdown/styles.css')).toBe(false)
   })
 
   it.each([
