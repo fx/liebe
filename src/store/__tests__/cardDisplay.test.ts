@@ -78,6 +78,47 @@ describe('card display options', () => {
     })
   })
 
+  describe('iconOnly', () => {
+    it('is off unless the document says otherwise', () => {
+      expect(readCardDisplay({}).iconOnly).toBe(false)
+      expect(readCardDisplay({ iconOnly: false }).iconOnly).toBe(false)
+      expect(readCardDisplay({ iconOnly: true }).iconOnly).toBe(true)
+    })
+
+    it('is not implied by hiding both lines', () => {
+      // The contract's compatibility scenario, at the resolver: a card stored
+      // with `hideName: true, hideState: true` and no `iconOnly` key "renders
+      // exactly as before — centred icon, neutral tile, interior content still
+      // rendered where the card has any"
+      // (docs/specs/entity-cards/options/common.md — "Scenario: Existing
+      // hideName+hideState tiles are unaffected"). Deriving the option from
+      // the pair is precisely what would restyle every dashboard that predates
+      // it, and it is a one-line change away, so it is pinned here.
+      expect(readCardDisplay({ hideName: true, hideState: true }).iconOnly).toBe(false)
+    })
+
+    it('does not imply the two hide flags either', () => {
+      // The other direction, and the one the tile tint depends on: the two
+      // markers the shell stamps have to stay distinguishable, so `iconOnly`
+      // resolving the pair to `true` would make "the user asked for the
+      // icon-only presentation" indistinguishable from "the user hid both
+      // lines" at the seam that decides the tint
+      // (docs/changes/0033-icon-only-cards.md).
+      expect(readCardDisplay({ iconOnly: true })).toMatchObject({
+        hideName: false,
+        hideState: false,
+        iconOnly: true,
+      })
+    })
+
+    it('falls back to off for a value this build cannot read', () => {
+      expect(readCardDisplay({ iconOnly: 'yes', name: 'Desk' })).toMatchObject({
+        iconOnly: false,
+        name: 'Desk',
+      })
+    })
+  })
+
   describe('defaults', () => {
     it('leave an unconfigured card exactly as it was', () => {
       expect(CARD_DISPLAY_DEFAULTS).toEqual({
@@ -86,6 +127,7 @@ describe('card display options', () => {
         hideName: false,
         hideState: false,
         color: 'auto',
+        iconOnly: false,
         alignHorizontal: 'auto',
         alignVertical: 'auto',
       })
@@ -113,16 +155,22 @@ describe('card display options', () => {
           hideName: true,
           hideState: true,
           color: 'heat',
+          iconOnly: true,
           alignHorizontal: 'center',
           alignVertical: 'end',
         }).success
       ).toBe(true)
       expect(cardDisplayConfigSchema.safeParse({ hideState: true }).success).toBe(true)
+      expect(cardDisplayConfigSchema.safeParse({ iconOnly: true }).success).toBe(true)
       expect(cardDisplayConfigSchema.safeParse({ alignVertical: 'start' }).success).toBe(true)
     })
 
     it('rejects a wrong-typed value rather than coercing it', () => {
       expect(cardDisplayConfigSchema.safeParse({ hideName: 'yes' }).success).toBe(false)
+      // The same trap `showBrightnessSlider: "false"` set: a string is not
+      // `false`, so a reader that fell back to the default would leave the
+      // whole card rendered on a document that asked for a glyph.
+      expect(cardDisplayConfigSchema.safeParse({ iconOnly: 'true' }).success).toBe(false)
       expect(cardDisplayConfigSchema.safeParse({ name: 3 }).success).toBe(false)
       expect(cardDisplayConfigSchema.safeParse({ color: 'amber' }).success).toBe(false)
       // The gate is where a closed enum stops being tolerant: a shared document
@@ -140,6 +188,7 @@ describe('card display options', () => {
           hideName: true,
           hideState: true,
           color: 'ok',
+          iconOnly: true,
           alignHorizontal: 'end',
           alignVertical: 'start',
         })
@@ -149,6 +198,7 @@ describe('card display options', () => {
         hideName: true,
         hideState: true,
         color: 'ok',
+        iconOnly: true,
         alignHorizontal: 'end',
         alignVertical: 'start',
       })
@@ -178,6 +228,7 @@ describe('card display options', () => {
       hideName: true,
       hideState: true,
       color: 'ok',
+      iconOnly: true,
       alignHorizontal: 'end',
       alignVertical: 'start',
     }
@@ -192,6 +243,12 @@ describe('card display options', () => {
         hideName: false,
         hideState: false,
         color: 'auto',
+        // The strongest of the signalling options and the one with the most to
+        // take back: an icon-only smoke detector is a hazard reduced to a
+        // glyph, with the word that says what is happening gone from the tile
+        // entirely (docs/specs/entity-cards/options/common.md — "Scenario:
+        // Danger overrides icon-only").
+        iconOnly: false,
         // Layout, not signalling: sliding the warning to the top of the tile
         // does not make it say anything less, so the floor leaves it in force
         // (docs/specs/entity-cards/options/common.md — "Content alignment").

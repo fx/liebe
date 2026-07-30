@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardBody } from '../CardBody'
 import { CardItemProvider } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
+import { entityStore } from '~/store/entityStore'
 import type { DashboardState } from '~/store/types'
 
 vi.mock('~/store', () => ({
@@ -26,6 +28,26 @@ describe('GridCard display options', () => {
       const state = { mode: 'view' } as Pick<DashboardState, 'mode'>
       return selector ? selector(state as DashboardState) : state
     })
+    /*
+     * One real entity, for the icon-only label. The shell builds it from the
+     * entity rather than from the slots, so a test that renders no entity gets
+     * `undefined` for it whatever the code does — which is exactly how a label
+     * assertion passes by accident. `~/store` is mocked above; the entity store
+     * is a different module and is not.
+     */
+    entityStore.setState((state) => ({
+      ...state,
+      entities: {
+        'fan.bedroom': {
+          entity_id: 'fan.bedroom',
+          state: 'on',
+          attributes: { friendly_name: 'Bedroom fan' },
+          last_changed: '',
+          last_updated: '',
+          context: { id: '', parent_id: null, user_id: null },
+        },
+      },
+    }))
   })
 
   function card() {
@@ -181,6 +203,230 @@ describe('GridCard display options', () => {
       renderCard({ color: 'chartreuse' })
 
       expect(card()).toHaveAttribute('data-color', 'light')
+    })
+  })
+
+  describe('iconOnly', () => {
+    it('stamps its own marker on the tile', () => {
+      renderCard({ iconOnly: true })
+
+      expect(card()).toHaveAttribute('data-icon-tile', 'true')
+    })
+
+    it('stamps nothing for the default, so no rule it adds can match', () => {
+      // Presence-only, like `data-active` and the alignment pair: every rule
+      // this option adds — the centring today, the state tint next — is scoped
+      // to the attribute, so a card without the key matches none of them.
+      renderCard()
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+
+      renderCard({ iconOnly: false })
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+    })
+
+    it('leaves a legacy hideName+hideState tile unmarked', () => {
+      // The compatibility scenario, at the seam that decides it: the derived
+      // attribute is stamped, the option's own is not — which is what lets the
+      // state tint reach one and not the other
+      // (docs/specs/entity-cards/options/common.md — "Scenario: Existing
+      // hideName+hideState tiles are unaffected").
+      renderCard({ hideName: true, hideState: true })
+
+      expect(card()).toHaveAttribute('data-icon-only', 'true')
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+    })
+
+    it('does not stamp the derived attribute on its own account', () => {
+      // The other direction of the same separation. `data-icon-only` keeps its
+      // formula — both meta lines hidden — so the two attributes stay
+      // independent signals rather than one implying the other.
+      renderCard({ iconOnly: true })
+
+      expect(card()).toHaveAttribute('data-icon-tile', 'true')
+      expect(card()).not.toHaveAttribute('data-icon-only')
+    })
+
+    it('reverts under a danger state', () => {
+      // "A sounding smoke detector renders its full danger presentation, label
+      // included, whatever this option says"
+      // (docs/specs/entity-cards/options/common.md — "Scenario: Danger
+      // overrides icon-only").
+      render(
+        <GridCard domain="binary_sensor" color="alert" danger config={{ iconOnly: true }}>
+          <GridCard.Meta>
+            <GridCard.Title>Hallway smoke</GridCard.Title>
+            <GridCard.Status>SMOKE DETECTED</GridCard.Status>
+          </GridCard.Meta>
+        </GridCard>
+      )
+
+      expect(card()).not.toHaveAttribute('data-icon-tile')
+      expect(name()).toHaveTextContent('Hallway smoke')
+      expect(state()).toHaveTextContent('SMOKE DETECTED')
+    })
+
+    it('composes with the alignment pair', () => {
+      // "An icon-only tile with `alignVertical: start` shows its icon at the
+      // top of the tile" — both markers are stamped, and the sheet's ordering
+      // is what makes the alignment win.
+      renderCard({ iconOnly: true, alignVertical: 'start' })
+
+      expect(card()).toHaveAttribute('data-icon-tile', 'true')
+      expect(card()).toHaveAttribute('data-align-v', 'start')
+    })
+
+    describe('the fence over what a card renders beside its body', () => {
+      function renderWithBackdrop(config?: Record<string, unknown>) {
+        return render(
+          <GridCard domain="weather" config={config}>
+            <div data-testid="backdrop" />
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+      }
+
+      it('drops the layers beside the body', () => {
+        // The weather variants' condition scrim and the media player's artwork
+        // backdrop are the live cases: a body that has suppressed its own slots
+        // sitting on top of full-bleed artwork is not an icon-only tile
+        // (docs/changes/0033 — "Suppression mechanism").
+        renderWithBackdrop({ iconOnly: true })
+
+        expect(screen.queryByTestId('backdrop')).not.toBeInTheDocument()
+        expect(screen.getByTestId('lead')).toBeInTheDocument()
+      })
+
+      it('leaves them alone without the option', () => {
+        renderWithBackdrop()
+
+        expect(screen.getByTestId('backdrop')).toBeInTheDocument()
+      })
+
+      it('declines to act where the card renders no body', () => {
+        // A card with no `CardBody` at this level is either one still owed its
+        // own icon-only form, or a replacement state surface — the bare centred
+        // stack a dozen cards render in place of themselves while unavailable —
+        // and the contract is explicit that `iconOnly` does not reduce those
+        // ("Card states outrank suppression"). Blanking the tile is worse than
+        // suppressing too little, so the fence keeps its hands off.
+        render(
+          <GridCard domain="fan" entityId="fan.bedroom" isUnavailable config={{ iconOnly: true }}>
+            <div data-testid="unavailable-tile">
+              <GridCard.Title>Bedroom fan</GridCard.Title>
+              <GridCard.Status>Unavailable</GridCard.Status>
+            </div>
+          </GridCard>
+        )
+
+        expect(screen.getByTestId('unavailable-tile')).toBeInTheDocument()
+        expect(name()).toHaveTextContent('Bedroom fan')
+        expect(state()).toHaveTextContent('Unavailable')
+
+        // And no clipped label beside them. The label replaces words that were
+        // removed; here nothing was, so a copy would announce the same identity
+        // twice — once from the visible lines and once from the label. The
+        // entity is real and resolvable on purpose: without one the label comes
+        // out `undefined` whatever the code does, and this assertion would pass
+        // by accident rather than by behaviour.
+        expect(document.querySelector('.liebe-card-body-label')).toBeNull()
+      })
+
+      it('emits the label where a body did suppress the words', () => {
+        // The other side of the same rule, so neither assertion can be
+        // satisfied by a label that is never rendered at all.
+        render(
+          <GridCard domain="fan" entityId="fan.bedroom" config={{ iconOnly: true }}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        const label = document.querySelector('.liebe-card-body-label')
+        expect(label).toHaveTextContent('Bedroom fan')
+        expect(label).toHaveTextContent('on')
+      })
+
+      it('says only the name when there is no state to report', () => {
+        /*
+         * A card placed for an entity the store does not hold — one Home
+         * Assistant has stopped publishing, or one whose first state has not
+         * arrived yet. There is no state and no error to append, and the label
+         * has to be the bare name rather than a name trailing an empty clause
+         * ("Reading lamp, ") or, worse, the word `undefined`.
+         *
+         * The name comes from the user's override here, which is the whole
+         * reason this tile is identifiable at all: with no entity in the store
+         * there is no `friendly_name` to fall back to.
+         */
+        render(
+          <GridCard
+            domain="light"
+            entityId="light.decommissioned"
+            config={{ iconOnly: true, name: 'Reading lamp' }}
+          >
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        expect(document.querySelector('.liebe-card-body-label')).toHaveTextContent(/^Reading lamp$/)
+      })
+
+      it('falls back to the entity id when nothing else names the tile', () => {
+        // No override and no entity: the id is the last thing that identifies
+        // the tile, and it beats an unlabelled glyph.
+        render(
+          <GridCard domain="light" entityId="light.decommissioned" config={{ iconOnly: true }}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        expect(document.querySelector('.liebe-card-body-label')).toHaveTextContent(
+          /^light\.decommissioned$/
+        )
+      })
+
+      it('renders no label at all for a tile with no entity behind it', () => {
+        // A text tile or a separator has nothing to name, and an empty clipped
+        // span would be noise in the accessibility tree rather than an
+        // identity.
+        render(
+          <GridCard domain="light" config={{ iconOnly: true }}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+
+        expect(document.querySelector('.liebe-card-body-label')).toBeNull()
+      })
+
+      it('strips the caller’s background paint, which is not an element to drop', () => {
+        // The weather variants carry their condition artwork as an inline
+        // `background-image` on the tile itself, which the themable-property
+        // fence deliberately lets through as card data. Hiding the scrim
+        // element while leaving the artwork under it would suppress nothing a
+        // user could see.
+        const artwork = { backgroundImage: 'url(rainy.png)', backgroundSize: 'cover' } as const
+
+        render(
+          <GridCard domain="weather" config={{ iconOnly: true }} style={artwork}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+        expect(card().style.backgroundImage).toBe('')
+        expect(card().style.backgroundSize).toBe('')
+
+        cleanup()
+
+        // And it is the option that removes it, not the shell forgetting how to
+        // paint: without the key the same style still reaches the tile.
+        render(
+          <GridCard domain="weather" style={artwork}>
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        )
+        // Serialized by the engine, quotes and all — asserted on the value it
+        // reports rather than on the string that was passed in.
+        expect(card().style.backgroundImage).toBe('url("rainy.png")')
+        expect(card().style.backgroundSize).toBe('cover')
+      })
     })
   })
 
