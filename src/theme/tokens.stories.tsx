@@ -350,7 +350,7 @@ function AppearancePane({
   children: ReactNode
 }) {
   return (
-    <Theme appearance={appearance} style={{ minWidth: 0 }}>
+    <Theme appearance={appearance} className="liebe-root" style={{ minWidth: 0 }}>
       <TokenSurface>
         {title ? (
           <Heading as="h2" size="4" mb="3">

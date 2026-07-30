@@ -1,6 +1,7 @@
 import { type ConsoleMessage, type Locator, type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
 import { HOLD_DURATION_MS } from '../../src/store/cardActions'
+import { splitSelectorList } from './portalScoping'
 import { safeStringify } from './safeStringify'
 
 // Demo/helper entities the suite asserts against. The demo integration provides
@@ -790,21 +791,88 @@ export async function selectTheme(page: Page, name: string): Promise<void> {
 }
 
 // The open menu read as a portalled overlay: whether it really did escape the
-// shadow root, and what the requested tokens compute to out there. This is the
+// shadow root, whether it landed in the container that carries the token
+// contract, and what the requested tokens compute to out there. This is the
 // only place the layer mirroring can be judged by its effect rather than by the
 // presence of a `<style>` element.
 export async function overlayTokens(
   page: Page,
   tokens: string[]
-): Promise<{ outsideShadowRoot: boolean; values: Record<string, string> }> {
+): Promise<{
+  outsideShadowRoot: boolean
+  insidePortalRoot: boolean
+  values: Record<string, string>
+}> {
   return page.evaluate((names) => {
     const menu = document.querySelector('[role="menu"]')
-    if (!menu) return { outsideShadowRoot: false, values: {} }
+    if (!menu) return { outsideShadowRoot: false, insidePortalRoot: false, values: {} }
     const style = getComputedStyle(menu)
     const values: Record<string, string> = {}
     for (const name of names) values[name] = style.getPropertyValue(name).trim()
-    return { outsideShadowRoot: menu.getRootNode() === document, values }
+    return {
+      outsideShadowRoot: menu.getRootNode() === document,
+      insidePortalRoot: menu.closest('.liebe-portal-root') !== null,
+      values,
+    }
   }, tokens)
+}
+
+// Everything Liebe has put into the Home Assistant document, read as the
+// containment question the theming spec calls security-adjacent: which layers
+// got out there, and what the browser actually parsed the user layer's
+// selectors as.
+//
+// `style[data-liebe="fonts"]` is EXCLUDED from the slot list on purpose. It is
+// the document-level `@font-face` registration the spec requires — a shadow
+// root does not load faces declared inside it — so counting it reports a leak
+// where the mechanism is working as specified.
+//
+// Selectors come from the parsed stylesheet rather than its text, walking into
+// the `@layer` block, so what is asserted is what the browser will match on and
+// not what the sanitizer happened to write. Each rule's list comes back WHOLE
+// and is split out here, by `splitSelectorList` — a top-level split, because the
+// rewrite this is checking emits `:is(…)` and a `String.split(',')` would cut
+// correctly-bounded selectors into fragments (see that function for why the
+// failure runs in both directions).
+export async function documentLevelLeak(page: Page): Promise<{
+  slots: string[]
+  userSelectors: string[]
+}> {
+  const { slots, selectorTexts } = await page.evaluate(() => {
+    const styleSlots = Array.from(document.head.querySelectorAll('style[data-liebe]'))
+      .map((style) => style.getAttribute('data-liebe') ?? '')
+      .filter((slot) => slot !== 'fonts')
+
+    const texts: string[] = []
+    const walk = (rules: CSSRuleList) => {
+      for (const rule of Array.from(rules)) {
+        const { selectorText } = rule as CSSStyleRule
+        if (selectorText) texts.push(selectorText)
+        const nested = (rule as CSSGroupingRule).cssRules
+        if (nested) walk(nested)
+      }
+    }
+    const sheet = document.head.querySelector<HTMLStyleElement>('style[data-liebe="user"]')?.sheet
+    if (sheet) walk(sheet.cssRules)
+
+    return { slots: styleSlots, selectorTexts: texts }
+  })
+
+  return { slots, userSelectors: selectorTexts.flatMap(splitSelectorList) }
+}
+
+// Whether the Home Assistant frontend around the panel is still being rendered.
+// The negative half of the mirror: a `body { display: none }` carried in an
+// imported dashboard would take the whole frontend out, and `<home-assistant>`
+// measuring zero is what that looks like from here.
+export async function frontendIntact(page: Page): Promise<{
+  bodyDisplay: string
+  frontendHeight: number
+}> {
+  return page.evaluate(() => ({
+    bodyDisplay: getComputedStyle(document.body).display,
+    frontendHeight: document.querySelector('home-assistant')?.getBoundingClientRect().height ?? 0,
+  }))
 }
 
 // --- REST helpers (bypass the UI to set up / verify state deterministically) ---

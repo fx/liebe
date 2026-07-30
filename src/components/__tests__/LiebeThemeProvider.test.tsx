@@ -209,6 +209,31 @@ describe('LiebeThemeProvider', () => {
     expect(css).not.toContain('99px')
   })
 
+  it('mounts the portal container at the document level, stamped like the root', () => {
+    // The container is where every overlay lands, and a theme's scoped rules
+    // have to select it exactly as they select the dashboard — including the
+    // appearance, since the token sheets declare a dark block keyed off it.
+    // Stamped from the theme that ACTUALLY rendered: an unregistered id falls
+    // back to Default here as it does on the root.
+    const { container } = render(
+      <LiebeThemeProvider appearance="dark" themeId="from-a-newer-liebe">
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const portalRoot = document.querySelector('.liebe-portal-root') as HTMLElement
+    expect(portalRoot.parentElement).toBe(document.body)
+    expect(portalRoot.classList.contains('liebe-root')).toBe(true)
+    expect(portalRoot.getAttribute('data-liebe-theme')).toBe(DEFAULT_THEME_ID)
+    expect(portalRoot.getAttribute('data-appearance')).toBe('dark')
+    expect(portalRoot.classList.contains('dark')).toBe(true)
+
+    // Outside the provider's own subtree, and not the root theme — a second
+    // root theme would bring Radix's `position: relative; z-index: 0` with it.
+    expect(container.contains(portalRoot)).toBe(false)
+    expect(portalRoot.getAttribute('data-is-root-theme')).toBe('false')
+  })
+
   it('lifts the root Theme stacking while a camera overlay is open', () => {
     const { container } = render(
       <LiebeThemeProvider>

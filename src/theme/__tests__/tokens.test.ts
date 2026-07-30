@@ -98,26 +98,26 @@ const base = declarations(baseRules)
  *
  * Whitespace is optional everywhere CSS allows it, because the assertions below
  * are about the selector list — `.dark` and `.dark-theme`, in that order, inside
- * `:where()` on `.radix-themes`, with the trailing comma that makes the nested
+ * `:where()` on `.liebe-root`, with the trailing comma that makes the nested
  * branch follow it — and not about how it happens to be formatted. Pinning the
  * single space after the comma would fail on a cosmetic reflow that changes no
  * selector, and a test that fails on formatting teaches the next reader to edit
  * the assertion, which is how a real contract check gets hollowed out. It stays
  * strict about everything that is semantic: no whitespace is tolerated between
- * `.radix-themes` and `:where(`, where CSS would read it as a descendant
+ * `.liebe-root` and `:where(`, where CSS would read it as a descendant
  * combinator and mean something else entirely.
  */
-const DARK_SELECTOR = /\.radix-themes:where\(\s*\.dark\s*,\s*\.dark-theme\s*\)\s*,/
+const DARK_SELECTOR = /\.liebe-root:where\(\s*\.dark\s*,\s*\.dark-theme\s*\)\s*,/
 
 /**
  * The same selector as a sheet writes it, for the failure messages below. The
  * pattern's own `source` is what a reader would otherwise be shown, and with the
  * whitespace classes in it that is a wall of backslashes naming nothing —
- * `\.radix-themes:where\(\s*\.dark\s*,\s*…`. A test that has just failed should
+ * `\.liebe-root:where\(\s*\.dark\s*,\s*…`. A test that has just failed should
  * say which selector it went looking for, in the language of the file it was
  * looking in.
  */
-const DARK_SELECTOR_CSS = '.radix-themes:where(.dark, .dark-theme),'
+const DARK_SELECTOR_CSS = '.liebe-root:where(.dark, .dark-theme),'
 
 /**
  * The Default theme pins `-text` per appearance, so its sheet has to be read as

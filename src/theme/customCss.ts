@@ -60,8 +60,18 @@
  * large sheet costs time proportional to what it says rather than to its square.
  */
 
-import postcss, { type AtRule, type ChildNode, type Container, type Node, type Root } from 'postcss'
+import postcss, {
+  list,
+  type AtRule,
+  type ChildNode,
+  type Container,
+  type Document,
+  type Node,
+  type Root,
+  type Rule,
+} from 'postcss'
 import { LAYER_ORDER_STATEMENT, USER_LAYER } from './cssLayers'
+import { LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from './rootSelectors'
 
 /**
  * The token namespace Liebe defines and therefore vouches for.
@@ -113,6 +123,13 @@ export interface CustomCssResult {
    * input was empty, when nothing survived, or when the input was rejected.
    */
   css: string
+  /**
+   * The same sheet, rewritten so nothing in it can match outside the
+   * `liebe-portal-root` container — what the engine injects into the Home
+   * Assistant document so overlays get the user layer too. Empty exactly when
+   * `css` is. See {@link scopeToPortalRoot}.
+   */
+  portalCss: string
   /** Everything stripped or rejected, named — one sentence each. */
   notices: string[]
   /**
@@ -684,20 +701,250 @@ function resolveCleanNames(
 function guardRules(definitions: Map<string, PropertyDefinition>): string {
   if (definitions.size === 0) return ''
 
-  const pin = (include: (name: string) => boolean) =>
-    [...definitions]
-      .filter(([name]) => include(name))
-      .map(([, { authored }]) => `${authored}: initial;`)
-      .join(' ')
-
-  const rootPins = pin((name) => !isEngineToken(name))
+  const rootPins = pinnedNames(definitions, (name) => !isEngineToken(name))
 
   // Two rules rather than one selector list: `:host` is invalid outside a
   // shadow root (the workshop, tests) and would take the whole list down with
   // it, while as its own rule it is simply dropped where it does not apply.
-  return [`:host { ${pin(() => true)} }`, rootPins && `:where(.liebe-root) { ${rootPins} }`]
+  return [
+    `:host { ${pinnedNames(definitions, () => true)} }`,
+    rootPins && `:where(.${LIEBE_ROOT_CLASS}) { ${rootPins} }`,
+  ]
     .filter(Boolean)
     .join('\n')
+}
+
+function pinnedNames(
+  definitions: Map<string, PropertyDefinition>,
+  include: (name: string) => boolean
+): string {
+  return [...definitions]
+    .filter(([name]) => include(name))
+    .map(([, { authored }]) => `${authored}: initial;`)
+    .join(' ')
+}
+
+/**
+ * The same guard for the document-level container.
+ *
+ * It closes the same hole for the same reason — the container is a root the
+ * sheet's own `var()`s resolve against, so a name the sheet defines only under
+ * a selector that never matches would otherwise read whatever the Home
+ * Assistant document inherits into it. No `:host` counterpart: there is no
+ * shadow host out here. `--liebe-*` is excluded for the reason it is excluded
+ * at `.liebe-root` — the container declares the token contract too, and pinning
+ * those to `initial` would erase it.
+ */
+function portalGuardRules(definitions: Map<string, PropertyDefinition>): string {
+  const pins = pinnedNames(definitions, (name) => !isEngineToken(name))
+  return pins ? `:where(.${PORTAL_ROOT_CLASS}) { ${pins} }` : ''
+}
+
+/* ------------------------------------------------------------------ *
+ * Scoping the document-level mirror
+ * ------------------------------------------------------------------ */
+
+/**
+ * At-rules that merely group other rules conditionally, and so carry nothing of
+ * their own out of the container.
+ *
+ * The mirror keeps these and drops every other at-rule, which is the second
+ * half of containment and the half selector rewriting cannot do. Rewriting a
+ * selector bounds what a rule may *match*; it says nothing about an at-rule
+ * that registers a **document-global name** and thereby reaches the frontend
+ * without matching anything: `@property --primary-color { syntax: '<length>' }`
+ * makes Home Assistant's own `--primary-color: #03a9f4` invalid at computed
+ * value time, `@keyframes` and `@font-face` shadow an animation or a family the
+ * frontend already uses, `@page` is not scoped to anything at all.
+ *
+ * An allowlist rather than a blocklist, so a construct CSS has not shipped yet
+ * is contained by default. The cost is real and small: a user animation does
+ * not play inside an overlay, and a user `@font-face` does not load for one —
+ * the latter costing nothing, since a shadow root does not load `@font-face`
+ * declared in it either and the panel has never had them.
+ */
+const GROUPING_AT_RULES: ReadonlySet<string> = new Set([
+  'container',
+  'layer',
+  'media',
+  'scope',
+  'starting-style',
+  'supports',
+])
+
+/**
+ * Whether this rule's selector is absolute rather than relative to an enclosing
+ * one.
+ *
+ * Only those get rewritten. A rule nested inside another rule is already
+ * bounded by whatever its parent was rewritten to, and a `@keyframes` step
+ * (`from`, `50%`) is not a selector at all — rewriting one would turn the
+ * animation into rules that match nothing.
+ *
+ * The whole ancestor chain, not the immediate parent: a conditional group may
+ * sit between a rule and the rule it is nested in — `.a { @media … { & .b {} } }`
+ * — and `& .b` is no more absolute for having an `@media` above it. Checking one
+ * level would rewrite it to `.liebe-portal-root:is(& .b)`, which is not a
+ * selector and drops the rule from the mirror entirely.
+ */
+function isScopableRule(rule: Rule): boolean {
+  for (let node: Container | Document | undefined = rule.parent; node; node = node.parent) {
+    if (node.type === 'rule') return false
+  }
+  return true
+}
+
+/**
+ * Rewrites one selector so its subject can only ever be the container or
+ * something inside it.
+ *
+ * Two forms per selector, because user CSS is documented to target
+ * `.liebe-root` and the container carries that class: `:is(…)` prefixed by the
+ * container matches the container itself, and the descendant form matches
+ * everything below it. The subject is what the ancestor constraint binds, so
+ * `.a > .b` is covered in both directions — including the case where the
+ * container is the `.a`.
+ *
+ * Rewritten per comma-separated selector rather than by wrapping the whole list
+ * in one `:is()`. `:is()` takes the specificity of its most specific argument,
+ * so wrapping `.a, #b` once would silently lend `#b`'s specificity to the `.a`
+ * branch and reorder the user's own rules against each other. One selector per
+ * `:is()` keeps the shift a constant single class for every rule.
+ *
+ * `:is()` is also forgiving, which is the safe direction here: a selector the
+ * document cannot parse — `:host` out of a shadow root, most obviously — is
+ * dropped from the match rather than taking the rule with it.
+ */
+function scopeSelector(selector: string): string {
+  return list
+    .comma(selector)
+    .flatMap((part) => {
+      const { subject, pseudoElement } = splitPseudoElement(part)
+      return [
+        `.${PORTAL_ROOT_CLASS}:is(${subject})${pseudoElement}`,
+        `.${PORTAL_ROOT_CLASS} :is(${subject})${pseudoElement}`,
+      ]
+    })
+    .join(', ')
+}
+
+/**
+ * The pseudo-elements CSS still accepts with one colon. Nothing else may be
+ * written that way, so the one-colon form is only a pseudo-element for these
+ * four names — every other `:name` is a pseudo-CLASS and belongs inside the
+ * `:is()` with the rest of the selector.
+ */
+const LEGACY_PSEUDO_ELEMENTS = ['before', 'after', 'first-line', 'first-letter']
+
+/**
+ * Splits a selector into the element it selects and the pseudo-element it then
+ * addresses on it, if any.
+ *
+ * `:is()` accepts pseudo-classes and rejects pseudo-elements, and it is
+ * FORGIVING — so `:is(.liebe-card::before)` is not an error, it is a selector
+ * list with its only entry dropped, matching nothing. Wrapping a selector whole
+ * would therefore silently take every `::before` and `::after` rule out of the
+ * mirror, which is most of what a theme-shaped stylesheet is made of: the
+ * selector contract exists partly so a theme can hang decoration on pseudo-
+ * elements. Splitting the tail off and re-attaching it outside the `:is()`
+ * keeps the rule meaning what it said, on a subject the container still bounds.
+ *
+ * Scanned rather than matched with a pattern, because a `::` may sit inside
+ * `:not(…)`, an attribute value or a string, where it is not the subject's
+ * pseudo-element. Only a depth-zero one is. The LAST one wins: a user-action
+ * pseudo-class may legally follow (`::before:hover`), and it belongs with the
+ * pseudo-element rather than with the subject.
+ */
+function splitPseudoElement(part: string): { subject: string; pseudoElement: string } {
+  const at = pseudoElementIndex(part)
+  const subject = (at === -1 ? part : part.slice(0, at)).trim()
+
+  return {
+    // `*` for a selector that is nothing BUT a pseudo-element (`::selection`,
+    // which is valid on its own): `:is()` may not be empty.
+    subject: subject === '' ? '*' : subject,
+    pseudoElement: at === -1 ? '' : part.slice(at),
+  }
+}
+
+/** Index at which the subject's pseudo-element begins, or -1. */
+function pseudoElementIndex(part: string): number {
+  let depth = 0
+  let found = -1
+
+  for (let index = 0; index < part.length; index += 1) {
+    const character = part[index]
+
+    if (character === '\\') {
+      index += 1
+    } else if (character === '"' || character === "'") {
+      index = readString(part, index).next - 1
+    } else if (character === '(' || character === '[') {
+      depth += 1
+    } else if (character === ')' || character === ']') {
+      depth -= 1
+    } else if (character === ':' && depth === 0) {
+      if (part[index + 1] === ':') {
+        found = index
+        index += 1
+      } else if (startsLegacyPseudoElement(part.slice(index + 1))) {
+        found = index
+      }
+    }
+  }
+
+  return found
+}
+
+function startsLegacyPseudoElement(rest: string): boolean {
+  const lowered = rest.toLowerCase()
+  return LEGACY_PSEUDO_ELEMENTS.some(
+    (name) => lowered.startsWith(name) && !/[\w-]/.test(lowered[name.length] ?? '')
+  )
+}
+
+/**
+ * The sheet as it may be injected into the Home Assistant document.
+ *
+ * This is what makes mirroring the user layer safe at all. The layers the
+ * engine mirrors today are first-party CSS whose every selector is Liebe's own;
+ * user CSS is arbitrary author input, and the sanitizer judges what a
+ * declaration may *fetch*, never what it may *match* — so an unmodified copy of
+ * `body { display: none }` out of an imported dashboard would blank the
+ * frontend around the panel. Every selector is therefore rewritten to a subject
+ * inside the container, and everything that could reach outside without
+ * matching is dropped (see {@link GROUPING_AT_RULES}).
+ *
+ * Takes the already-sanitised AST and works on a clone, so the in-panel sheet
+ * is serialised from the tree the sanitizer produced rather than from one this
+ * has walked over.
+ *
+ * The dropped at-rules come back as notices. They are not removed from the
+ * dashboard — only from overlays — and that asymmetry is exactly the kind of
+ * thing an author cannot deduce: the animation plays on a card and not in a
+ * dialog, with nothing said. The spec's rule that everything stripped is named
+ * covers it.
+ */
+function scopeToPortalRoot(root: Root): { css: string; notices: string[] } {
+  const scoped = root.clone()
+  const notices: string[] = []
+
+  const unscopable: AtRule[] = []
+  scoped.walkAtRules((atRule) => {
+    if (!GROUPING_AT_RULES.has(unescapeCss(atRule.name).toLowerCase())) unscopable.push(atRule)
+  })
+  for (const atRule of unscopable) {
+    notices.push(
+      `${describeAtRule(atRule)} applies to the dashboard but not inside dialogs and menus: it registers a name for the whole Home Assistant page, so it is not copied out of the panel.`
+    )
+    atRule.remove()
+  }
+
+  scoped.walkRules((rule) => {
+    if (isScopableRule(rule)) rule.selector = scopeSelector(rule.selector)
+  })
+
+  return { css: scoped.toString().trim(), notices }
 }
 
 /**
@@ -706,6 +953,11 @@ function guardRules(definitions: Map<string, PropertyDefinition>): string {
  * The returned CSS is the only thing that may ever be injected as the user
  * layer: it is serialised from the parsed AST *inside* the layer block, so no
  * input can place a rule outside it.
+ *
+ * Two sheets come back from the one parse. `css` is for the root the panel is
+ * mounted in, where the shadow boundary contains it; `portalCss` is the same
+ * sheet rewritten for the Home Assistant document, where nothing else would
+ * (see {@link scopeToPortalRoot}).
  */
 export function sanitizeCustomCss(
   css: string,
@@ -713,7 +965,7 @@ export function sanitizeCustomCss(
 ): CustomCssResult {
   const baseUrl = options.baseUrl ?? defaultBaseUrl()
 
-  if (css.trim() === '') return { css: '', notices: [], rejected: false }
+  if (css.trim() === '') return { css: '', portalCss: '', notices: [], rejected: false }
 
   let root: Root
   try {
@@ -722,7 +974,12 @@ export function sanitizeCustomCss(
     // postcss throws `CssSyntaxError`, whose message names the line it gave up
     // on — the most useful thing the editor can show about input it refused.
     const { message } = error as Error
-    return { css: '', notices: [`Custom CSS was not applied: ${message}.`], rejected: true }
+    return {
+      css: '',
+      portalCss: '',
+      notices: [`Custom CSS was not applied: ${message}.`],
+      rejected: true,
+    }
   }
 
   // Rejected wholesale rather than pruned, and before anything walks the tree:
@@ -731,6 +988,7 @@ export function sanitizeCustomCss(
   if (exceedsNestingLimit(root)) {
     return {
       css: '',
+      portalCss: '',
       notices: [
         `Custom CSS was not applied: it nests rules more than ${MAX_NESTING_DEPTH} levels deep.`,
       ],
@@ -818,21 +1076,30 @@ export function sanitizeCustomCss(
     }
   }
 
+  const portal = scopeToPortalRoot(root)
+
   // Deduplicated: the same mistake repeated twenty times is one thing to fix.
-  const notices = [...new Set(removals.map((removal) => removal.notice))]
+  const notices = [...new Set([...removals.map((removal) => removal.notice), ...portal.notices])]
   const body = root.toString().trim()
 
-  if (body === '') return { css: '', notices, rejected: false }
+  if (body === '') return { css: '', portalCss: '', notices, rejected: false }
 
   // Guards first, so the sheet's own declarations win wherever they apply.
   // Every name the sheet mentioned, not only the ones that survived: a name
   // whose definition was just dropped is exactly the one that would otherwise
   // fall back to an inherited value.
-  const guards = guardRules(definitions)
-
   return {
-    css: `${LAYER_ORDER_STATEMENT}\n@layer ${USER_LAYER} {\n${guards}${guards && '\n'}${body}\n}\n`,
+    css: inUserLayer(guardRules(definitions), body),
+    // Empty when nothing survived the scoping — a sheet of nothing but
+    // `@keyframes` — rather than a layer block holding only guards nothing in
+    // the document reads.
+    portalCss: portal.css === '' ? '' : inUserLayer(portalGuardRules(definitions), portal.css),
     notices,
     rejected: false,
   }
+}
+
+/** One sheet, serialised inside the user layer with its guards ahead of it. */
+function inUserLayer(guards: string, body: string): string {
+  return `${LAYER_ORDER_STATEMENT}\n@layer ${USER_LAYER} {\n${guards}${guards && '\n'}${body}\n}\n`
 }

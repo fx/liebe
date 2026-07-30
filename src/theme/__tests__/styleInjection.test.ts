@@ -125,6 +125,9 @@ describe('applyThemeCss', () => {
 
 describe('applyUserCss', () => {
   const SANITIZED = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\n.a { color: red }\n}\n`
+  // The same sheet as `sanitizeCustomCss` rewrites it for the document — the
+  // shape, not the exact text, which `customCss.test.ts` owns.
+  const SCOPED = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\n.liebe-portal-root:is(.a), .liebe-portal-root :is(.a) { color: red }\n}\n`
 
   it('injects the user layer into its own slot, beside the theme layer', () => {
     const root = shadowRoot()
@@ -158,24 +161,33 @@ describe('applyUserCss', () => {
     expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe('')
   })
 
-  it('never leaves the shadow root, unlike the theme layer', () => {
+  it('sends the scoped sheet outward and the authored one inward', () => {
     const root = shadowRoot()
     const child = document.createElement('div')
     root.appendChild(child)
 
-    const style = applyUserCssToRootOf(child, SANITIZED)
+    const style = applyUserCssToRootOf(child, SANITIZED, SCOPED)
 
+    // The two roots get different text, which is the whole reason this takes
+    // two sheets: the shadow root contains what the user wrote, and only the
+    // rewritten copy is allowed into the document Home Assistant owns.
     expect(style?.parentNode).toBe(root)
-    // The theme mirror is safe because theme CSS is first-party and scoped to
-    // the Radix theme root. Custom CSS is neither: the sanitizer judges what a
-    // declaration may fetch, not what it may match, so a mirrored
-    // `body { display: none }` from an imported config would restyle Home
-    // Assistant itself.
-    expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
+    expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(SANITIZED)
+    expect(document.head.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(SCOPED)
+  })
+
+  it('mirrors nothing from a document root, which has no boundary to cross', () => {
+    // The workshop and unit tests: the document IS the panel's root, so the
+    // authored sheet applies there and the scoped copy would be a second sheet
+    // saying the same thing about the same elements.
+    const style = applyUserCssToRootOf(document.body, SANITIZED, SCOPED)
+
+    expect(style?.parentNode).toBe(document.head)
+    expect(document.head.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(SANITIZED)
   })
 
   it('does nothing for a node that is in no root yet', () => {
-    expect(applyUserCssToRootOf(document.createElement('div'), SANITIZED)).toBeNull()
+    expect(applyUserCssToRootOf(document.createElement('div'), SANITIZED, SCOPED)).toBeNull()
     expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
   })
 })
@@ -188,24 +200,28 @@ describe('the mirror boundary', () => {
   // so this survives sanitization intact and is exactly what must never reach
   // the Home Assistant document.
   const HOSTILE_USER_CSS = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\nbody { display: none }\n}\n`
+  // …and the same rule as the sanitizer rewrites it: still `display: none`, and
+  // now on a subject that can only be the container or something in it.
+  const SCOPED_USER_CSS = `${LAYER_ORDER_STATEMENT}\n@layer liebe-user {\n.liebe-portal-root:is(body), .liebe-portal-root :is(body) { display: none }\n}\n`
 
-  it('mirrors the theme layer out of the shadow root, and never the user layer', () => {
+  it('mirrors the theme layer as authored, and the user layer only as rewritten', () => {
     const root = shadowRoot()
     const child = document.createElement('div')
     root.appendChild(child)
 
     applyThemeCssToRootOf(child, THEME_CSS)
-    applyUserCssToRootOf(child, HOSTILE_USER_CSS)
+    applyUserCssToRootOf(child, HOSTILE_USER_CSS, SCOPED_USER_CSS)
 
-    // Theme CSS is first-party and scoped to the Radix theme root, so the copy
-    // in the owning document only ever reaches Liebe's own portalled overlays.
+    // Theme CSS is first-party and scoped to `.liebe-root`, so the copy in the
+    // owning document only ever reaches Liebe's own portalled overlays.
     expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
     expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toContain('color: red')
 
-    // User CSS stays in the shadow root, where it cannot reach past Liebe.
-    // Mirroring it would hide the Home Assistant frontend around the panel.
+    // The user's own `body` selector reaches the whole shadow root, where the
+    // boundary contains it, and reaches the document only bounded by the portal
+    // container — where `body` can never be the subject, so it matches nothing.
     expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(HOSTILE_USER_CSS)
-    expect(document.head.querySelector(USER_SLOT_SELECTOR)).toBeNull()
-    expect(document.head.textContent).not.toContain('display: none')
+    expect(document.head.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(SCOPED_USER_CSS)
+    expect(document.head.textContent).not.toContain('\nbody {')
   })
 })
