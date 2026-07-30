@@ -51,7 +51,10 @@ jobs:
 
       - name: Dump Home Assistant logs on failure
         if: failure()
-        run: docker compose -f ha/docker-compose.yml logs --no-color
+        # Through the script, not raw compose: the project name is derived from
+        # the checkout path, so a bare `docker compose` would address a
+        # different (empty) project and dump nothing.
+        run: npm run e2e:ha:logs
 
       - name: Upload Playwright report on failure
         if: failure()

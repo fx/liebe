@@ -3,17 +3,24 @@
 # directory and served at /local/dist/panel.js. See docs/changes/0005.
 # A go2rtc sidecar provides synthetic (and optional personal) camera
 # streams for the camera e2e tests. See docs/changes/0007.
+#
+# ONE STACK PER CHECKOUT. Start it through `npm run e2e:ha:up`, which derives
+# the compose project name and both published ports from this checkout's
+# absolute path (scripts/e2eStack.mjs) so concurrent worktrees never share an
+# instance. Services are deliberately left unnamed — a fixed `container_name`
+# is global to the daemon and would collide across projects. The literal
+# defaults below keep a bare `docker compose -f ha/docker-compose.yml up`
+# working on the historical ports for a single checkout.
 services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:2026.7.2
-    container_name: liebe-e2e-ha
     environment:
       - TZ=UTC
     ports:
       # Defaults to loopback only: this is a throwaway instance with a known
       # dev/dev admin account. Set HA_BIND=0.0.0.0 to expose it (e.g. for
       # Tailscale access from another machine).
-      - '${HA_BIND:-127.0.0.1}:8123:8123'
+      - '${HA_BIND:-127.0.0.1}:${LIEBE_E2E_HA_PORT:-8123}:8123'
     volumes:
       - ./config:/config
       - ../dist:/config/www/dist:ro
@@ -30,7 +37,6 @@ services:
 
   go2rtc:
     image: alexxit/go2rtc:1.9.14
-    container_name: liebe-e2e-go2rtc
     environment:
       # Optional personal RTSP stream, substituted into go2rtc.yaml as
       # ${RTSP_TEST_URL:}. The value is never committed anywhere — see
@@ -40,12 +46,17 @@ services:
       # to loopback for CI/local; set it to a remotely reachable address
       # (e.g. Tailscale, together with HA_BIND=0.0.0.0) for remote WebRTC.
       WEBRTC_CANDIDATE_HOST: '${WEBRTC_CANDIDATE_HOST:-127.0.0.1}'
+      # The advertised candidate PORT must be the published host port, not the
+      # in-container 8555 it is mapped from: a remote peer connects to the
+      # host side of the mapping. It follows the per-checkout derivation for
+      # the same reason the host port does.
+      WEBRTC_CANDIDATE_PORT: '${LIEBE_E2E_GO2RTC_PORT:-8555}'
     ports:
       # Only the WebRTC media port is published (browser connects directly).
       # The API (1984) and RTSP (8554) ports stay internal to the compose
       # network; HA reaches them via the `go2rtc` hostname.
-      - '${HA_BIND:-127.0.0.1}:8555:8555'
-      - '${HA_BIND:-127.0.0.1}:8555:8555/udp'
+      - '${HA_BIND:-127.0.0.1}:${LIEBE_E2E_GO2RTC_PORT:-8555}:8555'
+      - '${HA_BIND:-127.0.0.1}:${LIEBE_E2E_GO2RTC_PORT:-8555}:8555/udp'
     volumes:
       # Staged read-only: HA's go2rtc integration registers `camera.*` streams
       # via PUT /api/streams, which go2rtc persists into its config file. With

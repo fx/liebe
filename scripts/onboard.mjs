@@ -18,12 +18,19 @@
 // Diagnostics go to stderr; the CLI's JSON result is the only thing on stdout.
 
 import { pathToFileURL } from 'node:url'
+import { resolveStackConfig } from './e2eStack.mjs'
+
+// The stack this checkout owns. Its Home Assistant port is derived from the
+// checkout path (scripts/e2eStack.mjs), so the suite addresses the instance
+// `npm run e2e:ha:up` started HERE rather than whichever one happens to hold
+// 8123. HASS_URL / HASS_BROWSER_URL still win when set.
+const stack = resolveStackConfig()
 
 // The URL used for server-to-server requests (from the host or CI runner).
-export const HASS_URL = process.env.HASS_URL || 'http://127.0.0.1:8123'
+export const HASS_URL = stack.hassUrl
 // The origin the *browser* uses. Auth codes are bound to this client_id, so it
 // must match the origin Playwright loads the panel from.
-export const BROWSER_URL = process.env.HASS_BROWSER_URL || 'http://localhost:8123'
+export const BROWSER_URL = stack.browserUrl
 export const CLIENT_ID = `${BROWSER_URL}/`
 const REDIRECT_URI = `${BROWSER_URL}/liebe?auth_callback=1`
 
