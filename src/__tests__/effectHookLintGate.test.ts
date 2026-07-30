@@ -134,6 +134,14 @@ beforeAll(async () => {
       join(fixtureDir, 'destructured-string-key.tsx'),
       "const { ['useEffect']: stringKeyedEffect } = React",
     ],
+    // The backtick spellings of the two computed forms above. Statically known,
+    // so there is no excuse for missing them — unlike `React[name]`.
+    ['React[`useEffect`]', join(fixtureDir, 'computed-template.tsx'), ''],
+    [
+      'templateKeyedEffect',
+      join(fixtureDir, 'destructured-template-key.tsx'),
+      'const { [`useEffect`]: templateKeyedEffect } = React',
+    ],
   ] as const
 
   for (const [effectCall, file, prelude] of cases) writeFileSync(file, fixture(effectCall, prelude))
@@ -186,9 +194,12 @@ describe('effect hooks must be called through the imported binding', () => {
    * through — and both are ordinary things to write, not contrivances: aliasing
    * a namespace import is legal and `Hooks.useEffect(...)` reads fine.
    */
-  it.each(['Hooks.useEffect', "React['useEffect']"])('rejects %s too', (effectCall) => {
-    expect(reported.get(effectCall)).toContain('no-restricted-syntax')
-  })
+  it.each(['Hooks.useEffect', "React['useEffect']", 'React[`useEffect`]'])(
+    'rejects %s too',
+    (effectCall) => {
+      expect(reported.get(effectCall)).toContain('no-restricted-syntax')
+    }
+  )
 
   /*
    * `const { useEffect } = React` is the spelling with two holes rather than
@@ -197,7 +208,7 @@ describe('effect hooks must be called through the imported binding', () => {
    * come from an import it recognises. Verified directly — that fixture linted
    * clean, with a setState in an effect, before this selector existed.
    */
-  it.each(['scopedEffect', 'stringKeyedEffect'])(
+  it.each(['scopedEffect', 'stringKeyedEffect', 'templateKeyedEffect'])(
     'rejects an effect hook destructured off the namespace (%s)',
     (effectCall) => {
       expect(reported.get(effectCall)).toContain('no-restricted-syntax')

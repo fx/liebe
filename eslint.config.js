@@ -97,16 +97,19 @@ export default [
             "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a member call like `React.useEffect`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
         },
         {
+          // Both static computed spellings: a string literal carries `value`, a
+          // no-substitution template literal carries `quasis.0.value.raw`.
           selector:
-            'MemberExpression[computed=true][property.value=/^use(Layout|Insertion)?Effect$/]',
+            'MemberExpression[computed=true]:matches([property.value=/^use(Layout|Insertion)?Effect$/], [property.quasis.length=1][property.quasis.0.value.raw=/^use(Layout|Insertion)?Effect$/])',
           message:
             "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a computed member call like `React['useEffect']`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
         },
         {
-          // Both key spellings: `{ useEffect }` / `{ useEffect: alias }` carry an
-          // identifier key, `{ ['useEffect']: alias }` a string literal.
+          // Every static key spelling: `{ useEffect }` / `{ useEffect: alias }`
+          // carry an identifier key, `{ ['useEffect']: alias }` a string
+          // literal, and the backtick form a template literal.
           selector:
-            'ObjectPattern > Property:matches([key.name=/^use(Layout|Insertion)?Effect$/], [key.value=/^use(Layout|Insertion)?Effect$/])',
+            'ObjectPattern > Property:matches([key.name=/^use(Layout|Insertion)?Effect$/], [key.value=/^use(Layout|Insertion)?Effect$/], [key.quasis.length=1][key.quasis.0.value.raw=/^use(Layout|Insertion)?Effect$/])',
           message:
             "Import the effect hooks directly — `import { useEffect } from 'react'` — rather than destructuring them off the React namespace. A hook bound that way is a plain identifier at the call site, which react-hooks/set-state-in-effect does not recognise as an effect, so the state-writing check silently does not apply. See docs/changes/0040-test-harness-reliability.md.",
         },
