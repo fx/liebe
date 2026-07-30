@@ -15,11 +15,11 @@
  *
  * WHERE IT DECLARES
  * -----------------
- * Tokens on `.radix-themes`, the root the base layer declares them on — a
- * derived companion (`-tint`) only re-derives where its base is overridden on
- * the SAME element (src/styles/tokens.css). Deliberately NOT under the dark
- * selector: LCARS is `dark-only` and the engine forces the appearance, but a
- * nested `<Theme appearance="light">` inside the panel would otherwise put the
+ * Tokens on `.liebe-root`, the root the base layer declares them on — a derived
+ * companion (`-tint`) only re-derives where its base is overridden on the SAME
+ * element (src/styles/tokens.css). Deliberately NOT under the dark selector:
+ * LCARS is `dark-only` and the engine forces the appearance, but a nested
+ * `<Theme appearance="light">` carrying `liebe-root` would otherwise put the
  * base layer's light surfaces back under LCARS's palette. On black, in every
  * subtree, always.
  *
@@ -96,7 +96,7 @@
 @layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-theme {
-  :where(.radix-themes) {
+  :where(.liebe-root) {
     /* --- The okudagram palette (theme-private, not contract) ---------- */
     --lcars-black: #000;
     --lcars-butterscotch: #ea9c72;

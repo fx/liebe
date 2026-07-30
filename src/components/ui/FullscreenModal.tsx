@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type ReactNode, type CSSProperties } from 'react'
+import { useEffect, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Theme } from '@radix-ui/themes'
+import { usePortalContainer } from './portals'
 
 interface FullscreenModalProps {
   open: boolean
@@ -31,60 +32,20 @@ interface FullscreenModalProps {
    */
   zIndex?: number
   /**
-   * Element to portal into. Defaults to document.body. Pass a container inside
-   * the panel's shadow root (see resolvePanelPortalContainer) when the modal
-   * content must stay inside the <home-assistant> DOM tree, e.g. for HA
-   * elements that resolve their dependencies via @lit/context.
+   * Element to portal into. Defaults to the panel's portal host — the element
+   * inside the shadow root, under `liebe-root`, that every Liebe overlay mounts
+   * in so the three theme layers reach it (see `./portals`). Pass a container
+   * only for content that genuinely has to land somewhere else.
    */
   portalContainer?: Element
 }
 
 /**
- * Resolve the portal container for content that must stay inside the panel's
- * DOM tree. Given an element rendered by the panel, walks to its root node:
- * when that is the panel's shadow root, returns the React root container
- * <div> inside it (so portalled content keeps receiving @lit/context
- * `context-request` resolution from <home-assistant>); otherwise falls back
- * to document.body (light-DOM/standalone rendering).
- */
-export function resolvePanelPortalContainer(el: Element | null): Element {
-  const root = el?.getRootNode()
-  if (root instanceof ShadowRoot) {
-    // Contract with src/panel.ts: the React root container is tagged with
-    // data-liebe-root. Fall back to the first-div heuristic for older embeds.
-    const container = root.querySelector('[data-liebe-root]') ?? root.querySelector('div')
-    if (container) return container
-  }
-  return document.body
-}
-
-/**
- * Callback-ref + state wiring around resolvePanelPortalContainer: attach
- * `ref` to any element rendered by the panel and `container` resolves to the
- * portal target for FullscreenModal's portalContainer prop (undefined until
- * the element mounts, i.e. FullscreenModal's document.body default).
- */
-export function usePanelPortalContainer(): {
-  ref: (el: Element | null) => void
-  container: Element | undefined
-} {
-  const [container, setContainer] = useState<Element | undefined>(undefined)
-  const ref = useCallback((el: Element | null) => {
-    if (el) {
-      setContainer(resolvePanelPortalContainer(el))
-    }
-  }, [])
-  return { ref, container }
-}
-
-/**
- * A fullscreen modal that portals to document.body to escape shadow DOM boundaries.
- * Useful for Home Assistant panels and other shadow DOM contexts where standard
- * modals get trapped under menus.
+ * A fullscreen modal rendered through a React portal.
  *
  * Features:
- * - Renders to document.body (or a custom portalContainer) via React portal
- * - High z-index to appear above everything
+ * - Renders into the panel's portal host (or a custom portalContainer)
+ * - High z-index to appear above the rest of the panel
  * - ESC key support
  * - Click outside to close
  * - Optional Theme wrapper for Radix UI components
@@ -99,8 +60,14 @@ export function FullscreenModal({
   closeOnBackdropClick = true,
   closeOnEsc = true,
   zIndex = 99999,
-  portalContainer = document.body,
+  portalContainer,
 }: FullscreenModalProps) {
+  // The host is `undefined` on the first render of a freshly mounted tree, and
+  // `document.body` is the only target that certainly exists then. It is also
+  // the target when there is no Liebe tree above this modal at all.
+  const host = usePortalContainer()
+  const container = portalContainer ?? host ?? document.body
+
   // Handle ESC key
   useEffect(() => {
     if (open && closeOnEsc) {
@@ -151,5 +118,5 @@ export function FullscreenModal({
     </>
   )
 
-  return createPortal(includeTheme ? <Theme>{content}</Theme> : content, portalContainer)
+  return createPortal(includeTheme ? <Theme>{content}</Theme> : content, container)
 }

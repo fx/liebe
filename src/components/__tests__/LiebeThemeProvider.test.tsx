@@ -40,6 +40,24 @@ describe('LiebeThemeProvider', () => {
     expect(getByTestId('child')).toBeInTheDocument()
   })
 
+  it('mounts the portal host inside the theme root', () => {
+    // Where overlays land, and the placement is the whole point: inside the
+    // shadow root puts them in the injected layers, and inside `liebe-root`
+    // puts them in the token scope, which is declared on that element and
+    // reaches an overlay only by inheritance (docs/specs/theming — "Portalled
+    // UI MUST stay inside the token scope"). A host rendered beside the theme
+    // root would satisfy the first and silently fail the second.
+    const { container } = render(
+      <LiebeThemeProvider>
+        <span />
+      </LiebeThemeProvider>
+    )
+
+    const host = container.querySelector('.liebe-portal-host')
+    expect(host).not.toBeNull()
+    expect(host?.closest('.liebe-root')).toBe(getRootTheme(container))
+  })
+
   it('leaves the appearance to the surrounding document when none is given', () => {
     const { container } = render(
       <LiebeThemeProvider>

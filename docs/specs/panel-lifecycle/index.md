@@ -39,14 +39,14 @@ Related specs:
 
 - On first `connectedCallback`, the element MUST attach an open shadow root and mount a single React root into a full-height container `div` inside it.
 - The element MUST load `liebe.css` into the shadow root via a `<link>` element resolved relative to the running `panel.js` URL.
-- The element MUST also inject a clone of that stylesheet into `document.head` (once) so Radix UI components that render in portals — which escape the shadow root — are styled.
+- The element MUST NOT put that stylesheet — or any other Liebe styling — into `document.head`. It once cloned the `<link>` there, so that Radix components portalling to `document.body` were styled; overlays portal into a host inside the shadow root instead ([theming — Portalled UI MUST stay inside the token scope](../theming/index.md#application-mechanism)), so the clone styles nothing Liebe renders and only widens what an imported configuration's custom CSS could reach. The one deliberate exception is `@font-face`, which a shadow root does not load when declared inside it.
 - The element MUST expose the asset base URL as `window.__LIEBE_ASSET_BASE_URL__` for other code that needs to resolve bundled assets.
 
 #### Scenario: Radix portals are styled
 
-- **GIVEN** the panel has mounted and injected `liebe.css` into both the shadow root and `document.head`
-- **WHEN** a Radix dialog or dropdown opens and renders its content in a portal attached to `document.body`
-- **THEN** the portalled content is styled because the stylesheet clone exists in `document.head`
+- **GIVEN** the panel has mounted and linked `liebe.css` into its shadow root
+- **WHEN** a Radix dialog or dropdown opens
+- **THEN** its content renders in the panel's portal host inside that shadow root, styled by the same sheet and the same layers as the dashboard, and `document.head` carries no Liebe stylesheet
 
 ### hass Propagation
 
@@ -248,7 +248,6 @@ The `hass` setter (`src/panel.ts:53`) only emits a console log when one or more 
 - **Are the resurrection hacks still necessary?** The overridden `remove()`, parent observer, three intervals, and global guardian were added against July 2025 HA behavior (#132/#135). It is unknown whether current Home Assistant versions still remove the panel element on tab switch, i.e. whether some or all of this machinery is now dead weight (and a potential source of memory retention, since `window.__liebePanel` and intervals intentionally prevent GC).
 - **Unguarded, verbose console logging.** Constructor, connect/disconnect, visibility, keep-alive, reconnect, and guardian paths all `console.log` unconditionally with an `instanceId`. There is no debug flag; this ships to production and can be noisy.
 - **Competing re-append actors.** The parent observer, per-instance reconnect check, and the module-level guardian can all attempt to re-append the same element into different containers on overlapping timers. Their interaction is not coordinated and could theoretically thrash the element between containers.
-- **Duplicate stylesheet accumulation.** The `document.head` clone is guarded by a `querySelector` on the exact `href`, but re-initialization paths and multiple instances (dev + prod) inject their own links; long-lived sessions could accumulate `<link>` nodes.
 - **`initialized` never resets.** Once `true`, only the loss of `shadowRoot`/`root` forces re-init; if HA reused an element in an unexpected state, the guard could skip needed setup.
 
 ## References
@@ -265,6 +264,7 @@ The `hass` setter (`src/panel.ts:53`) only emits a console log when one or more 
 
 ## Changelog
 
-| Date       | Change                                                     | Document |
-| ---------- | ---------------------------------------------------------- | -------- |
-| 2026-07-18 | Initial spec created (baseline of existing implementation) | —        |
+| Date       | Change                                                                                                                                                                       | Document                                            |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 2026-07-18 | Initial spec created (baseline of existing implementation)                                                                                                                   | —                                                   |
+| 2026-07-30 | The `document.head` stylesheet clone is gone: overlays portal into a host inside the shadow root, so nothing of Liebe's but `@font-face` reaches the Home Assistant document | [0036](../../changes/0036-theming-contract-gaps.md) |

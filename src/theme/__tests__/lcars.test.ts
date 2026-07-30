@@ -59,12 +59,12 @@ function selectors(css: string): string[] {
 
 /**
  * The classes a theme is allowed to name: the nine anatomy classes, the three
- * structural hooks, and the Radix theme root the token contract declares on.
+ * structural hooks, and `liebe-root`, the root the token contract declares on.
  * `liebe-section-title` is in the contract but not yet in any markup, so it is
  * permitted rather than required.
  */
 const CONTRACT_CLASSES = new Set([
-  'radix-themes',
+  'liebe-root',
   'liebe-card',
   'liebe-icon',
   'liebe-name',
@@ -129,12 +129,12 @@ describe('LCARS stylesheet', () => {
   })
 
   it('declares its tokens on the theme root, in every appearance', () => {
-    // `.radix-themes` is the element the base layer declares tokens on, and the
+    // `.liebe-root` is the element the base layer declares tokens on, and the
     // only element an override may use: a derived `-tint` re-derives only where
     // its base is overridden on the SAME element. Unqualified by appearance on
     // purpose — LCARS is dark-only, so a nested light `Theme` must not put the
     // base layer's light surfaces back under this palette.
-    expect(sheetSelectors[0]).toBe(':where(.radix-themes)')
+    expect(sheetSelectors[0]).toBe(':where(.liebe-root)')
     expect(rules).not.toContain('.dark')
     expect(rules).not.toContain('.light')
   })

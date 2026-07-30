@@ -247,15 +247,20 @@ export function ThemeGallery({ title, sections = 1 }: ThemeGalleryProps) {
  * exactly what the gallery exists to show. Full width each, one above the
  * other.
  *
- * Each pane is its own Radix `Theme`, which is the element the `--liebe-*`
- * tokens are declared on, so the two resolve independently of the toolbar's
- * appearance rather than sharing it.
+ * Each pane is its own Radix `Theme` carrying `liebe-root`, the class the
+ * `--liebe-*` tokens are declared on, so the two resolve independently of the
+ * toolbar's appearance rather than sharing it.
  */
 export function ThemeGallerySplit() {
   return (
     <Flex direction="column" gap="4">
       {(['dark', 'light'] as const).map((appearance) => (
-        <Theme key={appearance} appearance={appearance} style={{ minWidth: 0 }}>
+        <Theme
+          key={appearance}
+          className="liebe-root"
+          appearance={appearance}
+          style={{ minWidth: 0 }}
+        >
           <ThemeGallery title={appearance === 'dark' ? 'Dark' : 'Light'} />
         </Theme>
       ))}

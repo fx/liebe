@@ -55,7 +55,7 @@
    * The dashboard ground.
    *
    * Painted here, on the Liebe theme root, and deliberately NOT on `html` /
-   * `body`. `--liebe-bg` and `--liebe-fg` are declared on `.radix-themes`
+   * `body`. `--liebe-bg` and `--liebe-fg` are declared on `.liebe-root`
    * (src/styles/tokens.css) because every surface token aliases a Radix token
    * that exists only there, and a `var()` inside a custom property substitutes
    * at the element that declares it. `html` and `body` are ANCESTORS of that

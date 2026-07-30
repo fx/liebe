@@ -7,11 +7,10 @@ import {
   Box,
   IconButton,
   Switch,
-  Select,
   TextField,
   TextArea,
-  Dialog,
 } from '@radix-ui/themes'
+import { Dialog, Select } from '~/components/ui/portals'
 import { X } from 'lucide-react'
 import { cardConfigurations, getCardType } from './configurations/cardConfigurations'
 import {

@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react'
-import { Box, Flex, Select, Text } from '@radix-ui/themes'
+import { Box, Flex, Text } from '@radix-ui/themes'
+import { Select } from '~/components/ui/portals'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
 import { Archive, ChevronDown, List } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'

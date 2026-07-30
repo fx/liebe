@@ -349,7 +349,11 @@ function AliasFidelityTable({ appearance }: { appearance: 'dark' | 'light' }) {
   )
 }
 
-/** One appearance's worth of reference, wrapped in its own Radix theme. */
+/**
+ * One appearance’s worth of reference, wrapped in its own Radix theme. The
+ * `liebe-root` class is what makes the pane a token root of its own — that is
+ * the class `src/styles/tokens.css` declares the contract on.
+ */
 function AppearancePane({
   appearance,
   title,
@@ -360,7 +364,7 @@ function AppearancePane({
   children: ReactNode
 }) {
   return (
-    <Theme appearance={appearance} style={{ minWidth: 0 }}>
+    <Theme className="liebe-root" appearance={appearance} style={{ minWidth: 0 }}>
       <TokenSurface>
         {title ? (
           <Heading as="h2" size="4" mb="3">

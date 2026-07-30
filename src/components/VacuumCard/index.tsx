@@ -1,5 +1,5 @@
 import { Flex } from '@radix-ui/themes'
-import { Select } from '@radix-ui/themes'
+import { Select } from '~/components/ui/portals'
 import {
   IconAlertTriangle,
   IconHome,

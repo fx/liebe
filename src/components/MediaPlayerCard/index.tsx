@@ -1,4 +1,5 @@
-import { Box, Flex, Select } from '@radix-ui/themes'
+import { Box, Flex } from '@radix-ui/themes'
+import { Select } from '~/components/ui/portals'
 import {
   IconDeviceSpeaker,
   IconPlayerPause,

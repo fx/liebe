@@ -37,6 +37,21 @@ function stripComments(source: string): string {
 }
 
 /**
+ * The selector of every rule in a sheet, one entry per rule, with the `@layer`
+ * wrapper and any nested at-rule prelude skipped.
+ *
+ * Deliberately naive about commas — a rule's whole selector list is returned as
+ * one string — because the assertions using it ask whether a class name appears
+ * anywhere in what a rule matches, and splitting would only let a branch of a
+ * list slip through a `.toContain`.
+ */
+function ruleSelectors(css: string): string[] {
+  return [...css.matchAll(/([^{}]+)\{[^{}]*\}/g)]
+    .map(([, selector]) => selector.trim().replace(/\s+/g, ' '))
+    .filter((selector) => !selector.startsWith('@'))
+}
+
+/**
  * How many `@layer … { … }` blocks a sheet opens at the TOP level.
  *
  * Depth-aware rather than a count of the word, because a nested layer is not a
@@ -98,26 +113,26 @@ const base = declarations(baseRules)
  *
  * Whitespace is optional everywhere CSS allows it, because the assertions below
  * are about the selector list — `.dark` and `.dark-theme`, in that order, inside
- * `:where()` on `.radix-themes`, with the trailing comma that makes the nested
+ * `:where()` on `.liebe-root`, with the trailing comma that makes the nested
  * branch follow it — and not about how it happens to be formatted. Pinning the
  * single space after the comma would fail on a cosmetic reflow that changes no
  * selector, and a test that fails on formatting teaches the next reader to edit
  * the assertion, which is how a real contract check gets hollowed out. It stays
  * strict about everything that is semantic: no whitespace is tolerated between
- * `.radix-themes` and `:where(`, where CSS would read it as a descendant
+ * `.liebe-root` and `:where(`, where CSS would read it as a descendant
  * combinator and mean something else entirely.
  */
-const DARK_SELECTOR = /\.radix-themes:where\(\s*\.dark\s*,\s*\.dark-theme\s*\)\s*,/
+const DARK_SELECTOR = /\.liebe-root:where\(\s*\.dark\s*,\s*\.dark-theme\s*\)\s*,/
 
 /**
  * The same selector as a sheet writes it, for the failure messages below. The
  * pattern's own `source` is what a reader would otherwise be shown, and with the
  * whitespace classes in it that is a wall of backslashes naming nothing —
- * `\.radix-themes:where\(\s*\.dark\s*,\s*…`. A test that has just failed should
+ * `\.liebe-root:where\(\s*\.dark\s*,\s*…`. A test that has just failed should
  * say which selector it went looking for, in the language of the file it was
  * looking in.
  */
-const DARK_SELECTOR_CSS = '.radix-themes:where(.dark, .dark-theme),'
+const DARK_SELECTOR_CSS = '.liebe-root:where(.dark, .dark-theme),'
 
 /**
  * The Default theme pins `-text` per appearance, so its sheet has to be read as
@@ -150,6 +165,26 @@ const LIGHT_TEXT_STEPS = new Map([
 describe('token stylesheet', () => {
   it('declares every token the contract catalogues', () => {
     expect([...base.keys()].sort()).toEqual([...listTokenNames()].sort())
+  })
+
+  it('declares them on `.liebe-root`, and never on `.radix-themes`', () => {
+    // The linchpin of the portal host (docs/changes/0036-theming-contract-gaps.md
+    // PR 2). Radix stamps `radix-themes` on the theme root it generates around
+    // EVERY portal, so a contract declared on that class is re-declared on each
+    // open overlay — and an element's own declaration is the value it uses
+    // however its ancestors were overridden, which put every dialog and every
+    // dropdown out of reach of the theme's and the user's own token overrides.
+    // `.liebe-root` is Liebe's own class on the same element, so the generated
+    // roots have nothing of their own and inherit.
+    //
+    // Asserted on the selectors rather than on a token value, because the
+    // failure this guards against is invisible in every value: both spellings
+    // declare exactly the same tokens with exactly the same values, and differ
+    // only in which elements get them.
+    for (const selector of ruleSelectors(baseRules)) {
+      expect(selector, 'base token sheet declares on a vendor class').not.toContain('.radix-themes')
+      expect(selector, 'base token sheet declares off the documented root').toContain('.liebe-root')
+    }
   })
 
   it('pins no literal colour, so every value flows from a Radix scale', () => {

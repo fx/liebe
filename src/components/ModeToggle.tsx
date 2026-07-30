@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Tooltip } from '@radix-ui/themes'
+import { Tooltip } from '~/components/ui/portals'
 import { Pencil1Icon, EyeOpenIcon } from '@radix-ui/react-icons'
 import { useDashboardStore, dashboardActions } from '../store/dashboardStore'
 import { TaskbarButton } from './TaskbarButton'

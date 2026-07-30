@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Flex, Text, Popover, Box, Separator, Spinner, Button } from '@radix-ui/themes'
+import { Flex, Text, Box, Separator, Spinner, Button } from '@radix-ui/themes'
+import { Popover } from '~/components/ui/portals'
 import {
   InfoCircledIcon,
   CheckCircledIcon,

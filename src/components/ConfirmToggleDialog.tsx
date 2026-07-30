@@ -1,4 +1,5 @@
-import { AlertDialog, Button, Flex } from '@radix-ui/themes'
+import { Button, Flex } from '@radix-ui/themes'
+import { AlertDialog } from '~/components/ui/portals'
 import { useStore } from '@tanstack/react-store'
 import { entityStore } from '~/store/entityStore'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'

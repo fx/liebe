@@ -74,7 +74,7 @@ Typography tokens:
 | `--liebe-letter-spacing` | `normal`                   | Tracking companion to the casing token                 |
 | `--liebe-font-numeric`   | `var(--liebe-font-family)` | Typeface for numeric readouts, so figures can differ   |
 
-These MUST be declared on the themed root and inherited, not applied per component, so a theme that sets them restyles every text surface — including [portalled overlays](../theming/index.md#application-mechanism), whose mirrored root carries the same declarations. This is what makes a whole-dashboard typographic reskin (LCARS: bundled Antonio, uppercase, slight tracking) expressible as token values rather than as rules targeting selectors outside the [stable contract](../theming/index.md#stable-selector-contract). Casing MUST go through `--liebe-text-transform` rather than literal uppercase text or per-component `text-transform`, so the default theme's sentence case and a theme's uppercase are the same mechanism.
+These MUST be declared on the themed root and inherited, not applied per component, so a theme that sets them restyles every text surface — including [portalled overlays](../theming/index.md#application-mechanism), which mount inside `.liebe-root` and inherit them. This is what makes a whole-dashboard typographic reskin (LCARS: bundled Antonio, uppercase, slight tracking) expressible as token values rather than as rules targeting selectors outside the [stable contract](../theming/index.md#stable-selector-contract). Casing MUST go through `--liebe-text-transform` rather than literal uppercase text or per-component `text-transform`, so the default theme's sentence case and a theme's uppercase are the same mechanism.
 
 #### Scenario: A theme changes one token and every card follows
 

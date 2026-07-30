@@ -152,8 +152,8 @@ class LiebePanel extends HTMLElement {
 
       const container = document.createElement('div')
       container.style.height = '100%'
-      // Contract with resolvePanelPortalContainer: tag the React root so
-      // in-panel portals can target it without guessing.
+      // Tags the React root so anything walking the shadow root can find it
+      // without guessing at the first div.
       container.setAttribute('data-liebe-root', '')
       shadow.appendChild(container)
 
@@ -169,17 +169,21 @@ class LiebePanel extends HTMLElement {
         // Store base URL globally for asset loading
         window.__LIEBE_ASSET_BASE_URL__ = baseUrl
 
-        const cssUrl = `${baseUrl}liebe.css`
+        // Into the shadow root ONLY. A clone used to go into `document.head`
+        // as well, so that Radix overlays portalled to `document.body` were
+        // styled; overlays now portal into a host inside this shadow root
+        // instead (src/components/ui/portals.tsx), which is what lets the USER
+        // layer reach them — that one could never be mirrored, because its
+        // selectors are the author's own and a copy in the Home Assistant
+        // document would restyle the frontend around the panel
+        // (docs/specs/theming — "Portalled UI MUST stay inside the token
+        // scope"). With nothing of Liebe's left in the document, the clone
+        // styled nothing and only widened what an imported configuration could
+        // reach.
         const link = document.createElement('link')
         link.rel = 'stylesheet'
-        link.href = cssUrl
+        link.href = `${baseUrl}liebe.css`
         shadow.appendChild(link)
-
-        // For Radix UI portals
-        if (!document.querySelector(`link[href="${cssUrl}"]`)) {
-          const globalLink = link.cloneNode() as HTMLLinkElement
-          document.head.appendChild(globalLink)
-        }
       }
 
       this.root = ReactDOM.createRoot(container)

@@ -5,6 +5,7 @@ import { sanitizeCustomCss } from '~/theme/customCss'
 import { registerThemeFonts } from '~/theme/fontRegistration'
 import { applyThemeCssToRootOf, applyUserCssToRootOf } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from '~/theme/themeRegistry'
+import { PortalHost } from './ui/portals'
 
 export interface LiebeThemeProviderProps {
   children: ReactNode
@@ -56,6 +57,14 @@ export interface LiebeThemeProviderProps {
  *    sanitized custom CSS are injected into the root this tree is mounted in —
  *    the shadow root in Home Assistant, the document in the workshop — so
  *    switching themes and editing custom CSS apply live.
+ *
+ * It also mounts the `PortalHost` overlays land in, and mounts it INSIDE the
+ * theme root rather than beside it. Both halves of that placement are
+ * load-bearing: inside the shadow root, so the injected layers reach an open
+ * dialog without anything being mirrored into the Home Assistant document; and
+ * inside `liebe-root` specifically, because that is the element the `--liebe-*`
+ * contract is declared on and an overlay portalled anywhere else would inherit
+ * none of it.
  */
 export function LiebeThemeProvider({
   children,
@@ -125,7 +134,7 @@ export function LiebeThemeProvider({
           : undefined
       }
     >
-      {children}
+      <PortalHost>{children}</PortalHost>
     </Theme>
   )
 }

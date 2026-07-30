@@ -9,21 +9,38 @@
  *
  * WHERE THE TOKENS ARE DECLARED
  * -----------------------------
- * On the Radix theme root (`.radix-themes`), not on `:host`/`:root`:
+ * On `.liebe-root`, the documented root selector (docs/specs/theming —
+ * "Configuration & selection"), and not on `:host`/`:root`:
  *
  *  - Almost every value here aliases a Radix token, and a `var()` inside a
  *    custom property is substituted at the element that declares it. Radix
  *    declares `--color-*`, `--gray-*` and `--default-font-family` on
  *    `.radix-themes`, so declaring `--liebe-*` any higher (the shadow host, the
  *    `[data-liebe-root]` container) would substitute nothing and every aliased
- *    token would come out invalid.
- *  - It is also the element Radix marks with `.dark`/`.light`, so the
+ *    token would come out invalid. `liebe-root` is a class `LiebeThemeProvider`
+ *    puts on the Radix theme root itself, so it satisfies that and names Liebe's
+ *    own element rather than the vendor's.
+ *  - That element is also the one Radix marks with `.dark`/`.light`, so the
  *    appearance-conditional block below keys off the same signal Radix itself
- *    uses — including for nested `<Theme appearance>` subtrees.
+ *    uses — including for a nested `<Theme appearance>` that carries
+ *    `liebe-root` too, which is how the workshop's side-by-side appearance
+ *    galleries get both sets.
  *  - The panel injects this sheet into its shadow root and the Storybook
  *    preview imports it into the preview document (`src/panel.ts` /
- *    `.storybook/preview.tsx`); `.radix-themes` is the one anchor that exists
- *    in both, so the workshop renders what the panel renders.
+ *    `.storybook/preview.tsx`); both render through `LiebeThemeProvider`, so
+ *    `.liebe-root` exists in both and the workshop renders what the panel
+ *    renders.
+ *
+ * **Why not `.radix-themes`, which this sheet used to say.** Radix stamps that
+ * class on every theme root it generates — including the one it wraps portalled
+ * overlays in — and a token declared on an element is the value that element
+ * uses, whatever an ancestor says. So an overlay carrying `.radix-themes`
+ * re-declared the whole contract on itself and shadowed the root's own values,
+ * user overrides included: custom CSS targeting `.liebe-root` reached the
+ * dashboard and stopped at the edge of every dialog and dropdown. Declaring on
+ * `.liebe-root` leaves those generated roots with nothing of their own, so they
+ * inherit the panel's tokens — which is the whole point of portalling overlays
+ * inside the shadow root (docs/changes/0036-theming-contract-gaps.md).
  *
  * Consequence for later layers: a theme or user override MUST declare tokens on
  * this same root. The domain-colour companions below are derived from their
@@ -47,7 +64,7 @@
    * and anything a component adds — wins without needing `!important`, which
    * the layer contract forbids in the base layer.
    */
-  :where(.radix-themes) {
+  :where(.liebe-root) {
     /* --- Geometry ---------------------------------------------------- */
     --liebe-card-radius: 20px;
     --liebe-chip-radius: 9999px;
@@ -184,8 +201,8 @@
    * without overriding it. Only the tokens whose value actually differs are
    * repeated — everything aliased to a Radix scale flips on its own.
    */
-  .radix-themes:where(.dark, .dark-theme),
-  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
+  .liebe-root:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme)) {
     --liebe-bg: var(--gray-1);
     --liebe-card-bg: var(--gray-2);
     /* Flat in dark: elevation comes from the surface step, not a shadow. */
