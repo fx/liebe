@@ -91,7 +91,7 @@ describe('domain colour', () => {
       expect(rule).toContain(`--liebe-part-color: var(${base});`)
       expect(rule).toContain(`--part-tint: var(${tint});`)
       expect(rule).toContain(`--part-text: var(${text});`)
-      expect(rule).toContain(`--part-glyph: var(--part-${name}-glyph);`)
+      expect(rule).toContain(`--part-glyph: var(${text});`)
     }
   })
 
@@ -140,20 +140,19 @@ describe('domain colour', () => {
   })
 
   /**
-   * The glyph step is per appearance, and which way round it goes is the whole
-   * of change 0035 PR 2: a step-9 glyph on a 20% tint of itself over the light
-   * card measures 1.40:1 for amber and 2.50:1 for green, and no tint alpha
-   * fixes it. Light therefore takes the text role, which every theme already
-   * pins to clear 4.5:1 on that same surface; dark keeps the base hue, where
-   * the tint lands on a near-black card and the saturated step reads against
-   * it. Asserted on the declarations because jsdom applies no stylesheet — the
-   * figures themselves come from decoded pixels, recorded in the PR.
+   * The glyph is drawn in the domain's TEXT step, in BOTH appearances, and the
+   * "both" is the whole of change 0035 PR 5. PR 2 established the light half —
+   * a step-9 glyph on a 20% tint of itself over the light card measures 1.40:1
+   * for amber and 2.50:1 for green, and no tint alpha fixes it — and left dark
+   * on the base hue, believing the tint lands dark enough for the saturated
+   * step to read. Measured per hue per theme, it does not: `media` misses at
+   * 2.80:1 under Default, and `ok`, `alert` and `media` miss at 2.89, 2.47 and
+   * 2.17 under Liquid Glass. So there is no per-appearance switch left to
+   * assert — the appearance-awareness lives in the `-text` token, which every
+   * theme pins per appearance. Asserted on the declarations because jsdom
+   * applies no stylesheet; the figures come from decoded pixels, in the PR.
    */
   describe('the glyph on its tint', () => {
-    const LIGHT_ROOT = ':where(.liebe-root)'
-    const DARK_ROOT =
-      '.liebe-root:where(.dark, .dark-theme),\n  :is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme))'
-
     it('takes the glyph role, not the saturated solid one', () => {
       const active = ruleBody(
         '.liebe-icon[data-active],\n  .liebe-pill[data-active],\n  .liebe-chip[data-active]'
@@ -162,55 +161,53 @@ describe('domain colour', () => {
       expect(active).not.toContain('color: var(--part-color);')
     })
 
-    it('resolves the glyph role to the text step in light appearance', () => {
-      // Light is the unconditional block, as it is in the base token sheet:
-      // Radix's classless default is light.
-      const light = ruleBody(LIGHT_ROOT)
+    it('resolves the glyph role to the text step for every triplet', () => {
       for (const { name } of domainColors) {
-        expect(light).toContain(`--part-${name}-glyph: var(${domainColorTokens(name).text});`)
+        const { text, base } = domainColorTokens(name)
+        const rule = ruleBody(`[data-color='${name}']`)
+
+        expect(rule).toContain(`--part-glyph: var(${text});`)
+        // And not the base hue, which is what dark used to take and what the
+        // measurement above rules out. `--liebe-part-color` and `--part-color`
+        // still carry the base, so this has to be read off the glyph line
+        // rather than off the rule as a whole.
+        // Every glyph declaration in the rule, not merely the first: a second
+        // one would win by source order and is exactly how the base hue could
+        // come back without the assertion above noticing.
+        const glyphLines = rule.split(';').filter((line) => line.includes('--part-glyph'))
+        expect(glyphLines).toHaveLength(1)
+        expect(glyphLines[0]).not.toContain(`var(${base})`)
       }
     })
 
-    it('resolves the glyph role to the base hue in dark appearance', () => {
-      const dark = ruleBody(DARK_ROOT)
-      for (const { name } of domainColors) {
-        expect(dark).toContain(`--part-${name}-glyph: var(${domainColorTokens(name).base});`)
-      }
-    })
-
-    it('changes nothing in dark but the glyph role', () => {
-      // Dark measured clean before this sheet chose a glyph step and must
-      // measure identically after it: any other declaration in this block would
-      // move a figure the change document puts out of scope.
-      const declared = ruleBody(DARK_ROOT)
-        .split(';')
-        .map((line) => line.trim().split(':')[0])
-        .filter(Boolean)
-
-      expect(declared).toEqual(domainColors.map(({ name }) => `--part-${name}-glyph`))
-    })
-
-    it('resolves the appearance on the theme root, never on the part', () => {
+    it('keys nothing in this sheet off the appearance', () => {
       /*
-       * An appearance selector as an ANCESTOR of the part leaks through nested
+       * The rule this pins is an EXCLUSION, and it is what the collapse buys.
+       * An appearance selector as an ANCESTOR of a part leaks through nested
        * themes: a light `<Theme>` inside a dark root — the workshop's
        * appearance split, the panel's fullscreen modal — is still a descendant
        * of the dark root, so a dark rule written that way keeps matching inside
-       * the light pane and puts the failing glyph back. Declaring per
-       * appearance on the root instead composes, because a nested root
-       * redeclares the property on itself.
+       * the light pane. PR 2 avoided that by declaring per appearance on the
+       * theme root; PR 5 removes the need entirely, because the token resolves
+       * at the nearest root by itself. So this sheet should now mention the
+       * appearance NOWHERE — a reintroduced selector of either shape is the
+       * defect, and asserting "none" is what forbids both.
        */
-      const appearanceSelectors = [...source.matchAll(/^\s*(\S[^\n]*\.dark[^\n]*)$/gm)].map(
-        ([, selector]) => selector.trim().replace(/\s*[,{]$/, '')
-      )
-
-      // Exactly the two branches the base token sheet uses, and nothing else:
-      // any third selector mentioning the appearance would be one that reaches
-      // past the root it is meant to describe.
-      expect(appearanceSelectors).toEqual([
-        '.liebe-root:where(.dark, .dark-theme)',
-        ':is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme))',
-      ])
+      // All three ways CSS can key off the appearance, because forbidding
+      // only the one this sheet used to use would let the next author reach
+      // for either of the others and still pass:
+      //
+      //  - the CLASS, as the theme roots carry it. `\b` after the word rather
+      //    than after the dot, so `.dark-theme` and `.light-theme` are caught
+      //    (a hyphen is a non-word character) while `.darken` is not.
+      //  - the ATTRIBUTE, which the Radix root also stamps. Note this must
+      //    not catch `[data-color='light']` — a triplet that happens to be
+      //    named `light` is a domain colour, not an appearance.
+      //  - the MEDIA QUERY, which needs no root at all and would leak through
+      //    a nested theme exactly as an ancestor selector does.
+      expect([...source.matchAll(/\.(dark|light)\b/g)]).toEqual([])
+      expect([...source.matchAll(/data-appearance/g)]).toEqual([])
+      expect([...source.matchAll(/prefers-color-scheme/g)]).toEqual([])
     })
   })
 })
