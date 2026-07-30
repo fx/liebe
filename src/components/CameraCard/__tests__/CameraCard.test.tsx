@@ -139,6 +139,7 @@ function mockEntityReturn(
     entity: makeEntity(),
     isConnected: true,
     isLoading: false,
+    isMissing: false,
     isStale: false,
     ...overrides,
   }
@@ -151,6 +152,7 @@ function mockEntityReturn(
           entity: linkedEntities[entityId],
           isConnected: camera.isConnected,
           isLoading: false,
+          isMissing: false,
           isStale: false,
         }
   )
@@ -250,8 +252,20 @@ describe('CameraCard', () => {
   })
 
   describe('loading and connection states', () => {
-    it('shows a skeleton while initial data loads', () => {
+    it('reports the disconnection while loading against a socket that is down', () => {
+      // This used to expect a skeleton, which pinned the defect: `isLoading`
+      // stays true forever on a panel that never reaches Home Assistant
+      // (`loadInitialStates()` is the only thing that clears it), so the tile
+      // would have waited on a load that cannot start. Waiting is honest only
+      // over a connection something can arrive on.
       mockEntityReturn({ entity: undefined, isLoading: true, isConnected: false })
+      const { container } = renderCard()
+      expect(container.querySelector('.rt-Skeleton')).toBeNull()
+      expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    })
+
+    it('shows a skeleton while initial data loads on a live connection', () => {
+      mockEntityReturn({ entity: undefined, isLoading: true, isConnected: true })
       const { container } = renderCard()
       expect(container.querySelector('.rt-Skeleton')).toBeInTheDocument()
     })

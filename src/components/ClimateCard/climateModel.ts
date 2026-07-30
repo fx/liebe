@@ -274,8 +274,12 @@ export interface ClimateReading {
 }
 
 export interface ClimateModel {
+  /** The id the card was configured with, which a not-found tile has to name. */
+  entityId: string
   isLoading: boolean
   isConnected: boolean
+  /** `useEntity`'s third state — received the state machine, no such entity. */
+  isMissing: boolean
   isStale: boolean
   entity: HassEntity | undefined
   /**
@@ -381,7 +385,7 @@ export function readClimateEntity(entity: HassEntity, nativeUnit: string): Clima
 
 /** Reads one climate entity into the shape both presentations render from. */
 export function useClimateModel(entityId: string): ClimateModel {
-  const { entity, isConnected, isStale, isLoading } = useEntity(entityId)
+  const { entity, isConnected, isStale, isLoading, isMissing } = useEntity(entityId)
   const nativeUnit = useNativeTemperatureUnit(entity)
 
   const reading = useMemo<ClimateReading | undefined>(
@@ -390,8 +394,10 @@ export function useClimateModel(entityId: string): ClimateModel {
   )
 
   return {
+    entityId,
     isLoading,
     isConnected,
+    isMissing,
     isStale,
     entity,
     isInoperable: entity?.state === 'unavailable' || entity?.state === 'unknown',

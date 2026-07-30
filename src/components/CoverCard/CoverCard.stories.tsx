@@ -206,15 +206,47 @@ export const Disconnected: Story = {
 }
 
 /**
- * An entity id that is not in the store. `useEntity` cannot tell "not loaded
- * yet" from "does not exist", so the card holds its skeleton indefinitely
- * rather than reporting the entity as missing.
+ * An entity id that is not in the store, on a live connection whose snapshot has
+ * already landed — a card left pointing at an entity that was renamed or
+ * removed. The card reports it missing and names it, rather than holding a
+ * skeleton that reads as progress towards a load that will never finish
+ * (docs/specs/entity-state — "Consumer Hooks").
  */
 export const UnknownEntity: Story = {
   parameters: { liebe: { entities: [] } },
   play: async ({ canvasElement }) => {
-    await expect(canvasElement.querySelector('.liebe-card')).toBeInTheDocument()
-    await expect(within(canvasElement).queryByText('Living Room Blinds')).not.toBeInTheDocument()
+    const canvas = within(canvasElement)
+
+    /*
+     * Asserted on what the tile SAYS, not on the shell it renders inside.
+     *
+     * This used to require `.liebe-card`, and that assertion was correct about
+     * the contract and wrong about the code — so it described a gap rather than
+     * a regression, and went unnoticed until change 0040 PR 6 made play
+     * functions execute.
+     *
+     * The gap is narrower than "this tile is not a card". `liebe-card` is what
+     * carries a tile's geometry and theming, and `SkeletonCard` stamps it
+     * directly — `<div className="liebe-card" data-tier={tier}>` — precisely so
+     * "a theme reshapes the loading tile with the loaded one". The two tiles
+     * that go through `ErrorDisplay variant="card"`, not-found and
+     * disconnected, stamp neither it nor `data-tier`, so those two lose the
+     * theming handle and the tier geometry. Restoring it is a change to a
+     * shared component's rendered surface rather than an unbreak, and
+     * docs/changes/0043-card-tile-control-semantics.md PR 6 owns it — including
+     * restoring an assertion here.
+     *
+     * What replaces it is stronger for this story's own purpose, and not
+     * because the old assertion was undiscriminating — it was not.
+     * `querySelector('.liebe-card')` returns a node for a skeleton and `null`
+     * for the two error tiles, so it separates the skeleton from them; what it
+     * cannot do is separate THIS tile from the disconnected one. `Entity Not
+     * Found` does, and the message names the entity, which the class never did
+     * and which is the half the docstring above is actually about.
+     */
+    await expect(canvas.getByText('Entity Not Found')).toBeInTheDocument()
+    await expect(canvas.getByText(entityId, { exact: false })).toBeInTheDocument()
+    await expect(canvas.queryByText('Living Room Blinds')).not.toBeInTheDocument()
   },
 }
 

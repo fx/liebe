@@ -214,7 +214,17 @@ The SDLC skills own the phases. What is specific to this repo:
 
    The general form, and the reason this is worth remembering past that one dependency: **a green suite is evidence about the environment it ran in.** When a change turns on where the panel sits in the DOM, on crossing a shadow boundary, or on anything the surrounding Home Assistant document owns, the local environments will agree with you regardless. Only CI's e2e job is evidence, which is also why it is the gate.
 
-6. **Playwright's own two prerequisites**
+6. **Story `play` functions are tests here, and two things about the suite they run in**
+
+   `src/__tests__/stories.test.tsx` composes every `*.stories.tsx` and runs its `play` function as part of `npm test` — the workshop is **gate-grade** ([storybook — CI & publishing](docs/specs/storybook/index.md#ci--publishing), change [0040](docs/changes/0040-test-harness-reliability.md) PR 6). Write a story's assertions as you would a test's; a wrong one now fails the PR instead of sitting there. Two traps that first run surfaced, both general:
+   - **jsdom lays nothing out, and the dangerous half of that is the assertions it _passes_.** A width assertion against a 0-wide box fails loudly and is easy to diagnose. Its neighbour — `strip.scrollWidth <= strip.clientWidth + 1`, "nothing overflows" — evaluates `0 <= 1` and goes green having measured nothing at all. So the rule for any geometry claim in this repo, in a story or a `__tests__` spec, is that a passing one in jsdom is worth nothing: the runner's `BROWSER_ONLY` map is where such a story is named, with its reason, and the map is self-verifying (a listed story is still executed and must still throw).
+   - **The dispatch guard is process-wide, so a hanging service call contaminates every test after it.** `src/services/guardedDispatch.ts` keeps its pending set at module scope on purpose — the guarantee is about a command reaching Home Assistant at most once, not about one component. A test that leaves a call unsettled (the workshop's `serviceCall: 'pending'` fixture, a mock that never resolves) leaves that command in flight, and the next identical command is **admitted as a success**. That is how `ActionCard/Activating` rendered the success check while asserting the in-flight spinner — a failure that looks exactly like a card defect and is not. `resetDispatchGuard()` in a `beforeEach` is the fix; reach for it before believing a cross-test result.
+
+   **Making a class of assertion executable for the first time breaks `main` on merge order alone, and the PR that does it is not the one at fault.** Every branch in flight is a source of assertions that have never run, so the enabling PR is qualified against the assertions that existed when it was tested, and each in-flight PR's assertions are qualified against a runner that ignored them. Neither can see the other; whichever lands second turns the pair red. It happened here within hours: [0037](docs/changes/0037-card-state-and-capability-correctness.md) PR 3 ([#322](https://github.com/fx/liebe/pull/322)) added a `CoverCard/UnknownEntity` story asserting `.liebe-card`, and 0040 PR 6 ([#323](https://github.com/fx/liebe/pull/323)) made play functions execute — each green alone, red together, `main` broken by neither one's content.
+
+   Two things follow. **Re-run the full suite after merging `main`, and read the failure before assuming it is yours** — a detached worktree at `origin/main` with your branch absent settles ownership in one command, and here it showed the failure was main's. And **expect the first run of a newly-executable gate to fail on somebody else's assertion**: the assertion is usually right and the code usually wrong, which is the whole reason it was written and never checked, so the fix is to establish which — not to weaken the assertion so the gate goes quiet. Weakening it would be a defect in the change, and it also discards the finding the gate just bought.
+
+7. **Playwright's own two prerequisites**
 
    A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
 
@@ -227,7 +237,7 @@ The SDLC skills own the phases. What is specific to this repo:
 
    `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
 
-7. **Merging `main` into a long-lived branch: the changelog tables**
+8. **Merging `main` into a long-lived branch: the changelog tables**
 
    Several specs end in a dated changelog table that every card change appends a row to, so two branches in flight almost always conflict there. There are **two** kinds of conflict in those tables and they take opposite resolutions.
 

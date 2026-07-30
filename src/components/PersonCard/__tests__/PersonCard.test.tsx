@@ -38,6 +38,7 @@ describe('PersonCard', () => {
       isConnected: true,
       isStale: false,
       isLoading: false,
+      isMissing: false,
     }))
   }
 
@@ -428,6 +429,7 @@ describe('PersonCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: true,
+        isMissing: false,
       })
 
       const { container } = render(<PersonCard entityId={ENTITY_ID} tier="row" />)
@@ -441,6 +443,7 @@ describe('PersonCard', () => {
         isConnected: false,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       render(<PersonCard entityId={ENTITY_ID} tier="row" />)
@@ -464,6 +467,7 @@ describe('PersonCard', () => {
         isConnected: false,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       render(<PersonCard entityId={ENTITY_ID} tier="row" />)

@@ -46,7 +46,7 @@ Implemented to the [light option contract](./options/light.md) by change [0016](
 
 **Config**: `showBrightnessSlider`, `useLightColor`, `showColorTempControl`, `showColorControl` (booleans, all default `true`) and `brightnessPresets` (`number[]`, default `[]`), declared in `src/components/configurations/cardConfigurations.ts`, read through `src/store/lightOptions.ts`, validated at the import gate by `lightOptionsConfigSchema`, and edited via `CardConfig.Modal`. The shipped key was `enableBrightness`; `migrateLightCardConfig` rewrites it at the loader (`src/store/persistence.ts`), so nothing downstream reads two keys.
 
-**States**: skeleton while the entity has not arrived; `ErrorDisplay` titled "Disconnected" with a reload retry when the connection is down. A missing entity on a live connection holds the skeleton indefinitely rather than reporting itself missing — `useEntity` cannot tell "not loaded yet" from "does not exist" (tracked by issue #265).
+**States**: the three lifecycle tiles every card shares, resolved in `src/components/ui/cardStates.tsx` from `useEntity`'s `isLoading` / `isMissing` / `isConnected` — skeleton while the entity has not arrived, "Entity Not Found" once the received state machine is known not to contain it, "Disconnected" with a reload retry when the connection is down. See [index.md — common card shell, sizing, and lifecycle states](./index.md#common-card-shell-sizing-and-lifecycle-states).
 
 ### Scenarios
 

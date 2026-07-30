@@ -57,6 +57,10 @@ const cardText = (canvasElement: HTMLElement) =>
 const arrangement = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('.liebe-card-body')?.getAttribute('data-arrangement') ?? ''
 
+/** The condition glyph the line-art variants draw, by its icon-set class. */
+const conditionGlyph = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('.liebe-icon svg')?.getAttribute('class') ?? ''
+
 /** The condition artwork actually painted, or `''` for the flat surface. */
 const backgroundImage = (canvasElement: HTMLElement) =>
   (canvasElement.querySelector('.liebe-card') as HTMLElement | null)?.style.backgroundImage ?? ''
@@ -181,9 +185,11 @@ export const Disconnected: Story = {
 }
 
 /**
- * An entity id that is not in the store. `useEntity` cannot tell "not loaded
- * yet" from "does not exist", so the card holds its skeleton indefinitely
- * rather than reporting the entity as missing.
+ * An entity id that is not in the store, on a live connection whose snapshot has
+ * already landed — a card left pointing at an entity that was renamed or
+ * removed. The card reports it missing and names it, rather than holding a
+ * skeleton that reads as progress towards a load that will never finish
+ * (docs/specs/entity-state — "Consumer Hooks").
  */
 export const UnknownEntity: Story = {
   args: { gridHeight: 2 },
@@ -462,7 +468,11 @@ export const ExceptionalCondition: Story = {
   args: { gridWidth: 3, gridHeight: 1 },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'exceptional' })] } },
   play: async ({ canvasElement }) => {
-    await expect(cardText(canvasElement)).toContain('⚠️')
+    // The warning is the line-art `TriangleAlert`, not an emoji: change 0030
+    // retired the `default` variant's emoji header and `getConditionEmoji` with
+    // it (card-reference.md — "Condition→icon"). This story went on asserting
+    // `⚠️` for as long as nothing executed it.
+    await expect(conditionGlyph(canvasElement)).toContain('lucide-triangle-alert')
     await expect(backgroundImage(canvasElement)).toBe('')
   },
 }

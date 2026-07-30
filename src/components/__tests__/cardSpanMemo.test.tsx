@@ -127,6 +127,7 @@ describe('a card whose span changes without its tier', () => {
       isConnected: true,
       isStale: false,
       isLoading: false,
+      isMissing: false,
     }))
 
     vi.mocked(hooks.useServiceCall).mockReturnValue({
@@ -180,6 +181,7 @@ describe('the configuration preview behind a card that owns its modal', () => {
       isConnected: true,
       isStale: false,
       isLoading: false,
+      isMissing: false,
     }))
 
     vi.mocked(hooks.useServiceCall).mockReturnValue({

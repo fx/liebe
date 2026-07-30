@@ -3,7 +3,7 @@ import { VideoIcon, ReloadIcon } from '@radix-ui/react-icons'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useEntity, useIsConnecting } from '~/hooks'
 import { useHomeAssistantOptional } from '../../contexts/HomeAssistantContext'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { useDashboardStore, dashboardActions } from '~/store'
 import {
@@ -124,7 +124,13 @@ function CameraCardComponent({
   onSelect,
   item,
 }: CameraCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   const { mode, currentScreenId } = useDashboardStore()
   const isEditMode = mode === 'edit'
   const isReconnecting = useIsConnecting()
@@ -377,25 +383,16 @@ function CameraCardComponent({
     }
   }
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  // Show error state when disconnected or the entity is missing. The skeleton
-  // guard above already swallows the connected-but-missing-entity case, so
-  // this block only ever renders while disconnected — no per-prop ternaries.
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-        size="3"
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      size: '3',
+    })
   }
 
   // The universal `name` override wins over the friendly name for every surface

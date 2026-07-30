@@ -117,13 +117,15 @@ describe('when Home Assistant is unreachable', () => {
     }
   })
 
-  it('holds the skeleton for an entity that is simply not there', () => {
+  it('reports an entity that is simply not there, rather than waiting for it', () => {
     /*
-     * Pins why the failure display above needs only one message. `useEntity`
-     * cannot tell "not loaded yet" from "does not exist", so a missing entity on
-     * a LIVE connection waits rather than reporting itself missing — it never
-     * reaches the error display at all. Reporting it properly is a change to
-     * `useEntity`, and this test is what would fail first if that landed.
+     * The arm change [0016](docs/changes/0016-light-card-to-spec.md) deleted as
+     * unreachable, restored now that it is reachable. A live connection past its
+     * initial load holds the whole state machine, so an entity absent from it is
+     * absent from Home Assistant — the ordinary outcome of renaming a device or
+     * removing an integration. What the card used to do here was hold a skeleton
+     * forever, which reads as "still working on it" about a load that will never
+     * finish.
      */
     entityStore.setState((state) => ({
       ...state,
@@ -135,9 +137,15 @@ describe('when Home Assistant is unreachable', () => {
 
     renderCard()
 
+    expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
+    expect(screen.getByText(/light\.living_room is not in Home Assistant/)).toBeInTheDocument()
+    // Not the disconnected tile: the connection is up, and sending the user to
+    // reload the panel would be advice that cannot work.
     expect(screen.queryByText('Disconnected')).toBeNull()
-    expect(screen.queryByText('Living Room')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    // Still no card, and no skeleton claiming one is on its way.
     expect(document.querySelector('.grid-card')).toBeNull()
+    expect(document.querySelector('.rt-Skeleton')).toBeNull()
   })
 })
 

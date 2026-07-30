@@ -12,7 +12,7 @@ import { useEntity } from '~/hooks'
 import { useEntityHistory } from '~/hooks/useEntityHistory'
 import { memo } from 'react'
 import type { HassEntity } from '~/store/entityTypes'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { useCardItem } from '../cardItemContext'
@@ -124,7 +124,13 @@ function SensorCardComponent({
   isSelected = false,
   onSelect,
 }: SensorCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   /*
    * `hideState` is the one universal option this card cannot leave to the
    * shell. Everywhere else the state line goes through `GridCard.Status`, which
@@ -199,32 +205,15 @@ function SensorCardComponent({
     points: wantsBars ? BAR_GRAPH_POINTS : TREND_POINTS,
   })
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  /*
-   * The one error state this read-only card can reach.
-   *
-   * The three-way version this replaces — "Entity Not Found" when the entity is
-   * missing but the connection is up — was unreachable, and had been since the
-   * skeleton above it: a missing entity on a live connection returns there, so
-   * every path that gets this far has `isConnected === false`. `useEntity`
-   * cannot tell "not loaded yet" from "does not exist" either way, which is why
-   * a card pointed at an entity this Home Assistant does not have holds its
-   * skeleton (the `UnknownEntity` story says so).
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   const deviceClass = readStringAttribute(entity, 'device_class')

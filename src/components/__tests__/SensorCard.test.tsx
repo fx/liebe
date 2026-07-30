@@ -56,6 +56,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -82,6 +83,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -108,6 +110,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -133,6 +136,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -157,6 +161,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -174,6 +179,7 @@ describe('SensorCard', () => {
         entity: undefined,
         isConnected: false,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -193,6 +199,7 @@ describe('SensorCard', () => {
         entity: undefined,
         isConnected: false,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -220,6 +227,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -243,6 +251,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -266,6 +275,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -300,6 +310,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -325,6 +336,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -354,6 +366,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
@@ -387,6 +400,7 @@ describe('SensorCard', () => {
         }),
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: true,
       })
 
@@ -433,6 +447,7 @@ describe('SensorCard', () => {
           }),
           isConnected: true,
           isLoading: false,
+          isMissing: false,
           isStale: false,
         })
 
@@ -451,6 +466,7 @@ describe('SensorCard', () => {
         entity: undefined,
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
