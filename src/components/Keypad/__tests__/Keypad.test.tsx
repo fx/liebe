@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { Keypad } from '../Keypad'
+import { Keypad, readCodeFormat, redactCode } from '..'
 
 /**
  * The code collector on its own — a dumb component, and the tests are about
@@ -49,7 +49,7 @@ describe('Keypad', () => {
       for (const digit of ['1', '2', '3']) fireEvent.click(button(digit))
       fireEvent.click(button('Clear'))
 
-      expect(screen.getByTestId('alarm-keypad-readout').textContent?.trim()).toBe('')
+      expect(screen.getByTestId('code-keypad-readout').textContent?.trim()).toBe('')
 
       fireEvent.click(button('Arm'))
       expect(onSubmit).toHaveBeenCalledWith('')
@@ -70,7 +70,7 @@ describe('Keypad', () => {
 
       for (const digit of ['9', '8', '7']) fireEvent.click(button(digit))
 
-      const readout = screen.getByTestId('alarm-keypad-readout')
+      const readout = screen.getByTestId('code-keypad-readout')
       expect(readout.textContent).toBe('•••')
       // The length is announced; the code is not.
       expect(readout).toHaveAttribute('aria-label', '3 digits entered')
@@ -95,7 +95,7 @@ describe('Keypad', () => {
     it('renders no digit pad', () => {
       render(<Keypad format="text" actionLabel="Disarm" onSubmit={vi.fn()} onCancel={vi.fn()} />)
 
-      expect(screen.queryByTestId('alarm-keypad-readout')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad-readout')).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: '1' })).not.toBeInTheDocument()
     })
   })
@@ -126,5 +126,45 @@ describe('Keypad', () => {
 
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe('redactCode', () => {
+  it('strips every occurrence of the code out of the message', () => {
+    expect(redactCode('Invalid code 4821; 4821 was refused', '4821')).toBe(
+      'Invalid code [code]; [code] was refused'
+    )
+  })
+
+  it('leaves a message that does not contain the code alone', () => {
+    expect(redactCode('Lock is unavailable', '4821')).toBe('Lock is unavailable')
+  })
+
+  it('redacts nothing for an empty code', () => {
+    // `split('')` would shatter the message into characters, and an empty
+    // string is not a secret worth hiding.
+    expect(redactCode('Invalid code', '')).toBe('Invalid code')
+  })
+})
+
+describe('readCodeFormat', () => {
+  it.each([
+    ['number', 'number'],
+    ['text', 'text'],
+    [null, undefined],
+    [undefined, undefined],
+    ['', undefined],
+    ['^\\d{4}$', undefined],
+    [4, undefined],
+  ])('reads code_format %j as %j', (raw, expected) => {
+    expect(readCodeFormat({ code_format: raw })).toBe(expected)
+  })
+
+  it('reads a missing attribute bag as no code format', () => {
+    // The lock's ordinary case: `LockEntity` publishes `code_format` only when
+    // an integration sets one, so absent must mean the same as `null` — a lock
+    // that wants no code, which behaves exactly as it did before codes existed.
+    expect(readCodeFormat(undefined)).toBeUndefined()
+    expect(readCodeFormat({})).toBeUndefined()
   })
 })

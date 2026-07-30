@@ -8,7 +8,6 @@ import {
   keypadFormat,
   keypadShownFor,
   readAlarmFeatures,
-  readCodeFormat,
   requiresAlarmConfirmation,
   resolveAlarmPresentation,
   resolveArmModes,
@@ -195,18 +194,8 @@ describe('resolveArmModes', () => {
 })
 
 describe('the code requirements', () => {
-  it.each([
-    ['number', 'number'],
-    ['text', 'text'],
-    [null, undefined],
-    [undefined, undefined],
-    ['', undefined],
-    ['^\\d{4}$', undefined],
-    [4, undefined],
-  ])('reads code_format %j as %j', (raw, expected) => {
-    expect(readCodeFormat({ code_format: raw } as AlarmAttributes)).toBe(expected)
-  })
-
+  // `code_format` itself is narrowed by the shared reader, and its own table
+  // lives with it in `src/components/Keypad/__tests__`.
   it('needs a code to disarm exactly when the panel publishes a format', () => {
     expect(codeRequiredToDisarm({ code_format: 'number' } as AlarmAttributes)).toBe(true)
     expect(codeRequiredToDisarm({ code_format: null } as AlarmAttributes)).toBe(false)

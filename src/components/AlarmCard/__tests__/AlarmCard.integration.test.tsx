@@ -237,14 +237,14 @@ describe('the pending interactions across edit mode', () => {
     fireEvent.click(button('Disarm'))
     fireEvent.click(button('1'))
     fireEvent.click(button('2'))
-    expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+    expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
 
     act(() => dashboardActions.setMode('edit'))
     act(() => dashboardActions.setMode('view'))
 
     // A code collected before edit mode must not still be sitting there after
     // it — nor be submittable against whatever the card is showing now.
-    expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(hass.callService).not.toHaveBeenCalled()
   })
@@ -298,7 +298,7 @@ describe('the detail dialog as the glance control surface', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Disarm' })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: 'Disarm' }))
 
-    await waitFor(() => expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('code-keypad')).toBeInTheDocument())
     for (const digit of ['1', '1', '1', '1']) fireEvent.click(button(digit))
     fireEvent.click(screen.getAllByRole('button', { name: 'Disarm' }).at(-1)!)
 

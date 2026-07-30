@@ -348,7 +348,7 @@ export const KeypadForCodedDisarm: Story = {
 
     await userEvent.click(canvas.getByRole('button', { name: 'Disarm' }))
 
-    const keypad = await within(document.body).findByTestId('alarm-keypad')
+    const keypad = await within(document.body).findByTestId('code-keypad')
     await expect(keypad).toBeInTheDocument()
     // No second prompt on top of it.
     await expect(within(document.body).queryByText('Disarm House Alarm?')).toBeNull()
@@ -363,12 +363,12 @@ export const KeypadMasksTheCode: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Disarm' }))
 
     const body = within(document.body)
-    await body.findByTestId('alarm-keypad')
+    await body.findByTestId('code-keypad')
     for (const digit of ['1', '2', '3']) {
       await userEvent.click(body.getByRole('button', { name: digit }))
     }
 
-    const readout = body.getByTestId('alarm-keypad-readout')
+    const readout = body.getByTestId('code-keypad-readout')
     await expect(readout.textContent).toBe('•••')
     await expect(readout).toHaveAttribute('aria-label', '3 digits entered')
   },
@@ -401,7 +401,7 @@ export const KeypadAlways: Story = {
 
     const body = within(document.body)
     // The digit pad, deterministically, for a panel that publishes no format.
-    await expect(await body.findByTestId('alarm-keypad-readout')).toBeInTheDocument()
+    await expect(await body.findByTestId('code-keypad-readout')).toBeInTheDocument()
   },
 }
 
@@ -418,7 +418,7 @@ export const KeypadNever: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Disarm' }))
 
     const body = within(document.body)
-    await expect(body.queryByTestId('alarm-keypad')).toBeNull()
+    await expect(body.queryByTestId('code-keypad')).toBeNull()
     await expect(await body.findByText('Disarm House Alarm?')).toBeInTheDocument()
   },
 }

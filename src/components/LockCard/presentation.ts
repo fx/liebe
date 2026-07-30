@@ -1,6 +1,7 @@
 import { DoorOpen, Lock, LockOpen, TriangleAlert } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { targetsEntity } from '~/hooks/useCardActions'
+import type { CodeFormat } from '~/components/Keypad'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { LockOptions } from '~/store/lockOptions'
 import type { HassEntity } from '~/store/entityTypes'
@@ -60,6 +61,28 @@ export const LOCK_STATE = {
  * lock reaches them however it was commanded, and the card must have defined
  * labels, colours and button behaviour when it does.
  */
+
+/**
+ * The attributes this card reads, typed as what they are on the wire — unknown.
+ *
+ * One key, and it is the code one. `LockEntity.state_attributes` publishes
+ * `code_format` **only when an integration sets one**, which is the difference
+ * from the alarm panel worth stating out loud: on a lock the attribute being
+ * absent is the normal, overwhelmingly common case rather than a panel
+ * reporting `null`. `readCodeFormat` reads absent and `null` identically, so
+ * neither shape can be mistaken for "a code is required".
+ *
+ * **`code_format` alone governs it**, and there is deliberately no lock analogue
+ * of the alarm's second attribute: `LockEntity` publishes no `code_arm_required`
+ * or anything like it, so both directions — lock and unlock — take a code
+ * exactly when a format is published. The alarm's asymmetry (arming needs
+ * `code_format` **and** the absence of an explicit `code_arm_required: false`)
+ * does not carry over, and a reader looking for it here is not missing one.
+ */
+export interface LockAttributes {
+  code_format?: unknown
+  [key: string]: unknown
+}
 
 export type LockGlyph = ComponentType<{ size?: number }>
 
@@ -390,6 +413,40 @@ export function classifyLockRoute(
 }
 
 /**
+ * Whether **this card** will collect a code before dispatching a route itself
+ * — the lock's `keypadShown`, and the reason the confirmation is suppressed
+ * where it is true (docs/specs/entity-cards/options/security.md — "Code
+ * handling" under the lock card).
+ *
+ * Three conditions, and each excludes a case that would otherwise double-prompt
+ * or under-gate:
+ *
+ *  - **The lock must publish a `code_format`.** Without one there is no keypad
+ *    anywhere on this card, and every gate stays exactly where it was.
+ *  - **The route must be `toggle`.** That is the only gesture the shell hands
+ *    back to this card (`onToggle`), so it is the only one a keypad of ours can
+ *    stand in front of. A configured `call-service` is dispatched by the shell
+ *    with the payload the user wrote, and no keypad intervenes — so its gate
+ *    MUST stand, which is why this answers `false` for it. Answering `true`
+ *    there would suppress the confirmation in favour of a keypad that never
+ *    appears, which is the one mistake this helper exists to make impossible.
+ *  - **The toggle must resolve to a direction.** `jammed` resolves to
+ *    `more-info` and a transitional or unrecognised state to `none`; neither
+ *    dispatches, so neither opens a keypad.
+ */
+export function lockKeypadShownFor(
+  action: ResolvedCardAction,
+  context: LockRouteContext,
+  codeFormat: CodeFormat | undefined
+): boolean {
+  if (codeFormat === undefined) return false
+  if (action !== 'toggle') return false
+
+  const resolution = resolveLockToggle(context.state)
+  return resolution === 'lock' || resolution === 'unlock'
+}
+
+/**
  * Whether a classified route has to be confirmed.
  *
  * Written as the inverse of the cover's rule and for the same reason: everything
@@ -401,11 +458,21 @@ export function classifyLockRoute(
  * gates off deliberately; gating it when *either* is on means an ambiguous route
  * is held whenever the user has asked for any gate at all, which with
  * `confirmUnlock` defaulting to `true` is every card nobody has configured.
+ *
+ * `keypadShown` is the alarm's rule, arriving here with codes and carrying the
+ * same reason: **a transition that will present a keypad is never also
+ * confirmed**, because the keypad *is* the confirmation and two prompts for one
+ * intent is how a confirmation becomes something people click past. It takes
+ * precedence over everything below it, `confirmUnlock` included — entering a
+ * code is a strictly more deliberate act than answering "Unlock Front Door?",
+ * so the gate it replaces is never the weaker one.
  */
 export function requiresLockConfirmation(
   direction: LockRouteDirection,
-  options: Pick<LockOptions, 'confirmUnlock' | 'confirmLock'>
+  options: Pick<LockOptions, 'confirmUnlock' | 'confirmLock'>,
+  keypadShown: boolean
 ): boolean {
+  if (keypadShown) return false
   if (direction === 'unlocking') return options.confirmUnlock
   if (direction === 'locking') return options.confirmLock
   if (direction === 'unclassifiable') return options.confirmUnlock || options.confirmLock
@@ -424,6 +491,29 @@ export function requiresLockConfirmation(
  */
 export const UNLOCK_CONFIRM_PROMPT = { verb: 'Unlock', gerund: 'unlocking' } as const
 export const LOCK_CONFIRM_PROMPT = { verb: 'Lock', gerund: 'locking' } as const
+
+/**
+ * The services this card dispatches itself, and the label each puts on the
+ * keypad's submit button.
+ *
+ * **`lock.open` is not among them, and its absence is the same deliberate one
+ * as the missing feature-bit reader above.** The unlatch service accepts a
+ * `code` exactly as these two do, but this card ships no unlatch control — the
+ * option doc withholds one until demand is demonstrated — so an `open` entry
+ * here would be a label for a button that does not exist. What *is* reachable
+ * is a configured `call-service` route on `lock.open`, and that one the shell
+ * dispatches with the payload the user wrote: no control of this card's stands
+ * in front of it, so no code of this card's can join it, and what protects it
+ * is the confirmation gate that already classifies it as an unlock route
+ * (`unlocksLock`). When an unlatch control lands, it takes a code the way these
+ * two do (docs/specs/entity-cards/options/security.md — "Code handling").
+ */
+export type LockService = 'lock' | 'unlock'
+
+export const LOCK_SERVICE_LABEL: Readonly<Record<LockService, string>> = {
+  lock: 'Lock',
+  unlock: 'Unlock',
+}
 
 /**
  * The linked door sensor's contribution to the state line
