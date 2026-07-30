@@ -339,7 +339,23 @@ describe('the body’s forced-placement seam', () => {
     )
 
     expect(document.querySelector('[data-testid="control"]')).toBeNull()
-    expect(document.querySelector('.liebe-card-body-fill')).not.toBeNull()
+
+    /*
+     * And the band keeps the axis it is SIZED for, even though the body has
+     * stopped stamping the orientation it RENDERED. The two attributes disagree
+     * here on purpose, and that disagreement is the mechanism: the band's width
+     * is `min(--liebe-control-height, 100%)` and is what the floors are measured
+     * on, so a band that dropped it with its control would measure ~0 and no
+     * amount of extra room could ever bring the control back.
+     *
+     * Only a browser can see the width itself (jsdom applies no stylesheet), so
+     * what is pinned here is the hook the rule hangs on — the assertion that
+     * fails if this is ever wired to the survivor stamp instead.
+     */
+    const band = document.querySelector('.liebe-card-body-fill')
+    expect(band).not.toBeNull()
+    expect(band!.getAttribute('data-band-axis')).toBe('vertical')
+    expect(bodyAttribute('data-control-orientation')).toBeNull()
   })
 
   it('omits it where a theme pinned the token under the floor in a region that fits', () => {
