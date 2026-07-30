@@ -1,18 +1,24 @@
 # AGENTS.md
 
-Liebe is a Home Assistant custom panel (TanStack Start SPA + Radix UI Themes) rendered inside HA's shadow DOM. This file is the canonical project-conventions file for every AI agent working in this repo. The living specs and change documents live under `docs/` (start at `docs/index.md`). Every PR must pass `npm test`, `npm run lint`, `npm run typecheck`, and the 100% patch-coverage gate.
+Liebe is a Home Assistant custom panel (TanStack Start SPA + Radix UI Themes) rendered inside HA's shadow DOM. This file is the canonical project-conventions file for every AI agent working in this repo. The living specs and change documents live under `docs/` (start at `docs/index.md`); code review conventions are in `REVIEW.md`.
 
-## 🚨 CRITICAL: Pull Request Requirements 🚨
+## Where the workflow lives
 
-**ALL PULL REQUESTS MUST HAVE PASSING TESTS TO BE MERGED**
+**Development in this repository follows the skills in [fx/cc](https://github.com/fx/cc)** — a public Claude Code marketplace (`/plugin marketplace add fx/cc`, docs at [cc.fx.gd](https://cc.fx.gd/)). Those skills own the process and are the authority on it:
 
-Before creating ANY pull request:
+| Skill                                                                      | Owns                                                     |
+| -------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `fx-dev:dev`                                                               | the SDLC — the order the phases run in                   |
+| `fx-dev:project-management`                                                | task tracking, change-document task lists, index syncing |
+| `fx-dev:spec-writer`                                                       | writing and updating specs and change documents          |
+| `fx-dev:pr-preparer`, `fx-dev:github`                                      | opening PRs, `gh` usage, review threads                  |
+| `fx-dev:coderabbit-review`, `fx-dev:codex-review`, `fx-dev:copilot-review` | automated review passes                                  |
 
-1. Run `npm test` and ensure ALL tests pass
-2. Run `npm run lint` and ensure no linting errors
-3. Run `npm run typecheck` and ensure no TypeScript errors
+Load the relevant skill rather than working from memory or from a summary of it here.
 
-This is a hard requirement. Pull requests with failing tests will be automatically rejected by CI/CD and cannot be merged. Testing is NOT optional.
+**This file records only what is specific to Liebe** — the product's own conventions, and the traps this repo has actually hit and paid for. It deliberately does not restate the skills' instructions: a copy is a second source of truth that goes stale silently. Where this file appears to repeat a skill, the skill wins; where it contradicts one, that is a bug in this file, to be fixed here rather than left as a fork.
+
+**The gates.** Every PR MUST pass `npm test`, `npm run lint`, `npm run typecheck`, and `codecov/patch` at 100% on new or changed lines. They are merge-blocking. Weakening one to land a PR is a defect in the PR, not in the gate.
 
 ## Project Overview
 
@@ -31,14 +37,22 @@ You are working on a custom Home Assistant dashboard project that integrates as 
 ## Development Environment
 
 - **Home Assistant Instance**: Check .env.local for development instance credentials
-- **Repository**: Use GitHub Projects for task management
 - **Framework**: TanStack Start with React (SPA Mode)
 - **UI Library**: Radix UI Theme (not just primitives, use default theme)
 - **Integration**: Custom Panel in Home Assistant
 
 ## Task Tracking
 
-**You MUST load the `/project-management` skill before creating, modifying, or completing any task.** It owns all task-tracking rules and knows where tasks belong. Do not manage tasks without it.
+`fx-dev:project-management` owns the rules; what follows is the one thing it cannot know — where this project keeps its tasks.
+
+**This project configures no external task tracker.** Work is tracked in the repository:
+
+- **`docs/changes/NNNN-name.md`** — the primary home. Anything relating to a spec in `docs/specs/` belongs in a change document, existing or new.
+- **`docs/tasks.md`** — orphan work only, meaning work that relates to no spec and no change document.
+
+**Do not open GitHub issues to record work, findings or follow-ups.** Issues are not this project's task list, and filing them there splits tracking across two systems that nothing reconciles. A defect found mid-task is a change document — or a task line in an existing one — not an issue. If you believe something genuinely cannot be expressed as a change document, stop and ask rather than reaching for the issue tracker.
+
+This section is the answer to "where do tasks go?" — it exists so nobody has to infer it from the shape of the surrounding workflow.
 
 ## Development Workflow
 
@@ -87,64 +101,26 @@ panel_custom:
 
 Note: The custom element name in panel_custom must match the name in customElements.define(). Production builds use `liebe-panel`, while development builds use `liebe-panel-dev`.
 
-### Starting a New Task
+### Branch naming
 
-1. **Select Task from GitHub Project**
-
-```bash
-gh issue list --assignee @me
-gh issue view <issue-number>
-```
-
-2. **Create Feature Branch**
-
-   ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b <branch-type>/<issue-number>-<brief-description>
-   ```
-
-   Branch types: `feat/`, `fix/`, `docs/`, `refactor/`
-
-3. **Update Todo List**
-   - Add task to TodoWrite tool
-   - Mark as "in_progress" when starting
-   - Break down into subtasks if needed
+Branch types are `feat/`, `fix/`, `docs/`, `refactor/`. **Name the branch after the change document it implements** — `feat/0025-vacuum-card` — so the branch, the change document and the PR agree about what the work is.
 
 ### During Development
 
-1. **Code Standards**
-   - Use TypeScript for all new files
-   - Follow React best practices
-   - Use Radix UI Theme components with default styling (no custom CSS unless absolutely necessary)
-   - Implement proper error boundaries
-   - Add loading states for async operations
-   - When dealing with many variables from an object, favor destructuring for cleaner code:
+The SDLC skills own the phases. What is specific to this repo:
 
-     ```typescript
-     // Prefer this:
-     const { temperature, humidity, pressure, wind_speed: windSpeed } = entity.attributes
+1. **Code standards.** TypeScript throughout, Radix UI Theme components with default styling (see [Radix UI Styling Best Practices](#radix-ui-styling-best-practices) for what "no custom CSS" actually means here). When reading several fields off one object, destructure:
 
-     // Over this:
-     const temp = entity.attributes?.temperature
-     const humidity = entity.attributes?.humidity
-     const pressure = entity.attributes?.pressure
-     ```
+   ```typescript
+   // Prefer this:
+   const { temperature, humidity, pressure, wind_speed: windSpeed } = entity.attributes
 
-2. **Testing Approach**
-
-   ```bash
-   # Run tests (when implemented)
-   npm run test
-
-   # Type checking
-   npm run typecheck
-
-   # Linting
-   npm run lint
+   // Over this:
+   const temp = entity.attributes?.temperature
+   const humidity = entity.attributes?.humidity
    ```
 
-3. **Probing a test (mutation testing)**
+2. **Probing a test (mutation testing)**
 
    The way to know a test pins the behavior it claims is to break the behavior and watch that test fail. Four rules make the probe trustworthy, all learned from probe runs that looked perfect and proved nothing:
    - **Commit or stage the fix before probing.** Probes restore with `git checkout -- <file>`, which reverts to the index — so with the work uncommitted, the first restore silently throws the fix away. Every later probe then mutates a file whose patterns no longer match and the tests fail because the fix is missing, not because the mutation landed. That is the noisy version. The quiet one is worse and is the reason this bullet is first: when the discarded work is a comment, a doc block or a document, **the suite stays green after the restore**, because a comment is a comment. Nothing goes red, every gate passes, and what ships is the probe's leftovers rather than your work. A lost code fix announces itself; a lost documentation fix is invisible to `npm test`, `npm run lint` and coverage alike. After restoring, grep for a sentence you wrote rather than trusting the green run.
@@ -158,18 +134,18 @@ gh issue view <issue-number>
 
    Never `git stash` to set work aside: the stash stack is shared across worktrees and other sessions can pop it. Use a temporary commit.
 
-4. **Home Assistant Integration Testing**
+3. **Home Assistant Integration Testing**
    - Confirm the user's dev server is running (never start it yourself)
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
 
-5. **The e2e stack is single-occupancy, and CI is the gate**
+4. **The e2e stack is single-occupancy, and CI is the gate**
 
    **The CI `Home Assistant E2E` job is the gate. Do not run Playwright locally to qualify a PR.** CI brings up its own stack per pull request, against that branch's own bundle, with no contention. A local run adds nothing to the merge decision and costs a collision, because the local stack is **shared across every worktree** — one Home Assistant container serving whichever `dist/` was mounted last.
 
    If you need a local run to _debug_ something rather than to gate it, ask the coordinator for an exclusive slot. Nobody takes the stack without one.
 
-   The harm is concrete rather than theoretical. One worktree recreating the stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 3).
+   The harm is concrete rather than theoretical. One worktree recreating the stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 2).
 
    The rest of this item applies only inside a slot you have been given.
 
@@ -196,7 +172,7 @@ gh issue view <issue-number>
 
    Inside your slot, rebuild and bring the stack up from your own worktree before running Playwright, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before — which is the same failure the slot exists to prevent, seen from the other side.
 
-6. **Playwright's own two prerequisites**
+5. **Playwright's own two prerequisites**
 
    A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
 
@@ -209,7 +185,7 @@ gh issue view <issue-number>
 
    `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
 
-7. **Merging `main` into a long-lived branch: the changelog tables**
+6. **Merging `main` into a long-lived branch: the changelog tables**
 
    Several specs end in a dated changelog table that every card change appends a row to, so two branches in flight almost always conflict there. There are **two** kinds of conflict in those tables and they take opposite resolutions.
 
@@ -237,95 +213,29 @@ gh issue view <issue-number>
 
    **The sequence check assumes rows are appended, and says nothing useful when they are amended in place.** `docs/index.md` is where this bites: statuses live in a table keyed by change number, so each side edits a row rather than adding one. This branch flipped 0023 to `complete` and main flipped 0024, each side still carrying the other's row at `draft` — concatenation gives four rows and two contradictions, and the right resolution is per row, taking whichever side made the flip. The rows then sit in numeric order, where they have always been, and a sequence check expecting main's-then-ours reports a divergence on a correct file. That false positive is the dangerous direction: it invites "fixing" something that was right. For amended rows compare the **key order against the base** instead — same keys, same order — and then assert that every row is either untouched or exactly one side's edit, and that every edit either side made is present.
 
-### Completing a Task
+### Before pushing
 
-1. **Pre-commit Checklist**
-   - [ ] All TypeScript errors resolved
-   - [ ] Linting passes (`npm run lint`)
-   - [ ] **ALL TESTS PASS** (`npm test`) - **MANDATORY**
-   - [ ] **CHANGED/ADDED CODE IS 100% COVERED** — the `codecov/patch` gate requires every new or modified line to be exercised by tests; run `npm run test:coverage` locally to check before opening the PR
-   - [ ] Manual testing completed
-   - [ ] Todo items marked as completed
+`fx-dev:pr-preparer` owns the PR itself. Three things about this repo's gates that it cannot know:
 
-2. **CRITICAL: Test Requirements**
+1. **Patch coverage is a hard gate, and it is the one people miss.** `codecov/patch` requires every new or modified line to be exercised. Run `npm run test:coverage` locally before opening the PR — discovering it in CI costs a round trip, and the fix is usually a test you would rather have written while the code was fresh.
 
-   **YOU MUST NOT PUSH CODE OR CREATE PULL REQUESTS UNLESS:**
-   - ✅ All tests pass locally (`npm test`)
-   - ✅ Linting passes (`npm run lint`)
-   - ✅ TypeScript checks pass (`npm run typecheck`)
+2. **The PR body MUST name the change document** it works on — `docs/changes/<NNNN>-<name>.md` and which task it completes. That link is how a reviewer finds the requirements the PR is claiming to satisfy; without it they are reviewing the diff against nothing.
 
-   **Pull requests with failing tests WILL NOT BE MERGED. This is non-negotiable.**
-
-   **Do not pipe the gate.** A shell pipeline exits with the status of its _last_ command, so `npm test 2>&1 | tail -4 && git push` pushes whatever the tests did — `tail` succeeded, and `&&` believes it. The `&&` is right there in the command, which is what makes this worth stating: it reads as a gate, and the failure is invisible unless you already know how pipeline status works. It has happened here, on a run that had genuinely failed.
+3. **Do not pipe the gate.** A shell pipeline exits with the status of its _last_ command, so `npm test 2>&1 | tail -4 && git push` pushes whatever the tests did — `tail` succeeded, and `&&` believes it. The `&&` is right there in the command, which is what makes this worth stating: it reads as a gate, and the failure is invisible unless you already know how pipeline status works. It has happened here, on a run that had genuinely failed.
 
    A gate that silently does not gate is worse than no gate at all, because the report then says the gate passed — the mistake is invisible in the transcript as well as in the shell. Any of these are safe: run the command unpiped and read its result; `set -o pipefail` first; or capture `${PIPESTATUS[0]}` and branch on that. Never chain a push onto a piped command.
 
-3. **Commit and Push**
+### Closing a Change
 
-   ```bash
-   # ALWAYS run tests before committing
-   npm test
-   npm run lint
-   npm run typecheck
+The PR completing a change document's **last** task carries the closure, in the same commit:
 
-   # Only if ALL checks pass:
-   git add .
-   git commit -m "<type>(<scope>): <subject>"
-   git push -u origin <branch-name>
-   ```
+1. `**Status:** draft` → `**Status:** complete` in `docs/changes/<NNNN>-*.md`
+2. `status: draft` → `status: complete` for that change's entry in `docs/index.yml`
+3. The corresponding row in `docs/index.md`
 
-4. **Create Pull Request**
+All three, or the indexes drift from the documents they index. `fx-dev:project-management` Workflow 5 owns the rule; what follows is this repo's own verification step, learned the hard way.
 
-   ```bash
-   gh pr create --title "<type>(<scope>): <subject>" \
-                --body "$(cat <<'EOF'
-   ## Summary
-   - Brief description of changes
-
-   ## Related Issue
-   Closes #<issue-number>
-
-   ## Testing
-   - [ ] All tests pass locally (`npm test`)
-   - [ ] Linting passes (`npm run lint`)
-   - [ ] TypeScript checks pass (`npm run typecheck`)
-   - [ ] Tested in development
-   - [ ] Tested in Home Assistant
-
-   ## Test Evidence
-   [Paste test output showing all tests passing]
-   EOF
-   )"
-   ```
-
-### Closing Epics
-
-When completing the final sub-issue of an epic, close the epic in the same pull request:
-
-1. **In the PR body**, add both the sub-issue and epic:
-
-   ```
-   Closes #<sub-issue-number>
-   Closes #<epic-number>
-   ```
-
-2. **Verify all sub-issues are complete** before closing:
-
-   ```bash
-   # Check all issues linked to an epic
-   gh issue list --repo fx/liebe --search "Epic: #<epic-number>"
-   ```
-
-3. **Example PR body for final sub-issue**:
-
-   ```
-   ## Summary
-   - Implements the final weather widget enhancements
-
-   ## Related Issues
-   Closes #69  # The sub-issue
-   Closes #6   # The epic (if this is the last sub-issue)
-   ```
+**Verify the flips after committing, and again after any merge of `main`** — a merge is where a status flip gets clobbered, and `docs/index.*` auto-merging is what makes it silent. Check by count rather than by grepping your own line: `docs/index.yml`'s `status: complete` count should rise by exactly the number of changes you closed. A revert elsewhere nets to zero and a single-line grep cannot see it.
 
 ## Technical Guidelines
 
@@ -610,27 +520,6 @@ try {
    - Run build in watch mode for faster iteration
    - Check browser console for module loading errors
 
-## Development Best Practices
-
-### Modern Home Assistant Development
-
-1. **Always use panel_custom** for proper integration with full hass object access
-2. **Development workflow:**
-   - The user runs the dev server for development with hot reload
-   - Configure Home Assistant to use `http://localhost:3000/panel.js`
-   - For production, deploy to a web server and update the URL
-
-### Quick Development Setup
-
-```bash
-npm install
-# Ask the user to start the dev server if it is not already running (see
-# "Development Server Management" — agents never start, stop, or restart it).
-
-# Configure Home Assistant to use http://localhost:3000/panel.js
-# Restart Home Assistant
-```
-
 ## Resources
 
 - [TanStack Start Docs](https://tanstack.com/start/latest)
@@ -639,72 +528,19 @@ npm install
 - [Custom Panel Docs](https://developers.home-assistant.io/docs/frontend/custom-ui/creating-custom-panels/)
 - [Home Assistant Development Environment](https://developers.home-assistant.io/docs/development_environment)
 
-## Continuous Documentation Updates
+## Updating This File
 
-### When to Update AGENTS.md
+Add to this file when you learn something about **Liebe** that the next agent would otherwise pay for again: a trap with a misleading symptom, a constraint the code does not state, a convention this product has settled. Give it enough context that a reader can tell whether it applies to them, and name the change document or PR it was learned on so the claim is checkable.
 
-You MUST update this AGENTS.md file whenever you:
+Do **not** add process, workflow or tooling instructions that belong to a skill in [fx/cc](https://github.com/fx/cc) — improve the skill instead (`fx-meta:learn` exists for exactly that), so every repo gets the correction rather than this one. A workflow rule written here is a fork that nothing reconciles.
 
-1. **Discover New Patterns or Best Practices**
-   - Found a better way to integrate with Home Assistant
-   - Discovered optimal TanStack Start configurations
-   - Identified Radix UI usage patterns
-2. **Encounter Blockers or Issues**
-   - Document the problem and solution
-   - Add to debugging tips section
-   - Update common issues list
-3. **Learn New Requirements**
-   - User clarifies expectations
-   - Technical constraints discovered
-   - Performance considerations identified
-4. **Add New Dependencies**
-   - Document why it was added
-   - Include installation instructions
-   - Add usage examples
-
-### How to Update AGENTS.md
-
-```bash
-# Always create a dedicated commit for AGENTS.md updates
-git add AGENTS.md
-git commit -m "docs: update AGENTS.md with [what you learned]"
-```
-
-### Update Template
-
-When adding new sections, use this format:
-
-```markdown
-## [New Section Name]
-
-### Context
-
-[When/why this is relevant]
-
-### Details
-
-[Specific information, code examples, commands]
-
-### Related Issues
-
-[Link to GitHub issues if applicable]
-```
+Use a dedicated commit (`docs: …`), separate from the work that taught you the thing.
 
 ## Scripts Directory
 
 All project automation scripts should be maintained in the `/scripts` directory. This keeps the project root clean and makes scripts easy to find.
 
 ### Available Scripts
-
-- **`scripts/link-sub-issues.sh`** - Links GitHub sub-issues to their parent issues/epics
-
-  ```bash
-  # Usage: Link multiple issues to a parent
-  ./scripts/link-sub-issues.sh <parent-issue> <child-issue> [<child-issue>...]
-
-  # Example: Link issues 12, 13, 14 to epic 1
-  ./scripts/link-sub-issues.sh 1 12 13 14
-  ```
 
 - **`scripts/check-rtsp-leak.sh`** - CI gate that fails if tracked files contain a credentialed RTSP URL or the literal `$RTSP_TEST_URL` value (only env-var placeholder references may be committed — go2rtc `${RTSP_TEST_URL:}` / Compose `${RTSP_TEST_URL:-}` — never the value)
 
@@ -758,49 +594,13 @@ polling and merge again.
 Run this **before** the first poll, not after several — it is one local command
 and it converts an open-ended wait into a decision.
 
-## GitHub Issue Linking
+## Breaking Work Into Units
 
-### Important: Linking Sub-Issues to Epics
+`fx-dev:project-management` Workflow 3 owns how to write a task list. Two decisions this project has made on top of it:
 
-GitHub has a specific feature for linking issues as sub-issues to epics. This is NOT done by simply mentioning the epic number in the description (e.g., "Epic: #1"). Instead, issues must be properly linked using GitHub's issue tracking features.
+A change document's `## Tasks` list is the **only** hierarchy — one top-level task is one PR, the change document is the parent, and there is no second structure to keep in sync with it. Prefer more, smaller tasks: a PR closing one task reviews far better than one closing four.
 
-**How to Link Sub-Issues via API:**
-
-1. **Use the provided script**:
-
-   ```bash
-   ./scripts/link-sub-issues.sh
-   ```
-
-2. **Manual API calls** (if needed):
-
-   ```bash
-   # Get issue ID for a specific issue
-   gh api graphql -F owner="fx" -f repository="liebe" -F number="7" -f query='
-   query ($owner: String!, $repository: String!, $number: Int!) {
-     repository(owner: $owner, name: $repository) {
-       issue(number: $number) {
-         id
-       }
-     }
-   }' --jq '.data.repository.issue.id'
-
-   # Link child issue to parent issue
-   gh api graphql -H GraphQL-Features:issue_types -H GraphQL-Features:sub_issues \
-     -f parentIssueId="<PARENT_ID>" -f childIssueId="<CHILD_ID>" -f query='
-   mutation($parentIssueId: ID!, $childIssueId: ID!) {
-     addSubIssue(input: { issueId: $parentIssueId, subIssueId: $childIssueId }) {
-       issue {
-         title
-         number
-       }
-     }
-   }'
-   ```
-
-**Reference:** Based on https://github.com/joshjohanning/github-misc-scripts/blob/main/gh-cli/add-sub-issue-to-issue.sh
-
-**Note:** Simply updating the epic's description with issue numbers (e.g., `- [ ] #7`) creates task references but may not create the proper sub-issue relationship that appears in GitHub's UI.
+Sequencing between tasks belongs **in the change document**, as prose next to the task list — which task must land first and why. It is the kind of decision a change document exists to record, and it is the thing a reader needs before picking up task three.
 
 ## Entity Card Registration
 
@@ -846,19 +646,12 @@ const registeredCards = {
 
 ## Important Reminders
 
-1. **Never commit sensitive data** (tokens, passwords, URLs)
-2. **Always test in both dev and HA environments**
-3. **Keep PRs focused** - one feature/fix per PR (create separate branches for each sub-issue)
-4. **Update documentation** as you add features
-5. **Use semantic commit messages**
-6. **Mark todos as completed** immediately after finishing tasks
-7. **UPDATE THIS FILE** whenever you learn something new about the project
-8. **ALWAYS check GitHub issues first** - Use `gh issue` commands to get task requirements, not the PRD
-9. **GitHub issue linking** - When creating epics with sub-issues:
-   - Create the epic first
-   - Create all sub-issues with "Epic: #<number>" in description
-   - Use `./scripts/link-sub-issues.sh <epic> <issue1> <issue2>...` to link them properly
-10. **Use automation scripts** - Check `/scripts/` directory for reusable automation tools
+The generic ones (focused PRs, semantic commits, keeping docs current) live in the [fx/cc](https://github.com/fx/cc) skills. The ones specific to Liebe:
+
+1. **Read the change document first.** `docs/changes/` is where requirements live — a PR written against the diff rather than against the requirements is how a task gets marked complete without being done.
+2. **Never open a GitHub issue to record work** — see [Task Tracking](#task-tracking). This repo migrated a 24-issue backlog back into change documents once already.
+3. **Never commit credentials, tokens, or a credentialed URL.** `scripts/check-rtsp-leak.sh` is a CI gate for one specific instance of this; it is not general coverage.
+4. **Test in both environments.** Passing tests are not evidence the panel renders inside Home Assistant's shadow DOM — the two have caught different classes of defect here.
 
 ## 🚨 CRITICAL: Development Server Management 🚨
 

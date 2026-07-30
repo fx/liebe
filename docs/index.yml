@@ -286,3 +286,52 @@ changes:
     spec: entity-cards
     status: draft
     depends_on: ['0028', '0033']
+  - id: '0035'
+    name: light-appearance-contrast
+    path: changes/0035-light-appearance-contrast.md
+    description: Light-appearance contrast conformance — repin the domain -text companions, fix the glyph-on-tint pattern, and name the two remaining unlabelled controls
+    spec: design-system
+    status: draft
+    depends_on: []
+  - id: '0036'
+    name: theming-contract-gaps
+    path: changes/0036-theming-contract-gaps.md
+    description: Theming contract and cascade gaps — layer the vendored Radix sheet so the 44px touch floor applies again, mount overlays in a shadow-root portal host so user CSS reaches them, expose part label/hue tokens, and settle liebe-section-title
+    spec: theming
+    status: draft
+    depends_on: []
+  - id: '0037'
+    name: card-state-and-capability-correctness
+    path: changes/0037-card-state-and-capability-correctness.md
+    description: Cards stop misreporting state and capability — weather/climate state honesty, fan toggle gated on TURN_ON/TURN_OFF, a useEntity not-found state, date-only input_datetime timezone fix, number/select primary actions, and lock code support
+    spec: entity-cards
+    status: draft
+    depends_on: []
+  - id: '0038'
+    name: option-key-collision
+    path: changes/0038-option-key-collision.md
+    description: Rename the cover card's stateLabels to stateLabelStyle so switch cards' documented stateLabels object survives the import gate, and retire the collision guard's exemption
+    spec: dashboard-config
+    status: draft
+    depends_on: []
+  - id: '0039'
+    name: responsive-drag-integrity
+    path: changes/0039-responsive-drag-integrity.md
+    description: Stop a drag at a narrow breakpoint silently rewriting every other card's stored width and x through lossy inverse column scaling
+    spec: grid-layout
+    status: draft
+    depends_on: []
+  - id: '0040'
+    name: test-harness-reliability
+    path: changes/0040-test-harness-reliability.md
+    description: Gates that cannot pass falsely — per-worktree e2e stacks with a served-bundle identity check, executed Storybook assertions, the ConfigurationMenu timer leak and suite timeouts, and a lint rule that sees React.useEffect
+    spec: architecture
+    status: draft
+    depends_on: []
+  - id: '0041'
+    name: card-conventions-and-reference
+    path: changes/0041-card-conventions-and-reference.md
+    description: Settle the per-card ErrorBoundary convention repo-wide and correct the card reference's stale file-to-folder paths, line citations and false no-test-file claim
+    spec: entity-cards
+    status: draft
+    depends_on: []

@@ -1,0 +1,74 @@
+# 0036 — Theming Contract & Cascade Gaps
+
+## Summary
+
+Four gaps between what the theming spec promises and what the cascade and the selector contract actually deliver, all of them the same shape: the base layer knows something a theme or a baseline rule needs, and exposes it through a name that cannot be reached. The 44px coarse-pointer touch floor no longer applies to any Radix control, because a layered rule cannot outrank an unlayered vendor stylesheet. Custom CSS does not reach portalled overlays, because the user layer is deliberately withheld from the document-level mirror and no scoped portal host exists. A theme cannot recolour a pill or chip label, so a filled active treatment is unreachable and LCARS ships a compromise. And `liebe-section-title` is named in the contract but stamped nowhere, because nothing in the markup means "the title of a section".
+
+**Spec:** [theming](../specs/theming/index.md) → [application mechanism](../specs/theming/index.md#application-mechanism) and [stable selector contract](../specs/theming/index.md#stable-selector-contract) · **Status:** draft · **Depends on:** —
+
+Supersedes issues [#204](https://github.com/fx/liebe/issues/204), [#206](https://github.com/fx/liebe/issues/206), [#214](https://github.com/fx/liebe/issues/214), [#218](https://github.com/fx/liebe/issues/218).
+
+## Motivation
+
+The touch floor is the most consequential and the least visible. `src/styles/app.css` declares it inside `@layer liebe-base`; `@radix-ui/themes/styles.css` contains no `@layer` at all. **Unlayered author declarations outrank every cascade layer regardless of specificity**, so Radix's own control sizing wins and the floor has no effect on any Radix component. With a coarse pointer emulated, a `size="3"` select trigger measures 40px, a text field 38px — and their computed `min-height` reads `auto`, which is the tell that the declaration is not winning at all rather than being overridden by something specific.
+
+This matters because touch is Liebe's primary input mode: `AGENTS.md` lists touch-first UI as a core design principle and the design system requires discrete controls to be ≥44px in at least one dimension. `size="3"` alone does not satisfy that rule — every measurement above is at `size="3"`. The floor was what closed the gap, and it closed it for every `Select`, `TextField`, `TextArea`, `Button`, `Switch` and dialog control in the config modals, the entity browser and the taskbar.
+
+How it got there is worth recording, because the step that broke it was correct. The floor was unlayered until the card-anatomy work, where `app.css`'s reset had to move into `liebe-base` — an unlayered `* { padding: 0 }` was outranking every layered rule and zeroing the anatomy's padding. Moving it was necessary; this consequence was not noticed.
+
+The portal gap is a trade-off that was taken deliberately and should not have had to be. The base and theme layers reach document-level portals, so overlays render on the active palette. The **user** layer is withheld, because user CSS selectors are the author's own and nothing scopes them to Liebe — a copy in the Home Assistant document would let a `body { display: none }` out of an imported configuration restyle the frontend around the panel. Containment beats reach, so the consequence is that a user who overrides `--liebe-card-bg` sees it on cards and not inside a dialog. The spec already names the remedy it prefers: portal into a host **inside** the shadow root, which removes the trade-off entirely because nothing is copied into the document at all.
+
+The label gap blocks a design the design system itself describes. LCARS active parts are specified as "solid colour fills with black glyphs/labels", and only the glyph half is deliverable: `anatomy.css` pins `.liebe-pill-label` / `.liebe-chip-label` to `--liebe-muted` and `--liebe-fg`, and those are internal class names explicitly outside the contract. So a theme that fills a pill with a saturated hue cannot darken the label on it. Icon circles are unaffected because they carry no label — LCARS gives them the solid hue with a black glyph at 9.5:1, while pills and chips fell back to a 38% block of the hue with the neutral label at 6.63:1. Readable, and not the design. The same shape recurs one level down: `--part-color`, `--part-tint` and `--part-text` are internal too, so a theme wanting "this part's own hue" restates the entire ten-way `data-color` mapping the base layer already performs, as LCARS does under a private `--lcars-hue`.
+
+`liebe-section-title` is the one gap whose right answer may be removal. It has never been stamped, and the reason is about the product rather than scheduling: a screen renders no header (its name lives in the taskbar and sidebar), and the only titled thing nearby is the `separator` grid item, which a user places anywhere — mid-grid, vertically, several per screen, or not at all. Stamping the class on a separator would promise themes a bar at the head of a section that is not what renders. An earlier revision of the spec claimed all three structural hooks shipped in 0010; that claim was false and cost a real investigation to disprove, which is the argument for not leaving a named-but-absent hook in the contract indefinitely.
+
+## Requirements
+
+### Testing Requirements
+
+Per [architecture — Testing & Quality Conventions](../specs/architecture/index.md#testing--quality-conventions):
+
+- `npm test`, `npm run lint`, `npm run typecheck` MUST pass; `codecov/patch` 100%; `codecov/project` no regress.
+- The touch floor MUST be verified by **measuring a rendered control under an emulated coarse pointer**, before and after, and the evidence MUST include computed `min-height` as well as measured height — `auto` versus `44px` is what distinguishes "the rule is not winning" from "the rule is being overridden".
+- Cascade-precedence changes MUST be pinned by e2e assertions against a **genuinely open overlay**, as the existing base-and-theme mirror already is ([theming spec](../specs/theming/index.md#application-mechanism)). A unit test asserting a stylesheet's text cannot observe layer precedence.
+- The containment property is a security-adjacent invariant and MUST have its own negative test: a user stylesheet declaring a document-level selector MUST be shown not to affect the surrounding Home Assistant frontend.
+- Theme stories MUST cover the new label token under all three built-in themes in both appearances ([storybook — story coverage](../specs/storybook/index.md#story-coverage)).
+
+Skipping or weakening any rule to land the PR is a bug in the PR.
+
+### Functional requirements
+
+The [theming spec](../specs/theming/index.md) owns the layer model, the cascade order, the selector contract and the portal requirement — this change's acceptance criteria, not restated here. What implementing them requires of this change:
+
+- **The touch floor and the portal host share a document, not a cause, and neither fix substitutes for the other.** The floor fails because Radix's unlayered stylesheet outranks `liebe-base`; the portal fails because the user layer is withheld from the document-level mirror. **Moving overlays into the shadow root does nothing about vendor stylesheet precedence** — a portalled Radix control inside the shadow root still loses to the unlayered sheet. So both PRs are independently required and independently measured, and neither may be reported as partially resolving the other. Sequencing only: settle the layer question first (PR 1), so the portal host inherits a precedence model that already works rather than one still changing under it.
+- **Wrapping the vendored Radix stylesheet into a layer changes precedence for every Radix component at once.** That is the fix's cost and it MUST be measured rather than reasoned about: the same coarse-pointer probe that reproduces the defect confirms the fix, and a visual pass over the config modals, entity browser and taskbar is required before it lands.
+- **The floor MUST NOT resume beating a token.** The anatomy's parts state their own sizes and reason about the floor deliberately — a pill takes `min-inline-size: 44px` to satisfy "≥44px in at least one dimension", and the 34px chip is intentional. Whatever wins over Radix MUST still lose to `--liebe-chip-height`.
+- **The user layer MUST NOT be mirrored to the document as a shortcut.** If the scoped host lands, all three layers apply inside the shadow root and nothing is copied out. If it does not land, the user layer stays withheld. Mirroring it is not an option this change may take.
+- **The label token MUST default to today's behaviour.** `--liebe-muted` inactive, `--liebe-fg` active, so Default and Liquid Glass are pixel-unchanged; only a theme that fills overrides it. The internal class names stay internal — this exposes the _decision_ they encode, not the selectors **The token itself is contract, so it lands in the [token contract](../specs/design-system/index.md#token-contract) and the [selector contract](../specs/theming/index.md#stable-selector-contract) in the same PR** — a theming token whose only definition is a change document is a contract with no owner.
+- **`liebe-section-title` gets a decision, not a deferral.** Either a section gains a real heading in the markup — an element that means "this section's title" because a section genuinely has one — or the hook is removed from the contract with a migration note. Leaving it named and unstamped is the one outcome this change may not produce.
+- **LCARS's narrowed acceptance scenario moves with the decision.** Change [0013](./0013-built-in-themes.md)'s scenario describing a butterscotch section-title bar is currently narrowed rather than claimed; if a heading arrives, the fillet, the per-title code label and that scenario are completed here.
+- **Repoint the issue references.** `docs/specs/theming/index.md` cites #206, #214 and #218 as outstanding, `src/theme/themes/lcars.css` and `src/theme/__tests__/lcars.test.ts` cite #218, `src/theme/styleInjection.ts` describes the absent `.liebe-portal-root`, and `docs/specs/design-system/index.md` cites #204. Each MUST become a reference to this change or be deleted as resolved, in the PR that resolves it.
+
+## Design Decisions
+
+- **Layer the vendored sheet rather than fight its specificity.** Raising the floor's specificity to beat unlayered Radix selectors works and is specificity whack-a-mole against a sheet that changes on every upgrade. Setting explicit sizes on Liebe's own control wrappers is the most predictable and the most repetitive, and it leaves the global rule in place doing nothing — which is worse than either, because the next author reads the floor and believes it applies. Layering the vendor sheet below `liebe-base` restores the model the rest of the system already uses and makes Radix themable by the same cascade.
+- **Portal inside the shadow root, not into a scoped document container.** The spec offers both, and the inside-the-shadow-root form is strictly better: all three layers apply with no mirroring, and no user selector can reach the surrounding frontend because nothing leaves. The `liebe-portal-root` container is the fallback for content that genuinely must escape, and nothing in Liebe currently must.
+- **A token for the label colour, not an addition to the selector contract.** Promoting `.liebe-pill-label` to public API would freeze an internal element's structure. A `--liebe-*` custom property exposes the one decision a theme needs — what colour a label on a part takes — and leaves the anatomy free to restructure.
+- **The `--part-*` internals get the same treatment or none.** Exposing the resolved per-part hue saves every scoped-rule theme from restating a ten-way mapping. It is the smaller instance of the same problem and should be decided in the same PR as the label token, since both are "the base layer knows something a theme needs".
+- **A section heading is a screen/section structure question, not a theming one.** Whether screens or sections gain an optional user-set heading, and whether that supersedes the `separator` item, is a dashboard-config and grid-layout decision. This change owns the _contract_ consequence: if the answer is no, the hook is dropped.
+
+## Tasks
+
+Spec restatements update **in the same PR** as each behaviour change they describe (repo consistency rule — the living spec must never lag a merged PR).
+
+- [ ] **PR 1 — Baseline outranks vendor CSS**: wrap `@radix-ui/themes/styles.css` into a layer below `liebe-base` at build time; coarse-pointer measurements of every affected control class before and after, including computed `min-height`; confirm the anatomy's own sizes still win; visual pass over config modals, entity browser and taskbar; theming spec's application-mechanism section updated with the layer order and the vendor-sheet rule
+- [ ] **PR 2 — Scoped portal host**: mount overlays into a host inside the shadow root (the detail dialog, config modals, entity browser, every dropdown); restore the user layer to portalled content and remove the document-level mirror it was substituting for; e2e assertion that a user token override reaches an open overlay; negative test that a document-level user selector does not affect the surrounding frontend; theming spec's portal requirement moved from partly-met to met
+- [ ] **PR 3 — Part label and hue tokens**: `--liebe-*` token for the on-part label colour defaulting to current behaviour, plus the resolved per-part hue; LCARS's pill and chip fills completed with dark labels and measured contrast; theme stories in both appearances; selector-contract section updated with both tokens
+- [ ] **PR 4 — Section-title decision**: settle whether a section renders a heading; if yes, stamp `liebe-section-title` on a real heading element and complete LCARS's title bar, fillet and code label, un-narrowing 0013's scenario; if no, remove the hook from the contract with a migration note; either way the theming spec's Outstanding entry is closed rather than reworded
+
+## Out of Scope
+
+- **Making Radix themable through the token system.** Layering the vendor sheet makes it _possible_; actually mapping Radix's own variables onto `--liebe-*` is a separate design exercise with its own surface.
+- **New built-in themes.** LCARS's completion here is the closing of a narrowed scenario, not new theme work.
+- **The contrast defects in the default palette** — [0035](./0035-light-appearance-contrast.md). Adjacent in subject: that change is what the default MUST measure, this one is what a theme MAY change.
+- **Whether the `separator` grid item survives a real section heading.** If PR 4 lands a heading, superseding the separator is a grid-layout change with its own migration.
