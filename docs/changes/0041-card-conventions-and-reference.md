@@ -54,7 +54,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 ## Tasks
 
 - [ ] **PR 1 — ErrorBoundary decision**: settle enforce-or-retire; if enforced, wrap the sixteen card components without a boundary using the established shape (outside the memo), with a boundary-catches test per component, and `AGENTS.md`'s registration instruction confirmed; if retired, remove the instruction and state which render paths are consequently unprotected; entity-cards spec records the outcome either way
-- [ ] **PR 2 — Card reference accuracy**: correct the four file-to-folder paths and the false "FanCard (no test file)" claim; remove every line citation; settle whether the document cites paths at all and add a check that fails on a stale path if it does; entity-cards changelog entry
+- [x] **PR 2 — Card reference accuracy**: correct the four file-to-folder paths and the false "FanCard (no test file)" claim; remove every line citation; settle whether the document cites paths at all and add a check that fails on a stale path if it does; entity-cards changelog entry
 
 ## Out of Scope
 
