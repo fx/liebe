@@ -150,6 +150,25 @@ export function formatTemperature(display: TemperatureDisplay): string {
   return `${Math.round(display.value)}${display.unit}`
 }
 
+/**
+ * The same reading as a bare degree — "22°" — for a forecast column.
+ *
+ * The unit is stated once by the card's main readout and MUST NOT repeat in
+ * every cell (option doc — "Forecast presentation"): four columns of "22°C"
+ * spend a third of a narrow strip's width restating something that has not
+ * changed. The VALUE still follows `temperatureUnit` — only the suffix goes —
+ * so a Fahrenheit card's columns are Fahrenheit numbers written without the
+ * `°F`.
+ *
+ * Where nothing else on the card states the unit, the section label carries it
+ * once (`WeatherForecast.tsx`). That is the whole reason this is a second
+ * formatter rather than a replacement: the card's own readout keeps
+ * `formatTemperature`.
+ */
+export function formatTemperatureDegrees(display: TemperatureDisplay): string {
+  return `${Math.round(display.value)}°`
+}
+
 /* ------------------------------------------------------------------ *
  * Secondary info
  * ------------------------------------------------------------------ */
@@ -357,6 +376,16 @@ export function supplementalReadings(
  * entity is saying. It resolves no background artwork either, which is a real
  * gap but a separate one: new artwork and condition-map changes are out of
  * scope for change 0020.
+ *
+ * This is the card's ONE icon language, for every variant and every position —
+ * header glyph and forecast column alike (option doc — "Forecast presentation":
+ * "all four variants draw every condition icon … from the shared line-art
+ * condition-glyph set"). The `default` variant used to pair an emoji header
+ * with these line-art columns; the emoji resolver is retired with change 0030,
+ * because a glyph set is the only surface with total condition resolution and
+ * the only one that takes the treatments this card needs — muted foreground on
+ * the plain surface, the artwork foreground token over a scrim, a size chosen
+ * against the column's text line.
  */
 export function getConditionGlyph(condition: unknown): LucideIcon {
   const lowerCondition = typeof condition === 'string' ? condition.toLowerCase() : ''
@@ -368,19 +397,6 @@ export function getConditionGlyph(condition: unknown): LucideIcon {
   if (lowerCondition.includes('snow')) return CloudSnow
   if (lowerCondition.includes('thunder') || lowerCondition.includes('lightning')) return Zap
   return Cloud
-}
-
-/** The same resolution in emoji, for the `default` variant's warmer look. */
-export function getConditionEmoji(condition: unknown): string {
-  const lowerCondition = typeof condition === 'string' ? condition.toLowerCase() : ''
-
-  if (lowerCondition.includes('exceptional')) return '⚠️'
-  if (lowerCondition.includes('clear') || lowerCondition.includes('sunny')) return '☀️'
-  if (lowerCondition.includes('rain')) return '🌧️'
-  if (lowerCondition.includes('cloud')) return '☁️'
-  if (lowerCondition.includes('snow')) return '❄️'
-  if (lowerCondition.includes('thunder')) return '⛈️'
-  return '🌤️'
 }
 
 /* ------------------------------------------------------------------ *
