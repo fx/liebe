@@ -91,6 +91,7 @@ describe('domain colour', () => {
       expect(rule).toContain(`--part-color: var(${base});`)
       expect(rule).toContain(`--part-tint: var(${tint});`)
       expect(rule).toContain(`--part-text: var(${text});`)
+      expect(rule).toContain(`--part-glyph: var(--part-${name}-glyph);`)
     }
   })
 
@@ -129,40 +130,67 @@ describe('domain colour', () => {
    * figures themselves come from decoded pixels, recorded in the PR.
    */
   describe('the glyph on its tint', () => {
-    const DARK_PARTS = ':is(.liebe-icon, .liebe-pill, .liebe-chip)[data-active]'
+    const LIGHT_ROOT = ':where(.radix-themes)'
+    const DARK_ROOT =
+      '.radix-themes:where(.dark, .dark-theme),\n  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme))'
 
-    it('takes the domain text role in light appearance, which is the unconditional one', () => {
+    it('takes the glyph role, not the saturated solid one', () => {
       const active = ruleBody(
         '.liebe-icon[data-active],\n  .liebe-pill[data-active],\n  .liebe-chip[data-active]'
       )
-      expect(active).toContain('color: var(--part-text);')
+      expect(active).toContain('color: var(--part-glyph);')
+      expect(active).not.toContain('color: var(--part-color);')
     })
 
-    it('restores the saturated base hue in dark appearance', () => {
-      expect(ruleBody(DARK_PARTS)).toContain('color: var(--part-color);')
+    it('resolves the glyph role to the text step in light appearance', () => {
+      // Light is the unconditional block, as it is in the base token sheet:
+      // Radix's classless default is light.
+      const light = ruleBody(LIGHT_ROOT)
+      for (const { name } of domainColors) {
+        expect(light).toContain(`--part-${name}-glyph: var(${domainColorTokens(name).text});`)
+      }
     })
 
-    it('reaches dark through both branches the appearance selector needs', () => {
-      // A theme root that declares itself dark, and a nested theme inheriting
-      // darkness from an ancestor without overriding it — the pair the base
-      // token sheet and every theme use. Dropping the second branch would leave
-      // a nested theme on the light glyph over a dark tint.
-      expect(source).toContain(`.radix-themes:where(.dark, .dark-theme) ${DARK_PARTS}`)
-      expect(source).toMatch(
-        /:is\(\.dark, \.dark-theme\)\s+:where\(\.radix-themes:not\(\.light, \.light-theme\)\)/
-      )
+    it('resolves the glyph role to the base hue in dark appearance', () => {
+      const dark = ruleBody(DARK_ROOT)
+      for (const { name } of domainColors) {
+        expect(dark).toContain(`--part-${name}-glyph: var(${domainColorTokens(name).base});`)
+      }
     })
 
-    it('changes nothing in dark but the glyph colour', () => {
-      // Dark measured clean before this rule existed and must measure
-      // identically after it: a second declaration here would move a figure the
-      // change document puts out of scope.
-      const declarations = ruleBody(DARK_PARTS)
+    it('changes nothing in dark but the glyph role', () => {
+      // Dark measured clean before this sheet chose a glyph step and must
+      // measure identically after it: any other declaration in this block would
+      // move a figure the change document puts out of scope.
+      const declared = ruleBody(DARK_ROOT)
         .split(';')
-        .map((line) => line.trim())
+        .map((line) => line.trim().split(':')[0])
         .filter(Boolean)
 
-      expect(declarations).toEqual(['color: var(--part-color)'])
+      expect(declared).toEqual(domainColors.map(({ name }) => `--part-${name}-glyph`))
+    })
+
+    it('resolves the appearance on the theme root, never on the part', () => {
+      /*
+       * An appearance selector as an ANCESTOR of the part leaks through nested
+       * themes: a light `<Theme>` inside a dark root — the workshop's
+       * appearance split, the panel's fullscreen modal — is still a descendant
+       * of the dark root, so a dark rule written that way keeps matching inside
+       * the light pane and puts the failing glyph back. Declaring per
+       * appearance on the root instead composes, because a nested root
+       * redeclares the property on itself.
+       */
+      const appearanceSelectors = [...source.matchAll(/^\s*(\S[^\n]*\.dark[^\n]*)$/gm)].map(
+        ([, selector]) => selector.trim().replace(/\s*[,{]$/, '')
+      )
+
+      // Exactly the two branches the base token sheet uses, and nothing else:
+      // any third selector mentioning the appearance would be one that reaches
+      // past the root it is meant to describe.
+      expect(appearanceSelectors).toEqual([
+        '.radix-themes:where(.dark, .dark-theme)',
+        ':is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme))',
+      ])
     })
   })
 })

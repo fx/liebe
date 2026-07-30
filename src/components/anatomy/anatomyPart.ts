@@ -64,12 +64,19 @@ export interface AnatomyPartAttributes {
  * The inline override a data-driven colour produces. Tint is mixed at the same
  * 20% the token layer derives it at, so a real bulb colour and a triplet
  * produce the same treatment.
+ *
+ * The glyph role is overridden too, and to the live hue in both appearances:
+ * the pattern's per-appearance glyph step exists to clear 3:1 against a tint,
+ * and a live hue has no darker step to reach for. This is the latitude the
+ * design system's `useLightColor` exception grants — the bulb's own colour is
+ * the information — and it reaches no other part.
  */
 function hueStyle(hue: string): CSSProperties {
   return {
     '--part-color': hue,
     '--part-tint': `color-mix(in srgb, ${hue} 20%, transparent)`,
     '--part-text': hue,
+    '--part-glyph': hue,
   } as CSSProperties
 }
 
