@@ -71,10 +71,21 @@ export function ClimateCompactContent({
   onDelete,
   isSelected = false,
   onSelect,
+  config: configProp,
 }: CardProps) {
   const model = useClimateModel(entityId)
   const control = useClimateControl(entityId)
-  const { config } = useCardItem()
+  const { config: publishedConfig } = useCardItem()
+  /*
+   * The renderer's config when it passed one, the published item's otherwise —
+   * and the same resolution goes to the shell below, so the card and its tile
+   * cannot disagree about the configuration. A card rendered with a literal
+   * `entityId` and `config` and no provider (a story, the configuration
+   * preview) is the shape where the two sources come apart; the universal
+   * options are resolved by the shell, so a card that read one source while its
+   * shell read another would apply half of one.
+   */
+  const config = configProp ?? publishedConfig
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
@@ -136,6 +147,11 @@ export function ClimateCompactContent({
       defaultAction="more-info"
       title={control.error || undefined}
       className="climate-card"
+      // The entity travels with the config: the shell resolves the universal
+      // options off one and builds an icon-only tile's accessible name out of
+      // the other, and both default to the published item.
+      entityId={entityId}
+      config={config}
     >
       {/*
        * The stepper fills the band between icon and meta in `tall`, which is

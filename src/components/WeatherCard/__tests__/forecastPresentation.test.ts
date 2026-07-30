@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
+  DAILY_MIN_COLUMN_WIDTH,
   dailyForecastCapacity,
   forecastColumnLabel,
   forecastColumns,
+  horizontalForecastCapacity,
+  HOURLY_MIN_COLUMN_WIDTH,
   hourlyForecastCapacity,
   planForecastSections,
   toForecastColumn,
@@ -36,7 +39,7 @@ describe('hourlyForecastCapacity', () => {
     expect(hourlyForecastCapacity('glance', { width: 1, height: 1 }, 4).capacity).toBe(0)
   })
 
-  it('bounds a horizontal strip by the configured hours only', () => {
+  it('bounds a horizontal strip by the configured hours where no width was observed', () => {
     expect(hourlyForecastCapacity('row', { width: 2, height: 1 }, 4)).toEqual({
       capacity: 4,
       orientation: 'horizontal',
@@ -79,6 +82,121 @@ describe('dailyForecastCapacity', () => {
     for (const tier of ['glance', 'row', 'tall'] as const) {
       expect(dailyForecastCapacity(tier, 4)).toBe(0)
     }
+  })
+})
+
+/**
+ * The width-aware half of capacity (option doc — "Forecast presentation":
+ * "Horizontal capacity is `min(configured, floor(contentWidth /
+ * minColumnWidth))`").
+ *
+ * The two minimums are the CONTRACT's numbers, not the implementation's, which
+ * is why they are pinned by value here rather than read from the module and
+ * compared to themselves.
+ */
+describe('the minimum column widths', () => {
+  it('are the option doc’s 44px hourly and 60px daily', () => {
+    expect(HOURLY_MIN_COLUMN_WIDTH).toBe(44)
+    expect(DAILY_MIN_COLUMN_WIDTH).toBe(60)
+  })
+})
+
+describe('horizontalForecastCapacity', () => {
+  it('draws what fits at the minimum width and omits the rest from the end', () => {
+    // 200px holds four 44px columns with 24px to spare, and a fifth would put
+    // every column under the legible floor — so the fifth is omitted, not
+    // shrunk (the standing omit-never-clip rule).
+    expect(horizontalForecastCapacity(12, 200, HOURLY_MIN_COLUMN_WIDTH)).toBe(4)
+    expect(horizontalForecastCapacity(12, 219, HOURLY_MIN_COLUMN_WIDTH)).toBe(4)
+    expect(horizontalForecastCapacity(12, 220, HOURLY_MIN_COLUMN_WIDTH)).toBe(5)
+  })
+
+  it('keeps the configured count as the upper bound however wide the tile', () => {
+    // A 2000px tile holds 45 hourly columns; the user asked for four.
+    expect(horizontalForecastCapacity(4, 2000, HOURLY_MIN_COLUMN_WIDTH)).toBe(4)
+  })
+
+  it('omits the section outright when not even one column fits', () => {
+    /*
+     * The pathological tile: a 16-column screen honoured at 960px lays out a
+     * 43px cell, and a theme with a 44px inline inset leaves no content region
+     * at all. Both degrade to "no section", which is the same whole-section
+     * omission the availability rules already produce — a forecast-less card
+     * rather than an illegible one.
+     */
+    expect(horizontalForecastCapacity(12, 43, HOURLY_MIN_COLUMN_WIDTH)).toBe(0)
+    expect(horizontalForecastCapacity(12, 0, HOURLY_MIN_COLUMN_WIDTH)).toBe(0)
+    // A content box the theme has inset past its own edge is still no room,
+    // never a negative count.
+    expect(horizontalForecastCapacity(12, -20, HOURLY_MIN_COLUMN_WIDTH)).toBe(0)
+  })
+
+  it('imposes no bound at all when the width was never observed', () => {
+    /*
+     * `undefined` is not zero. It is a tree that has not been laid out (jsdom,
+     * a host with no `ResizeObserver`, the first render before the observer's
+     * initial callback), and reading it as "no room" would report that content
+     * does not fit on the strength of a measurement that never happened.
+     */
+    expect(horizontalForecastCapacity(12, undefined, HOURLY_MIN_COLUMN_WIDTH)).toBe(12)
+  })
+})
+
+describe('capacity once the shell has measured', () => {
+  it('narrows a horizontal hourly strip to the columns that fit', () => {
+    expect(hourlyForecastCapacity('full', { width: 6, height: 4 }, 12, 300)).toEqual({
+      capacity: 6,
+      orientation: 'horizontal',
+    })
+    expect(hourlyForecastCapacity('row', { width: 2, height: 1 }, 4, 100).capacity).toBe(2)
+    expect(hourlyForecastCapacity('row', { width: 2, height: 1 }, 4, 30).capacity).toBe(0)
+  })
+
+  it('leaves a vertical strip to its height', () => {
+    /*
+     * A `tall` strip is one column wide by definition, so how many hours it
+     * draws is a question about the tile's HEIGHT that a content width cannot
+     * answer. A width narrower than a whole hourly column changes nothing here.
+     */
+    expect(hourlyForecastCapacity('tall', { width: 1, height: 6 }, 4, 20)).toEqual({
+      capacity: 4,
+      orientation: 'vertical',
+    })
+  })
+
+  it('narrows the daily row at its own wider minimum', () => {
+    // 240px is five hourly columns and four daily ones: a daily column carries
+    // a weekday, a glyph and a high–low pair, so it needs more room.
+    expect(dailyForecastCapacity('full', 7, 240)).toBe(4)
+    expect(dailyForecastCapacity('full', 7, 59)).toBe(0)
+    // Still a `full`-only section, whatever the tile measures.
+    expect(dailyForecastCapacity('row', 7, 2000)).toBe(0)
+  })
+
+  it('plans the drawing with the width and the subscription without it', () => {
+    const span = { width: 4, height: 3 }
+
+    /*
+     * The two calls a card makes. Without a width the plan enables both
+     * sections, which is what gates the subscription (the option doc gates a
+     * request on the tier and the option, never on the width). With a width
+     * that holds nothing, the same options leave both sections disabled — so a
+     * tile too narrow to draw a column draws none, while the forecast it
+     * already subscribed to stays in the cache rather than flickering out of it
+     * as the tile is resized.
+     */
+    const forSubscription = planForecastSections('full', span, options())
+    expect(forSubscription.hourly.enabled).toBe(true)
+    expect(forSubscription.daily.enabled).toBe(true)
+
+    const forDrawing = planForecastSections('full', span, options(), 30)
+    expect(forDrawing.hourly).toEqual({ enabled: false, capacity: 0, orientation: 'horizontal' })
+    expect(forDrawing.daily).toEqual({ enabled: false, capacity: 0 })
+
+    // And in between: room for the hours but not for a whole day.
+    const narrow = planForecastSections('full', span, options(), 100)
+    expect(narrow.hourly.capacity).toBe(2)
+    expect(narrow.daily.capacity).toBe(1)
   })
 })
 

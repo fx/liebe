@@ -262,9 +262,21 @@ describe('WeatherCard', () => {
   })
 
   describe('Weather icon', () => {
+    /*
+     * The card has ONE icon language, line art, in every position and on every
+     * variant (docs/specs/entity-cards/options/weather.md — "Forecast
+     * presentation": the `default` variant's emoji header is retired by change
+     * 0030). These assert the header glyph by the lucide class the shared
+     * resolver produces, which is the same set the forecast columns draw from —
+     * that shared set IS the rule, so an emoji reappearing here fails.
+     */
+    const headerGlyph = (container: HTMLElement) =>
+      container.querySelector('.liebe-icon svg')?.getAttribute('class') ?? ''
+
     it('should show sun icon for sunny weather', () => {
       const { container } = render(<WeatherCard entityId="weather.home" />)
-      expect(container.textContent).toContain('☀️')
+      expect(headerGlyph(container)).toContain('lucide-sun')
+      expect(container.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u)
     })
 
     it('should show rain icon for rainy weather', () => {
@@ -279,7 +291,7 @@ describe('WeatherCard', () => {
       })
 
       const { container } = render(<WeatherCard entityId="weather.home" />)
-      expect(container.textContent).toContain('🌧️')
+      expect(headerGlyph(container)).toContain('lucide-cloud-rain')
     })
 
     it('should show snow icon for snowy weather', () => {
@@ -294,7 +306,7 @@ describe('WeatherCard', () => {
       })
 
       const { container } = render(<WeatherCard entityId="weather.home" />)
-      expect(container.textContent).toContain('❄️')
+      expect(headerGlyph(container)).toContain('lucide-cloud-snow')
     })
   })
 

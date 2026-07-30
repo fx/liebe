@@ -1,7 +1,7 @@
 import { User } from 'lucide-react'
 import { createElement } from 'react'
 import { IconCircle } from '../anatomy'
-import { GridCardWithComponents as GridCard } from '../GridCard'
+import { GridCardWithComponents as GridCard, useGridCardDisplay } from '../GridCard'
 import type { PersonPresence } from './presentation'
 import './PersonCard.css'
 
@@ -96,15 +96,33 @@ export function PersonAvatar({
     </GridCard.Icon>
   )
 
+  /*
+   * The badge is a badge, and `iconOnly` suppresses badges — "every other
+   * ordinary content is suppressed — meta lines, embedded controls, secondary
+   * content, badges and overlays" (docs/specs/entity-cards/options/common.md —
+   * "Icon-only presentation"). What the option exempts is the *anchor*: this
+   * card keeps its avatar instead of resolving a glyph, and the dot riding on
+   * that avatar is not part of it.
+   *
+   * Read off the shell's context rather than threaded from the card, for the
+   * reason the seam exists at all: the avatar is the one piece of this card the
+   * body hands through untouched, so it is the one piece that has to check.
+   * Rendered outside a shell — a story — the context's defaults leave the badge
+   * exactly where it has always been.
+   */
+  const { iconOnly } = useGridCardDisplay()
+
   return (
     <div className="liebe-person-avatar">
       {content}
-      <span
-        aria-hidden="true"
-        className="liebe-person-badge"
-        data-presence={presence}
-        data-testid="person-badge"
-      />
+      {iconOnly ? null : (
+        <span
+          aria-hidden="true"
+          className="liebe-person-badge"
+          data-presence={presence}
+          data-testid="person-badge"
+        />
+      )}
     </div>
   )
 }

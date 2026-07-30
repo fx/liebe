@@ -4,6 +4,7 @@ import { Thermometer } from 'lucide-react'
 import { useEntity } from '../../hooks'
 import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { useCardItem } from '../cardItemContext'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
@@ -13,7 +14,7 @@ import { withCardErrorBoundary } from '../cardErrorBoundary'
 import { WeatherScrim, weatherArtworkClass } from './WeatherArtwork'
 import {
   formatTemperature,
-  getConditionEmoji,
+  getConditionGlyph,
   getTemperatureDisplay,
   getWeatherTextStyles,
   resolveConditionBackground,
@@ -31,9 +32,21 @@ function WeatherCardDefaultContent(props: CardProps) {
     onDelete,
     isSelected = false,
     onSelect,
-    config,
+    config: configProp,
     onConfigure,
   } = props
+  const publishedItem = useCardItem()
+  /*
+   * The card's stored options: the renderer's prop when it passed one, the
+   * published item's otherwise. The grid hands a placed card both, so this only
+   * changes what a renderer that publishes the item WITHOUT repeating it as a
+   * prop gets — the configuration preview among them, which was rendering this
+   * variant's defaults rather than its stored options. One name for the
+   * resolution, so a second option read cannot pick up the unresolved prop
+   * instead (which is how `WeatherCardMinimal` came to honour `iconOnly` from
+   * one source and `temperatureUnit` from another).
+   */
+  const config = configProp ?? publishedItem.config
   const options = readWeatherOptions(config)
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
 
@@ -108,6 +121,17 @@ function WeatherCardDefaultContent(props: CardProps) {
 
   const unavailableStatus = resolveUnavailableStatus(entity.state)
 
+  /*
+   * The card's ONE icon language. This variant used to draw an emoji here and
+   * line-art glyphs in its forecast columns, which is the mismatch the option
+   * doc settles: "all four variants draw every condition icon — header and
+   * forecast columns alike — from the shared line-art condition-glyph set; the
+   * `default` variant's emoji header is retired". Line art takes the muted
+   * foreground on the plain surface and the artwork token over a scrim; an
+   * emoji takes neither.
+   */
+  const ConditionGlyph = getConditionGlyph(entity.state)
+
   // Handle unavailable state
   if (unavailableStatus) {
     return (
@@ -132,7 +156,7 @@ function WeatherCardDefaultContent(props: CardProps) {
                 justifyContent: 'center',
               }}
             >
-              <span style={{ fontSize: 24 }}>{getConditionEmoji(entity.state)}</span>
+              {createElement(ConditionGlyph, { size: 24 })}
             </span>
           </GridCard.Icon>
           <GridCard.Title>{entity.attributes?.friendly_name || entityId}</GridCard.Title>
@@ -243,9 +267,21 @@ function WeatherCardDefaultContent(props: CardProps) {
    */
   const extra =
     detailLine || forecast.hasContent ? (
-      <Flex direction="column" gap="2" width="100%">
+      /*
+       * `weather-card-extra` collapses the slot when the width left room for no
+       * forecast column and there was no detail line to keep it company — the
+       * one case this decision cannot make, because the content width is only
+       * readable inside the shell (`WeatherForecast.tsx`).
+       */
+      <Flex direction="column" gap="2" width="100%" className="weather-card-extra">
         {detailLine}
-        <WeatherForecastSections sections={forecast} hasBackground={!!backgroundImage} />
+        <WeatherForecastSections
+          sections={forecast}
+          hasBackground={!!backgroundImage}
+          // Nothing else on this card states the unit when the entity
+          // publishes no current temperature, so the section label does.
+          statesUnit={!tempDisplay}
+        />
       </Flex>
     ) : undefined
 
@@ -293,7 +329,7 @@ function WeatherCardDefaultContent(props: CardProps) {
                 justifyContent: 'center',
               }}
             >
-              <span style={{ fontSize: 24 }}>{getConditionEmoji(entity.state)}</span>
+              {createElement(ConditionGlyph, { size: 24 })}
             </span>
           </GridCard.Icon>
         }

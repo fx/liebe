@@ -46,7 +46,7 @@ The legacy-compatibility acceptance criterion lives with the contract, not here:
 - `src/components/GridCard.tsx` / `CardBody.tsx` — `iconOnly` from display context collapses body slots to the lead; shell fences non-body layers; the option stamps its own tile marker alongside the existing derived `data-icon-only`, which keeps stamping (and meaning) exactly what it does today.
 - `src/components/GridCard.css` / `anatomy.css` — tile-scale tint rules (active tint / neutral inactive / transition / level modulation via a custom property).
 - Per-card anchors: `CameraCard` (thumbnail tile), `PersonCard` (avatar), `SensorCard` (icon fallback) route their existing icon-form fallbacks through the option.
-- Seam bypasses: `ClimateDial.tsx` and `WeatherCardMinimal.tsx` gain an icon-only form (the domain/state glyph their sibling variants already resolve — `HvacModeIcon` and the weather condition glyph respectively), reached before their own layout runs.
+- Seam bypasses: `ClimateDial.tsx` and `WeatherCardMinimal.tsx` gain an icon-only form (the glyph their sibling variants already resolve for the same entity — the compact layout's, reached by the delegation the dial already uses below `full`, and the weather condition glyph respectively), reached before their own layout runs. The audit added a third the list above did not have: `InputNumberCard`'s `glance` lead is its reading rather than a glyph, so it takes the same icon fallback the sensor card took in the first task.
 - Theming spec contract edit + `themeStructure`/stylesheet tests.
 - Tests: display suite (suppression per card family via the tier-layout test harness), tile tint + level modulation, danger reversion, round-trip.
 
@@ -64,8 +64,8 @@ The legacy-compatibility acceptance criterion lives with the contract, not here:
 
 ## Tasks
 
-- [ ] `iconOnly` option end to end with seam-level content suppression, centred icon, per-card anchors (camera/person/sensor), danger-floor reversion; display + round-trip tests, suppression coverage across card families, stories
-- [ ] Audit every registered card and variant for seam bypass (own layout instead of `CardBody`, or no icon slot) and give each one its icon-only form — climate `dial` and weather `minimal` included; a test asserting every registered card and variant resolves exactly one identity anchor under `iconOnly` — the glyph for most cards, the thumbnail or avatar for the cards the contract exempts — with all other content suppressed
+- [x] `iconOnly` option end to end with seam-level content suppression, centred icon, per-card anchors (camera/person/sensor), danger-floor reversion; display + round-trip tests, suppression coverage across card families, stories
+- [x] Audit every registered card and variant for seam bypass (own layout instead of `CardBody`, or no icon slot) and give each one its icon-only form — climate `dial` and weather `minimal` included; a test asserting every registered card and variant resolves exactly one identity anchor under `iconOnly` — the glyph for most cards, the thumbnail or avatar for the cards the contract exempts — with all other content suppressed
 - [ ] Tile state tint: active/inactive tile treatment on the option's own marker (never the derived `data-icon-only`), colour resolution reuse (incl. bulb colour), level modulation, the new marker promoted into the theming stable selector contract (spec + changelog + structure tests), a regression test that a legacy `hideName` + `hideState` tile stays neutral, tint stories
 
 ## Open Questions

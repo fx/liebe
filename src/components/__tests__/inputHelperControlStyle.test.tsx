@@ -212,6 +212,63 @@ describe('input helper controlStyle', () => {
       expect(screen.queryByLabelText('Increase value')).not.toBeInTheDocument()
       expect(screen.queryByLabelText(/Set value, currently/)).not.toBeInTheDocument()
     })
+
+    it('renders the vertical slider at tall even where the stepper is stored', () => {
+      /*
+       * The one-column tier. A stepper is a row of buttons sized by its
+       * contents — 156px of them — and a `tall` tile's content region is 35px
+       * on a 12-column desktop grid, so rendering it there hangs it past the
+       * tile's own edge, which the tile clips. The tier's vertical slider
+       * renders instead (docs/specs/entity-cards/options/input-helpers.md —
+       * `input_number`; docs/specs/design-system — cross-axis fit).
+       *
+       * `mode: 'box'` as well as the stored option, so this is the case where
+       * BOTH inputs ask for the stepper and neither is what renders.
+       */
+      seed(helper('box'))
+      renderCard(<InputNumberCard entityId="input_number.volume" tier="tall" />, {
+        controlStyle: 'stepper',
+      })
+
+      const slider = screen.getByRole('slider', { name: 'Set Volume' })
+      expect(slider.closest('.liebe-slider')).toHaveAttribute('data-orientation', 'vertical')
+      // Not merely "a slider is present": the stepper's three surfaces are all
+      // gone, so nothing is left to be clipped against the tile's edge.
+      expect(screen.queryByLabelText('Increase value')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Decrease value')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/Set value, currently/)).not.toBeInTheDocument()
+    })
+
+    it('returns to the stored stepper on the tiers that are wider than one column', () => {
+      /*
+       * The fallback is presentation, not a migration: the same stored config
+       * that renders a slider at `tall` renders the stepper at `row` and at
+       * `full`, so a card resized back gets its stepper without any
+       * configuration change.
+       */
+      seed(helper('box'))
+      const stored = { controlStyle: 'stepper' }
+
+      const tall = renderCard(
+        <InputNumberCard entityId="input_number.volume" tier="tall" />,
+        stored
+      )
+      expect(screen.queryByLabelText('Increase value')).not.toBeInTheDocument()
+      tall.unmount()
+
+      const row = renderCard(<InputNumberCard entityId="input_number.volume" tier="row" />, stored)
+      expect(screen.getByLabelText('Increase value')).toBeInTheDocument()
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+      row.unmount()
+
+      renderCard(<InputNumberCard entityId="input_number.volume" tier="full" />, stored)
+      expect(screen.getByLabelText('Increase value')).toBeInTheDocument()
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+
+      // And the card never rewrote what it was handed — the option still says
+      // `stepper` after a tier that could not render one.
+      expect(stored).toEqual({ controlStyle: 'stepper' })
+    })
   })
 
   describe('input_select', () => {

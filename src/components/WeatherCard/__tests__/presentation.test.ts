@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import {
   formatTemperature,
+  formatTemperatureDegrees,
   formatWindBearing,
-  getConditionEmoji,
   getConditionGlyph,
   getTemperatureDisplay,
   getWeatherBackground,
@@ -133,6 +133,24 @@ describe('getTemperatureDisplay', () => {
 
   it('formats a reading as one string', () => {
     expect(formatTemperature({ value: 21.6, unit: '°C' })).toBe('22°C')
+  })
+
+  it('formats a forecast cell degree-only, in the converted value', () => {
+    /*
+     * The unit is stated once by the card's main readout and MUST NOT repeat
+     * per cell (option doc — "Forecast presentation"). Only the SUFFIX goes:
+     * the value is still whatever `temperatureUnit` resolved, so a Fahrenheit
+     * card's columns are Fahrenheit numbers written without the `°F`.
+     */
+    expect(formatTemperatureDegrees({ value: 21.6, unit: '°C' })).toBe('22°')
+    expect(formatTemperatureDegrees({ value: 71.4, unit: '°F' })).toBe('71°')
+    // Same rounding as the readout beside it, so the two never disagree by one
+    // — asserted against that formatter rather than restated, since agreeing
+    // with it is the actual requirement.
+    for (const value of [21.5, -0.4, -7.6]) {
+      const display = { value, unit: '°C' }
+      expect(formatTemperatureDegrees(display)).toBe(formatTemperature(display).replace('C', ''))
+    }
   })
 })
 
@@ -288,12 +306,16 @@ describe('secondary info', () => {
 
 describe('condition glyphs', () => {
   it('resolves each condition family, and something for one it has never met', () => {
-    expect(getConditionEmoji('sunny')).toBe('☀️')
-    expect(getConditionEmoji('clear-night')).toBe('☀️')
-    expect(getConditionEmoji('light-rain')).toBe('🌧️')
-    expect(getConditionEmoji('partlycloudy')).toBe('☁️')
-    expect(getConditionEmoji('heavy-snow')).toBe('❄️')
-    expect(getConditionEmoji('thunderstorm')).toBe('⛈️')
+    expect(getConditionGlyph('sunny').displayName).toBe('Sun')
+    expect(getConditionGlyph('clear-night').displayName).toBe('Sun')
+    expect(getConditionGlyph('light-rain').displayName).toBe('CloudRain')
+    expect(getConditionGlyph('partlycloudy').displayName).toBe('Cloud')
+    expect(getConditionGlyph('heavy-snow').displayName).toBe('CloudSnow')
+    expect(getConditionGlyph('thunderstorm').displayName).toBe('Zap')
+    expect(getConditionGlyph('rainy').displayName).toBe('CloudRain')
+    expect(getConditionGlyph('drizzle').displayName).toBe('CloudDrizzle')
+    expect(getConditionGlyph('snowy').displayName).toBe('CloudSnow')
+    expect(getConditionGlyph('lightning').displayName).toBe('Zap')
     /*
      * Forward compatibility: an unknown or non-string condition must still
      * produce a glyph rather than throwing inside a card's render. The value
@@ -301,14 +323,6 @@ describe('condition glyphs', () => {
      * Home Assistant conditions, and pinning a recognised state into the
      * unknown path would assert the wrong thing is unknown.
      */
-    expect(getConditionEmoji(UNKNOWN_CONDITION)).toBe('🌤️')
-    expect(getConditionEmoji(undefined)).toBe('🌤️')
-
-    expect(getConditionGlyph('sunny').displayName).toBe('Sun')
-    expect(getConditionGlyph('rainy').displayName).toBe('CloudRain')
-    expect(getConditionGlyph('drizzle').displayName).toBe('CloudDrizzle')
-    expect(getConditionGlyph('snowy').displayName).toBe('CloudSnow')
-    expect(getConditionGlyph('lightning').displayName).toBe('Zap')
     expect(getConditionGlyph(UNKNOWN_CONDITION).displayName).toBe('Cloud')
     expect(getConditionGlyph(null).displayName).toBe('Cloud')
   })
@@ -322,7 +336,6 @@ describe('condition glyphs', () => {
      * the opposite of what the entity is saying.
      */
     expect(getConditionGlyph('exceptional').displayName).toBe('TriangleAlert')
-    expect(getConditionEmoji('exceptional')).toBe('⚠️')
   })
 })
 

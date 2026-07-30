@@ -153,6 +153,36 @@
     display: none;
   }
 
+  /*
+   * The icon-only tile the `iconOnly` OPTION asks for, which is a different
+   * thing from the derived attribute above even though both centre what is
+   * left (docs/specs/entity-cards/options/common.md — "Icon-only
+   * presentation").
+   *
+   * Two attributes and two rules rather than one shared selector list, because
+   * the two are not interchangeable and the difference is load-bearing:
+   * `data-icon-only` is stamped for every card that happens to have both meta
+   * lines hidden, including every dashboard configured before this option
+   * existed, while `data-icon-tile` is stamped only where the user asked for
+   * this presentation. The state tint the design system gives an icon-only
+   * tile (docs/specs/design-system — "Card anatomy") therefore has a selector
+   * it can key on without reaching a single legacy tile — which is exactly
+   * what the contract's unchanged-tiles scenario requires. Collapsing these
+   * into one rule would make that distinction unavailable to the sheet.
+   *
+   * `data-icon-tile` is public API under the stable selector contract
+   * (docs/specs/theming/index.md); `data-icon-only` is not.
+   *
+   * Placed before the alignment block for the same reason the rule above is:
+   * at equal specificity the later rule wins, so an icon-only tile that also
+   * names an axis takes the alignment.
+   */
+  .liebe-card[data-icon-tile] {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+  }
+
   /* ------------------------------------------------------------------ *
    * Content alignment
    *

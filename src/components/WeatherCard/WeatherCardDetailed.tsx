@@ -4,6 +4,7 @@ import { Thermometer } from 'lucide-react'
 import { useEntity } from '../../hooks'
 import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { useCardItem } from '../cardItemContext'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
@@ -33,9 +34,21 @@ function WeatherCardDetailedContent(props: CardProps) {
     onDelete,
     isSelected = false,
     onSelect,
-    config,
+    config: configProp,
     onConfigure,
   } = props
+  const publishedItem = useCardItem()
+  /*
+   * The card's stored options: the renderer's prop when it passed one, the
+   * published item's otherwise. The grid hands a placed card both, so this only
+   * changes what a renderer that publishes the item WITHOUT repeating it as a
+   * prop gets — the configuration preview among them, which was rendering this
+   * variant's defaults rather than its stored options. One name for the
+   * resolution, so a second option read cannot pick up the unresolved prop
+   * instead (which is how `WeatherCardMinimal` came to honour `iconOnly` from
+   * one source and `temperatureUnit` from another).
+   */
+  const config = configProp ?? publishedItem.config
   const options = readWeatherOptions(config)
   const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
 
@@ -223,9 +236,17 @@ function WeatherCardDetailedContent(props: CardProps) {
   // it, so a card with no forecast lays out as if the options were off.
   const extra =
     detailRows || forecast.hasContent ? (
-      <Flex direction="column" gap="3" width="100%">
+      // `weather-card-extra` collapses the slot when the content width left
+      // room for no forecast column and there were no detail rows beside it.
+      <Flex direction="column" gap="3" width="100%" className="weather-card-extra">
         {detailRows}
-        <WeatherForecastSections sections={forecast} hasBackground={!!backgroundImage} />
+        <WeatherForecastSections
+          sections={forecast}
+          hasBackground={!!backgroundImage}
+          // With no current temperature there is no main readout to state the
+          // unit, so the section label states it once instead.
+          statesUnit={!tempDisplay}
+        />
       </Flex>
     ) : undefined
 

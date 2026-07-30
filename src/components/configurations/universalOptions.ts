@@ -82,7 +82,11 @@ export const displayConfigOptions: ConfigDefinition = {
     type: 'boolean',
     default: CARD_DISPLAY_DEFAULTS.hideState,
     label: 'Hide state',
-    description: 'Removes the state line. Hiding both lines leaves an icon-only card.',
+    // Deliberately does NOT say "hiding both leaves an icon-only card", which
+    // it used to: that is the sentence that made this pair and `iconOnly` read
+    // as two ways to say the same thing. Hiding both empties two text slots and
+    // stops there — a card with an interior keeps drawing it.
+    description: 'Removes the state line. Hiding both empties the card’s two text slots.',
   },
   color: {
     type: 'select',
@@ -93,6 +97,29 @@ export const displayConfigOptions: ConfigDefinition = {
     // Driven off the canonical enum, so the form cannot offer a value the schema
     // would reject — nor miss one it would accept.
     options: CARD_COLOR_OPTIONS.map((value) => ({ value, label: COLOR_LABELS[value] })),
+  },
+  /*
+   * The description carries the distinction from `hideName` + `hideState`,
+   * because the form is where the two are seen side by side and where they
+   * would otherwise read as the same thing said twice. They are not: the pair
+   * empties two text slots and leaves whatever else a card draws, while this
+   * reduces the tile to the one thing that identifies the entity and takes the
+   * interior with it (docs/specs/entity-cards/options/common.md — "Icon-only
+   * presentation": "`hideName` + `hideState` already leave simple cards
+   * icon-only, but any card with an interior beyond the meta lines … still
+   * renders that interior. `iconOnly` is the total version, for every card").
+   *
+   * "Its icon — or whatever identifies it" rather than just "its icon",
+   * because the two cards the contract exempts do not resolve a glyph: a
+   * camera keeps its thumbnail and a person their photo, and a user who read
+   * "icon" and got a photograph would think the option had misfired.
+   */
+  iconOnly: {
+    type: 'boolean',
+    default: CARD_DISPLAY_DEFAULTS.iconOnly,
+    label: 'Icon only',
+    description:
+      'Reduces the whole card to its icon — or whatever identifies it, like a camera’s thumbnail or a person’s photo. Unlike hiding the two lines, this also removes controls, graphs, forecasts and artwork.',
   },
   alignHorizontal: {
     type: 'select',
