@@ -28,9 +28,11 @@
   }
 
   /* `row`: the width the icon and the meta leave, at the height of a line of
-     text rather than of the tile — a row tile is one cell tall in total. */
+     text rather than of the tile — a row tile is one cell tall in total. The
+     one graph height this card fixes, and it is a token so a theme that changes
+     its text scale can change the band with it. */
   .liebe-sensor-graph[data-region='inline'] {
-    block-size: 32px;
+    block-size: var(--liebe-graph-height-inline);
     flex: 1 1 auto;
   }
 
@@ -41,9 +43,50 @@
     min-block-size: 0;
   }
 
-  /* `full`: the tier's own content, so it gets a block worth looking at
-     rather than a line's worth. */
+  /*
+   * `full`: the tier's own content, so it takes the height the value line and
+   * the min/max footer leave rather than a fixed band with dead space around it
+   * — a 3×3 card draws a visibly taller graph than a 2×2. No floor: this is the
+   * one graph the token contract deliberately does not pin, so the only height
+   * it ever has is the tile's leftover.
+   *
+   * `min-block-size: 0` because a flex item's automatic minimum size is its
+   * content: without it the SVG's intrinsic height would stop the graph
+   * shrinking on a short tile and push the footer out of the tile instead.
+   */
   .liebe-sensor-graph[data-region='full'] {
-    block-size: 72px;
+    flex: 1 1 auto;
+    min-block-size: 0;
+  }
+
+  /*
+   * The `full` footer's box, held whether or not the extremes exist yet.
+   *
+   * A window's minimum and maximum are known only once the series lands, and the
+   * graph above is flexible — so a footer that appeared with its text would take
+   * its space out of the graph and shrink it under the reader's eyes. The
+   * reservation is expressed in `lh`, the footer's own line height, so it follows
+   * the text it reserves for rather than pinning a dimension.
+   *
+   * TWO lines, not one, and the arithmetic is the reason: "Min 0.0 °C · Max
+   * 9.0 °C" is around 130px at this text size, while the sensor card's default
+   * 2×2 tile leaves a content region narrower than that on a 12-column desktop
+   * grid. So the footer genuinely takes two lines at the commonest size, and
+   * reserving one would surrender a line of graph the moment the series landed.
+   * The alternative — holding it to one line and ellipsizing — trades that for
+   * hiding an extreme the tier table requires the footer to show, which is the
+   * worse direction: `liebe-name` may ellipsize because a truncated name is
+   * still a name, but half a reading is not a reading.
+   *
+   * A single line therefore sits centred in a two-line box rather than leaving a
+   * gap under it. A third line would reflow again, but that needs a unit and
+   * precision far past the defaults, and it costs a line of graph rather than a
+   * value (the tier rule in options/sensor.md).
+   */
+  .liebe-sensor-graph-footer {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    min-block-size: 2lh;
   }
 }
