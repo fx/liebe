@@ -142,32 +142,38 @@ The option contract — keys, defaults, tier layouts, colour precedence — is [
 
 ## Weather
 
-Variant selection: `config.variant || config.preset || 'default'` (`src/components/WeatherCard/index.tsx`); saving migrates `preset` → `variant`. Variants registered on first render via `registerCardVariant`.
+Variant selection: `config.variant || config.preset || 'default'`, resolved by `readWeatherOptions` (`src/store/weatherOptions.ts`) and dispatched in `src/components/WeatherCard/index.tsx`; saving migrates `preset` → `variant`. The variants are attached to the card as a static `variants` map rather than pushed into the registry — importing `cardRegistry` from a card closes an import cycle that crashes the bundle ([AGENTS.md](../../../AGENTS.md) — "Entity Card Registration").
+
+Shared logic lives beside the variants rather than in each of them: `src/components/WeatherCard/presentation.ts` (temperature conversion and formatting, the `secondaryInfo` fallback chain, condition glyphs, the condition→artwork map and its text treatment), `src/components/WeatherCard/forecastPresentation.ts` (tier and width capacity, the upper-bound rule, one column's content), `src/components/WeatherCard/WeatherForecast.tsx` (the hook wiring and both sections), `src/components/WeatherCard/WeatherArtwork.tsx` (the scrim layer and the class that scopes the foreground tokens).
 
 **Per-variant attributes and display:**
 
-| Variant                                                         | Reads                                                 | Displays                                                                 | Background                          |
-| --------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------- |
-| Default (`src/components/WeatherCard/WeatherCardDefault.tsx`)   | temperature, humidity, temperature_unit               | emoji icon, temp (Thermometer), humidity % (Droplets), capitalized state | Yes; `backdrop` off when bg present |
-| Modern (`src/components/WeatherCard/WeatherCardModern.tsx`)     | temperature, humidity, temperature_unit               | lucide icon, large temp, "{humidity}% humidity", state                   | Yes; emphasis text shadow           |
-| Detailed (`src/components/WeatherCard/WeatherCardDetailed.tsx`) | temperature, humidity, **pressure**, temperature_unit | labeled Temperature/Humidity/Pressure rows (`{round(pressure)} hPa`)     | Yes; header icon does not whiten    |
-| Minimal (`src/components/WeatherCard/WeatherCardMinimal.tsx`)   | temperature, temperature_unit only                    | name, large temp, state                                                  | No — `transparent`, no icon         |
+| Variant                                                         | Reads                                                        | Displays                                                                      | Artwork                                       |
+| --------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| Default (`src/components/WeatherCard/WeatherCardDefault.tsx`)   | temperature, `secondaryInfo` attribute, temperature_unit     | condition glyph, temp (Thermometer), the secondary reading, capitalized state | Yes; `backdrop` off and scrim on when painted |
+| Modern (`src/components/WeatherCard/WeatherCardModern.tsx`)     | temperature, `secondaryInfo` attribute, temperature_unit     | condition glyph (48px), large temp, the secondary reading, state              | Yes; emphasis shadow over the scrim           |
+| Detailed (`src/components/WeatherCard/WeatherCardDetailed.tsx`) | temperature, `secondaryInfo`, **pressure**, temperature_unit | labelled reading rows, the `full` detail line, both forecast sections         | Yes                                           |
+| Minimal (`src/components/WeatherCard/WeatherCardMinimal.tsx`)   | temperature, temperature_unit only                           | name, large temp, state; no forecast at any tier                              | No — `transparent`, no artwork                |
 
-**Temperature unit** (duplicated `convertTemperature` + `getTemperatureDisplay` in each variant): native unit inferred from whether `temperature_unit` contains `f`; `auto` shows native, `celsius`/`fahrenheit` convert (C→F `t*9/5+32`, F→C `(t-32)*5/9`); value is `Math.round(...)`.
+**Temperature unit** (one implementation, `getTemperatureDisplay` in `src/components/WeatherCard/presentation.ts`, read by all four variants): the native unit is inferred from whether `temperature_unit` contains `f`; `auto` shows native, `celsius`/`fahrenheit` convert (C→F `t*9/5+32`, F→C `(t-32)*5/9`). `formatTemperature` renders the readout with its unit (`22°C`); `formatTemperatureDegrees` renders a forecast cell without one (`22°`). Every forecast temperature goes through the same conversion as the current reading, so the card never mixes units.
 
-**Condition→icon**: Default uses emoji (`☀️ 🌧️ ☁️ ❄️ ⛈️`, fallback `🌤️`); Modern/Detailed use lucide (`Sun`, `CloudRain`, `CloudDrizzle`, `CloudSnow`, `Zap`, fallback `Cloud`); Minimal none.
+**Condition→icon**: one line-art set for every variant and every position — `getConditionGlyph` (`Sun`, `CloudRain`, `CloudDrizzle`, `CloudSnow`, `Zap`, `TriangleAlert` for `exceptional`, fallback `Cloud`), matched on substrings so a condition this build has never met still resolves. The `default` variant's emoji header was retired by change [0030](../../changes/0030-weather-forecast-legibility.md); `getConditionEmoji` no longer exists.
 
-**Backgrounds (PR #140)**: `getWeatherBackground(condition)` (`src/components/WeatherCard/index.tsx`) maps Pirate-Weather icon names and common HA conditions to one of 10 PNGs under `public/weather-backgrounds/` (`clear-day`, `clear-night`, `rain`, `snow`, `sleet`, `wind`, `fog`, `cloudy`, `partly-cloudy-day`, `partly-cloudy-night`), with partial-match fallbacks, returning `null` when nothing matches. URLs are prefixed by `getAssetBaseUrl()` → `window.__LIEBE_ASSET_BASE_URL__` or `/`. When a background exists, `getWeatherTextStyles`/`getWeatherTextColor` switch text to white with shadows and icons to white with drop-shadow.
+**Forecast sections** (`src/components/WeatherCard/WeatherForecast.tsx`, `src/components/WeatherCard/WeatherForecast.css`): content comes exclusively from `useWeatherForecast` — the card never calls `weather.get_forecasts`. The hourly strip runs from `row` up (down the tile at `tall`, one hour per grid cell past the first two); the multi-day row is `full` only. Each section carries an eyebrow label ("Hourly" / "Daily"), its columns sit on equal grid tracks, cells are degree-only, and a daily column's high and low are a weight-and-size-emphasized pair. Where the entity publishes no current `temperature` — so no readout states the unit — the first section's label carries it once (`Hourly · °C`).
 
-**Scenarios** (`src/components/WeatherCard.test.tsx`):
+**Horizontal capacity is width-aware**: `min(configured, floor(contentWidth / minColumnWidth))` with 44px hourly and 60px daily minimums, where `contentWidth` is the shell's content-box observation published through `useCardContentWidth` (`src/components/GridCard.tsx`). Columns that do not fit are omitted from the end; a width holding none omits the section. An unobserved width (jsdom, an environment with no `ResizeObserver`, the first render) imposes no bound — it is not read as zero. The card itself never measures the DOM.
 
-- Unit conversion: 22°C default → `22°C`; with `temperatureUnit: 'fahrenheit'` → `72°F`.
+**Artwork and its scrim (`src/components/WeatherCard/presentation.ts`, `src/components/WeatherCard/WeatherArtwork.tsx`, `src/components/WeatherCard/WeatherCard.css`)**: `getWeatherBackground(condition)` maps Pirate-Weather icon names and common HA conditions to one of 10 PNGs under `public/weather-backgrounds/` (`clear-day`, `clear-night`, `rain`, `snow`, `sleet`, `wind`, `fog`, `cloudy`, `partly-cloudy-day`, `partly-cloudy-night`), with partial-match fallbacks and `null` when nothing matches; the lookup is an own-property check so an entity state naming a prototype member cannot resolve. URLs are prefixed by `window.__LIEBE_ASSET_BASE_URL__` or `/`. Where artwork is painted, `WeatherScrim` renders a gradient layer under the content and `weather-card-artwork` re-points the foreground tokens, rather than any node pinning `color: white`; `getWeatherTextStyles` contributes only the shadow accent on top.
+
+**Scenarios** (`src/components/WeatherCard.test.tsx`, `src/components/WeatherCard/__tests__/`):
+
+- Unit conversion: 22°C default → `22°C`; with `temperatureUnit: 'fahrenheit'` → `72°F`; forecast cells convert with it and render degree-only.
 - Preset backwards-compat: `preset: 'minimal' | 'detailed' | 'modern'` render the matching variant.
-- New `variant` field + pressure: `variant: 'detailed'` at large shows `1013 hPa`.
-- Detailed data points: Temperature/22°C, Humidity/65%, Pressure/1013 hPa.
-- Edge cases: missing attributes hide `°C`/`%`; `unavailable` → `UNAVAILABLE`; loading → skeleton; disconnected → `Disconnected`.
-- Default-variant emoji: sunny→`☀️`, rainy→`🌧️`, snowy→`❄️`; stale → `title="Weather data may be outdated"`.
-- No tests cover background images, text shadows, or `__LIEBE_ASSET_BASE_URL__`.
+- New `variant` field + pressure: `variant: 'detailed'` at `full` shows `1013 hPa`.
+- Edge cases: missing attributes hide `°C`/`%`; `unavailable` and `unknown` each print their own raw state; loading → skeleton; disconnected → `Disconnected`.
+- One icon language: sunny→`lucide-sun`, rainy→`lucide-cloud-rain`, snowy→`lucide-cloud-snow`, and no emoji anywhere on the card; stale → `title="Weather data may be outdated"`.
+- Forecast sections: tier gating, the upper bound, a derived day with a low and no high, a section hidden per type, and the width-aware capacity down to a content box holding no column at all.
+- Artwork: the scrim is present with a background and absent without one, the foreground tokens are scoped to the same condition, and `__LIEBE_ASSET_BASE_URL__` prefixes the URL.
 
 ## Input helper cards
 

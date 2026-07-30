@@ -23,13 +23,63 @@ import { getTemperatureDisplay, type TemperatureDisplay } from './presentation'
 export type ForecastOrientation = 'horizontal' | 'vertical'
 
 /**
- * How many hourly columns a tier has room for, and which way they run.
+ * The narrowest an hourly column may be drawn: hour, glyph and one degree-only
+ * temperature.
+ *
+ * The option doc's number, not an implementation choice — "canonical minimum
+ * column widths of **44px for hourly columns and 60px for daily columns**"
+ * (docs/specs/entity-cards/options/weather.md — "Forecast presentation") — so
+ * the tests that pin it are pinning the contract.
+ */
+export const HOURLY_MIN_COLUMN_WIDTH = 44
+
+/**
+ * The narrowest a daily column may be drawn.
+ *
+ * Wider than an hourly one because it says more: a weekday, a glyph, and a
+ * high–low pair rather than a single reading.
+ */
+export const DAILY_MIN_COLUMN_WIDTH = 60
+
+/**
+ * How many equal-width columns fit across a content box, bounded by what was
+ * configured.
+ *
+ * `min(configured, floor(contentWidth / minColumnWidth))`, the option doc's
+ * formula. Equal-width columns at a legible glyph size cannot squeeze the way
+ * content-width text does, so the configured count is an upper bound and the
+ * width decides the rest: what does not fit is **omitted from the end**, never
+ * clipped, scrolled, or shrunk below the floor. A width with room for nothing
+ * yields `0`, which omits the section entirely — the same whole-section
+ * omission the availability rules already produce, so a pathologically dense
+ * grid degrades to a forecast-less card rather than an illegible one.
+ *
+ * **An unobserved width imposes no bound.** `undefined` is not "zero pixels":
+ * it is a tree that has not been laid out or a host with no `ResizeObserver`
+ * (`useCardContentWidth` in `GridCard.tsx` owns that distinction). Reading it
+ * as zero would report "does not fit" about a measurement that never happened,
+ * and would blank the strip on its first render before the observer's initial
+ * callback.
+ */
+export function horizontalForecastCapacity(
+  configured: number,
+  contentWidth: number | undefined,
+  minColumnWidth: number
+): number {
+  if (contentWidth === undefined) return configured
+
+  return Math.min(configured, Math.max(0, Math.floor(contentWidth / minColumnWidth)))
+}
+
+/**
+ * How many hourly columns a tile has room for, and which way they run.
  *
  * `0` means the strip is omitted — content that does not fit is omitted, never
  * clipped or scrolled (docs/specs/design-system — "Size-adaptive layouts").
  *
  *  - `glance` never shows one: a 1×1 tile is a glyph, a name and a temperature.
- *  - `row` and `full` run it horizontally, bounded only by `forecastHours`.
+ *  - `row` and `full` run it horizontally, bounded by `forecastHours` and by
+ *    how many columns fit at `HOURLY_MIN_COLUMN_WIDTH`.
  *  - `tall` is one column wide, so the strip runs DOWN the tile, and how many
  *    rows fit is a question about the tile's height rather than its tier. The
  *    icon, the readout and the meta take the first two cells; each cell after
@@ -41,11 +91,20 @@ export type ForecastOrientation = 'horizontal' | 'vertical'
  * how big they are (docs/changes/0011-layout-tiers.md). A card rendered with no
  * span at all cannot be promised room, so it takes the floor of its tier: for
  * `tall` that is two cells, and the strip is omitted.
+ *
+ * The width is the shell's content-width signal, and it constrains the
+ * HORIZONTAL axis only: a vertical strip is one column wide by definition, so
+ * the number of hours it draws is a question about height that a content width
+ * cannot answer. One effective span is not one pixel width — the breakpoint
+ * mapping and a user-configurable column count make a two-cell tile arbitrarily
+ * narrow — which is exactly why no span-only constant can honour the
+ * never-clipped rule.
  */
 export function hourlyForecastCapacity(
   tier: CardTier,
   span: CardSpan | undefined,
-  forecastHours: number
+  forecastHours: number,
+  contentWidth?: number
 ): { capacity: number; orientation: ForecastOrientation } {
   if (tier === 'glance') return { capacity: 0, orientation: 'horizontal' }
 
@@ -54,17 +113,27 @@ export function hourlyForecastCapacity(
     return { capacity: Math.min(forecastHours, cells - 2), orientation: 'vertical' }
   }
 
-  return { capacity: forecastHours, orientation: 'horizontal' }
+  return {
+    capacity: horizontalForecastCapacity(forecastHours, contentWidth, HOURLY_MIN_COLUMN_WIDTH),
+    orientation: 'horizontal',
+  }
 }
 
 /**
- * How many daily columns a tier has room for.
+ * How many daily columns a tile has room for.
  *
  * `full` only, per the option doc's tier table — the multi-day row is the one
- * section with a single tier, because it is the widest thing the card draws.
+ * section with a single tier, because it is the widest thing the card draws —
+ * and then bounded by the content width at `DAILY_MIN_COLUMN_WIDTH`.
  */
-export function dailyForecastCapacity(tier: CardTier, forecastDays: number): number {
-  return tier === 'full' ? forecastDays : 0
+export function dailyForecastCapacity(
+  tier: CardTier,
+  forecastDays: number,
+  contentWidth?: number
+): number {
+  if (tier !== 'full') return 0
+
+  return horizontalForecastCapacity(forecastDays, contentWidth, DAILY_MIN_COLUMN_WIDTH)
 }
 
 /**
@@ -75,8 +144,14 @@ export function dailyForecastCapacity(tier: CardTier, forecastDays: number): num
  * and is NEVER padded out with placeholder columns (option doc — "Forecast data
  * availability"). A capacity of zero, or an empty forecast, yields nothing —
  * which is how a section disappears rather than rendering an empty strip.
+ *
+ * Generic because the bound is applied twice on two different shapes: to the
+ * fetched `ForecastEntry`s when the sections are planned, and to the mapped
+ * `ForecastColumn`s when the width-aware capacity narrows them at render time.
+ * One function, so "omitted from the end, never clipped" cannot be spelled two
+ * ways.
  */
-export function forecastColumns(entries: ForecastEntry[], capacity: number): ForecastEntry[] {
+export function forecastColumns<T>(entries: T[], capacity: number): T[] {
   if (capacity <= 0) return []
   return entries.slice(0, capacity)
 }
@@ -171,14 +246,26 @@ export interface ForecastSectionPlan {
  * is what lets a disabled section skip its subscription entirely rather than
  * fetch a forecast nothing will draw — options gate presentation, and a
  * presentation that cannot happen needs no data behind it.
+ *
+ * `contentWidth` is deliberately optional, and the two calls this function
+ * takes per card are deliberately different. The **subscription** is planned
+ * without it, because the width lives inside the card shell and the hook that
+ * subscribes runs outside it — and because the option doc gates a request on
+ * the tier and the option, not on the width ("MUST NOT request a forecast for a
+ * section it will not render — one its tier has no room for, or whose option is
+ * `false`"). The **drawing** is planned with it, inside the shell, where the
+ * signal exists. A strip that subscribes and then finds no room omits its
+ * columns; it does not omit its subscription, which would make a forecast
+ * flicker in and out of the cache as a tile is resized.
  */
 export function planForecastSections(
   tier: CardTier,
   span: CardSpan | undefined,
-  options: WeatherOptions
+  options: WeatherOptions,
+  contentWidth?: number
 ): ForecastSectionPlan {
-  const hourly = hourlyForecastCapacity(tier, span, options.forecastHours)
-  const dailyCapacity = dailyForecastCapacity(tier, options.forecastDays)
+  const hourly = hourlyForecastCapacity(tier, span, options.forecastHours, contentWidth)
+  const dailyCapacity = dailyForecastCapacity(tier, options.forecastDays, contentWidth)
 
   return {
     hourly: {

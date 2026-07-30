@@ -70,7 +70,7 @@ Selects the featured value of the secondary line: `humidity` (`humidity`, %), `w
 
 ### Forecast presentation
 
-_Specified by change [0030](../../../changes/0030-weather-forecast-legibility.md), not yet implemented._ The rules above and the tier tables below say **when** forecast sections render and how many columns they carry; the shipped rendering satisfies them while being near-illegible — two identically-styled runs of 12px text with no labels, no rhythm, and the unit repeated in every cell. These rules own how a forecast section must **read**:
+_Specified and implemented by change [0030](../../../changes/0030-weather-forecast-legibility.md)._ The rules above and the tier tables below say **when** forecast sections render and how many columns they carry; the rendering that preceded this section satisfied them while being near-illegible — two identically-styled runs of 12px text with no labels, no rhythm, and the unit repeated in every cell. These rules own how a forecast section must **read**:
 
 - **The hourly strip and the daily row MUST be visually distinguishable without reading their values, and each section MUST carry a label** (eyebrow-label typography — [design-system — typography](../../design-system/index.md#typography)) naming what it is ("Hourly", "Daily" or equivalent). Two sections a viewer can only tell apart by noticing that one's labels are weekdays is the defect this section exists to fix.
 - **Columns MUST share one width rhythm**: equal-width columns whose width does not derive from their content, so "2 PM" and "10 AM" columns align and the strip reads as a table of moments rather than a run of text.
@@ -148,5 +148,6 @@ Forecast columns are non-interactive; taps on them fall through to the card's ta
 - [Entity cards — Weather](../index.md#weather) — implementation baseline (variants, `temperatureUnit`, condition backgrounds, `preset` → `variant` migration, asset base URL constraint)
 - [Card reference — Weather](../card-reference.md#weather) — per-variant attributes and condition→background map
 - [Design system](../../design-system/index.md) — tiers, card anatomy, big-value typography
-- `src/components/WeatherCard/` — the implementation: `index.tsx` (variant dispatch, configuration modal), `presentation.ts` (temperature, `secondaryInfo` fallback, condition glyphs, artwork and its text treatment), `forecastPresentation.ts` (tier capacity, upper bounds, columns), `WeatherForecast.tsx` (the hook wiring and the two strips), and the four variant files
+- `src/components/WeatherCard/` — the implementation: `index.tsx` (variant dispatch, configuration modal), `presentation.ts` (temperature, `secondaryInfo` fallback, condition glyphs, artwork and its text treatment), `forecastPresentation.ts` (tier and width capacity, upper bounds, columns), `WeatherForecast.tsx` + `WeatherForecast.css` (the hook wiring, the two labelled sections and their rhythm), `WeatherArtwork.tsx` + `WeatherCard.css` (the scrim and the scoped foreground tokens), and the four variant files
+- `src/components/GridCard.tsx` — `useCardContentWidth`, the shell-owned content-width signal the horizontal capacity rule consumes
 - `src/store/weatherOptions.ts` — the persisted option contract, its defaults, the config-schema fragment and the `preset` → `variant` rename

@@ -645,9 +645,10 @@ export const ForecastDayWithoutHigh: Story = {
     )
 
     await expect(forecastColumnCount(canvasElement, 'daily')).toBe(3)
-    // One temperature in that column, and it is the low it actually has.
-    await expect(first.textContent).toContain('12°C')
-    await expect(first.textContent?.match(/°C/g)?.length).toBe(1)
+    // One temperature in that column, and it is the low it actually has —
+    // degree-only, because the unit is stated once by the main readout.
+    await expect(first.textContent).toContain('12°')
+    await expect(first.textContent?.match(/°/g)?.length).toBe(1)
   },
 }
 
@@ -662,5 +663,140 @@ export const ForecastsFahrenheit: Story = {
   play: async ({ canvasElement }) => {
     await expect(cardText(canvasElement)).toContain('°F')
     await expect(cardText(canvasElement)).not.toContain('°C')
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * The forecast visual pass (change 0030)
+ * ------------------------------------------------------------------ */
+
+/** What a section calls itself, `''` when the section is absent. */
+const forecastSectionLabel = (canvasElement: HTMLElement, kind: 'hourly' | 'daily') =>
+  canvasElement.querySelector(`[data-forecast="${kind}"] .weather-forecast-label`)?.textContent ??
+  ''
+
+/** The rendered widths of one section's columns. */
+const forecastColumnWidths = (canvasElement: HTMLElement, kind: 'hourly' | 'daily') =>
+  Array.from(
+    canvasElement.querySelectorAll<HTMLElement>(
+      `[data-forecast="${kind}"] .weather-forecast-column`
+    )
+  ).map((column) => column.getBoundingClientRect().width)
+
+/**
+ * The `modern` variant with both sections.
+ *
+ * The variant stories above render `modern` without a forecast, so nothing
+ * showed what the shared sections look like inside its centred layout — which
+ * is the gap this closes. The sections are the same component on every variant
+ * by construction; what differs is the tile around them.
+ */
+export const ForecastsModern: Story = {
+  args: { gridWidth: 4, gridHeight: 3, config: { variant: 'modern' } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastSectionLabel(canvasElement, 'hourly')).toBe('Hourly')
+    await expect(forecastSectionLabel(canvasElement, 'daily')).toBe('Daily')
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(4)
+  },
+}
+
+/** The `detailed` variant with both sections, under its labelled detail rows. */
+export const ForecastsDetailed: Story = {
+  args: { gridWidth: 4, gridHeight: 4, config: { variant: 'detailed' } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastSectionLabel(canvasElement, 'hourly')).toBe('Hourly')
+    await expect(forecastSectionLabel(canvasElement, 'daily')).toBe('Daily')
+    await expect(forecastColumnCount(canvasElement, 'daily')).toBe(4)
+    // One icon language: the header glyph and the column glyphs come from the
+    // same line-art set, so no emoji renders anywhere on the card.
+    await expect(cardText(canvasElement)).not.toMatch(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u)
+  },
+}
+
+/**
+ * The configured maximum — twelve hours — on a tile wide enough for it.
+ *
+ * The comparison story for the one below: same configuration, enough room, so
+ * the count the user asked for is the count that is drawn. Every column shares
+ * the strip's rhythm, which is what the equal grid tracks are for.
+ */
+export const ForecastsMaxCount: Story = {
+  args: { gridWidth: 8, gridHeight: 3, config: { forecastHours: 12, forecastDays: 7 } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(12)
+
+    const widths = forecastColumnWidths(canvasElement, 'hourly')
+    // Equal-width columns: the widest and the narrowest agree to within a
+    // sub-pixel, because the width comes from the grid's tracks rather than
+    // from each column's own text.
+    await expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1)
+    // And none of them is under the legible floor the capacity rule promises.
+    await expect(Math.min(...widths)).toBeGreaterThanOrEqual(44)
+  },
+}
+
+/**
+ * The same twelve-hour configuration on the narrowest tile a horizontal strip
+ * can occupy — the story the width-aware capacity rule exists for.
+ *
+ * A `row` tier is two cells wide at its narrowest, and the content region has
+ * no lower bound below that: the breakpoint mapping honours a screen stored at
+ * sixteen columns on a 960px viewport, and a theme with a wide inline inset
+ * takes more again. So the configured count is an UPPER bound and the tile
+ * decides: the columns that do not fit are omitted from the end, never clipped,
+ * scrolled, or shrunk below the floor.
+ *
+ * The assertions are the rule rather than a number, deliberately — the exact
+ * count depends on the cell arithmetic and the theme's padding, and pinning it
+ * would make this story fail for a padding change rather than for a capacity
+ * regression.
+ */
+export const ForecastsMaxCountOnMinimumWidthTile: Story = {
+  args: { gridWidth: 2, gridHeight: 1, config: { forecastHours: 12 } },
+  parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
+  play: async ({ canvasElement }) => {
+    const drawn = forecastColumnCount(canvasElement, 'hourly')
+    const widths = forecastColumnWidths(canvasElement, 'hourly')
+
+    // Fewer than were configured, because this tile cannot hold twelve.
+    await expect(drawn).toBeLessThan(12)
+    // Every column still legible: capacity omits, it does not squeeze.
+    await expect(Math.min(...widths)).toBeGreaterThanOrEqual(44)
+
+    // Nothing overflows the strip, and the strip does not widen the tile: the
+    // two shapes "clipped" and "scrolled" would take, which the rule forbids.
+    const strip = canvasElement.querySelector<HTMLElement>(
+      '[data-forecast="hourly"] .weather-forecast-strip'
+    )!
+    await expect(strip.scrollWidth).toBeLessThanOrEqual(strip.clientWidth + 1)
+
+    const card = canvasElement.querySelector<HTMLElement>('.liebe-card')!
+    await expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth + 1)
+  },
+}
+
+/**
+ * A weather entity that publishes forecasts and no current `temperature`.
+ *
+ * With no main readout there is nothing on the card stating the unit, and
+ * degree-only cells would leave Celsius and Fahrenheit indistinguishable — so
+ * the first section's label carries it, once for the card rather than once per
+ * cell.
+ */
+export const ForecastsWithoutMainReadout: Story = {
+  args: { gridWidth: 4, gridHeight: 3, config: { temperatureUnit: 'fahrenheit' } },
+  parameters: {
+    liebe: {
+      entities: [createWeatherEntity({ attributes: { temperature: null } })],
+      forecasts: seededForecasts,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(forecastSectionLabel(canvasElement, 'hourly')).toBe('Hourly · °F')
+    await expect(forecastSectionLabel(canvasElement, 'daily')).toBe('Daily')
   },
 }

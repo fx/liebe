@@ -332,6 +332,15 @@ interface GridCardContextValue {
    * applies — see `resolveCardHue`.
    */
   hue?: string
+  /**
+   * The pixel width available to the card's content — the shell's own content
+   * box, padding already taken off — or `undefined` where it has not been
+   * observed.
+   *
+   * See `useCardContentWidth` for what consumes it and why the two states are
+   * not interchangeable.
+   */
+  contentWidth?: number
 }
 
 /**
@@ -398,6 +407,41 @@ function alignAttribute(value: CardAlignOption): CardAlignOption | undefined {
  */
 export function useGridCardHue(): string | undefined {
   return React.useContext(GridCardContext).hue
+}
+
+/**
+ * The pixel width the shell has left for content, for a card contract whose
+ * capacity is width-derived rather than span-derived.
+ *
+ * The tier and the span are lossy about pixels on purpose: one effective span
+ * is not one width, because the breakpoint mapping and a user-configurable
+ * column count make a two-cell tile arbitrarily narrow. Where a contract has to
+ * decide how many fixed-minimum-width parts fit — the weather forecast's
+ * columns are the shipped case (docs/specs/entity-cards/options/weather.md —
+ * "Forecast presentation") — the answer needs the width itself.
+ *
+ * **The shell measures; the card never does.** That prohibition is unchanged
+ * (docs/changes/0011-layout-tiers.md): what changed is that the shell now
+ * publishes one observation of the box it owns, so cards consume a signal
+ * exactly as they consume tier and span. It is an observation rather than
+ * arithmetic on the grid's laid-out width because the content width moves
+ * without the grid moving — a theme setting a different `--liebe-card-padding`,
+ * LCARS's asymmetric frame — and because a card renders in hosts with no grid
+ * renderer at all (the configuration preview, the sidebar widget, the
+ * workshop). The shell renders in all of them, so the signal does too.
+ *
+ * **`undefined` means "not observed", and is NOT the same as `0`.** A consumer
+ * MUST treat the two differently: `0` is a measured content box with no room in
+ * it, and a fixed-minimum-width part must be omitted; `undefined` is a tree
+ * that has not been laid out (jsdom, an environment with no `ResizeObserver`,
+ * the first render before the observer's initial callback) and carries no
+ * information about width at all, so a consumer falls back to whatever its
+ * width-blind contract says rather than omitting content it was never told did
+ * not fit. Collapsing them would blank every forecast in the unit suite and,
+ * worse, would report "does not fit" about a measurement that never happened.
+ */
+export function useCardContentWidth(): number | undefined {
+  return React.useContext(GridCardContext).contentWidth
 }
 
 // Context for compound components
@@ -682,9 +726,65 @@ export const GridCard = React.memo(
 
       const effectiveHue = resolveCardHue(hue, display, danger)
 
+      /*
+       * The content-width signal (docs/specs/design-system — "Size-adaptive
+       * layouts"; `useCardContentWidth` for the consumer's half).
+       *
+       * One observation of the one box this component owns. `contentBoxSize`
+       * rather than `offsetWidth` because the signal is what is left for
+       * content: the tile's padding is a theme's to change, and a card asking
+       * "do four 44px columns fit" must not be handed the width of the frame
+       * around them.
+       *
+       * The tile element is also the caller's `ref`, so both are set from one
+       * callback — assigning to `ref` inside a `useEffect` would leave a
+       * consumer's ref null for the first commit.
+       */
+      const shellRef = React.useRef<HTMLDivElement | null>(null)
+      const [contentWidth, setContentWidth] = React.useState<number | undefined>(undefined)
+
+      const setShellRef = React.useCallback(
+        (node: HTMLDivElement | null) => {
+          shellRef.current = node
+          if (typeof ref === 'function') ref(node)
+          else if (ref) ref.current = node
+        },
+        [ref]
+      )
+
+      useEffect(() => {
+        const node = shellRef.current
+        // Guarded rather than assumed: the panel also renders under jsdom and
+        // in the workshop's test environment, and an absent `ResizeObserver`
+        // must leave the signal unobserved rather than throw.
+        if (!node || typeof ResizeObserver === 'undefined') return
+
+        const observer = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            // `contentBoxSize` is the modern shape; `contentRect` is the same
+            // box in the older one, so the fallback is not a different
+            // measurement.
+            const [size] = entry.contentBoxSize ?? []
+            setContentWidth(size ? size.inlineSize : entry.contentRect.width)
+          }
+        })
+        observer.observe(node)
+
+        return () => observer.disconnect()
+      }, [])
+
       const contextValue = React.useMemo(
-        () => ({ tier, isLoading, domain, color: resolvedColor, isOn, display, hue: effectiveHue }),
-        [tier, isLoading, domain, resolvedColor, isOn, display, effectiveHue]
+        () => ({
+          tier,
+          isLoading,
+          domain,
+          color: resolvedColor,
+          isOn,
+          display,
+          hue: effectiveHue,
+          contentWidth,
+        }),
+        [tier, isLoading, domain, resolvedColor, isOn, display, effectiveHue, contentWidth]
       )
 
       /*
@@ -719,7 +819,7 @@ export const GridCard = React.memo(
       return (
         <GridCardContext.Provider value={contextValue}>
           <div
-            ref={ref}
+            ref={setShellRef}
             onClick={handleClick}
             onPointerDown={handlePointerDown}
             // Release on all three: a pointer that leaves the tile or is taken

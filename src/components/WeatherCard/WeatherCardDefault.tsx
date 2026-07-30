@@ -13,7 +13,7 @@ import { withCardErrorBoundary } from '../cardErrorBoundary'
 import { WeatherScrim, weatherArtworkClass } from './WeatherArtwork'
 import {
   formatTemperature,
-  getConditionEmoji,
+  getConditionGlyph,
   getTemperatureDisplay,
   getWeatherTextStyles,
   resolveConditionBackground,
@@ -108,6 +108,17 @@ function WeatherCardDefaultContent(props: CardProps) {
 
   const unavailableStatus = resolveUnavailableStatus(entity.state)
 
+  /*
+   * The card's ONE icon language. This variant used to draw an emoji here and
+   * line-art glyphs in its forecast columns, which is the mismatch the option
+   * doc settles: "all four variants draw every condition icon — header and
+   * forecast columns alike — from the shared line-art condition-glyph set; the
+   * `default` variant's emoji header is retired". Line art takes the muted
+   * foreground on the plain surface and the artwork token over a scrim; an
+   * emoji takes neither.
+   */
+  const ConditionGlyph = getConditionGlyph(entity.state)
+
   // Handle unavailable state
   if (unavailableStatus) {
     return (
@@ -132,7 +143,7 @@ function WeatherCardDefaultContent(props: CardProps) {
                 justifyContent: 'center',
               }}
             >
-              <span style={{ fontSize: 24 }}>{getConditionEmoji(entity.state)}</span>
+              {createElement(ConditionGlyph, { size: 24 })}
             </span>
           </GridCard.Icon>
           <GridCard.Title>{entity.attributes?.friendly_name || entityId}</GridCard.Title>
@@ -243,9 +254,21 @@ function WeatherCardDefaultContent(props: CardProps) {
    */
   const extra =
     detailLine || forecast.hasContent ? (
-      <Flex direction="column" gap="2" width="100%">
+      /*
+       * `weather-card-extra` collapses the slot when the width left room for no
+       * forecast column and there was no detail line to keep it company — the
+       * one case this decision cannot make, because the content width is only
+       * readable inside the shell (`WeatherForecast.tsx`).
+       */
+      <Flex direction="column" gap="2" width="100%" className="weather-card-extra">
         {detailLine}
-        <WeatherForecastSections sections={forecast} hasBackground={!!backgroundImage} />
+        <WeatherForecastSections
+          sections={forecast}
+          hasBackground={!!backgroundImage}
+          // Nothing else on this card states the unit when the entity
+          // publishes no current temperature, so the section label does.
+          statesUnit={!tempDisplay}
+        />
       </Flex>
     ) : undefined
 
@@ -293,7 +316,7 @@ function WeatherCardDefaultContent(props: CardProps) {
                 justifyContent: 'center',
               }}
             >
-              <span style={{ fontSize: 24 }}>{getConditionEmoji(entity.state)}</span>
+              {createElement(ConditionGlyph, { size: 24 })}
             </span>
           </GridCard.Icon>
         }
