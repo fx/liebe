@@ -333,7 +333,19 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
    * configured `toggle` to `homeassistant.toggle` on an `input_text`.
    */
   const handleClick = useCallback(() => {
-    if (!controlOmitted) setIsEditing(true)
+    if (controlOmitted) {
+      /*
+       * A configured `tapAction: toggle` resolves to this handler whatever the
+       * tier, so declaring `more-info` as the card's DEFAULT is not enough on
+       * its own — a tile with an explicit toggle would call this, find no field
+       * to focus, and do nothing at all. Returning `'more-info'` routes the
+       * gesture to the detail dialog instead, which is the escape hatch
+       * `GridCard`'s `onClick` contract exists for and that the fan and lock
+       * cards already use for their own uncontrollable states.
+       */
+      return 'more-info'
+    }
+    setIsEditing(true)
   }, [controlOmitted])
 
   // Keyed on the prop rather than on the resolved entity: the control that

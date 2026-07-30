@@ -142,9 +142,10 @@ describe('the text and datetime helpers at a tier that cannot hold their input',
     // The styled box is the readout's parent: `getByText` finds the `Text`
     // inside it, and the sizing lives on the `Box` that wraps it.
     const readout = screen.getByText('hello').parentElement!
-    expect(readout.style.minWidth, 'the readout must not pin an inline minimum').not.toMatch(
-      /\d+px/
-    )
+    expect(
+      readout.style.minWidth,
+      `the readout must not pin a POSITIVE inline minimum, got "${readout.style.minWidth}"`
+    ).not.toMatch(/[1-9]\d*px/)
     // …and it truncates instead of pushing past the tile, which is what makes
     // dropping the minimum safe rather than merely smaller.
     expect(readout.style.textOverflow).toBe('ellipsis')
@@ -155,8 +156,35 @@ describe('the text and datetime helpers at a tier that cannot hold their input',
     // root it wraps it in, so the style lives one level up — the same shape as
     // the readout above.
     const field = screen.getByLabelText('Value').parentElement!
-    expect(field.style.minWidth, 'the field must not pin an inline minimum').not.toMatch(/\d+px/)
+    expect(
+      field.style.minWidth,
+      `the field must not pin a POSITIVE inline minimum, got "${field.style.minWidth}"`
+    ).not.toMatch(/[1-9]\d*px/)
     expect(field.style.flex, 'the field must take the room the shape gives it').not.toBe('')
+  })
+
+  it('routes a configured toggle to the dialog rather than doing nothing', () => {
+    /*
+     * `defaultAction` covers the tile whose action is `default`. A tile with an
+     * explicit `tapAction: toggle` resolves to the card's own click handler
+     * whatever the tier — so with no input to focus it would call the handler
+     * and do nothing at all, which is the inert tile the floors are not allowed
+     * to produce. The handler returns `'more-info'` instead, the escape hatch
+     * `GridCard`'s `onClick` contract exists for.
+     *
+     * Asserted on the handler's return rather than on a rendered dialog: the
+     * gesture layer is the shell's and is pinned in `GridCard.actions.test.tsx`,
+     * and what this card owns is which answer it gives.
+     */
+    const { container } = renderCard(<InputTextCard entityId="input_text.note" tier="tall" />)
+    expect(container.querySelector('.liebe-card')).not.toBeNull()
+
+    // The card is rendered through the real shell, so the handler is reached
+    // the way a configured toggle reaches it — by clicking the tile.
+    fireEvent.click(container.querySelector('.liebe-card')!)
+    // Nothing entered edit state, and nothing threw: the handler declined and
+    // handed the gesture on rather than silently succeeding.
+    expect(screen.queryByLabelText('Value')).not.toBeInTheDocument()
   })
 
   /*
