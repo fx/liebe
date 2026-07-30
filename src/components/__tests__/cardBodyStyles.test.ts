@@ -175,6 +175,104 @@ describe('the tall arrangement centres its vertical control', () => {
   })
 })
 
+describe('the tall band’s vertical control is cross-axis flexible', () => {
+  /**
+   * "A control rendered at a one-cell-wide tier MUST be cross-axis flexible: it
+   * takes the content region's width, and its geometry token names the size it
+   * prefers rather than the size it always has. `--liebe-control-height` is
+   * exactly that for the vertical slider — the track is 42px where the region
+   * affords it and the region's width where it does not"
+   * (docs/specs/design-system — "Cross-axis fit";
+   * docs/changes/0042-tall-tile-control-geometry.md PR 3).
+   *
+   * `tall` is one column wide by definition, so the region that bounds it is the
+   * narrowest the design system ever hands a control: a 12-column desktop grid
+   * at 960px lays out a 63px tile with a 35px content region, against a 42px
+   * track. Three declarations hold the rule and each is useless without the
+   * others, which is why they are asserted together rather than as one
+   * "flexible" claim.
+   *
+   * None of this is visible to a rendered test: jsdom applies no stylesheet and
+   * lays nothing out, so the track measures the same whichever way this sheet
+   * reads. `tests/e2e/tall-slider-fit.spec.ts` is the half that measures.
+   */
+  it('stops the band itself outgrowing the tile’s content region', () => {
+    /*
+     * The band is a fit-content flex item (the arrangement's `align-items:
+     * center`), so its width is shrink-to-fit — min(max(min-content, available),
+     * max-content) — and a slot carrying a definite token width gives it a 42px
+     * min-content that shrink-to-fit will not reduce. Without this cap the band
+     * is 42px inside a 35px body and hangs 3.5px past each side, which is change
+     * 0042's first consequence exactly.
+     */
+    expect(ruleBody(body, '.liebe-card-body-fill')).toContain('max-inline-size: 100%;')
+  })
+
+  it('puts the definite width on the slot, and lets it shrink with the band', () => {
+    const slot = ruleMatching(
+      /data-control-orientation='vertical'\].*> \.liebe-card-body-fill > \.liebe-card-controls$/
+    ).declarations
+
+    /*
+     * The direction is load-bearing, and it is the trap 0034 PR 1 paid for on
+     * the row shape: everything under this slot sizes as a percentage, so the
+     * chain needs exactly one definite width at its head. A slot left at
+     * `inline-size: 100%` — which is what the shell declares, and what an
+     * intrinsic-sizing pass treats as `auto` — takes its width from content
+     * asking for 100% of the slot, and the circular pair resolves to ZERO.
+     */
+    expect(slot).toContain('inline-size: var(--liebe-control-height);')
+    expect(ruleBody(shell, '.liebe-card-controls')).toContain('inline-size: 100%;')
+
+    // Grow 0 keeps a region with room to spare at the token; shrink 1 is what
+    // narrows the track to a region that cannot afford it.
+    expect(slot).toContain('flex: 0 1 auto;')
+    // Without this the shrink is inert: a flex item's automatic minimum size is
+    // its content, and this slot's content has a fixed thickness.
+    expect(slot).toContain('min-inline-size: 0;')
+  })
+
+  it('relaxes the track and its thumb, not only the slot around them', () => {
+    const control = ruleMatching(
+      /data-control-orientation='vertical'\].*\.liebe-card-body-fill.*\.liebe-slider-thumb$/
+    )
+
+    // 100% OF THE SLOT, whose own width is the token; `max-inline-size` rather
+    // than a replacement width, so the token still names the thickness the
+    // control PREFERS and only a region that cannot afford it resolves
+    // differently.
+    expect(control.declarations).toContain('inline-size: 100%;')
+    expect(control.declarations).toContain('max-inline-size: var(--liebe-control-height);')
+
+    // The track, Radix's unclassed positioning wrapper, and the thumb — all
+    // three, because the thumb is a 3px bar spanning the control's THICKNESS
+    // and the wrapper shrink-wraps its content, so relaxing any one alone
+    // leaves the next overhanging the one below it.
+    expect(control.selector).toMatch(/> \.liebe-slider,/)
+    expect(control.selector).toMatch(/> span:not\(\[class\]\),/)
+
+    // The premise, read off the anatomy sheet: both thicknesses this relaxes
+    // are fixed, so a rule that only shrank the slot would change nothing.
+    expect(anatomy).toMatch(
+      /\.liebe-slider\[data-orientation='vertical'\]\s*\{[^}]*inline-size:\s*var\(--liebe-control-height\);/
+    )
+    expect(anatomy).toMatch(
+      /\.liebe-slider\[data-orientation='vertical'\] \.liebe-slider-thumb\s*\{[^}]*inline-size:\s*var\(--liebe-control-height\);/
+    )
+  })
+
+  it('outranks the band-slot sizing it has to override', () => {
+    // The band's own slot rule sets `align-self` and `justify-content` and is
+    // two classes deep; this one adds the token and must win the width without
+    // depending on which was written first.
+    expect(
+      weighOf(
+        /data-control-orientation='vertical'\][^,{]*liebe-card-body-fill[^,{]*liebe-card-controls$/
+      )
+    ).toBeGreaterThan(weighOf(/^\.liebe-card-body-fill > \.liebe-card-controls$/))
+  })
+})
+
 describe('a forced slider placement gets a definite axis to run along', () => {
   /**
    * `sliderPlacement: horizontal | vertical` puts the slider on an axis its
@@ -216,8 +314,11 @@ describe('a forced slider placement gets a definite axis to run along', () => {
   })
 
   it('hands that height to the control slot, and keeps the control its own width', () => {
+    // Scoped to the row LINE: the `tall` band's slot carries the same pair in a
+    // rule of its own, asserted below, and a pattern loose enough to match both
+    // would stop saying which shape it was talking about.
     const slot = ruleMatching(
-      /data-control-orientation='vertical'\].* > \.liebe-card-controls$/
+      /data-control-orientation='vertical'\].*> \.liebe-card-body-line > \.liebe-card-controls$/
     ).declarations
 
     // The long axis: the slot takes the whole line rather than being centred in
@@ -258,7 +359,9 @@ describe('a forced slider placement gets a definite axis to run along', () => {
      * keeps the token's meaning — the thickness the control PREFERS — while
      * letting the row decide when it cannot be afforded.
      */
-    const control = ruleMatching(/data-control-orientation='vertical'\].*\.liebe-slider-thumb$/)
+    const control = ruleMatching(
+      /data-control-orientation='vertical'\].*\.liebe-card-body-line.*\.liebe-slider-thumb$/
+    )
 
     // 100% OF THE SLOT, whose own width is the token — see the slot's assertion
     // above for why the definite size has to sit there and not here.
@@ -300,7 +403,9 @@ describe('a forced slider placement gets a definite axis to run along', () => {
     // without the extra attribute selector the winner would be whichever was
     // written last — one reorder away from silently reversing.
     expect(
-      weighOf(/data-control-orientation='vertical'\][^,{]*liebe-card-controls$/)
+      weighOf(
+        /data-control-orientation='vertical'\][^,{]*liebe-card-body-line[^,{]*liebe-card-controls$/
+      )
     ).toBeGreaterThan(
       weighOf(/^\.liebe-card-body\[data-control-size='fill'\][^,{]*liebe-card-controls$/)
     )

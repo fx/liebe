@@ -239,6 +239,39 @@ describe('input helper controlStyle', () => {
       expect(screen.queryByLabelText(/Set value, currently/)).not.toBeInTheDocument()
     })
 
+    it('tells the body which axis that slider runs along, at tall and nowhere else', () => {
+      /*
+       * The shell sizes the `tall` band for a control whose thickness is fixed
+       * and applies the two floors that decide when it must be omitted instead
+       * (docs/specs/design-system — "Cross-axis fit"), and it can only do either
+       * if the card says what is in the slot. `data-control-orientation` is that
+       * declaration, and this card resolves it from the tier rather than from a
+       * `sliderPlacement` option it does not carry.
+       *
+       * Absent at `row` and `full`, where `controlStyle` decides and a stepper
+       * has no axis to declare — an orientation stamped there would size the
+       * line's slot around a control that is not a track.
+       */
+      seed(helper('box'))
+      const stored = { controlStyle: 'stepper' }
+      const orientation = () =>
+        document.querySelector('.liebe-card-body')?.getAttribute('data-control-orientation')
+
+      const tall = renderCard(
+        <InputNumberCard entityId="input_number.volume" tier="tall" />,
+        stored
+      )
+      expect(orientation()).toBe('vertical')
+      tall.unmount()
+
+      const row = renderCard(<InputNumberCard entityId="input_number.volume" tier="row" />, stored)
+      expect(orientation()).toBeNull()
+      row.unmount()
+
+      renderCard(<InputNumberCard entityId="input_number.volume" tier="full" />, stored)
+      expect(orientation()).toBeNull()
+    })
+
     it('returns to the stored stepper on the tiers that are wider than one column', () => {
       /*
        * The fallback is presentation, not a migration: the same stored config

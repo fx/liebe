@@ -246,45 +246,43 @@ test('a tall card’s vertical slider fill spans its track, at the token’s thi
   expect(Math.abs(fill.bottom - track.bottom)).toBeLessThanOrEqual(TOLERANCE)
 
   /*
-   * The control keeps the thickness its token gives it, even though the region
-   * hosting it is narrower than that.
+   * The control takes the region hosting it, because the region is narrower than
+   * the token — which is what `--liebe-control-height` now MEANS: the thickness
+   * the slider prefers rather than one it always has (docs/specs/design-system —
+   * "Cross-axis fit", change 0042 PR 3). This assertion used to read the other
+   * way round, pinning the control at 42 inside a 35px region, and the 3.5px per
+   * side it hung into the tile's padding is the defect that change removed.
    *
    * WHY THIS RATHER THAN THE CENTRING RULE. The design system also requires a
    * vertical slider to be "horizontally centred within whatever region hosts it,
    * not pinned to the region's leading edge", and that rule CANNOT be falsified
    * at this tier end to end. `tall` is one column wide by definition, which on
    * the 12-column desktop grid is a 63px tile — 35px of content box inside the
-   * 14px padding — against a 42px control. There is no leftover inline space to
-   * distribute, so "centred" and "leading-edge flush" are the same place.
-   * Measured in Chromium against every panel stylesheet and the real rendered
-   * markup, at that 63px tile: region 35, control 42, offset from the region's
-   * midline 0.00 — and with BOTH declarations that centre it removed, the
-   * control does not move off centre, it shrinks to 35 and stays centred. A
-   * centring assertion here would pass either way.
+   * 14px padding. With the track now taking that whole region there is no
+   * leftover inline space at all, so "centred" and "leading-edge flush" are the
+   * same place, even more plainly than when the control was wider than the room.
+   * The centring rule is therefore pinned where it can fail — on the
+   * declarations, in `src/components/__tests__/cardBodyStyles.test.ts`,
+   * mutation-verified.
    *
-   * So the centring rule is pinned where it can fail — on the declarations, in
-   * `src/components/__tests__/cardBodyStyles.test.ts`, mutation-verified — and
-   * what is asserted here is the geometry that DOES distinguish the two states:
-   * the control at its token thickness (42) versus squeezed to the region (35).
-   * That is the token contract, and it is the shipped CSS's observable effect at
-   * the one tile width this tier actually gets.
-   *
-   * The region-narrower-than-control relationship itself is deliberately NOT
-   * asserted: it is a defect reported for its own change document, not a
-   * behaviour to pin.
+   * The fit itself is `tall-slider-fit.spec.ts`'s subject, floors and all; what
+   * is asserted here is only enough to keep THIS spec honest about the box the
+   * fill was measured against.
    */
   const controlHeight = Number.parseFloat(geometry!.controlHeightToken)
   expect(
     Number.isFinite(controlHeight),
     `--liebe-control-height should resolve to a length, got "${geometry!.controlHeightToken}"`
   ).toBe(true)
-  expect(Math.abs(slider.width - controlHeight)).toBeLessThanOrEqual(TOLERANCE)
+
+  // The region is a real box, and narrower than the token — the premise that
+  // makes the two numbers below different from each other.
+  expect(region.width).toBeGreaterThan(0)
+  expect(region.width).toBeLessThan(controlHeight)
+
+  expect(Math.abs(slider.width - region.width)).toBeLessThanOrEqual(TOLERANCE)
 
   // The track spans that thickness, so the fill measured above spans the
   // control rather than a box narrower than it.
-  expect(Math.abs(track.width - controlHeight)).toBeLessThanOrEqual(TOLERANCE)
-
-  // And the region is a real box, so the measurement above was taken against a
-  // laid-out card rather than a collapsed one.
-  expect(region.width).toBeGreaterThan(0)
+  expect(Math.abs(track.width - slider.width)).toBeLessThanOrEqual(TOLERANCE)
 })

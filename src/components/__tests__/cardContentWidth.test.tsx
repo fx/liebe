@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRef } from 'react'
 import { render } from '@testing-library/react'
 import { GridCardWithComponents as GridCard, useCardContentWidth } from '../GridCard'
-import { resetContentWidthObserver } from '../cardContentWidth'
+import { observeContentBox, resetContentWidthObserver } from '../cardContentWidth'
 import { useDashboardStore } from '~/store'
 import type { DashboardState } from '~/store/types'
 
@@ -105,7 +105,7 @@ describe('the shell’s content-width signal', () => {
   it('reads the older entry shape as the same box', () => {
     // `contentRect` IS the content box, so the fallback is not a different
     // measurement — it is the same one in the shape older engines report.
-    installObserver({ contentRect: { width: 208 } as DOMRectReadOnly })
+    installObserver({ contentRect: { width: 208, height: 64 } as DOMRectReadOnly })
 
     render(
       <GridCard domain="weather">
@@ -114,6 +114,40 @@ describe('the shell’s content-width signal', () => {
     )
 
     expect(observedWidth()).toBe('208')
+  })
+
+  it('reports both axes, in either entry shape', () => {
+    /*
+     * The instrument is shared by two contracts that want different axes: the
+     * shell reads the inline size as its content width, and `CardBody` reads the
+     * `tall` band's block size as the long-axis capacity a vertical control has
+     * to clear (docs/specs/design-system — "Cross-axis fit"). A reading that
+     * dropped the block size would leave the second one with nothing to publish,
+     * and the shell's own assertions above could never notice.
+     */
+    const target = document.createElement('div')
+    const sizes: Array<{ inlineSize: number; blockSize: number }> = []
+
+    installObserver({ contentBoxSize: [{ inlineSize: 42, blockSize: 96 }] })
+    observeContentBox(target, (size) => sizes.push(size))
+
+    resetContentWidthObserver()
+    installObserver({ contentRect: { width: 35, height: 58 } as DOMRectReadOnly })
+    observeContentBox(target, (size) => sizes.push(size))
+
+    expect(sizes).toEqual([
+      { inlineSize: 42, blockSize: 96 },
+      { inlineSize: 35, blockSize: 58 },
+    ])
+  })
+
+  it('hands back nothing to watch with where there is no observer to use', () => {
+    // How a caller learns its box will never be measured, rather than
+    // registering a listener the instrument will never call.
+    // @ts-expect-error — deleting the global is the condition under test.
+    delete global.ResizeObserver
+
+    expect(observeContentBox(document.createElement('div'), vi.fn())).toBeUndefined()
   })
 
   it('reports a measured zero as zero rather than as unmeasured', () => {

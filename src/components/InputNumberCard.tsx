@@ -517,6 +517,22 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
          * them.
          */
         controlSize={tier === 'tall' ? 'fill' : 'content'}
+        /*
+         * And the axis that control runs along, at the one tier where it is a
+         * fixed property of the control rather than of the arrangement:
+         * `resolveNumberPresentation` substitutes the vertical slider for the
+         * stepper at `tall` unconditionally, so the body can size the band for
+         * a track it knows is there — and apply the two floors that decide when
+         * a track this narrow or this short must be omitted instead
+         * (docs/specs/design-system — "Cross-axis fit"). Absent everywhere else:
+         * `row` and `full` render whichever control `controlStyle` asked for,
+         * and a stepper has no axis to declare.
+         *
+         * This card does NOT carry `sliderPlacement` — its tier substitution is
+         * a different mechanism (`src/store/sliderPlacement.ts`) — so the value
+         * is resolved from the tier here rather than from a stored option.
+         */
+        controlOrientation={tier === 'tall' ? 'vertical' : undefined}
         lead={
           isGlance && !iconOnly ? (
             <CardValue
