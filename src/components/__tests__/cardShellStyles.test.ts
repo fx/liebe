@@ -252,11 +252,16 @@ describe('card shell stylesheet', () => {
         .map(({ selector }) => selector)
         .filter((selector) => /\[data-align-[hv]/.test(selector))
 
-      for (const selector of tileRules) {
-        // Every one of them ends at the tile — no descendant selector, so
-        // nothing here depends on what a card renders inside.
-        expect(selector.replace(/,\s*/g, ' ').split(/\s+/), selector).not.toContain('.liebe-meta')
-        expect(selector, selector).toMatch(/^[^ ]*\.liebe-card\[data-align-[hv][^ ]*$/m)
+      // Each selector of each list, separately: a rule written as a list would
+      // otherwise satisfy this on its first line while its second reached into
+      // a card's interior.
+      const selectors = tileRules.flatMap((rule) => rule.split(',').map((one) => one.trim()))
+      expect(selectors.length).toBeGreaterThanOrEqual(tileRules.length)
+
+      for (const selector of selectors) {
+        // Every one of them ends at the tile — no descendant part, so nothing
+        // here depends on what a card renders inside.
+        expect(selector, selector).toMatch(/^\.liebe-card\[data-align-[hv][^ ]*$/)
       }
     })
 

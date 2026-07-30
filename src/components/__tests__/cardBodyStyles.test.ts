@@ -63,6 +63,21 @@ function ruleBody(css: string, selector: string): string {
   return match![1]
 }
 
+/**
+ * The specificity weight of the one rule in the body sheet whose selector
+ * matches — classes plus attribute selectors, which is all these rules use.
+ *
+ * Found in the sheet rather than passed in as a literal: a comparison between
+ * two hand-written selectors is arithmetic on constants and keeps agreeing
+ * after the sheet has moved on.
+ */
+function weighOf(pattern: RegExp): number {
+  const matches = rulesIn(body).filter(({ selector }) => pattern.test(selector))
+  expect(matches, `no rule matching ${pattern}`).toHaveLength(1)
+
+  return (matches[0].selector.match(/\.[\w-]+|\[[^\]]*\]/g) ?? []).length
+}
+
 describe('card body stylesheet', () => {
   it('lands entirely in the base layer, with the layer order declared', () => {
     // An unlayered author rule outranks every cascade layer, so a stray rule
@@ -225,21 +240,22 @@ describe('the alignment pair inside the body', () => {
     )
     expect(band).toContain('justify-content: center;')
 
-    const weigh = (selector: string) => (selector.match(/\.[\w-]+|\[[^\]]*\]/g) ?? []).length
-    expect(
-      weigh('.liebe-card[data-align-h] .liebe-card-body-fill > .liebe-card-controls')
-    ).toBeGreaterThan(weigh(".liebe-card[data-align-h='end'] .liebe-card-controls"))
+    expect(weighOf(/\[data-align-h\][^,{]*liebe-card-body-fill/)).toBeGreaterThan(
+      weighOf(/\[data-align-h='end'\] \.liebe-card-controls$/)
+    )
   })
 
   it('outranks the arrangement rules it has to override', () => {
-    // `.liebe-card[data-align-v='start'] .liebe-card-body` carries three
-    // selector components against the arrangement rule's two, so the cascade
-    // settles it without importance — which the layers would reverse anyway.
-    const alignment = ".liebe-card[data-align-v='start'] .liebe-card-body"
-    const arrangement = ".liebe-card-body[data-arrangement='tall']"
-    const weigh = (selector: string) => (selector.match(/\.[\w-]+|\[[^\]]*\]/g) ?? []).length
-
-    expect(weigh(alignment)).toBeGreaterThan(weigh(arrangement))
+    // The alignment rule carries three selector components against the
+    // arrangement rule's two, so the cascade settles it without importance —
+    // which the layers would reverse anyway.
+    //
+    // Both weights are read off the sheet rather than off literals written
+    // here: two literals compared against each other are arithmetic, and would
+    // go on agreeing after the rules they name had changed or gone.
+    expect(weighOf(/\[data-align-v='start'\] \.liebe-card-body$/)).toBeGreaterThan(
+      weighOf(/^\.liebe-card-body\[data-arrangement='tall'\]$/)
+    )
   })
 })
 
