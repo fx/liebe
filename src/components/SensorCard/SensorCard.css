@@ -85,8 +85,20 @@
    * its line out of the graph and shrink it under the reader's eyes. `1lh` is the
    * footer's own line height rather than a pinned dimension, so the reservation
    * follows the text it reserves for (the tier rule in options/sensor.md).
+   *
+   * ONE line, by construction: a reservation of one line is only exact if the
+   * footer cannot become two. "Min 0.0 °C · Max 9.0 °C" is around 130px at this
+   * text size and a 2×2 tile's content region is narrower than that on a
+   * 12-column desktop grid, so wrapping is the common case rather than the
+   * pathological one — and a second line would come out of the graph at exactly
+   * the moment the reservation exists to protect. The line ellipsizes instead,
+   * the same treatment `liebe-name` and `liebe-state` already get when a tile is
+   * too narrow for them.
    */
   .liebe-sensor-graph-footer {
     min-block-size: 1lh;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

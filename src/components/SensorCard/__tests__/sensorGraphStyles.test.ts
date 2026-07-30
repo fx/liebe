@@ -100,11 +100,18 @@ describe('sensor graph stylesheet', () => {
     )
   })
 
-  it('reserves the footer line the extremes will need', () => {
+  it('reserves the footer line the extremes will need, and holds them to it', () => {
     // The footer renders empty while the window is loading, so the flexible
     // graph above it cannot borrow the line and then shrink when the extremes
     // land. `1lh` follows the footer's own text rather than pinning a height.
-    expect(ruleBody(graphCss, '.liebe-sensor-graph-footer')).toContain('min-block-size: 1lh;')
+    const footer = ruleBody(graphCss, '.liebe-sensor-graph-footer')
+    expect(footer).toContain('min-block-size: 1lh;')
+    // And the extremes cannot exceed the line reserved for them: a 2×2 tile is
+    // narrower than "Min 0.0 °C · Max 9.0 °C", so without this the footer wraps
+    // to two lines when the series lands and takes the second out of the graph —
+    // the reflow the reservation exists to prevent, arriving by another route.
+    expect(footer).toContain('white-space: nowrap;')
+    expect(footer).toContain('text-overflow: ellipsis;')
   })
 
   it('grows inside the card body without changing what any other card gets', () => {
