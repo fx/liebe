@@ -5,6 +5,7 @@ import { generateSlug, ensureUniqueSlug } from '../utils/slug'
 import { validateDashboardConfig } from './configSchema'
 import { migrateThemeConfig } from './themeConfig'
 import { migrateLightCardConfig } from './lightOptions'
+import { migrateCoverCardConfig } from './coverOptions'
 import { configPredatesControlStyle, pinLegacyControlStyle } from './inputHelperOptions'
 import { configPredatesClimateVariant, pinLegacyClimateVariant } from './climateOptions'
 import { configPredatesSpeedControl, pinLegacyFanSpeedControl } from './fanOptions'
@@ -118,6 +119,11 @@ const migrateItemConfig = (item: unknown, cutoffs: VersionCutoffs): unknown => {
   // default to pin, so there is no newly added card an absent key could be
   // mistaken for.
   if (domain === 'weather') migrated = migrateWeatherCardConfig(migrated)
+  // The cover card's `stateLabels` → `stateLabelStyle` rename (change 0038).
+  // Unconditional for the same reason, and scoped to `cover` *and* to a string
+  // value: `stateLabels` is a live option for the switch and fallback cards, as
+  // an object, so this is a rename of one family's key rather than of the key.
+  if (domain === 'cover') migrated = migrateCoverCardConfig(migrated)
   /*
    * The legacy-pinning half (common contract, convention 7): a document written
    * before an option existed has cards whose control surface that option's new

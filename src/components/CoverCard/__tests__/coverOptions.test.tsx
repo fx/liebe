@@ -183,7 +183,7 @@ describe('tilt feature bits', () => {
   })
 })
 
-describe('stateLabels', () => {
+describe('stateLabelStyle', () => {
   it('defaults to the percentage for a positional cover', () => {
     seed(positional())
     renderCard(<CoverCard entityId={ENTITY_ID} tier="row" />)
@@ -200,7 +200,7 @@ describe('stateLabels', () => {
 
   it('never prints a percentage in the open-closed style', () => {
     seed(positional())
-    renderCard(<CoverCard entityId={ENTITY_ID} tier="row" />, { stateLabels: 'open-closed' })
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="row" />, { stateLabelStyle: 'open-closed' })
 
     expect(stateLine()).toBe('OPEN')
   })

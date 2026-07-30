@@ -265,7 +265,7 @@ export function resolveCoverPresentation({
   const isActive = isMoving || presented === 'open'
 
   /*
-   * The capability-derived default (no stored `stateLabels`): a cover is positional
+   * The capability-derived default (no stored `stateLabelStyle`): a cover is positional
    * when it supports set-position or reports a position at all, and binary
    * otherwise. Choosing `percent` on a binary cover is inert-safe by
    * construction — with no position to print, the percent branch has nothing to
@@ -274,7 +274,7 @@ export function resolveCoverPresentation({
   const isPositional =
     hasPosition || (readSupportedFeatures(attributes) & COVER_FEATURE.SET_POSITION) !== 0
   const labelStyle: CoverStateLabelStyle =
-    options.stateLabels ?? (isPositional ? 'percent' : 'open-closed')
+    options.stateLabelStyle ?? (isPositional ? 'percent' : 'open-closed')
 
   const label = isMoving
     ? presented.toUpperCase()
