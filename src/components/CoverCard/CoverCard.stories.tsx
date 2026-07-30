@@ -221,13 +221,20 @@ export const UnknownEntity: Story = {
      * Asserted on what the tile SAYS, not on the shell it renders inside.
      *
      * This used to require `.liebe-card`, and that assertion was correct about
-     * the contract and wrong about the code: `liebe-card` is the shell every
-     * entity card renders inside (`GridCard`), and all three lifecycle tiles —
-     * skeleton, not-found and disconnected — render outside it. So the
-     * assertion described a gap rather than a regression, and it went unnoticed
-     * until change 0040 PR 6 made play functions execute. Folding those tiles
-     * onto the shell is docs/changes/0043-card-tile-control-semantics.md PR 6,
-     * which owns restoring a shell assertion here.
+     * the contract and wrong about the code — so it described a gap rather than
+     * a regression, and went unnoticed until change 0040 PR 6 made play
+     * functions execute.
+     *
+     * The gap is narrower than "this tile is not a card". `liebe-card` is what
+     * carries a tile's geometry and theming, and `SkeletonCard` stamps it
+     * directly — `<div className="liebe-card" data-tier={tier}>` — precisely so
+     * "a theme reshapes the loading tile with the loaded one". The two tiles
+     * that go through `ErrorDisplay variant="card"`, not-found and
+     * disconnected, stamp neither it nor `data-tier`, so those two lose the
+     * theming handle and the tier geometry. Restoring it is a change to a
+     * shared component's rendered surface rather than an unbreak, and
+     * docs/changes/0043-card-tile-control-semantics.md PR 6 owns it — including
+     * restoring an assertion here.
      *
      * What replaces it is stronger for this story's own purpose. `Entity Not
      * Found` is what separates this tile from the disconnected one and from a
