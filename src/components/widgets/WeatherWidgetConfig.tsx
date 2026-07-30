@@ -1,4 +1,5 @@
-import { Flex, Select, Text } from '@radix-ui/themes'
+import { Flex, Text } from '@radix-ui/themes'
+import { Select } from '~/components/ui/portals'
 import { useStore } from '@tanstack/react-store'
 import { entityStore } from '../../store/entityStore'
 import type { WidgetConfig } from '../../store/types'

@@ -1,5 +1,6 @@
 import * as React from 'react'
-import { Box, Button, Flex, Popover, ScrollArea, Text, TextField } from '@radix-ui/themes'
+import { Box, Button, Flex, ScrollArea, Text, TextField } from '@radix-ui/themes'
+import { Popover } from '~/components/ui/portals'
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { useEntities } from '~/hooks'
 import { entityLinkSchema, ENTITY_LINK_DEFAULT } from '~/store/configControls'

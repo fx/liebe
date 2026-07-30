@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { useEffect } from 'react'
-import { Flex, Select, Text, TextArea, TextField } from '@radix-ui/themes'
+import { Flex, Text, TextArea, TextField } from '@radix-ui/themes'
+import { Select } from '~/components/ui/portals'
 import yaml from 'js-yaml'
 import { useDashboardStore } from '~/store'
 import {
