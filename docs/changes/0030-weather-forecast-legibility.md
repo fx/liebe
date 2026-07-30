@@ -62,7 +62,19 @@ Weather-card work lives in `src/components/WeatherCard/`; two pieces are deliber
 ## Tasks
 
 - [x] Artwork scrim: scrim layer + scoped foreground-token overrides on every artwork-bearing weather surface, shadow treatment demoted to accent; measure the media backdrop (the rule's reference implementation) against the same 4.5:1 floor and strengthen its gradient where it misses, so the rule's two consumers both comply when it lands; contrast-bearing tests and the `showConditionBackground: false` story; closes #215
-- [ ] Radix controls over artwork: the scrim task brought every anatomy part and glyph under the floor through the foreground tokens, and a Radix control reads none of them — it colours itself from a Radix scale, so in **light** appearance it renders dark-on-dark over the scrim. Two shipped instances: the shell's edit-mode configure/delete `IconButton`s on any artwork-bearing tile, and the media card's `Select.Trigger` at `artworkMode: background` with `showSourcePicker`. Both predate the scrim and both get worse under it, because the ground is now reliably dark. Decide the mechanism (a dark-appearance `Theme` scope around overlaid content is the idiomatic Radix answer and would cover every control at once, rather than a per-control override), record it under the design-system scrim rule, then implement and measure it the same way. Found by local review on PR 1
+- [ ] **Radix controls over artwork.** The scrim task brought every anatomy part and glyph under the floor through the foreground tokens, and a Radix control reads none of them — it colours itself from a Radix scale, so its contrast follows the **appearance** rather than the ground it is standing on. Two shipped instances: the shell's edit-mode configure/delete `IconButton`s on any artwork-bearing tile, and the media card's `Select.Trigger` at `artworkMode: background` with `showSourcePicker` (its story is `BackgroundArtworkWithSourcePicker`, added in PR 1 because the combination had none — which is why nobody had seen this). Measured on PR 1's rig, worst image of each pair, before → after:
+
+  | Control                        | Light           | Dark        | Floor |
+  | ------------------------------ | --------------- | ----------- | ----- |
+  | Weather edit — configure glyph | 2.62 → **1.66** | 1.06 → 3.97 | 3:1   |
+  | Weather edit — delete glyph    | 3.19 → **1.25** | 1.09 → 2.94 | 3:1   |
+  | Media picker — trigger label   | 1.02 → **1.35** | 1.02 → 6.66 | 4.5:1 |
+  | Media picker — chevron         | 1.76 → **1.26** | 3.64 → 4.76 | 3:1   |
+
+  The scrim **inverted** the problem rather than creating it: in dark appearance these controls were failing on every image (1.06–2.11:1) and the scrim largely fixed them; in light appearance a dark Radix control had been readable on bright artwork, and a reliably dark ground is what takes that away. The media picker's label never met the floor in either appearance — the old scrim painted over it — so that one is unfixed rather than regressed. The delete glyph in dark is still 2.94:1, marginally under.
+
+  Decide the mechanism — a dark-appearance `Theme` scope around overlaid content is the idiomatic Radix answer and covers every control at once, where a per-control override does not — record it under the design-system scrim rule, then implement and re-measure the same way. Found by local review on PR 1
+
 - [ ] Forecast visual pass: section labels, shared column rhythm, width-aware horizontal capacity in `hourlyForecastCapacity`/`dailyForecastCapacity` fed by the shell's content-width signal (per the owning contract), hi–lo pair emphasis, degree-only cells, unified icon language, glyph sizing; forecast stories for `modern`/`detailed`/max-count including a max-count strip on a minimum-width tile; refresh `card-reference.md`'s weather section
 
 ## Open Questions
