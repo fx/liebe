@@ -550,6 +550,54 @@ describe('ClimateCard', () => {
       expect(pill).toHaveAccessibleName('Auto')
     })
 
+    it('offers one pill for a mode the entity reports twice', () => {
+      // The row renders every mode it is handed and keys on the value, so a
+      // repeat is two identical pills under one React key.
+      seed(
+        createMockClimateEntity({
+          state: 'heat',
+          attributes: { hvac_mode: 'heat', hvac_modes: ['heat', 'cool', 'heat'] },
+        })
+      )
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      expect(modeButtons.map(pillLabel)).toEqual(['Heat', 'Cool'])
+    })
+
+    it('collapses a padded repeat and sends the trimmed value', async () => {
+      /*
+       * Padding is the disguised duplicate: `' heat '` is a distinct key to React
+       * and an identical pill to the user. It also must not be what reaches Home
+       * Assistant, which rejects it for a reason no card surface can explain.
+       */
+      seed(
+        createMockClimateEntity({
+          state: 'cool',
+          attributes: { hvac_mode: 'cool', hvac_modes: [' heat ', 'heat', 'cool'] },
+        })
+      )
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      expect(modeButtons.map(pillLabel)).toEqual(['Heat', 'Cool'])
+
+      await userEvent.click(modeButtons[0])
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'climate',
+        service: 'set_hvac_mode',
+        entityId: 'climate.test_thermostat',
+        data: { hvac_mode: 'heat' },
+      })
+    })
+
     it('offers no pill for a blank mode the entity reports', () => {
       // A row that renders every mode it is handed must not be handed a nameless
       // one: the pill would carry no label and would dispatch `set_hvac_mode`
