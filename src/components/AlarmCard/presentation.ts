@@ -1,6 +1,7 @@
 import { Bell, BellRing, ShieldAlert, ShieldCheck, ShieldOff } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { targetsEntity } from '~/hooks/useCardActions'
+import { readCodeFormat, type CodeFormat } from '~/components/Keypad'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import {
   DEFAULT_ARM_MODE_ORDER,
@@ -100,11 +101,11 @@ export const DISARM_SERVICE = 'alarm_disarm'
 /**
  * The attributes this card reads, typed as what they are on the wire — unknown.
  *
- * Unlike the lock's, HA's `AlarmControlPanelEntity.state_attributes` publishes
- * all three keys **unconditionally**, so `code_format` is always present and is
- * `null` when no code is needed. That is the shape the card must read: absent
- * and `null` mean the same thing here, and neither may be mistaken for "a code
- * is required".
+ * HA's `AlarmControlPanelEntity.state_attributes` publishes all three keys
+ * **unconditionally**, so `code_format` is always present and is `null` when no
+ * code is needed. `readCodeFormat` is what reads it, shared with the lock, and
+ * it flattens that difference: absent and `null` mean the same thing, and
+ * neither may be mistaken for "a code is required".
  */
 export interface AlarmAttributes {
   supported_features?: unknown
@@ -124,26 +125,6 @@ export interface AlarmAttributes {
 export function readAlarmFeatures(attributes: AlarmAttributes | undefined): number {
   const raw = attributes?.supported_features
   return typeof raw === 'number' && Number.isFinite(raw) ? Math.trunc(raw) : 0
-}
-
-/** How a code must be entered, or `undefined` when none is wanted. */
-export type AlarmCodeFormat = 'number' | 'text'
-
-/**
- * The entity's `code_format`, narrowed to what HA's `CodeFormat` defines.
- *
- * Anything else — `null`, absent, an empty string, a regex some integration put
- * there — reads as "no code format". That is the conservative direction for
- * *display* (no keypad is offered where none can be honoured) and it never
- * suppresses a code the panel needs: a panel that refuses the transition
- * answers with a service error, which is the specified behaviour for
- * `showKeypad: never` anyway.
- */
-export function readCodeFormat(
-  attributes: AlarmAttributes | undefined
-): AlarmCodeFormat | undefined {
-  const raw = attributes?.code_format
-  return raw === 'number' || raw === 'text' ? raw : undefined
 }
 
 /**
@@ -395,7 +376,7 @@ export function keypadShownFor(showKeypad: ShowKeypad, codeRequired: boolean): b
  * the deterministic default the spec names, alarm codes being overwhelmingly
  * numeric.
  */
-export function keypadFormat(attributes: AlarmAttributes | undefined): AlarmCodeFormat {
+export function keypadFormat(attributes: AlarmAttributes | undefined): CodeFormat {
   return readCodeFormat(attributes) ?? 'number'
 }
 

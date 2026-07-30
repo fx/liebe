@@ -36,7 +36,7 @@ test('arming and disarming a code-protected panel, through the keypad', async ({
   await card.getByRole('button', { name: 'Arm away', exact: true }).click()
 
   // A code is required, so the keypad opens rather than a confirmation.
-  const keypad = page.getByTestId('alarm-keypad')
+  const keypad = page.getByTestId('code-keypad')
   await expect(keypad).toBeVisible()
   expect(await getRestState(accessToken, DEMO_ALARM)).toBe('disarmed')
 
@@ -44,7 +44,7 @@ test('arming and disarming a code-protected panel, through the keypad', async ({
     await keypad.getByRole('button', { name: digit, exact: true }).click()
   }
   // Masked while it is being entered — never the digits themselves.
-  await expect(page.getByTestId('alarm-keypad-readout')).toHaveText('••••')
+  await expect(page.getByTestId('code-keypad-readout')).toHaveText('••••')
 
   await keypad.getByRole('button', { name: 'Arm away', exact: true }).click()
 
@@ -63,15 +63,12 @@ test('arming and disarming a code-protected panel, through the keypad', async ({
 
   // Disarm, which needs the code too — and leaves the instance as it was found.
   await card.getByRole('button', { name: 'Disarm', exact: true }).click()
-  await expect(page.getByTestId('alarm-keypad')).toBeVisible()
+  await expect(page.getByTestId('code-keypad')).toBeVisible()
 
   for (const digit of DEMO_ALARM_CODE.split('')) {
-    await page.getByTestId('alarm-keypad').getByRole('button', { name: digit, exact: true }).click()
+    await page.getByTestId('code-keypad').getByRole('button', { name: digit, exact: true }).click()
   }
-  await page
-    .getByTestId('alarm-keypad')
-    .getByRole('button', { name: 'Disarm', exact: true })
-    .click()
+  await page.getByTestId('code-keypad').getByRole('button', { name: 'Disarm', exact: true }).click()
 
   await expect
     .poll(() => getRestState(accessToken, DEMO_ALARM), { timeout: 15_000 })
@@ -88,7 +85,7 @@ test('a wrong code is refused by the panel and changes nothing', async ({ page }
   const card = page.locator('.grid-item').filter({ hasText: 'Security' })
   await card.getByRole('button', { name: 'Arm home', exact: true }).click()
 
-  const keypad = page.getByTestId('alarm-keypad')
+  const keypad = page.getByTestId('code-keypad')
   await expect(keypad).toBeVisible()
   for (const digit of ['9', '9', '9', '9']) {
     await keypad.getByRole('button', { name: digit, exact: true }).click()

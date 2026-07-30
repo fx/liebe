@@ -298,7 +298,7 @@ describe('AlarmCard', () => {
 
       fireEvent.click(button('Disarm'))
 
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
       // The keypad IS the confirmation — no second prompt.
       expect(screen.queryByText('Disarm House Alarm?')).not.toBeInTheDocument()
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
@@ -341,7 +341,7 @@ describe('AlarmCard', () => {
       fireEvent.click(button('Disarm'))
       for (const digit of ['1', '2', '3']) fireEvent.click(button(digit))
 
-      const readout = screen.getByTestId('alarm-keypad-readout')
+      const readout = screen.getByTestId('code-keypad-readout')
       expect(readout.textContent).toBe('•••')
       expect(readout.textContent).not.toContain('1')
       // The length is announced, never the digits.
@@ -355,7 +355,7 @@ describe('AlarmCard', () => {
 
       const field = screen.getByLabelText('Code')
       expect(field).toHaveAttribute('type', 'password')
-      expect(screen.queryByTestId('alarm-keypad-readout')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad-readout')).not.toBeInTheDocument()
     })
 
     it('submits at most once per open', () => {
@@ -376,7 +376,7 @@ describe('AlarmCard', () => {
 
       fireEvent.click(button('Disarm'))
 
-      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
       expect(mockDispatchGuarded).toHaveBeenCalledTimes(1)
     })
 
@@ -385,9 +385,9 @@ describe('AlarmCard', () => {
 
       fireEvent.click(button('Disarm'))
 
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
       // A codeless panel gets the digit pad, deterministically.
-      expect(screen.getByTestId('alarm-keypad-readout')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad-readout')).toBeInTheDocument()
     })
 
     it('sends no code when always showed one and nothing was entered', () => {
@@ -412,7 +412,7 @@ describe('AlarmCard', () => {
 
       fireEvent.click(button('Disarm'))
 
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
       expect(screen.queryByText('Disarm House Alarm?')).not.toBeInTheDocument()
     })
 
@@ -421,7 +421,7 @@ describe('AlarmCard', () => {
 
       fireEvent.click(button('Disarm'))
 
-      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
 
       /*
        * With no keypad in front of it the confirmation gate applies again, and
@@ -448,7 +448,7 @@ describe('AlarmCard', () => {
 
       fireEvent.click(button('Disarm'))
       fireEvent.click(button('1'))
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
 
       const other = {
         entity_id: 'alarm_control_panel.garage',
@@ -472,7 +472,7 @@ describe('AlarmCard', () => {
       )
 
       // A code collected for one panel must never be submitted against another.
-      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
   })
@@ -486,7 +486,7 @@ describe('AlarmCard', () => {
       fireEvent.click(button('Disarm'))
 
       // Inline: inside the card, not in a portalled dialog.
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
@@ -498,7 +498,7 @@ describe('AlarmCard', () => {
       fireEvent.click(button('Disarm'))
 
       expect(screen.getByRole('dialog')).toBeInTheDocument()
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
     })
 
     it('falls back to a dialog when the span is unknown', () => {
@@ -543,11 +543,11 @@ describe('AlarmCard', () => {
       renderCard('armed_away', { attributes: coded, tier: 'row', span: { width: 4, height: 1 } })
 
       fireEvent.click(button('Disarm'))
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
 
       fireEvent.click(button('Cancel'))
 
-      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
@@ -561,7 +561,7 @@ describe('AlarmCard', () => {
 
       fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' })
 
-      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
@@ -569,11 +569,11 @@ describe('AlarmCard', () => {
       renderCard('armed_away', { attributes: coded, span: { width: 3, height: 3 } })
 
       fireEvent.click(button('Disarm'))
-      expect(screen.getByTestId('alarm-keypad')).toBeInTheDocument()
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
 
       fireEvent.click(button('Cancel'))
 
-      expect(screen.queryByTestId('alarm-keypad')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 

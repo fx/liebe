@@ -301,6 +301,53 @@ export const ConfirmLock: Story = {
   },
 }
 
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Lock codes. The codeless half of the contract is every other story in this
+ * file — `createLockEntity` publishes no `code_format` — and `ConfirmUnlock`
+ * above is its explicit counterpart: no keypad, the confirmation dialog instead.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/**
+ * A keypad deadbolt (`code_format: 'number'`). Unlock collects a code, and the
+ * confirmation dialog is NOT also raised — the keypad is the stronger gate, and
+ * two prompts for one intent is how a confirmation stops being one.
+ */
+export const WithCodeKeypad: Story = {
+  parameters: {
+    liebe: { entities: [createLockEntity({ attributes: { code_format: 'number' } })] },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Unlock' }))
+
+    // Portalled to the body, like every dialog on this card.
+    const body = within(document.body)
+    await expect(await body.findByTestId('code-keypad')).toBeInTheDocument()
+    await expect(body.queryByText('Unlock Front Door?')).toBeNull()
+  },
+}
+
+/**
+ * `code_format: 'text'` collects into a masked field rather than a digit pad —
+ * the code is never in the accessibility tree in clear.
+ */
+export const WithTextCode: Story = {
+  parameters: {
+    liebe: { entities: [createLockEntity({ attributes: { code_format: 'text' } })] },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('button', { name: 'Unlock' }))
+
+    const field = await body.findByLabelText('Code')
+    await expect(field).toHaveAttribute('type', 'password')
+    await expect(body.queryByTestId('code-keypad-readout')).toBeNull()
+  },
+}
+
 /** `doorEntity` appends the linked sensor's reading to the state line. */
 export const WithDoorClosed: Story = {
   parameters: {
