@@ -153,7 +153,8 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 - **An interaction that changes one item MUST NOT alter any other item's stored geometry**, at any breakpoint. An item nobody touched keeps the exact values it was stored with — not equivalent ones.
 - The same holds field by field within the touched item: a placement the interaction did not change MUST survive it unchanged. Dragging an item leaves its stored `width` exactly as it was; resizing from the east or south edge leaves its stored `x`. A resize from a west-facing handle does move `x`, and is a change to both fields.
 - An interaction MUST NOT push an item past the screen's own column count. Where recombining a changed field with an unchanged one would take `x + width` beyond `resolution.columns` — as a narrow breakpoint's coarser steps can, since one effective cell may be worth several stored columns — the field the interaction changed is clamped to fit. When it changed both, `width` is capped at the screen's columns and `x` at whatever the resulting span leaves.
-- An untouched field is never clamped, because its preservation is the invariant above. It follows that stored geometry already exceeding `resolution.columns` is not brought back into bounds here: repairing it would mean rewriting a field the user did not touch. Such an item stays as it is until the user moves the offending field themselves.
+- A persisted `x` MUST NOT be negative, and a persisted `width` MUST be at least 1, whatever the arithmetic produces. An untouched field does not pass through the clamp above, so an item already wider than its screen leaves no room for a position at all — and that item can still be dragged, which writes.
+- An untouched field is never clamped, because its preservation is the invariant above. It follows that stored geometry already exceeding `resolution.columns` is not brought back into bounds here: repairing it would mean rewriting a field the user did not touch. Such an item stays as it is until the user moves the offending field themselves — and moving it then yields the nearest representable position rather than an invalid one.
 - Items whose resulting geometry equals what is already stored MUST NOT trigger an update.
 
 Why this needs stating: the stored-to-effective mapping is deliberately lossy in both directions — a span is floored at one cell and `x` is clamped into bounds — and the whole layout is reported back on every interaction, not just the item that moved. Round-tripping an untouched item through that mapping therefore rewrites it: a card stored at `width: 1` on a 12-column screen occupies one cell at the 4-column breakpoint, and scaling that cell back up yields 3. The damage is silent (the narrow view re-derives correctly), persistent (it reaches stored config and exported YAML) and cumulative.
@@ -411,7 +412,7 @@ const scaledWidth = widthMoved
   ? Math.max(1, Math.min(widthCap, Math.round(layoutItem.w * columnRatio)))
   : originalItem.width
 const scaledX = xMoved
-  ? Math.min(resolution.columns - scaledWidth, Math.round(layoutItem.x * columnRatio))
+  ? Math.max(0, Math.min(resolution.columns - scaledWidth, Math.round(layoutItem.x * columnRatio)))
   : originalItem.x
 if (
   originalItem.x !== scaledX ||

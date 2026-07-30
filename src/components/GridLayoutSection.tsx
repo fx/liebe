@@ -150,13 +150,23 @@ export function GridLayoutSection({
          * exactly as it is until the user moves it (0039 — existing damage is
          * not repaired here, because a widened card is indistinguishable from a
          * deliberately wide one).
+         *
+         * Both clamps need a floor as well as a cap, and for the same reason the
+         * forward mapping does: an untouched field never passes through the cap,
+         * so an item already wider than the screen leaves `columns - width`
+         * negative. That case is not covered by "existing damage is left alone" —
+         * the user did move the item, so this writes — and what it would write is
+         * a coordinate off the edge of the grid.
          */
         const widthCap = xMoved ? resolution.columns : resolution.columns - originalItem.x
         const scaledWidth = widthMoved
           ? Math.max(1, Math.min(widthCap, Math.round(layoutItem.w * columnRatio)))
           : originalItem.width
         const scaledX = xMoved
-          ? Math.min(resolution.columns - scaledWidth, Math.round(layoutItem.x * columnRatio))
+          ? Math.max(
+              0,
+              Math.min(resolution.columns - scaledWidth, Math.round(layoutItem.x * columnRatio))
+            )
           : originalItem.x
 
         if (

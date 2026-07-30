@@ -566,6 +566,41 @@ describe('GridLayoutSection', () => {
       expect(dashboardActions.updateGridItem).not.toHaveBeenCalled()
     })
 
+    it('never persists a negative x when dragging an item wider than its screen', () => {
+      // The one case the "untouched geometry is left alone" reasoning does not
+      // cover: the user really did drag, so the handler writes. `width` is
+      // untouched and therefore never passes through the cap, so the room left
+      // for `x` — `columns - width` — is negative. It must floor at 0 rather
+      // than persist a coordinate off the left edge of the grid.
+      window.innerWidth = 1440 // wide: the screen keeps its own 8 columns
+
+      const oversized: GridItem[] = [
+        { id: 'oversized', type: 'entity', entityId: 'light.g', x: 3, y: 0, width: 12, height: 1 },
+      ]
+      render(
+        <GridLayoutSection
+          {...defaultProps}
+          items={oversized}
+          resolution={{ columns: 8, rows: 8 }}
+        />
+      )
+
+      const laidOut = gridLayoutCapture.layout!
+      expect(laidOut[0]).toMatchObject({ i: 'oversized', x: 0, w: 12 })
+
+      act(() => {
+        gridLayoutCapture.onLayoutChange!(laidOut.map((item) => ({ ...item, x: 1 })))
+      })
+
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledTimes(1)
+      expect(dashboardActions.updateGridItem).toHaveBeenCalledWith('screen-1', 'oversized', {
+        x: 0, // floored; `columns - width` is -4 and must not reach the store
+        y: 0,
+        width: 12, // untouched, so the oversized span is left as it is
+        height: 1,
+      })
+    })
+
     it('ignores a layout entry with no stored item', () => {
       window.innerWidth = 400
       render(<GridLayoutSection {...defaultProps} items={storedItems} />)
