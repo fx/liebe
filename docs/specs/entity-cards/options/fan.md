@@ -8,6 +8,8 @@ Extends the [common contract](./common.md); universal options apply as specified
 
 `tapAction: default` MUST toggle the fan — with `unavailable`/`unknown` resolved first as **inert** (no service dispatch against an unavailable device): `fan.turn_off` when the entity state is `on`, `fan.turn_on` for any other real state. The whole tile is the tap target; embedded controls (speed slider, step pills, preset pills, oscillate/direction toggles) consume their own events and MUST NOT trigger the tap action (per [common contract — Action type](./common.md#action-type)).
 
+**A fan advertising neither `TURN_ON` (32) nor `TURN_OFF` (16) is never switched from the card.** Home Assistant gates `fan.turn_on`, `fan.turn_off` and `fan.toggle` on that pair — either bit alone satisfies `fan.toggle`, and neither leaves all three refused with `ServiceNotSupported` — and as of 2026.7.2 the compatibility shim that used to supply the bits for entities implementing the methods is gone, so the mask is the whole answer. On such a fan `tapAction: default` MUST resolve to `more-info`, and a `toggle` stored on any gesture MUST reach the detail dialog rather than a service call. Falling back rather than suppressing the tap is deliberate: at `glance` the tap is the card's only affordance, so an inert tile would be an operability regression, and the dialog is where this card's speed and presets already live at that tier. The speed control is outside this gate — `fan.set_percentage` carries no such requirement and implies turn-on, which is how a speed-capable fan of this kind is started.
+
 ## Options
 
 All keys live under `item.config`, camelCase, and follow [common conventions](./common.md#conventions-for-per-card-options) — in particular convention 3: whether a control _can_ appear is derived from the entity's `supported_features` bit flags; these options only hide or tune capabilities the entity already has. The relevant fan feature bits are `SET_SPEED` (1), `OSCILLATE` (2), `DIRECTION` (4), and `PRESET_MODE` (8).
@@ -93,6 +95,12 @@ Content that does not fit MUST be omitted, never clipped or scrolled. The active
 - **GIVEN** a fan with `supported_features: 1` (`SET_SPEED` only) on a `full`-tier card with `showOscillate: true` and `showDirection: true`
 - **WHEN** the card renders
 - **THEN** it shows the speed control but neither the oscillate toggle nor the direction control — the options are inert because the entity lacks the capabilities.
+
+### Scenario: A fan that cannot be switched opens its details
+
+- **GIVEN** an `on` fan with `supported_features: 15` — speed, oscillation, direction and presets, but neither switching bit — on a `glance`-tier card with default options
+- **WHEN** the user taps the tile
+- **THEN** the card dispatches no service call and the entity detail dialog opens; and the same tap on the same fan configured with `tapAction: toggle` does the same.
 
 ### Scenario: Slider committed at zero turns the fan off
 

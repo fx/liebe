@@ -38,18 +38,48 @@ describe('readFanFeatures', () => {
     expect(readFanFeatures({ supported_features: 6 }).preset).toBe(false)
   })
 
+  it('accepts switching on either TURN_ON or TURN_OFF, because Home Assistant does', () => {
+    /*
+     * `fan.toggle` is registered with `[TURN_OFF, TURN_ON]` and `required_features`
+     * is "satisfies at least one feature set", so either bit alone means the fan
+     * can be switched. Verified against Home Assistant 2026.7.2, where the
+     * compatibility shim that used to supply these bits no longer exists.
+     */
+    expect(readFanFeatures({ supported_features: 32 }).toggle).toBe(true)
+    expect(readFanFeatures({ supported_features: 16 }).toggle).toBe(true)
+    expect(readFanFeatures({ supported_features: 48 }).toggle).toBe(true)
+    /*
+     * Neither bit: every capability a fan can have *besides* switching leaves it
+     * unswitchable. `15` is the fan the defect was reported on — speed,
+     * oscillation, direction and presets, and `fan.turn_on` refused on all of
+     * them.
+     */
+    expect(readFanFeatures({ supported_features: 15 }).toggle).toBe(false)
+    expect(readFanFeatures({ supported_features: 1 }).toggle).toBe(false)
+    expect(readFanFeatures({ supported_features: 0 }).toggle).toBe(false)
+  })
+
   it('reads each bit independently', () => {
     expect(readFanFeatures({ supported_features: 2 })).toEqual({
       speed: false,
       oscillate: true,
       direction: false,
       preset: false,
+      toggle: false,
     })
     expect(readFanFeatures({ supported_features: 15 })).toEqual({
       speed: true,
       oscillate: true,
       direction: true,
       preset: true,
+      toggle: false,
+    })
+    expect(readFanFeatures({ supported_features: 63 })).toEqual({
+      speed: true,
+      oscillate: true,
+      direction: true,
+      preset: true,
+      toggle: true,
     })
     expect(readFanFeatures({ supported_features: 4 })).toMatchObject({
       speed: false,
@@ -78,6 +108,7 @@ describe('readFanFeatures', () => {
         oscillate: false,
         direction: false,
         preset: false,
+        toggle: false,
       })
     }
     expect(readFanFeatures(undefined)).toEqual({
@@ -85,6 +116,7 @@ describe('readFanFeatures', () => {
       oscillate: false,
       direction: false,
       preset: false,
+      toggle: false,
     })
   })
 
