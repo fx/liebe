@@ -2,7 +2,7 @@ import { Flex } from '@radix-ui/themes'
 import type { ReactElement } from 'react'
 import type { CardTier } from '~/utils/cardTier'
 import { GridCardWithComponents as GridCard } from '../GridCard'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import type { ClimateModel } from './climateModel'
 
 export interface ClimateFallbackProps {
@@ -34,29 +34,21 @@ export function climateCardFallback({
   onSelect,
   onDelete,
 }: ClimateFallbackProps): ReactElement | null {
-  const { entity, isConnected, isLoading, isInoperable } = model
+  const { entity, entityId, isConnected, isLoading, isMissing, isInoperable } = model
 
-  // Show skeleton while loading initial data.
-  if (isLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={3} showButton={true} />
-  }
-
-  /*
-   * No thermostat to render, and the connection is why. An entity that has not
-   * arrived over a live connection is the skeleton above, so an
-   * entity-not-found message here would be a case this branch cannot reach —
-   * the pre-split card carried one, and it was unreachable there too.
-   */
-  if (!isConnected || !entity) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+  // Pending, missing and disconnected are the shared treatment's to tell apart
+  // — a thermostat has no better view of the connection than any other card.
+  if (!entity || !isConnected) {
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading,
+      isMissing,
+      tier,
+      lines: 3,
+      showButton: true,
+    })
   }
 
   /*

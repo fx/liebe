@@ -10,7 +10,7 @@ import type { DomainColorName } from '~/theme/tokens'
 import { getIcon } from '~/utils/iconList'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import { IconCircle } from '../anatomy'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { useCardItem } from '../cardItemContext'
@@ -95,7 +95,13 @@ function ActionCardComponent({
   item,
   config,
 }: ActionCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   const { error, dispatchGuarded, clearError } = useServiceCall()
   const feedback = useActivationFeedback()
 
@@ -190,26 +196,15 @@ function ActionCardComponent({
     [entityId, prompt]
   )
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  /*
-   * Reachable only while disconnected. `useEntity` cannot tell "not loaded yet"
-   * from "does not exist", so a missing entity on a live connection is held at
-   * the skeleton above rather than reported as missing.
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id

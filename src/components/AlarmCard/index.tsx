@@ -2,7 +2,7 @@ import { Flex } from '@radix-ui/themes'
 import { Dialog } from '~/components/ui/portals'
 import { createElement, memo, useCallback, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { ConfirmToggleDialog } from '../ConfirmToggleDialog'
@@ -78,7 +78,13 @@ function AlarmCardComponent({
   isSelected = false,
   onSelect,
 }: AlarmCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   /*
    * The guarded, non-retrying path. This family forbids the retrying wrapper
    * outright: a retried `alarm_disarm` is a house disarmed twice, and a retried
@@ -235,20 +241,16 @@ function AlarmCardComponent({
     [options, routeContext]
   )
 
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} showButton={true} />
-  }
-
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      showButton: true,
+    })
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id

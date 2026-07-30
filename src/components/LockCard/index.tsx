@@ -2,7 +2,7 @@ import { Flex, Text } from '@radix-ui/themes'
 import { Dialog } from '~/components/ui/portals'
 import { createElement, memo, useCallback, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { ConfirmToggleDialog } from '../ConfirmToggleDialog'
@@ -57,7 +57,13 @@ function LockCardComponent({
   isSelected = false,
   onSelect,
 }: LockCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   /*
    * Every dispatch goes through the guarded, non-retrying path. A lock is the
    * case the rule exists for: a retried `lock.unlock` is a door opened twice,
@@ -314,20 +320,16 @@ function LockCardComponent({
     [codeFormat, options, routeContext]
   )
 
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} showButton={true} />
-  }
-
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      showButton: true,
+    })
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id

@@ -37,6 +37,7 @@ describe('InputDateTimeCard', () => {
       entity: defaultEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -84,6 +85,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -112,6 +114,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -132,6 +135,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -175,6 +179,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -202,6 +207,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -290,6 +296,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -305,6 +312,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -320,6 +328,7 @@ describe('InputDateTimeCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -438,6 +447,7 @@ describe('InputDateTimeCard', () => {
         entity: { ...defaultEntity, state: 'unavailable' },
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 

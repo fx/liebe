@@ -6,7 +6,7 @@ import { Archive, ChevronDown, List } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { GridCardWithComponents as GridCard } from './GridCard'
-import { SkeletonCard, ErrorDisplay } from './ui'
+import { renderCardLifecycle } from './ui'
 import { Pill, PillGroup } from './anatomy'
 import { DetailControlSection } from './EntityDetailDialog/DetailControlSection'
 import {
@@ -179,7 +179,7 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
   onSelect,
   config,
 }: InputSelectCardProps) {
-  const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
+  const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
   const publishedItem = useCardItem()
 
@@ -195,22 +195,15 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
     [entity, setValue]
   )
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  // Show error state when disconnected or entity not found
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
-        variant="card"
-        tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   // Handle unavailable entities

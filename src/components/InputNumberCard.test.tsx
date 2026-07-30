@@ -39,6 +39,7 @@ describe('InputNumberCard', () => {
       entity: defaultEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -77,6 +78,7 @@ describe('InputNumberCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -121,6 +123,7 @@ describe('InputNumberCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -137,6 +140,7 @@ describe('InputNumberCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -157,6 +161,7 @@ describe('InputNumberCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -312,6 +317,7 @@ describe('InputNumberCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -331,6 +337,7 @@ describe('InputNumberCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -347,6 +354,7 @@ describe('InputNumberCard', () => {
       },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -380,6 +388,7 @@ describe('InputNumberCard', () => {
         entity: { ...defaultEntity, state: 'unavailable' },
         isConnected: true,
         isLoading: false,
+        isMissing: false,
         isStale: false,
       })
 
