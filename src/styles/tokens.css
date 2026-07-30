@@ -39,7 +39,7 @@
  * src/theme/themes/default.css so the order is established correctly whichever
  * sheet the bundler emits first.
  */
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-base {
   /*

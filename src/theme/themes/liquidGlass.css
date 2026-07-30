@@ -71,7 +71,7 @@
  * is colour maths, so it works on a LAN-only Home Assistant install.
  */
 
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-theme {
   /*

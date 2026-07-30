@@ -39,7 +39,9 @@ function ruleBlocks(css: string): Map<string, string> {
   // is stripped first and the rest matched non-greedily. A nested at-rule would
   // break this — and that is intentional: it would also be a rule, which the
   // "declares nothing but tokens" assertion below already forbids.
-  const inner = css.replace(/@layer liebe-base, liebe-theme, liebe-user;/, '').trim()
+  const inner = css
+    .replace(/@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;/, '')
+    .trim()
   const body = inner.replace(/^@layer liebe-theme\s*\{/, '').replace(/\}\s*$/, '')
 
   const blocks = new Map<string, string>()
@@ -106,7 +108,8 @@ describe('Liquid Glass stylesheet', () => {
   })
 
   it('wraps everything in the theme layer, with the order declared', () => {
-    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    const statement =
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
     expect(rules).toContain(statement)
 
     const body = rules.replace(statement, '').trim()

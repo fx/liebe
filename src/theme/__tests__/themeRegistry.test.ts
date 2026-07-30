@@ -87,7 +87,9 @@ describe('themeRegistry', () => {
     // layer, would either do nothing or outrank the user layer.
     const { css } = getTheme(DEFAULT_THEME_ID)!
 
-    expect(css).toContain('@layer liebe-base, liebe-theme, liebe-user;')
+    expect(css).toContain(
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
+    )
     expect(css).toContain('@layer liebe-theme {')
     expect(css).toContain('--liebe-c-light: var(--amber-9);')
   })

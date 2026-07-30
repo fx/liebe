@@ -5,8 +5,14 @@
  * `liebe-base` (tokens and component sheets), `liebe-theme` (the active theme)
  * and `liebe-user` (custom CSS) — and a later layer wins regardless of selector
  * specificity. Source order alone could not deliver that: a theme rule scoped to
- * an appearance would outrank a less specific user override. Vendored sheets sit
- * in `liebe-base.vendor`, a sub-layer below the baseline's own rules. See
+ * an appearance would outrank a less specific user override.
+ *
+ * The baseline is itself three tiers, because "the baseline" spans CSS with
+ * opposite needs: the universal reset has to lose to everything, a vendored
+ * component sheet has to lose to Liebe's own rules, and Liebe's own rules have to
+ * win. Specificity cannot express that — a reset is deliberately weakest and a
+ * vendor sheet's class selectors are strongest — so the order runs
+ * `liebe-base.reset` → `liebe-base.vendor` → `liebe-base` itself. See
  * docs/specs/theming/index.md, "Application mechanism".
  *
  * These are pure text transforms with no DOM dependency, because they run in
@@ -39,15 +45,28 @@ export const BASE_LAYER = 'liebe-base'
  * baseline, Liebe's own rules win by being where they are rather than by
  * out-specifying a vendor selector that changes on every upgrade.
  *
- * A sub-layer rather than a fourth top-level layer, because a layer's position
- * is fixed by the FIRST `@layer` statement a root sees: `liebe-vendor` named
- * only in a new order statement would sort *after* `liebe-user` in any root
- * where a sheet still carrying the three-layer statement loaded first — the
- * exact inversion of the fix, and invisible to a test that reads stylesheet
- * text. Nesting needs no order statement at all, so the three layers the
- * theming contract names stay the three layers themes and user CSS see.
+ * A sub-layer rather than a fourth top-level layer, because the three layers the
+ * theming contract names are what a theme and a user reason about, and the
+ * baseline's internal tiering is not theirs to know: everything here still loses
+ * to `liebe-theme` and `liebe-user` as one block.
  */
 export const VENDOR_LAYER = `${BASE_LAYER}.vendor`
+/**
+ * The universal reset, one tier below the vendored sheets.
+ *
+ * It has to be below them, because a reset is zero-specificity by design and
+ * relies on losing: `* { padding: 0; margin: 0 }` in the same layer as a
+ * component sheet would zero every padding that sheet declares — the reason it
+ * was layered in the first place ([0010](docs/changes/0010-…)) was that
+ * unlayered, it did exactly that to the card anatomy. Sitting it in `liebe-base`
+ * once the vendored sheets moved beneath would have done the same to Radix, and
+ * measurably did: table cells lost 16px of padding and inline code 5px, across
+ * 156 of the workshop's 622 stories.
+ *
+ * So the baseline is three tiers rather than two — reset, then vendored, then
+ * Liebe's own — and each wins only over the one before it.
+ */
+export const RESET_LAYER = `${BASE_LAYER}.reset`
 /** The active theme's token overrides and scoped rules. */
 export const THEME_LAYER = 'liebe-theme'
 /** User-authored custom CSS — the last word on every token. */
@@ -57,8 +76,13 @@ export const USER_LAYER = 'liebe-user'
  * Establishes the layer order. Repeated in every sheet and every injected
  * `<style>`: the first declaration a root sees fixes the order, and which sheet
  * that is depends on bundling and load order, so each one has to carry it.
+ *
+ * The baseline's sub-layers are named here too, and for the same reason: a
+ * sub-layer's position within its parent is fixed by first appearance as well,
+ * so leaving them out would order the reset and the vendored sheets by whichever
+ * of the two happened to be bundled first. One statement settles both levels.
  */
-export const LAYER_ORDER_STATEMENT = `@layer ${BASE_LAYER}, ${THEME_LAYER}, ${USER_LAYER};`
+export const LAYER_ORDER_STATEMENT = `@layer ${RESET_LAYER}, ${VENDOR_LAYER}, ${BASE_LAYER}, ${THEME_LAYER}, ${USER_LAYER};`
 
 /**
  * Properties the token contract governs — colours, backgrounds, borders,
@@ -226,11 +250,19 @@ export function wrapInLayer(css: string, layer: string): string {
   const layered = isFullyLayered(css)
   if (layered && css.includes(LAYER_ORDER_STATEMENT)) return css
 
-  const [charset] = css.match(LEADING_CHARSET) ?? []
-  const body = charset ? css.slice(charset.length) : css
+  const { charset, body } = splitCharset(css)
   const rules = layered ? body : `@layer ${layer} {\n${body}\n}\n`
 
-  return `${charset ?? ''}${LAYER_ORDER_STATEMENT}\n${rules}`
+  return `${charset}${LAYER_ORDER_STATEMENT}\n${rules}`
+}
+
+/**
+ * A sheet split around a leading `@charset`, which is only honoured as the very
+ * first thing in a sheet and so has to stay ahead of anything prepended.
+ */
+function splitCharset(css: string): { charset: string; body: string } {
+  const [charset] = css.match(LEADING_CHARSET) ?? []
+  return charset ? { charset, body: css.slice(charset.length) } : { charset: '', body: css }
 }
 
 /**
@@ -242,14 +274,26 @@ export function prepareBaselineCss(css: string): string {
 }
 
 /**
- * Baseline treatment for a vendored stylesheet: the same, one layer lower.
+ * Baseline treatment for a vendored stylesheet: the same, one tier lower.
  *
  * Separate from `prepareBaselineCss` rather than a parameter, because which of
  * the two a sheet gets is not a caller's option — it follows from where the
  * sheet came from, which is what `isVendoredSheet` answers.
+ *
+ * The wrapper is unconditional here, where `wrapInLayer` hands an already-layered
+ * sheet back untouched. That shortcut is right for Liebe's own sheets, which are
+ * authored in the layer they belong to, and wrong for a dependency, because the
+ * layer a dependency authored is *its* layer: a package that starts shipping
+ * `@layer their-name { … }` would have that name registered in whatever position
+ * it was first seen — after `liebe-user` in the common case — and its ordinary
+ * declarations would then outrank the theme and the user. Wrapping it anyway
+ * nests their layer inside `liebe-base.vendor`, which keeps their internal order
+ * intact and contains the lot.
  */
 export function prepareVendorCss(css: string): string {
-  return wrapInLayer(stripThemableImportance(css), VENDOR_LAYER)
+  const { charset, body } = splitCharset(stripThemableImportance(css))
+
+  return `${charset}${LAYER_ORDER_STATEMENT}\n@layer ${VENDOR_LAYER} {\n${body}\n}\n`
 }
 
 // A module id under a package directory. Matched on the path rather than on the

@@ -12,14 +12,24 @@
  * Layering costs the reset nothing else: at zero specificity it already lost to
  * every other author rule in the panel, and it still outranks the user-agent
  * defaults it exists to normalise, since origin beats layering.
+ *
+ * The reset takes the `reset` SUB-layer, one tier below the vendored sheets in
+ * `liebe-base.vendor` (change 0036). Once those moved beneath `liebe-base`, a
+ * reset sharing the layer with them stopped losing to them and started doing to
+ * Radix exactly what the unlayered version did to the anatomy: table cells lost
+ * 16px of padding, inline code 5px, across 156 of the workshop's 622 stories.
+ * Everything else in this sheet — the touch floor especially — stays in
+ * `liebe-base` itself, which is what makes it outrank Radix's own control sizing.
  */
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-base {
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+  @layer reset {
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
   }
 
   html {

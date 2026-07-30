@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { baselineCssPlugin } from '../baselineCssPlugin'
-import { BASE_LAYER, VENDOR_LAYER } from '../../src/theme/cssLayers'
+import { BASE_LAYER, LAYER_ORDER_STATEMENT, VENDOR_LAYER } from '../../src/theme/cssLayers'
 
 /**
  * The routing half of the baseline treatment: which layer a sheet lands in
@@ -38,11 +38,13 @@ describe('baselineCssPlugin', () => {
     const code = transform('.liebe-card { padding: 0 }', '/repo/src/components/GridCard.css')
 
     expect(code).toContain(`@layer ${BASE_LAYER} {`)
-    expect(code).not.toContain(VENDOR_LAYER)
+    // The order statement names the vendor tier in every sheet; what must not
+    // appear here is a vendor BLOCK.
+    expect(code).not.toContain(`@layer ${VENDOR_LAYER} {`)
   })
 
   it('leaves a sheet that is already authored in its layer untouched', () => {
-    const authored = `@layer ${BASE_LAYER}, liebe-theme, liebe-user;\n@layer ${BASE_LAYER} {\n.a { color: red }\n}\n`
+    const authored = `${LAYER_ORDER_STATEMENT}\n@layer ${BASE_LAYER} {\n.a { color: red }\n}\n`
 
     expect(transform(authored, '/repo/src/styles/app.css')).toBeNull()
   })

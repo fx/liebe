@@ -24,7 +24,7 @@
  * what keeps the derived tints re-deriving. See src/styles/tokens.css.
  */
 
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-theme {
   :where(.radix-themes) {

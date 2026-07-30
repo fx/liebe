@@ -15,7 +15,7 @@
  * `liebe-person-*` is internal, not part of the stable selector contract:
  * `liebe-card[data-domain='person']` is the public handle.
  */
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-base {
   /*

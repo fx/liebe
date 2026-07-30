@@ -47,7 +47,7 @@ const rules = themeCss.replace(/\/\*[\s\S]*?\*\//g, '')
  */
 function selectors(css: string): string[] {
   const body = css
-    .replace('@layer liebe-base, liebe-theme, liebe-user;', '')
+    .replace('@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;', '')
     .trim()
     .replace(/^@layer liebe-theme\s*\{/, '')
     .replace(/\}\s*$/, '')
@@ -161,7 +161,8 @@ describe('LCARS stylesheet', () => {
   })
 
   it('wraps everything in the theme layer, with the order declared', () => {
-    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    const statement =
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
     expect(rules).toContain(statement)
 
     const body = rules.replace(statement, '').trim()

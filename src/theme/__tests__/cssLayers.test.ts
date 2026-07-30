@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BASE_LAYER,
   LAYER_ORDER_STATEMENT,
+  RESET_LAYER,
   VENDOR_LAYER,
   isFullyLayered,
   isThemableProperty,
@@ -240,16 +241,37 @@ describe('prepareVendorCss', () => {
     expect(prepared).toContain('color: red }')
   })
 
-  it('nests that layer inside the baseline rather than beside it', () => {
-    // Not a spelling detail. A sibling `liebe-vendor` would have to be named in
-    // the order statement, and a layer's position is fixed by the FIRST
-    // statement a root sees — so in any root where a sheet carrying the
-    // three-layer statement loaded first, the new name would sort AFTER
-    // `liebe-user` and the vendored sheet would outrank everything. A sub-layer
-    // is ordered by its parent and needs no statement, which is why the
-    // statement below still names three layers.
+  it('orders the baseline as reset, then vendored, then Liebe’s own rules', () => {
+    // The order of these three is the whole fix, and every one of the three
+    // positions is load-bearing:
+    //
+    //   - the reset below the vendored sheets, because `* { padding: 0 }` is
+    //     written to lose and would otherwise zero every padding Radix declares
+    //   - the vendored sheets below `liebe-base`, because that is what lets the
+    //     touch floor's bare `button` beat Radix's `.rt-reset` class selector
+    //   - all three below `liebe-theme` and `liebe-user`, unchanged
+    //
+    // Spelled out as one literal rather than composed from the constants,
+    // because composing it would assert nothing: the statement and the layer
+    // names would move together and the test would pass on any order at all.
+    expect(LAYER_ORDER_STATEMENT).toBe(
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
+    )
+    expect(RESET_LAYER).toBe(`${BASE_LAYER}.reset`)
     expect(VENDOR_LAYER).toBe(`${BASE_LAYER}.vendor`)
-    expect(LAYER_ORDER_STATEMENT).toBe(`@layer ${BASE_LAYER}, liebe-theme, liebe-user;`)
+  })
+
+  it('wraps a vendored sheet that already declares its own layer', () => {
+    // `wrapInLayer` hands an already-layered sheet back, which is right for
+    // Liebe's own sheets and wrong for a dependency: the layer a dependency
+    // authored is ITS layer, registered wherever it was first seen — after
+    // `liebe-user` in the common case — so its ordinary declarations would
+    // outrank the theme and the user. Nesting it keeps its internal order and
+    // contains the lot.
+    const prepared = prepareVendorCss('@layer their-name { .a { color: red } }')
+
+    expect(prepared).toContain(`@layer ${VENDOR_LAYER} {`)
+    expect(prepared).toContain('@layer their-name { .a { color: red } }')
   })
 })
 

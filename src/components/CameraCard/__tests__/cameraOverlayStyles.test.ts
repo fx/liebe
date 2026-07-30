@@ -32,7 +32,8 @@ function ruleBody(selector: string): string {
 
 describe('camera presentation layers', () => {
   it('lands in the base layer with nothing left unlayered', () => {
-    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    const statement =
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
     expect(css).toContain(statement)
 
     const body = css.replace(statement, '').trim()

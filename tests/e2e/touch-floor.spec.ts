@@ -25,6 +25,7 @@ test.use({ hasTouch: true })
 interface ControlBox {
   height: number
   minHeight: string
+  paddingInline: string
 }
 
 /**
@@ -51,6 +52,7 @@ async function controlBoxes(page: Page, selector: string): Promise<ControlBox[]>
       .map((element) => ({
         height: element.getBoundingClientRect().height,
         minHeight: getComputedStyle(element).minHeight,
+        paddingInline: getComputedStyle(element).paddingLeft,
       }))
   }, selector)
 }
@@ -90,7 +92,24 @@ test('the touch floor reaches Radix controls in the taskbar, a config modal and 
   await expect(page.getByRole('textbox', { name: 'Custom CSS' })).toBeVisible()
 
   await expectFloored(page, 'textarea.rt-TextAreaInput', 'config modal textarea')
-  await expectFloored(page, 'button.rt-Button', 'every rendered Radix button')
+  // Scoped to the dialog on purpose. A few Liebe controls override the floor
+  // inline and are meant to — the pencil on a screen tab is 2px of padding in a
+  // corner — so "every Radix button in the panel" is not the rule and asserting
+  // it would pin the exceptions rather than the floor.
+  await expectFloored(page, '[role="dialog"] button.rt-Button', 'config modal buttons')
+
+  // The other boundary in the same tiering, and the one nothing else can see:
+  // the universal reset sits BELOW the vendored sheets, so Radix keeps the
+  // padding it declares. Level with them, `* { padding: 0 }` won and every
+  // Radix button, table cell and inline code lost its padding — a regression
+  // that left every measurement above passing.
+  const savePadding = await page
+    .getByRole('button', { name: 'Save' })
+    .evaluate((element) => getComputedStyle(element).paddingLeft)
+  expect(
+    Number.parseFloat(savePadding),
+    "the modal's Save button keeps Radix's own inline padding"
+  ).toBeGreaterThan(0)
 
   await page.getByRole('button', { name: 'Cancel' }).click()
 

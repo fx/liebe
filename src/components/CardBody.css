@@ -20,7 +20,7 @@
  * or a glyph size off the arrangement.
  */
 
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-base {
   .liebe-card-body {
