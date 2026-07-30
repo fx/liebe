@@ -13,8 +13,8 @@ This document covers the five input helper cards: `InputBooleanCard`, `InputNumb
 `tapAction: default` means, per domain:
 
 - **`input_boolean`** — **toggle** (`input_boolean.toggle` on the entity). The whole tile is the touch target, like a switch.
-- **`input_number`** — **focus the value control**: in tiers showing the stepper, focus the click-to-edit value field (entering edit state); in tiers showing the slider, focus the slider thumb. In `glance` (no embedded control), `default` MUST fall back to `more-info`, where the detail dialog exposes the full control. **Not the build past `glance`** — the tap does nothing there ([0037](../../../changes/0037-card-state-and-capability-correctness.md)).
-- **`input_select`** — **open the control**: open the dropdown (or, in pill presentation, focus the pill group). In `glance`, fall back to `more-info`. **Not the build past `glance`**, as above ([0037](../../../changes/0037-card-state-and-capability-correctness.md)).
+- **`input_number`** — **focus the value control**: in tiers showing the stepper, focus the click-to-edit value field (entering edit state); in tiers showing the slider, focus the slider thumb. In `glance` (no embedded control), `default` MUST fall back to `more-info`, where the detail dialog exposes the full control. **Not built past `glance`** — the tap does nothing there ([0037](../../../changes/0037-card-state-and-capability-correctness.md)).
+- **`input_select`** — **open the control**: open the dropdown (or, in pill presentation, focus the pill group). In `glance`, fall back to `more-info`. **Not built past `glance`**, as above ([0037](../../../changes/0037-card-state-and-capability-correctness.md)).
 - **`input_text`** — **focus the text field**, entering inline edit state. In `glance`, fall back to `more-info`.
 - **`input_datetime`** — **open the native date/time picker** on the embedded input. In `glance`, fall back to `more-info`.
 

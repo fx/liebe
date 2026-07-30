@@ -2,7 +2,7 @@
 
 ## Summary
 
-Close the accessibility conformance gaps the card wave left behind, all three of which are colour or naming decisions made in a shared layer rather than in any one card. Two are the same defect in different elements — a colour calibrated against one background and rendered against another, failing only in **light** appearance: the `-text` companions of the domain triplet miss AA on the near-white card surface, and the domain glyph misses 3:1 on its own 20% tint. The third is the residue of the `button-name` audit: the anatomy migration gave most icon-only controls a name, and two controls still have none.
+Close the accessibility conformance gaps the card wave left behind, all three of which are colour or naming decisions made in a shared layer rather than in any one card. Two are the same defect in different elements — a colour calibrated against one background and rendered against another, failing only in **light** appearance: the `-text` companions of the domain triplet miss AA on the near-white card surface, and the domain glyph misses 3:1 on its own 20% tint. The third is the residue of the `button-name` audit: the anatomy migration gave most icon-only controls a name, and two still have none — `InputSelectCard`'s select trigger, and the switch `InputBooleanCard` renders in its own tile at `controlStyle: switch`.
 
 The weather card's text over condition artwork is the same family and is **not** in this change: [0030](./0030-weather-forecast-legibility.md) owns it, having landed the design system's content-imagery scrim rule and the measurement obligation with it.
 
@@ -28,7 +28,7 @@ What settles these as system defects rather than theme choices: the glyph figure
 
 Liquid Glass is the useful counter-example for the `-text` half: it pins `-text` to step 12 and consequently has no violation at all (11.37:1 against Default's 4.50:1), which is direct evidence that repinning solves that half.
 
-The accessible-name half has largely resolved itself. The anatomy's `Pill` requires a `label` and moves it to `aria-label` when the pill renders icon-only, so the HVAC mode row is now named; `ClimateSetpointControls`, `CoverCard`'s tilt row, `InputNumberCard`, `InputTextCard` and `InputDateTimeCard` all carry explicit labels. What remains is `InputSelectCard`'s select trigger and the switch `InputBooleanCard` renders in its detail controls — the tile's own switch is named, the second one is not.
+The accessible-name half has largely resolved itself. The anatomy's `Pill` requires a `label` and moves it to `aria-label` when the pill renders icon-only, so the HVAC mode row is now named; `ClimateSetpointControls`, `CoverCard`'s tilt row, `InputNumberCard`, `InputTextCard` and `InputDateTimeCard` all carry explicit labels. What remains is `InputSelectCard`'s select trigger, which carries no `aria-label` anywhere in the file, and the switch `InputBooleanCard` renders in its **own tile** — the `controlStyle: switch` control slot, at non-`glance` tiers. Note which switch that is: `InputBooleanDetailControls` names its switch correctly, so the unnamed one is the card's inline control rather than the dialog's.
 
 ## Requirements
 
@@ -66,7 +66,7 @@ Spec restatements update **in the same PR** as each behaviour change they descri
 
 - [ ] **PR 1 — `-text` contrast**: repin the failing `-text` companions per appearance; update the design system's domain-colour bullet and the token contract test; measured before/after figures for all ten hues in both appearances; drop #197 from the spec's outstanding list
 - [ ] **PR 2 — Glyph on tint**: amend the 20%-tint active pattern so the glyph clears 3:1 in light appearance on every built-in theme; pixel-measured evidence per domain hue per theme; update the design system's pattern rule and the affected theme stories; drop #210 from the outstanding list
-- [ ] **PR 3 — Residual accessible names**: name `InputSelectCard`'s select trigger and `InputBooleanCard`'s detail-controls switch; re-run the `button-name` audit across every story in both appearances and record the resulting count; drop #191 from the outstanding list
+- [ ] **PR 3 — Residual accessible names**: name `InputSelectCard`'s select trigger and the switch `InputBooleanCard` renders in its own tile at `controlStyle: switch` (**not** the detail-controls switch, which is already named); re-run the `button-name` audit across every story in both appearances and record the resulting count; drop #191 from the outstanding list
 
 ## Out of Scope
 

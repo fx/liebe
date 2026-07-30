@@ -29,7 +29,7 @@ Per [architecture — Testing & Quality Conventions](../specs/architecture/index
 - `npm test`, `npm run lint`, `npm run typecheck` MUST pass; `codecov/patch` 100%; `codecov/project` no regress.
 - The `KNOWN_COLLISIONS` exemption MUST be **removed**, not emptied of this entry and left in place as a mechanism. If the map is empty the guard should have no map.
 - A round-trip test MUST cover the case the defect broke end to end: a switch card carrying `stateLabels: { onLabel, offLabel }` exported and re-imported through the actual gate, asserting the labels survive. A fragment-level test would have passed throughout the defect's life — that is precisely why nothing caught it.
-- Migration MUST be tested from a stored document carrying the **cover's** legacy `stateLabels` string value, asserting it reads as `stateLabelStyle` and that the legacy key is never written back.
+- Migration MUST be tested in **both** directions of the discriminator, in one document carrying both cards: a cover card's legacy `stateLabels` string migrates to `stateLabelStyle`, **and** a switch card's `stateLabels` object survives byte-identical. A test covering only the cover half would pass on a blanket rewrite, which is the failure mode. The legacy key MUST NOT be written back.
 
 Skipping or weakening any rule to land the PR is a bug in the PR.
 
@@ -38,7 +38,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 [dashboard-config](../specs/dashboard-config/index.md) owns the import gate and the stored document shape; the [cover](../specs/entity-cards/options/cover.md) and [switch](../specs/entity-cards/options/switch.md) option docs own their own option keys — this change's acceptance criteria, not restated here. What implementing them requires of this change:
 
 - **The cover's key is what gets renamed.** `stateLabelStyle` describes a _style selector_; the switch's is literal text and `stateLabels` is the right name for it. Renaming the switch's would leave the worse name on the wrong family.
-- **A stored document carrying the cover's legacy `stateLabels` MUST keep working.** The loader reads the legacy key and rewrites it to `stateLabelStyle`; the legacy key is never written back. This is the same shape as the migrations changes 0014 and 0026 already perform.
+- **A stored document carrying the cover's legacy `stateLabels` MUST keep working, and the migration MUST NOT be a blanket key rewrite.** Switch and fallback cards use `stateLabels` legitimately, as an object, and renaming the key wherever it appears would destroy exactly the configurations this change exists to unbreak. The migration therefore keys on **both** the card's domain family **and** the stored value's shape — a cover card carrying a string becomes `stateLabelStyle`; anything else is left alone — and the legacy key is never written back. This is the same shape as the migrations changes 0014 and 0026 already perform, with the extra condition that the key is shared.
 - **The switch family's declaration is untouched.** It was correct all along; the fix is on the other side of the collision.
 - **Remove the guard's exemption in the same PR.** The guard exists to fail loudly at the moment a collision is introduced; leaving a satisfied exemption in it is a standing invitation to add a second one.
 - **Repoint the issue reference** in `src/store/__tests__/configSchema.keyCollisions.test.ts` and in the `configSchema.ts` merge-chain note, both of which cite #254 by number.

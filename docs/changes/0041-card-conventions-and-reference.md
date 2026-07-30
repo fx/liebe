@@ -2,7 +2,7 @@
 
 ## Summary
 
-Two documentation-versus-code disagreements about cards, both of which make a reader wrong by trusting what is written. `AGENTS.md` instructs every new card to use an `ErrorBoundary` wrapper, and four of the twenty card components in the registry do — so a reviewer citing the convention is correct and an author ignoring it is following overwhelming local precedent, and the next card review has the argument again. And `docs/specs/entity-cards/card-reference.md` cites source paths for four cards that became folders during the card-to-spec wave, several with line numbers attached, plus one claim that is factually wrong rather than merely stale.
+Two documentation-versus-code disagreements about cards, both of which make a reader wrong by trusting what is written. `AGENTS.md` instructs every new card to use an `ErrorBoundary` wrapper, and 4 of the 20 card components in the registry do — so a reviewer citing the convention is correct and an author ignoring it is following overwhelming local precedent, and the next card review has the argument again. And `docs/specs/entity-cards/card-reference.md` cites source paths for four cards that became folders during the card-to-spec wave, several with line numbers attached, plus one claim that is factually wrong rather than merely stale.
 
 **Spec:** [entity-cards](../specs/entity-cards/index.md) → [card dispatch and registry](../specs/entity-cards/index.md#card-dispatch-and-registry) and [card-reference](../specs/entity-cards/card-reference.md) · **Status:** draft · **Depends on:** —
 
@@ -10,7 +10,9 @@ Supersedes issues [#249](https://github.com/fx/liebe/issues/249), [#270](https:/
 
 ## Motivation
 
-**The boundary convention is in the worst of its three possible states.** Not "documented and followed", not "absent and consistently ignored", but documented and followed by a minority: `WeatherCard` (all four variants), `MediaPlayerCard`, `PersonCard` and `VacuumCard` wrap; the other sixteen — Light, Lock, Climate, Cover, Fan, Sensor, BinarySensor, Camera, Alarm, Button, Action and the five input helpers — rely on `GridView`'s boundary alone. Both readings of what to do are defensible, which is exactly the problem.
+**The boundary convention is in the worst of its three possible states.** Not "documented and followed", not "absent and consistently ignored", but documented and followed by a minority.
+
+**The unit of counting is the registered card component** — the 20 distinct components `cardRegistry.ts` maps domains onto — because that is the unit the convention applies to and the unit a reviewer checks. Four wrap: `WeatherCard`, `MediaPlayerCard`, `PersonCard`, `VacuumCard`. Sixteen do not: Light, Lock, Climate, Cover, Fan, Sensor, BinarySensor, Camera, Alarm, Button, Action, and the five input helpers. (`WeatherCard` places its wrapper in each of its four variant files rather than in one entry module — that is one component wrapping four ways, not four components, and it is why a file-level grep reports seven hits for four components.) Both readings of what to do are defensible, which is exactly the problem.
 
 It is not merely untidy, because `GridView` covers one of the paths a card renders on. It does not cover Storybook stories, the configuration preview, or a card handed a literal entity — and on those, a throw inside a card has nothing between it and the top. The convention was found to be minority practice by an agent that grepped every card rather than accepting a description of it as "match the sibling cards", a framing that implied the practice was widespread when two families followed it.
 
@@ -44,7 +46,7 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ## Design Decisions
 
-- **Enforce the boundary rather than retire it.** The non-dashboard paths are real and growing — every card family now has a story matrix and a config preview, which are the two paths `GridView` does not cover — and a throw there currently takes down the workshop or the config modal rather than one card. Retiring is the cheaper decision and it trades a real safeguard for consistency with the majority that happens to be unprotected. The template already exists in four components, so the work is mechanical.
+- **Enforce the boundary rather than retire it.** The non-dashboard paths are real and growing — every card family now has a story matrix and a config preview, which are the two paths `GridView` does not cover — and a throw there currently takes down the workshop or the config modal rather than one card. Retiring is the cheaper decision and it trades a real safeguard for consistency with the majority that happens to be unprotected. The template already exists in four of them, so the work is mechanical.
 - **A verification check is preferred over dropping paths, if paths stay.** The failure has recurred four times without anything failing, which says the problem is the absence of a check rather than the presence of paths. A test that resolves every path the reference cites turns silent rot into a red run, and it costs less than the per-card detail is worth.
 - **Line numbers go regardless.** No check makes a line citation useful: it will be verifiable and wrong-in-spirit the moment a function moves within its file, and the precision it advertises is the reason it misleads.
 - **The two halves are separate PRs.** One touches thirteen source files and needs a test per family; the other touches one document. Bundling them would put a mechanical documentation fix behind a thirteen-family review.
