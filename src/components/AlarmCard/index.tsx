@@ -13,7 +13,7 @@ import { readCardDisplay } from '~/store/cardDisplay'
 import { readAlarmOptions, type ArmMode } from '~/store/alarmOptions'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { AlarmDetailControls } from './AlarmDetailControls'
-import { Keypad } from './Keypad'
+import { Keypad } from '~/components/Keypad'
 import {
   ARM_CONFIRM_PROMPT,
   ARM_MODE_SPEC,

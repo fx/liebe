@@ -368,6 +368,243 @@ describe('LockCard', () => {
     )
   })
 
+  /*
+   * Lock codes (docs/specs/entity-cards/options/security.md — "Code handling").
+   *
+   * Every case here is paired with its codeless counterpart somewhere in this
+   * file, because the requirement has two halves and only one of them is new:
+   * a lock publishing a `code_format` collects a code, and a lock publishing
+   * none MUST behave exactly as it did before codes existed. The second half is
+   * the regression risk, and it is what every other `describe` in this file is
+   * already asserting — `renderCard` builds a lock with no `code_format` at all.
+   */
+  describe('lock codes', () => {
+    const codedCard = (
+      state: string,
+      { format = 'number', config }: { format?: string; config?: Record<string, unknown> } = {}
+    ) => {
+      mockEntities({
+        [ENTITY_ID]: {
+          entity_id: ENTITY_ID,
+          state,
+          attributes: { friendly_name: 'Front Door', code_format: format },
+        },
+      })
+
+      return render(
+        <CardItemProvider entityId={ENTITY_ID} config={config}>
+          <LockCard entityId={ENTITY_ID} tier="row" />
+        </CardItemProvider>
+      )
+    }
+
+    /** The keypad's own submit button, which shares its label with the pill. */
+    const submit = (name: string) => screen.getAllByRole('button', { name }).at(-1)!
+
+    it('collects a code and sends it with lock.unlock', () => {
+      codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      for (const digit of ['1', '2', '3', '4'])
+        fireEvent.click(screen.getByRole('button', { name: digit }))
+      fireEvent.click(submit('Unlock'))
+
+      expect(mockDispatchGuarded).toHaveBeenCalledTimes(1)
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'lock',
+        service: 'unlock',
+        entityId: ENTITY_ID,
+        data: { code: '1234' },
+      })
+    })
+
+    it('collects a code for the lock direction too', () => {
+      // No lock analogue of `code_arm_required`: `code_format` alone governs
+      // both directions, so the safe direction is coded as well.
+      codedCard('unlocked')
+
+      fireEvent.click(pill('Lock'))
+      fireEvent.click(screen.getByRole('button', { name: '9' }))
+      fireEvent.click(submit('Lock'))
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'lock',
+        service: 'lock',
+        entityId: ENTITY_ID,
+        data: { code: '9' },
+      })
+    })
+
+    it('honours a text code_format with a masked field rather than a digit pad', () => {
+      codedCard('locked', { format: 'text' })
+
+      fireEvent.click(pill('Unlock'))
+
+      const field = screen.getByLabelText('Code')
+      // `password`, so the code is not in the accessibility tree in clear.
+      expect(field).toHaveAttribute('type', 'password')
+      expect(screen.queryByRole('button', { name: '1' })).not.toBeInTheDocument()
+
+      fireEvent.change(field, { target: { value: 'open sesame' } })
+      fireEvent.click(submit('Unlock'))
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'lock',
+        service: 'unlock',
+        entityId: ENTITY_ID,
+        data: { code: 'open sesame' },
+      })
+    })
+
+    it('presents the keypad INSTEAD of the confirmation, not after it', () => {
+      // The keypad is the stronger gate, so stacking "Unlock Front Door?" on
+      // top of it would be two prompts for one intent.
+      codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
+      expect(screen.queryByText('Unlock Front Door?')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
+    it('dispatches nothing when the keypad is cancelled', () => {
+      codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
+    it('drops the keypad when the dialog itself is dismissed', () => {
+      // Escape, or a click outside — dismissing the container must abandon a
+      // half-entered code as surely as the keypad's own Cancel does.
+      codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' })
+
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
+    it('sends no code field at all when the lock publishes no code_format', () => {
+      // The regression half, stated explicitly rather than left implicit in the
+      // gate tests: the overwhelmingly common lock is untouched by any of this.
+      renderCard('locked', { config: { confirmUnlock: false } })
+
+      fireEvent.click(pill('Unlock'))
+
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'lock',
+        service: 'unlock',
+        entityId: ENTITY_ID,
+      })
+    })
+
+    it.each([null, '', '^\\d{4}$', 4])(
+      'treats an unreadable code_format %j as no code at all',
+      (format) => {
+        mockEntities({
+          [ENTITY_ID]: {
+            entity_id: ENTITY_ID,
+            state: 'locked',
+            attributes: { friendly_name: 'Front Door', code_format: format },
+          },
+        })
+        render(
+          <CardItemProvider entityId={ENTITY_ID} config={{ confirmUnlock: false }}>
+            <LockCard entityId={ENTITY_ID} tier="row" />
+          </CardItemProvider>
+        )
+
+        fireEvent.click(pill('Unlock'))
+
+        expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
+        expect(mockDispatchGuarded).toHaveBeenCalledTimes(1)
+      }
+    )
+
+    it('collects a code for a configured tapAction: toggle, ungated by a second dialog', () => {
+      codedCard('locked', { config: { tapAction: 'toggle' } })
+
+      fireEvent.click(screen.getByText('Front Door'))
+
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
+      expect(screen.queryByText('Unlock Front Door?')).not.toBeInTheDocument()
+
+      for (const digit of ['7', '7']) fireEvent.click(screen.getByRole('button', { name: digit }))
+      fireEvent.click(submit('Unlock'))
+
+      expect(mockDispatchGuarded).toHaveBeenCalledWith({
+        domain: 'lock',
+        service: 'unlock',
+        entityId: ENTITY_ID,
+        data: { code: '77' },
+      })
+    })
+
+    it('still confirms a call-service route, which no keypad of ours stands in front of', () => {
+      /*
+       * The shell dispatches a configured `call-service` with the payload the
+       * user wrote, so this card cannot attach a code to it — which makes the
+       * confirmation the only gate left, and it MUST NOT be suppressed by the
+       * lock merely having a code.
+       */
+      codedCard('locked', {
+        config: { tapAction: { action: 'call-service', service: 'lock.unlock' } },
+      })
+
+      fireEvent.click(screen.getByText('Front Door'))
+
+      expect(screen.getByText('Unlock Front Door?')).toBeInTheDocument()
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
+    it('opens no keypad from a held pill', () => {
+      // Indeterminate: both pills disabled, so nothing can start collecting a
+      // code against a state the card does not know.
+      codedCard('unavailable')
+
+      fireEvent.click(pill('Unlock'))
+
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
+    })
+
+    it('drops a half-entered code when the card is recycled onto another lock', () => {
+      // A credential collected for one door must never be submitted against a
+      // different one.
+      const { rerender } = codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
+
+      mockEntities({
+        'lock.back_door': {
+          entity_id: 'lock.back_door',
+          state: 'locked',
+          attributes: { friendly_name: 'Back Door', code_format: 'number' },
+        },
+      })
+      rerender(
+        <CardItemProvider entityId="lock.back_door">
+          <LockCard entityId="lock.back_door" tier="row" />
+        </CardItemProvider>
+      )
+
+      expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+  })
+
   describe('the door sensor fragment', () => {
     const doorSensor = (state: string) => ({
       'binary_sensor.front_door': {

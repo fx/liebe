@@ -5,8 +5,9 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
-import { dashboardActions } from '~/store'
+import { dashboardActions, dashboardStore } from '~/store'
 import { resetDispatchGuard } from '~/services/guardedDispatch'
+import { exportConfigurationAsYAML } from '~/store/persistence'
 import { CardItemProvider } from '../../cardItemContext'
 import { LockCard } from '..'
 import type { HassEntity } from '~/store/entityTypes'
@@ -257,5 +258,116 @@ describe('the detail dialog as the glance control surface', () => {
 
     await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
     expect(hass.callService).toHaveBeenCalledWith('lock', 'unlock', { entity_id: ENTITY_ID })
+  })
+})
+
+describe('a lock code on the real dispatch path', () => {
+  const CODE = '4821'
+
+  const codedLock = (state: string): HassEntity => ({
+    ...makeLock(state),
+    attributes: { friendly_name: 'Front Door', code_format: 'number' } as HassEntity['attributes'],
+  })
+
+  const enter = (code: string) => {
+    for (const digit of code) {
+      fireEvent.click(screen.getByRole('button', { name: digit }))
+    }
+  }
+
+  /** Put the lock on a real screen, so the exported document has one in it. */
+  const placeLock = () => {
+    act(() => {
+      dashboardActions.addScreen({
+        id: 'screen-1',
+        name: 'Hall',
+        slug: 'hall',
+        type: 'grid',
+        grid: { resolution: { columns: 12, rows: 8 }, items: [] },
+      })
+      dashboardActions.addGridItem('screen-1', {
+        id: 'item-1',
+        type: 'entity',
+        entityId: ENTITY_ID,
+        x: 0,
+        y: 0,
+        width: 2,
+        height: 1,
+      })
+    })
+  }
+
+  it('forwards the code with lock.unlock, in one call, with no confirmation stacked on it', async () => {
+    seed(codedLock('locked'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    fireEvent.click(pill('Unlock'))
+
+    // The keypad IS the gate here: `confirmUnlock` is on by default, and
+    // stacking its dialog on top would be two prompts for one intent.
+    await waitFor(() => expect(screen.getByTestId('code-keypad')).toBeInTheDocument())
+    expect(screen.queryByText('Unlock Front Door?')).not.toBeInTheDocument()
+    expect(hass.callService).not.toHaveBeenCalled()
+
+    enter(CODE)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unlock' }).at(-1)!)
+
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+    expect(hass.callService).toHaveBeenCalledWith('lock', 'unlock', {
+      entity_id: ENTITY_ID,
+      code: CODE,
+    })
+  })
+
+  it('never writes the code into the dashboard configuration or its YAML export', async () => {
+    /*
+     * The security property, asserted where it can actually be observed: this
+     * suite runs the real dashboard store and the real serialiser, so a code
+     * that had leaked into `item.config` would appear in both readings below.
+     *
+     * A code is a credential. It travels with the service call and nowhere
+     * else — never validated by the card, never persisted, and never in a YAML
+     * a user shares (docs/specs/entity-cards/options/security.md — "Code
+     * handling").
+     */
+    seed(codedLock('locked'))
+    /*
+     * The lock is PLACED, not merely rendered. Without a real grid item the
+     * export is an empty document and "the code is not in it" would be true of
+     * a card that had leaked it — the assertion has to run against a document
+     * that carries this card's own configuration, which is what the two
+     * positive checks below establish before the negative ones are believed.
+     */
+    placeLock()
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    fireEvent.click(pill('Unlock'))
+    await waitFor(() => expect(screen.getByTestId('code-keypad')).toBeInTheDocument())
+    enter(CODE)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unlock' }).at(-1)!)
+
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+
+    const yaml = exportConfigurationAsYAML()
+    expect(yaml).toContain(ENTITY_ID)
+    expect(JSON.stringify(dashboardStore.state)).toContain(ENTITY_ID)
+
+    expect(JSON.stringify(dashboardStore.state)).not.toContain(CODE)
+    expect(yaml).not.toContain(CODE)
+    // Not merely absent as a value — the KEY must not be there either, since a
+    // `code: ''` written on cancel would be just as much a leak of shape.
+    expect(yaml).not.toContain('code')
+  })
+
+  it('sends no code field at all for a lock that publishes none', async () => {
+    // The regression half. Every other case in this file is already this lock,
+    // and this one states the payload shape outright.
+    seed(makeLock('unlocked'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    fireEvent.click(pill('Lock'))
+
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+    expect(hass.callService).toHaveBeenCalledWith('lock', 'lock', { entity_id: ENTITY_ID })
   })
 })

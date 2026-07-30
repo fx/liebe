@@ -1,4 +1,5 @@
 import { Flex } from '@radix-ui/themes'
+import { Dialog } from '~/components/ui/portals'
 import { createElement, memo, useCallback, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { SkeletonCard, ErrorDisplay } from '../ui'
@@ -12,15 +13,20 @@ import { readCardDisplay } from '~/store/cardDisplay'
 import { readLockOptions } from '~/store/lockOptions'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { LockDetailControls } from './LockDetailControls'
+import { Keypad, readCodeFormat, type CodeFormat } from '~/components/Keypad'
 import {
   LOCK_CONFIRM_PROMPT,
+  LOCK_SERVICE_LABEL,
   UNLOCK_CONFIRM_PROMPT,
   classifyLockRoute,
+  lockKeypadShownFor,
   requiresLockConfirmation,
   resolveDoorFragment,
   resolveLockPresentation,
   resolveLockToggle,
+  type LockAttributes,
   type LockRouteContext,
+  type LockService,
 } from './presentation'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
@@ -81,6 +87,17 @@ function LockCardComponent({
   const [confirmRequest, setConfirmRequest] = useState<CardConfirmRequest | null>(null)
 
   /*
+   * What the keypad is currently collecting a code for, on a lock that publishes
+   * a `code_format`. Nothing has been dispatched while this is set — the code
+   * travels with the call the keypad's own submit makes, and never leaves this
+   * state otherwise.
+   */
+  const [keypadRequest, setKeypadRequest] = useState<{
+    service: LockService
+    format: CodeFormat
+  } | null>(null)
+
+  /*
    * Dropped on the two keys the shell drops its own on, during render rather
    * than in an effect (`react-hooks/set-state-in-effect` is an error here, and
    * this is the repo's pattern — `CoverCard`, `InputNumberCard`).
@@ -90,6 +107,11 @@ function LockCardComponent({
    * on the card being recycled onto another entity — asking "Unlock Front door?"
    * detached from the gesture that raised it, about an entity that may no longer
    * be the one on screen, where the answer that looks safe is to accept.
+   *
+   * The keypad is dropped on the same two keys and matters at least as much: a
+   * half-entered code surviving into edit mode, or onto another lock the card
+   * was recycled onto, would be a credential collected for one door and
+   * submitted against a different one.
    */
   const [prevIsEditMode, setPrevIsEditMode] = useState(isEditMode)
   const [prevEntityId, setPrevEntityId] = useState(entityId)
@@ -97,6 +119,7 @@ function LockCardComponent({
     setPrevIsEditMode(isEditMode)
     setPrevEntityId(entityId)
     setConfirmRequest(null)
+    setKeypadRequest(null)
   }
 
   const state = entity?.state ?? 'unknown'
@@ -119,14 +142,31 @@ function LockCardComponent({
 
   const routeContext: LockRouteContext = useMemo(() => ({ entityId, state }), [entityId, state])
 
+  /*
+   * How this lock collects a code, or `undefined` for the overwhelmingly common
+   * lock that wants none — in which case every path below behaves exactly as it
+   * did before codes existed: no keypad, no `code` field, gates unchanged
+   * (docs/specs/entity-cards/options/security.md — "Code handling").
+   */
+  const codeFormat = readCodeFormat(entity?.attributes as LockAttributes | undefined)
+
   /**
    * Send the command. Ungated on purpose — every caller has already passed
    * whichever gate owns it.
    */
   const send = useCallback(
-    (service: 'lock' | 'unlock') => {
+    (service: LockService, code?: string) => {
       if (error) clearError()
-      void dispatchGuarded({ domain: 'lock', service, entityId })
+      void dispatchGuarded({
+        domain: 'lock',
+        service,
+        entityId,
+        // The code travels with the call and nowhere else: never validated
+        // here, never written to `item.config`, and so never in the exported
+        // YAML. Validation is the lock's job, and a rejected code surfaces as
+        // an ordinary service error.
+        data: code ? { code } : undefined,
+      })
     },
     [clearError, dispatchGuarded, entityId, error]
   )
@@ -144,10 +184,22 @@ function LockCardComponent({
    * "A card family's own rule replaces the on/off one rather than joining it").
    */
   const dispatchFromPill = useCallback(
-    (service: 'lock' | 'unlock') => {
+    (service: LockService) => {
       const direction = service === 'unlock' ? 'unlocking' : 'locking'
 
-      if (requiresLockConfirmation(direction, options)) {
+      /*
+       * The keypad first, and instead of the confirmation rather than after it.
+       * Entering a code is the stronger, more deliberate act, so stacking
+       * "Unlock Front Door?" on top of it would be two prompts for one intent —
+       * which is how a confirmation becomes something people click past. The
+       * alarm settled this rule; the lock does not get a second answer to it.
+       */
+      if (codeFormat !== undefined) {
+        setKeypadRequest({ service, format: codeFormat })
+        return
+      }
+
+      if (requiresLockConfirmation(direction, options, false)) {
         setConfirmRequest({
           entityId,
           prompt: service === 'unlock' ? UNLOCK_CONFIRM_PROMPT : LOCK_CONFIRM_PROMPT,
@@ -158,7 +210,7 @@ function LockCardComponent({
 
       send(service)
     },
-    [entityId, options, send]
+    [codeFormat, entityId, options, send]
   )
 
   const handleLock = useCallback(() => dispatchFromPill('lock'), [dispatchFromPill])
@@ -181,11 +233,21 @@ function LockCardComponent({
   const handleToggle = useCallback((): void | 'more-info' => {
     const resolution = resolveLockToggle(state)
     if (resolution === 'lock' || resolution === 'unlock') {
+      /*
+       * On a code-protected lock the gesture collects a code instead of
+       * dispatching, and it is not double-prompted: `confirmRoute` below
+       * reported this same route as keypad-bound, so the shell raised no dialog
+       * on the way here.
+       */
+      if (codeFormat !== undefined) {
+        setKeypadRequest({ service: resolution, format: codeFormat })
+        return
+      }
       send(resolution)
       return
     }
     if (resolution === 'more-info') return 'more-info'
-  }, [send, state])
+  }, [codeFormat, send, state])
 
   /**
    * The shell's gate. Every gesture — `default`, an explicit `toggle`, a
@@ -195,7 +257,8 @@ function LockCardComponent({
   const confirmRoute = useCallback(
     (action: ResolvedCardAction) => {
       const direction = classifyLockRoute(action, routeContext)
-      if (!requiresLockConfirmation(direction, options)) return null
+      const keypadShown = lockKeypadShownFor(action, routeContext, codeFormat)
+      if (!requiresLockConfirmation(direction, options, keypadShown)) return null
 
       /*
        * An `unclassifiable` route asks the unlock question, which is the
@@ -204,7 +267,7 @@ function LockCardComponent({
        */
       return direction === 'locking' ? LOCK_CONFIRM_PROMPT : UNLOCK_CONFIRM_PROMPT
     },
-    [options, routeContext]
+    [codeFormat, options, routeContext]
   )
 
   if (isEntityLoading || (!entity && isConnected)) {
@@ -344,6 +407,33 @@ function LockCardComponent({
           name={display.name}
           onResolve={() => setConfirmRequest(null)}
         />
+      )}
+
+      {/*
+       * The keypad, always as a dialog. The alarm renders one inline on a `full`
+       * card of at least 2×3; the lock cannot, and not by omission — it takes no
+       * `span` prop, so it never learns the effective size the keypad's floor is
+       * measured against. Falling back to the dialog is the omit-never-clip
+       * direction the alarm takes whenever its own span is unknown, and here
+       * that is every card.
+       */}
+      {!isEditMode && keypadRequest && (
+        <Dialog.Root open onOpenChange={() => setKeypadRequest(null)}>
+          <Dialog.Content maxWidth="320px">
+            <Dialog.Title>{`${LOCK_SERVICE_LABEL[keypadRequest.service]} ${
+              display.name || friendlyName
+            }`}</Dialog.Title>
+            <Keypad
+              format={keypadRequest.format}
+              actionLabel={LOCK_SERVICE_LABEL[keypadRequest.service]}
+              onSubmit={(code) => {
+                send(keypadRequest.service, code)
+                setKeypadRequest(null)
+              }}
+              onCancel={() => setKeypadRequest(null)}
+            />
+          </Dialog.Content>
+        </Dialog.Root>
       )}
     </>
   )

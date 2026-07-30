@@ -3,12 +3,16 @@ import { useCallback, useState } from 'react'
 import { useServiceCall } from '~/hooks'
 import { Pill, PillGroup } from '../anatomy'
 import { ConfirmToggleDialog } from '../ConfirmToggleDialog'
+import { Keypad, readCodeFormat, type CodeFormat } from '~/components/Keypad'
 import { LOCK_OPTION_DEFAULTS } from '~/store/lockOptions'
 import {
   LOCK_CONFIRM_PROMPT,
+  LOCK_SERVICE_LABEL,
   UNLOCK_CONFIRM_PROMPT,
   requiresLockConfirmation,
   resolveLockPresentation,
+  type LockAttributes,
+  type LockService,
 } from './presentation'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { EntityDetailControlsProps } from '../EntityDetailDialog/detailControls'
@@ -47,9 +51,20 @@ const SERVICE_GATE = {
 export function LockDetailControls({ entity }: EntityDetailControlsProps) {
   const { dispatchGuarded } = useServiceCall()
   const [confirmRequest, setConfirmRequest] = useState<CardConfirmRequest | null>(null)
+  const [keypadRequest, setKeypadRequest] = useState<{
+    service: LockService
+    format: CodeFormat
+  } | null>(null)
 
   const entityId = entity.entity_id
   const { state, canLock, canUnlock, isActive } = resolveLockPresentation({ state: entity.state })
+
+  /*
+   * A code-protected lock needs its keypad HERE most of all: a lock placed 1×1
+   * derives `glance`, where the card carries no control and the tap opens this
+   * dialog, so without one such a lock would be operable from nowhere at all.
+   */
+  const codeFormat = readCodeFormat(entity.attributes as LockAttributes | undefined)
 
   /*
    * No error surface here, and so nothing to clear: the dialog shows the
@@ -57,20 +72,29 @@ export function LockDetailControls({ entity }: EntityDetailControlsProps) {
    * it. What this shares with the card is the guarded, non-retrying path, which
    * is the part that must not differ.
    */
+  const send = useCallback(
+    (service: LockService, code?: string) => {
+      // As on the card: the code goes with the call and nowhere else.
+      void dispatchGuarded({ domain: 'lock', service, entityId, data: code ? { code } : undefined })
+    },
+    [dispatchGuarded, entityId]
+  )
+
   const dispatch = useCallback(
-    (service: 'lock' | 'unlock') => {
-      const run = () => {
-        void dispatchGuarded({ domain: 'lock', service, entityId })
+    (service: LockService) => {
+      if (codeFormat !== undefined) {
+        setKeypadRequest({ service, format: codeFormat })
+        return
       }
 
       const { direction, prompt } = SERVICE_GATE[service]
-      if (requiresLockConfirmation(direction, LOCK_OPTION_DEFAULTS)) {
-        setConfirmRequest({ entityId, prompt, proceed: run })
+      if (requiresLockConfirmation(direction, LOCK_OPTION_DEFAULTS, false)) {
+        setConfirmRequest({ entityId, prompt, proceed: () => send(service) })
         return
       }
-      run()
+      send(service)
     },
-    [dispatchGuarded, entityId]
+    [codeFormat, entityId, send]
   )
 
   return (
@@ -96,6 +120,19 @@ export function LockDetailControls({ entity }: EntityDetailControlsProps) {
           disabled={!canUnlock}
         />
       </PillGroup>
+      {keypadRequest && (
+        <Box mt="3">
+          <Keypad
+            format={keypadRequest.format}
+            actionLabel={LOCK_SERVICE_LABEL[keypadRequest.service]}
+            onSubmit={(code) => {
+              send(keypadRequest.service, code)
+              setKeypadRequest(null)
+            }}
+            onCancel={() => setKeypadRequest(null)}
+          />
+        </Box>
+      )}
       {confirmRequest && (
         <ConfirmToggleDialog
           request={confirmRequest}

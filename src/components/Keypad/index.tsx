@@ -1,29 +1,68 @@
 import { Button, Flex, Grid, Text, TextField } from '@radix-ui/themes'
 import { useCallback, useState } from 'react'
-import type { AlarmCodeFormat } from './presentation'
 
 /**
- * The code collector (docs/specs/entity-cards/options/security.md — "Code
- * handling").
+ * The code collector, shared by every card family whose entity can demand a code
+ * (docs/specs/entity-cards/options/security.md — "Code handling" on both the
+ * alarm and the lock).
  *
  * **It is deliberately dumb.** It honours `code_format`, masks what is typed,
  * and hands the string to whoever asked for it. It does not validate, does not
  * remember, and nothing it collects is ever written to `item.config` — the
- * panel is what validates a code, and a rejected one surfaces as an ordinary
+ * entity is what validates a code, and a rejected one surfaces as an ordinary
  * service error. A card that checked codes itself would be a card storing them.
  *
- * Placement-agnostic on purpose: the same component is the body of the keypad
- * dialog and the inline keypad a large `full` card renders, because the spec
- * makes placement a function of tier and span rather than of the keypad.
+ * It lives here rather than in `AlarmCard/`, where it shipped with change 0024,
+ * because the lock needs the same collector and forking it would be two places
+ * where masking, the at-most-once latch and the never-store rule could drift
+ * apart — on the one surface in this codebase that handles a credential
+ * (docs/changes/0037 — "Lock code handling reuses the alarm keypad's contract").
+ *
+ * Placement-agnostic on purpose: the same component is the body of a keypad
+ * dialog and the inline keypad a large `full` alarm card renders, because
+ * placement is a function of tier and span rather than of the keypad.
  */
+
+/** How a code must be entered — Home Assistant's `CodeFormat`. */
+export type CodeFormat = 'number' | 'text'
+
+/** The one attribute a code-capable entity publishes about its code. */
+export interface CodeFormatAttributes {
+  code_format?: unknown
+  [key: string]: unknown
+}
+
+/**
+ * The entity's `code_format`, narrowed to what HA's `CodeFormat` defines.
+ *
+ * Anything else — `null`, absent, an empty string, a regex some integration put
+ * there — reads as "no code format". That is the conservative direction for
+ * *display* (no keypad is offered where none can be honoured) and it never
+ * suppresses a code the entity needs: an entity that refuses the command without
+ * one answers with a service error, which every family already surfaces through
+ * its standard error state.
+ *
+ * The two domains publish it differently and this reader flattens the
+ * difference deliberately. `AlarmControlPanelEntity.state_attributes` publishes
+ * the key unconditionally, `null` when no code is wanted; `LockEntity` publishes
+ * it only when an integration sets one. Absent and `null` therefore mean the
+ * same thing here, and neither may be mistaken for "a code is required".
+ */
+export function readCodeFormat(
+  attributes: CodeFormatAttributes | undefined
+): CodeFormat | undefined {
+  const raw = attributes?.code_format
+  return raw === 'number' || raw === 'text' ? raw : undefined
+}
+
 export interface KeypadProps {
   /** `number` renders the digit pad, `text` a masked field. */
-  format: AlarmCodeFormat
-  /** Names the transition being authorised — "Arm away", "Disarm". */
+  format: CodeFormat
+  /** Names the transition being authorised — "Arm away", "Disarm", "Unlock". */
   actionLabel: string
   /**
    * Receives the entered code. Called at most once per mount: the submit
-   * control latches, so a double-tap on a laggy panel cannot send twice
+   * control latches, so a double-tap on a laggy device cannot send twice
    * (docs/changes/0024 — "Confirm and keypad dialogs submit at most once per
    * open").
    */
@@ -60,7 +99,7 @@ export function Keypad({ format, actionLabel, onSubmit, onCancel }: KeypadProps)
   const backspace = useCallback(() => setCode((current) => current.slice(0, -1)), [])
 
   return (
-    <Flex direction="column" gap="3" data-testid="alarm-keypad">
+    <Flex direction="column" gap="3" data-testid="code-keypad">
       <Text size="2" color="gray">
         {actionLabel}
       </Text>
@@ -88,9 +127,9 @@ export function Keypad({ format, actionLabel, onSubmit, onCancel }: KeypadProps)
             size="5"
             align="center"
             aria-label={`${code.length} digits entered`}
-            data-testid="alarm-keypad-readout"
+            data-testid="code-keypad-readout"
           >
-            {code.length > 0 ? '•'.repeat(code.length) : ' '}
+            {code.length > 0 ? '•'.repeat(code.length) : ' '}
           </Text>
           <Grid columns="3" gap="2">
             {DIGITS.map((digit) => (

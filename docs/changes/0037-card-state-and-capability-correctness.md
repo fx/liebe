@@ -71,7 +71,7 @@ Spec restatements update **in the same PR** as each behaviour change they descri
 - [ ] **PR 3 — `useEntity` not-found state**: third state distinguishing missing from pending; entity-state spec's consumer-hooks section updated; the shared not-found card treatment; the light card's removed "Entity Not Found" arm restored now that it is reachable; tests covering pending → present, pending → missing, and connection-down
 - [x] **PR 4 — Date-only `input_datetime`**: parse the date-only form as a local calendar date; tests pinned to an explicit timezone west of UTC; the story docstring that documents the defect inline updated to describe the fix
 - [ ] **PR 5 — Number and select primary actions**: `tapAction: default` focuses the value control on `input_number` and opens the control on `input_select` at non-`glance` tiers, consulting the resolved pill presentation rather than stored `controlStyle`; focus refs threaded into the shared slider and select trigger; per-tier interaction tests
-- [ ] **PR 6 — Lock code support**: specify `code_format` and the `code` service field for locks in the security option doc, consistent with the alarm keypad's contract; implement code collection and forwarding on `lock.lock` / `lock.unlock` / `lock.open`; tests covering a lock publishing a `code_format` and one publishing none
+- [x] **PR 6 — Lock code support**: specify `code_format` and the `code` service field for locks in the security option doc, consistent with the alarm keypad's contract; implement code collection and forwarding on `lock.lock` / `lock.unlock` / `lock.open`; tests covering a lock publishing a `code_format` and one publishing none
 
 ## Out of Scope
 
