@@ -354,6 +354,10 @@ test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async
     // glyph painted in the hue. Pinned so the figures below name one composite.
     expect(await customProperty(tile, '--liebe-icon-tile-level')).toBe('1')
 
+    // The rule under test is `[data-active]`-scoped, so an inactive tile would
+    // be measuring a different rule while still clearing the floor.
+    await expect(glyph, `${requested}: the tile is not active`).toHaveAttribute('data-active', /.+/)
+
     const foreground = await normalizeColor(
       page,
       await glyph.evaluate((el) => getComputedStyle(el).color)
@@ -411,12 +415,6 @@ test('an LCARS icon-only tile with no live hue keeps the theme hue on its glyph'
   const { accessToken } = await openPanel(page, seedLcarsIconTiles())
   expect(await themeStamp(page)).toEqual({ themeId: 'lcars', appearance: 'dark' })
 
-  await callService(accessToken, 'light', 'turn_on', {
-    entity_id: DEMO_LIGHT,
-    rgb_color: [0, 0, 255],
-    brightness: 255,
-  })
-
   const tile = tileAt(page, 1)
   const glyph = tile.locator('.liebe-icon')
   await expect(tile).toHaveCount(1)
@@ -435,11 +433,40 @@ test('an LCARS icon-only tile with no live hue keeps the theme hue on its glyph'
   const themeHue = formatRgba(
     await normalizeColor(page, await customProperty(tile, '--liebe-c-light-text'))
   )
-  await expect
-    .poll(async () =>
-      formatRgba(await normalizeColor(page, await customProperty(glyph, '--liebe-part-color')))
-    )
-    .toBe(themeHue)
+
+  /*
+   * Synchronised on `data-active`, not on the hue — the second thing `codex`
+   * caught, and a false pass rather than a wrong figure.
+   *
+   * This tile follows no bulb colour, so `--liebe-part-color` resolves to the
+   * theme's own hue whether the light is on or off. Polling on that value is
+   * therefore satisfied *before* the `turn_on` reaches the frontend, and the
+   * fixed waits after it would measure the INACTIVE tile — a neutral wash under
+   * a muted glyph, which clears 3:1 comfortably and so reports success about a
+   * composite the test does not exist to check. `data-active` is the one signal
+   * that differs between the two states, and going through `off` first makes the
+   * transition observable rather than assumed.
+   */
+  await callService(accessToken, 'light', 'turn_off', { entity_id: DEMO_LIGHT })
+  await expect(glyph, 'the tile should read inactive before it is switched on').not.toHaveAttribute(
+    'data-active',
+    /.*/
+  )
+
+  await callService(accessToken, 'light', 'turn_on', {
+    entity_id: DEMO_LIGHT,
+    rgb_color: [0, 0, 255],
+    brightness: 255,
+  })
+  await expect(glyph, 'the tile should be active before anything is measured').toHaveAttribute(
+    'data-active',
+    /.+/
+  )
+
+  expect(
+    formatRgba(await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))),
+    'a tile that follows no bulb colour should carry the theme hue'
+  ).toBe(themeHue)
 
   const ground = await settledGround(page, tile, 'the theme-hue tile')
   const foreground = await normalizeColor(
