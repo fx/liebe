@@ -522,6 +522,20 @@ describe('inspectProjectOwnership', () => {
     expect(result.conflict).toMatchObject({ kind: 'duplicate-stack', name: 'ha' })
   })
 
+  it('matches a compose path that itself contains a comma', () => {
+    // `ConfigFiles` is comma-joined for a multi-file project, and a directory
+    // may legally contain a comma. Splitting unconditionally shreds such a path
+    // and the checkout is then refused access to its OWN stack.
+    const comma = '/home/dev/liebe,2/ha/docker-compose.yml'
+    expect(
+      inspectProjectOwnership({
+        projects: [{ Name: ownName, Status: 'running(2)', ConfigFiles: comma }],
+        projectName: ownName,
+        composePath: comma,
+      })
+    ).toEqual({ ours: true, conflict: null })
+  })
+
   it('compares compose files by resolved path across a multi-file project', () => {
     expect(
       inspectProjectOwnership({

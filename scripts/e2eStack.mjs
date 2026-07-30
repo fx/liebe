@@ -446,11 +446,16 @@ const canonical = (file) => {
   }
 }
 
-const usesComposeFile = (entry, composePath) =>
-  `${entry.ConfigFiles ?? ''}`
-    .split(',')
-    .map((file) => canonical(file.trim()))
-    .includes(canonical(composePath))
+const usesComposeFile = (entry, composePath) => {
+  // `ConfigFiles` is comma-joined for a multi-file project, and a path may
+  // legally contain a comma — so the whole value is tried as one path FIRST.
+  // Splitting unconditionally shreds such a path into fragments that match
+  // nothing, and the checkout would then be refused access to its own stack.
+  const raw = `${entry.ConfigFiles ?? ''}`
+  const target = canonical(composePath)
+  const candidates = [raw, ...raw.split(',')]
+  return candidates.some((file) => file.trim() !== '' && canonical(file.trim()) === target)
+}
 
 /**
  * Decide whether an existing compose project is this checkout's, and catch the
