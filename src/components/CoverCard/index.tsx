@@ -591,7 +591,8 @@ function CoverCardComponent({
         {/*
          * Icon-only, so the label has to be the accessible name — without it
          * these announce as nothing at all, which is the naming half of
-         * issue #191 and the same defect the simple set shipped at `glance`.
+         * the residual-names audit (docs/changes/0035-light-appearance-contrast.md)
+         * and the same defect the simple set shipped at `glance`.
          * Named for what they do to the slats, not to the cover: "Open cover"
          * is already the pill above them.
          *
