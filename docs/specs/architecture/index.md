@@ -105,7 +105,7 @@ Related feature specs (project-level document links; these live as sibling direc
 
 This subsection is the project's standing testing and quality bar; other specs link here rather than restating it.
 
-- Every pull request MUST have passing tests, lint, and type checks before merge; PRs with failing tests MUST NOT be merged (project AGENTS.md, "CRITICAL: Pull Request Requirements").
+- Every pull request MUST have passing tests, lint, and type checks before merge; PRs with failing tests MUST NOT be merged (project AGENTS.md, "Where the workflow lives").
 - Before creating any PR, a contributor MUST run `npm test`, `npm run lint`, and `npm run typecheck`, and all three MUST pass.
 - Tests MUST run under Vitest with the `jsdom` environment, globals enabled, and the shared setup file `src/test/setup.ts` (`vitest.config.ts:6-11`).
 - Component tests MUST use `@testing-library/react` + `@testing-library/jest-dom` + `@testing-library/user-event`; the setup file MUST provide jsdom polyfills for `matchMedia`, `ResizeObserver`, `scrollIntoView`, and pointer-capture (required by Radix Slider) (`src/test/setup.ts:5-45`).
