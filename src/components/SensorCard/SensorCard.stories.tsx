@@ -401,7 +401,7 @@ export const GraphInFullSmallTile: Story = historyStory(
   graphEntity('full_small'),
   temperatureCurve('sensor.graph_full_small'),
   {
-    args: { tier: 'full', gridWidth: 2, gridHeight: 2 },
+    args: { gridWidth: 2, gridHeight: 2 },
     play: async ({ canvasElement }) => {
       await drawnSpark(canvasElement)
       await expect(graphHeight(canvasElement)).toBeGreaterThan(FORMER_FIXED_BAND)
@@ -418,7 +418,7 @@ export const GraphInFullLargeTile: Story = historyStory(
   graphEntity('full_large'),
   temperatureCurve('sensor.graph_full_large'),
   {
-    args: { tier: 'full', gridWidth: 3, gridHeight: 3 },
+    args: { gridWidth: 3, gridHeight: 3 },
     play: async ({ canvasElement }) => {
       await drawnSpark(canvasElement)
       const canvas = within(canvasElement)
