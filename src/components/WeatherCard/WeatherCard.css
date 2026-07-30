@@ -93,20 +93,29 @@
   /*
    * The scrim itself.
    *
-   * Both stops clear the 4.5:1 text floor for `--liebe-fg` and `--liebe-muted`
-   * over a pure white image, which is what makes the floor image-independent
-   * rather than a property of the ten photographs this build happens to ship:
-   * at 62% black, white text measures 6.2:1 and 85% white measures 5.0:1
+   * Both stops clear the floor of every foreground role over a pure white
+   * image, which is what makes the floor image-independent rather than a
+   * property of the ten photographs this build happens to ship: at 65% black,
+   * white text measures 7.0:1, 85% white 5.6:1 and the 80% faint glyph 5.2:1
    * against the worst ground a photograph can present. The gradient deepens
    * downward because the forecast strip's small text sits there, never upward,
    * so no point on the tile is weaker than the top stop.
+   *
+   * The top stop is 65% rather than 62% because of the one foreground on the
+   * tile this scope does NOT colour: the shell's edit-mode delete button is a
+   * Radix `IconButton`, and in dark appearance its red glyph measured 2.94:1
+   * against a 3:1 floor over an all-white image — short by a rounding error.
+   * The ground is the lever the scrim owns, so it is the one that moved; the
+   * control's own colour is untouched, and the wider gap (a Radix control reads
+   * none of these tokens, so in LIGHT appearance it is dark on dark) is
+   * docs/changes/0030-weather-forecast-legibility.md's second task.
    *
    * Deliberately not themable away: a theme that removed it would produce
    * unreadable cards, and the token contract governs colour, not whether
    * contrast exists.
    */
   .liebe-weather-scrim {
-    background: linear-gradient(to bottom, rgb(0 0 0 / 62%) 0%, rgb(0 0 0 / 72%) 100%);
+    background: linear-gradient(to bottom, rgb(0 0 0 / 65%) 0%, rgb(0 0 0 / 74%) 100%);
     inset: 0;
     position: absolute;
     z-index: -1;

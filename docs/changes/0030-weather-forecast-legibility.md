@@ -53,6 +53,17 @@ Weather-card work lives in `src/components/WeatherCard/`; two pieces are deliber
 - **Keep one `ForecastCell` component**: the sections differ by label, data and emphasis, not by anatomy — differentiation comes from section labels and the hi–lo pair, not a second component to drift.
 - **PR split**: scrim first (closes #215 on its own, smallest reviewable diff), forecast visual pass second.
 
+#### Measuring contrast here: four rules, three of them learned the expensive way
+
+Every figure in this change comes from decoding **painted pixels** in headless Chromium against a static Storybook build — the real components, the real stylesheets, the real artwork — rather than from reading token values. That much was settled before the work started, because a translucent surface over a gradient cannot be evaluated any other way. What was not settled is how to take the reading, and three of the four rules below exist because the rig reported a **false 1.00:1** on a card that was perfectly legible. That failure mode is the one to fear: 1.00:1 reads as the strongest possible evidence of a defect, so a rig that emits it is worse than no rig at all — it does not merely fail to find a problem, it manufactures one, and it will be believed.
+
+1. **Take the ground PER RUN, with only that run hidden.** One shared screenshot with the whole card body hidden measures the scrim, not the surface a control actually stands on: a `Select.Trigger` has a translucent background of its own between its label and the artwork, and hiding the body takes that away. It flatters exactly the surface being indicted — the picker would have scored against the scrim rather than against its own chip.
+2. **Intersect a text run's box with its clip chain.** A text range's rect is **not** clipped by its container: `.liebe-name` ellipsizes at 25px while the range for the same text reports 41px, running on into whatever sits beside it — in the `row` tier, a white thermometer glyph. One 255 pixel anywhere in the box pins the ratio at 1.00:1.
+3. **Hide the clipping block, not just the inline element.** `text-overflow` paints its ellipsis from the **clipping block's** line box rather than from the inline element inside it, so hiding the Radix `<Text>` span leaves three white dots standing in the box being measured. Same 1.00:1, same innocent card — this one bit immediately after rule 2 was applied, on the same title.
+4. **A run whose ground is indistinguishable from its painting is INVALID, not a failure.** Score it as a miss and a hide that silently did not take is recorded as the worst defect on the card. This is the same discipline as invalidating a mutation probe that did not apply ([AGENTS.md](../../AGENTS.md) — "Probing a test"), and for the same reason: the failure and the broken instrument produce identical output, so only the instrument can tell them apart.
+
+The rig itself is deliberately **not** committed — it depends on a Storybook build and a static server, and a checked-in copy would rot between the changes that need it. What is worth inheriting is this list.
+
 ### Non-Goals
 
 - No new forecast data (precipitation/wind columns) — tracked as an open question below.
@@ -62,18 +73,21 @@ Weather-card work lives in `src/components/WeatherCard/`; two pieces are deliber
 ## Tasks
 
 - [x] Artwork scrim: scrim layer + scoped foreground-token overrides on every artwork-bearing weather surface, shadow treatment demoted to accent; measure the media backdrop (the rule's reference implementation) against the same 4.5:1 floor and strengthen its gradient where it misses, so the rule's two consumers both comply when it lands; contrast-bearing tests and the `showConditionBackground: false` story; closes #215
-- [ ] **Radix controls over artwork.** The scrim task brought every anatomy part and glyph under the floor through the foreground tokens, and a Radix control reads none of them — it colours itself from a Radix scale, so its contrast follows the **appearance** rather than the ground it is standing on. Two shipped instances: the shell's edit-mode configure/delete `IconButton`s on any artwork-bearing tile, and the media card's `Select.Trigger` at `artworkMode: background` with `showSourcePicker` (its story is `BackgroundArtworkWithSourcePicker`, added in PR 1 because the combination had none — which is why nobody had seen this). Measured on PR 1's rig, worst image of each pair, before → after:
+- [ ] **Radix controls over artwork.** A Radix control colours itself from a Radix scale and reads none of the Liebe foreground tokens, so its contrast follows the **appearance** rather than the ground it stands on. Two shipped instances: the shell's edit-mode configure/delete `IconButton`s on any artwork-bearing tile, and the media card's `Select.Trigger` at `artworkMode: background` with `showSourcePicker` (story: `BackgroundArtworkWithSourcePicker`, added in PR 1 because the combination had none — which is why the defect had never been seen). Measured on PR 1's rig, worst image of each pair, before → after:
 
   | Control                        | Light           | Dark        | Floor |
   | ------------------------------ | --------------- | ----------- | ----- |
-  | Weather edit — configure glyph | 2.62 → **1.66** | 1.06 → 3.97 | 3:1   |
-  | Weather edit — delete glyph    | 3.19 → **1.25** | 1.09 → 2.94 | 3:1   |
-  | Media picker — trigger label   | 1.02 → **1.35** | 1.02 → 6.66 | 4.5:1 |
-  | Media picker — chevron         | 1.76 → **1.26** | 3.64 → 4.76 | 3:1   |
+  | Weather edit — configure glyph | 2.62 → **1.60** | 1.06 → 4.17 | 3:1   |
+  | Weather edit — delete glyph    | 3.19 → **1.18** | 1.09 → 3.32 | 3:1   |
+  | Media picker — trigger label   | 1.02 → **1.23** | 1.02 → 7.09 | 4.5:1 |
+  | Media picker — chevron         | 1.76 → **1.20** | 3.64 → 4.97 | 3:1   |
 
-  The scrim **inverted** the problem rather than creating it: in dark appearance these controls were failing on every image (1.06–2.11:1) and the scrim largely fixed them; in light appearance a dark Radix control had been readable on bright artwork, and a reliably dark ground is what takes that away. The media picker's label never met the floor in either appearance — the old scrim painted over it — so that one is unfixed rather than regressed. The delete glyph in dark is still 2.94:1, marginally under.
+  **Start from the inversion, because it changes the fix.** The scrim did not create this failure, it moved it between appearances: dark was the worse half before — every one of these controls was failing on every image, the configure glyph at 1.06:1 — and the scrim fixed it. Light is where it now fails, because a dark Radix control had been readable on bright artwork and a reliably dark ground is exactly what takes that away. Consequences for whoever picks this up:
+  - **Only one surface actually crosses pass → fail**: the delete glyph in light, 3.19 → 1.18. The configure glyph was already under its floor at 2.62 and merely got worse.
+  - **The picker's label and chevron were never compliant in either appearance.** The label read 1.02:1 before because the old scrim painted over it; it is unfixed rather than regressed, and it improved in light and cleared the floor in dark (1.02 → 1.23 light, → 7.09 dark).
+  - **Dark needs nothing.** An appearance-scoped dark `Theme` around overlaid content is therefore the obvious mechanism rather than one candidate among several: it is the scope light is missing, it covers every control at once, and it leaves the half that already works alone. A per-control override would have to be written and re-written for each new control.
 
-  Decide the mechanism — a dark-appearance `Theme` scope around overlaid content is the idiomatic Radix answer and covers every control at once, where a per-control override does not — record it under the design-system scrim rule, then implement and re-measure the same way. Found by local review on PR 1
+  Record the mechanism under the design-system scrim rule, then implement and re-measure the same way. Found by local review on PR 1.
 
 - [ ] Forecast visual pass: section labels, shared column rhythm, width-aware horizontal capacity in `hourlyForecastCapacity`/`dailyForecastCapacity` fed by the shell's content-width signal (per the owning contract), hi–lo pair emphasis, degree-only cells, unified icon language, glyph sizing; forecast stories for `modern`/`detailed`/max-count including a max-count strip on a minimum-width tile; refresh `card-reference.md`'s weather section
 

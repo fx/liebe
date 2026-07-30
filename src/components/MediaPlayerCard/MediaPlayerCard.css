@@ -89,10 +89,15 @@
    * playing.
    *
    * The top stop was 25%, and 25% black is not a ground: measured against a
-   * white cover it left the name at 2.75:1 and the artist line at 1.47:1. At 62%
-   * the worst a cover can do is 6.2:1 for `--liebe-fg` and 5.0:1 for the 85%
-   * `--liebe-muted` below — the two foregrounds anything overlaid here resolves
-   * to.
+   * white cover it left the name at 2.75:1 and the artist line at 1.47:1. At 65%
+   * the worst a cover can do is 7.0:1 for `--liebe-fg`, 5.6:1 for the 85%
+   * `--liebe-muted` and 5.2:1 for the 80% `--liebe-faint` below.
+   *
+   * 65% rather than 62% for the reason the weather scrim carries in full: the
+   * shell's edit-mode delete `IconButton` is a Radix control this scope does not
+   * colour, and at 62% its dark-appearance red glyph missed a 3:1 floor by 0.06.
+   * The two scrims move together so a tile does not have a different floor
+   * depending on which card is painting the artwork.
    *
    * Deliberately not themable-away: a theme that removed it would produce
    * unreadable cards, and the token contract governs colour, not whether
@@ -101,9 +106,9 @@
   .liebe-media-scrim {
     background: linear-gradient(
       to bottom,
-      rgb(0 0 0 / 62%) 0%,
-      rgb(0 0 0 / 70%) 55%,
-      rgb(0 0 0 / 82%) 100%
+      rgb(0 0 0 / 65%) 0%,
+      rgb(0 0 0 / 72%) 55%,
+      rgb(0 0 0 / 84%) 100%
     );
     inset: 0;
     position: absolute;
