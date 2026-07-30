@@ -684,6 +684,38 @@ describe('the targets that bypassed the seam', () => {
       )
     }
   )
+
+  it('reduces the dial when the option arrives as a changed prop', () => {
+    /*
+     * The climate card is memoized on a comparator that lists the props it
+     * cares about, and the `dial` variant now decides from `iconOnly` whether
+     * it renders its arc at all — so the option is only as live as that list.
+     * A comparator missing it holds the card on the presentation the previous
+     * configuration asked for, which is invisible to every assertion above
+     * because they all render once.
+     */
+    const Dial = domainToCard.climate.variants!.dial
+    const entityId = entityFactories.climate().entity_id
+    const tree = (config: Record<string, unknown>) => (
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <Dial entityId={entityId} tier="full" config={config} />
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    const { container, rerender } = render(tree({}))
+    expect(
+      container.querySelector('.liebe-card [aria-label="Increase temperature"]')
+    ).not.toBeNull()
+
+    rerender(tree(ICON_ONLY))
+
+    const tile = container.querySelector('.liebe-card')!
+    expect(tile.getAttribute('data-icon-tile')).toBe('true')
+    expect(tile.querySelector('[aria-label="Increase temperature"]')).toBeNull()
+    expect(anchorsIn(tile)).toHaveLength(1)
+  })
 })
 
 function renderCardIn(domain: FixtureDomain, tier: CardTier, config: Record<string, unknown>) {
