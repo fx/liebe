@@ -767,37 +767,6 @@ export const GridCard = React.memo(
       )
 
       /*
-       * Two ways an open dialog stops belonging to this card:
-       *  - the dashboard switches to edit mode, where actions are suppressed
-       *    and the card is being dragged rather than operated
-       *    (docs/changes/0014 — the dialog cannot open in edit mode);
-       *  - the card instance is recycled onto a different entity, which must
-       *    not leave the previous entity's details standing.
-       * Both are the same reset, so both keys drop it. Entering *or* leaving
-       * edit mode closes it, which costs nothing: it could not have been open
-       * in edit mode anyway.
-       */
-      useEffect(() => {
-        /*
-         * Suppressed, not fixed. This is the exact call site
-         * docs/changes/0040-test-harness-reliability.md names: it was written
-         * `React.useEffect(...)`, which the rule could not see, so it has never
-         * been reported before. PR 3 of that change made it visible; **PR 4 is
-         * what fixes it**, by moving this reset to the render-phase pattern the
-         * cover card already uses — deliberately separate, because restructuring
-         * the shell's dialog state is a behavioural change that deserves its own
-         * review and its own tests.
-         *
-         * REMOVE THIS SUPPRESSION IN PR 4. It exists only so the rule starts
-         * guarding *new* code immediately rather than waiting for the cleanup;
-         * leaving it in place after PR 4 lands would re-open the hole one line
-         * narrower than before.
-         */
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setDetailFor(null)
-      }, [isEditMode, detailEntityId])
-
-      /*
        * The confirmation a gated action is waiting on.
        *
        * Held by the shell for the same reason the gate itself is: the shell is
@@ -812,20 +781,61 @@ export const GridCard = React.memo(
        */
       const [confirmRequest, setConfirmRequest] = React.useState<CardConfirmRequest | null>(null)
 
-      useEffect(() => {
-        /*
-         * Same reset, same keys and same disposition as `setDetailFor` above:
-         * newly visible because the call was `React.useEffect(...)`, and left
-         * for PR 4 of docs/changes/0040-test-harness-reliability.md to move to
-         * the render-phase pattern. Listed in its own right rather than folded
-         * into the one above, because the change document requires all five
-         * member-call sites audited individually.
-         *
-         * REMOVE THIS SUPPRESSION IN PR 4.
-         */
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+      /*
+       * Two ways an open dialog stops belonging to this card:
+       *  - the dashboard switches to edit mode, where actions are suppressed
+       *    and the card is being dragged rather than operated
+       *    (docs/changes/0014 — the dialog cannot open in edit mode);
+       *  - the card instance is recycled onto a different entity, which must
+       *    not leave the previous entity's details standing.
+       * Both are the same reset, so both keys drop both dialogs. Entering *or*
+       * leaving edit mode closes them, which costs nothing: neither could have
+       * been open in edit mode anyway.
+       *
+       * Reset during render with previous-value guards rather than in an
+       * effect, which is this repo's pattern for exactly this job (`CoverCard`,
+       * `LockCard`, `InputNumberCard`) and what `react-hooks/set-state-in-effect`
+       * requires. The shell had it the other way round until
+       * docs/changes/0040-test-harness-reliability.md: it wrote
+       * `React.useEffect(...)`, which the rule could not match, so the shell and
+       * the cards solved one problem two ways and the difference was not a
+       * decision anyone made. PR 3 of that change made the call visible; this is
+       * PR 4, which removes the suppression it left behind.
+       *
+       * It is more than a re-spelling on **one** of the two keys, and the
+       * difference between them is worth stating precisely, because the obvious
+       * reading gets it backwards.
+       *
+       * On edit mode it is a re-spelling. `CoverCard`'s resurrection bug does
+       * not reach here: the shell already reset, and the `!isEditMode` render
+       * guard below covers the one commit the effect ran late by, so nothing
+       * stale was ever on screen. What `CoverCard` lacked was the reset itself,
+       * not a render-phase one.
+       *
+       * On the entity it is a fix. Nothing guards that key, so a card instance
+       * recycled onto another entity while a dialog stood committed a frame of
+       * the **previous** entity's dialog over the new one before the passive
+       * effect cleared it — details for a device the user is no longer looking
+       * at, or a confirmation asking about a gesture that was made against a
+       * different entity, where the answer that looks safe is to accept.
+       * Resetting during render drops both a commit earlier, so that frame
+       * cannot exist. `GridCard.dialogReset.test.tsx` observes it from a layout
+       * effect, which is the only vantage that can tell the two spellings apart
+       * — by the time a passive effect or an `act()` boundary has flushed, both
+       * implementations agree.
+       *
+       * One guard for the two of them because it is one rule, matching the
+       * cards; the change document's requirement that each site be audited
+       * individually is answered by the audit, not by keeping them apart.
+       */
+      const [prevIsEditMode, setPrevIsEditMode] = React.useState(isEditMode)
+      const [prevDetailEntityId, setPrevDetailEntityId] = React.useState(detailEntityId)
+      if (isEditMode !== prevIsEditMode || detailEntityId !== prevDetailEntityId) {
+        setPrevIsEditMode(isEditMode)
+        setPrevDetailEntityId(detailEntityId)
+        setDetailFor(null)
         setConfirmRequest(null)
-      }, [isEditMode, detailEntityId])
+      }
 
       /*
        * The gesture controller. `disabled` in edit mode is the whole of
@@ -1127,9 +1137,13 @@ export const GridCard = React.memo(
            * would otherwise arm the hold timer of the card behind it.
            */}
           {/*
-           * `!isEditMode` as well as the state, because the effect above clears
-           * it only after the edit-mode render has committed — a frame with the
-           * dialog still standing over a card that is now draggable.
+           * `!isEditMode` as well as the state. The reset above now runs during
+           * render, so nothing stale reaches a commit and this guard cannot be
+           * the thing that hides it — which is the point of keeping it. It is a
+           * belt to the reset's braces, and cheap: a dialog that can only be
+           * opened in view mode should also only be *rendered* in view mode, so
+           * a future path that sets `detailFor` without going through the reset
+           * still cannot leave one standing over a draggable card.
            */}
           {!isEditMode && detailFor && (
             <EntityDetailDialog

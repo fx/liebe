@@ -24,6 +24,14 @@ import { withCardErrorBoundary } from '../cardErrorBoundary'
 /**
  * The span as well as the tier: `row` covers 2×1 through N×1, and this card
  * renders a different range control on either side of three columns.
+ *
+ * And the config, which a comparator that lists props has to keep listing:
+ * both layouts resolve their options from the prop before the published item,
+ * and the `dial` variant decides from `iconOnly` whether it renders its arc at
+ * all — so a comparator that ignored the prop would hold a card on the
+ * presentation the previous configuration asked for. Identity, not a deep
+ * compare: the grid hands down the placed item's stored object, which is the
+ * same reference until the item itself changes.
  */
 const sameCardProps = (prev: CardProps, next: CardProps) =>
   prev.entityId === next.entityId &&
@@ -31,7 +39,8 @@ const sameCardProps = (prev: CardProps, next: CardProps) =>
   isSameSpan(prev.span, next.span) &&
   prev.onDelete === next.onDelete &&
   prev.isSelected === next.isSelected &&
-  prev.onSelect === next.onSelect
+  prev.onSelect === next.onSelect &&
+  prev.config === next.config
 
 /*
  * The variants are attached statically rather than pushed into the registry via

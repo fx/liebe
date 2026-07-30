@@ -889,10 +889,54 @@ function Modal({ open, onOpenChange, item, span, onSave }: ModalProps) {
 
   const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(getInitialConfig())
 
-  useEffect(() => {
+  /*
+   * Reseed the draft when the modal is pointed at another item, during render
+   * with a previous-value guard rather than in an effect — the repo's pattern
+   * (`CoverCard`, `LockCard`, `InputNumberCard`) and what
+   * `react-hooks/set-state-in-effect` requires.
+   *
+   * This is the fifth of the five call sites
+   * docs/changes/0040-test-harness-reliability.md sends PR 4 to audit, and the
+   * one the linter never reported: the React compiler bails on this component,
+   * so `set-state-in-effect` is silent here whatever form the call takes — a
+   * deliberately blatant violation planted in it reports nothing. It was found
+   * by reading, and a clean lint run over this file is not evidence about it.
+   *
+   * Two things improve besides the rule. The effect also fired on mount,
+   * replacing the initial draft with a freshly built object that was equal but
+   * not identical, so every open cost a second render for nothing. And it
+   * reseeded a commit late, so the frame in which the modal had been handed a
+   * new item still showed the previous item's values in its fields.
+   *
+   * **Keyed on `item.id`, and it has to be.** "Pointed at another item" is a
+   * statement about identity, not about object identity, and the two come apart
+   * here because `dashboardActions.updateGridItem` rebuilds the matching item
+   * (`item.id === itemId ? { ...item, ...updates } : item`) — so *every* store
+   * write touching this item hands the modal a fresh reference for the same
+   * card. Comparing references made any such write reseed the draft and throw
+   * away whatever the user had typed.
+   *
+   * The exposure is the card-owned modals rather than the grid's. `GridView`
+   * snapshots the item into `useState` when the modal opens, so a store write
+   * cannot change what it passes; `LightCard`, `CameraCard`, `WeatherCard`,
+   * `BinarySensorCard` and `ButtonCard` pass the live item straight from the
+   * grid's render, and those did lose keystrokes.
+   *
+   * The reference comparison predates this change — the effect it replaced was
+   * keyed `[item]`, the same mistake — but moving the reseed into render made
+   * it bite harder, wiping the field before the user's own keystroke had been
+   * painted rather than a commit afterwards. Found by Copilot on this PR.
+   *
+   * The deliberate consequence of keying on the id: an external write to the
+   * *same* item no longer clobbers an open draft. That is what a draft editor
+   * owes the person typing in it — the modal's own Save is how their edit
+   * reaches the store, and Cancel is how they discard it.
+   */
+  const [prevItemId, setPrevItemId] = React.useState(item.id)
+  if (item.id !== prevItemId) {
+    setPrevItemId(item.id)
     setLocalConfig(getInitialConfig())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item])
+  }
 
   const handleSave = () => {
     // For separator, we need to save the config as direct properties

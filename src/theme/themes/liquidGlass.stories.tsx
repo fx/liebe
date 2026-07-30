@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { getTheme } from '../themeRegistry'
 import { ThemeGallery, ThemeGallerySplit, galleryEntities } from '../../../.storybook/themeGallery'
+import { PartLabelSplit } from '../../../.storybook/partLabels'
 
 /**
  * **Liquid Glass** — frosted translucency over a radial-gradient wallpaper, and
@@ -41,4 +42,17 @@ export const Gallery: Story = {
  */
 export const BothAppearances: Story = {
   render: () => <ThemeGallerySplit />,
+}
+
+/**
+ * The label on a pill and a chip, across the whole palette in both appearances.
+ *
+ * `--liebe-part-label` / `--liebe-part-label-active` default to the neutrals
+ * the anatomy used to hardcode, so this grid is what Liquid Glass has always
+ * rendered — the token changed what a theme *can* say, not what this one says
+ * (docs/changes/0036-theming-contract-gaps.md PR 3). Compare it with the LCARS
+ * story of the same name, which is the case the tokens exist for.
+ */
+export const PartLabels: Story = {
+  render: () => <PartLabelSplit />,
 }

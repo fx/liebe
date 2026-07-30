@@ -19,6 +19,7 @@ import {
   resolveNumberPresentation,
   type NumberControlStyle,
 } from '~/store/inputHelperOptions'
+import { readCardDisplay } from '~/store/cardDisplay'
 import { useCardItem } from './cardItemContext'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
@@ -341,11 +342,19 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
   onDelete,
   isSelected = false,
   onSelect,
-  config,
+  config: configProp,
 }: InputNumberCardProps) {
   const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
   const { setValue, loading, error } = useServiceCall()
   const publishedItem = useCardItem()
+  /*
+   * The renderer's config when it passed one, the published item's otherwise —
+   * bound to one name so every option read below resolves from one source. The
+   * unresolved prop is deliberately not left in scope beside it: a component
+   * holding both is one where the next read takes whichever is nearer, and the
+   * two disagree on the path where only the context is supplied.
+   */
+  const config = configProp ?? publishedItem.config
 
   const handleClick = useCallback(() => {
     // Card click is handled by GridCard
@@ -423,7 +432,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    * built with the stepper, so the loader pins them to it; the attribute
    * default reaches new cards only (common contract, convention 7).
    */
-  const controlStyle = readNumberControlStyle(config ?? publishedItem.config, attributes.mode)
+  const controlStyle = readNumberControlStyle(config, attributes.mode)
   /*
    * ...and what the tier lets that style render. `tall` is one column wide, so
    * the stepper gives way to the vertical slider there; the stored value is
@@ -431,6 +440,23 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    * (docs/specs/entity-cards/options/input-helpers.md — `input_number`).
    */
   const controlPresentation = resolveNumberPresentation(controlStyle, tier)
+
+  /*
+   * `iconOnly` has to reach the lead, which is the one slot the seam keeps.
+   *
+   * The same shape as the sensor's, and for the same reason: in `glance` this
+   * card's lead is the big value rather than the glyph, so a tile that only had
+   * its slots collapsed would be an "icon-only" tile carrying a number and no
+   * icon at all. The helper's own glyph is its identity anchor under the option
+   * (docs/specs/entity-cards/options/common.md — "Icon-only presentation": the
+   * card's resolved icon, and only the camera's thumbnail and the person's
+   * avatar are anchors of another kind).
+   *
+   * The same resolution goes to the shell below, so the card and its shell
+   * cannot disagree about the option: read here and not there, the glyph would
+   * land on a tile that suppressed nothing and stamped no marker.
+   */
+  const { iconOnly } = readCardDisplay(config)
 
   return (
     <GridCard
@@ -456,6 +482,16 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        */
       defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
+      /*
+       * The entity travels with the config for the same reason it does on the
+       * weather variant: the shell builds the icon-only tile's accessible name
+       * out of the entity, and both default to the published item — so a card
+       * that hands over one without the other suppresses every word on the tile
+       * and emits nothing in their place (docs/specs/entity-cards/options/common.md
+       * — "Visual suppression never removes accessible semantics").
+       */
+      entityId={entityId}
+      config={config}
     >
       {/*
        * `glance` is the value and the name, and nothing else: the reading is the
@@ -482,7 +518,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
          */
         controlSize={tier === 'tall' ? 'fill' : 'content'}
         lead={
-          isGlance ? (
+          isGlance && !iconOnly ? (
             <CardValue
               domain="input_number"
               color="default"

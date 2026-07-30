@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useLayoutEffect } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Theme } from '@radix-ui/themes'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -355,6 +356,52 @@ describe('ActionEditor', () => {
     )
 
     expect(screen.getByLabelText('Tap service')).toHaveValue('script.turn_on')
+  })
+
+  it('shows the new action in the very commit it arrives in', () => {
+    /*
+     * The resync moved from an effect to the render phase
+     * (docs/changes/0040-test-harness-reliability.md, PR 4), and this is the
+     * only assertion here that can tell those apart: both settle on the same
+     * fields, so everything asserted after an `act()` boundary — where passive
+     * effects have flushed — agrees with either. The difference is the commit
+     * in between, which the user sees: a service field still showing the
+     * action the form was previously pointed at.
+     *
+     * Observed from a layout effect, which runs after that commit's DOM
+     * mutations and before anything passive.
+     */
+    const seen: string[] = []
+
+    function CommitProbe() {
+      useLayoutEffect(() => {
+        const field = screen.queryByLabelText('Tap service') as HTMLInputElement | null
+        if (field) seen.push(field.value)
+      })
+      return null
+    }
+
+    const tree = (service: string) => (
+      <Theme>
+        <ActionEditor
+          label="Tap"
+          value={{ action: 'call-service', service }}
+          defaultValue="default"
+          onChange={onChange}
+        />
+        <CommitProbe />
+      </Theme>
+    )
+
+    const { rerender } = render(tree('light.turn_on'))
+    seen.length = 0
+
+    rerender(tree('script.turn_on'))
+
+    // The probe must have run, or this asserts nothing at all.
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen).not.toContain('light.turn_on')
+    expect(seen).toContain('script.turn_on')
   })
 
   it('renders its description when given one', () => {

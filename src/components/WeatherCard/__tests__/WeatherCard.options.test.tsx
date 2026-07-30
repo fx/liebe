@@ -11,6 +11,10 @@ import type { HassEntity } from '~/store/entityTypes'
 import type { CardTier } from '~/utils/cardTier'
 import { CardItemProvider } from '../../cardItemContext'
 import { WeatherCard } from '..'
+import { WeatherCardDefault } from '../WeatherCardDefault'
+import { WeatherCardMinimal } from '../WeatherCardMinimal'
+import { WeatherCardModern } from '../WeatherCardModern'
+import { WeatherCardDetailed } from '../WeatherCardDetailed'
 
 /**
  * The weather card's own options, rendered (change 0020 PR 1).
@@ -486,4 +490,66 @@ describe('every variant at every tier', () => {
       })
     }
   }
+})
+
+describe('a variant handed its options through the published item alone', () => {
+  /*
+   * The grid gives a placed card its stored options twice — as the `config`
+   * prop and on the item context — so a variant that reads only the prop looks
+   * correct on every dashboard and is wrong everywhere else: the configuration
+   * preview and any renderer that publishes the item without repeating it as a
+   * prop get a card rendering its defaults.
+   *
+   * This is a regression test with a specific history. `WeatherCardMinimal`
+   * grew a second option read (`iconOnly`, for its icon-only form) that
+   * correctly resolved prop-then-context while `readWeatherOptions` beside it
+   * kept the bare prop, so one component held two sources and honoured the
+   * persisted `temperatureUnit` on one path and not the other. Asserting per
+   * variant rather than on the one that broke, because the shape is available
+   * to all four.
+   */
+  const VARIANT_COMPONENTS = {
+    default: WeatherCardDefault,
+    minimal: WeatherCardMinimal,
+    modern: WeatherCardModern,
+    detailed: WeatherCardDetailed,
+  } as const
+
+  for (const variant of WEATHER_VARIANTS) {
+    it(`converts ${variant}'s temperature from a persisted option`, () => {
+      const VariantComponent = VARIANT_COMPONENTS[variant]
+      const config = { temperatureUnit: 'fahrenheit' as const }
+
+      renderCard(
+        // No `config` prop: the published item is the only place the option is.
+        <CardItemProvider entityId={ENTITY} config={config}>
+          <VariantComponent entityId={ENTITY} tier="full" />
+        </CardItemProvider>
+      )
+
+      expect(card().textContent).toContain('°F')
+      expect(card().textContent).not.toContain('°C')
+    })
+  }
+})
+
+describe('the variant the dispatcher picks, from the published item alone', () => {
+  it('renders the persisted variant rather than the default', () => {
+    /*
+     * The other half of the same rule, one level up: `WeatherCard` chooses
+     * which variant renders, and choosing `default` from a config it read off
+     * the prop while the variant it chose reads the rest of its options off the
+     * item is one family disagreeing with itself about where its configuration
+     * lives. `minimal` is the variant to assert on because it is the one that
+     * renders no condition glyph, so what it picked is visible in the DOM.
+     */
+    renderCard(
+      <CardItemProvider entityId={ENTITY} config={{ variant: 'minimal' }}>
+        <WeatherCard entityId={ENTITY} tier="full" />
+      </CardItemProvider>
+    )
+
+    expect(card().querySelector('.liebe-icon')).toBeNull()
+    expect(name()).toHaveTextContent('Home Weather')
+  })
 })
