@@ -113,6 +113,16 @@ describe('SensorCard graph placement', () => {
     // the value shares it.
     const band = document.querySelector('.liebe-card-body-fill')!
     expect(band).toContainElement(graphRegion() as HTMLElement)
+    /*
+     * The column inside that slot carries the class the stylesheet widens the
+     * slot by (`.liebe-card-body-fill:has(> .liebe-sensor-band)`), and it is a
+     * DIRECT child of the slot — the `>` in that selector is load-bearing, and a
+     * wrapper appearing between them would silently collapse the band's width
+     * back to the value's text with every rendered assertion still passing.
+     */
+    const column = document.querySelector('.liebe-sensor-band')!
+    expect(column.parentElement).toBe(band)
+    expect(column).toContainElement(graphRegion() as HTMLElement)
     expect(band.querySelector('.liebe-value')).toHaveTextContent('21.4 °C')
     const body = Array.from(document.querySelector('.liebe-card-body')!.children)
     expect(body.findIndex((child) => child.querySelector('.liebe-icon'))).toBeLessThan(
@@ -128,6 +138,10 @@ describe('SensorCard graph placement', () => {
     await drawn()
 
     expect(graphRegion()).toHaveAttribute('data-region', 'full')
+    // Carrying the class the growth rule selects: `data-region` alone says which
+    // shape was asked for, not that anything sizes it (the growth itself is
+    // pinned in `sensorGraphStyles.test.ts`).
+    expect(graphRegion()).toHaveClass('liebe-sensor-graph')
     // Below the line rather than on it: `full` is the row shape plus secondary
     // content.
     expect(document.querySelector('.liebe-card-body-line')).not.toContainElement(
@@ -172,6 +186,35 @@ describe('SensorCard graph states', () => {
     // than the box appearing around it, so nothing below the card moved.
     expect(graphRegion()).toBe(region)
     expect(screen.queryByTestId('sensor-graph-skeleton')).toBeNull()
+  })
+
+  it('holds the min/max footer line while the first fetch is in flight', async () => {
+    /*
+     * The other half of the reservation the tier rule asks for. The `full`
+     * graph is flexible, so a footer that arrived with its text would take its
+     * line out of the graph and shrink it exactly when the series lands — the
+     * reflow the skeleton exists to prevent, one element lower down.
+     */
+    let resolve: (response: unknown) => void = () => {}
+    callWS.mockImplementation(() => new Promise((r) => (resolve = r)))
+    renderCard(<SensorCard entityId={ENTITY} tier="full" />)
+
+    const footer = screen.getByTestId('sensor-history-range')
+    // Reserved, not filled: extremes are a claim about a window that has not
+    // arrived, so the line holds its height with nothing in it.
+    expect(footer).toBeEmptyDOMElement()
+    // And it is the element the reservation rule selects. An empty line with no
+    // height reserves nothing, and the height lives in the stylesheet
+    // (`sensorGraphStyles.test.ts`), so the class is the whole join between the
+    // two halves of this behaviour.
+    expect(footer).toHaveClass('liebe-sensor-graph-footer')
+
+    resolve(createHistoryResponse(ENTITY, risingSamples()))
+    await drawn()
+
+    // The same element again, now carrying the window it always described.
+    expect(screen.getByTestId('sensor-history-range')).toBe(footer)
+    expect(footer).toHaveTextContent('Min 0.0 °C · Max 9.0 °C')
   })
 
   it('drops the graph region when the recorder has nothing for the window', async () => {

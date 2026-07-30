@@ -5,7 +5,7 @@
 Make the sensor card's history graph claim its tile: the `full`-tier graph grows with the card instead of staying a fixed 72px band, and the `tall` sparkline band spans the tile's width. The rule lives in [options/sensor — tier layouts](../specs/entity-cards/options/sensor.md#tier-layouts) ("the graph claims the tile").
 
 **Spec:** [entity-cards](../specs/entity-cards/) (options/sensor)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -56,7 +56,7 @@ Acceptance is the spec's own scenario, [options/sensor — bigger tile, bigger g
 
 ## Tasks
 
-- [ ] Graph claims the tile: `full` region grows, `tall` band stretches to tile width, loading placeholder reserves the graph-plus-footer region (per the owning tier rule), 32/96px literals onto the `--liebe-graph-height-inline`/`--liebe-graph-height-dialog` tokens (declared with the other geometry tokens), 72px literal removed; stylesheet + placement tests and 2×2/3×3 stories
+- [x] Graph claims the tile: `full` region grows, `tall` band stretches to tile width, loading placeholder reserves the graph-plus-footer region (per the owning tier rule), 32/96px literals onto the `--liebe-graph-height-inline`/`--liebe-graph-height-dialog` tokens (declared with the other geometry tokens), 72px literal removed; stylesheet + placement tests and 2×2/3×3 stories
 
 ## Open Questions
 

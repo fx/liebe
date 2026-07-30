@@ -254,14 +254,18 @@ function SensorCardComponent({
       : undefined
 
   /*
-   * The `full` footer reports the window's extremes through the same pipeline,
-   * and only while the graph it describes is on screen — a footer standing
-   * under no graph is a window nothing else names.
+   * The `full` footer's slot: present exactly while the graph it describes is on
+   * screen — a footer standing under no graph is a window nothing else names —
+   * and therefore present while that graph is still loading, empty. The empty
+   * line is the point: the extremes exist only once the series lands, and the
+   * graph above is flexible, so a footer that arrived with its text would take
+   * its line out of the graph and shrink it. Reserving the line here is what the
+   * tier rule means by the placeholder holding the graph AND its footer
+   * (docs/specs/entity-cards/options/sensor.md — "the graph claims the tile").
    */
-  const extremes =
-    tier === 'full' && sensorGraphState(samples) === 'graph'
-      ? historyExtremes(samples.points)
-      : null
+  const footerState = tier === 'full' ? sensorGraphState(samples) : 'none'
+  /* The extremes themselves, through the same pipeline as the value. */
+  const extremes = footerState === 'graph' ? historyExtremes(samples.points) : null
 
   /*
    * What each tier holds, from the tier table in
@@ -341,8 +345,17 @@ function SensorCardComponent({
             ) : undefined
           ) : tier === 'tall' ? (
             // Value above graph, both in the vertical band: the tier table's
-            // "big value centered, vertical-space sparkline beneath".
-            <Flex direction="column" align="center" gap="2" width="100%" height="100%">
+            // "big value centered, vertical-space sparkline beneath". The class
+            // is what lets `SensorCard.css` widen the box `CardBody` puts this
+            // band in — see the `liebe-sensor-band` rule there.
+            <Flex
+              className="liebe-sensor-band"
+              direction="column"
+              align="center"
+              gap="2"
+              width="100%"
+              height="100%"
+            >
               {showsValue ? value : null}
               {wantsGraph ? graph('band') : null}
             </Flex>
@@ -354,12 +367,21 @@ function SensorCardComponent({
           tier === 'full' ? (
             <>
               {wantsGraph ? graph('full') : null}
-              {extremes ? (
-                <Text size="1" color="gray" align="center" data-testid="sensor-history-range">
-                  Min {formatSensorNumber(extremes.min, format, options).text} · Max{' '}
-                  {formatSensorNumber(extremes.max, format, options).text}
+              {footerState === 'none' ? null : (
+                <Text
+                  size="1"
+                  color="gray"
+                  align="center"
+                  className="liebe-sensor-graph-footer"
+                  data-testid="sensor-history-range"
+                >
+                  {extremes
+                    ? `Min ${formatSensorNumber(extremes.min, format, options).text} · Max ${
+                        formatSensorNumber(extremes.max, format, options).text
+                      }`
+                    : null}
                 </Text>
-              ) : null}
+              )}
             </>
           ) : undefined
         }

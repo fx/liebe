@@ -45,7 +45,7 @@ Geometry tokens and defaults:
 | `--liebe-graph-height-inline`  | `32px`   | Sparkline band sharing a line with other content        |
 | `--liebe-graph-height-dialog`  | `96px`   | History graph in the entity detail dialog               |
 
-The two graph tokens are the **fixed** graph heights, and the only ones: a graph that shares its line with other content, and the dialog's. The `full` tier's card graph is deliberately absent from this table because it carries no fixed height at all — it grows with the tile ([options/sensor — tier layouts](../entity-cards/options/sensor.md#tier-layouts), change [0031](../../changes/0031-sensor-graph-fill.md)). _Both tokens are specified by 0031 and not yet implemented; the heights above are the literals they replace, so a theme that leaves them alone sees no change._
+The two graph tokens are the **fixed** graph heights, and the only ones: a graph that shares its line with other content, and the dialog's. The `full` tier's card graph is deliberately absent from this table because it carries no fixed height at all — it grows with the tile ([options/sensor — tier layouts](../entity-cards/options/sensor.md#tier-layouts), change [0031](../../changes/0031-sensor-graph-fill.md)). _Both tokens ship, defaulting to the literals they replaced, so a theme that leaves them alone sees no change._
 
 Surface tokens (dark defaults / light values):
 

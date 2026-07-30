@@ -28,9 +28,11 @@
   }
 
   /* `row`: the width the icon and the meta leave, at the height of a line of
-     text rather than of the tile — a row tile is one cell tall in total. */
+     text rather than of the tile — a row tile is one cell tall in total. The
+     one graph height this card fixes, and it is a token so a theme that changes
+     its text scale can change the band with it. */
   .liebe-sensor-graph[data-region='inline'] {
-    block-size: 32px;
+    block-size: var(--liebe-graph-height-inline);
     flex: 1 1 auto;
   }
 
@@ -41,9 +43,50 @@
     min-block-size: 0;
   }
 
-  /* `full`: the tier's own content, so it gets a block worth looking at
-     rather than a line's worth. */
+  /*
+   * The box that band sits in, so the sparkline spans the tile's width and not
+   * the big value's text width.
+   *
+   * The rule selects the wrapper rather than the band because the axis that
+   * collapses is the wrapper's: `CardBody` puts a filling `tall` control in a
+   * flex item of a body that centres its children on the inline axis, so the
+   * wrapper is sized to fit its content — and a band cannot widen itself inside
+   * a box that was measured from it (`inline-size: 100%` on the band resolves
+   * against that fitted width, which is where the collapse came from). Stretching
+   * the wrapper leaves its `justify-content: center` and every other card's band
+   * untouched: the reach is scoped to a wrapper holding THIS card's band
+   * (docs/specs/entity-cards/options/sensor.md — "the graph claims the tile").
+   */
+  .liebe-card-body-fill:has(> .liebe-sensor-band) {
+    align-self: stretch;
+  }
+
+  /*
+   * `full`: the tier's own content, so it takes the height the value line and
+   * the min/max footer leave rather than a fixed band with dead space around it
+   * — a 3×3 card draws a visibly taller graph than a 2×2. No floor: this is the
+   * one graph the token contract deliberately does not pin, so the only height
+   * it ever has is the tile's leftover.
+   *
+   * `min-block-size: 0` because a flex item's automatic minimum size is its
+   * content: without it the SVG's intrinsic height would stop the graph
+   * shrinking on a short tile and push the footer out of the tile instead.
+   */
   .liebe-sensor-graph[data-region='full'] {
-    block-size: 72px;
+    flex: 1 1 auto;
+    min-block-size: 0;
+  }
+
+  /*
+   * The `full` footer's line, held whether or not the extremes exist yet.
+   *
+   * A window's minimum and maximum are known only once the series lands, and the
+   * graph above is flexible — so a footer that appeared with its text would take
+   * its line out of the graph and shrink it under the reader's eyes. `1lh` is the
+   * footer's own line height rather than a pinned dimension, so the reservation
+   * follows the text it reserves for (the tier rule in options/sensor.md).
+   */
+  .liebe-sensor-graph-footer {
+    min-block-size: 1lh;
   }
 }

@@ -380,6 +380,61 @@ export const GraphInFull: Story = historyStory(
   }
 )
 
+/**
+ * The height the graph region resolved to, once the series is drawn.
+ *
+ * The point of the two stories below is a quantity no rendered test can see:
+ * jsdom lays nothing out, so "the graph claims the tile" is only observable in a
+ * browser (docs/specs/entity-cards/options/sensor.md — "Tier layouts"). These
+ * play functions run in no gate, so treat them as the documentation of what to
+ * look at rather than as verification of it.
+ */
+function graphHeight(canvasElement: HTMLElement): number {
+  return canvasElement.querySelector('[data-testid="sensor-graph"]')!.getBoundingClientRect().height
+}
+
+/** The band the `full` graph used to be pinned to, before change 0031. */
+const FORMER_FIXED_BAND = 72
+
+/**
+ * The smallest tile that reaches `full` — the sensor card's own default size.
+ * The graph takes what the value line and the min/max footer leave, which is
+ * already more than the fixed band it replaced.
+ */
+export const GraphInFullSmallTile: Story = historyStory(
+  graphEntity('full_small'),
+  temperatureCurve('sensor.graph_full_small'),
+  {
+    args: { tier: 'full', gridWidth: 2, gridHeight: 2 },
+    play: async ({ canvasElement }) => {
+      await drawnSpark(canvasElement)
+      await expect(graphHeight(canvasElement)).toBeGreaterThan(FORMER_FIXED_BAND)
+    },
+  }
+)
+
+/**
+ * The same card one cell taller and wider. Read beside `GraphInFullSmallTile`:
+ * the added tile height goes to the graph, with the value line and the footer
+ * unchanged and no dead band above or below them — the tier rule's scenario.
+ */
+export const GraphInFullLargeTile: Story = historyStory(
+  graphEntity('full_large'),
+  temperatureCurve('sensor.graph_full_large'),
+  {
+    args: { tier: 'full', gridWidth: 3, gridHeight: 3 },
+    play: async ({ canvasElement }) => {
+      await drawnSpark(canvasElement)
+      const canvas = within(canvasElement)
+      await expect(canvas.getByTestId('sensor-graph')).toHaveAttribute('data-region', 'full')
+      // A third row is roughly another hundred pixels of tile, and all of it
+      // lands here: the row above and the footer below are the same size they
+      // are at 2×2.
+      await expect(graphHeight(canvasElement)).toBeGreaterThan(FORMER_FIXED_BAND * 2)
+    },
+  }
+)
+
 const energyCounter = createSensorEntity({
   entity_id: 'sensor.graph_counter',
   state: '23',
