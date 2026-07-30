@@ -233,6 +233,50 @@
   }
 
   /*
+   * A control row spans whatever box it is in — `.liebe-card-controls` is
+   * `inline-size: 100%` in `GridCard.css` — so the cross-axis rule above
+   * cannot move it, and a content-sized control inside it (a pill group, a
+   * switch, a stepper) would sit at the leading edge while the icon and the
+   * meta slid away from it. That splits the content block in half, which is
+   * the one thing the option must not do: it moves the block as a whole or not
+   * at all.
+   *
+   * The row keeps its width — a filling control still fills — and it is the
+   * distribution inside it that follows the alignment.
+   *
+   * At any depth, not only as the body's own child. The `stack` and `tall`
+   * shapes put a control row directly in the body, but a card's `full`-tier
+   * secondary content wraps one in a layout of its own (the lock's mode pills,
+   * the vacuum's command row), and a rule that stopped at the body left
+   * exactly those at the leading edge — measured on both.
+   */
+  .liebe-card[data-align-h='start'] .liebe-card-controls {
+    justify-content: flex-start;
+  }
+
+  .liebe-card[data-align-h='center'] .liebe-card-controls {
+    justify-content: center;
+  }
+
+  .liebe-card[data-align-h='end'] .liebe-card-controls {
+    justify-content: flex-end;
+  }
+
+  /*
+   * With one exception, restated here at a weight that outranks the three
+   * above: the `tall` band's own control stays centred whatever the alignment
+   * is. "A vertical slider MUST render horizontally centred within whatever
+   * region hosts it" (docs/specs/design-system — "Card anatomy") is a rule
+   * about the region, and the alignment already moved the region — the band is
+   * a fit-content flex item that the cross-axis rule carries. Letting the
+   * alignment reach inside it as well would left-flush the slider within a
+   * band that had already slid, which is the defect docs/changes/0028 fixed.
+   */
+  .liebe-card[data-align-h] .liebe-card-body-fill > .liebe-card-controls {
+    justify-content: center;
+  }
+
+  /*
    * The row shapes lay their parts along a line that spans the body, so the
    * rule above cannot move them — the line is the box that distributes, and
    * this is its half of the mapping.

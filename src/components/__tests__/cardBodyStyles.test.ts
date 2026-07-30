@@ -203,6 +203,34 @@ describe('the alignment pair inside the body', () => {
     ).toContain('flex: 0 1 auto;')
   })
 
+  it('moves a control row’s content with the rest, rather than splitting the block', () => {
+    // `.liebe-card-controls` spans whatever box it is in, so without this the
+    // icon and the meta slide while a content-sized control — a pill group, a
+    // switch — stays at the leading edge. The contract moves the content block
+    // as a whole or not at all.
+    expect(ruleBody(body, ".liebe-card[data-align-h='end'] .liebe-card-controls")).toContain(
+      'justify-content: flex-end;'
+    )
+  })
+
+  it('keeps the tall band’s own control centred, whatever the alignment', () => {
+    // The band is a fit-content item that the cross-axis rule already carries;
+    // letting the alignment reach inside it too would left-flush the vertical
+    // slider inside a band that had already moved — the defect 0028 fixed.
+    // This rule carries one more selector component than the three above, which
+    // is what makes it win.
+    const band = ruleBody(
+      body,
+      '.liebe-card[data-align-h] .liebe-card-body-fill > .liebe-card-controls'
+    )
+    expect(band).toContain('justify-content: center;')
+
+    const weigh = (selector: string) => (selector.match(/\.[\w-]+|\[[^\]]*\]/g) ?? []).length
+    expect(
+      weigh('.liebe-card[data-align-h] .liebe-card-body-fill > .liebe-card-controls')
+    ).toBeGreaterThan(weigh(".liebe-card[data-align-h='end'] .liebe-card-controls"))
+  })
+
   it('outranks the arrangement rules it has to override', () => {
     // `.liebe-card[data-align-v='start'] .liebe-card-body` carries three
     // selector components against the arrangement rule's two, so the cascade
