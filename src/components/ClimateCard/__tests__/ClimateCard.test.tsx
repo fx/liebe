@@ -518,6 +518,10 @@ describe('ClimateCard', () => {
       expect(vendorPill.querySelector('svg')).toBeNull()
       expect(vendorPill.firstElementChild!.textContent).toBe('He')
 
+      // The mark is decorative, so it stays out of the button's name — a reader
+      // announcing "He Heat pump boost" spells the label at the user.
+      expect(vendorPill).toHaveAccessibleName('Heat pump boost')
+
       await userEvent.click(vendorPill)
 
       expect(mockDispatchGuarded).toHaveBeenCalledWith({
@@ -526,6 +530,43 @@ describe('ClimateCard', () => {
         entityId: 'climate.test_thermostat',
         data: { hvac_mode: 'heat_pump_boost' },
       })
+    })
+
+    it('names the auto pill for its label alone, not the letter in its glyph', () => {
+      // The same rule from the other side: `auto` draws a literal "A" inside its
+      // SVG, which the accessible name would otherwise begin with.
+      seed(
+        createMockClimateEntity({
+          state: 'auto',
+          attributes: { hvac_mode: 'auto', hvac_modes: ['auto'] },
+        })
+      )
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      const pill = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))[0]
+      expect(pill).toHaveAccessibleName('Auto')
+    })
+
+    it('offers no pill for a blank mode the entity reports', () => {
+      // A row that renders every mode it is handed must not be handed a nameless
+      // one: the pill would carry no label and would dispatch `set_hvac_mode`
+      // with an empty string. `readHvacModes` drops it.
+      seed(
+        createMockClimateEntity({
+          state: 'heat',
+          attributes: { hvac_mode: 'heat', hvac_modes: ['heat', '', '  '] },
+        })
+      )
+
+      renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)
+
+      const modeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.classList.contains('liebe-pill'))
+      expect(modeButtons.map(pillLabel)).toEqual(['Heat'])
     })
 
     it('marks a vendor mode active when the thermostat is in it', () => {

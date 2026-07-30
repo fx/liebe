@@ -132,10 +132,17 @@ export function readTemperature(value: unknown): number | undefined {
  * `hvac_modes` is absent on entities that expose no mode control at all, and a
  * hand-edited or malformed one can be any shape; every one of those means "no
  * modes to offer" rather than a card that throws while rendering.
+ *
+ * **Blank entries are dropped**, and that is load-bearing rather than tidiness:
+ * a pill row renders every mode it is handed, so a template publishing
+ * `['heat', '']` would otherwise get an unlabelled pill that dispatches
+ * `set_hvac_mode` with an empty string. A mode with no name is not a mode, and
+ * this is the one place that judgement can be made for the preset and fan-mode
+ * rows too.
  */
 export function readHvacModes(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value.filter((mode): mode is string => typeof mode === 'string')
+  return value.filter((mode): mode is string => typeof mode === 'string' && mode.trim() !== '')
 }
 
 /**

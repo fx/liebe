@@ -46,6 +46,12 @@ describe('readHvacModes', () => {
     expect(readHvacModes(['off', 'heat', 3, null, 'cool'])).toEqual(['off', 'heat', 'cool'])
   })
 
+  it('drops a blank mode, which a pill row would otherwise offer unlabelled', () => {
+    // The row renders every mode it is handed, so an empty string would become a
+    // nameless pill dispatching `set_hvac_mode` with nothing in it.
+    expect(readHvacModes(['heat', '', '   ', 'cool'])).toEqual(['heat', 'cool'])
+  })
+
   it.each([
     ['absent', undefined],
     ['a string', 'heat,cool'],
