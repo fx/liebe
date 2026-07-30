@@ -62,3 +62,9 @@ tmp/
 mockups/
 # Workspace tooling artifacts
 .tailscale/
+# Lint fixtures written and deleted by src/__tests__/effectHookLintGate.test.ts.
+# Ignored by ESLint and Prettier too — but this entry is the one that bounds the
+# damage rather than preventing the mess: untracked leftovers cannot be
+# committed by accident, and the spec's cleanup can therefore never be pointed
+# at a tracked file.
+src/__lint-fixture__/

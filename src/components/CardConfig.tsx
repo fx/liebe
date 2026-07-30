@@ -881,7 +881,7 @@ function Modal({ open, onOpenChange, item, span, onSave }: ModalProps) {
 
   const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(getInitialConfig())
 
-  React.useEffect(() => {
+  useEffect(() => {
     setLocalConfig(getInitialConfig())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item])

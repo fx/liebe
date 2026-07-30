@@ -40,6 +40,80 @@ export default [
       'react-hooks/incompatible-library': 'error',
       'react-hooks/set-state-in-effect': 'error',
       'react-hooks/preserve-manual-memoization': 'error',
+      /*
+       * The effect hooks MUST be called through the imported binding, never as
+       * `React.useEffect(...)` — because `react-hooks/set-state-in-effect`
+       * cannot see the member-call form, so a state-writing effect written that
+       * way is silently exempt from a rule the line above sets to `error`
+       * (docs/changes/0040-test-harness-reliability.md, PR 3).
+       *
+       * This is an upstream defect rather than a configuration gap, which is
+       * why the ban is the fix. The rule is one of the react-hooks v7
+       * compiler-backed rules, and its validation pass reads the *receiver* of
+       * a method call where it means the callee — so for `React.useEffect(fn)`
+       * it type-checks `React`, an object, against "is this an effect hook?"
+       * and gets `false`. The pass has no option that changes this, and the
+       * same bundle's memory-effect inference does it correctly
+       * (`callee = value.property`), so there is nothing to configure. Patching
+       * a vendored 2 MB compiler build to fix it would make this gate's
+       * correctness depend on a patch surviving every reinstall and every
+       * plugin upgrade, unnoticed when it stopped applying — the exact class of
+       * silently-degrading gate that change 0040 exists to remove.
+       *
+       * Scoped to the three hooks the rule inspects (`useEffect`,
+       * `useLayoutEffect`, `useInsertionEffect`) so the ban is exactly as wide
+       * as the blind spot. `React.useState` and friends are unaffected: the
+       * member form of those resolves correctly, verified by probe.
+       *
+       * Keyed on the **property**, not on an object named `React`. The blind
+       * spot is a property of the member call itself — the pass mis-reads the
+       * receiver whatever the receiver is called — so a selector pinned to
+       * `React` would let `import * as Hooks from 'react'; Hooks.useEffect(…)`
+       * through, and the hole it was written to close would still be open under
+       * a different name. The second selector is the same ban for the computed
+       * spelling, `React['useEffect']`.
+       *
+       * The third selector covers `const { useEffect } = React`, which is the
+       * subtle one: the call site is then a plain identifier, so there is no
+       * member expression left to key on — and the rule stays silent too,
+       * because the binding came from a namespace object rather than from an
+       * import it recognises. That spelling therefore evades the rule *and*
+       * both selectors above, which is why it is banned at the destructuring
+       * rather than at the call.
+       *
+       * Nothing statically catches a fully dynamic access (`React[name]`), and
+       * nothing needs to: that defeats the rule's own analysis too, so it is a
+       * limitation of the underlying rule rather than of this ban.
+       *
+       * `exhaustive-deps` is the AST-based rule and does see member calls; only
+       * the compiler-backed rules have this hole.
+       */
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'MemberExpression[computed=false][property.name=/^use(Layout|Insertion)?Effect$/]',
+          message:
+            "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a member call like `React.useEffect`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
+        },
+        {
+          // Both static computed spellings: a string literal carries `value`, a
+          // no-substitution template literal carries `quasis.0.value.raw`.
+          selector:
+            'MemberExpression[computed=true]:matches([property.value=/^use(Layout|Insertion)?Effect$/], [property.quasis.length=1][property.quasis.0.value.raw=/^use(Layout|Insertion)?Effect$/])',
+          message:
+            "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a computed member call like `React['useEffect']`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
+        },
+        {
+          // Every static key spelling: `{ useEffect }` / `{ useEffect: alias }`
+          // carry an identifier key, `{ ['useEffect']: alias }` a string
+          // literal, and the backtick form a template literal.
+          selector:
+            'ObjectPattern > Property:matches([key.name=/^use(Layout|Insertion)?Effect$/], [key.value=/^use(Layout|Insertion)?Effect$/], [key.quasis.length=1][key.quasis.0.value.raw=/^use(Layout|Insertion)?Effect$/])',
+          message:
+            "Import the effect hooks directly — `import { useEffect } from 'react'` — rather than destructuring them off the React namespace. A hook bound that way is a plain identifier at the call site, which react-hooks/set-state-in-effect does not recognise as an effect, so the state-writing check silently does not apply. See docs/changes/0040-test-harness-reliability.md.",
+        },
+      ],
     },
     settings: {
       react: {
@@ -78,6 +152,16 @@ export default [
       '.vite-temp/',
       '.tailscale/',
       'storybook-static/',
+      /*
+       * Fixtures written by `src/__tests__/effectHookLintGate.test.ts`. They
+       * contain the banned spellings on purpose, and the spec deletes them —
+       * but a run killed between the write and the cleanup would otherwise
+       * leave the merge-blocking lint gate failing on files that are not
+       * anybody's diff, which is a miserable thing to debug. The spec opts
+       * itself back in with `ignore: false`, so ignoring them here costs it
+       * nothing.
+       */
+      'src/__lint-fixture__/',
     ],
   },
   prettierConfig,
