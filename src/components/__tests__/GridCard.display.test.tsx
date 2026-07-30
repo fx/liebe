@@ -184,6 +184,58 @@ describe('GridCard display options', () => {
     })
   })
 
+  describe('the alignment pair', () => {
+    it('stamps each axis the user named on the tile', () => {
+      renderCard({ alignHorizontal: 'end', alignVertical: 'start' })
+
+      expect(card()).toHaveAttribute('data-align-h', 'end')
+      expect(card()).toHaveAttribute('data-align-v', 'start')
+    })
+
+    it('stamps nothing for auto, which is the tier’s own arrangement', () => {
+      // Presence-only, like `data-active`: the attribute's absence is what
+      // makes `auto` provably free, since every rule the pair adds is scoped to
+      // one of these two attributes.
+      renderCard({ alignHorizontal: 'auto', alignVertical: 'auto' })
+
+      expect(card()).not.toHaveAttribute('data-align-h')
+      expect(card()).not.toHaveAttribute('data-align-v')
+    })
+
+    it('stamps nothing when the keys are absent', () => {
+      renderCard()
+
+      expect(card()).not.toHaveAttribute('data-align-h')
+      expect(card()).not.toHaveAttribute('data-align-v')
+    })
+
+    it('leaves the other axis alone when only one is named', () => {
+      renderCard({ alignVertical: 'center' })
+
+      expect(card()).not.toHaveAttribute('data-align-h')
+      expect(card()).toHaveAttribute('data-align-v', 'center')
+    })
+
+    it('falls an unknown value back to auto without touching the other axis', () => {
+      // A document from a build with a wider set renders with this tier's own
+      // arrangement on that axis, rather than stamping a value no rule matches.
+      renderCard({ alignHorizontal: 'justify', alignVertical: 'end' })
+
+      expect(card()).not.toHaveAttribute('data-align-h')
+      expect(card()).toHaveAttribute('data-align-v', 'end')
+    })
+
+    it('composes with an icon-only tile', () => {
+      // "An icon-only tile with `alignVertical: start` shows its icon at the top
+      // of the tile" — both attributes are stamped, and the sheet's alignment
+      // rules follow the icon-only rule so the later one wins.
+      renderCard({ hideName: true, hideState: true, alignVertical: 'start' })
+
+      expect(card()).toHaveAttribute('data-icon-only', 'true')
+      expect(card()).toHaveAttribute('data-align-v', 'start')
+    })
+  })
+
   describe('a danger state', () => {
     const calmingConfig = {
       name: 'Back door',
@@ -191,6 +243,7 @@ describe('GridCard display options', () => {
       hideName: true,
       hideState: true,
       color: 'ok',
+      alignVertical: 'start',
     }
 
     it('refuses to be configured into looking calm', () => {
@@ -213,6 +266,19 @@ describe('GridCard display options', () => {
       expect(card()).toHaveAttribute('data-color', 'alert')
       expect(card()).not.toHaveAttribute('data-icon-only')
       expect(screen.getByTestId('card-own-icon')).toBeInTheDocument()
+    })
+
+    it('keeps the alignment, which says nothing about the entity', () => {
+      // The floor takes back signalling, and alignment is not signalling: a
+      // top-aligned hazard tile still carries every word of its warning
+      // (docs/specs/entity-cards/options/common.md — "Content alignment").
+      render(
+        <GridCard domain="lock" color="alert" danger config={calmingConfig}>
+          <GridCard.Title>Back door lock</GridCard.Title>
+        </GridCard>
+      )
+
+      expect(card()).toHaveAttribute('data-align-v', 'start')
     })
   })
 

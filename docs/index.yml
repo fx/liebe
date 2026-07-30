@@ -270,7 +270,7 @@ changes:
     path: changes/0032-card-content-alignment.md
     description: Universal alignHorizontal/alignVertical display options positioning any card's content block on both tile axes, applied centrally by the shell
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: []
   - id: '0033'
     name: icon-only-cards

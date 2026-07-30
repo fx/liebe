@@ -173,4 +173,98 @@
     align-self: stretch;
     justify-content: center;
   }
+
+  /* ------------------------------------------------------------------ *
+   * Content alignment
+   *
+   * The refinement half of the universal alignment pair
+   * (docs/specs/entity-cards/options/common.md — "Content alignment"). The
+   * tile's own rules in `GridCard.css` are what reach every card, this shape
+   * included; what they cannot do is move anything inside a body that already
+   * spans the tile in both directions, which is what `.liebe-card-body` does.
+   * So the same two attributes are mapped a second time here, onto the axes
+   * this shape actually distributes along.
+   *
+   * Which axis is which depends on the arrangement, and that dependency is
+   * exactly why the mapping lives in the stylesheet rather than in the cards: a
+   * card passes slots and never learns that its `tall` shape distributes
+   * vertically while its `row` shape distributes horizontally along a line one
+   * element further in.
+   *
+   * Scoped to the shell's attributes throughout, so a card with neither key
+   * stored matches nothing added here — the arrangements above keep their own
+   * `justify-content` and `align-items` untouched, which is what makes `auto`
+   * cost nothing.
+   * ------------------------------------------------------------------ */
+
+  /*
+   * The body is a column in every arrangement, so its main axis is the tile's
+   * vertical one: this is the rule that slides a `glance` stack to the top of
+   * its tile and replaces `tall`'s `space-between` with a single block at the
+   * requested end.
+   */
+  .liebe-card[data-align-v='start'] .liebe-card-body {
+    justify-content: flex-start;
+  }
+
+  .liebe-card[data-align-v='center'] .liebe-card-body {
+    justify-content: center;
+  }
+
+  .liebe-card[data-align-v='end'] .liebe-card-body {
+    justify-content: flex-end;
+  }
+
+  /*
+   * The column's cross axis is the horizontal one, which is where the stacked
+   * arrangements (`stack`, `tall`) place their parts — and where `row`/`full`
+   * place their secondary content, since the line below spans the body.
+   */
+  .liebe-card[data-align-h='start'] .liebe-card-body {
+    align-items: flex-start;
+  }
+
+  .liebe-card[data-align-h='center'] .liebe-card-body {
+    align-items: center;
+  }
+
+  .liebe-card[data-align-h='end'] .liebe-card-body {
+    align-items: flex-end;
+  }
+
+  /*
+   * The row shapes lay their parts along a line that spans the body, so the
+   * rule above cannot move them — the line is the box that distributes, and
+   * this is its half of the mapping.
+   */
+  .liebe-card[data-align-h='start'] .liebe-card-body-line {
+    justify-content: flex-start;
+  }
+
+  .liebe-card[data-align-h='center'] .liebe-card-body-line {
+    justify-content: center;
+  }
+
+  .liebe-card[data-align-h='end'] .liebe-card-body-line {
+    justify-content: flex-end;
+  }
+
+  /*
+   * And the meta stops taking the line's leftover width while an alignment is
+   * in force. Without this the rules above are inert on every row shape there
+   * is: the meta grows into whatever the icon and the control leave, so the
+   * line has no free space for a `justify-content` to distribute, and a
+   * horizontally aligned `row` card would look exactly like an unaligned one.
+   *
+   * `0 1 auto` rather than `none`: the meta must still shrink below its content
+   * on a narrow tile, which is what lets the name ellipsize instead of pushing
+   * the control off the trailing edge.
+   *
+   * A control sized `fill` still takes the free space and the line still has
+   * none — content that fills its axis ignores the override on that axis,
+   * which the contract calls correct rather than a defect.
+   */
+  .liebe-card[data-align-h] .liebe-card-body-line > .liebe-meta {
+    flex: 0 1 auto;
+  }
 }

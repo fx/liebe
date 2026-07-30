@@ -28,6 +28,20 @@ function read(relativePath: string): string {
 const css = read('../GridCard.css').replace(/\/\*[\s\S]*?\*\//g, '')
 const shell = read('../GridCard.tsx').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
 
+/**
+ * Every style rule in the sheet, as selector and declarations.
+ *
+ * At-rules are skipped rather than parsed: a brace-free body cannot match a
+ * block that opens another one, so `@layer`'s, `@media`'s and `@keyframes`'
+ * own preludes drop out and the rules nested inside them are matched on their
+ * own.
+ */
+function rulesIn(sheet: string): { selector: string; declarations: string }[] {
+  return [...sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(([, selector, declarations]) => ({ selector: selector.trim(), declarations }))
+    .filter(({ selector }) => !selector.startsWith('@'))
+}
+
 /** Bodies of every rule whose selector list ends with the given selector. */
 function ruleBodies(selector: string): string[] {
   const escaped = selector.replace(/[[\]().*+?^$|\\]/g, '\\$&')
@@ -174,6 +188,84 @@ describe('card shell stylesheet', () => {
     // the rendered DOM in `GridCard.display.test.tsx` ("leaves the meta stack
     // matching :empty when both lines go").
     expect(ruleBody('.liebe-card[data-icon-only] .liebe-meta:empty')).toContain('display: none;')
+  })
+
+  describe('the alignment pair', () => {
+    it('leaves the unaligned tile in block flow, which is what makes auto free', () => {
+      // The load-bearing half of "`auto` renders exactly as before": the tile
+      // itself declares no box model, so the rules below are the ONLY thing
+      // that can move a card's content — and each of them needs an attribute
+      // the shell stamps for a non-`auto` value only.
+      const tile = ruleBody('.liebe-card')
+
+      expect(tile).not.toMatch(/\bdisplay:/)
+      expect(tile).not.toMatch(/\b(flex-direction|justify-content|align-items|place-content):/)
+    })
+
+    it('every rule it adds is scoped to an attribute a non-auto value stamps', () => {
+      // Stated over the whole sheet rather than rule by rule, because the risk
+      // is a rule that forgot the scope — one unscoped `display: flex` on
+      // `.liebe-card` would restyle every card on every dashboard, which is
+      // precisely the failure `auto` exists to rule out.
+      const unscoped = rulesIn(css)
+        .filter(({ declarations }) =>
+          /\b(justify-content|align-items|flex-direction)\s*:/.test(declarations)
+        )
+        .map(({ selector }) => selector)
+        .filter((selector) => !/\[data-align-[hv]/.test(selector))
+
+      // Two pre-existing rules distribute content and are not part of the
+      // pair: the icon-only tile, and the row a card puts its control in.
+      expect(unscoped).toEqual(['.liebe-card[data-icon-only]', '.liebe-card-controls'])
+    })
+
+    it('turns the tile into a column, so each axis means one thing', () => {
+      // A row direction would swap what the two properties below control the
+      // moment a card renders more than one child, which is a mapping no card
+      // should have to know about.
+      // Matched on the last selector of the pair's shared rule — `ruleBody`
+      // finds a rule whose selector list ENDS with what it is given, so this
+      // survives the list being rewrapped.
+      const tile = ruleBody('.liebe-card[data-align-v]')
+
+      expect(tile).toContain('display: flex;')
+      expect(tile).toContain('flex-direction: column;')
+    })
+
+    it('maps the horizontal axis onto the cross axis and the vertical onto the main one', () => {
+      expect(ruleBody(".liebe-card[data-align-h='start']")).toContain('align-items: flex-start;')
+      expect(ruleBody(".liebe-card[data-align-h='center']")).toContain('align-items: center;')
+      expect(ruleBody(".liebe-card[data-align-h='end']")).toContain('align-items: flex-end;')
+
+      expect(ruleBody(".liebe-card[data-align-v='start']")).toContain(
+        'justify-content: flex-start;'
+      )
+      expect(ruleBody(".liebe-card[data-align-v='center']")).toContain('justify-content: center;')
+      expect(ruleBody(".liebe-card[data-align-v='end']")).toContain('justify-content: flex-end;')
+    })
+
+    it('places the tile’s own content box, which is what reaches a card with no body', () => {
+      // The seam has to be the tile: a card that renders its own interior — the
+      // climate `dial` variant renders no `CardBody`, and legacy climate cards
+      // are pinned onto it — would be inert under body-only rules.
+      const tileRules = rulesIn(css)
+        .map(({ selector }) => selector)
+        .filter((selector) => /\[data-align-[hv]/.test(selector))
+
+      for (const selector of tileRules) {
+        // Every one of them ends at the tile — no descendant selector, so
+        // nothing here depends on what a card renders inside.
+        expect(selector.replace(/,\s*/g, ' ').split(/\s+/), selector).not.toContain('.liebe-meta')
+        expect(selector, selector).toMatch(/^[^ ]*\.liebe-card\[data-align-[hv][^ ]*$/m)
+      }
+    })
+
+    it('follows the icon-only rule, so an aligned icon-only tile takes the alignment', () => {
+      // Both selectors carry one class and one attribute, so source order is
+      // what decides — an icon-only tile with `alignVertical: start` must end
+      // up with its glyph at the top rather than centred.
+      expect(css.indexOf('[data-align-h]')).toBeGreaterThan(css.indexOf('[data-icon-only] {'))
+    })
   })
 
   it('transitions state changes at the duration the spec gives', () => {

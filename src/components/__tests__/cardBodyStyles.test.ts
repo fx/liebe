@@ -42,6 +42,19 @@ const body = stripComments(read('../CardBody.css'))
  */
 const shell = stripComments(read('../GridCard.css'))
 
+/**
+ * Every style rule in a sheet, as selector and declarations.
+ *
+ * At-rules are skipped rather than parsed: a brace-free body cannot match a
+ * block that opens another one, so `@layer`'s and `@media`'s own preludes drop
+ * out and the rules nested inside them are matched on their own.
+ */
+function rulesIn(css: string): { selector: string; declarations: string }[] {
+  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(([, selector, declarations]) => ({ selector: selector.trim(), declarations }))
+    .filter(({ selector }) => !selector.startsWith('@'))
+}
+
 /** Body of the first rule with the given selector, in the given sheet. */
 function ruleBody(css: string, selector: string): string {
   const escaped = selector.replace(/[[\]().*+?^$|\\]/g, '\\$&')
@@ -114,6 +127,91 @@ describe('the tall arrangement centres its vertical control', () => {
     const band = ruleBody(body, '.liebe-card-body-fill')
     expect(band).toContain('flex: 1 1 auto;')
     expect(band).toContain('min-block-size: 0;')
+  })
+})
+
+describe('the alignment pair inside the body', () => {
+  /**
+   * The refinement half of change 0032: the tile's own rules reach every card,
+   * and cannot move anything inside a body that already spans the tile — which
+   * `.liebe-card-body` does on both axes.
+   */
+  it('keeps every arrangement’s own distribution for a card with no alignment stored', () => {
+    // The `auto`-costs-nothing claim, stated where it can actually break: these
+    // three declarations ARE what `auto` means, and an alignment rule written
+    // over them rather than beside them would have changed every card at once.
+    expect(ruleBody(body, '.liebe-card-body')).toContain('justify-content: center;')
+
+    const stack = ruleBody(body, ".liebe-card-body[data-arrangement='stack']")
+    expect(stack).toContain('align-items: center;')
+
+    const tall = ruleBody(body, ".liebe-card-body[data-arrangement='tall']")
+    expect(tall).toContain('justify-content: space-between;')
+  })
+
+  it('adds no rule that a card without the attributes can match', () => {
+    const unscoped = rulesIn(body)
+      .filter(({ declarations }) => /\b(justify-content|align-items)\s*:/.test(declarations))
+      .map(({ selector }) => selector)
+      .filter((selector) => !/\[data-align-[hv]/.test(selector))
+
+    // Exactly the rules that were here before the pair — the arrangements' own
+    // distribution, the row line's trailing edge and its `fill` exception, and
+    // the tall band's centring.
+    expect(unscoped).toEqual([
+      '.liebe-card-body',
+      ".liebe-card-body[data-arrangement='stack']",
+      ".liebe-card-body[data-arrangement='tall']",
+      '.liebe-card-body-line',
+      '.liebe-card-body-line > .liebe-card-controls',
+      ".liebe-card-body[data-control-size='fill'] > .liebe-card-body-line > .liebe-card-controls",
+      '.liebe-card-body-fill',
+      '.liebe-card-body-fill > .liebe-card-controls',
+    ])
+  })
+
+  it('slides the whole body along the tile’s vertical axis', () => {
+    // The body is a column in every arrangement, so one rule per value covers
+    // `stack`, `tall` and the row shapes at once — including replacing `tall`'s
+    // `space-between`, which is the arrangement most visibly its own.
+    expect(ruleBody(body, ".liebe-card[data-align-v='start'] .liebe-card-body")).toContain(
+      'justify-content: flex-start;'
+    )
+    expect(ruleBody(body, ".liebe-card[data-align-v='end'] .liebe-card-body")).toContain(
+      'justify-content: flex-end;'
+    )
+  })
+
+  it('slides the stacked arrangements along the cross axis', () => {
+    expect(ruleBody(body, ".liebe-card[data-align-h='start'] .liebe-card-body")).toContain(
+      'align-items: flex-start;'
+    )
+    expect(ruleBody(body, ".liebe-card[data-align-h='end'] .liebe-card-body")).toContain(
+      'align-items: flex-end;'
+    )
+  })
+
+  it('slides the row shapes along their line, and stops the meta eating the room', () => {
+    // Both halves, because the first is inert without the second: the meta
+    // grows into whatever the icon and the control leave, so an aligned row
+    // would have no free space to distribute and would look unaligned.
+    expect(ruleBody(body, ".liebe-card[data-align-h='end'] .liebe-card-body-line")).toContain(
+      'justify-content: flex-end;'
+    )
+    expect(
+      ruleBody(body, '.liebe-card[data-align-h] .liebe-card-body-line > .liebe-meta')
+    ).toContain('flex: 0 1 auto;')
+  })
+
+  it('outranks the arrangement rules it has to override', () => {
+    // `.liebe-card[data-align-v='start'] .liebe-card-body` carries three
+    // selector components against the arrangement rule's two, so the cascade
+    // settles it without importance — which the layers would reverse anyway.
+    const alignment = ".liebe-card[data-align-v='start'] .liebe-card-body"
+    const arrangement = ".liebe-card-body[data-arrangement='tall']"
+    const weigh = (selector: string) => (selector.match(/\.[\w-]+|\[[^\]]*\]/g) ?? []).length
+
+    expect(weigh(alignment)).toBeGreaterThan(weigh(arrangement))
   })
 })
 

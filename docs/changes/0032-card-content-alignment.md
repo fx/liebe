@@ -5,7 +5,7 @@
 Add the universal `alignHorizontal` / `alignVertical` display options — every entity card's content block becomes positionable on both tile axes, applied centrally by the card shell like the existing display options. The option contract lives in [options/common — content alignment](../specs/entity-cards/options/common.md#content-alignment-alignhorizontal--alignvertical).
 
 **Spec:** [entity-cards](../specs/entity-cards/) (options/common)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -57,7 +57,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 
 ## Tasks
 
-- [ ] Universal alignment pair: display-key registry/schema/defaults, config-form selects, shell stamping, stylesheet application at the tile plus per arrangement, an audit that every registered card and variant honours both axes (climate `dial` included), `auto`-unchanged proof, round-trip + display + stylesheet tests, stories
+- [x] Universal alignment pair: display-key registry/schema/defaults, config-form selects, shell stamping, stylesheet application at the tile plus per arrangement, an audit that every registered card and variant honours both axes (climate `dial` included), `auto`-unchanged proof, round-trip + display + stylesheet tests, stories
 
 ## Open Questions
 
