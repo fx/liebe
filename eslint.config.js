@@ -73,6 +73,14 @@ export default [
        * a different name. The second selector is the same ban for the computed
        * spelling, `React['useEffect']`.
        *
+       * The third selector covers `const { useEffect } = React`, which is the
+       * subtle one: the call site is then a plain identifier, so there is no
+       * member expression left to key on — and the rule stays silent too,
+       * because the binding came from a namespace object rather than from an
+       * import it recognises. That spelling therefore evades the rule *and*
+       * both selectors above, which is why it is banned at the destructuring
+       * rather than at the call.
+       *
        * Nothing statically catches a fully dynamic access (`React[name]`), and
        * nothing needs to: that defeats the rule's own analysis too, so it is a
        * limitation of the underlying rule rather than of this ban.
@@ -93,6 +101,11 @@ export default [
             'MemberExpression[computed=true][property.value=/^use(Layout|Insertion)?Effect$/]',
           message:
             "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a computed member call like `React['useEffect']`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
+        },
+        {
+          selector: 'ObjectPattern > Property[key.name=/^use(Layout|Insertion)?Effect$/]',
+          message:
+            "Import the effect hooks directly — `import { useEffect } from 'react'` — rather than destructuring them off the React namespace. A hook bound that way is a plain identifier at the call site, which react-hooks/set-state-in-effect does not recognise as an effect, so the state-writing check silently does not apply. See docs/changes/0040-test-harness-reliability.md.",
         },
       ],
     },

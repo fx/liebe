@@ -29,7 +29,7 @@ import { join, dirname } from 'node:path'
  * after someone deleted the rule from the real one, which would make it worse
  * than no test: it would report the gate as working precisely when it was not.
  *
- * The three assertions are deliberately different in kind:
+ * The assertions are deliberately different in kind:
  *
  *  1. The ban fires on `React.useEffect`. This is the gate.
  *  2. `set-state-in-effect` fires on the imported form. This is why the ban is
@@ -42,17 +42,28 @@ import { join, dirname } from 'node:path'
  *     it says the ban has become redundant and can be reconsidered. Asserting
  *     it is the difference between "we chose to ban this" and "we can no longer
  *     remember why we banned this".
+ *  4. The ban also fires on the three spellings that evade a naive version of
+ *     it — an aliased namespace, computed access, and destructuring off the
+ *     namespace. Each of those was a real hole found in review, not a
+ *     hypothetical; the destructured one evaded the rule as well as the ban.
  */
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-/** A component that resets state from an effect — the pattern the rule rejects. */
-function fixture(effectCall: string) {
+/**
+ * A component that resets state from an effect — the pattern the rule rejects.
+ *
+ * `prelude` is for the spellings that are established before the call rather
+ * than at it: destructuring off the namespace produces a plain identifier at
+ * the call site, so there is nothing there to key on.
+ */
+function fixture(effectCall: string, prelude = '') {
   return `import * as React from 'react'
 import * as Hooks from 'react'
 import { useEffect } from 'react'
 
 void Hooks
+${prelude}
 
 export function Probe() {
   const [value, setValue] = React.useState<string | null>(null)
@@ -95,15 +106,21 @@ beforeAll(async () => {
   fixtureDir = mkdtempSync(join(repoRoot, 'src', '__lint-fixture-'))
 
   const cases = [
-    ['React.useEffect', join(fixtureDir, 'member.tsx')],
-    ['useEffect', join(fixtureDir, 'imported.tsx')],
-    // The two spellings that would slip past a ban keyed on an object literally
+    ['React.useEffect', join(fixtureDir, 'member.tsx'), ''],
+    ['useEffect', join(fixtureDir, 'imported.tsx'), ''],
+    // The spellings that would slip past a ban keyed on an object literally
     // named `React` — an aliased namespace import, and computed access.
-    ['Hooks.useEffect', join(fixtureDir, 'aliased.tsx')],
-    ["React['useEffect']", join(fixtureDir, 'computed.tsx')],
+    ['Hooks.useEffect', join(fixtureDir, 'aliased.tsx'), ''],
+    ["React['useEffect']", join(fixtureDir, 'computed.tsx'), ''],
+    // And the one that is not a member call at the call site at all.
+    [
+      'scopedEffect',
+      join(fixtureDir, 'destructured.tsx'),
+      'const { useEffect: scopedEffect } = React',
+    ],
   ] as const
 
-  for (const [effectCall, file] of cases) writeFileSync(file, fixture(effectCall))
+  for (const [effectCall, file, prelude] of cases) writeFileSync(file, fixture(effectCall, prelude))
 
   // One instance, one invocation: both the config and the TypeScript program
   // are then built a single time for the whole file.
@@ -148,5 +165,16 @@ describe('effect hooks must be called through the imported binding', () => {
    */
   it.each(['Hooks.useEffect', "React['useEffect']"])('rejects %s too', (effectCall) => {
     expect(reported.get(effectCall)).toContain('no-restricted-syntax')
+  })
+
+  /*
+   * `const { useEffect } = React` is the spelling with two holes rather than
+   * one: the call site is a bare identifier, so neither member selector applies,
+   * and `set-state-in-effect` stays silent as well because the binding did not
+   * come from an import it recognises. Verified directly — that fixture linted
+   * clean, with a setState in an effect, before this selector existed.
+   */
+  it('rejects an effect hook destructured off the namespace', () => {
+    expect(reported.get('scopedEffect')).toContain('no-restricted-syntax')
   })
 })
