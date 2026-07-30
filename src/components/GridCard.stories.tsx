@@ -319,12 +319,12 @@ export const HiddenLines: Story = {
  * one `--liebe-c-*` triplet. Switch the toolbar's theme to watch a pinned card
  * follow the remapped triplet rather than keeping a hard-coded hue.
  *
- * In the light appearance the a11y panel reports `color-contrast` on the state
- * line of the `light`, `heat` and `vacuum` cards. That is the tracked token
- * defect (issue #197 — domain text tokens miss AA on the light card surface),
- * surfaced rather than introduced here: the same failure is already reported by
- * `On` and `Gallery`. Showing every value of the option is what the story is
- * for, so the palette is rendered whole rather than pruned to the passing hues.
+ * The state line clears AA on the card surface for all ten hues in both
+ * appearances, since the Default theme pins `-text` per appearance
+ * (docs/changes/0035-light-appearance-contrast.md). `light`, `heat` and `vacuum`
+ * used to report `color-contrast` here in light appearance and no longer do, so
+ * a report on any hue's state line is now a regression rather than a known
+ * defect.
  */
 export const ColorOverride: Story = {
   args: { gridWidth: 12, gridHeight: 4, isOn: true },
