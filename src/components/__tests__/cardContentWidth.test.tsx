@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRef } from 'react'
 import { render } from '@testing-library/react'
 import { GridCardWithComponents as GridCard, useCardContentWidth } from '../GridCard'
-import { observeContentBox, resetContentWidthObserver } from '../cardContentWidth'
+import { observeContentBox, resetContentBoxObserver } from '../cardContentWidth'
 import { useDashboardStore } from '~/store'
 import type { DashboardState } from '~/store/types'
 
@@ -11,8 +11,8 @@ vi.mock('~/store', () => ({
 }))
 
 /**
- * The shell's content-width signal (docs/specs/design-system — "Size-adaptive
- * layouts").
+ * The shell's content-width signal, and the shared instrument underneath it
+ * (docs/specs/design-system — "Size-adaptive layouts", "Cross-axis fit").
  *
  * The tier and the span are lossy about pixels, so a contract whose capacity is
  * width-derived — the weather forecast's columns are the shipped case — needs
@@ -20,6 +20,12 @@ vi.mock('~/store', () => ({
  * box IT owns, publishes what it observed, and distinguishes "no room" from
  * "not measured". The consumer's half lives in
  * `WeatherCard/__tests__/WeatherCard.forecast.test.tsx`.
+ *
+ * The instrument reports the whole content box, on both axes, because a second
+ * contract reads the other one: the `tall` control band's height is the
+ * long-axis capacity a vertical control has to clear
+ * (`CardBody`'s `useControlBandBox`). The shell wants a width and nothing else,
+ * so it takes it through a wrapper rather than a second observer.
  *
  * jsdom implements no `ResizeObserver`, and the suite's global stub never calls
  * back — which is the unobserved case, and is asserted as such rather than
@@ -43,7 +49,7 @@ describe('the shell’s content-width signal', () => {
     // module — a spec installing its own `ResizeObserver` has to drop the
     // previous instance or it is served a stale instrument that reports
     // nothing, which is indistinguishable from the feature not working.
-    resetContentWidthObserver()
+    resetContentBoxObserver()
     vi.mocked(useDashboardStore).mockImplementation((selector) => {
       const state = { mode: 'view' } as Pick<DashboardState, 'mode'>
       return selector ? selector(state as DashboardState) : state
@@ -51,7 +57,7 @@ describe('the shell’s content-width signal', () => {
   })
 
   afterEach(() => {
-    resetContentWidthObserver()
+    resetContentBoxObserver()
     global.ResizeObserver = originalResizeObserver
   })
 
@@ -131,7 +137,7 @@ describe('the shell’s content-width signal', () => {
     installObserver({ contentBoxSize: [{ inlineSize: 42, blockSize: 96 }] })
     observeContentBox(target, (size) => sizes.push(size))
 
-    resetContentWidthObserver()
+    resetContentBoxObserver()
     installObserver({ contentRect: { width: 35, height: 58 } as DOMRectReadOnly })
     observeContentBox(target, (size) => sizes.push(size))
 

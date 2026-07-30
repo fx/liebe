@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
-import { resetContentWidthObserver } from '../cardContentWidth'
+import { resetContentBoxObserver } from '../cardContentWidth'
 import {
   CardBody,
   CONTROL_CROSS_AXIS_FLOOR_PX,
@@ -160,7 +160,7 @@ describe('the body’s forced-placement seam', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    resetContentWidthObserver()
+    resetContentBoxObserver()
     vi.mocked(useDashboardStore).mockImplementation((selector) => {
       const state = { mode: 'view' } as Pick<DashboardState, 'mode'>
       return selector ? selector(state as DashboardState) : state
@@ -168,7 +168,7 @@ describe('the body’s forced-placement seam', () => {
   })
 
   afterEach(() => {
-    resetContentWidthObserver()
+    resetContentBoxObserver()
     global.ResizeObserver = originalResizeObserver
   })
 
@@ -468,7 +468,7 @@ describe('the body’s forced-placement seam', () => {
      * measured. The shell's own width is untouched — it never unmounts — so the
      * cross-axis floor is not what this is testing.
      */
-    resetContentWidthObserver()
+    resetContentBoxObserver()
     // @ts-expect-error — removing the global is how "unmeasured" is arranged.
     delete global.ResizeObserver
 

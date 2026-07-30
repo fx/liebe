@@ -318,10 +318,23 @@ test('a tall card’s vertical slider takes the content region where the token d
     // and this would be the wrong case entirely.
     expect(contentRegion.width, where).toBeGreaterThanOrEqual(CROSS_AXIS_FLOOR)
 
-    // The rule: the track is the region's width, not the token's — and the band
-    // is where that width is expressed, so it is measured with them.
+    /*
+     * Every box this case measures, established before any of them is read.
+     *
+     * Not ceremony around a non-null assertion: these four are the spec's own
+     * premises about the DOM, and the file's standard is that a premise fails
+     * loudly with its own message rather than silently. A missing part read
+     * through `!` throws a `TypeError` naming a property, which in a spec whose
+     * whole purpose is to establish what only a browser can establish costs a
+     * full CI round trip to work out WHICH part went missing.
+     */
     expect(slider, `${where} — a control must still render here`).not.toBeNull()
     expect(band, `${where} — a filling control is laid out in a band`).not.toBeNull()
+    expect(track, `${where} — the slider renders a track to measure`).not.toBeNull()
+    expect(thumb, `${where} — the slider renders a thumb to measure`).not.toBeNull()
+
+    // The rule: the track is the region's width, not the token's — and the band
+    // is where that width is expressed, so it is measured with them.
     expect(Math.abs(band!.width - contentRegion.width), where).toBeLessThanOrEqual(TOLERANCE)
     expect(Math.abs(slider!.width - contentRegion.width), where).toBeLessThanOrEqual(TOLERANCE)
     expect(Math.abs(track!.width - contentRegion.width), where).toBeLessThanOrEqual(TOLERANCE)
@@ -354,7 +367,6 @@ test('a tall card’s vertical slider takes the content region where the token d
       slider!.height,
       `${where} — the narrowed track must still be draggable`
     ).toBeGreaterThanOrEqual(LONG_AXIS_FLOOR)
-    expect(band, `${where} — a filling control is laid out in a band`).not.toBeNull()
     expect(band!.height, where).toBeGreaterThanOrEqual(LONG_AXIS_FLOOR)
   }
 })

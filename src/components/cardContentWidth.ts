@@ -86,8 +86,8 @@ function ensureObserver(): ResizeObserver | undefined {
  * Returns a cleanup rather than exposing an `unobserve`, so a caller cannot
  * unregister the listener and leave the target observed — which would leave the
  * shared observer waking for a callback that goes nowhere. Returns `undefined`
- * where there is no observer to use, which is how a caller learns its width
- * will never arrive.
+ * where there is no observer to use, which is how a caller learns no
+ * measurement of its box will ever arrive — on either axis.
  */
 export function observeContentBox(
   element: Element,
@@ -125,6 +125,11 @@ export function observeContentWidth(
  * Drop the shared observer, so the next subscriber builds one from the current
  * `ResizeObserver`.
  *
+ * Named for the box rather than for the width: one instrument now serves both
+ * the shell's content width and the `tall` band's box, and a reset that
+ * announced itself as the width observer's would read as though the other
+ * subscriber survived it.
+ *
  * A test seam, and it exists because the sharing is real: the instance is
  * memoised across the whole module, so a spec that installs its own
  * `ResizeObserver` would otherwise be served the one a previous spec's global
@@ -132,7 +137,7 @@ export function observeContentWidth(
  * feature being broken. Nothing in the panel calls this; the global does not
  * change while a panel is running.
  */
-export function resetContentWidthObserver(): void {
+export function resetContentBoxObserver(): void {
   observer?.disconnect()
   observer = undefined
   listeners.clear()
