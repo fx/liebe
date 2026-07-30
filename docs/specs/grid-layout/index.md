@@ -152,7 +152,8 @@ This spec is the living baseline of the grid layout system as implemented. Entit
 - A drag or resize MUST persist the affected item's new `x`/`y`/`width`/`height` against the screen's stored resolution, via `dashboardActions.updateGridItem(screenId, id, { x, y, width, height })`.
 - **An interaction that changes one item MUST NOT alter any other item's stored geometry**, at any breakpoint. An item nobody touched keeps the exact values it was stored with — not equivalent ones.
 - The same holds field by field within the touched item: a placement the interaction did not change MUST survive it unchanged. Dragging an item leaves its stored `width` exactly as it was; resizing from the east or south edge leaves its stored `x`. A resize from a west-facing handle does move `x`, and is a change to both fields.
-- A persisted item MUST fit the screen: `x + width` MUST NOT exceed `resolution.columns`. Where a narrow breakpoint's coarser steps ask for more room than remains, a field the interaction changed is what gives way — never an untouched one, whose preservation is the invariant above. When the interaction changed both, `width` is capped at the screen's columns and `x` at whatever the resulting span leaves.
+- An interaction MUST NOT push an item past the screen's own column count. Where recombining a changed field with an unchanged one would take `x + width` beyond `resolution.columns` — as a narrow breakpoint's coarser steps can, since one effective cell may be worth several stored columns — the field the interaction changed is clamped to fit. When it changed both, `width` is capped at the screen's columns and `x` at whatever the resulting span leaves.
+- An untouched field is never clamped, because its preservation is the invariant above. It follows that stored geometry already exceeding `resolution.columns` is not brought back into bounds here: repairing it would mean rewriting a field the user did not touch. Such an item stays as it is until the user moves the offending field themselves.
 - Items whose resulting geometry equals what is already stored MUST NOT trigger an update.
 
 Why this needs stating: the stored-to-effective mapping is deliberately lossy in both directions — a span is floored at one cell and `x` is clamped into bounds — and the whole layout is reported back on every interaction, not just the item that moved. Round-tripping an untouched item through that mapping therefore rewrites it: a card stored at `width: 1` on a 12-column screen occupies one cell at the 4-column breakpoint, and scaling that cell back up yields 3. The damage is silent (the narrow view re-derives correctly), persistent (it reaches stored config and exported YAML) and cumulative.
@@ -391,7 +392,10 @@ Responsive column scaling — the forward mapping, written once in `effectiveInl
 ```ts
 const columnRatio = effectiveColumns / storedColumns
 const width = Math.max(1, Math.round(item.width * columnRatio)) // scaleSpanToColumns
-const x = Math.min(effectiveColumns - width, Math.round(item.x * columnRatio))
+// Both bounds: the upper one goes negative for an item wider than its screen,
+// and a derivation reporting a negative x could never equal the x the grid
+// reports back — so the change handler would read the item as moved.
+const x = Math.max(0, Math.min(effectiveColumns - width, Math.round(item.x * columnRatio)))
 ```
 
 Persistence inverts only what moved, clamps the moved field into bounds, then diffs before writing:
