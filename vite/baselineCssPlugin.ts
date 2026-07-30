@@ -6,20 +6,22 @@ import { isDemotedVendorSheet, prepareBaselineCss, prepareVendorCss } from '../s
  * cascade layer, and free of `!important` on themable properties.
  *
  * Liebe's own sheets are authored inside `liebe-base` and pass through
- * unchanged. The ones that need this are the vendored sheets — Radix Themes,
+ * unchanged. The ones that need this are every vendored sheet — Radix Themes,
  * react-grid-layout, react-resizable — which cannot be authored at all: left
  * as they ship, they would be *unlayered* author CSS, which outranks every
  * cascade layer regardless of specificity and would make the components a
  * theme most wants to restyle the ones it cannot touch. Their `!important`
  * declarations are worse still, because importance runs the layer order in
  * reverse: an important baseline rule beats important theme *and* user rules.
+ * All three get that treatment, and all three land in `liebe-base`.
  *
- * The sheets that need to be OUTRANKED land in `liebe-base.vendor` rather than
- * in `liebe-base` itself, which is what lets a baseline rule beat a vendor rule
- * that out-specifies it — the coarse-pointer touch floor over Radix's own
- * control sizing. Which sheets those are is a decision rather than a rule, and
- * `cssLayers.ts` carries both it and why the layer is a sub-layer of the
- * baseline rather than a fourth layer of its own.
+ * A vendored sheet drops a tier further, into `liebe-base.vendor`, only when
+ * something first-party has to OUTRANK it — which is what lets a baseline rule
+ * beat a vendor rule that out-specifies it, the coarse-pointer touch floor over
+ * Radix's own control sizing. That is a per-package decision rather than a rule
+ * about `node_modules`, and today it names Radix Themes and nothing else;
+ * `cssLayers.ts` carries the list, why demoting a sheet is not free, and why the
+ * layer is a sub-layer of the baseline rather than a fourth layer of its own.
  * See docs/specs/theming/index.md, "Application mechanism".
  *
  * A build-time transform rather than a runtime one: the panel links its CSS as

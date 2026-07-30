@@ -33,8 +33,10 @@
 /** Baseline: tokens and Liebe's own component sheets. */
 export const BASE_LAYER = 'liebe-base'
 /**
- * Vendored stylesheets — Radix Themes, react-grid-layout, react-resizable — as a
- * sub-layer of the baseline.
+ * The sub-layer of the baseline that holds a vendored stylesheet something
+ * first-party has to outrank. `DEMOTED_VENDOR_PACKAGES` below is the list, and
+ * it is Radix Themes alone — the other vendored sheets the panel imports stay in
+ * `liebe-base`, where specificity decides them against Liebe's own rules.
  *
  * A sub-layer loses to the declarations sitting directly in its parent
  * regardless of selector specificity, which is the whole point: Radix's

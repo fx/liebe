@@ -145,8 +145,9 @@ panel shadow root
 │    (order declaration, repeated in every sheet — the two sub-layers are the
 │     baseline's internal tiers, each winning only over the one before it)
 ├─ <link/style bundled>         @layer liebe-base.reset  { * { margin/padding/box-sizing } }
-├─ <link/style bundled>         @layer liebe-base.vendor { Radix Themes, react-grid-layout, … }
-├─ <link/style bundled>         @layer liebe-base  { anatomy, components, touch floor }
+├─ <link/style bundled>         @layer liebe-base.vendor { Radix Themes — demoted, see below }
+├─ <link/style bundled>         @layer liebe-base  { anatomy, components, touch floor,
+│                                            react-grid-layout, react-resizable }
 ├─ <style data-liebe="base">    @layer liebe-base  { tokens: defaults + dark/light sets }
 ├─ <style data-liebe="theme">   @layer liebe-theme { active theme CSS (built-in map or none) }
 ├─ <style data-liebe="user">    @layer liebe-user  { theme.customCss }

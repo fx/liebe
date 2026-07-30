@@ -13,11 +13,13 @@
  * every other author rule in the panel, and it still outranks the user-agent
  * defaults it exists to normalise, since origin beats layering.
  *
- * The reset takes the `reset` SUB-layer, one tier below the vendored sheets in
- * `liebe-base.vendor` (change 0036). Once those moved beneath `liebe-base`, a
- * reset sharing the layer with them stopped losing to them and started doing to
- * Radix exactly what the unlayered version did to the anatomy: table cells lost
- * 16px of padding, inline code 5px, across 156 of the workshop's 622 stories.
+ * The reset takes the `reset` SUB-layer, one tier below `liebe-base.vendor` —
+ * where a vendored sheet goes when something first-party has to outrank it,
+ * which today is Radix Themes and nothing else (change 0036). Once Radix moved
+ * beneath `liebe-base`, a reset sharing the layer with it stopped losing to it
+ * and started doing to Radix exactly what the unlayered version did to the
+ * anatomy: table cells lost 16px of padding, inline code 5px, across 156 of the
+ * workshop's 622 stories.
  * Everything else in this sheet — the touch floor especially — stays in
  * `liebe-base` itself, which is what makes it outrank Radix's own control sizing.
  */
