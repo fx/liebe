@@ -9,16 +9,17 @@ import { readWeatherOptions } from '~/store/weatherOptions'
 import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
+import { WeatherScrim, weatherArtworkClass } from './WeatherArtwork'
 import {
   formatTemperature,
   getConditionGlyph,
   getTemperatureDisplay,
   getWeatherTextColor,
   getWeatherTextStyles,
-  getWeatherValueStyles,
   resolveConditionBackground,
   resolveSecondaryReading,
   resolveUnavailableStatus,
+  WEATHER_ARTWORK_FG,
   supplementalReadings,
 } from './presentation'
 
@@ -135,7 +136,7 @@ function WeatherCardModernContent(props: CardProps) {
 
   const temperature = tempDisplay ? (
     isFull ? (
-      <div style={getWeatherValueStyles(!!backgroundImage)}>
+      <div style={emphasisStyles.text}>
         <CardValue domain="weather" value={Math.round(tempDisplay.value)} unit={tempDisplay.unit} />
       </div>
     ) : (
@@ -208,6 +209,7 @@ function WeatherCardModernContent(props: CardProps) {
       hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}
       backdrop={!backgroundImage}
+      className={weatherArtworkClass(!!backgroundImage)}
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
         backgroundSize: 'cover',
@@ -216,13 +218,19 @@ function WeatherCardModernContent(props: CardProps) {
         position: 'relative',
       }}
     >
+      <WeatherScrim hasBackground={!!backgroundImage} />
+
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
         lead={
           <Box
             style={{
               ...styles.icon,
-              color: backgroundImage ? 'white' : isStale ? 'var(--orange-9)' : 'var(--accent-9)',
+              color: backgroundImage
+                ? WEATHER_ARTWORK_FG
+                : isStale
+                  ? 'var(--orange-9)'
+                  : 'var(--accent-9)',
               opacity: isStale ? 0.6 : 1,
               display: 'flex',
               alignItems: 'center',

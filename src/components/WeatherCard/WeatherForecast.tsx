@@ -12,7 +12,12 @@ import { Flex, Text } from '@radix-ui/themes'
 import { useWeatherForecast } from '../../hooks'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { WeatherOptions } from '~/store/weatherOptions'
-import { formatTemperature, getConditionGlyph, getWeatherTextStyles } from './presentation'
+import {
+  formatTemperature,
+  getConditionGlyph,
+  getWeatherTextStyles,
+  WEATHER_ARTWORK_FG,
+} from './presentation'
 import {
   forecastColumns,
   planForecastSections,
@@ -163,7 +168,7 @@ function ForecastCell({
       )}
       {createElement(Glyph, {
         size: 16,
-        style: { ...styles.icon, color: hasBackground ? 'white' : 'var(--gray-11)' },
+        style: { ...styles.icon, color: hasBackground ? WEATHER_ARTWORK_FG : 'var(--gray-11)' },
       })}
       <Flex direction={vertical ? 'row' : 'column'} align="center" gap="1">
         {/* A column with no high renders no high. The daily derivation emits a

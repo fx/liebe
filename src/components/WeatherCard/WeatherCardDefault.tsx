@@ -10,15 +10,16 @@ import { readWeatherOptions } from '~/store/weatherOptions'
 import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
+import { WeatherScrim, weatherArtworkClass } from './WeatherArtwork'
 import {
   formatTemperature,
   getConditionEmoji,
   getTemperatureDisplay,
   getWeatherTextStyles,
-  getWeatherValueStyles,
   resolveConditionBackground,
   resolveSecondaryReading,
   resolveUnavailableStatus,
+  WEATHER_ARTWORK_FG,
   supplementalReadings,
   type WeatherSecondaryReading,
 } from './presentation'
@@ -154,7 +155,7 @@ function WeatherCardDefaultContent(props: CardProps) {
       {createElement(reading.icon, {
         size: 18,
         style: {
-          color: backgroundImage ? iconStyles.color : 'var(--gray-9)',
+          color: backgroundImage ? WEATHER_ARTWORK_FG : 'var(--gray-9)',
           filter: backgroundImage ? iconStyles.filter : undefined,
         },
       })}
@@ -173,12 +174,16 @@ function WeatherCardDefaultContent(props: CardProps) {
       <Thermometer
         size={18}
         style={{
-          color: backgroundImage ? iconStyles.color : isStale ? 'var(--orange-9)' : 'var(--gray-9)',
+          color: backgroundImage
+            ? WEATHER_ARTWORK_FG
+            : isStale
+              ? 'var(--orange-9)'
+              : 'var(--gray-9)',
           filter: backgroundImage ? iconStyles.filter : undefined,
         }}
       />
       {isFull ? (
-        <div style={getWeatherValueStyles(!!backgroundImage)}>
+        <div style={getWeatherTextStyles(!!backgroundImage, 'emphasis').text}>
           <CardValue
             domain="weather"
             value={Math.round(tempDisplay.value)}
@@ -259,6 +264,7 @@ function WeatherCardDefaultContent(props: CardProps) {
       hasConfiguration={!!onConfigure}
       title={isStale ? 'Weather data may be outdated' : undefined}
       backdrop={!backgroundImage}
+      className={weatherArtworkClass(!!backgroundImage)}
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
         backgroundSize: 'cover',
@@ -267,6 +273,8 @@ function WeatherCardDefaultContent(props: CardProps) {
         position: 'relative',
       }}
     >
+      <WeatherScrim hasBackground={!!backgroundImage} />
+
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
         lead={
@@ -274,7 +282,7 @@ function WeatherCardDefaultContent(props: CardProps) {
             <span
               style={{
                 color: backgroundImage
-                  ? iconStyles.color
+                  ? WEATHER_ARTWORK_FG
                   : isStale
                     ? 'var(--orange-9)'
                     : 'var(--accent-9)',

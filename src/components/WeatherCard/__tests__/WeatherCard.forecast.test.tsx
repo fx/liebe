@@ -427,21 +427,45 @@ describe('what a column says', () => {
   })
 
   it('takes the theme’s colours when the card paints no artwork', () => {
-    // The strip sits over condition artwork on most cards, where its text goes
-    // white; on a flat card it must NOT, or a light theme would render it
-    // white-on-white. Both halves of that treatment ship together.
+    // The strip sits over condition artwork on most cards, where the artwork
+    // scope's foreground token carries it; on a flat card it must NOT, or a
+    // light theme would render it white-on-white. Both halves ship together, so
+    // neither the scrim nor the token reference may appear without the other.
     seedBothForecasts()
     renderWeather({
       span: { width: 4, height: 3 },
       config: { showConditionBackground: false },
     })
 
-    const white = Array.from(strip('hourly')!.querySelectorAll<HTMLElement>('[style]')).filter(
-      (node) => node.style.color === 'white'
-    )
+    const overArtwork = Array.from(
+      strip('hourly')!.querySelectorAll<HTMLElement>('[style]')
+    ).filter((node) => node.style.color === 'white' || node.style.color.includes('--liebe-fg'))
 
     expect(columns('hourly')).toHaveLength(4)
-    expect(white).toHaveLength(0)
+    expect(overArtwork).toHaveLength(0)
+    expect(document.querySelector('.liebe-weather-scrim')).toBeNull()
+    // The scope carries the foreground tokens, so its absence is the other
+    // half of "no artwork treatment" — a scrim-less tile still scoped white
+    // would be white-on-white in a light theme.
+    expect(document.querySelector('.weather-card-artwork')).toBeNull()
+  })
+
+  it('sits on the scrim, and takes its colour from the token, over artwork', () => {
+    // The design-system rule reaches the forecast text like every other line on
+    // the card: a ground under it, and a colour a theme can still restyle.
+    seedBothForecasts()
+    renderWeather({ span: { width: 4, height: 3 } })
+
+    expect(document.querySelector('.liebe-weather-scrim')).not.toBeNull()
+    expect(document.querySelector('.weather-card-artwork')).not.toBeNull()
+
+    const pinned = Array.from(strip('hourly')!.querySelectorAll<HTMLElement>('[style]')).filter(
+      (node) => /^(white|#fff|rgb)/i.test(node.style.color)
+    )
+    expect(pinned).toHaveLength(0)
+
+    const glyph = strip('hourly')!.querySelector<SVGElement>('svg')
+    expect(glyph?.style.color).toBe('var(--liebe-fg)')
   })
 
   it('carries no interactive control, so a tap falls through to the card', () => {
