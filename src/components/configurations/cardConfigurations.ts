@@ -1,7 +1,8 @@
 import { resolveCardType } from '../cardDomains'
 import { SWITCH_OPTION_DEFAULTS } from '~/store/switchOptions'
 import { CONTROL_STYLE_KEY, FOLLOW_ENTITY_MODE } from '~/store/inputHelperOptions'
-import type { ConfigDefinition } from '../CardConfig'
+import type { ConfigDefinition, ConfigOption } from '../CardConfig'
+import { SLIDER_PLACEMENT_DEFAULT, SLIDER_PLACEMENT_KEY } from '~/store/sliderPlacement'
 import {
   BRIGHTNESS_PRESETS_KEY,
   BRIGHTNESS_PRESET_BOUNDS,
@@ -78,6 +79,35 @@ const actionCardDefinition: ConfigDefinition = {
   },
 }
 
+/**
+ * The shared slider-placement row, offered by every card whose primary embedded
+ * control is the slider anatomy (docs/specs/entity-cards/options/common.md —
+ * "Shared slider placement").
+ *
+ * One object rather than three copies, for the same reason the key itself is
+ * declared once in `~/store/sliderPlacement`: the wording is the contract's, not
+ * a domain's, and three forms drifting apart is how one card comes to describe
+ * `vertical` differently from its neighbour. The per-card entries below name the
+ * quantity in their own `label`, which is the only part that is theirs.
+ *
+ * `background` is deliberately absent from the list. The value is legal in the
+ * schema — a document may already carry it — but nothing renders it until change
+ * 0034's second task, and a form offering a choice that does nothing is worse
+ * than one that waits.
+ */
+const sliderPlacementOption = {
+  type: 'select',
+  default: SLIDER_PLACEMENT_DEFAULT,
+  label: 'Slider placement',
+  description:
+    'Which way the slider runs. Automatic follows the card’s size — across on wide cards, up the tile on tall ones. 1×1 cards never show a slider; the whole tile is the control there.',
+  options: [
+    { value: 'auto', label: 'Automatic' },
+    { value: 'horizontal', label: 'Across' },
+    { value: 'vertical', label: 'Up the tile' },
+  ],
+} satisfies ConfigOption
+
 /** The four domains the action family serves, and how each names itself. */
 const actionCardTitles: Readonly<Record<string, string>> = {
   scene: 'Scene Card',
@@ -120,6 +150,11 @@ export const cardConfigurations: Record<
         default: true,
         label: 'Show Brightness Slider',
         description: 'Show brightness slider when light is on and supports brightness control',
+      },
+      [SLIDER_PLACEMENT_KEY]: {
+        ...sliderPlacementOption,
+        label: 'Brightness slider placement',
+        requires: 'light-brightness',
       },
       // Described in terms of what the user sees rather than of the mechanism:
       // the option governs the icon tint and the slider fill together, and its
@@ -388,6 +423,11 @@ export const cardConfigurations: Record<
         label: 'Show position slider',
         description:
           'The slider that sets how far open the cover is. Horizontal on wide cards, vertical on tall ones; never on a 1×1 card.',
+        requires: 'cover-position',
+      },
+      [SLIDER_PLACEMENT_KEY]: {
+        ...sliderPlacementOption,
+        label: 'Position slider placement',
         requires: 'cover-position',
       },
       showButtons: {
@@ -661,6 +701,15 @@ export const cardConfigurations: Record<
           { value: 'steps', label: 'Step buttons' },
           { value: 'none', label: 'None' },
         ],
+        requires: 'fan-speed',
+      },
+      // Inert under “Step buttons” and “None”, which the description says
+      // rather than the form hiding the row: `requires` gates on the entity's
+      // capabilities, not on a sibling option's value.
+      [SLIDER_PLACEMENT_KEY]: {
+        ...sliderPlacementOption,
+        label: 'Speed slider placement',
+        description: `${sliderPlacementOption.description} Applies to the slider only — step buttons follow the card’s size either way.`,
         requires: 'fan-speed',
       },
       showPresets: {

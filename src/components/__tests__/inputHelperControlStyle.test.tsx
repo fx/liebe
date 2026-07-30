@@ -350,4 +350,76 @@ describe('input helper controlStyle', () => {
       expect(screen.getByRole('combobox')).toBeDisabled()
     })
   })
+
+  /**
+   * Accessible names on the two embedded controls
+   * (docs/specs/design-system/index.md — card anatomy; the residue change
+   * [0035](docs/changes/0035-light-appearance-contrast.md) PR 3 closed).
+   *
+   * The name has to identify the helper, not merely exist: a screen-reader
+   * user meets these controls with no tile context, and "Toggle" or "Select"
+   * alone tells them nothing about which helper they are about to change.
+   */
+  describe('embedded controls carry an accessible name', () => {
+    it('names the select trigger after the helper', () => {
+      seed(entity('input_select.house_mode', 'Home', { friendly_name: 'House Mode', options: [] }))
+      renderCard(<InputSelectCard entityId="input_select.house_mode" tier="row" />)
+
+      // `role="combobox"` takes no name from its contents, so the option
+      // rendered inside the trigger cannot supply one.
+      expect(screen.getByRole('combobox', { name: 'Select House Mode' })).toBeInTheDocument()
+    })
+
+    it('falls back to the entity id when the select helper has no friendly name', () => {
+      seed(entity('input_select.house_mode', 'Home', { options: ['Home'] }))
+      renderCard(<InputSelectCard entityId="input_select.house_mode" tier="row" />)
+
+      expect(screen.getByRole('combobox', { name: 'Select house_mode' })).toBeInTheDocument()
+    })
+
+    it('names the boolean helper’s own-tile switch after the helper', () => {
+      seed(entity('input_boolean.guest_mode', 'on', { friendly_name: 'Guest Mode' }))
+      renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier="row" />, {
+        controlStyle: 'switch',
+      })
+
+      expect(screen.getByRole('switch', { name: 'Toggle Guest Mode' })).toBeInTheDocument()
+    })
+
+    it('falls back to the entity id when the boolean helper has no friendly name', () => {
+      seed(entity('input_boolean.guest_mode', 'on', {}))
+      renderCard(<InputBooleanCard entityId="input_boolean.guest_mode" tier="row" />, {
+        controlStyle: 'switch',
+      })
+
+      expect(
+        screen.getByRole('switch', { name: 'Toggle input_boolean.guest_mode' })
+      ).toBeInTheDocument()
+    })
+
+    it('leaves an icon-only tile with its clipped label as the only anchor', () => {
+      // `iconOnly` drops every body slot but the lead, the control included
+      // (docs/specs/entity-cards/options/common.md — icon-only presentation),
+      // so neither name above can be present to compete with the label the
+      // tile keeps — nor can the tile end up with no name at all.
+      seed(entity('input_boolean.guest_mode', 'on', { friendly_name: 'Guest Mode' }))
+      render(
+        <Theme>
+          <HomeAssistantProvider hass={hass}>
+            {/* The clipped label is built from the placed item's entity, which
+                is what the grid publishes alongside the config. */}
+            <CardItemProvider
+              entityId="input_boolean.guest_mode"
+              config={{ controlStyle: 'switch', iconOnly: true }}
+            >
+              <InputBooleanCard entityId="input_boolean.guest_mode" tier="row" />
+            </CardItemProvider>
+          </HomeAssistantProvider>
+        </Theme>
+      )
+
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+      expect(document.querySelector('.liebe-card-body-label')).toHaveTextContent(/^Guest Mode, on$/)
+    })
+  })
 })

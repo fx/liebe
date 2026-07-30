@@ -199,6 +199,198 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Forced slider placement
+   *
+   * `sliderPlacement: horizontal | vertical` forces the primary slider's axis
+   * in every tier that renders one (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"). Flipping the orientation prop alone does not
+   * produce a slider, in either direction, because a slider has no length of
+   * its own on either axis: `anatomy.css` gives the vertical one `block-size:
+   * 100%` and the horizontal one `inline-size: 100%`, and a percentage resolves
+   * only against a containing block with a definite size on that axis. The
+   * shapes each provide one of the two, for the orientation they were built to
+   * host, so each forced case is the other shape's missing half
+   * (docs/changes/0034-slider-placement.md — "Approach").
+   *
+   * Both rules below give the control the same sizing contract the `tall` fill
+   * band already gives a vertical one, rather than inventing a length: whatever
+   * the shape has left after the parts around it, and nothing more. That is what
+   * keeps a forced placement inside its tile — a control that runs out of room
+   * gets shorter, never clipped. `CardBody`'s own floors are what omit it before
+   * it gets too short to use.
+   * ------------------------------------------------------------------ */
+
+  /*
+   * A vertical control on a row line: the line takes the body's leftover height
+   * so the control has a definite long axis to fill. Without this the line is
+   * as tall as the icon circle it contains, which is a height derived from
+   * content — so the control's `block-size: 100%` has nothing to resolve
+   * against and the track collapses to nothing.
+   *
+   * `min-block-size: 0` for the reason the band above carries it: a flex item's
+   * automatic minimum size is its content, and without it a tall line would
+   * push a `full` tier's secondary content off the tile instead of shrinking.
+   */
+  .liebe-card-body[data-control-orientation='vertical'] > .liebe-card-body-line {
+    flex: 1 1 auto;
+    min-block-size: 0;
+  }
+
+  /*
+   * And the control slot takes that whole height rather than being centred in
+   * it — the same `align-self: stretch` the fill band's slot carries, and for
+   * the same reason: a vertical slider's length IS the room the shape gave it.
+   *
+   * On the inline axis it does NOT grow — `flex-grow: 0`, so a 42px control
+   * stays 42px on a row with hundreds of pixels to spare rather than being
+   * stretched into a track whose thumb is the only part a finger can reach —
+   * and it DOES shrink, which is the half that keeps the row inside its tile.
+   * The control's thickness is the token's on a row that affords it and the
+   * row's leftover where it does not: "a control rendered at a one-cell-wide
+   * tier MUST be cross-axis flexible … its geometry token names the size it
+   * prefers rather than the size it always has" (docs/specs/design-system —
+   * "Cross-axis fit"). A non-shrinking 42px slot beside the icon circle's fixed
+   * 40px overflows a narrow tile — a 16-column screen at 960px under LCARS
+   * leaves a two-cell tile about 58px of content region — and the tile clips,
+   * which is the one outcome the tier rules forbid outright.
+   *
+   * **The slot carries the token, and the control below reads 100% of the
+   * slot** — not the other way round, which is the arrangement that looks
+   * equivalent and renders nothing. Everything under this slot sizes itself as
+   * a percentage, so the chain needs exactly one definite width at its head; an
+   * `inline-size: auto` slot takes its width from its content, the content asks
+   * for 100% of the slot, and the circular pair resolves to **zero**. That is
+   * not a subtle degradation — the whole control disappears, and only a browser
+   * can see it: jsdom lays nothing out, and the stylesheet reads correctly.
+   * `tests/e2e/forced-slider-placement.spec.ts` measured 0 against the token's
+   * 42 and is what caught it.
+   *
+   * `flex-grow: 0` keeps the slot at the token on a row with hundreds of pixels
+   * to spare, rather than stretching the control into a track whose thumb is
+   * the only part a finger can reach. `flex-shrink: 1` is the half that keeps
+   * the row inside its tile: "a control rendered at a one-cell-wide tier MUST be
+   * cross-axis flexible … its geometry token names the size it prefers rather
+   * than the size it always has" (docs/specs/design-system — "Cross-axis fit").
+   * A rigid 42px slot beside the icon circle's fixed 40px overflows a narrow
+   * tile — a 16-column screen at 960px under LCARS leaves a two-cell tile about
+   * 58px of content region — and the tile clips, which is the one outcome the
+   * tier rules forbid outright.
+   *
+   * `justify-content: center` is the vertical slider's centring rule applied
+   * inside the slot, restated at a weight that outranks the content-alignment
+   * rules further down for the same reason the band's copy is
+   * (docs/specs/design-system — "Card anatomy").
+   *
+   * `[data-control-size]` — an attribute the body always stamps — is in the
+   * selector only for its weight: this must outrank the `fill` sizing above,
+   * which is otherwise exactly as specific, and a rule that depends on which
+   * order the two were written in is one refactor from being silently reversed.
+   */
+  .liebe-card-body[data-control-size][data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls {
+    align-self: stretch;
+    flex: 0 1 auto;
+    inline-size: var(--liebe-control-height);
+    justify-content: center;
+    /* A flex item's automatic minimum size is its content, and the content here
+       is a control with a fixed thickness — so without this the slot refuses to
+       shrink however small the row gets, and the `flex-shrink` above buys
+       nothing. */
+    min-inline-size: 0;
+  }
+
+  /*
+   * And the slider follows the slot rather than holding the token's thickness
+   * against it. `anatomy.css` sizes a vertical track at exactly
+   * `--liebe-control-height`, which is the fixed size the rule above exists to
+   * relax: a shrinking slot around a rigid control moves the overflow one box
+   * inwards instead of removing it.
+   *
+   * `max-inline-size` rather than a replacement width, so the token still names
+   * the thickness the control PREFERS — the same reading the design system
+   * re-pinned it to — and the only case that resolves differently is the one
+   * where the row cannot afford it.
+   *
+   * Scoped to this slot, so the `tall` band's own vertical slider is untouched:
+   * making that one flexible is change 0042 PR 3's, which owns the floors that
+   * decide when a narrowed track should be omitted instead.
+   *
+   * The thumb takes the same treatment, and it is not a detail: the vertical
+   * thumb is a 3px-tall bar spanning the control's THICKNESS, so `anatomy.css`
+   * sizes it from the same token. Left rigid it stays 42px wide inside a
+   * narrowed root and overhangs the track on both sides — the original defect
+   * surviving in the one part that still had a fixed width.
+   *
+   * Reaching it takes THREE selectors rather than two, because Radix renders
+   * the thumb inside an unclassed positioning `<span>` of its own:
+   *
+   *   .liebe-slider > span[style] > .liebe-slider-thumb
+   *
+   * That wrapper is absolutely positioned, so it shrink-wraps its content —
+   * which means sizing the thumb against it is circular and does nothing until
+   * the wrapper itself has a width that does not come from the thumb. Hence the
+   * middle selector. `span:not([class])` is what distinguishes it from the
+   * track and the readout, both of which carry classes of ours; the structure
+   * that makes it work is pinned by a rendered assertion in
+   * `__tests__/sliderPlacementTierLayouts.test.tsx`, so a Radix release that
+   * classes the wrapper fails there rather than silently restoring the overhang.
+   *
+   * The wrapper keeps its own centring from the root's `align-items: center`,
+   * so widening it moves nothing while the row can afford the token.
+   */
+  .liebe-card-body[data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls
+    > .liebe-slider,
+  .liebe-card-body[data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls
+    > .liebe-slider
+    > span:not([class]),
+  .liebe-card-body[data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls
+    > .liebe-slider
+    > span:not([class])
+    > .liebe-slider-thumb {
+    inline-size: 100%;
+    max-inline-size: var(--liebe-control-height);
+  }
+
+  /*
+   * The meta goes back to taking the line's leftover width, which the control
+   * has just stopped taking — otherwise a forced vertical slider sits against
+   * the name rather than on the tile's trailing edge, with the free space piled
+   * up beyond it.
+   *
+   * Deliberately no more specific than the content-alignment rule that undoes
+   * this further down, and written above it, so an explicitly aligned card
+   * still distributes its line as change 0032 specifies: the block moves as a
+   * whole, and this rule is the unaligned default it moves away from.
+   */
+  .liebe-card-body[data-control-orientation='vertical'] > .liebe-card-body-line > .liebe-meta {
+    flex: 1 1 auto;
+  }
+
+  /*
+   * A horizontal control in the `tall` band: the band spans the tile's width so
+   * the control has a definite inline axis to fill. The band hugs its content
+   * by default — which is what puts a 42px vertical slider on the tile's
+   * midline — and inside a fit-content box a horizontal track's `inline-size:
+   * 100%` resolves against a width measured from that same track, the collapse
+   * `stretchControlBand` was added for (docs/specs/entity-cards/options/
+   * sensor.md — "the graph claims the tile").
+   *
+   * The card does not have to ask for the stretch here: it is a consequence of
+   * the orientation it already resolved, and a card that had to remember to
+   * pass both could pass one.
+   */
+  .liebe-card-body[data-control-orientation='horizontal'] > .liebe-card-body-fill {
+    align-self: stretch;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Content alignment
    *
    * The refinement half of the universal alignment pair

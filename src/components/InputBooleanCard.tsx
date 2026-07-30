@@ -220,6 +220,14 @@ function InputBooleanCardComponent({
                 checked={isOn}
                 onCheckedChange={handleSwitchChange}
                 disabled={loading}
+                /*
+                 * The switch renders as a `<button role="switch">` whose only
+                 * content is the thumb, so it takes no name from the tile it
+                 * sits on — the same `button-name` violation the dialog's copy
+                 * above was already named against, and named the same way
+                 * (docs/changes/0035-light-appearance-contrast.md).
+                 */
+                aria-label={`Toggle ${entity.attributes.friendly_name || entity.entity_id}`}
                 style={{ cursor: 'pointer' }}
               />
             </GridCard.Controls>

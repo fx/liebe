@@ -78,10 +78,11 @@ export function SelectHelperControl({
    */
   const options = readSelectOptions(attributes)
   const currentValue = entity.state
+  const helperName = attributes.friendly_name || entity.entity_id.split('.')[1]
 
   if (presentation === 'pills') {
     return (
-      <PillGroup label={attributes.friendly_name || entity.entity_id.split('.')[1]}>
+      <PillGroup label={helperName}>
         {options.map((option) => (
           <Pill
             key={option}
@@ -107,7 +108,21 @@ export function SelectHelperControl({
         onValueChange={onCommit}
         disabled={loading || options.length === 0}
       >
-        <Select.Trigger variant="soft" style={{ width: '100%' }}>
+        {/*
+         * `role="combobox"` takes no name from its contents, so the current
+         * option rendered inside the trigger names nothing: without this the
+         * control is an anonymous critical `button-name` violation wherever it
+         * renders — the card at `row`/`tall`/`full` and the detail dialog alike
+         * (docs/specs/design-system/index.md — card anatomy, and
+         * docs/changes/0035-light-appearance-contrast.md). The name says what
+         * the control changes rather than what it currently reads; the value is
+         * already conveyed as the combobox's value.
+         */}
+        <Select.Trigger
+          variant="soft"
+          aria-label={`Select ${helperName}`}
+          style={{ width: '100%' }}
+        >
           <Flex align="center" justify="between" style={{ width: '100%' }}>
             <Text size="2">{currentValue}</Text>
             <ChevronDown size={16} />

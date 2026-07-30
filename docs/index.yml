@@ -342,3 +342,10 @@ changes:
     spec: design-system
     status: draft
     depends_on: []
+  - id: '0043'
+    name: card-tile-control-semantics
+    path: changes/0043-card-tile-control-semantics.md
+    description: Make the card shell's role-less div a control with keyboard and assistive-technology semantics, and implement the error tile's unimplemented contract — the detail dialog carrying the message, Retry and Dismiss
+    spec: design-system
+    status: draft
+    depends_on: []

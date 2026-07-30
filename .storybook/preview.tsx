@@ -65,7 +65,12 @@ const preview: Preview = {
     a11y: {
       // Audit every story, but report rather than fail: the first pass of this
       // workshop records the violations it finds as issues, and fixing them is
-      // deliberately out of scope here (change 0009, PR 2).
+      // deliberately out of scope here (change 0009, PR 2). The naming rules
+      // below have since been driven to zero, and this stays `todo` because
+      // `color-contrast` has not — 71 nodes at the last full run, the largest
+      // group of them (32) the live-hue defect that is change 0035's fourth
+      // task. Flipping to `error` is that task's decision to make, not this
+      // comment's.
       test: 'todo',
       config: {
         rules: [
@@ -73,11 +78,14 @@ const preview: Preview = {
             // `region` reports a story-isolation artifact, not a card defect: a
             // story renders a bare card with no surrounding landmark, while the
             // real panel DOES provide one. Measured against the built workshop,
-            // a stock `axe.run(document.body)` flags it on 127 of 165 stories
+            // a stock `axe.run(document.body)` flagged it on 127 of 165 stories
             // (301 nodes) — enough to bury the findings that ARE real defects,
-            // `button-name` (critical, 35 stories) and `aria-input-field-name`
-            // (serious, 6 stories), which stay reported and are tracked in
-            // issues #191 and #192.
+            // which at the time were `button-name` (critical, 35 stories) and
+            // `aria-input-field-name` (serious, 6 stories). Both now report
+            // zero: the sliders were named as the anatomy took them over
+            // (#192), and the last two unnamed controls by change 0035 PR 3
+            // (docs/changes/0035-light-appearance-contrast.md), which re-ran
+            // the audit across every story in both appearances.
             //
             // addon-a11y disables `region` in its own default rule set for this
             // exact reason, so today this entry is a no-op for the addon's

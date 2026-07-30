@@ -13,6 +13,7 @@ import {
   readShowColorTempControl,
   readUseLightColor,
 } from '~/store/lightOptions'
+import { readSliderOrientation, type SliderOrientation } from '~/store/sliderPlacement'
 import { kelvinToRgb, resolveLightHue } from './lightColor'
 import {
   readColorTempRange,
@@ -82,13 +83,13 @@ interface LightAttributes {
  */
 function BrightnessSlider({
   isOn,
-  isTall,
+  orientation,
   value,
   onValueChange,
   onValueCommit,
 }: {
   isOn: boolean
-  isTall: boolean
+  orientation: SliderOrientation
   value: number
   onValueChange: (value: number) => void
   onValueCommit: (value: number) => void
@@ -102,9 +103,11 @@ function BrightnessSlider({
       hue={hue}
       active={isOn}
       label="Brightness"
-      // `tall` is the tier that gives a control its own axis; every other one
-      // runs it along the row.
-      orientation={isTall ? 'vertical' : 'horizontal'}
+      // Resolved by the card from `sliderPlacement` and the tier: `tall` is the
+      // tier that gives a control its own axis and every other one runs it along
+      // the row, unless the option forces the other way
+      // (docs/specs/entity-cards/options/common.md — "Shared slider placement").
+      orientation={orientation}
       value={value}
       readout={`${value}%`}
       onValueChange={onValueChange}
@@ -544,10 +547,22 @@ function LightCardComponent({
    *   full    row content plus colour temperature and colour; the
    *           brightness-preset row joins them with PR 3.
    */
-  const isTall = tier === 'tall'
   const isFull = tier === 'full'
+
+  /*
+   * Where the brightness slider runs, and whether the tier renders one at all
+   * (docs/specs/entity-cards/options/light.md — `sliderPlacement`; the contract
+   * itself is options/common's). `undefined` is `glance`, under every value:
+   * the tier keeps deciding *whether* a slider renders and the option only
+   * decides its axis.
+   */
+  const sliderOrientation = readSliderOrientation(config, tier)
   const showBrightness =
-    tier !== 'glance' && !isEditMode && isOn && supportsBrightness && showBrightnessSlider
+    sliderOrientation !== undefined &&
+    !isEditMode &&
+    isOn &&
+    supportsBrightness &&
+    showBrightnessSlider
 
   /*
    * Both extras are `full`-only and both require the light to be on, matching
@@ -603,7 +618,7 @@ function LightCardComponent({
     <GridCard.Controls>
       <BrightnessSlider
         isOn={isOn}
-        isTall={isTall}
+        orientation={sliderOrientation}
         value={displayBrightness}
         onValueChange={handleBrightnessChange}
         onValueCommit={handleBrightnessCommit}
@@ -687,6 +702,7 @@ function LightCardComponent({
         <CardBody
           arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
           controlSize="fill"
+          controlOrientation={sliderOrientation}
           lead={icon}
           meta={meta}
           control={brightnessSlider}

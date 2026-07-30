@@ -183,6 +183,34 @@ export const BrightnessSliderHidden: Story = {
   args: { item: placedLight({ showBrightnessSlider: false }) },
 }
 
+/* ------------------------------------------------------------------ *
+ * `sliderPlacement` (docs/specs/entity-cards/options/common.md — "Shared
+ * slider placement"; the light's own row is in options/light.md). One story per
+ * value, each on the cell where that value is visible: `auto` and `vertical`
+ * differ only on a wide tile, and `auto` and `horizontal` only on a tall one.
+ * `background` arrives with change 0034's second task.
+ * ------------------------------------------------------------------ */
+
+/** `auto` — the tier decides, which on a 3×1 is the slider across the row. */
+export const PlacementAuto: Story = {
+  args: { gridWidth: 3, gridHeight: 1, item: placedLight({ sliderPlacement: 'auto' }) },
+}
+
+/** `vertical` — the same wide tile, with the dimmer stood up on its trailing edge. */
+export const PlacementVertical: Story = {
+  args: { gridWidth: 3, gridHeight: 1, item: placedLight({ sliderPlacement: 'vertical' }) },
+}
+
+/** `horizontal` — a 1×3 tile that would have stood the dimmer up, laid across instead. */
+export const PlacementHorizontal: Story = {
+  args: { gridWidth: 1, gridHeight: 3, item: placedLight({ sliderPlacement: 'horizontal' }) },
+}
+
+/** A 1×1 keeps no slider under any placement — the whole tile is the control. */
+export const PlacementGlance: Story = {
+  args: { gridWidth: 1, gridHeight: 1, item: placedLight({ sliderPlacement: 'vertical' }) },
+}
+
 /**
  * The option is inert against an entity that cannot dim — an `onoff`-only light
  * has no slider to hide, and `true` cannot conjure one (common contract,
