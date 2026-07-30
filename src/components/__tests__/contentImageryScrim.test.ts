@@ -134,8 +134,16 @@ function scrimAlphas(source: string, selector: string): number[] {
   const samples: number[] = []
   for (let t = 0; t <= 1.0001; t += 0.01) {
     const next = stops.findIndex((stop) => stop.position >= t)
-    if (next <= 0) {
-      samples.push(stops[Math.max(next, 0)].alpha)
+    /* Past the last stop the gradient holds its final colour; before the first
+       it holds its first. `-1` and `0` mean opposite ends, so they cannot share
+       an arm — collapsing them would sample the TOP of a gradient whose last
+       stop sits short of 100% and report the wrong end as its weakest. */
+    if (next === -1) {
+      samples.push(stops[stops.length - 1].alpha)
+      continue
+    }
+    if (next === 0) {
+      samples.push(stops[0].alpha)
       continue
     }
     const from = stops[next - 1]
