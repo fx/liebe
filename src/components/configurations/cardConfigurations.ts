@@ -151,7 +151,11 @@ export const cardConfigurations: Record<
         label: 'Show Brightness Slider',
         description: 'Show brightness slider when light is on and supports brightness control',
       },
-      [SLIDER_PLACEMENT_KEY]: { ...sliderPlacementOption, label: 'Brightness slider placement' },
+      [SLIDER_PLACEMENT_KEY]: {
+        ...sliderPlacementOption,
+        label: 'Brightness slider placement',
+        requires: 'light-brightness',
+      },
       // Described in terms of what the user sees rather than of the mechanism:
       // the option governs the icon tint and the slider fill together, and its
       // `false` value is the one worth naming, because "always amber" is the

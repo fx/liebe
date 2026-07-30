@@ -43,6 +43,7 @@ import { IconSelect } from './IconSelect'
 import { WeatherCard } from './WeatherCard'
 import { TextCard } from './TextCard'
 import { LightCard } from './LightCard'
+import { supportsBrightness as lightSupportsBrightness } from './LightCard/lightCapabilities'
 import { BinarySensorCard } from './BinarySensorCard'
 import { Separator as SeparatorCard } from './Separator'
 import { GridCard } from './GridCard'
@@ -95,6 +96,10 @@ interface ContentProps {
  * - `cover-position` — the cover advertises set-position, so a position slider
  *   (and the reversed-scale declaration that only a position can express) has
  *   something to drive.
+ * - `light-brightness` — the bulb is dimmable, so there is a brightness slider
+ *   for a placement option to place. An `onoff`-only light has none in any
+ *   tier, and offering a placement for it would be a select whose every value
+ *   is a no-op (common contract, convention 3).
  * - `cover-tilt` — the cover advertises at least one tilt bit.
  * - `security-cover` — the cover's `device_class` is one of the perimeter
  *   openings, the only ones `confirmOpen` is offered for.
@@ -123,6 +128,7 @@ export type ConfigOptionRequirement =
   | 'numeric'
   | 'counter'
   | 'cover-position'
+  | 'light-brightness'
   | 'cover-tilt'
   | 'security-cover'
   | 'fan-speed'
@@ -548,6 +554,9 @@ function meetsRequirement(
   // own predicates, so the form and the card can never disagree about whether a
   // control is possible.
   if (requires === 'cover-position') return coverSupportsPosition(entity?.attributes)
+  // The light's own capability predicate, for the same reason: the card refuses
+  // to render a brightness slider for an `onoff` bulb however it is configured.
+  if (requires === 'light-brightness') return lightSupportsBrightness(entity?.attributes)
   if (requires === 'cover-tilt') return coverSupportsTilt(entity?.attributes)
   // Answered by the card's own resolver rather than a second predicate shaped
   // like it: `undefined` asks it for every mode the panel supports.
