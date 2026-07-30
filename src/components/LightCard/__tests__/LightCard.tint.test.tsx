@@ -227,3 +227,54 @@ describe('a light that is off', () => {
     expect(document.querySelector('.liebe-slider')).toBeNull()
   })
 })
+
+describe('the level an icon-only tile tints by', () => {
+  /**
+   * The tile tint's strength is modulated by the level the card reports
+   * (docs/specs/design-system — "Card anatomy": "a level-bearing active entity
+   * … SHOULD modulate the tint's strength with its level so a dimmed lamp
+   * reads dimmer than a full one"). What the sheet does with the fraction is
+   * `cardShellStyles.test.ts`'s; what is asserted here is that the card hands
+   * over the brightness it is already showing, and hands over nothing at all
+   * for a bulb that has none.
+   */
+  const tileLevel = () =>
+    (document.querySelector('.liebe-card') as HTMLElement).style.getPropertyValue(
+      '--liebe-icon-tile-level'
+    )
+
+  it('reports the displayed brightness as a 0–1 fraction', () => {
+    // 128 of 255 is the 50% the card's own state line would read.
+    seed(light({ brightness: 128 }))
+
+    renderCard(
+      <LightCard
+        entityId={LIGHT}
+        tier="row"
+        span={{ width: 2, height: 1 }}
+        item={placed({ iconOnly: true })}
+      />,
+      { iconOnly: true }
+    )
+
+    expect(tileLevel()).toBe('0.5')
+  })
+
+  it('reports no level for a bulb that cannot be dimmed', () => {
+    // An on/off bulb has no level, which is not the same as sitting at the
+    // bottom of one: the tile takes the undimmed tint rather than the faintest.
+    seed(light({ supported_color_modes: ['onoff'], brightness: undefined }))
+
+    renderCard(
+      <LightCard
+        entityId={LIGHT}
+        tier="row"
+        span={{ width: 2, height: 1 }}
+        item={placed({ iconOnly: true })}
+      />,
+      { iconOnly: true }
+    )
+
+    expect(tileLevel()).toBe('')
+  })
+})

@@ -5,7 +5,7 @@
 Add the universal `iconOnly` display option: any card reduces to its centred icon on a tile that itself carries the active/inactive state tint — a 1×1 light becomes a full-tile icon whose background follows on/off/level. The option contract lives in [options/common — icon-only presentation](../specs/entity-cards/options/common.md#icon-only-presentation-icononly); the tile-tint exception in [design-system — card anatomy](../specs/design-system/index.md#card-anatomy).
 
 **Spec:** [entity-cards](../specs/entity-cards/) (options/common), [design-system](../specs/design-system/), [theming](../specs/theming/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -66,7 +66,7 @@ The legacy-compatibility acceptance criterion lives with the contract, not here:
 
 - [x] `iconOnly` option end to end with seam-level content suppression, centred icon, per-card anchors (camera/person/sensor), danger-floor reversion; display + round-trip tests, suppression coverage across card families, stories
 - [x] Audit every registered card and variant for seam bypass (own layout instead of `CardBody`, or no icon slot) and give each one its icon-only form — climate `dial` and weather `minimal` included; a test asserting every registered card and variant resolves exactly one identity anchor under `iconOnly` — the glyph for most cards, the thumbnail or avatar for the cards the contract exempts — with all other content suppressed
-- [ ] Tile state tint: active/inactive tile treatment on the option's own marker (never the derived `data-icon-only`), colour resolution reuse (incl. bulb colour), level modulation, the new marker promoted into the theming stable selector contract (spec + changelog + structure tests), a regression test that a legacy `hideName` + `hideState` tile stays neutral, tint stories
+- [x] Tile state tint: active/inactive tile treatment on the option's own marker (never the derived `data-icon-only`), colour resolution reuse (incl. bulb colour), level modulation, the new marker promoted into the theming stable selector contract (spec + changelog + structure tests), a regression test that a legacy `hideName` + `hideState` tile stays neutral, tint stories
 
 ## Open Questions
 

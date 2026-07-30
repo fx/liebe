@@ -70,8 +70,15 @@ export interface AnatomyPartAttributes {
  * and a live hue has no darker step to reach for. This is the latitude the
  * design system's `useLightColor` exception grants — the bulb's own colour is
  * the information — and it reaches no other part.
+ *
+ * Exported for the one consumer outside this module: the card shell writes the
+ * same four properties on an **icon-only tile**, where the tile itself is the
+ * tint surface and therefore needs the survivor of `resolveCardHue` the way a
+ * part does (docs/changes/0033-icon-only-cards.md). Shared rather than
+ * reimplemented so a bulb's tile and its glyph cannot mix their tint at
+ * different strengths.
  */
-function hueStyle(hue: string): CSSProperties {
+export function hueStyle(hue: string): CSSProperties {
   return {
     '--part-color': hue,
     '--part-tint': `color-mix(in srgb, ${hue} 20%, transparent)`,

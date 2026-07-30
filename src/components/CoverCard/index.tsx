@@ -673,6 +673,15 @@ function CoverCardComponent({
         isSelected={isSelected}
         isOn={isActive}
         /*
+         * How far open the cover is, which is what an icon-only tile modulates
+         * its state tint by — the displayed position, so an inverted card
+         * tints by what the user is being shown rather than by the raw
+         * attribute. A cover that reports no position (a binary opener, and
+         * the indeterminate case) has no level: `effectivePosition` is
+         * `undefined` there, and the slider it feeds is not rendered either.
+         */
+        level={effectivePosition === undefined ? undefined : displayPosition / 100}
+        /*
          * Passed rather than left to the placed-item context. The context is
          * what the grid publishes, and the shell needs an entity to open the
          * detail dialog `more-info` resolves to — which for this card is the

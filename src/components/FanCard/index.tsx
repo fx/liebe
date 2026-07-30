@@ -454,6 +454,13 @@ function FanCardComponent({
       isStale={isStale}
       isSelected={isSelected}
       isOn={isOn}
+      /*
+       * The speed an icon-only tile modulates its state tint by — the dragged
+       * value while a drag owns it, as the speed control itself uses. A fan
+       * with no speed capability has no level at all, and passing `0` for it
+       * would render every such fan at the faintest tint the scale allows.
+       */
+      level={features.speed ? displayPercentage / 100 : undefined}
       onSelect={() => onSelect?.(!isSelected)}
       onDelete={onDelete}
       onClick={handleToggle}

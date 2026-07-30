@@ -195,7 +195,7 @@ describe('card shell stylesheet', () => {
     // deliberately a second attribute rather than a second producer of the one
     // above: the derived attribute is on every legacy `hideName` +
     // `hideState` card, so a rule that means "the user asked for the icon-only
-    // presentation" — this centring today, the state tint next — needs a
+    // presentation" — this centring and the state tint below — needs a
     // selector that reaches none of them
     // (docs/specs/entity-cards/options/common.md — "Scenario: Existing
     // hideName+hideState tiles are unaffected").
@@ -211,6 +211,109 @@ describe('card shell stylesheet', () => {
       /^\.liebe-card\[data-icon-(only|tile)\]$/.test(selector)
     )
     expect(centring).toHaveLength(2)
+  })
+
+  describe('the icon-only tile’s state tint', () => {
+    /**
+     * Whitespace-insensitive, because Prettier wraps a long `color-mix()`
+     * across four lines and an assertion pinned to one line would be pinning
+     * the formatter rather than the declaration.
+     */
+    const flat = (text: string) => text.replace(/\s+/g, ' ').trim()
+
+    /** Every rule whose body declares part of the tint. */
+    const tintRules = rulesIn(css).filter(({ declarations }) =>
+      /--liebe-icon-tile-tint|linear-gradient/.test(declarations)
+    )
+
+    it('paints the tint OVER the card surface rather than in place of it', () => {
+      // The spec's wording is load-bearing: "active renders the domain's
+      // `-tint` token **over the card surface**" (docs/specs/design-system —
+      // "Card anatomy"). `--part-tint` is a ~20% wash, so assigning it to
+      // `background` — which is how the selection state does it — would
+      // replace `--liebe-card-bg` and let the dashboard ground show through
+      // the tile. A single-colour gradient composites it over the background
+      // colour instead, and leaves that colour a theme's to set.
+      expect(flat(ruleBody('.liebe-card[data-icon-tile]'))).toContain(
+        'background-image: linear-gradient(var(--liebe-icon-tile-tint), var(--liebe-icon-tile-tint));'
+      )
+      expect(ruleBody('.liebe-card[data-icon-tile]')).not.toMatch(/\bbackground(-color)?:/)
+    })
+
+    it('resolves the hue through the triplet, so a theme remapping it follows', () => {
+      // `--part-tint` is what `anatomy.css` maps `data-color` onto, and what a
+      // bulb's live colour overrides inline — one resolution for the tile and
+      // for the glyph on it. A Radix scale named here would be a second
+      // colour source the token contract cannot reach.
+      expect(flat(ruleBody('.liebe-card[data-icon-tile][data-active]'))).toContain(
+        '--liebe-icon-tile-tint: color-mix( in srgb, var(--part-tint) var(--liebe-icon-tile-strength), transparent );'
+      )
+
+      const hues = domainColors.map(({ scale }) => scale).join('|')
+      for (const { declarations } of tintRules) {
+        expect(declarations).not.toMatch(new RegExp(`var\\(--(${hues})-`))
+      }
+    })
+
+    it('rests an inactive tile on the neutral wash instead of a hue', () => {
+      expect(ruleBody('.liebe-card[data-icon-tile]')).toContain(
+        '--liebe-icon-tile-tint: var(--gray-a3);'
+      )
+    })
+
+    it('modulates the tint by the level, off a floor that keeps a dim tile visible', () => {
+      // "A level-bearing active entity … SHOULD modulate the tint's strength
+      // with its level so a dimmed lamp reads dimmer than a full one"
+      // (docs/specs/design-system — "Card anatomy").
+      //
+      // Both halves of the expression are asserted because each answers a
+      // different requirement: the `1` fallback is what leaves a card with no
+      // level — a switch, a lock — carrying the undimmed tint, and the 40%
+      // floor is what keeps a lamp at 1% visibly on rather than fading its one
+      // remaining state signal to nothing.
+      expect(flat(ruleBody('.liebe-card[data-icon-tile]'))).toContain(
+        '--liebe-icon-tile-strength: calc(40% + 60% * var(--liebe-icon-tile-level, 1));'
+      )
+    })
+
+    it('reaches no legacy hideName+hideState tile, at the level of the sheet', () => {
+      // The regression the contract's unchanged-tiles scenario names
+      // (docs/specs/entity-cards/options/common.md — "Scenario: Existing
+      // hideName+hideState tiles are unaffected"). Asserted over EVERY rule
+      // that declares any part of the tint rather than over the two this
+      // change wrote, because the defect it guards against is a later rule
+      // adding the derived attribute to a tint selector list — which no
+      // assertion naming today's selectors could see.
+      expect(tintRules.length).toBeGreaterThan(0)
+      for (const { selector } of tintRules) {
+        expect(selector, selector).toContain('[data-icon-tile]')
+        expect(selector, selector).not.toContain('data-icon-only')
+      }
+    })
+
+    it('takes the glyph off a doubled tint by dropping the circle’s own', () => {
+      // The glyph's 3:1 clearance is calibrated against ONE 20% tint over the
+      // card surface (change 0035 PR 2). Stacking the circle's tint on the
+      // tile's would put it on a ground nothing has measured, so the circle
+      // stops carrying one here — its colour, which is what makes the glyph
+      // read, is untouched.
+      const circle = ruleBody('.liebe-card[data-icon-tile] .liebe-icon')
+      expect(circle).toContain('background: none;')
+      expect(circle).not.toMatch(/\bcolor:/)
+    })
+
+    it('moves the tint at the duration the motion rule gives, and not under reduced motion', () => {
+      // The tile's own transition list covers `background-color`, which a
+      // gradient layer is not — so the tint needs its own entry or it snaps.
+      expect(ruleBody('.liebe-card[data-icon-tile]')).toContain('background-image 280ms ease-out')
+
+      // And that redeclaration is at a higher specificity than `.liebe-card`,
+      // so the reduced-motion block has to name the marker itself: without it
+      // the tint would keep animating for a user who asked for no motion.
+      expect(ruleBody('@media (prefers-reduced-motion: reduce)')).toContain(
+        '.liebe-card[data-icon-tile],'
+      )
+    })
   })
 
   describe('the alignment pair', () => {

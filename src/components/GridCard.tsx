@@ -14,7 +14,7 @@ import {
 import { useCardItem } from './cardItemContext'
 import { EntityDetailDialog } from './EntityDetailDialog'
 import { ConfirmToggleDialog } from './ConfirmToggleDialog'
-import { CardMeta, CardName, CardState, IconCircle } from './anatomy'
+import { CardMeta, CardName, CardState, IconCircle, hueStyle } from './anatomy'
 import {
   readCardDisplay,
   resolveCardColor,
@@ -69,6 +69,28 @@ export interface GridCardProps {
    * guards rather than after it.
    */
   danger?: boolean
+  /**
+   * How far along its range a level-bearing entity is, as a fraction from `0`
+   * to `1` — a light's brightness, a fan's speed, a cover's position. It is
+   * what modulates the strength of an **icon-only tile's** state tint, so a
+   * dimmed lamp reads dimmer than a full one (docs/specs/design-system —
+   * "Card anatomy", the icon-only tile exception).
+   *
+   * The same normalised value the card already computes for its own slider,
+   * passed rather than re-derived: the tile and the control it replaces are
+   * describing one level, and a second derivation is a second answer waiting
+   * to disagree with the first. Cards hold it as a percentage, so the call
+   * site divides.
+   *
+   * Left unset by a card with no level — a switch, a lock, a sensor — and that
+   * absence is not `0`: an unset level means "this entity has no level", and
+   * the tile carries the undimmed tint. Passing `0` says the entity is at the
+   * bottom of a range it has, which is a different tile.
+   *
+   * Read only while `iconOnly` holds. Everywhere else the tile is neutral and
+   * the level is already on the card's own slider.
+   */
+  level?: number
   /**
    * The layout tier this card renders at, derived by the renderer from the
    * item's effective grid span (`~/utils/cardTier`) and stamped on the tile as
@@ -579,6 +601,7 @@ export const GridCard = React.memo(
         color = 'default',
         hue,
         danger = false,
+        level,
         tier = 'row',
         isLoading = false,
         isError = false,
@@ -955,6 +978,43 @@ export const GridCard = React.memo(
       )
 
       /*
+       * What the icon-only tile's state tint resolves from, and the only two
+       * things about it the sheet cannot work out for itself
+       * (docs/specs/design-system — "Card anatomy", the icon-only tile
+       * exception; `GridCard.css` for the rules that consume these).
+       *
+       *  - **The bulb's colour.** The tile is the tint surface here, so it
+       *    needs the survivor of `resolveCardHue` exactly as an anatomy part
+       *    does — and takes it through the part's own `hueStyle`, so the tile
+       *    and the glyph on it cannot mix the same hue at two strengths.
+       *    Without it a colour-following bulb would tint its tile with the
+       *    `light` triplet's amber while its glyph rendered the bulb's actual
+       *    colour, which is one card disagreeing with itself.
+       *  - **The level**, as the 0–1 fraction the sheet modulates the tint's
+       *    strength by. Written only when the card reported one: an absent
+       *    property falls back to the undimmed tint, which is what a switch or
+       *    a lock should carry, while writing a `0` for them would render
+       *    every on switch at the bottom of a range it does not have.
+       *
+       * Both are custom properties, so they are the theming channel rather
+       * than a way around it — a theme redeclaring `--liebe-icon-tile-tint`
+       * still wins the paint. And both are written only under `iconOnly`,
+       * which the danger floor has already reverted where it applies: a jammed
+       * lock's tile is a danger presentation, not a tinted glyph.
+       */
+      const iconTileStyle = iconOnly
+        ? {
+            ...(effectiveHue ? hueStyle(effectiveHue) : {}),
+            // Clamped rather than trusted: a card computing a percentage off a
+            // live attribute can hand over 105, and `calc()` would carry it
+            // into a tint stronger than the undimmed one.
+            ...(level === undefined
+              ? {}
+              : { '--liebe-icon-tile-level': Math.min(1, Math.max(0, level)) }),
+          }
+        : {}
+
+      /*
        * Everything left inline is data or affordance, never design:
        *  - `cursor` says what a press will do, and changes with the mode rather
        *    than with the theme.
@@ -983,6 +1043,10 @@ export const GridCard = React.memo(
         ...(iconOnly
           ? withoutBackgroundPaint(withoutThemableProperties(style))
           : withoutThemableProperties(style)),
+        // After the caller's style, deliberately: these are the shell's own
+        // resolution of the tint, and a card must not be able to hand the tile
+        // a different hue than the one `resolveCardHue` let through.
+        ...iconTileStyle,
       } as React.CSSProperties
 
       return (

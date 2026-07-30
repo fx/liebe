@@ -655,6 +655,14 @@ function LightCardComponent({
         isStale={isStale}
         isSelected={isSelected}
         isOn={isOn}
+        /*
+         * What an icon-only tile modulates its state tint by, so a dimmed lamp
+         * reads dimmer than a full one. The displayed brightness rather than
+         * the reported one, so a tile being dragged tints with the value under
+         * the finger — and only where the bulb has a brightness to report: an
+         * on/off bulb has no level, which is not the same as being at zero.
+         */
+        level={supportsBrightness ? displayBrightness / 100 : undefined}
         isUnavailable={isUnavailable}
         onSelect={() => onSelect?.(!isSelected)}
         onDelete={onDelete}
