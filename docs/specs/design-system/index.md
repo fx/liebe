@@ -30,23 +30,25 @@ Research across card-ecosystem popularity data, community forums, and the most-s
 
 Geometry tokens and defaults:
 
-| Token                          | Default  | Purpose                                                 |
-| ------------------------------ | -------- | ------------------------------------------------------- |
-| `--liebe-card-radius`          | `20px`   | Card corner radius (accepts 1–4 value shorthand)        |
-| `--liebe-chip-radius`          | `9999px` | Chips and pill buttons                                  |
-| `--liebe-control-radius`       | `12px`   | Embedded controls (sliders, mode pills, artwork)        |
-| `--liebe-circle-radius`        | `50%`    | Icon circles, avatars, round buttons                    |
-| `--liebe-card-padding`         | `14px`   | Card inner padding                                      |
-| `--liebe-grid-gap`             | `12px`   | Gap between grid cells                                  |
-| `--liebe-icon-circle`          | `40px`   | Icon circle diameter (glyph ≈ 22px)                     |
-| `--liebe-control-height`       | `42px`   | Embedded slider height                                  |
-| `--liebe-chip-height`          | `34px`   | Chip height                                             |
-| `--liebe-card-min-height-row`  | `60px`   | Height floor for the single-row tiers (`glance`, `row`) |
-| `--liebe-card-min-height-tall` | `120px`  | Height floor for the multi-row tiers (`tall`, `full`)   |
-| `--liebe-graph-height-inline`  | `32px`   | Sparkline band sharing a line with other content        |
-| `--liebe-graph-height-dialog`  | `96px`   | History graph in the entity detail dialog               |
+| Token                          | Default  | Purpose                                                                                               |
+| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------- |
+| `--liebe-card-radius`          | `20px`   | Card corner radius (accepts 1–4 value shorthand)                                                      |
+| `--liebe-chip-radius`          | `9999px` | Chips and pill buttons                                                                                |
+| `--liebe-control-radius`       | `12px`   | Embedded controls (sliders, mode pills, artwork)                                                      |
+| `--liebe-circle-radius`        | `50%`    | Icon circles, avatars, round buttons                                                                  |
+| `--liebe-card-padding`         | `14px`   | Card inner padding                                                                                    |
+| `--liebe-grid-gap`             | `12px`   | Gap between grid cells                                                                                |
+| `--liebe-icon-circle`          | `40px`   | Icon circle diameter (glyph ≈ 22px)                                                                   |
+| `--liebe-control-height`       | `42px`   | Embedded slider thickness — a preferred maximum, not a fixed size ([cross-axis fit](#cross-axis-fit)) |
+| `--liebe-chip-height`          | `34px`   | Chip height                                                                                           |
+| `--liebe-card-min-height-row`  | `60px`   | Height floor for the single-row tiers (`glance`, `row`)                                               |
+| `--liebe-card-min-height-tall` | `120px`  | Height floor for the multi-row tiers (`tall`, `full`)                                                 |
+| `--liebe-graph-height-inline`  | `32px`   | Sparkline band sharing a line with other content                                                      |
+| `--liebe-graph-height-dialog`  | `96px`   | History graph in the entity detail dialog                                                             |
 
 The two graph tokens are the **fixed** graph heights, and the only ones: a graph that shares its line with other content, and the dialog's. The `full` tier's card graph is deliberately absent from this table because it carries no fixed height at all — it grows with the tile ([options/sensor — tier layouts](../entity-cards/options/sensor.md#tier-layouts), change [0031](../../changes/0031-sensor-graph-fill.md)). _Both tokens ship, defaulting to the literals they replaced, so a theme that leaves them alone sees no change._
+
+**A geometry token is not a promise that the part measures that.** Several of these describe a part's size across an axis the tile may be narrower than, and the tile's width is the user's grid and the theme's inset rather than this spec's to pin — so where the two disagree the tile wins. [Cross-axis fit](#cross-axis-fit) below owns which parts that applies to and what the alternative is.
 
 Surface tokens (dark defaults / light values):
 
@@ -134,7 +136,7 @@ Every entity card composes from a fixed set of anatomy parts, each with a stable
 - **Tile** (`liebe-card`): the card surface — `--liebe-card-bg`, `--liebe-card-radius`, `--liebe-card-border`, `--liebe-card-blur`, `--liebe-card-shadow`, padding `--liebe-card-padding`, `overflow: hidden`.
 - **Icon circle** (`liebe-icon`): 40px circle implementing the active/inactive tint pattern.
 - **Meta block** (`liebe-name`, `liebe-state`): the two-line name/state stack.
-- **Embedded slider** (`liebe-slider`): 42px-tall track with a translucent domain-tint fill and a 3px saturated leading edge; supports horizontal and vertical orientation; value readout inside the track. In **both** orientations the fill MUST cover the track's full cross-axis — a vertical fill spans the track's whole width exactly as a horizontal fill spans its whole height (this held only for horizontal until change [0028](../../changes/0028-slider-rendering-fixes.md), which records the defect and its mechanism). A vertical slider MUST also render horizontally centred within whatever region hosts it, not pinned to the region's leading edge.
+- **Embedded slider** (`liebe-slider`): a `--liebe-control-height` track — 42px by default, and the thickness the control _prefers_ rather than one it always has ([cross-axis fit](#cross-axis-fit)) — with a translucent domain-tint fill and a 3px saturated leading edge; supports horizontal and vertical orientation; value readout inside the track. In **both** orientations the fill MUST cover the track's full cross-axis — a vertical fill spans the track's whole width exactly as a horizontal fill spans its whole height (this held only for horizontal until change [0028](../../changes/0028-slider-rendering-fixes.md), which records the defect and its mechanism). A vertical slider MUST also render horizontally centred within whatever region hosts it, not pinned to the region's leading edge.
 - **Pill controls** (`liebe-pill`): 38px equal-width mode buttons; selected pill uses the active tint pattern.
 - **Chip** (`liebe-chip`): 34px pill for header rows — icon-dot + label, same tint pattern.
 - **Big value** (`liebe-value`): the large numeric readout with unit in muted 14px.
@@ -156,6 +158,32 @@ Every part MUST also stamp the attributes of the [stable selector contract](../t
 - **GIVEN** an `on` dimmable light at 50% rendered at 1×3 (`tall`), whose card body centres its content
 - **WHEN** the slider renders vertically
 - **THEN** the fill's box is exactly as wide as the track's content box, flush with both its edges and nothing clipped at the track boundary; and the slider itself sits horizontally centred in the region hosting it rather than against its leading edge.
+
+#### Cross-axis fit
+
+A tile's **content region** is the width the grid lays it out at, less `--liebe-card-padding` on both inline sides. At `tall` the tile is one column wide by definition, so that region is the narrowest the design system ever hands a control — about 35px on a 12-column grid in a 960px container, and **19px** under LCARS, whose inset is both larger and asymmetric. It is not a width this spec can pin: the column count is the user's, the container width is Home Assistant's, and the inset is the theme's.
+
+The geometry tokens were never reconciled with any of that, which change [0042](../../changes/0042-tall-tile-control-geometry.md) measured and which these rules settle:
+
+- **A part MUST NOT rely on the tile's inset to absorb an overhang.** The inset is a theme's to set and the tile clips (`overflow: hidden`), so a part sized past its content region stays uncropped only for the padding values its author happened to check — the default 14px leaves a 42px control 10.5px of clearance and LCARS leaves it 0.5px. "It fits inside the padding" is a property of one theme, never of the design system.
+- **A control rendered at a one-cell-wide tier MUST be cross-axis flexible**: it takes the content region's width, and its geometry token names the size it prefers rather than the size it always has. `--liebe-control-height` is exactly that for the vertical slider — the track is 42px where the region affords it and the region's width where it does not.
+- **A control MAY be sized down to its region only where its other axis independently clears the 44px touch floor.** The vertical slider qualifies: its length is the tile's height, floored by `--liebe-card-min-height-tall`. A control bounded by its content on every axis — a row of buttons — does not, and MUST NOT be sized down, because that trades a visible clip for a target too small to hit, which is the worse of the two.
+- **A control that is neither MUST be omitted at that tier** in favour of one that is cross-axis flexible — never clipped, never scrolled, and never leaving the entity unoperable ([size-adaptive layouts](#size-adaptive-layouts)). Substituting one control for another at a tier is the degradation `input_select`'s pills already make outside `full` ([options/input-helpers](../entity-cards/options/input-helpers.md)), not a new mechanism.
+
+**Migration note for themes.** `--liebe-control-height` keeps its name and its 42px default; what changes is that setting it states a maximum. A theme MUST NOT assume a slider measures that value at `tall`, and cannot obtain a thicker track there from this token alone — the content region is what bounds it.
+
+**Fixed-size parts this rule has not yet been measured against.** The icon circle (40px), the chip (34px) and the pill group (38px) all exceed a `tall` tile's content region at ordinary desktop widths and so sit in the same shape as the slider did. None has a measured symptom, and [0042](../../changes/0042-tall-tile-control-geometry.md) deliberately did not audit them; this rule is the contract such an audit would measure them against.
+
+#### Scenario: Vertical slider fits the narrowest tile it can occupy
+
+- **GIVEN** a `tall` card on a 12-column grid whose container is 960px, so the tile is 63px wide and its content region 35px
+- **WHEN** the vertical slider renders
+- **THEN** the track is 35px thick — the region's width, not the token's 42px — and no part of it extends past the tile's edge
+- **AND** the slider's length still clears the 44px touch floor, so nothing is traded for the narrower track
+- **WHEN** the same card renders where the content region is 42px or wider
+- **THEN** the track is the token's 42px, unchanged
+- **WHEN** LCARS is active, giving the same tile a 19px content region
+- **THEN** the track is 19px and is still not clipped — the rule holds for an asymmetric, larger inset.
 
 #### Background slider placement
 
@@ -179,7 +207,7 @@ Cards are freely resizable on the grid; content MUST adapt to the grid span rath
 | `full`   | ≥2×≥2           | Row layout plus secondary controls (mode pills, presets, graph, forecast)       |
 
 - Every card MUST implement `glance` and `row`; `tall` and `full` are per-card (see per-card option docs under [entity-cards/options](../entity-cards/options/common.md)). **The camera card is the one whose tier response is behaviour rather than layout**, and it consumes the tier like every other card as of change [0021](../../changes/0021-camera-presentation-options.md): below `full` it mounts no stream element at all and stands a still thumbnail in its place, with the camera's own presentation layers — the name overlay, the live badge and the motion line — omitted. The UNIVERSAL display options still apply there: `hideName` hides the thumbnail tile's name exactly as it hides any other card's, leaving the image-only tile the camera's tier table requires to stay valid. Only the layers that need a feed to sit on go. The stream lifecycle on that path — including the lazy fullscreen mount — is owned by [camera-streaming](../camera-streaming/) and its presentation by [options/camera](../entity-cards/options/camera.md).
-- A card MUST degrade gracefully: content that does not fit its tier MUST be omitted, never clipped or scrolled.
+- A card MUST degrade gracefully: content that does not fit its tier MUST be omitted, never clipped or scrolled. What "does not fit" means for a part with a fixed size on the axis the tier is one cell wide is [cross-axis fit](#cross-axis-fit)'s.
 - The states a card renders **instead of** itself — loading, error, unavailable — are tiles like any other and MUST take the tier of the card they stand in for: a 1×1 skeleton is a small tile, not a truncated large one.
 - **Omitted from the layout is not omitted from the product.** Where a tier drops the information that identifies a state, or the only control that resolves it, both MUST stay reachable from the tile itself. Concretely for a `glance` error tile: the message MUST become the tile's accessible name; the tile MUST be a button; and pressing it MUST open the detail dialog carrying the full message and the `Retry` / `Dismiss` actions. A `title` tooltip MUST NOT be that mechanism — Liebe's primary surface is a wall tablet with no hover, and `title` reaches assistive technology inconsistently even where hover exists — and `Retry` MUST NOT simply be dropped, since it is the only way out of the state.
 - The tier MUST be derived from grid dimensions; the legacy `size: small|medium|large` prop is superseded (migration is an implementation concern for the change documents, not this spec).
@@ -262,3 +290,4 @@ Token layering (base → theme → user), application mechanism, and shadow-DOM 
 | 2026-07-30 | Default theme's `-text` companions pinned per appearance: step 12 in light for amber, orange and teal, step 11 for the other seven and for all ten in dark. A `-text` pin MUST now clear the 4.5:1 text floor in each appearance separately, since a Radix step 11 is calibrated against its own scale rather than a neutral                                                                                                                                                                                 | [0035](../../changes/0035-light-appearance-contrast.md)   |
 | 2026-07-30 | The 44px touch-target floor is enforced on Radix controls again: the vendored sheets moved below the baseline layer, where their class selectors no longer outrank the floor's element selectors                                                                                                                                                                                                                                                                                                             | [0036](../../changes/0036-theming-contract-gaps.md)       |
 | 2026-07-30 | Active-state pattern's glyph step made per appearance: the glyph takes the domain's `-text` token in light and its base in dark, because a base-step glyph on a 20% tint of itself over the light card cannot reach 3:1 whatever the hue (1.40:1 amber, 2.50:1 green) and neither of the pattern's other two knobs moves it                                                                                                                                                                                  | [0035](../../changes/0035-light-appearance-contrast.md)   |
+| 2026-07-30 | Cross-axis fit added to card anatomy: a part may not lean on the tile's inset to absorb an overhang, a control at a one-cell-wide tier must be cross-axis flexible, sizing down is legitimate only where the other axis clears 44px on its own, and anything else is omitted in favour of a control that fits. `--liebe-control-height` re-pinned as a preferred maximum rather than a fixed thickness — same name, same 42px default                                                                        | [0042](../../changes/0042-tall-tile-control-geometry.md)  |
