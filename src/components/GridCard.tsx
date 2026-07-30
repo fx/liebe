@@ -802,14 +802,27 @@ export const GridCard = React.memo(
        * decision anyone made. PR 3 of that change made the call visible; this is
        * PR 4, which removes the suppression it left behind.
        *
-       * It is also a fix rather than a re-spelling, for the reason `CoverCard`
-       * records: both dialogs are hidden by a `!isEditMode` guard in the render
-       * below, so an effect leaves the *request* standing while taking the
-       * dialog off screen — and leaving edit mode resurrects it. A passive
-       * effect runs after paint, so that resurrection was a frame the user could
-       * see: a detail dialog, or a confirmation asking about a gesture long
-       * gone, where the answer that looks safe is to accept. Resetting during
-       * render drops both a commit earlier, so no such frame exists.
+       * It is more than a re-spelling on **one** of the two keys, and the
+       * difference between them is worth stating precisely, because the obvious
+       * reading gets it backwards.
+       *
+       * On edit mode it is a re-spelling. `CoverCard`'s resurrection bug does
+       * not reach here: the shell already reset, and the `!isEditMode` render
+       * guard below covers the one commit the effect ran late by, so nothing
+       * stale was ever on screen. What `CoverCard` lacked was the reset itself,
+       * not a render-phase one.
+       *
+       * On the entity it is a fix. Nothing guards that key, so a card instance
+       * recycled onto another entity while a dialog stood committed a frame of
+       * the **previous** entity's dialog over the new one before the passive
+       * effect cleared it — details for a device the user is no longer looking
+       * at, or a confirmation asking about a gesture that was made against a
+       * different entity, where the answer that looks safe is to accept.
+       * Resetting during render drops both a commit earlier, so that frame
+       * cannot exist. `GridCard.dialogReset.test.tsx` observes it from a layout
+       * effect, which is the only vantage that can tell the two spellings apart
+       * — by the time a passive effect or an `act()` boundary has flushed, both
+       * implementations agree.
        *
        * One guard for the two of them because it is one rule, matching the
        * cards; the change document's requirement that each site be audited

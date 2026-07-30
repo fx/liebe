@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -92,6 +93,47 @@ describe('CardConfig modal draft', () => {
     rerender(tree(FIRST, vi.fn()))
 
     expect(contentField()).toHaveValue('Half-typed card')
+  })
+
+  it('shows the new item in the very commit it is handed one', () => {
+    /*
+     * The only assertion here that can tell a render-phase reseed from an
+     * effect one. Both settle on the same draft, so everything asserted after
+     * an `act()` boundary — where passive effects have flushed — agrees with
+     * both; the difference is the commit in between, which is a frame the user
+     * sees showing the previous card's body under the new card's title.
+     *
+     * Observed from a layout effect, which runs after that commit's DOM
+     * mutations and before anything passive.
+     */
+    const seen: string[] = []
+
+    function CommitProbe() {
+      useLayoutEffect(() => {
+        const field = document.querySelector(
+          'textarea[placeholder="Enter your text here..."]'
+        ) as HTMLTextAreaElement | null
+        if (field) seen.push(field.value)
+      })
+      return null
+    }
+
+    const probeTree = (item: GridItem) => (
+      <Theme>
+        <CardConfig.Modal open onOpenChange={vi.fn()} item={item} onSave={vi.fn()} />
+        <CommitProbe />
+      </Theme>
+    )
+
+    const { rerender } = render(probeTree(FIRST))
+    seen.length = 0
+
+    rerender(probeTree(SECOND))
+
+    // The probe must have run, or this asserts nothing at all.
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen).not.toContain('First card')
+    expect(seen).toContain('Second card')
   })
 
   it('saves the reseeded item’s values, not the one it was opened on', async () => {
