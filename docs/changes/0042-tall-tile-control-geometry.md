@@ -61,12 +61,12 @@ Skipping or weakening any rule to land the PR is a bug in the PR.
 
 ## Design Decisions
 
-The decision itself is task 1's, deliberately not taken here. What is decided is the framing — the candidate routes, their costs, and the two that are already ruled out:
+The decision was task 1's and has now been taken — it is recorded at the end of this section, and the candidate routes below are kept as the framing it was chosen against rather than as live options:
 
 - **(A) Shrink the control at `tall` — a narrower thickness for the vertical form.** Cheapest to implement and it fixes the slider's bleed exactly. It contradicts the spec's "42px-tall track" pin, so it needs either a second token (a vertical/narrow-tile thickness) or a re-pin of the existing one with a theming migration note, and it changes the touch-target arithmetic that the ≥44px floor depends on. It does nothing for the stepper: 156px does not become 35px by thinning a track.
 - **(B) Reduce the tile's inset at `tall`.** Leaves the control at 42px and buys 28px at most — enough for the slider, nowhere near enough for the stepper. It also costs the tile its uniform inset, which is inherited theming surface, and LCARS's 32px inline-start inset makes the tall content region _smaller_, not larger, so this route is strictly worse than it looks on the default theme.
 - **(C) Change what the stepper renders at `tall`** — define the compact stepper the input-helpers tier table already calls for (a vertical +/- stack, or +/- without the 60px value button, with the value carried by the meta line), or omit the stepper at `tall` and render the tier's vertical slider instead. This is the only route that addresses the clipped case, and the omit-in-favour-of-the-slider variant is the one the omit-never-clip rule points at while keeping the entity operable.
-- **(D) Accept and document the slider's overhang.** A real option for consequence 1 alone: 3.5px per side is inside the padding, uncropped and centred, and the alternatives all cost contract surface. It is not an option for consequence 2.
+- **(D) Accept and document the slider's overhang.** Framed as a real option for consequence 1 alone — 3.5px per side is inside the padding, uncropped and centred, and the alternatives all cost contract surface — and never one for consequence 2. **Ruled out by PR 1**; see below for why the padding it leans on is not the design system's to lean on.
 - **(E) Ruled out — clamp the control to the content region mechanically** (`max-inline-size: 100%` on the control slot). It converts a clip into a silent contract violation: the slider's track stops being 42px whenever the tile is narrow, and the stepper's buttons shrink below the ≥44px touch floor. A rule the layout satisfies by quietly breaking two others is worse than the visible defect.
 - **(F) Ruled out — forbid the `tall` tier below some container width.** The tier is derived from the effective span and a user places a 1×2 card deliberately; refusing to honour it would trade a cosmetic overhang for a layout that ignores the user.
 
@@ -80,7 +80,7 @@ The decision itself is task 1's, deliberately not taken here. What is decided is
 
 Two further decisions this change does take:
 
-- **The two consequences are separate PRs even though the cause is one.** Their severity differs (a clipped control the user cannot press versus an overhang most users will not see), their blast radius differs (one card family's tier layout versus a token every card and every theme inherits), and their tests differ (a clip assertion versus a sub-pixel-tolerance overhang measurement). Most decisively, the slider half may be resolved as (D) — accept and document — which is a documentation PR; bundling it would put the user-visible fix behind a decision that may produce no code at all.
+- **The two consequences are separate PRs even though the cause is one.** Their severity differs (a clipped control the user cannot press versus an overhang most users will not see), their blast radius differs (one card family's tier layout versus a token every card and every theme inherits), and their tests differ (a clip assertion versus a sub-pixel-tolerance overhang measurement). The reason first given for splitting them — that the slider half might resolve as (D) and produce no code — no longer applies, since PR 1 ruled (D) out; the three above still do.
 - **The contract decision is its own PR, before either fix.** Both fixes are applications of it, and a spec change agreed in the abstract reviews very differently from the same change buried in a diff that also moves a card's layout.
 
 ## Tasks
