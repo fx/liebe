@@ -13,6 +13,7 @@ import {
   readWeatherReading,
   resolveConditionBackground,
   resolveSecondaryReading,
+  resolveUnavailableStatus,
   supplementalReadings,
 } from '../presentation'
 import { WEATHER_SECONDARY_INFO } from '~/store/weatherOptions'
@@ -57,6 +58,28 @@ const attributes = {
 }
 
 const input = { attributes, temperatureUnit: 'auto' as const }
+
+describe('resolveUnavailableStatus', () => {
+  it('names which of the two lifecycle states arrived', () => {
+    // Not one shared literal: the states mean different faults, and the status
+    // line is the only place a viewer can tell them apart (change 0037 PR 1).
+    expect(resolveUnavailableStatus('unavailable')).toBe('UNAVAILABLE')
+    expect(resolveUnavailableStatus('unknown')).toBe('UNKNOWN')
+  })
+
+  it('declines a state that reports actual weather', () => {
+    /*
+     * `undefined` is the caller's gate as well as its label — a variant draws the
+     * inert card exactly when this answers — so declining is what keeps a real
+     * condition on the ordinary card. `unavailable` is not a weather condition
+     * and no HA integration publishes one shaped like it, so the two arms
+     * partition the domain rather than leaving a middle.
+     */
+    for (const state of ['sunny', 'rainy', 'exceptional', UNKNOWN_CONDITION, '']) {
+      expect(resolveUnavailableStatus(state)).toBeUndefined()
+    }
+  })
+})
 
 describe('readWeatherNumber', () => {
   it('reads numbers and numeric strings, and declines everything else', () => {

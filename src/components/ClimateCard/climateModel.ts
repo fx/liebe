@@ -132,10 +132,45 @@ export function readTemperature(value: unknown): number | undefined {
  * `hvac_modes` is absent on entities that expose no mode control at all, and a
  * hand-edited or malformed one can be any shape; every one of those means "no
  * modes to offer" rather than a card that throws while rendering.
+ *
+ * Each mode is **trimmed**, blanks are **dropped**, and repeats are **dropped
+ * keeping the first**. That is load-bearing rather than tidiness, and it is here
+ * rather than in a row because a pill row renders every mode it is handed and
+ * uses the value as a React key:
+ *
+ * - `['heat', '']` would render an unlabelled pill dispatching `set_hvac_mode`
+ *   with an empty string. A mode with no name is not a mode.
+ * - `['heat', 'heat']` would render two identical pills under one duplicate key.
+ * - `['heat', ' heat ']` is the same trap wearing a disguise: React sees two
+ *   distinct keys and the user sees two identical pills. Trimming collapses them
+ *   into the one mode the entity meant.
+ *
+ * Trimming also settles what gets **sent**: the service carries the trimmed
+ * string, because Home Assistant would reject `' heat '` for a reason the user
+ * cannot see on the card.
+ *
+ * The whole list is `hvac_modes` off the entity — a template or a misconfigured
+ * integration can put any strings in it, and the pill row no longer filters
+ * them against a known-mode map, so this is the only place these shapes are
+ * judged. It covers the preset and fan-mode rows too.
  */
 export function readHvacModes(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value.filter((mode): mode is string => typeof mode === 'string')
+
+  const seen = new Set<string>()
+  const modes: string[] = []
+
+  for (const mode of value) {
+    if (typeof mode !== 'string') continue
+
+    const trimmed = mode.trim()
+    if (trimmed === '' || seen.has(trimmed)) continue
+
+    seen.add(trimmed)
+    modes.push(trimmed)
+  }
+
+  return modes
 }
 
 /**

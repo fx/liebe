@@ -129,15 +129,41 @@ export const Fahrenheit: Story = {
   args: { config: { variant: 'minimal', temperatureUnit: 'fahrenheit' }, gridWidth: 2 },
 }
 
+/** Home Assistant cannot reach the entity: the inert card, status `UNAVAILABLE`. */
 export const Unavailable: Story = {
   args: { gridHeight: 2 },
   parameters: { liebe: { entities: [asUnavailable(createWeatherEntity())] } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('UNAVAILABLE')
+  },
 }
 
-/** `unknown` is treated exactly like `unavailable` by every weather variant. */
+/**
+ * `unknown` takes the same inert card as `unavailable` and **not** the same
+ * status line: it means Home Assistant reached the entity and got no weather
+ * back, which is a different fault from not reaching it, so the card prints the
+ * raw state rather than the `UNAVAILABLE` literal it used to (change 0037 PR 1).
+ */
 export const UnknownState: Story = {
   args: { gridHeight: 2 },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'unknown' })] } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('UNKNOWN')
+    await expect(cardText(canvasElement)).not.toContain('UNAVAILABLE')
+  },
+}
+
+/**
+ * The same `unknown` entity in `minimal`, the variant that renders least: all
+ * four agree about the status line, because they all resolve it from one place
+ * (`presentation.ts` — `resolveUnavailableStatus`).
+ */
+export const UnknownStateMinimal: Story = {
+  args: { gridHeight: 2, gridWidth: 2, config: { variant: 'minimal' } },
+  parameters: { liebe: { entities: [createWeatherEntity({ state: 'unknown' })] } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('UNKNOWN')
+  },
 }
 
 export const Loading: Story = {
