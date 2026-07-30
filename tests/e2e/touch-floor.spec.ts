@@ -120,10 +120,20 @@ test('the touch floor reaches Radix controls in the taskbar, a config modal and 
     "the modal's Save button keeps Radix's own inline padding"
   ).toBeGreaterThan(0)
 
+  // Dismissed and gone, asserted rather than assumed: the dialog closes on an
+  // animation, and the taskbar sits behind its overlay until that finishes.
   await page.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('textbox', { name: 'Custom CSS' })).toBeHidden()
 
   // The entity browser, reached the way a user reaches it.
-  await page.locator('[aria-label="Edit Mode"]').click()
+  //
+  // `ModeToggle` labels the button with the mode it is IN, not the one it
+  // switches to, so `View Mode` is what enters edit mode and `Edit Mode` is what
+  // leaves it. Reading it the other way round is why this step timed out: the
+  // locator matched nothing at all rather than matching something unclickable.
+  await page.locator('[aria-label="View Mode"]').click()
+  await expect(page.locator('[aria-label="Edit Mode"]')).toBeVisible()
+
   await page.locator('[aria-label="Add Item"]').click()
   await expect(page.getByPlaceholder('Search entities...')).toBeVisible()
 
