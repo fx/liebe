@@ -59,7 +59,8 @@ describe('anatomy stylesheet', () => {
     // An unlayered author rule outranks every cascade layer, so a stray rule
     // outside the block would be the one piece of the anatomy no theme could
     // restyle.
-    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    const statement =
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
     expect(source).toContain(statement)
 
     const body = source.replace(statement, '').trim()

@@ -2,12 +2,18 @@
  * The cascade-layer machinery of the theming engine.
  *
  * Everything the panel styles itself with lands in one of three layers —
- * `liebe-base` (tokens, component sheets, the vendored Radix stylesheet),
- * `liebe-theme` (the active theme) and `liebe-user` (custom CSS) — and a later
- * layer wins regardless of selector specificity. Source order alone could not
- * deliver that: a theme rule scoped to an appearance would outrank a less
- * specific user override. See docs/specs/theming/index.md, "Application
- * mechanism".
+ * `liebe-base` (tokens and component sheets), `liebe-theme` (the active theme)
+ * and `liebe-user` (custom CSS) — and a later layer wins regardless of selector
+ * specificity. Source order alone could not deliver that: a theme rule scoped to
+ * an appearance would outrank a less specific user override.
+ *
+ * The baseline is itself three tiers, because "the baseline" spans CSS with
+ * opposite needs: the universal reset has to lose to everything, a vendored
+ * component sheet has to lose to Liebe's own rules, and Liebe's own rules have to
+ * win. Specificity cannot express that — a reset is deliberately weakest and a
+ * vendor sheet's class selectors are strongest — so the order runs
+ * `liebe-base.reset` → `liebe-base.vendor` → `liebe-base` itself. See
+ * docs/specs/theming/index.md, "Application mechanism".
  *
  * These are pure text transforms with no DOM dependency, because they run in
  * two places: the build (the Vite plugin in `vite/baselineCssPlugin.ts` wraps
@@ -24,8 +30,45 @@
  * sanitizer.
  */
 
-/** Baseline: tokens, component sheets, vendored stylesheets. */
+/** Baseline: tokens and Liebe's own component sheets. */
 export const BASE_LAYER = 'liebe-base'
+/**
+ * The sub-layer of the baseline that holds a vendored stylesheet something
+ * first-party has to outrank. `DEMOTED_VENDOR_PACKAGES` below is the list, and
+ * it is Radix Themes alone — the other vendored sheets the panel imports stay in
+ * `liebe-base`, where specificity decides them against Liebe's own rules.
+ *
+ * A sub-layer loses to the declarations sitting directly in its parent
+ * regardless of selector specificity, which is the whole point: Radix's
+ * `.rt-reset { min-height: 0 }` is a class selector and `app.css`'s coarse-
+ * pointer floor is a bare `button`, so with both in `liebe-base` the floor lost
+ * every Radix control it was written for — a `size="3"` button measured 40px
+ * with a computed `min-height` of `0px`, a text field 38px at `auto`. Below the
+ * baseline, Liebe's own rules win by being where they are rather than by
+ * out-specifying a vendor selector that changes on every upgrade.
+ *
+ * A sub-layer rather than a fourth top-level layer, because the three layers the
+ * theming contract names are what a theme and a user reason about, and the
+ * baseline's internal tiering is not theirs to know: everything here still loses
+ * to `liebe-theme` and `liebe-user` as one block.
+ */
+export const VENDOR_LAYER = `${BASE_LAYER}.vendor`
+/**
+ * The universal reset, one tier below the vendored sheets.
+ *
+ * It has to be below them, because a reset is zero-specificity by design and
+ * relies on losing: `* { padding: 0; margin: 0 }` in the same layer as a
+ * component sheet would zero every padding that sheet declares — the reason it
+ * was layered in the first place ([0010](docs/changes/0010-…)) was that
+ * unlayered, it did exactly that to the card anatomy. Sitting it in `liebe-base`
+ * once the vendored sheets moved beneath would have done the same to Radix, and
+ * measurably did: table cells lost 16px of padding and inline code 5px, across
+ * 156 of the workshop's 622 stories.
+ *
+ * So the baseline is three tiers rather than two — reset, then vendored, then
+ * Liebe's own — and each wins only over the one before it.
+ */
+export const RESET_LAYER = `${BASE_LAYER}.reset`
 /** The active theme's token overrides and scoped rules. */
 export const THEME_LAYER = 'liebe-theme'
 /** User-authored custom CSS — the last word on every token. */
@@ -35,8 +78,13 @@ export const USER_LAYER = 'liebe-user'
  * Establishes the layer order. Repeated in every sheet and every injected
  * `<style>`: the first declaration a root sees fixes the order, and which sheet
  * that is depends on bundling and load order, so each one has to carry it.
+ *
+ * The baseline's sub-layers are named here too, and for the same reason: a
+ * sub-layer's position within its parent is fixed by first appearance as well,
+ * so leaving them out would order the reset and the vendored sheets by whichever
+ * of the two happened to be bundled first. One statement settles both levels.
  */
-export const LAYER_ORDER_STATEMENT = `@layer ${BASE_LAYER}, ${THEME_LAYER}, ${USER_LAYER};`
+export const LAYER_ORDER_STATEMENT = `@layer ${RESET_LAYER}, ${VENDOR_LAYER}, ${BASE_LAYER}, ${THEME_LAYER}, ${USER_LAYER};`
 
 /**
  * Properties the token contract governs — colours, backgrounds, borders,
@@ -204,11 +252,19 @@ export function wrapInLayer(css: string, layer: string): string {
   const layered = isFullyLayered(css)
   if (layered && css.includes(LAYER_ORDER_STATEMENT)) return css
 
-  const [charset] = css.match(LEADING_CHARSET) ?? []
-  const body = charset ? css.slice(charset.length) : css
+  const { charset, body } = splitCharset(css)
   const rules = layered ? body : `@layer ${layer} {\n${body}\n}\n`
 
-  return `${charset ?? ''}${LAYER_ORDER_STATEMENT}\n${rules}`
+  return `${charset}${LAYER_ORDER_STATEMENT}\n${rules}`
+}
+
+/**
+ * A sheet split around a leading `@charset`, which is only honoured as the very
+ * first thing in a sheet and so has to stay ahead of anything prepended.
+ */
+function splitCharset(css: string): { charset: string; body: string } {
+  const [charset] = css.match(LEADING_CHARSET) ?? []
+  return charset ? { charset, body: css.slice(charset.length) } : { charset: '', body: css }
 }
 
 /**
@@ -217,4 +273,69 @@ export function wrapInLayer(css: string, layer: string): string {
  */
 export function prepareBaselineCss(css: string): string {
   return wrapInLayer(stripThemableImportance(css), BASE_LAYER)
+}
+
+/**
+ * Baseline treatment for a vendored stylesheet: the same, one tier lower.
+ *
+ * Separate from `prepareBaselineCss` rather than a parameter, because which of
+ * the two a sheet gets is not a caller's option — it follows from where the
+ * sheet came from, which is what `isDemotedVendorSheet` answers.
+ *
+ * The wrapper is unconditional here, where `wrapInLayer` hands an already-layered
+ * sheet back untouched. That shortcut is right for Liebe's own sheets, which are
+ * authored in the layer they belong to, and wrong for a dependency, because the
+ * layer a dependency authored is *its* layer: a package that starts shipping
+ * `@layer their-name { … }` would have that name registered in whatever position
+ * it was first seen — after `liebe-user` in the common case — and its ordinary
+ * declarations would then outrank the theme and the user. Wrapping it anyway
+ * nests their layer inside `liebe-base.vendor`, which keeps their internal order
+ * intact and contains the lot.
+ */
+export function prepareVendorCss(css: string): string {
+  const { charset, body } = splitCharset(stripThemableImportance(css))
+
+  return `${charset}${LAYER_ORDER_STATEMENT}\n@layer ${VENDOR_LAYER} {\n${body}\n}\n`
+}
+
+/**
+ * The vendored packages whose stylesheets sit below Liebe's own baseline, by
+ * package root.
+ *
+ * A list rather than "everything under node_modules", and the difference is not
+ * caution — it is what demotion actually does. Demoting a sheet does not only
+ * let Liebe's rules win where they were losing usefully; it activates EVERY
+ * first-party rule that was losing to it, including rules written years ago
+ * against a cascade in which they never applied and which nobody has ever seen
+ * render.
+ *
+ * `react-grid-layout` is the measured instance. Its handle rules are
+ * `.react-grid-item > .react-resizable-handle.react-resizable-handle-s`, three
+ * class selectors deep, while `GridLayoutSection.css` styles the same handles as
+ * `.react-resizable-handle-s` — so the sheet has always won and Liebe's version
+ * has never rendered. Demoting it swapped the south handle from a 28×28 rotated
+ * square to a 40×20 bar shifted 16px left, and the east handle from 28×28 to
+ * 20×40, which was enough for a resize handle to cover a card's action button
+ * and swallow its click. Those first-party rules may well be the better design —
+ * they carry the same touch-target intent as the coarse-pointer floor — but
+ * making them live changes how the grid is operated, and that is a change with
+ * its own evidence to gather, not a side effect of a cascade fix
+ * (docs/changes/0036-theming-contract-gaps.md).
+ *
+ * So a package joins this list when something needs to outrank it and the
+ * consequences have been measured. Radix Themes is here because the 44px touch
+ * floor is written on bare element selectors that its `.rt-reset` outranks.
+ */
+const DEMOTED_VENDOR_PACKAGES = ['@radix-ui/themes']
+
+/**
+ * Whether a stylesheet belongs in the layer below Liebe's own baseline.
+ *
+ * Matched on the resolved path rather than the import specifier, because that is
+ * what a bundler hands a transform: `import '@radix-ui/themes/styles.css'`
+ * arrives as an absolute path. Windows separators are normalised first.
+ */
+export function isDemotedVendorSheet(id: string): boolean {
+  const path = id.replaceAll('\\', '/')
+  return DEMOTED_VENDOR_PACKAGES.some((pkg) => path.includes(`/node_modules/${pkg}/`))
 }

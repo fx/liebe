@@ -1,6 +1,7 @@
 import { globSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { isFullyLayered } from '../cssLayers'
 import {
   domainColorTokens,
   domainColors,
@@ -33,6 +34,41 @@ const previewSource = read('../../../.storybook/preview.tsx')
  */
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/**
+ * How many `@layer … { … }` blocks a sheet opens at the TOP level.
+ *
+ * Depth-aware rather than a count of the word, because a nested layer is not a
+ * second block: `app.css` nests `@layer reset` inside its base block, since the
+ * universal reset has to sit below the vendored sheets to keep losing to them
+ * (docs/specs/theming — "Application mechanism").
+ *
+ * One block is what the assertions below require, and they pair it with
+ * `isFullyLayered` because neither is sufficient alone: this counts blocks and
+ * cannot see a rule sitting outside one, while `isFullyLayered` accepts any
+ * number of layered blocks. A sheet needs both — everything inside a layer, and
+ * one layer per sheet so nothing can later be added between two of them.
+ */
+function topLevelLayerBlocks(css: string): number {
+  let depth = 0
+  let blocks = 0
+  let pending = ''
+
+  for (const character of css) {
+    if (character === '{') {
+      if (depth === 0 && pending.trim().startsWith('@layer')) blocks += 1
+      depth += 1
+      pending = ''
+    } else if (character === '}') {
+      depth -= 1
+      pending = ''
+    } else if (depth === 0) {
+      pending += character
+    }
+  }
+
+  return blocks
 }
 
 /** Declared `--liebe-*` values in a sheet, keyed by token name. */
@@ -213,15 +249,16 @@ describe('cascade layers', () => {
   ])('wraps the %s sheet in its layer, with the layer order declared', (_name, rules, layer) => {
     // The order statement is repeated per sheet so whichever the bundler emits
     // first still establishes base → theme → user.
-    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    const statement =
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
     expect(rules).toContain(statement)
 
     // Nothing may sit outside the layer block: an unlayered author declaration
     // outranks every cascade layer and would defeat theme and user overrides.
     const body = rules.replace(statement, '').trim()
     expect(body.startsWith(`@layer ${layer} {`)).toBe(true)
-    expect(body.endsWith('}')).toBe(true)
-    expect(body.indexOf('@layer')).toBe(body.lastIndexOf('@layer'))
+    expect(isFullyLayered(body)).toBe(true)
+    expect(topLevelLayerBlocks(body)).toBe(1)
   })
 })
 
@@ -277,16 +314,15 @@ describe('baseline stylesheets', () => {
 
   it.each(sheets)('%s puts all of its CSS inside a cascade layer', (sheet) => {
     const rules = stripComments(read(`../../../${sheet}`)).trim()
-    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    const statement =
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
 
     expect(rules).toContain(statement)
 
     const body = rules.replace(statement, '').trim()
     expect(body.startsWith('@layer ')).toBe(true)
-    expect(body.endsWith('}')).toBe(true)
-    // One block: a second top-level `@layer` would be a chance for CSS to sit
-    // between them, outside every layer.
-    expect(body.indexOf('@layer')).toBe(body.lastIndexOf('@layer'))
+    expect(isFullyLayered(body)).toBe(true)
+    expect(topLevelLayerBlocks(body)).toBe(1)
   })
 })
 

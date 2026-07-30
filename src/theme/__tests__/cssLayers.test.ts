@@ -4,17 +4,26 @@ import { describe, expect, it } from 'vitest'
 import {
   BASE_LAYER,
   LAYER_ORDER_STATEMENT,
+  RESET_LAYER,
+  VENDOR_LAYER,
   isFullyLayered,
   isThemableProperty,
+  isDemotedVendorSheet,
   prepareBaselineCss,
+  prepareVendorCss,
   stripThemableImportance,
   wrapInLayer,
 } from '../cssLayers'
 
 /**
  * The layer contract, asserted on the text the panel actually ships: the
- * transforms are what stand between an unlayered vendored stylesheet and a
- * theme that cannot override it (docs/specs/theming — "Application mechanism").
+ * transforms are what stand between a vendored stylesheet and a theme that
+ * cannot override it, and between one and a baseline rule it out-specifies
+ * (docs/specs/theming — "Application mechanism").
+ *
+ * What these cannot reach is whether the resulting layer order actually decides
+ * a declaration, which is a property of the cascade rather than of the text —
+ * `tests/e2e/touch-floor.spec.ts` measures that in a browser.
  */
 
 const require = createRequire(import.meta.url)
@@ -219,20 +228,108 @@ describe('prepareBaselineCss', () => {
   })
 })
 
+describe('prepareVendorCss', () => {
+  it('layers a vendored sheet below the baseline and de-emphasises it', () => {
+    const prepared = prepareVendorCss(
+      '.rt-reset { min-height: 0 !important; color: red !important }'
+    )
+
+    expect(prepared).toContain(`@layer ${VENDOR_LAYER} {`)
+    // `min-height` is the component's own geometry and keeps its importance;
+    // `color` is a token-contract property and loses it.
+    expect(prepared).toContain('min-height: 0 !important')
+    expect(prepared).toContain('color: red }')
+  })
+
+  it('orders the baseline as reset, then vendored, then Liebe’s own rules', () => {
+    // The order of these three is the whole fix, and every one of the three
+    // positions is load-bearing:
+    //
+    //   - the reset below the vendored sheets, because `* { padding: 0 }` is
+    //     written to lose and would otherwise zero every padding Radix declares
+    //   - the vendored sheets below `liebe-base`, because that is what lets the
+    //     touch floor's bare `button` beat Radix's `.rt-reset` class selector
+    //   - all three below `liebe-theme` and `liebe-user`, unchanged
+    //
+    // Spelled out as one literal rather than composed from the constants,
+    // because composing it would assert nothing: the statement and the layer
+    // names would move together and the test would pass on any order at all.
+    expect(LAYER_ORDER_STATEMENT).toBe(
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
+    )
+    expect(RESET_LAYER).toBe(`${BASE_LAYER}.reset`)
+    expect(VENDOR_LAYER).toBe(`${BASE_LAYER}.vendor`)
+  })
+
+  it('wraps a vendored sheet that already declares its own layer', () => {
+    // `wrapInLayer` hands an already-layered sheet back, which is right for
+    // Liebe's own sheets and wrong for a dependency: the layer a dependency
+    // authored is ITS layer, registered wherever it was first seen — after
+    // `liebe-user` in the common case — so its ordinary declarations would
+    // outrank the theme and the user. Nesting it keeps its internal order and
+    // contains the lot.
+    const prepared = prepareVendorCss('@layer their-name { .a { color: red } }')
+
+    expect(prepared).toContain(`@layer ${VENDOR_LAYER} {`)
+    expect(prepared).toContain('@layer their-name { .a { color: red } }')
+  })
+})
+
+describe('isDemotedVendorSheet', () => {
+  it.each([
+    '/repo/node_modules/@radix-ui/themes/styles.css',
+    'C:\\repo\\node_modules\\@radix-ui\\themes\\styles.css',
+    // A transitive copy, which is where a hoisting-defeated install puts it.
+    '/repo/node_modules/a/node_modules/@radix-ui/themes/styles.css',
+  ])('demotes %s', (id) => {
+    expect(isDemotedVendorSheet(id)).toBe(true)
+  })
+
+  /*
+   * The grid packages stay in `liebe-base`, and this is the assertion that says
+   * so rather than an omission that happens to.
+   *
+   * Demoting them activates every first-party rule that was losing to them, and
+   * `GridLayoutSection.css` is full of handle rules that have never rendered
+   * because react-grid-layout selects the same handles one class deeper. Live,
+   * they resize the drag handles enough to cover a card's action button. Being
+   * vendored is therefore not the test — needing to be outranked is, and nothing
+   * yet needs to outrank these.
+   */
+  it.each([
+    '/repo/node_modules/react-grid-layout/css/styles.css',
+    '/repo/node_modules/react-resizable/css/styles.css',
+  ])('leaves %s in the baseline layer', (id) => {
+    expect(isDemotedVendorSheet(id)).toBe(false)
+  })
+
+  it.each([
+    '/repo/src/styles/app.css',
+    '/repo/src/components/anatomy/anatomy.css',
+    // The package name outside node_modules is a first-party file.
+    '/repo/src/vendor/@radix-ui/themes/styles.css',
+  ])('leaves first-party %s in the baseline layer', (id) => {
+    expect(isDemotedVendorSheet(id)).toBe(false)
+  })
+})
+
 describe('the vendored stylesheets as they ship', () => {
+  // The transform is asserted against all three sheets as they ship, because it
+  // has to survive whatever text a dependency emits — which of them the build
+  // actually routes through it is `isDemotedVendorSheet`'s decision, above.
   it.each(Object.entries(vendoredSheets))(
-    '%s lands in the base layer with no themable importance',
+    '%s survives the vendor treatment with no themable importance',
     (_specifier, css) => {
-      const prepared = prepareBaselineCss(css)
+      const prepared = prepareVendorCss(css)
 
       expect(prepared).toContain(LAYER_ORDER_STATEMENT)
-      expect(prepared).toContain(`@layer ${BASE_LAYER} {`)
+      expect(prepared).toContain(`@layer ${VENDOR_LAYER} {`)
       expect(importantProperties(prepared).filter(isThemableProperty)).toEqual([])
     }
   )
 
   it('preserves the behavioural importance Radix depends on', () => {
-    const prepared = prepareBaselineCss(vendoredSheets['@radix-ui/themes/styles.css'])
+    const prepared = prepareVendorCss(vendoredSheets['@radix-ui/themes/styles.css'])
 
     // The ScrollArea viewport and the Skeleton mask: overriding these is not
     // theming, it is breaking the component.

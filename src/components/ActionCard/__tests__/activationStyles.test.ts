@@ -43,7 +43,9 @@ describe('activation feedback stylesheet', () => {
     // An unlayered author rule outranks every cascade layer regardless of
     // specificity, which would make this the one part of the card a theme could
     // not reach (docs/specs/theming — "Application mechanism").
-    expect(css).toContain('@layer liebe-base, liebe-theme, liebe-user;')
+    expect(css).toContain(
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
+    )
     expect(css).toMatch(/@layer\s+liebe-base\s*\{/)
   })
 

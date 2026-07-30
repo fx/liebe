@@ -54,7 +54,8 @@ describe('card body stylesheet', () => {
   it('lands entirely in the base layer, with the layer order declared', () => {
     // An unlayered author rule outranks every cascade layer, so a stray rule
     // outside the block would put card layout beyond a theme's reach.
-    const statement = '@layer liebe-base, liebe-theme, liebe-user;'
+    const statement =
+      '@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;'
     expect(body).toContain(statement)
 
     const rules = body.replace(statement, '').trim()

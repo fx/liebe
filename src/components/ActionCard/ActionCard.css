@@ -5,7 +5,7 @@
  * CSS could not restyle (docs/specs/theming — "Application mechanism").
  */
 
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-base {
   @keyframes action-spin {

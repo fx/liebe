@@ -38,7 +38,7 @@
  * flat, one elevation step above the ground.
  */
 
-@layer liebe-base, liebe-theme, liebe-user;
+@layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
 @layer liebe-base {
   /* ------------------------------------------------------------------ *
