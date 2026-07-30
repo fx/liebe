@@ -3,6 +3,7 @@ import { isSameSpan } from '~/utils/cardTier'
 import type { CardProps } from '../cardRegistry'
 import { ClimateCompactContent } from './ClimateCompact'
 import { ClimateDialContent } from './ClimateDial'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 /**
  * The climate card, in two presentations that share everything except how a
@@ -42,9 +43,19 @@ const sameCardProps = (prev: CardProps, next: CardProps) =>
  * before the first render instead of after it (AGENTS.md — "Entity Card
  * Registration").
  */
-export const ClimateCard = Object.assign(memo(ClimateCompactContent, sameCardProps), {
-  defaultDimensions: { width: 3, height: 3 },
-  variants: {
-    dial: memo(ClimateDialContent, sameCardProps),
-  },
-})
+/*
+ * The variant carries its own boundary as well as the default presentation.
+ * `getCardVariant` dispatches to it directly, so it is never rendered through
+ * the component above — and `dial` is what the loader pins every climate card
+ * placed before change 0017 onto, which makes it the presentation most climate
+ * cards actually render.
+ */
+export const ClimateCard = Object.assign(
+  withCardErrorBoundary(memo(ClimateCompactContent, sameCardProps)),
+  {
+    defaultDimensions: { width: 3, height: 3 },
+    variants: {
+      dial: withCardErrorBoundary(memo(ClimateDialContent, sameCardProps)),
+    },
+  }
+)

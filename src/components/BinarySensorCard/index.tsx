@@ -15,6 +15,7 @@ import { IconCircle, IconCircleCheck } from '@tabler/icons-react'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import { useRelativeSince } from '../ButtonCard/lastChanged'
 import { resolveBinarySensorPresentation } from './presentation'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface BinarySensorCardProps {
   entityId: string
@@ -252,6 +253,6 @@ const MemoizedBinarySensorCard = memo(BinarySensorCardComponent, (prevProps, nex
   )
 })
 
-export const BinarySensorCard = Object.assign(MemoizedBinarySensorCard, {
+export const BinarySensorCard = Object.assign(withCardErrorBoundary(MemoizedBinarySensorCard), {
   defaultDimensions: { width: 2, height: 2 },
 })

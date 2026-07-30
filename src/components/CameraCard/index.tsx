@@ -36,6 +36,7 @@ import { useRelativeSince } from '../ButtonCard/lastChanged'
 import { readCameraOptions } from '~/store/cameraOptions'
 import { readCardDisplay } from '~/store/cardDisplay'
 import type { CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import './CameraCard.css'
 
 interface CameraCardProps {
@@ -732,6 +733,6 @@ function CameraCardComponent({
 // prop comparison).
 const MemoizedCameraCard = memo(CameraCardComponent)
 
-export const CameraCard = Object.assign(MemoizedCameraCard, {
+export const CameraCard = Object.assign(withCardErrorBoundary(MemoizedCameraCard), {
   defaultDimensions: { width: 4, height: 2 },
 })

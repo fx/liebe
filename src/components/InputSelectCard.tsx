@@ -21,6 +21,7 @@ import {
 import { useCardItem } from './cardItemContext'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from './cardErrorBoundary'
 
 interface InputSelectCardProps {
   entityId: string
@@ -154,7 +155,7 @@ export function InputSelectDetailControls({ entity }: EntityDetailControlsProps)
 // way round and why it is safe.
 registerDetailControls('input_select', InputSelectDetailControls)
 
-export const InputSelectCard = memo(function InputSelectCard({
+const MemoizedInputSelectCard = memo(function InputSelectCardContent({
   entityId,
   tier = 'row',
   onDelete,
@@ -313,3 +314,5 @@ export const InputSelectCard = memo(function InputSelectCard({
     </GridCard>
   )
 })
+
+export const InputSelectCard = withCardErrorBoundary(MemoizedInputSelectCard)

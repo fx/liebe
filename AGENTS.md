@@ -609,7 +609,7 @@ When creating new entity card components:
 1. **Create the card component** in `src/components/`
    - Follow the pattern of existing cards (ButtonCard, LightCard, etc.)
    - Implement the shared `CardProps` contract and include proper TypeScript types
-   - Use ErrorBoundary wrapper
+   - **Wrap the exported component in `withCardErrorBoundary` (`src/components/cardErrorBoundary.tsx`), outside the `memo`** — `Object.assign(withCardErrorBoundary(MemoizedMyCard), { defaultDimensions })`. Every registered card and every variant declared on one does this, and `__tests__/cardErrorBoundary.test.tsx` builds its table from the registry, so a card added without one fails on the commit that adds it. It is not redundant with `GridView`'s `EntityErrorBoundary`: that covers the dashboard path, and a card is also rendered bare by its story, by the configuration preview and by anything handed a literal `entityId`. Outside the memo because several comparators are load-bearing — see the helper's own doc comment for why, and `docs/specs/entity-cards/index.md` for the contract
    - Handle edit mode with delete button and selection
 
 2. **Add the domain to `src/components/cardDomains.ts`**

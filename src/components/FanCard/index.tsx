@@ -20,6 +20,7 @@ import {
 import { fanHasPresets, readFanFeatures, readFanPresetModes, type FanAttributes } from './features'
 import type { CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface FanCardProps {
   entityId: string
@@ -495,6 +496,6 @@ const MemoizedFanCard = memo(FanCardComponent, (prevProps, nextProps) => {
   )
 })
 
-export const FanCard = Object.assign(MemoizedFanCard, {
+export const FanCard = Object.assign(withCardErrorBoundary(MemoizedFanCard), {
   defaultDimensions: { width: 2, height: 2 },
 })

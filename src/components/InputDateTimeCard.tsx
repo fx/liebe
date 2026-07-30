@@ -14,6 +14,7 @@ import {
 import { toDatetimeInputValue, toLocalCalendarDate } from '~/utils/inputDatetime'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from './cardErrorBoundary'
 
 interface InputDateTimeCardProps {
   entityId: string
@@ -257,7 +258,7 @@ export function InputDateTimeDetailControls({ entity }: EntityDetailControlsProp
 // way round and why it is safe.
 registerDetailControls('input_datetime', InputDateTimeDetailControls)
 
-export const InputDateTimeCard = memo(function InputDateTimeCard({
+const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
   entityId,
   tier = 'row',
   onDelete,
@@ -431,3 +432,5 @@ export const InputDateTimeCard = memo(function InputDateTimeCard({
     </GridCard>
   )
 })
+
+export const InputDateTimeCard = withCardErrorBoundary(MemoizedInputDateTimeCard)

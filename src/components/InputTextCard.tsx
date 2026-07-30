@@ -13,6 +13,7 @@ import {
 } from './EntityDetailDialog/detailControls'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from './cardErrorBoundary'
 
 interface InputTextCardProps {
   entityId: string
@@ -260,7 +261,7 @@ export function InputTextDetailControls({ entity }: EntityDetailControlsProps) {
 // way round and why it is safe.
 registerDetailControls('input_text', InputTextDetailControls)
 
-export const InputTextCard = memo(function InputTextCard({
+const MemoizedInputTextCard = memo(function InputTextCardContent({
   entityId,
   tier = 'row',
   onDelete,
@@ -420,3 +421,5 @@ export const InputTextCard = memo(function InputTextCard({
     </GridCard>
   )
 })
+
+export const InputTextCard = withCardErrorBoundary(MemoizedInputTextCard)

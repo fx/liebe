@@ -21,6 +21,7 @@ import {
 import { useCardItem } from './cardItemContext'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from './cardErrorBoundary'
 
 interface InputNumberCardProps {
   entityId: string
@@ -333,7 +334,7 @@ export function InputNumberDetailControls({ entity }: EntityDetailControlsProps)
  */
 registerDetailControls('input_number', InputNumberDetailControls)
 
-export const InputNumberCard = memo(function InputNumberCard({
+const MemoizedInputNumberCard = memo(function InputNumberCardContent({
   entityId,
   tier = 'row',
   onDelete,
@@ -515,3 +516,5 @@ export const InputNumberCard = memo(function InputNumberCard({
     </GridCard>
   )
 })
+
+export const InputNumberCard = withCardErrorBoundary(MemoizedInputNumberCard)

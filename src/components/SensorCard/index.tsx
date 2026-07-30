@@ -22,6 +22,7 @@ import { CardValue } from '../anatomy'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import { formatSensorState, formatSensorNumber, formatSensorTrend, TREND_ARROWS } from './format'
 import { SensorGraph, historyExtremes, sensorGraphState } from './SensorGraph'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import './SensorCard.css'
 
 interface SensorCardProps {
@@ -406,6 +407,6 @@ const MemoizedSensorCard = memo(SensorCardComponent, (prevProps, nextProps) => {
   )
 })
 
-export const SensorCard = Object.assign(MemoizedSensorCard, {
+export const SensorCard = Object.assign(withCardErrorBoundary(MemoizedSensorCard), {
   defaultDimensions: { width: 2, height: 2 },
 })
