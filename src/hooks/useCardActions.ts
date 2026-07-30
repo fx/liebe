@@ -319,22 +319,54 @@ export function useCardActions({
   )
 
   /*
-   * An unavailable entity resolves `default` to the detail dialog whatever the
-   * card declares, which is both halves of the same rule: a card must not
-   * actuate a device whose state is indeterminate, and "why has this gone
-   * quiet?" is precisely what the gesture is for at that moment. Kept here
-   * rather than declared again in each card's unavailable branch — every card
-   * has one, and one that forgot would fall through to a toggle.
+   * On an unavailable entity a `toggle` becomes the detail dialog — **whichever
+   * route arrived at it**, not only the card's default. Both halves of one
+   * rule: a card must not actuate a device whose state is indeterminate, and
+   * "why has this gone quiet?" is precisely what the gesture is for at that
+   * moment. Kept here rather than declared again in each card's unavailable
+   * branch — every card has one, and one that forgot would fall through to a
+   * toggle.
+   *
+   * **Redirected at resolution, not at dispatch, and that is the whole design
+   * decision** (change 0043). Suppressing the toggle further down — which is
+   * what `performDispatch` used to be the only guard — left a stored
+   * `tapAction: toggle` dispatching nothing *and opening nothing*: the tap did
+   * nothing at all, on a tile where at `glance` the tap is the only affordance
+   * there is. Redirecting here fixes that for every route and every domain at
+   * once, and it keeps three things true that the alternative does not:
+   *
+   *  - `isActionable` sees `more-info` rather than a suppressed `toggle`, so
+   *    the tile reports itself operable and the gesture layer arms normally.
+   *  - The confirmation gate classifies the route *after* resolution, so it no
+   *    longer offers "Turn on …" in front of a dialog that switches nothing.
+   *  - No card's `onToggle` is consulted while unavailable, so the safety
+   *    property stays absolute. The alternative — asking the card first and
+   *    honouring a `'more-info'` return, the way the capability gates do — would
+   *    make it depend on every card answering correctly, which is exactly the
+   *    per-card duplication this hook exists to avoid.
+   *
+   * `performDispatch`'s own `if (unavailable) return` stays as a backstop for a
+   * route that reaches dispatch some other way; it is no longer the mechanism.
    */
-  const effectiveDefault: ResolvedCardAction = unavailable ? 'more-info' : defaultAction
+  const resolveWhileUnavailable = useCallback(
+    (action: ResolvedCardAction): ResolvedCardAction =>
+      unavailable && action === 'toggle' ? 'more-info' : action,
+    [unavailable]
+  )
 
   const actions = useMemo(
     () => ({
-      tap: resolveCardAction(readCardAction(config, 'tapAction'), effectiveDefault),
-      hold: resolveCardAction(readCardAction(config, 'holdAction'), effectiveDefault),
-      doubleTap: resolveCardAction(readCardAction(config, 'doubleTapAction'), effectiveDefault),
+      tap: resolveWhileUnavailable(
+        resolveCardAction(readCardAction(config, 'tapAction'), defaultAction)
+      ),
+      hold: resolveWhileUnavailable(
+        resolveCardAction(readCardAction(config, 'holdAction'), defaultAction)
+      ),
+      doubleTap: resolveWhileUnavailable(
+        resolveCardAction(readCardAction(config, 'doubleTapAction'), defaultAction)
+      ),
     }),
-    [config, effectiveDefault]
+    [config, defaultAction, resolveWhileUnavailable]
   )
 
   /*

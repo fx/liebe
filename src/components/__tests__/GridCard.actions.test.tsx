@@ -383,24 +383,43 @@ describe('GridCard actions', () => {
     expect(onMoreInfo).not.toHaveBeenCalled()
   })
 
-  it('will not toggle an entity whose state is indeterminate', () => {
-    // An unavailable cover must never be commanded by a tap that cannot know
-    // which way it will move (REVIEW.md — safety-critical controls).
+  it('sends a stored toggle on an indeterminate entity to the details instead', () => {
+    /*
+     * An unavailable cover must never be commanded by a tap that cannot know
+     * which way it will move (REVIEW.md — safety-critical controls). But it must
+     * not go inert either: at `glance` the tap is the only affordance the card
+     * has, so a route that dispatches nothing AND opens nothing leaves the tile
+     * doing nothing at all — the operability regression the design system
+     * forbids (change 0043).
+     *
+     * This used to assert `cursor: default`, which was the tell: the shell was
+     * reporting the tile as having no tap action, because a stored `toggle` was
+     * suppressed at dispatch rather than redirected at resolution. The
+     * suppression is what this test was really pinning, and the two `not`
+     * assertions below — the half that matters — are unchanged and still pass.
+     */
     const onToggle = vi.fn()
+    const onMoreInfo = vi.fn()
     renderCard(
       <GridCard
         domain="cover"
         entityId="cover.garage"
         isUnavailable
         onClick={onToggle}
+        onMoreInfo={onMoreInfo}
         config={actions({ tapAction: 'toggle' })}
       >
         content
       </GridCard>
     )
 
-    expect(card().style.cursor).toBe('default')
+    // Operable, and it says so.
+    expect(card().style.cursor).toBe('pointer')
     fireEvent.click(card())
+
+    expect(onMoreInfo).toHaveBeenCalledTimes(1)
+    // The card's own toggle is never consulted, so no card can actuate an
+    // indeterminate device by answering wrongly.
     expect(onToggle).not.toHaveBeenCalled()
     expect(hass.callService).not.toHaveBeenCalled()
   })
