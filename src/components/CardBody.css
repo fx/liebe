@@ -297,9 +297,25 @@
    * The thumb takes the same treatment, and it is not a detail: the vertical
    * thumb is a 3px-tall bar spanning the control's THICKNESS, so `anatomy.css`
    * sizes it from the same token. Left rigid it stays 42px wide inside a
-   * narrowed root, and — being absolutely positioned and centred by Radix — it
-   * overhangs the track on both sides and is clipped by the tile. That is the
-   * original defect surviving in the one part that still had a fixed width.
+   * narrowed root and overhangs the track on both sides — the original defect
+   * surviving in the one part that still had a fixed width.
+   *
+   * Reaching it takes THREE selectors rather than two, because Radix renders
+   * the thumb inside an unclassed positioning `<span>` of its own:
+   *
+   *   .liebe-slider > span[style] > .liebe-slider-thumb
+   *
+   * That wrapper is absolutely positioned, so it shrink-wraps its content —
+   * which means sizing the thumb against it is circular and does nothing until
+   * the wrapper itself has a width that does not come from the thumb. Hence the
+   * middle selector. `span:not([class])` is what distinguishes it from the
+   * track and the readout, both of which carry classes of ours; the structure
+   * that makes it work is pinned by a rendered assertion in
+   * `__tests__/sliderPlacementTierLayouts.test.tsx`, so a Radix release that
+   * classes the wrapper fails there rather than silently restoring the overhang.
+   *
+   * The wrapper keeps its own centring from the root's `align-items: center`,
+   * so widening it moves nothing while the row can afford the token.
    */
   .liebe-card-body[data-control-orientation='vertical']
     > .liebe-card-body-line
@@ -309,6 +325,12 @@
     > .liebe-card-body-line
     > .liebe-card-controls
     > .liebe-slider
+    > span:not([class]),
+  .liebe-card-body[data-control-orientation='vertical']
+    > .liebe-card-body-line
+    > .liebe-card-controls
+    > .liebe-slider
+    > span:not([class])
     > .liebe-slider-thumb {
     inline-size: 100%;
     max-inline-size: var(--liebe-control-height);

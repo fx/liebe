@@ -264,6 +264,16 @@ describe('a forced slider placement gets a definite axis to run along', () => {
      */
     expect(control.selector).toMatch(/> \.liebe-slider,/)
 
+    /*
+     * And the positioning wrapper Radix puts between them. It is absolutely
+     * positioned, so it shrink-wraps its content: sizing the thumb without
+     * first sizing the wrapper is circular and resolves to nothing. That the
+     * wrapper exists, is unclassed, and holds the thumb is pinned against the
+     * rendered DOM in `sliderPlacementTierLayouts.test.tsx` — a Radix release
+     * that changes it has to fail somewhere, and a stylesheet cannot see it.
+     */
+    expect(control.selector).toMatch(/> span:not\(\[class\]\),/)
+
     // The premise, from the anatomy sheet: both thicknesses this relaxes are
     // fixed, so a rule that only shrank the slot would change nothing.
     expect(anatomy).toMatch(

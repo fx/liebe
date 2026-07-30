@@ -184,6 +184,36 @@ describe('the light card’s brightness placement', () => {
     expect(stampedControlOrientation()).toBe('horizontal')
   })
 
+  it('renders the thumb inside the unclassed wrapper the narrow-row rules select', () => {
+    /*
+     * Not a claim about Liebe — a claim about Radix, and the one the
+     * cross-axis-fit rules in `CardBody.css` are written against. The thumb
+     * sits inside an unclassed, absolutely positioned `<span>` of Radix's own,
+     * so the stylesheet has to size that wrapper before sizing the thumb: an
+     * absolutely positioned box shrink-wraps its content, and a thumb sized
+     * against a wrapper measured from the thumb resolves to nothing at all.
+     *
+     * Pinned here because the consequence of Radix classing that wrapper — or
+     * dropping it — is silent: the selector simply stops matching, the thumb
+     * goes back to a fixed 42px inside a narrowed track, and the overhang the
+     * rules exist to remove returns with every other assertion still green
+     * (`cardBodyStyles.test.ts` reads the sheet, not the DOM).
+     */
+    renderCard(
+      <LightCard
+        entityId="light.living_room"
+        tier="row"
+        item={placedLight({ sliderPlacement: 'vertical' })}
+      />
+    )
+
+    const slider = document.querySelector('.liebe-slider')!
+    expect(slider.querySelector(':scope > span:not([class]) > .liebe-slider-thumb')).not.toBeNull()
+    // And the thumb is NOT a direct child, which is the reading that would have
+    // looked right and matched nothing.
+    expect(slider.querySelector(':scope > .liebe-slider-thumb')).toBeNull()
+  })
+
   it('still renders no slider at glance, whatever the placement asks for', () => {
     // "the tier keeps deciding *whether* the slider renders (still never in
     // `glance` under these two values)". A 1×1 tile is operated by its tap and
