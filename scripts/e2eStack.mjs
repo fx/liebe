@@ -459,6 +459,18 @@ export function inspectProjectOwnership({ projects, projectName, composePath }) 
   return { ours: Boolean(named && isRunning(named)), conflict: null }
 }
 
+/**
+ * Quote a value for a shell command a human is expected to paste back. A
+ * checkout path may legally contain a space, and an unquoted one turns the
+ * recovery command in the message below into a command that does not run — the
+ * one place a message must be right, since it is offered as the way out.
+ *
+ * @param {string} value
+ */
+export function shellQuote(value) {
+  return /^[A-Za-z0-9_@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`
+}
+
 /** The message an ownership conflict exits with. */
 export function describeOwnershipConflict({ conflict, config, composePath }) {
   if (conflict.kind === 'foreign-project') {
@@ -478,7 +490,7 @@ export function describeOwnershipConflict({ conflict, config, composePath }) {
     `Home Assistants bind-mounting one writable ha/config, sharing .storage and the recorder ` +
     `database — and the bundle-identity check cannot see it, because both serve the same dist/.\n` +
     `Stop the old one first:\n` +
-    `  docker compose -p ${conflict.name} -f ${composePath} down -v`
+    `  docker compose -p ${shellQuote(conflict.name)} -f ${shellQuote(composePath)} down -v`
   )
 }
 

@@ -20,6 +20,7 @@ import {
   probeDocker,
   resolveStackConfig,
   runStack,
+  shellQuote,
   stackEnv,
 } from '../../scripts/e2eStack.mjs'
 
@@ -507,6 +508,18 @@ describe('describeOwnershipConflict', () => {
     })
     expect(message).toContain(`docker compose -p ha -f ${composePath} down -v`)
   })
+
+  it('quotes a recovery command whose path the shell would split', () => {
+    // A checkout path may legally contain a space. This message is offered as
+    // the way out, so a command that does not run leaves the reader stuck.
+    const spaced = '/home/dev/My Checkouts/liebe/ha/docker-compose.yml'
+    const message = describeOwnershipConflict({
+      conflict: { kind: 'duplicate-stack', name: 'ha', configFiles: spaced },
+      config,
+      composePath: spaced,
+    })
+    expect(message).toContain(`-f '${spaced}' down -v`)
+  })
 })
 
 describe('runStack', () => {
@@ -740,5 +753,21 @@ describe('runStack', () => {
     })
     expect(code).toBe(1)
     expect(logged.join('\n')).toMatch(/is not a usable TCP port/)
+  })
+})
+
+describe('shellQuote', () => {
+  it('leaves an ordinary path alone', () => {
+    expect(shellQuote('/workspace/liebe/ha/docker-compose.yml')).toBe(
+      '/workspace/liebe/ha/docker-compose.yml'
+    )
+  })
+
+  it.each([
+    ['a space', '/a b/c', "'/a b/c'"],
+    ['a single quote', "/a'b", "'/a'\\''b'"],
+    ['a metacharacter', '/a;rm -rf /', "'/a;rm -rf /'"],
+  ])('quotes %s', (_label, value, expected) => {
+    expect(shellQuote(value)).toBe(expected)
   })
 })
