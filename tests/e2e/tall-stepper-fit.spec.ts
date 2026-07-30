@@ -200,14 +200,23 @@ async function tallControlGeometry(page: Page, name: string): Promise<TallContro
         width: tile.width - Number.parseFloat(paddingLeft) - Number.parseFloat(paddingRight),
       },
       container: box(container),
-      controls: [...(slot?.children ?? [])].map((control) => ({
-        // Whatever names the control, so a failure says which box escaped.
-        label:
-          control.getAttribute('aria-label') ??
-          control.querySelector('[aria-label]')?.getAttribute('aria-label') ??
-          control.className,
-        box: box(control),
-      })),
+      /*
+       * The slot's direct children, plus the track itself wherever it is.
+       * Today the track IS a direct child, so the union is the same set; the
+       * union is what keeps this honest if the anatomy ever wraps it, because
+       * a wrapper constrained to the slot would measure as a perfect fit
+       * around a track that escaped.
+       */
+      controls: [...new Set([...(slot?.children ?? []), ...(slider ? [slider] : [])])].map(
+        (control) => ({
+          // Whatever names the control, so a failure says which box escaped.
+          label:
+            control.getAttribute('aria-label') ??
+            control.querySelector('[aria-label]')?.getAttribute('aria-label') ??
+            control.className,
+          box: box(control),
+        })
+      ),
       stepperSurfaces: card.querySelectorAll(
         '[aria-label="Increase value"], [aria-label="Decrease value"], [aria-label^="Set value, currently"]'
       ).length,
