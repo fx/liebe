@@ -270,19 +270,33 @@ describe('card shell stylesheet', () => {
       // what decides — an icon-only tile with `alignVertical: start` must end
       // up with its glyph at the top rather than centred.
       //
-      // Both positions are found by pattern rather than by an exact substring:
-      // keying on `'[data-icon-only] {'` would have failed on a reformatting
-      // that dropped the space before the brace, while the ordering it is
-      // about was still correct.
+      // Each rule is found by matching PARSED SELECTORS rather than raw text.
+      // Keying on the substring `'[data-icon-only] {'` made the assertion turn
+      // on brace whitespace, so a reformat would have failed it while the
+      // ordering it is about stayed correct; going through `rulesIn` removes
+      // the braces from the question entirely.
+      //
+      // Exactly one rule each, which is the guard against the opposite
+      // mistake: a pattern loosened one step too far matches everything, and
+      // the comparison is then between two arbitrary positions in the sheet —
+      // green, and about nothing. It earned its keep immediately: matching raw
+      // text for `[data-align-h|v]` hit the shared rule TWICE, once per
+      // selector in its list.
       const at = (pattern: RegExp) => {
-        const index = css.search(pattern)
-        expect(index, `no rule matching ${pattern}`).toBeGreaterThan(-1)
+        const matching = rulesIn(css).filter(({ selector }) => pattern.test(selector))
+        expect(matching, `expected exactly one rule matching ${pattern}`).toHaveLength(1)
+
+        const index = css.indexOf(matching[0].selector)
+        expect(index, `selector not found in the sheet: ${matching[0].selector}`).toBeGreaterThan(
+          -1
+        )
+
         return index
       }
 
-      expect(at(/\.liebe-card\[data-align-[hv]\]\s*[,{]/)).toBeGreaterThan(
-        at(/\.liebe-card\[data-icon-only\]\s*\{/)
-      )
+      // `[data-align-h]` / `[data-align-v]` bare — the pair's shared rule, not
+      // the per-value ones, whose attribute selectors carry a value.
+      expect(at(/\[data-align-[hv]\](,|$)/)).toBeGreaterThan(at(/\[data-icon-only\]$/))
     })
   })
 
