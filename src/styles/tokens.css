@@ -70,6 +70,16 @@
     --liebe-card-min-height-tall: 120px;
 
     /*
+     * The two graph heights that are fixed, and the only ones: a sparkline
+     * sharing its line with other content, and the detail dialog's graph. The
+     * `full` tier's card graph is deliberately absent — it grows with the tile
+     * instead (docs/specs/design-system/index.md, "Token contract"), so there is
+     * no third token to keep in step with a height nothing pins.
+     */
+    --liebe-graph-height-inline: 32px;
+    --liebe-graph-height-dialog: 96px;
+
+    /*
      * --- Surfaces (light appearance) ---------------------------------
      *
      * Radix's classless default is light, so the light set is the base and the

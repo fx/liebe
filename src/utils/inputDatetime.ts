@@ -119,6 +119,35 @@ export function describeInputDatetimeShape(entityId: string, attributes?: InputD
 }
 
 /**
+ * The date half of a published state as the **local calendar date** it names,
+ * or `null` when the state carries no date at all.
+ *
+ * `new Date('2026-12-24')` is UTC midnight — ECMAScript parses a date-only ISO
+ * string as UTC — so formatting it anywhere behind UTC prints the day before.
+ * A helper's date is a calendar date rather than an instant, and constructing it
+ * from its year/month/day components says so, where appending a time would get
+ * the same answer by leaning on a second parsing rule no more obvious than the
+ * first (docs/changes/0037-card-state-and-capability-correctness.md).
+ */
+export function toLocalCalendarDate(state: string): Date | null {
+  const date = parseParts(state)?.date
+  if (!date) return null
+
+  const [year, month, day] = date.split('-').map(Number)
+  const parsed = new Date(year, month - 1, day)
+  // `new Date(year, monthIndex, day)` maps a year of 0–99 onto 1900–1999;
+  // assigning the year back is what makes it the state's own.
+  parsed.setFullYear(year)
+
+  // `DATE_PATTERN` has already fixed the digit counts, so the only thing left to
+  // reject is a date the calendar does not have: `2026-02-31` rolls forward to
+  // March rather than failing, and a rolled date is not the one the helper
+  // published. `null` puts it back on the raw-value path an unparseable state
+  // has always taken.
+  return parsed.getMonth() === month - 1 && parsed.getDate() === day ? parsed : null
+}
+
+/**
  * The value for the card's native input, given the helper's published state.
  * `''` for anything the input cannot represent, which is what a native input
  * does with a malformed value anyway — only now the card and the DOM agree on it.

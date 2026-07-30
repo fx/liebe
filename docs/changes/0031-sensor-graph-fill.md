@@ -5,7 +5,7 @@
 Make the sensor card's history graph claim its tile: the `full`-tier graph grows with the card instead of staying a fixed 72px band, and the `tall` sparkline band spans the tile's width. The rule lives in [options/sensor — tier layouts](../specs/entity-cards/options/sensor.md#tier-layouts) ("the graph claims the tile").
 
 **Spec:** [entity-cards](../specs/entity-cards/) (options/sensor)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -48,6 +48,9 @@ Acceptance is the spec's own scenario, [options/sensor — bigger tile, bigger g
 
 - **Grow the region, keep the SVG untouched**: the anatomy already stretches; only boxes change. No `Sparkline` API change.
 - **`row` stays line-height** — deliberate per the existing CSS comment and the spec's tier table; only its literal moves to a token.
+- **The `full` footer reserves two lines, and is allowed to wrap.** On a fixed tile, "show both extrema", "never reflow when the series lands" and "never clip" cannot all hold for arbitrary text: `unitOverride` takes any string, so no fixed reservation is total. The resolution — two lines, wrapping rather than truncating, and a long unit costing the graph a line — is now stated by the owning [tier rule](../specs/entity-cards/options/sensor.md#tier-layouts) itself, which this change amended for the purpose; it is recorded here only as the reason that sentence gained a bound, since a change document cannot hold an exception to a spec it implements.
+- **The growth's gate is the declaration lock, and the browser measurement is ungated.** The stylesheet test proves the region grows and that nothing pins it; comparing a 2×2's graph against a 3×3's needs a real engine, and the two `full` stories do it in play functions that no gate runs. An e2e measurement was considered and not written: the graph renders only when the recorder answers with a window, which the e2e stack does not seed, so the spec would assert geometry on a card whose graph may legitimately be absent. The stories' assertions are therefore written as invariants rather than thresholds — the graph's height equals the tile's leftover — so they are at least not vacuous where they do run.
+- **The `tall` band's width is an explicit `CardBody` opt-in** (`stretchControlBand`), not a `:has()` reach from the card's stylesheet: the band's fit-content default is what centres a vertical slider on the tile's midline, so the stretch has to be the exception rather than the rule, and [theming — constraints](../specs/theming/index.md#constraints) keeps layout state on data attributes with `:has()` prototype-only.
 
 ### Non-Goals
 
@@ -56,7 +59,7 @@ Acceptance is the spec's own scenario, [options/sensor — bigger tile, bigger g
 
 ## Tasks
 
-- [ ] Graph claims the tile: `full` region grows, `tall` band stretches to tile width, loading placeholder reserves the graph-plus-footer region (per the owning tier rule), 32/96px literals onto the `--liebe-graph-height-inline`/`--liebe-graph-height-dialog` tokens (declared with the other geometry tokens), 72px literal removed; stylesheet + placement tests and 2×2/3×3 stories
+- [x] Graph claims the tile: `full` region grows, `tall` band stretches to tile width, loading placeholder reserves the graph-plus-footer region (per the owning tier rule), 32/96px literals onto the `--liebe-graph-height-inline`/`--liebe-graph-height-dialog` tokens (declared with the other geometry tokens), 72px literal removed; stylesheet + placement tests and 2×2/3×3 stories
 
 ## Open Questions
 

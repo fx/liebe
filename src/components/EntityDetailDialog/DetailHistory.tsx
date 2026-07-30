@@ -16,8 +16,13 @@ const HISTORY_HOURS = DEFAULT_HISTORY_HOURS
  * Height of the graph area. The skeleton below fills the same box, so the
  * section occupies its final height from the first render and the attribute
  * list underneath does not jump when history arrives.
+ *
+ * A token rather than the literal it used to be: this is one of the two graph
+ * heights the contract fixes, and both are theme-reachable
+ * (docs/specs/design-system/index.md — "Token contract"). The default is the
+ * same 96px, so a theme that leaves it alone sees no change.
  */
-const GRAPH_HEIGHT = '96px'
+const GRAPH_HEIGHT = 'var(--liebe-graph-height-dialog)'
 
 export interface DetailHistoryProps {
   entityId: string

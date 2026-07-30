@@ -254,14 +254,18 @@ function SensorCardComponent({
       : undefined
 
   /*
-   * The `full` footer reports the window's extremes through the same pipeline,
-   * and only while the graph it describes is on screen — a footer standing
-   * under no graph is a window nothing else names.
+   * The `full` footer's slot: present exactly while the graph it describes is on
+   * screen — a footer standing under no graph is a window nothing else names —
+   * and therefore present while that graph is still loading, empty. The empty
+   * box is the point: the extremes exist only once the series lands, and the
+   * graph above is flexible, so a footer that arrived with its text would take
+   * its space out of the graph and shrink it. Reserving that space here is what
+   * the tier rule means by the placeholder holding the graph AND its footer
+   * (docs/specs/entity-cards/options/sensor.md — "the graph claims the tile").
    */
-  const extremes =
-    tier === 'full' && sensorGraphState(samples) === 'graph'
-      ? historyExtremes(samples.points)
-      : null
+  const footerState = tier === 'full' ? sensorGraphState(samples) : 'none'
+  /* The extremes themselves, through the same pipeline as the value. */
+  const extremes = footerState === 'graph' ? historyExtremes(samples.points) : null
 
   /*
    * What each tier holds, from the tier table in
@@ -309,6 +313,12 @@ function SensorCardComponent({
            why it is set even on a `row` whose graph is switched off: the flag
            describes the slot, and the slot is empty then. */
         controlSize={tier === 'row' || tier === 'tall' ? 'fill' : 'content'}
+        /* And in `tall` the band spans the tile as well: what it holds is the
+           value and the sparkline — the tier's own content — not a control whose
+           thickness is its own, and the sparkline is specified to take the tile's
+           full width (docs/specs/entity-cards/options/sensor.md — "the graph
+           claims the tile"). */
+        stretchControlBand={tier === 'tall'}
         lead={
           isGlance && showsValue ? (
             trend ? (
@@ -341,7 +351,10 @@ function SensorCardComponent({
             ) : undefined
           ) : tier === 'tall' ? (
             // Value above graph, both in the vertical band: the tier table's
-            // "big value centered, vertical-space sparkline beneath".
+            // "big value centered, vertical-space sparkline beneath". `100%` of
+            // the band, which spans the tile because of `stretchControlBand`
+            // below — without it the band hugs this column and the width these
+            // percentages resolve against is the big value's text.
             <Flex direction="column" align="center" gap="2" width="100%" height="100%">
               {showsValue ? value : null}
               {wantsGraph ? graph('band') : null}
@@ -354,12 +367,21 @@ function SensorCardComponent({
           tier === 'full' ? (
             <>
               {wantsGraph ? graph('full') : null}
-              {extremes ? (
-                <Text size="1" color="gray" align="center" data-testid="sensor-history-range">
-                  Min {formatSensorNumber(extremes.min, format, options).text} · Max{' '}
-                  {formatSensorNumber(extremes.max, format, options).text}
+              {footerState === 'none' ? null : (
+                <Text
+                  size="1"
+                  color="gray"
+                  align="center"
+                  className="liebe-sensor-graph-footer"
+                  data-testid="sensor-history-range"
+                >
+                  {extremes
+                    ? `Min ${formatSensorNumber(extremes.min, format, options).text} · Max ${
+                        formatSensorNumber(extremes.max, format, options).text
+                      }`
+                    : null}
                 </Text>
-              ) : null}
+              )}
             </>
           ) : undefined
         }

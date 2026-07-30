@@ -376,6 +376,79 @@ export const GraphInFull: Story = historyStory(
   }
 )
 
+/**
+ * How much of the tile is left over once the value line and the footer have
+ * taken theirs, and how much of that the graph took.
+ *
+ * The two stories below exist for a quantity no rendered test can see: jsdom
+ * lays nothing out, so "the graph claims the tile" is only observable in a
+ * browser (docs/specs/entity-cards/options/sensor.md — "Tier layouts"). The
+ * declaration lock is `__tests__/sensorGraphStyles.test.ts`; this is the
+ * measurement, and it runs in NO gate — a play function executes in neither
+ * `npm test` nor CI, so read these as documentation of what to look at rather
+ * than as verification of it.
+ *
+ * The comparison is the tile's own leftover rather than a pixel threshold. A
+ * threshold ("taller than 72px") is satisfied by any fixed band large enough,
+ * which is precisely the defect these stories are about; the leftover is
+ * satisfied only by a region that grows with the tile.
+ */
+function graphFillsLeftover(canvasElement: HTMLElement): { graph: number; leftover: number } {
+  const box = (selector: string) =>
+    canvasElement.querySelector(selector)!.getBoundingClientRect().height
+
+  const body = box('.liebe-card-body')
+  const line = box('.liebe-card-body-line')
+  const footer = box('.liebe-sensor-graph-footer')
+  // The body is a column with one gap above the graph and one below it; the
+  // graph is what remains of the tile after the line, the footer and those gaps.
+  const gap = parseFloat(getComputedStyle(canvasElement.querySelector('.liebe-card-body')!).rowGap)
+
+  return {
+    graph: box('[data-testid="sensor-graph"]'),
+    leftover: body - line - footer - gap * 2,
+  }
+}
+
+/**
+ * The smallest tile that reaches `full` — the sensor card's own default size.
+ * The graph takes what the value line and the min/max footer leave.
+ */
+export const GraphInFullSmallTile: Story = historyStory(
+  graphEntity('full_small'),
+  temperatureCurve('sensor.graph_full_small'),
+  {
+    args: { gridWidth: 2, gridHeight: 2 },
+    play: async ({ canvasElement }) => {
+      await drawnSpark(canvasElement)
+      const { graph, leftover } = graphFillsLeftover(canvasElement)
+      await expect(graph).toBeCloseTo(leftover, 0)
+    },
+  }
+)
+
+/**
+ * The same card one cell taller and wider. Read beside `GraphInFullSmallTile`:
+ * the added tile height goes to the graph, with the value line and the footer
+ * unchanged and no dead band above or below them — the tier rule's scenario.
+ */
+export const GraphInFullLargeTile: Story = historyStory(
+  graphEntity('full_large'),
+  temperatureCurve('sensor.graph_full_large'),
+  {
+    args: { gridWidth: 3, gridHeight: 3 },
+    play: async ({ canvasElement }) => {
+      await drawnSpark(canvasElement)
+      const canvas = within(canvasElement)
+      await expect(canvas.getByTestId('sensor-graph')).toHaveAttribute('data-region', 'full')
+      // The same invariant at a larger size, which is what makes the pair a
+      // comparison: the leftover is bigger here, and the graph is all of it.
+      const { graph, leftover } = graphFillsLeftover(canvasElement)
+      await expect(graph).toBeCloseTo(leftover, 0)
+    },
+  }
+)
+
 const energyCounter = createSensorEntity({
   entity_id: 'sensor.graph_counter',
   state: '23',
