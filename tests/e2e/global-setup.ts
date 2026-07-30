@@ -1,8 +1,10 @@
 import { ensureOnboarded, HASS_URL } from '../../scripts/onboard.mjs'
+import { assertServedBundleMatchesDist, readPanelModuleUrl } from './bundleIdentity'
 
-// Runs once before the suite: wait for HA to be reachable, then onboard it (or
-// confirm it is already onboarded). Doing onboarding here avoids a race between
-// parallel tests all trying to create the first user.
+// Runs once before the suite: wait for HA to be reachable, onboard it (or
+// confirm it is already onboarded), then prove the instance is serving THIS
+// checkout's bundle. Doing onboarding here avoids a race between parallel tests
+// all trying to create the first user.
 export default async function globalSetup(): Promise<void> {
   const deadline = Date.now() + 120_000
   for (;;) {
@@ -25,4 +27,10 @@ export default async function globalSetup(): Promise<void> {
   }
 
   await ensureOnboarded()
+
+  // Gate the whole suite on bundle identity: if HA is serving another
+  // checkout's panel.js, every assertion below measures foreign code and a
+  // failure is indistinguishable from a real one. Throwing here aborts the run
+  // instead of scoring it.
+  await assertServedBundleMatchesDist({ moduleUrl: readPanelModuleUrl(), hassUrl: HASS_URL })
 }
