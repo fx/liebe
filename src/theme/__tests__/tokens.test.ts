@@ -1,6 +1,7 @@
 import { globSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { isFullyLayered } from '../cssLayers'
 import {
   domainColorTokens,
   domainColors,
@@ -41,9 +42,13 @@ function stripComments(source: string): string {
  * Depth-aware rather than a count of the word, because a nested layer is not a
  * second block: `app.css` nests `@layer reset` inside its base block, since the
  * universal reset has to sit below the vendored sheets to keep losing to them
- * (docs/specs/theming — "Application mechanism"). Two _top-level_ blocks are
- * what the assertions below rule out, because they leave a place for CSS to sit
- * between them, outside every layer.
+ * (docs/specs/theming — "Application mechanism").
+ *
+ * One block is what the assertions below require, and they pair it with
+ * `isFullyLayered` because neither is sufficient alone: this counts blocks and
+ * cannot see a rule sitting outside one, while `isFullyLayered` accepts any
+ * number of layered blocks. A sheet needs both — everything inside a layer, and
+ * one layer per sheet so nothing can later be added between two of them.
  */
 function topLevelLayerBlocks(css: string): number {
   let depth = 0
@@ -166,7 +171,7 @@ describe('cascade layers', () => {
     // outranks every cascade layer and would defeat theme and user overrides.
     const body = rules.replace(statement, '').trim()
     expect(body.startsWith(`@layer ${layer} {`)).toBe(true)
-    expect(body.endsWith('}')).toBe(true)
+    expect(isFullyLayered(body)).toBe(true)
     expect(topLevelLayerBlocks(body)).toBe(1)
   })
 })
@@ -230,7 +235,7 @@ describe('baseline stylesheets', () => {
 
     const body = rules.replace(statement, '').trim()
     expect(body.startsWith('@layer ')).toBe(true)
-    expect(body.endsWith('}')).toBe(true)
+    expect(isFullyLayered(body)).toBe(true)
     expect(topLevelLayerBlocks(body)).toBe(1)
   })
 })
