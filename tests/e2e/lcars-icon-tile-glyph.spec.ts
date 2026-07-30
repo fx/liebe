@@ -255,8 +255,8 @@ test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async
   const measured: Array<{ bulb: string; glyph: string; ground: string; ratio: number }> = []
 
   /*
-   * Primed before the loop, and the reason is a real off-by-one this spec
-   * produced first time out.
+   * Primed before the loop **through off**, and both halves of that are a real
+   * defect this spec produced.
    *
    * The light already carries a colour when the panel opens, so an unprimed
    * "wait until it differs from nothing" is satisfied by the value that was
@@ -265,18 +265,40 @@ test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async
    * it. The ratios were real measurements and every one of them was attributed
    * to the wrong bulb, which is a table that looks entirely reasonable and says
    * something false about each of its rows.
+   *
+   * Priming with a colour fixes the shape and not the race, which `codex`
+   * caught: `callService` returns when Home Assistant's REST call returns, and
+   * the frontend learns about it over a separate websocket, so "poll until the
+   * token is non-empty" can be satisfied by the state *before* the priming call
+   * lands — leaving the same off-by-one one step further along.
+   *
+   * Turning the light **off** removes the ambiguity rather than narrowing it.
+   * An off light offers no hue at all, so the part falls back to the theme's
+   * own colour, which is a state that cannot be confused with any bulb colour in
+   * the sweep. Waiting for that, then for a hue that differs from it, makes both
+   * edges observable instead of assumed.
    */
-  const primingColour = [255, 128, 64] as const
+  await callService(accessToken, 'light', 'turn_off', { entity_id: DEMO_LIGHT })
+  await expect
+    .poll(
+      async () =>
+        formatRgba(await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))),
+      {
+        message: 'an off light should leave the part on the theme colour',
+      }
+    )
+    .toBe(formatRgba(themeHue))
+
   await callService(accessToken, 'light', 'turn_on', {
     entity_id: DEMO_LIGHT,
-    rgb_color: [...primingColour],
+    rgb_color: [255, 128, 64],
     brightness: 255,
   })
   await expect
     .poll(() => customProperty(glyph, '--liebe-part-color'), {
-      message: 'the light should be carrying a hue before the sweep starts',
+      message: 'the priming colour should have reached the part before the sweep starts',
     })
-    .not.toBe('')
+    .not.toBe(await customProperty(tile, '--liebe-c-light-text'))
   let previousHue = await customProperty(glyph, '--liebe-part-color')
 
   for (const [r, g, b] of REQUESTED_BULB_COLOURS) {
