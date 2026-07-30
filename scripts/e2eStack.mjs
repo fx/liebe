@@ -405,10 +405,29 @@ export function parseProjectListing({ status, stdout = '', stderr = '' } = {}) {
       { cause }
     )
   }
-  return Array.isArray(parsed) ? parsed : []
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      `\`docker compose ls --format json\` returned ${typeof parsed} rather than a list of ` +
+        `projects, so the e2e stack cannot confirm project ownership. Refusing to start rather ` +
+        `than assuming there are none.`
+    )
+  }
+  return parsed
 }
 
-const isRunning = (entry) => /running/i.test(entry.Status ?? '')
+/**
+ * Compose states that release a project's containers, ports and mounts. Every
+ * other state — running, paused, restarting, removing, or one this does not
+ * recognise — still owns them, so the predicate is written as "not released"
+ * rather than "running": an unrecognised status must count as active, or the
+ * stack it belongs to becomes invisible to the ownership check.
+ */
+const RELEASED_STATES = new Set(['exited', 'created', 'dead'])
+
+const holdsResources = (entry) => {
+  const states = `${entry.Status ?? ''}`.match(/[a-z]+/gi) ?? []
+  return states.length === 0 || states.some((state) => !RELEASED_STATES.has(state.toLowerCase()))
+}
 const usesComposeFile = (entry, composePath) =>
   `${entry.ConfigFiles ?? ''}`
     .split(',')
@@ -443,7 +462,8 @@ export function inspectProjectOwnership({ projects, projectName, composePath }) 
   }
 
   const strays = projects.filter(
-    (entry) => entry.Name !== projectName && isRunning(entry) && usesComposeFile(entry, composePath)
+    (entry) =>
+      entry.Name !== projectName && holdsResources(entry) && usesComposeFile(entry, composePath)
   )
   if (strays.length > 0) {
     return {
@@ -456,7 +476,7 @@ export function inspectProjectOwnership({ projects, projectName, composePath }) 
     }
   }
 
-  return { ours: Boolean(named && isRunning(named)), conflict: null }
+  return { ours: Boolean(named && holdsResources(named)), conflict: null }
 }
 
 /**

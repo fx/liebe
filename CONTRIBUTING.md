@@ -95,12 +95,12 @@ npm run e2e:ha:down     # stop and remove the stack
 
 Details:
 
-- **The stack is per checkout.** `scripts/e2eStack.mjs` derives the compose project
-  name and both published ports from the checkout's own path, so several worktrees
-  can run the suite at once without sharing an instance. There is no fixed port —
-  ask `npm run e2e:ha:env` for the URL, or export `LIEBE_E2E_HA_PORT` /
-  `LIEBE_E2E_GO2RTC_PORT` to pin your own (do it for the test run too). `up`
-  refuses to start on a port it does not already own rather than sharing one.
+- **The stack is per checkout**, so several worktrees can run the suite at once —
+  see [architecture — end-to-end harness](docs/specs/architecture/index.md#end-to-end-harness)
+  for what that guarantees. Practically: there is no fixed port, so ask
+  `npm run e2e:ha:env` for the URL rather than assuming 8123. `LIEBE_E2E_HA_PORT`
+  and `LIEBE_E2E_GO2RTC_PORT` pin your own (export them for the test run too);
+  `LIEBE_E2E_PROJECT` pins the compose project name.
 - The stack pins a Home Assistant image and mounts the built `dist/` read-only at
   `/local/dist`, registering the panel via `panel_custom` as `liebe-panel`.
 - `scripts/onboard.mjs` onboards a fresh instance (or logs into a persisted one)

@@ -384,6 +384,10 @@ describe('parseProjectListing', () => {
   it.each([
     ['the command failed', { status: 1, stdout: '', stderr: 'boom' }],
     ['the output is not JSON', { status: 0, stdout: 'not json' }],
+    // Valid JSON of the wrong shape reads as "no projects" if it is coerced,
+    // which is the fail-open direction: ownership then goes unchecked.
+    ['the output is JSON but not a list', { status: 0, stdout: '{"projects":[]}' }],
+    ['the output is null', { status: 0, stdout: 'null' }],
   ])('refuses to assume ownership when %s', (_label, probe) => {
     // Degrading to "assume it is ours" here would put the hole back in the one
     // place a green tick hides it.
@@ -446,6 +450,23 @@ describe('inspectProjectOwnership', () => {
     // check cannot see it, because both serve the same dist/.
     const result = inspectProjectOwnership({
       projects: [{ Name: 'ha', Status: 'running(2)', ConfigFiles: composePath }],
+      projectName: ownName,
+      composePath,
+    })
+    expect(result.conflict).toMatchObject({ kind: 'duplicate-stack', name: 'ha' })
+  })
+
+  it.each([
+    ['paused', 'paused(2)'],
+    ['restarting', 'restarting(1)'],
+    ['partly exited', 'running(1), exited(1)'],
+    ['reported in a wording this does not recognise', 'suspended(2)'],
+  ])('sees a stray stack that is %s, because it still owns the mounts', (_label, status) => {
+    // Only a fully released project frees the ports and the ha/config mount.
+    // Reading "not running" as "gone" would let a second Home Assistant start
+    // against the same writable configuration directory.
+    const result = inspectProjectOwnership({
+      projects: [{ Name: 'ha', Status: status, ConfigFiles: composePath }],
       projectName: ownName,
       composePath,
     })
