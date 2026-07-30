@@ -115,6 +115,7 @@ This subsection is the project's standing testing and quality bar; other specs l
 - The `pre-push` git hook MUST run typecheck, lint, and `npm test -- --run` and MUST block the push on any failure (`.husky/pre-push`).
 - Coverage MUST be measured on every CI test run (`npm run test:coverage`, Vitest `v8` provider, `lcov` report uploaded to Codecov) and enforced as two blocking PR statuses: `codecov/patch` MUST be 100% — every line added or changed by a PR MUST be covered by tests — and `codecov/project` MUST NOT regress (`codecov.yml`, change 0006). Weakening either gate to land a PR is a defect in the PR.
 - Contributors SHOULD run `npm run test:coverage` before opening a PR to check the patch bar locally.
+- The default per-test timeout (`vitest.config.ts`) MUST leave headroom over the slowest legitimate assertion in the suite as measured **under coverage instrumentation on a contended machine**, not on an idle one — a budget a correct test can exhaust reports slowness as failure, and a suite that fails a different set of tests on each run teaches contributors to re-run rather than to read the result. A spec that genuinely needs longer than the default MUST declare its own budget per test rather than raising the default for everything (change 0040).
 
 #### Scenario: Opening a pull request
 
