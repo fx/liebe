@@ -312,7 +312,7 @@ changes:
     path: changes/0038-option-key-collision.md
     description: Rename the cover card's stateLabels to stateLabelStyle so switch cards' documented stateLabels object survives the import gate, and retire the collision guard's exemption
     spec: dashboard-config
-    status: draft
+    status: complete
     depends_on: []
   - id: '0039'
     name: responsive-drag-integrity

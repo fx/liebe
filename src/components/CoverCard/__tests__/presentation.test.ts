@@ -235,13 +235,13 @@ describe('resolveCoverPresentation', () => {
     })
 
     it('never prints a percentage in the `open-closed` style', () => {
-      expect(present('open', { current_position: 43 }, { stateLabels: 'open-closed' }).label).toBe(
-        'OPEN'
-      )
+      expect(
+        present('open', { current_position: 43 }, { stateLabelStyle: 'open-closed' }).label
+      ).toBe('OPEN')
     })
 
     it('is inert-safe: `percent` on a binary cover falls back to the words', () => {
-      const result = present('open', { supported_features: 3 }, { stateLabels: 'percent' })
+      const result = present('open', { supported_features: 3 }, { stateLabelStyle: 'percent' })
       expect(result.labelStyle).toBe('percent')
       expect(result.label).toBe('OPEN')
     })
@@ -253,8 +253,10 @@ describe('resolveCoverPresentation', () => {
     })
 
     it('still reads the movement states while moving, in either style', () => {
-      for (const stateLabels of ['percent', 'open-closed'] as const) {
-        expect(present('closing', { current_position: 40 }, { stateLabels }).label).toBe('CLOSING')
+      for (const stateLabelStyle of ['percent', 'open-closed'] as const) {
+        expect(present('closing', { current_position: 40 }, { stateLabelStyle }).label).toBe(
+          'CLOSING'
+        )
       }
     })
   })
