@@ -73,7 +73,14 @@ export const tokenGroups: readonly TokenGroup[] = [
       { name: '--liebe-card-padding', purpose: 'Card inner padding' },
       { name: '--liebe-grid-gap', purpose: 'Gap between grid cells' },
       { name: '--liebe-icon-circle', purpose: 'Icon circle diameter (glyph ≈ 22px)' },
-      { name: '--liebe-control-height', purpose: 'Embedded slider height' },
+      {
+        name: '--liebe-control-height',
+        // Re-pinned by change 0042: same name, same 42px, and what setting it
+        // states is a MAXIMUM. A theme cannot obtain a thicker track at `tall`
+        // from this token — the tile's content region is what bounds it there
+        // (docs/specs/design-system/index.md — "Cross-axis fit").
+        purpose: 'Embedded slider thickness — the maximum, narrowed to fit a tile',
+      },
       { name: '--liebe-chip-height', purpose: 'Chip height' },
       {
         name: '--liebe-card-min-height-row',

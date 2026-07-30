@@ -89,12 +89,14 @@ export function readNumberControlStyle(
  * (docs/specs/design-system — cross-axis fit;
  * docs/specs/entity-cards/options/input-helpers.md — `input_number`).
  *
- * **Can, not does.** The vertical slider is still a fixed
- * `inline-size: var(--liebe-control-height)` today (`anatomy/anatomy.css`), so
- * it overhangs a narrow content region exactly as it always has — inside the
- * tile's padding rather than past its edge, which is why it is an overhang and
- * not this clip. Making it take the region's width, and omitting it below the
- * 24px floor, is change 0042 PR 3's.
+ * **And now it does.** Change 0042 PR 3 made that slider cross-axis flexible:
+ * the track takes `--liebe-control-height` where the content region affords it
+ * and the region's width where it does not, so the overhang this comment used
+ * to record — inside the tile's padding rather than past its edge, which is why
+ * it was an overhang and not this clip — is gone. Under either floor (24px
+ * across, 44px along) `CardBody` omits it rather than rendering a control
+ * nothing could land on, which is the same omit-never-clip rule this
+ * substitution obeys, applied one level in.
  *
  * That is also why this substitution is keyed on the TIER and not on a measured
  * width, and why the check is not a redundant one to be optimised away later:

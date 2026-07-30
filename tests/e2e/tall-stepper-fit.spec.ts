@@ -18,15 +18,15 @@ import { buildSeedConfig, E2E_FLAG, E2E_LEVEL, openPanel } from './helpers'
  * WHAT THIS SPEC ASSERTS, AND WHAT IT DELIBERATELY DOES NOT. Change 0042
  * requires its two consequences to be asserted separately, because they are
  * different claims at different tolerances: the stepper's was a CLIP past the
- * tile's own edge, and the vertical slider's is a 3.5px-per-side overhang
+ * tile's own edge, and the vertical slider's was a 3.5px-per-side overhang
  * INSIDE the tile's padding. This spec is the clip half — every rendered
- * control's box sits inside the tile's border box, so nothing is cropped. The
- * slider's track is still a fixed `--liebe-control-height` and still wider than
- * the content region; making it take the region's width is 0042 PR 3's, and
- * asserting it here would fail on code that is correct for this PR. The
- * region-narrower-than-control relationship is therefore measured and reported
- * in the failure messages, never asserted — the same line
- * `slider-fill-geometry.spec.ts` draws.
+ * control's box sits inside the tile's border box, so nothing is cropped — and
+ * it stayed that way when PR 3 made the track take the content region's width
+ * instead of the token's, which is deliberate: an assertion about the tile's
+ * edge must hold whichever of the two the track measures. The track against the
+ * REGION, and the floors that omit it below 24px across or 44px along, are
+ * `tall-slider-fit.spec.ts`'s. The region-narrower-than-control relationship is
+ * therefore measured and reported in the failure messages here, never asserted.
  *
  * Everything is read off `getBoundingClientRect`, never off a screenshot.
  */
