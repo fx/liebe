@@ -67,7 +67,7 @@ export default [
                 'Tooltip',
               ],
               message:
-                'Import portalled components from ~/components/ui/portals, so they mount inside the shadow root where the theme and user layers reach them.',
+                'Import portalled components from ~/components/ui/portals, so they mount inside the liebe-portal-root container where all three layers reach them.',
             },
           ],
         },

@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import {
+  documentLevelLeak,
+  frontendIntact,
   openPanel,
   openConfigurationMenu,
   overlayTokens,
@@ -52,11 +54,12 @@ test('appearance switches live, without a reload', async ({ page }) => {
   expect(noReload, 'appearance applied without a page reload').toBe(true)
 })
 
-test('a portalled overlay renders on the active theme, and without user CSS', async ({ page }) => {
-  // Overlays portal to `document.body`, outside the shadow root that holds the
-  // layers. docs/specs/theming ("Application mechanism") requires them to render
-  // with active tokens anyway, and records the user layer as deliberately
-  // withheld from the mirror — this pins both halves on a real open overlay.
+test('a portalled overlay renders on the active theme and on the user layer', async ({ page }) => {
+  // Overlays portal out of the shadow root that holds the layers, into the
+  // document-level `liebe-portal-root` container. docs/specs/theming
+  // ("Application mechanism") requires all three layers to reach them there —
+  // and only a real frontend can say whether they do, since the panel's depth in
+  // the shadow tree is what decided the container's location.
   await openPanel(
     page,
     seedThemeConfig({
@@ -68,7 +71,7 @@ test('a portalled overlay renders on the active theme, and without user CSS', as
   expect(await themeToken(page, '--liebe-c-ok')).toBe('#010203')
 
   await openConfigurationMenu(page)
-  const { outsideShadowRoot, values } = await overlayTokens(page, [
+  const { outsideShadowRoot, insidePortalRoot, values } = await overlayTokens(page, [
     '--liebe-c-light',
     '--liebe-c-light-text',
     '--liebe-c-ok',
@@ -77,6 +80,7 @@ test('a portalled overlay renders on the active theme, and without user CSS', as
   // Otherwise this test proves nothing: the menu has to have left the shadow
   // root for its tokens to be a question at all.
   expect(outsideShadowRoot, 'the open menu portals out of the shadow root').toBe(true)
+  expect(insidePortalRoot, 'and lands in the container that carries the tokens').toBe(true)
 
   // The base layer leaves `-text` derived from its base hue; the Default theme
   // pins it to a readable step. The two differing out here is therefore the
@@ -86,10 +90,61 @@ test('a portalled overlay renders on the active theme, and without user CSS', as
     values['--liebe-c-light']
   )
 
-  // The user layer stops at the shadow root, on purpose: mirroring the author's
-  // own selectors into the Home Assistant document would restyle the frontend
-  // around the panel.
-  expect(values['--liebe-c-ok'], 'user CSS stays contained in the panel').not.toBe('#010203')
+  // The value the user authored, read on an open overlay: exact, so it can only
+  // have come from the mirrored user layer. This is the gap 0036 PR 2 closes —
+  // and it needed BOTH the container and the move of the token declarations off
+  // `.radix-themes`, since Radix re-declares the whole contract on the theme
+  // root it wraps around every portal.
+  expect(values['--liebe-c-ok'], 'the user layer reaches the portalled overlay').toBe('#010203')
+})
+
+test('a document-level user selector does not reach the frontend around the panel', async ({
+  page,
+}) => {
+  // The containment invariant, and the reason the mirror is a rewrite rather
+  // than a copy: `body { display: none }` survives sanitization intact, because
+  // nothing about it fetches anything. An imported dashboard carrying it must
+  // restyle nothing outside the panel.
+  await openPanel(
+    page,
+    seedThemeConfig({
+      id: 'default',
+      appearance: 'dark',
+      customCss: 'body { display: none } .liebe-root { --liebe-c-ok: #010203; }',
+    })
+  )
+
+  // The panel itself still gets the user layer as authored — otherwise the test
+  // below would pass on a mirror that simply was not injected.
+  expect(await themeToken(page, '--liebe-c-ok')).toBe('#010203')
+  expect(await userLayerCss(page)).toContain('body')
+
+  // …and Home Assistant is untouched.
+  const { bodyDisplay, frontendHeight } = await frontendIntact(page)
+  expect(bodyDisplay, 'the frontend document still lays out').not.toBe('none')
+  expect(frontendHeight, '<home-assistant> still renders').toBeGreaterThan(0)
+
+  const { slots, userSelectors } = await documentLevelLeak(page)
+
+  // Exactly the two mirrored layers, and nothing else Liebe smuggled out. The
+  // fonts slot is excluded by the helper: that registration is required, not a
+  // leak.
+  expect(slots.sort()).toEqual(['theme', 'user'])
+
+  // Every selector the browser parsed out of the mirror is bounded by the
+  // container — including `body`, which is why it matches nothing out here.
+  expect(userSelectors.length).toBeGreaterThan(0)
+  for (const selector of userSelectors) {
+    expect(selector, 'every mirrored selector is bounded by the container').toMatch(
+      /^\.liebe-portal-root[ :]/
+    )
+  }
+
+  // And the reach half on the same configuration: the token still lands on an
+  // open overlay, so containment was not bought by mirroring nothing.
+  await openConfigurationMenu(page)
+  const { values } = await overlayTokens(page, ['--liebe-c-ok'])
+  expect(values['--liebe-c-ok']).toBe('#010203')
 })
 
 test('theme configuration survives YAML export into a fresh dashboard', async ({

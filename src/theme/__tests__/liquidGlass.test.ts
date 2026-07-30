@@ -68,14 +68,14 @@ describe('Liquid Glass stylesheet', () => {
   })
 
   it('declares on the theme root only, in both appearances', () => {
-    // `.radix-themes` is the element the base layer declares tokens on, and the
+    // `.liebe-root` is the element the base layer declares tokens on, and the
     // only element an override may use: a derived `-tint` re-derives only where
     // its base is overridden on the SAME element, so an override on a
     // descendant would leave the companions on the old hue
     // (docs/specs/design-system — "Design").
     expect([...blocks.keys()]).toEqual([
-      ':where(.radix-themes)',
-      '.radix-themes:where(.dark, .dark-theme), :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme))',
+      ':where(.liebe-root)',
+      '.liebe-root:where(.dark, .dark-theme), :is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme))',
     ])
   })
 
@@ -148,7 +148,7 @@ describe('Liquid Glass stylesheet', () => {
     // unset here would put unreadable state text on every card. Pinned as a
     // complete set, so no domain is left behind.
     for (const { name, scale } of domainColors) {
-      expect(declaredProperties(blocks.get(':where(.radix-themes)')!)).toContain(
+      expect(declaredProperties(blocks.get(':where(.liebe-root)')!)).toContain(
         domainColorTokens(name).text
       )
       expect(rules).toContain(`${domainColorTokens(name).text}: var(--${scale}-12);`)

@@ -60,17 +60,20 @@
    * treatment is reviewed. Declaring per appearance on the root instead is what
    * src/styles/tokens.css does with the surfaces, and it composes: a nested
    * root redeclares the property on itself and every part below inherits the
-   * nearest one. The selector pair below is that sheet's, unchanged — a theme
-   * root that declares itself dark, and a nested theme inheriting darkness from
-   * an ancestor without overriding it — and light is unconditional because
-   * Radix's classless default is light.
+   * nearest one. The selector pair below is that sheet's, unchanged — a Liebe
+   * root that declares itself dark, and one inheriting darkness from an
+   * ancestor without overriding it — and light is unconditional because Radix's
+   * classless default is light. `.liebe-root` rather than `.radix-themes` for
+   * the reason that sheet gives at length: Radix stamps its own class on the
+   * theme root it wraps around every portal, so a rule keyed off it is
+   * re-declared on each open overlay instead of inherited into it.
    *
    * These are per triplet rather than one switch because CSS cannot compose a
    * property name: the choice is between two named tokens, so it has to be made
    * where both names are in scope.
    * ------------------------------------------------------------------ */
 
-  :where(.radix-themes) {
+  :where(.liebe-root) {
     --part-light-glyph: var(--liebe-c-light-text);
     --part-heat-glyph: var(--liebe-c-heat-text);
     --part-cool-glyph: var(--liebe-c-cool-text);
@@ -83,8 +86,8 @@
     --part-brand-glyph: var(--liebe-c-brand-text);
   }
 
-  .radix-themes:where(.dark, .dark-theme),
-  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
+  .liebe-root:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.liebe-root:not(.light, .light-theme)) {
     --part-light-glyph: var(--liebe-c-light);
     --part-heat-glyph: var(--liebe-c-heat);
     --part-cool-glyph: var(--liebe-c-cool);

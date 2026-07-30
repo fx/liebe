@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Theme } from '@radix-ui/themes'
+import { usePortalContainer } from './portals'
 
 interface FullscreenModalProps {
   open: boolean
@@ -31,10 +32,15 @@ interface FullscreenModalProps {
    */
   zIndex?: number
   /**
-   * Element to portal into. Defaults to document.body. Pass a container inside
-   * the panel's shadow root (see resolvePanelPortalContainer) when the modal
-   * content must stay inside the <home-assistant> DOM tree, e.g. for HA
-   * elements that resolve their dependencies via @lit/context.
+   * Element to portal into. Defaults to the `liebe-portal-root` container the
+   * theme provider mounts, which is where every other Liebe overlay goes and
+   * the only place outside the shadow root that carries the token contract.
+   * Pass a container inside the panel's shadow root (see
+   * resolvePanelPortalContainer) when the modal content must stay inside the
+   * <home-assistant> DOM tree, e.g. for HA elements that resolve their
+   * dependencies via @lit/context — noting that such a container is an ANCESTOR
+   * of `.liebe-root` rather than a descendant, so the Theme wrapper below
+   * inherits no `--liebe-*` there.
    */
   portalContainer?: Element
 }
@@ -99,8 +105,13 @@ export function FullscreenModal({
   closeOnBackdropClick = true,
   closeOnEsc = true,
   zIndex = 99999,
-  portalContainer = document.body,
+  portalContainer,
 }: FullscreenModalProps) {
+  // The container every Liebe overlay mounts into. `document.body` only where
+  // there is no provider above this modal at all, which is the pre-container
+  // behaviour and leaves the content unthemed exactly as it was.
+  const liebePortalRoot = usePortalContainer()
+
   // Handle ESC key
   useEffect(() => {
     if (open && closeOnEsc) {
@@ -151,5 +162,8 @@ export function FullscreenModal({
     </>
   )
 
-  return createPortal(includeTheme ? <Theme>{content}</Theme> : content, portalContainer)
+  return createPortal(
+    includeTheme ? <Theme>{content}</Theme> : content,
+    portalContainer ?? liebePortalRoot ?? document.body
+  )
 }
