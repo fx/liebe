@@ -2,16 +2,16 @@
 
 ## Summary
 
-Fix the three rendering defects in the embedded slider's vertical form: the fill covering only half the track's width (and being clipped at its edge), the vertical slider sitting left-flush instead of centred in a `tall` tile, and the `input_number` card's `tall` slider getting no travel because it never receives the fill band. The slider anatomy rules these violate now live in [design-system — card anatomy](../specs/design-system/index.md#card-anatomy).
+Fix the rendering defects in the embedded slider's vertical form: the fill covering only half the track's width (and being clipped at its edge), and the `input_number` card's `tall` slider getting no travel because it never receives the fill band. A third defect was expected — the vertical slider sitting left-flush instead of centred in a `tall` tile — and measurement during implementation showed it was not happening; see the struck-through bullet under [Motivation](#motivation). The slider anatomy rules these violate now live in [design-system — card anatomy](../specs/design-system/index.md#card-anatomy).
 
 **Spec:** [design-system](../specs/design-system/), [entity-cards options — input-helpers](../specs/entity-cards/options/input-helpers.md)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
 
 - The vertical slider's fill renders at roughly half the track's width, pushed into one half and clipped by the track's `overflow: hidden` — visibly broken on every `tall` light, cover and fan card. The mechanism: the slider library positions the range with axis insets only (`top`/`bottom` when vertical), leaving the cross-axis position to the static position — which the `tall` card body's inherited `text-align: center` shifts to the track's midline. The workshop's anatomy stage has no `text-align`, so the primitive's own story looks correct while every real `tall` card does not.
-- In `tall`, the vertical slider is pinned to the tile's left edge: the fill band centres its child, but the controls wrapper inside it takes full width with no horizontal distribution, defeating the centring.
+- ~~In `tall`, the vertical slider is pinned to the tile's left edge: the fill band centres its child, but the controls wrapper inside it takes full width with no horizontal distribution, defeating the centring.~~ **Not reproducible as described** — corrected during implementation, from measurements in Chromium against every panel stylesheet and the real rendered markup. The controls wrapper does not take full width: `align-items: center` on the `tall` arrangement makes the fill band a fit-content box, so the band hugs the control (both 42px) and the band itself lands centred. The slider was already centred before this change, on every `tall` slider card. What the change adds for the centring rule is therefore a **second** guard (`justify-content: center` on the band's control row, which holds the rule if a future arrangement ever stretches the band) and the tests that pin the primary mechanism — not a fix for an observed defect. See [Decisions](#decisions) for the geometry this uncovered instead.
 - `InputNumberCard` passes no control sizing to the card body, so its `tall` slider has no band to grow in and renders with no length — while [options/input-helpers](../specs/entity-cards/options/input-helpers.md) requires a vertical slider filling the middle at `tall`.
 
 ## Requirements
@@ -53,6 +53,8 @@ CSS-first, three small fixes plus tests:
 - **Fix at the stylesheet, not by wrapping the range in another element**: the defect is a missing declaration; adding DOM would churn the stable anatomy structure themes target.
   - **Alternatives considered:** neutralising `text-align` on the track (fixes this symptom but leaves the fill's position implicit — the next inherited property would break it again).
 - **Stylesheet tests as the unit-level lock**: jsdom cannot measure the bug; the repo's established `anatomyStyles`/`cardShellStyles` source-assertion pattern can, and the e2e adds one real-layout proof.
+- **The centring rule is pinned at the stylesheet, not end to end**, because it cannot fail at `tall`. `tall` is one column wide by definition, and on the 12-column desktop grid that column is a 63px tile — 35px of content box inside the 14px card padding — hosting a 42px control. With no leftover inline space, "centred" and "leading-edge flush" are the same place: measured at that width, removing **both** declarations that centre the control does not move it off centre, it shrinks the control to 35px. So `cardBodyStyles` asserts the declarations (mutation-verified), and the e2e asserts the geometry that does distinguish the two states — the control at its `--liebe-control-height` thickness rather than squeezed to the region.
+- **A geometry defect this uncovered is left for its own change document**: at that 63px `tall` tile the 42px control is wider than the 35px content box, so it bleeds 3.5px into each side's padding (not clipped — the bleed is inside the 14px padding, and it stays centred). The same tile clips the `input_number` stepper outright: 156px of controls in a 35px region, 46.5px past the card's edge on each side, against the design system's omit-never-clip rule. Both trace to one unreconciled pair — `--liebe-control-height` and `--liebe-card-padding` against the width a single desktop column actually gives a tile — and the fix is a design-system decision (the spec pins the control at 42px), so neither is made here.
 
 ### Non-Goals
 
@@ -61,7 +63,7 @@ CSS-first, three small fixes plus tests:
 
 ## Tasks
 
-- [ ] Fix vertical slider rendering: fill cross-axis anchor in `anatomy.css`, `tall`-band centring, `InputNumberCard` fill sizing; stylesheet + tier-layout unit tests and the e2e fill-geometry assertion
+- [x] Fix vertical slider rendering: fill cross-axis anchor in `anatomy.css`, `tall`-band centring, `InputNumberCard` fill sizing; stylesheet + tier-layout unit tests and the e2e fill-geometry assertion
 
 ## Open Questions
 

@@ -12,6 +12,7 @@ import { ClimateCard } from '../ClimateCard'
 import { CoverCard } from '../CoverCard'
 import { FanCard } from '../FanCard'
 import { CardItemProvider } from '../cardItemContext'
+import { InputNumberCard } from '../InputNumberCard'
 import { LightCard } from '../LightCard'
 import { WeatherCard } from '../WeatherCard'
 import type { HassEntity } from '~/store/entityTypes'
@@ -1041,6 +1042,45 @@ describe('control-set cards — the shared body', () => {
     )
 
     expect(fillBand()).toContainElement(screen.getByLabelText('Increase temperature'))
+  })
+
+  const numberHelper = makeEntity('input_number.target_volume', '50', {
+    friendly_name: 'Target Volume',
+    min: 0,
+    max: 100,
+    step: 5,
+    // The helper's own preference is what selects the slider here — no stored
+    // `controlStyle` — so this is the shape an unconfigured card renders.
+    mode: 'slider',
+    unit_of_measurement: '%',
+  })
+
+  it('gives the number helper’s vertical slider the same band', () => {
+    /*
+     * `tall` for an `input_number` is specified as "Icon top, **vertical
+     * slider** (or compact stepper), meta bottom"
+     * (docs/specs/entity-cards/options/input-helpers.md — the tier table), and a
+     * slider with no band has no length: the helper was the one slider card
+     * left asking the body for a content-sized slot, so its `tall` tile showed
+     * a vertical control with no travel at all.
+     */
+    seed(numberHelper)
+    renderCard(<InputNumberCard entityId="input_number.target_volume" tier="tall" />)
+
+    expect(controlSize()).toBe('fill')
+    expect(sliderOrientation('Set Target Volume')).toBe('vertical')
+    expect(fillBand()).toContainElement(screen.getByLabelText('Set Target Volume'))
+  })
+
+  it('keeps the number helper content-sized on the tiers that are not tall', () => {
+    // The control is on the line at `row` and `full`, where the free space is
+    // the meta's — the same call the thermostat makes for its stepper.
+    seed(numberHelper)
+    renderCard(<InputNumberCard entityId="input_number.target_volume" tier="row" />)
+
+    expect(controlSize()).toBe('content')
+    expect(fillBand()).toBeNull()
+    expect(sliderOrientation('Set Target Volume')).toBe('horizontal')
   })
 
   it('renders no band at all when the tall tier has no control to put in it', () => {
