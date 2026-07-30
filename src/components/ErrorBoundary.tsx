@@ -2,6 +2,7 @@ import { Component, ErrorInfo, ReactNode } from 'react'
 import { Card, Flex, Text, Button, Box, Code, ScrollArea } from '@radix-ui/themes'
 import { ExclamationTriangleIcon, ReloadIcon, ChevronDownIcon } from '@radix-ui/react-icons'
 import { ErrorDisplay } from './ui/ErrorDisplay'
+import type { CardTier } from '~/utils/cardTier'
 
 interface Props {
   children: ReactNode
@@ -179,17 +180,29 @@ export function withErrorBoundary<P extends object>(
   return WrappedComponent
 }
 
-// Simple error boundary for entity cards
-export const EntityErrorBoundary: React.FC<{ children: ReactNode; entityId?: string }> = ({
-  children,
-  entityId,
-}) => {
+/**
+ * Simple error boundary for entity cards.
+ *
+ * `tier` is optional because not every caller passes one, and the fallback then
+ * renders at `ErrorDisplay`'s own `row` default — `GridView`'s outer
+ * `EntityErrorBoundary` is one such caller, even though it does compute a tier
+ * and hand it to the card inside. A card's own boundary
+ * (`withCardErrorBoundary`) always passes one, resolving the card's default when
+ * the prop is absent, so the fallback degrades with the cell the way every other
+ * tile does.
+ */
+export const EntityErrorBoundary: React.FC<{
+  children: ReactNode
+  entityId?: string
+  tier?: CardTier
+}> = ({ children, entityId, tier }) => {
   return (
     <ErrorBoundary
       fallback={(error, reset) => (
         <ErrorDisplay
           error={error}
           variant="card"
+          tier={tier}
           title={entityId ? `Error loading ${entityId}` : 'Entity Error'}
           onRetry={reset}
         />

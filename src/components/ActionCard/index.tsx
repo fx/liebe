@@ -16,6 +16,7 @@ import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { useCardItem } from '../cardItemContext'
 import { confirmPromptFor, isActionRunning, isPrimaryRoute, resolvePrimaryCommand } from './actions'
 import { useActivationFeedback, useLastActivated } from './hooks'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import './ActionCard.css'
 
 /**
@@ -347,6 +348,11 @@ const MemoizedActionCard = memo(ActionCardComponent, (prevProps, nextProps) => {
  * no embedded control, a trigger tile has nothing to put in a wider card
  * (scene.md — "Tier layouts").
  */
-export const ActionCard = Object.assign(MemoizedActionCard, {
-  defaultDimensions: { width: 1, height: 1 },
-})
+export const ActionCard = Object.assign(
+  // The only family whose own default tier is not `row`, so the only one that
+  // has to tell its boundary: a failure tile here is a one-cell tile.
+  withCardErrorBoundary(MemoizedActionCard, { fallbackTier: 'glance' }),
+  {
+    defaultDimensions: { width: 1, height: 1 },
+  }
+)

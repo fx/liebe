@@ -10,10 +10,11 @@ import type { CardSpan, CardTier } from '~/utils/cardTier'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { useRelativeSince } from '../ButtonCard/lastChanged'
 import { GridCardWithComponents as GridCard } from '../GridCard'
-import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
+import { SkeletonCard, ErrorDisplay } from '../ui'
 import { useCardItem } from '../cardItemContext'
 import { PersonAvatar } from './PersonAvatar'
 import { resolvePersonBattery } from './battery'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import {
   resolveAvatarHue,
   resolvePersonInitials,
@@ -323,30 +324,7 @@ const MemoizedPersonCard = memo(PersonCardComponent, (prevProps, nextProps) => {
   )
 })
 
-/*
- * The card's own error boundary, following the media player and the weather
- * variants and AGENTS.md ("Entity Card Registration").
- *
- * Not redundant with `GridView`'s `EntityErrorBoundary`, which covers only the
- * dashboard path. This card is also rendered directly: a story, the
- * configuration preview, a card handed a literal `entityId`. Nothing sits above
- * it there, so a throw during render takes the whole tree rather than one tile.
- *
- * Outside the memo rather than inside it. The boundary is a plain wrapper whose
- * own render costs nothing, and keeping `memo` closest to the content leaves the
- * comparator doing exactly what it did before — including the by-value span
- * check the grid depends on, which an extra memo layer would have made
- * ambiguous.
- */
-function PersonCardWithBoundary(props: PersonCardProps) {
-  return (
-    <ErrorBoundary>
-      <MemoizedPersonCard {...props} />
-    </ErrorBoundary>
-  )
-}
-
-export const PersonCard = Object.assign(PersonCardWithBoundary, {
+export const PersonCard = Object.assign(withCardErrorBoundary(MemoizedPersonCard), {
   /*
    * 2×1 — the `row` tier, which is the smallest one carrying everything this
    * card has: avatar, name, zone and the duration. `full` is specified to render

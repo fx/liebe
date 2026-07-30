@@ -1,13 +1,14 @@
 import { createElement } from 'react'
 import { Flex, Text, Box } from '@radix-ui/themes'
 import { useEntity } from '../../hooks'
-import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
+import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
 import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import {
   formatTemperature,
   getConditionGlyph,
@@ -267,14 +268,6 @@ function WeatherCardModernContent(props: CardProps) {
   )
 }
 
-function WeatherCardModernWithBoundary(props: CardProps) {
-  return (
-    <ErrorBoundary>
-      <WeatherCardModernContent {...props} />
-    </ErrorBoundary>
-  )
-}
-
-export const WeatherCardModern = Object.assign(WeatherCardModernWithBoundary, {
+export const WeatherCardModern = Object.assign(withCardErrorBoundary(WeatherCardModernContent), {
   defaultDimensions: { width: 3, height: 3 },
 })

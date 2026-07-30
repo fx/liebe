@@ -35,6 +35,7 @@ import {
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface CoverCardProps {
   entityId: string
@@ -737,6 +738,6 @@ const MemoizedCoverCard = memo(CoverCardComponent, (prevProps, nextProps) => {
   )
 })
 
-export const CoverCard = Object.assign(MemoizedCoverCard, {
+export const CoverCard = Object.assign(withCardErrorBoundary(MemoizedCoverCard), {
   defaultDimensions: { width: 2, height: 3 },
 })

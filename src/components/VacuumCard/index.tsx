@@ -17,12 +17,13 @@ import { useDashboardStore } from '~/store'
 import { readVacuumOptions } from '~/store/vacuumOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
-import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
+import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup } from '../anatomy'
 import { useCardItem } from '../cardItemContext'
 import { readFanSpeedList, readVacuumFeatures, type VacuumAttributes } from './features'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import {
   areCommandsBlocked,
   hasRunControl,
@@ -430,26 +431,7 @@ const MemoizedVacuumCardContent = memo(VacuumCardComponent, (prevProps, nextProp
   )
 })
 
-/*
- * The card's own error boundary, following the WeatherCard and MediaPlayerCard
- * shape and AGENTS.md ("Entity Card Registration").
- *
- * Not redundant with `GridView`'s `EntityErrorBoundary`, which covers only the
- * dashboard path. This card is also rendered directly — a story, the
- * configuration preview, a card handed a literal `entityId` — and nothing sits
- * above it there. Outside the memo, so the comparator keeps doing exactly what
- * it did before (#270 tracks the nine families that carry no boundary; this is
- * not the place to fix them).
- */
-function VacuumCardWithBoundary(props: VacuumCardProps) {
-  return (
-    <ErrorBoundary>
-      <MemoizedVacuumCardContent {...props} />
-    </ErrorBoundary>
-  )
-}
-
-export const VacuumCard = Object.assign(VacuumCardWithBoundary, {
+export const VacuumCard = Object.assign(withCardErrorBoundary(MemoizedVacuumCardContent), {
   /*
    * 2×2 — the `full` tier, the smallest layout that carries the meta and the
    * command cluster at once without either crowding the other.

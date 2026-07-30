@@ -25,6 +25,7 @@ import { COLOR_SWATCHES, rgbCss, reportedRgb, sameRgb, type Rgb } from './lightP
 import { CardConfig } from '../CardConfig'
 import type { GridItem } from '~/store/types'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import {
   HA_BRIGHTNESS_MAX,
   haBrightnessToPercent,
@@ -730,6 +731,6 @@ const MemoizedLightCard = memo(LightCardComponent, (prevProps, nextProps) => {
   )
 })
 
-export const LightCard = Object.assign(MemoizedLightCard, {
+export const LightCard = Object.assign(withCardErrorBoundary(MemoizedLightCard), {
   defaultDimensions: { width: 2, height: 2 },
 })

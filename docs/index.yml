@@ -333,7 +333,7 @@ changes:
     path: changes/0041-card-conventions-and-reference.md
     description: Settle the per-card ErrorBoundary convention repo-wide and correct the card reference's stale file-to-folder paths, line citations and false no-test-file claim
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: []
   - id: '0042'
     name: tall-tile-control-geometry

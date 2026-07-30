@@ -18,13 +18,14 @@ import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '~/store/cardActions'
 import { readMediaPlayerOptions } from '~/store/mediaPlayerOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
-import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
+import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { Pill, PillGroup, Slider } from '../anatomy'
 import { useCardItem } from '../cardItemContext'
 import { readMediaPlayerFeatures, type MediaPlayerAttributes } from './features'
 import { formatMediaTime, resolveMediaProgress } from './progress'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import {
   canSelectSource,
   isVolumeMuted,
@@ -845,34 +846,14 @@ const MemoizedMediaPlayerCardContent = memo(MediaPlayerCardComponent, (prevProps
   )
 })
 
-/*
- * The card's own error boundary, following the WeatherCard variants — the one
- * other family that carries one — and AGENTS.md ("Entity Card Registration").
- *
- * Not redundant with `GridView`'s `EntityErrorBoundary`, which covers only the
- * dashboard path. This card is also rendered directly: a story, the
- * configuration preview, a card handed a literal `entityId`. Nothing sits above
- * it there, so a throw during render takes the whole tree rather than one tile.
- *
- * Outside the memo rather than inside it. The boundary is a plain wrapper whose
- * own render costs nothing, and keeping `memo` closest to the content leaves the
- * comparator doing exactly what it did before — including the by-value span
- * check the grid depends on, which an extra memo layer would have made
- * ambiguous.
- */
-function MediaPlayerCardWithBoundary(props: MediaPlayerCardProps) {
-  return (
-    <ErrorBoundary>
-      <MemoizedMediaPlayerCardContent {...props} />
-    </ErrorBoundary>
-  )
-}
-
-export const MediaPlayerCard = Object.assign(MediaPlayerCardWithBoundary, {
-  /*
-   * 2×2 — the `full` tier, which is the layout the option doc calls the
-   * showcase and the smallest one that carries artwork, meta and transport at
-   * once.
-   */
-  defaultDimensions: { width: 2, height: 2 },
-})
+export const MediaPlayerCard = Object.assign(
+  withCardErrorBoundary(MemoizedMediaPlayerCardContent),
+  {
+    /*
+     * 2×2 — the `full` tier, which is the layout the option doc calls the
+     * showcase and the smallest one that carries artwork, meta and transport at
+     * once.
+     */
+    defaultDimensions: { width: 2, height: 2 },
+  }
+)
