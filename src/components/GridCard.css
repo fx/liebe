@@ -40,6 +40,40 @@
 
 @layer liebe-base.reset, liebe-base.vendor, liebe-base, liebe-theme, liebe-user;
 
+/*
+ * The icon-only tile's tint colour, REGISTERED so the treatment can fade.
+ *
+ * `background-image` is animatable only discretely, so the gradient layer the
+ * tint is painted as cannot transition however it is declared — and the pattern
+ * owes a state change the ~280ms the motion rule gives one
+ * (docs/specs/design-system/index.md — "Card anatomy"). Registering the colour
+ * makes the PROPERTY interpolable, and the gradient built from it follows.
+ *
+ * DECLARED AT TOP LEVEL, DELIBERATELY, AND IT MUST STAY THERE.
+ * `@property` is a top-level at-rule: nested inside `@layer`, a parser is
+ * entitled to ignore it, which leaves the property unregistered and the
+ * transition inert. That failure is invisible to everything cheap — the rule
+ * still serialises into `dist/liebe.css`, so surviving the bundler says
+ * nothing about being honoured — and `cardShellStyles.test.ts` therefore
+ * asserts the block sits outside every `@layer` rather than merely existing.
+ *
+ * Registration is about the FADE, not about the colour: unregistered, the tint
+ * still resolves and paints correctly and simply snaps between states. It is a
+ * degradation of the motion rule, never a wrong tile.
+ *
+ * Being unlayered is not the hole the layering rule guards against either. That
+ * rule is about overridable *declarations* — an unlayered style rule outranks
+ * every cascade layer — and this registers a name rather than styling anything;
+ * `liebe.css` is linked into `document.head` as well as into the shadow root
+ * (`src/panel.ts`), so the registration lands at document scope wherever the
+ * panel runs.
+ */
+@property --liebe-icon-tile-tint {
+  inherits: false;
+  initial-value: transparent;
+  syntax: '<color>';
+}
+
 @layer liebe-base {
   /* ------------------------------------------------------------------ *
    * The tile
@@ -176,11 +210,115 @@
    * Placed before the alignment block for the same reason the rule above is:
    * at equal specificity the later rule wins, so an icon-only tile that also
    * names an axis takes the alignment.
+   *
+   * THE STATE TINT
+   * --------------
+   * This tile is the one place the card surface carries hue: an icon-only card
+   * "has surrendered every part that could carry state, so the tile becomes the
+   * tint surface" (docs/specs/design-system — "Card anatomy", one of exactly
+   * two exceptions to the neutral-tile rule). It is the same active-state
+   * pattern the icon circle implements, at tile scale, off the same
+   * `data-color` resolution `anatomy.css` maps — or, for a bulb reporting its
+   * own colour, off the inline override the shell writes for the survivor of
+   * `resolveCardHue`. Nothing here names a hue, which is what makes a theme
+   * remapping the triplet recolour these tiles with everything else.
+   *
+   * HOW IT IS PAINTED
+   * -----------------
+   * The spec says the tint renders **over the card surface**, and it means the
+   * surface: `--part-tint` is a ~20% wash and `--gray-a3` a ~5% one, so both
+   * have to composite onto something rather than replace it. The tile has one
+   * background colour, so the wash goes in as a single-colour gradient LAYER
+   * over it — which is what keeps the treatment honest under a theme whose
+   * surface is itself translucent (Liquid Glass's glass card), and what lets it
+   * read the tokens as authored instead of re-deriving them from the base hue.
+   * A theme that pins a triplet's `-tint` gets that pinned tint here, exactly
+   * as the icon circle and the pills do.
+   *
+   * The surface underneath is restated rather than assumed, because a
+   * `transparent` card has none: `WeatherCardMinimal` passes `transparent` and
+   * forwards `iconOnly`, and a wash composited over the dashboard ground would
+   * make both the tint and the glyph contrast measured against it depend on
+   * what the tile happens to be sitting on. An icon-only tile IS the state
+   * surface, so it takes the surface token back.
+   *
    */
   .liebe-card[data-icon-tile] {
+    /*
+     * Inactive: "the standard ~5%-alpha neutral", the same wash the icon
+     * circle rests on when it is not active, so an off tile reads as a tile
+     * rather than as a colour.
+     */
+    --liebe-icon-tile-tint: var(--gray-a3);
+    /*
+     * Level → tint strength (docs/specs/design-system — "a level-bearing
+     * active entity … SHOULD modulate the tint's strength with its level so a
+     * dimmed lamp reads dimmer than a full one"). The shell writes
+     * `--liebe-icon-tile-level` as a 0–1 fraction for the domains that have
+     * one; the fallback is what every other card gets, and it is `1` so a tile
+     * with no level to report carries the full tint.
+     *
+     * Floored at 40% rather than scaling from zero: a lamp at 1% is ON, and a
+     * tint that faded to nothing would make the tile's one remaining state
+     * signal disappear exactly where the card is still actionable. The floor
+     * is the strength an active tile never goes below; the top of the range is
+     * the undimmed tint.
+     */
+    --liebe-icon-tile-strength: calc(40% + 60% * var(--liebe-icon-tile-level, 1));
+
     align-items: center;
+    background-color: var(--liebe-card-bg);
+    background-image: linear-gradient(var(--liebe-icon-tile-tint), var(--liebe-icon-tile-tint));
     display: flex;
     justify-content: center;
+    /*
+     * The tile's own list, plus the tint. Redeclared rather than extended
+     * because CSS has no way to add one entry to a shorthand — which is also
+     * why the reduced-motion block below has to name this selector: at this
+     * specificity a rule that only named `.liebe-card` would lose to it.
+     */
+    transition:
+      --liebe-icon-tile-tint 280ms ease-out,
+      background-color 280ms ease-out,
+      box-shadow 280ms ease-out,
+      opacity 280ms ease-out,
+      outline-color 280ms ease-out;
+  }
+
+  /*
+   * Active: the domain's own tint, at the strength its level asks for. Keyed
+   * off `data-active`, which is the same attribute the icon circle takes its
+   * active treatment from, so the tile and the glyph cannot disagree about
+   * whether the entity is on.
+   */
+  .liebe-card[data-icon-tile][data-active] {
+    --liebe-icon-tile-tint: color-mix(
+      in srgb,
+      var(--part-tint) var(--liebe-icon-tile-strength),
+      transparent
+    );
+  }
+
+  /*
+   * The icon circle stops carrying its own tint on this tile.
+   *
+   * Not decoration: the glyph's contrast is calibrated against ONE 20% tint
+   * over the card surface (docs/specs/design-system — "Domain color
+   * discipline"; the per-appearance glyph step change 0035 measured). Leaving
+   * the circle's background on would put the glyph on two stacked tints — a
+   * ground nobody has measured, and a visible second disc inside a tile that is
+   * already the tint surface. Dropping it puts the glyph back on exactly the
+   * composite the pattern was calibrated for, so the measured figures carry
+   * over unchanged. The circle's own `color` — `--part-glyph` when active,
+   * `--liebe-faint` when not — is untouched, and is what makes the glyph read.
+   *
+   * A card whose identity anchor IS a coloured disc rather than a glyph on one
+   * keeps its background, and says so where it owns it: the person card's
+   * initials avatar restores it in `PersonCard.css`. The rule here is about
+   * glyph circles, which is what every other card's anchor is.
+   */
+  .liebe-card[data-icon-tile] .liebe-icon {
+    background: none;
   }
 
   /* ------------------------------------------------------------------ *
@@ -381,8 +519,15 @@
    * ------------------------------------------------------------------ */
 
   @media (prefers-reduced-motion: reduce) {
+    /*
+     * `[data-icon-tile]` is named in its own right because it redeclares
+     * `transition` at a higher specificity than `.liebe-card` does — a
+     * reduced-motion rule that only named the bare class would lose to it and
+     * leave the state tint fading.
+     */
     .liebe-card,
     .liebe-card[data-error],
+    .liebe-card[data-icon-tile],
     .liebe-card[data-loading] {
       animation: none;
       transition: none;

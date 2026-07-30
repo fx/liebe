@@ -81,7 +81,23 @@ export function PersonAvatar({
      * the avatar is coloured the way every other part is rather than by a Radix
      * scale painted on by hand (`anatomyPart.ts`).
      */
-    <IconCircle domain="person" color="default" hue={hue} active>
+    <IconCircle
+      domain="person"
+      color="default"
+      hue={hue}
+      active
+      /*
+       * Names this circle as the initials avatar, for one rule in
+       * `PersonCard.css`. An icon-only tile strips the circle's background so
+       * the glyph sits on the tile's own state tint rather than on two stacked
+       * ones (`GridCard.css`), and this branch is the exception: the disc IS
+       * the anchor here, not a container for one — "the person card's is its
+       * avatar" (docs/specs/entity-cards/options/common.md — "Icon-only
+       * presentation"). Bare initials on a tinted tile would be the identity
+       * anchor half removed.
+       */
+      className="person-avatar-initials"
+    >
       <span className="liebe-person-initials" data-testid="person-initials">
         {initials}
       </span>

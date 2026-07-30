@@ -856,3 +856,51 @@ describe('optimistic drag state', () => {
     expect(screen.getByLabelText('Tilt position')).toHaveAttribute('aria-valuetext', '30%')
   })
 })
+
+describe('the level an icon-only tile tints by', () => {
+  /**
+   * The tile tint's strength follows how far open the cover is
+   * (docs/specs/design-system — "Card anatomy"). What the sheet does with the
+   * fraction belongs to `cardShellStyles.test.ts`; what is asserted here is
+   * which number the card hands over — the displayed position, so an inverted
+   * cover tints by what the user is being shown rather than by the raw
+   * attribute — and that a cover with no position hands over none.
+   */
+  const tileLevel = () =>
+    (document.querySelector('.liebe-card') as HTMLElement).style.getPropertyValue(
+      '--liebe-icon-tile-level'
+    )
+
+  it('reports the position as a 0–1 fraction', () => {
+    seed(makeCover('open', { current_position: 60, supported_features: 255 }))
+
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, { iconOnly: true })
+
+    expect(tileLevel()).toBe('0.6')
+  })
+
+  it('reports the inverted reading where the option reverses the scale', () => {
+    // The same raw 60, shown as 40. The tint is part of the presentation, so
+    // it follows the reading rather than the attribute — a tile tinting at 60%
+    // beside a state line saying 40% is one card disagreeing with itself.
+    seed(makeCover('open', { current_position: 60, supported_features: 255 }))
+
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, {
+      iconOnly: true,
+      invertPosition: true,
+    })
+
+    expect(tileLevel()).toBe('0.4')
+  })
+
+  it('reports no level for a cover that has no position', () => {
+    // A binary opener: no `current_position`, no position slider, and no level
+    // — which is not the same as being shut, and must not tint as though it
+    // were at the bottom of a range it does not have.
+    seed(makeCover('open', { supported_features: 3 }))
+
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, { iconOnly: true })
+
+    expect(tileLevel()).toBe('')
+  })
+})

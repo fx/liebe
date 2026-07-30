@@ -161,6 +161,33 @@ describe('showConditionBackground', () => {
     }
   })
 
+  it('paints none of it on an icon-only tile, treatment included', () => {
+    // `iconOnly` reduces the card to its glyph, and the shell drops the paint
+    // layers from the tile — so a variant that kept resolving an image would
+    // keep the artwork SCOPE with no photograph under it, and the scope pins
+    // every foreground token to white. In light appearance that is a white
+    // glyph on the tile's own pale surface: the identity anchor gone, on the
+    // one presentation whose entire content is that anchor
+    // (docs/specs/entity-cards/options/common.md — "Icon-only presentation").
+    for (const variant of painting) {
+      // Through the provider as well as the prop, which is how a placed card
+      // gets its options: the shell reads the stored config off the context
+      // and the card off its prop, and this case needs both — the marker is
+      // the shell's, the artwork decision is the card's.
+      const { unmount } = renderCard(
+        <CardItemProvider entityId={ENTITY} config={{ variant, iconOnly: true }}>
+          <WeatherCard entityId={ENTITY} tier="full" config={{ variant, iconOnly: true }} />
+        </CardItemProvider>
+      )
+
+      expect(card(), variant).toHaveAttribute('data-icon-tile', 'true')
+      expect(card().style.backgroundImage, variant).toBe('')
+      expect(hasArtworkTreatment(), variant).toBe(false)
+      expect(card().classList.contains('weather-card-artwork'), variant).toBe(false)
+      unmount()
+    }
+  })
+
   it('carries the scrim at every tier, not only where the big readout is', () => {
     // "The scrim applies wherever the card paints condition artwork — every
     // tier, every artwork-bearing variant" (option doc — Condition background).

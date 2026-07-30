@@ -80,7 +80,15 @@ const CONTRACT_CLASSES = new Set([
 ])
 
 /** The data attributes the contract promises are stamped (or will be). */
-const CONTRACT_ATTRIBUTES = new Set(['data-domain', 'data-active', 'data-color', 'data-tier'])
+const CONTRACT_ATTRIBUTES = new Set([
+  'data-domain',
+  'data-active',
+  'data-color',
+  'data-tier',
+  // Stamped by change 0033; the theme needs it to reach the icon-only tile,
+  // whose treatment its own icon rules would otherwise undo.
+  'data-icon-tile',
+])
 
 const sheetSelectors = selectors(rules)
 
@@ -291,6 +299,43 @@ describe('LCARS stylesheet', () => {
     for (const { name } of domainColors) {
       expect(rules).not.toContain(`${domainColorTokens(name).tint}:`)
     }
+  })
+
+  it('gives way on an icon-only tile, where the tile is the tint surface', () => {
+    // The one place this theme has to answer for a base-layer rule rather than
+    // simply outranking it. `liebe-theme` beats `liebe-base` wholesale, so
+    // LCARS's okudagram icon block — a solid fill of the hue with a black
+    // glyph — would land back on top of a tile that has just been tinted with
+    // the same hue (docs/specs/design-system — "Card anatomy", the icon-only
+    // exception). That is the doubled tint the base rule drops the disc to
+    // avoid, plus a black glyph on a ground calibrated for a saturated one.
+    const iconOnlyRules = [...rules.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .map(([, selector, declarations]) => ({ selector: selector.trim(), declarations }))
+      .filter(({ selector }) => selector.includes('[data-icon-tile]'))
+
+    expect(
+      iconOnlyRules.some(
+        ({ selector, declarations }) =>
+          selector.includes('.liebe-icon[data-active]') &&
+          declarations.includes('background: none;')
+      )
+    ).toBe(true)
+    expect(
+      iconOnlyRules.some(
+        ({ selector, declarations }) =>
+          selector.includes('.liebe-icon[data-active]') &&
+          declarations.includes('color: var(--liebe-part-color);')
+      )
+    ).toBe(true)
+
+    // …and gives way in turn to the person card, whose anchor IS a disc. The
+    // base layer keeps that one's background; a theme rule clearing every
+    // `.liebe-icon` would win across layers and leave bare initials on the
+    // tinted tile. The exception is by domain because that is the vocabulary a
+    // theme is allowed — `data-domain` is contract, an avatar class is not.
+    expect(
+      iconOnlyRules.every(({ selector }) => selector.includes(":not([data-domain='person'])"))
+    ).toBe(true)
   })
 
   it('renders in the bundled typeface, uppercase', () => {

@@ -12,6 +12,7 @@ import { useWeatherForecastSections, WeatherForecastSections } from './WeatherFo
 import type { CardProps } from '../cardRegistry'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 import { WeatherScrim, weatherArtworkClass } from './WeatherArtwork'
+import { readCardDisplay } from '~/store/cardDisplay'
 import {
   formatTemperature,
   getConditionGlyph,
@@ -169,6 +170,10 @@ function WeatherCardDefaultContent(props: CardProps) {
   const backgroundImage = resolveConditionBackground({
     condition: entity.state,
     showConditionBackground: options.showConditionBackground,
+    // Read from the same config the shell resolves, so the artwork and the
+    // white foreground pins that assume it disappear together under
+    // `iconOnly` — see `resolveConditionBackground`.
+    iconOnly: readCardDisplay(config).iconOnly,
   })
   const textStyles = getWeatherTextStyles(!!backgroundImage)
   const iconStyles = textStyles.icon

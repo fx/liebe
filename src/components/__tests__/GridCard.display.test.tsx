@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
@@ -215,7 +217,7 @@ describe('GridCard display options', () => {
 
     it('stamps nothing for the default, so no rule it adds can match', () => {
       // Presence-only, like `data-active` and the alignment pair: every rule
-      // this option adds — the centring today, the state tint next — is scoped
+      // this option adds — the centring and the state tint alike — is scoped
       // to the attribute, so a card without the key matches none of them.
       renderCard()
       expect(card()).not.toHaveAttribute('data-icon-tile')
@@ -263,6 +265,187 @@ describe('GridCard display options', () => {
       expect(card()).not.toHaveAttribute('data-icon-tile')
       expect(name()).toHaveTextContent('Hallway smoke')
       expect(state()).toHaveTextContent('SMOKE DETECTED')
+    })
+
+    describe('the tile’s state tint', () => {
+      /**
+       * The selectors in `GridCard.css` that paint any part of the tint, read
+       * from the sheet rather than restated here.
+       *
+       * jsdom applies no stylesheet, so the question this can answer is not
+       * "what colour is the tile" but the one the compatibility scenario
+       * actually asks: does any tint rule *match* this tile. Restating the
+       * selectors as literals would make that a test of this file's copy of
+       * them — a rule added later, or one amended to name the derived
+       * attribute, would go unseen, which is the whole defect being guarded
+       * against.
+       */
+      // The specifier goes through a variable deliberately, as it does in
+      // `cardShellStyles.test.ts`: Vite rewrites a *literal*
+      // `new URL('./x', import.meta.url)` into an asset URL, which is no
+      // longer a `file:` URL and cannot be read from disk.
+      const sheetPath = '../GridCard.css'
+      const tintSelectors = [
+        ...readFileSync(fileURLToPath(new URL(sheetPath, import.meta.url)), 'utf8')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .matchAll(/([^{}]+)\{([^{}]*)\}/g),
+      ]
+        .filter(
+          ([, selector, declarations]) =>
+            !selector.trim().startsWith('@') && /--liebe-icon-tile-tint/.test(declarations)
+        )
+        .map(([, selector]) => selector.trim())
+
+      /** Elements the sheet's tint rules select, anywhere in the render. */
+      function tintedElements() {
+        return tintSelectors.flatMap((selector) => [...document.querySelectorAll(selector)])
+      }
+
+      it('reaches a tile the option marked', () => {
+        // The anchor for the assertion below: with no positive case, an empty
+        // or wrongly-parsed selector list would make "nothing is tinted" pass
+        // for every tile there is.
+        expect(tintSelectors.length).toBeGreaterThan(0)
+
+        renderCard({ iconOnly: true })
+
+        expect(tintedElements()).toContain(card())
+      })
+
+      it('leaves a legacy hideName+hideState tile neutral', () => {
+        // "THEN the card renders exactly as before — centred icon, neutral
+        // tile … because `iconOnly` defaults to `false` and the legacy
+        // both-hidden combination keeps its existing meaning (centring only,
+        // no tile tint)" (docs/specs/entity-cards/options/common.md —
+        // "Scenario: Existing hideName+hideState tiles are unaffected").
+        //
+        // Asserted on the RENDERED tile against the SHEET's own selectors,
+        // which is what makes it a regression test rather than a restatement
+        // of the markup: it fails both if the shell starts stamping the
+        // option's marker for the derived case and if a tint rule starts
+        // naming the derived attribute.
+        renderCard({ hideName: true, hideState: true })
+
+        expect(tintedElements()).toHaveLength(0)
+      })
+
+      it('carries the level a card reports, as the fraction the sheet modulates by', () => {
+        render(
+          <GridCard domain="light" color="light" level={0.35} config={{ iconOnly: true }}>
+            <GridCard.Icon>
+              <svg data-testid="card-own-icon" />
+            </GridCard.Icon>
+          </GridCard>
+        )
+
+        expect(card().style.getPropertyValue('--liebe-icon-tile-level')).toBe('0.35')
+      })
+
+      it('clamps a level outside the range instead of carrying it into the tint', () => {
+        // A card computing a percentage off a live attribute can report 105;
+        // `calc()` would take it and paint a tint stronger than the undimmed
+        // one, which is a state the scale does not have.
+        render(
+          <GridCard domain="light" color="light" level={1.4} config={{ iconOnly: true }}>
+            <GridCard.Icon>
+              <svg data-testid="card-own-icon" />
+            </GridCard.Icon>
+          </GridCard>
+        )
+
+        expect(card().style.getPropertyValue('--liebe-icon-tile-level')).toBe('1')
+      })
+
+      it('treats a non-finite level as no level rather than clamping it', () => {
+        // `Math.min(1, Math.max(0, NaN))` is `NaN`, and a card deriving the
+        // fraction from a missing attribute can produce one. Written through,
+        // it makes the sheet's `calc()` invalid, which makes `color-mix()`
+        // invalid, which sends the REGISTERED tint property back to its
+        // `transparent` initial value — an active tile with no state signal at
+        // all, the outcome the strength floor exists to prevent.
+        render(
+          <GridCard domain="light" color="light" level={Number.NaN} config={{ iconOnly: true }}>
+            <GridCard.Icon>
+              <svg data-testid="card-own-icon" />
+            </GridCard.Icon>
+          </GridCard>
+        )
+
+        expect(card().style.getPropertyValue('--liebe-icon-tile-level')).toBe('')
+      })
+
+      it('writes nothing for a card with no level, which is not the same as zero', () => {
+        // The absence is what makes the sheet's `1` fallback apply: a switch
+        // or a lock has no level, and an undimmed tint is the right tile for
+        // it. A `0` written here would render every such card at the faintest
+        // tint the scale allows.
+        renderCard({ iconOnly: true })
+
+        expect(card().style.getPropertyValue('--liebe-icon-tile-level')).toBe('')
+      })
+
+      it('writes neither the level nor the hue while the option is off', () => {
+        // Both properties exist for the tint, and the tint only exists on this
+        // tile — so a card without the option carries no trace of either.
+        render(
+          <GridCard domain="light" color="light" level={0.5} hue="rgb(255, 136, 0)">
+            <GridCard.Icon>
+              <svg data-testid="card-own-icon" />
+            </GridCard.Icon>
+          </GridCard>
+        )
+
+        expect(card().style.getPropertyValue('--liebe-icon-tile-level')).toBe('')
+        expect(card().style.getPropertyValue('--part-tint')).toBe('')
+      })
+
+      it('tints from the bulb’s own colour where that colour survived', () => {
+        // The tile is the tint surface here, so it needs the survivor of
+        // `resolveCardHue` the way an anatomy part does — mixed at the same
+        // 20% the triplet's own tint is derived at, so a real bulb colour and
+        // a triplet produce one treatment rather than two
+        // (docs/specs/design-system — "Card anatomy": the resolution feeding
+        // the tile tint is "the same state-aware `color: auto` chain every
+        // card uses (including the light card's bulb-colour exception)").
+        render(
+          <GridCard domain="light" color="light" hue="rgb(255, 136, 0)" config={{ iconOnly: true }}>
+            <GridCard.Icon>
+              <svg data-testid="card-own-icon" />
+            </GridCard.Icon>
+          </GridCard>
+        )
+
+        // `--part-tint` is the one the tile's own wash reads; `--part-color`
+        // rides along for anything inside the tile that resolves a part's
+        // saturated role from the same override.
+        expect(card().style.getPropertyValue('--part-color')).toBe('rgb(255, 136, 0)')
+        expect(card().style.getPropertyValue('--part-tint')).toBe(
+          'color-mix(in srgb, rgb(255, 136, 0) 20%, transparent)'
+        )
+      })
+
+      it('drops the bulb’s colour when an explicit one pins the card', () => {
+        // `resolveCardHue`'s precedence, seen from the tile: "an explicit
+        // universal `color` MUST win over everything, including the
+        // bulb-derived color". The tile and the glyph read one answer, so a
+        // pinned card tints from its triplet and not from the bulb.
+        render(
+          <GridCard
+            domain="light"
+            color="light"
+            hue="rgb(255, 136, 0)"
+            config={{ iconOnly: true, color: 'cool' }}
+          >
+            <GridCard.Icon>
+              <svg data-testid="card-own-icon" />
+            </GridCard.Icon>
+          </GridCard>
+        )
+
+        expect(card()).toHaveAttribute('data-color', 'cool')
+        expect(card().style.getPropertyValue('--part-color')).toBe('')
+        expect(card().style.getPropertyValue('--part-tint')).toBe('')
+      })
     })
 
     it('composes with the alignment pair', () => {
