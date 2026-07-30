@@ -1,5 +1,5 @@
-import { AlertDialog, Button, Flex } from '@radix-ui/themes'
-
+import { Button, Flex } from '@radix-ui/themes'
+import { AlertDialog } from './portals'
 interface AlertModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void

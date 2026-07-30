@@ -172,7 +172,21 @@ The SDLC skills own the phases. What is specific to this repo:
 
    Inside your slot, rebuild and bring the stack up from your own worktree before running Playwright, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before — which is the same failure the slot exists to prevent, seen from the other side.
 
-5. **Playwright's own two prerequisites**
+5. **The unit suite and the workshop cannot reproduce how deeply Home Assistant nests the panel**
+
+   Both mount their tree in the document, or in a shadow root attached to an element that is a **direct child of `document.body`**. In Home Assistant the panel sits several shadow roots down — `<home-assistant>` → `<home-assistant-main>` → … → `<liebe-panel>` → its own shadow root. Any behaviour that depends on that depth is invisible to `npm test`, to the workshop, and to coverage, and shows up only in e2e.
+
+   Learned on [0036](docs/changes/0036-theming-contract-gaps.md) PR 2, where it cost a full implementation. Radix's modal overlays call `hideOthers` from the `aria-hidden` package to take the rest of the page out of the accessibility tree; it reconciles its target against `document.body` with `Node.contains`, and its one accommodation for shadow DOM climbs to the **first** host it meets and stops:
+
+   ```js
+   const unwrapHost = (node) => node && (node.host || unwrapHost(node.parentNode))
+   ```
+
+   One shadow root under `document.body` therefore resolves correctly and two do not. Portalling overlays into the panel's shadow root passed 5056 unit tests, both builds and 100% patch coverage, and in a real frontend hid `<home-assistant>` itself — the panel and the open dialog with it.
+
+   The general form, and the reason this is worth remembering past that one dependency: **a green suite is evidence about the environment it ran in.** When a change turns on where the panel sits in the DOM, on crossing a shadow boundary, or on anything the surrounding Home Assistant document owns, the local environments will agree with you regardless. Only CI's e2e job is evidence, which is also why it is the gate.
+
+6. **Playwright's own two prerequisites**
 
    A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
 
@@ -185,7 +199,7 @@ The SDLC skills own the phases. What is specific to this repo:
 
    `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
 
-6. **Merging `main` into a long-lived branch: the changelog tables**
+7. **Merging `main` into a long-lived branch: the changelog tables**
 
    Several specs end in a dated changelog table that every card change appends a row to, so two branches in flight almost always conflict there. There are **two** kinds of conflict in those tables and they take opposite resolutions.
 
@@ -212,6 +226,10 @@ The SDLC skills own the phases. What is specific to this repo:
    That is the same failure as the set diff passing on a duplicated table, one level up: **a check aimed at the region that conflicted cannot see what it displaced.** The remedy is to compare the non-table lines too, against both parents, and require that every line either side added survives. Cheap, and it is the only check that would have caught it.
 
    **The sequence check assumes rows are appended, and says nothing useful when they are amended in place.** `docs/index.md` is where this bites: statuses live in a table keyed by change number, so each side edits a row rather than adding one. This branch flipped 0023 to `complete` and main flipped 0024, each side still carrying the other's row at `draft` — concatenation gives four rows and two contradictions, and the right resolution is per row, taking whichever side made the flip. The rows then sit in numeric order, where they have always been, and a sequence check expecting main's-then-ours reports a divergence on a correct file. That false positive is the dangerous direction: it invites "fixing" something that was right. For amended rows compare the **key order against the base** instead — same keys, same order — and then assert that every row is either untouched or exactly one side's edit, and that every edit either side made is present.
+
+   **The same trap outside a table, where it is easier to walk into.** "Keep both sides" is safe only when the conflict boundary sits **between two complete units**. In a table it always does, because a row is a line. In code it need not: on [0036](docs/changes/0036-theming-contract-gaps.md), `eslint.config.js` conflicted where main and this branch had each added an independent rule to the same object, and the boundary fell **inside** this branch's rule rather than after it — its closing `},\n],` were below the `>>>>>>>` marker, in the shared trailing context. Concatenating the two sides therefore produced a rule that was never closed, and the config stopped parsing. So before taking both, check that each side begins and ends at a structural boundary; when it does not, rebuild the region from the two whole entries rather than splicing the hunks.
+
+   That one failed loudly — a config that does not parse takes `npm run lint` down on the next command. It is worth noticing **why** it was loud: main's own `effectHookLintGate` test lints its fixtures through `eslint.config.js` itself rather than through a reconstruction of it, so a broken config could not be mistaken for a passing gate. A merge that damages a file nothing executes is the quiet version, and the whole-file check above — compare the non-table lines against **both** parents, and require every line either side added to survive — is what catches that one.
 
 ### Before pushing
 
