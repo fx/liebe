@@ -64,9 +64,12 @@ The [design system](../specs/design-system/index.md) owns the token contract, th
 
 Spec restatements update **in the same PR** as each behaviour change they describe (repo consistency rule — the living spec must never lag a merged PR).
 
+PR 4 was **not** part of this change as proposed. It was measured while implementing PR 2 and is recorded here because it is the same defect one layer down — the pattern's glyph step cannot reach a part whose colour arrives inline — and because this is the change that made it visible. It depends on PR 2 (there is no appearance-aware glyph step to bypass without it) and is independent of PR 3, so the two may land in either order. It carries a decision the other three do not: what a live hue's glyph should be is a question for the light card and the person card, not one this change can settle by measurement alone, so it may reasonably be moved to a change document of its own instead.
+
 - [x] **PR 1 — `-text` contrast**: repin the failing `-text` companions per appearance; update the design system's domain-colour bullet and the token contract test; measured before/after figures for all ten hues in both appearances; drop #197 from the spec's outstanding list
 - [x] **PR 2 — Glyph on tint**: amend the 20%-tint active pattern so the glyph clears 3:1 in light appearance on every built-in theme; pixel-measured evidence per domain hue per theme; update the design system's pattern rule and the affected theme stories; drop #210 from the outstanding list
 - [ ] **PR 3 — Residual accessible names**: name `InputSelectCard`'s select trigger and the switch `InputBooleanCard` renders in its own tile at `controlStyle: switch` (**not** the detail-controls switch, which is already named); re-run the `button-name` audit across every story in both appearances and record the resulting count; drop #191 from the outstanding list
+- [ ] **PR 4 — The live hue on its own tint**: decide and implement what the glyph takes when a data-driven hue overrides the triplet — the light card's bulb colour under `useLightColor` and the person avatar's identity colour, one mechanism in `hueStyle` (`src/components/anatomy/anatomyPart.ts`) rather than two card defects; measure both against their floors (the avatar's initials are text at 4.5:1, not a glyph at 3:1) and move [options/light](../specs/entity-cards/options/light.md) and [options/person](../specs/entity-cards/options/person.md) with whatever is decided
 
 ## Out of Scope
 
