@@ -67,15 +67,6 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
  */
 const EFFECT_HOOKS = ['useEffect', 'useLayoutEffect', 'useInsertionEffect'] as const
 
-/**
- * The directive that makes the React compiler bail on a whole function, used
- * both to write the fixture below and as the needle the source scan looks for.
- *
- * Assembled from two pieces so this file does not itself contain the string it
- * searches for. The alternative was to exempt this spec from the scan, and an
- * exemption is the one thing a scan of this kind must not have — the file that
- * enforces the policy would be the file the policy could not see into.
- */
 /** One fixture file: what to write, and the id its lint result is keyed by. */
 interface LintCase {
   id: string
@@ -87,6 +78,15 @@ interface LintCase {
   deps?: string
 }
 
+/**
+ * The directive that makes the React compiler bail on a whole function, used
+ * both to write the fixture below and as the needle the source scan looks for.
+ *
+ * Assembled from two pieces so this file does not itself contain the string it
+ * searches for. The alternative was to exempt this spec from the scan, and an
+ * exemption is the one thing a scan of this kind must not have — the file that
+ * enforces the policy would be the file the policy could not see into.
+ */
 const EXHAUSTIVE_DEPS_DIRECTIVE = `eslint-disable-next-line react-hooks/exhaustive` + '-deps'
 
 /**
@@ -423,4 +423,32 @@ describe('an exhaustive-deps suppression silences the rule for its whole functio
 
     expect(offenders).toEqual([])
   })
+
+  /*
+   * The other half of the same policy, and the half the scan above cannot see.
+   *
+   * A source scan proves the directives are gone; it says nothing about what
+   * replaced them. Turning `set-state-in-effect` off for those two files in the
+   * config, or dropping the override so a future author reaches for the comment
+   * again, would both leave the scan green — the files carry no directive
+   * either way. So the resolved config is asserted directly, per file.
+   *
+   * Both halves matter and for opposite reasons: `exhaustive-deps` MUST be off
+   * or the deliberate dependency-free effects warn on every run, and
+   * `set-state-in-effect` MUST stay at `error` or the suppression has simply
+   * moved the blind spot into the config, which is the whole thing this task
+   * was about.
+   */
+  it.each(['src/theme/tokens.stories.tsx', 'src/theme/customCss.stories.tsx'])(
+    'suppresses only exhaustive-deps for %s, and keeps set-state-in-effect at error',
+    async (path) => {
+      const config = (await new ESLint({ cwd: repoRoot }).calculateConfigForFile(
+        join(repoRoot, path)
+      )) as { rules: Record<string, unknown> }
+
+      // ESLint normalises severities to numbers in a resolved config.
+      expect(config.rules['react-hooks/exhaustive-deps']).toEqual([0])
+      expect(config.rules['react-hooks/set-state-in-effect']).toEqual([2])
+    }
+  )
 })
