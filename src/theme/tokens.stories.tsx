@@ -29,11 +29,13 @@ function useResolvedTokens(names: string[]) {
   const ref = useRef<HTMLDivElement>(null)
   const [values, setValues] = useState<Record<string, string>>({})
 
-  // The rule's suggested `[names]` is exactly what must not happen here: it
-  // would re-key the effect on a value that never changes when the appearance
-  // does, which is the staleness this hook exists to avoid. The bail-out below
-  // is what makes the missing dependency list safe.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // No dependency list, and `exhaustive-deps` is turned off for this file in
+  // `eslint.config.js` rather than by a comment here — an inline directive
+  // makes the React compiler bail on this whole function, taking
+  // `set-state-in-effect` with it. The rule's suggested `[names]` is exactly
+  // what must not happen: it would re-key the effect on a value that never
+  // changes when the appearance does, which is the staleness this hook exists
+  // to avoid. The bail-out below is what makes the missing list safe.
   useEffect(() => {
     const element = ref.current
     if (!element) return

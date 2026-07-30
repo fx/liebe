@@ -30,8 +30,10 @@ function useResolvedToken(name: string) {
 
   // No dependency list: the value changes when the injected user layer changes,
   // which is a DOM event this component never re-renders for. Bailing out when
-  // nothing changed is what keeps that from looping.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // nothing changed is what keeps that from looping. `exhaustive-deps` is turned
+  // off for this file in `eslint.config.js` rather than by a comment here — an
+  // inline directive makes the React compiler bail on this whole function,
+  // taking `set-state-in-effect` with it.
   useEffect(() => {
     const element = ref.current
     if (!element) return

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { ESLint } from 'eslint'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
@@ -68,6 +68,28 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const EFFECT_HOOKS = ['useEffect', 'useLayoutEffect', 'useInsertionEffect'] as const
 
 /**
+ * The directive that makes the React compiler bail on a whole function, used
+ * both to write the fixture below and as the needle the source scan looks for.
+ *
+ * Assembled from two pieces so this file does not itself contain the string it
+ * searches for. The alternative was to exempt this spec from the scan, and an
+ * exemption is the one thing a scan of this kind must not have — the file that
+ * enforces the policy would be the file the policy could not see into.
+ */
+/** One fixture file: what to write, and the id its lint result is keyed by. */
+interface LintCase {
+  id: string
+  file: string
+  call: string
+  prelude?: string
+  imports?: string
+  directive?: string
+  deps?: string
+}
+
+const EXHAUSTIVE_DEPS_DIRECTIVE = `eslint-disable-next-line react-hooks/exhaustive` + '-deps'
+
+/**
  * A component that resets state from an effect — the pattern the rule rejects.
  *
  * `prelude` is for the spellings that are established before the call rather
@@ -80,10 +102,16 @@ function fixture({
   call,
   prelude = '',
   imports = '',
+  directive = '',
+  deps = ', []',
 }: {
   call: string
   prelude?: string
   imports?: string
+  /** A comment placed immediately above the effect call. */
+  directive?: string
+  /** The effect's second argument, or `''` for a dependency-free effect. */
+  deps?: string
 }) {
   return `import * as React from 'react'
 import * as Hooks from 'react'
@@ -93,9 +121,9 @@ ${prelude}
 
 export function Probe() {
   const [value, setValue] = React.useState<string | null>(null)
-  ${call}(() => {
+${directive ? `  ${directive}\n` : ''}  ${call}(() => {
     setValue(null)
-  }, [])
+  }${deps})
   return <div>{value}</div>
 }
 `
@@ -185,41 +213,60 @@ beforeAll(async () => {
    * exotic spellings that were each a real review finding are exercised on
    * `useEffect`, since they test the selector's shape rather than its hook set.
    */
-  const cases: { id: string; file: string; call: string; prelude?: string; imports?: string }[] =
-    EFFECT_HOOKS.flatMap((hook) => [
-      { id: `member:${hook}`, file: `member-${hook}.tsx`, call: `React.${hook}` },
-      // The permitted form. Asserted *not* restricted, so a selector that grew
-      // to ban the direct import — which would leave no legal way to write an
-      // effect — cannot pass unnoticed.
-      { id: `imported:${hook}`, file: `imported-${hook}.tsx`, call: hook, imports: hook },
+  const cases: LintCase[] = EFFECT_HOOKS.flatMap<LintCase>((hook) => [
+    { id: `member:${hook}`, file: `member-${hook}.tsx`, call: `React.${hook}` },
+    // The permitted form. Asserted *not* restricted, so a selector that grew
+    // to ban the direct import — which would leave no legal way to write an
+    // effect — cannot pass unnoticed.
+    { id: `imported:${hook}`, file: `imported-${hook}.tsx`, call: hook, imports: hook },
+    {
+      id: `destructured:${hook}`,
+      file: `destructured-${hook}.tsx`,
+      call: `scoped_${hook}`,
+      prelude: `const { ${hook}: scoped_${hook} } = React`,
+    },
+  ])
+    .concat([
+      // Would slip past a ban keyed on an object literally named `React`.
+      { id: 'aliased', file: 'aliased.tsx', call: 'Hooks.useEffect' },
+      // Computed access, in both statically-known spellings.
+      { id: 'computed-string', file: 'computed-string.tsx', call: "React['useEffect']" },
+      { id: 'computed-template', file: 'computed-template.tsx', call: 'React[`useEffect`]' },
+      // Destructuring with a non-identifier key, likewise in both spellings.
       {
-        id: `destructured:${hook}`,
-        file: `destructured-${hook}.tsx`,
-        call: `scoped_${hook}`,
-        prelude: `const { ${hook}: scoped_${hook} } = React`,
+        id: 'destructured-string-key',
+        file: 'destructured-string-key.tsx',
+        call: 'stringKeyed',
+        prelude: "const { ['useEffect']: stringKeyed } = React",
+      },
+      {
+        id: 'destructured-template-key',
+        file: 'destructured-template-key.tsx',
+        call: 'templateKeyed',
+        prelude: 'const { [`useEffect`]: templateKeyed } = React',
+      },
+      /*
+       * The whole-function bail, as a matched pair. Both are the imported
+       * form with a dependency-free state-writing effect — the shape the two
+       * theme-workshop hooks have — and they differ only by the comment.
+       */
+      {
+        id: 'bail-suppressed',
+        file: 'bail-suppressed.tsx',
+        call: 'useEffect',
+        imports: 'useEffect',
+        directive: `// ${EXHAUSTIVE_DEPS_DIRECTIVE}`,
+        deps: '',
+      },
+      {
+        id: 'bail-plain',
+        file: 'bail-plain.tsx',
+        call: 'useEffect',
+        imports: 'useEffect',
+        deps: '',
       },
     ])
-      .concat([
-        // Would slip past a ban keyed on an object literally named `React`.
-        { id: 'aliased', file: 'aliased.tsx', call: 'Hooks.useEffect' },
-        // Computed access, in both statically-known spellings.
-        { id: 'computed-string', file: 'computed-string.tsx', call: "React['useEffect']" },
-        { id: 'computed-template', file: 'computed-template.tsx', call: 'React[`useEffect`]' },
-        // Destructuring with a non-identifier key, likewise in both spellings.
-        {
-          id: 'destructured-string-key',
-          file: 'destructured-string-key.tsx',
-          call: 'stringKeyed',
-          prelude: "const { ['useEffect']: stringKeyed } = React",
-        },
-        {
-          id: 'destructured-template-key',
-          file: 'destructured-template-key.tsx',
-          call: 'templateKeyed',
-          prelude: 'const { [`useEffect`]: templateKeyed } = React',
-        },
-      ])
-      .map((c) => ({ ...c, file: join(fixtureDir, c.file) }))
+    .map((c) => ({ ...c, file: join(fixtureDir, c.file) }))
 
   for (const c of cases) writeFileSync(c.file, fixture(c))
 
@@ -307,5 +354,73 @@ describe('effect hooks must be called through the imported binding', () => {
     'destructured-template-key',
   ])('rejects the %s spelling', (id) => {
     expect(reported.get(id)).toContain('no-restricted-syntax')
+  })
+})
+
+/**
+ * The second way an effect escapes the rule, and the one that does not need a
+ * peculiar spelling: an `exhaustive-deps` suppression anywhere in the enclosing
+ * function.
+ *
+ * The React compiler treats that directive as "the author knows they are
+ * breaking the rules of React" and stops analysing the **whole function**, so
+ * every compiler-backed rule goes quiet with it — `set-state-in-effect`
+ * included, at `error`. The suppression is not local to the line it sits on,
+ * which is what makes it dangerous: it reads as a narrow, considered exception
+ * and behaves as a blanket one.
+ *
+ * It is also **self-concealing**. Once the rule stops reporting for a function,
+ * an explicit `set-state-in-effect` suppression inside it becomes an "unused
+ * eslint-disable directive" — so the very comment that proves the rule once
+ * applied there afterwards reads as though it never needed to. That is the
+ * shape of the defect PR 4 found in `CardConfig`'s `Modal`, where a blatant
+ * planted `setLocalConfig({})` was silent while the identical violation in a
+ * fresh component in the same file reported fine.
+ *
+ * The pair below is the mechanism in isolation. Both fixtures are the permitted
+ * imported form with a dependency-free state-writing effect — the shape the two
+ * theme-workshop hooks have — and they differ **only** by the comment, so the
+ * comment is the only thing either assertion can be measuring.
+ *
+ * Scope, deliberately narrow: `exhaustive-deps` is the only directive tested as
+ * a bail trigger here. `set-state-in-effect`'s own suppression does not bail —
+ * which is what makes moving a suppression to the config a fix rather than a
+ * rename — and `rules-of-hooks` is untested (docs/changes/0040-test-harness-
+ * reliability.md, PR 7).
+ */
+describe('an exhaustive-deps suppression silences the rule for its whole function', () => {
+  it('reports the state write when the function carries no directive', () => {
+    expect(reported.get('bail-plain')).toContain('react-hooks/set-state-in-effect')
+  })
+
+  it('does not report the same state write beside an exhaustive-deps directive', () => {
+    // If this ever contains the rule, the compiler has stopped bailing on the
+    // directive and the config-level suppressions can go back inline.
+    expect(reported.get('bail-suppressed')).not.toContain('react-hooks/set-state-in-effect')
+  })
+
+  /*
+   * The policy the mechanism above forces, pinned as a source scan rather than
+   * a lint run because that is what it is: the repo suppresses `exhaustive-deps`
+   * from `eslint.config.js` (two files, named there) and nowhere from a comment.
+   * A new inline directive would be a silent hole in an error-level rule, and
+   * the file it appeared in would still lint clean — so nothing but this would
+   * report it.
+   */
+  it('leaves no exhaustive-deps directive anywhere under src/', () => {
+    const tracked = execFileSync('git', ['ls-files', '--', 'src'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter((path) => /\.(ts|tsx)$/.test(path))
+
+    expect(tracked.length).toBeGreaterThan(0)
+
+    const offenders = tracked.filter((path) =>
+      readFileSync(join(repoRoot, path), 'utf8').includes(EXHAUSTIVE_DEPS_DIRECTIVE)
+    )
+
+    expect(offenders).toEqual([])
   })
 })

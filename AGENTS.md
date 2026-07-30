@@ -220,7 +220,17 @@ The SDLC skills own the phases. What is specific to this repo:
    - **jsdom lays nothing out, and the dangerous half of that is the assertions it _passes_.** A width assertion against a 0-wide box fails loudly and is easy to diagnose. Its neighbour — `strip.scrollWidth <= strip.clientWidth + 1`, "nothing overflows" — evaluates `0 <= 1` and goes green having measured nothing at all. So the rule for any geometry claim in this repo, in a story or a `__tests__` spec, is that a passing one in jsdom is worth nothing: the runner's `BROWSER_ONLY` map is where such a story is named, with its reason, and the map is self-verifying (a listed story is still executed and must still throw).
    - **The dispatch guard is process-wide, so a hanging service call contaminates every test after it.** `src/services/guardedDispatch.ts` keeps its pending set at module scope on purpose — the guarantee is about a command reaching Home Assistant at most once, not about one component. A test that leaves a call unsettled (the workshop's `serviceCall: 'pending'` fixture, a mock that never resolves) leaves that command in flight, and the next identical command is **admitted as a success**. That is how `ActionCard/Activating` rendered the success check while asserting the in-flight spinner — a failure that looks exactly like a card defect and is not. `resetDispatchGuard()` in a `beforeEach` is the fix; reach for it before believing a cross-test result.
 
-7. **Playwright's own two prerequisites**
+7. **Never write `// eslint-disable-next-line react-hooks/exhaustive-deps` — suppress it from the config instead**
+
+   The React compiler reads that directive as "the author knows they are breaking the rules of React" and stops analysing the **entire enclosing function**, so every compiler-backed rule goes quiet with it — `react-hooks/set-state-in-effect`, which this repo enforces at `error`, included. The suppression is not local to the line it sits on, and it reads as though it were.
+
+   It is also self-concealing: once the rule stops reporting for a function, an explicit `set-state-in-effect` suppression inside it becomes an "unused eslint-disable directive", so the comment that proves the rule once applied there afterwards reads as though it never needed to. That is how `CardConfig`'s `Modal` went unanalysed — a deliberately blatant planted `setLocalConfig({})` was silent there while the identical violation in a fresh component in the same file reported fine (change [0040](docs/changes/0040-test-harness-reliability.md), PRs 4 and 7).
+
+   **The fix is where the suppression lives, not what it names.** A config-level `off` in `eslint.config.js` is invisible to the compiler, so it suppresses exactly the rule it names and leaves the function analysable; two theme-workshop hooks are listed there for that reason. `src/__tests__/effectHookLintGate.test.ts` pins both halves — a fixture pair differing only by the comment, and a scan requiring zero inline directives anywhere under `src/`.
+
+   Scope, so this is not over-read: only `exhaustive-deps` has been tested as a bail trigger. `set-state-in-effect`'s own suppression does **not** bail, and whether `rules-of-hooks` does is untested.
+
+8. **Playwright's own two prerequisites**
 
    A workspace that has never run the suite is missing both the browser and the libraries it links against, and only the first says so plainly:
 
@@ -233,7 +243,7 @@ The SDLC skills own the phases. What is specific to this repo:
 
    `sudo env "PATH=$PATH"` is not decoration: plain `sudo npx …` fails with `sudo: npx: command not found`, because sudo resets `PATH` and `npx` lives in the user's Node install. Same shape as the `sg` wrapper above — the fix is right and the shell it runs in is wrong.
 
-8. **Merging `main` into a long-lived branch: the changelog tables**
+9. **Merging `main` into a long-lived branch: the changelog tables**
 
    Several specs end in a dated changelog table that every card change appends a row to, so two branches in flight almost always conflict there. There are **two** kinds of conflict in those tables and they take opposite resolutions.
 

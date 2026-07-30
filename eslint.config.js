@@ -171,6 +171,43 @@ export default [
   },
   // Storybook's own rules for `*.stories.tsx` and `.storybook/` config files.
   ...storybookPlugin.configs['flat/recommended'],
+  /*
+   * The two theme-workshop hooks that read resolved token values off a live
+   * element, and the one place in this repo where a rule is turned off from the
+   * config rather than from the source.
+   *
+   * Both run a deliberately dependency-free effect: Radix keeps the appearance
+   * in state and applies the matching theme class in a passive effect, one
+   * render AFTER the toolbar global changes, so an effect keyed on anything
+   * would read the outgoing cascade and leave the tables a switch behind.
+   * Running after every render is the point, and each bails out when nothing
+   * changed. `exhaustive-deps` cannot express that, so it warns; the suppression
+   * is correct and always was.
+   *
+   * **Where it lives is what changed** (docs/changes/0040-test-harness-
+   * reliability.md, PR 7). These were `// eslint-disable-next-line
+   * react-hooks/exhaustive-deps` comments in the source, and the React compiler
+   * reads such a comment as "the author knows they are breaking the rules of
+   * React" — so it bails on the **entire enclosing function** and every
+   * compiler-backed rule goes quiet with it, `react-hooks/set-state-in-effect`
+   * (an error here) included. The suppression is not local to its line. That is
+   * the same mechanism that made `CardConfig`'s `Modal` invisible in PR 4, and
+   * it is self-concealing: the comment that proves the rule once applied there
+   * afterwards reads as though it never needed to.
+   *
+   * A config-level `off` is invisible to the compiler, so it suppresses exactly
+   * the one rule it names and leaves the rest analysable. `src/__tests__/
+   * effectHookLintGate.test.ts` pins that: a planted `setState` in either hook
+   * is silent with the old comment and reported with this.
+   *
+   * Keep the list exact. It is two hooks, not a directory.
+   */
+  {
+    files: ['src/theme/tokens.stories.tsx', 'src/theme/customCss.stories.tsx'],
+    rules: {
+      'react-hooks/exhaustive-deps': 'off',
+    },
+  },
   {
     ignores: [
       'node_modules/',
