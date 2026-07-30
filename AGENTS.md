@@ -139,23 +139,39 @@ The SDLC skills own the phases. What is specific to this repo:
    - Update `configuration.yaml` with localhost:3000 URL
    - Restart Home Assistant to test
 
-4. **The e2e stack is single-occupancy, and CI is the gate**
+4. **The e2e stack is one per checkout, and CI is still the gate**
 
-   **The CI `Home Assistant E2E` job is the gate. Do not run Playwright locally to qualify a PR.** CI brings up its own stack per pull request, against that branch's own bundle, with no contention. A local run adds nothing to the merge decision and costs a collision, because the local stack is **shared across every worktree** — one Home Assistant container serving whichever `dist/` was mounted last.
+   **The CI `Home Assistant E2E` job is the gate for a merge decision.** CI brings up its own stack per pull request, against that branch's own bundle. A local run is for _debugging_ — it does not qualify a PR.
 
-   If you need a local run to _debug_ something rather than to gate it, ask the coordinator for an exclusive slot. Nobody takes the stack without one.
+   It is, however, safe to take alongside other worktrees. **[architecture — end-to-end harness](docs/specs/architecture/index.md#end-to-end-harness) owns what the harness guarantees**; what follows is how to drive it here.
 
-   The harm is concrete rather than theoretical. One worktree recreating the stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 2).
+   ```bash
+   npm run e2e:ha:up     # start this checkout's stack
+   npm run e2e:ha:env    # print the project, ports and URLs it resolved to
+   npm run e2e:ha:logs   # compose logs for this checkout's project
+   npm run e2e:ha:down   # stop it and drop its volumes
+   ```
 
-   The rest of this item applies only inside a slot you have been given.
+   There is **no fixed port** any more — ask `e2e:ha:env` rather than assuming 8123, and note that the whole point is that your neighbour's stack is a different one. If `up` refuses to start because something already holds a port, pin your own and export the same values for the run:
 
-   `npm run e2e:ha:up` needs the Docker daemon, which is not always up in a fresh workspace — `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. Unlike the dev server, this one you may start yourself:
+   ```bash
+   LIEBE_E2E_HA_PORT=28123 LIEBE_E2E_GO2RTC_PORT=28555 npm run e2e:ha:up
+   LIEBE_E2E_HA_PORT=28123 LIEBE_E2E_GO2RTC_PORT=28555 npm run e2e
+   ```
+
+   `LIEBE_E2E_PROJECT` overrides the project name the same way, and `HA_BIND=0.0.0.0` still exposes the instance beyond loopback. Do not point two checkouts at one `LIEBE_E2E_PROJECT`: `up` compares the existing project's compose file against its own and refuses, because compose would otherwise recreate the other checkout's stack against this one's mounts.
+
+   **The one upgrade trap.** A stack started before this change is still running under the old fixed project name (`ha`), and it bind-mounts the same writable `ha/config` this checkout's new stack would. Two Home Assistants sharing `.storage` and the recorder database is a corruption the bundle-identity check cannot see — both serve the same `dist/`. `up` detects the stray and refuses; stop it as the message says (`docker compose -p ha -f <checkout>/ha/docker-compose.yml down -v`) and start again.
+
+   This replaces the exclusive-slot rule that used to live here, and the harm that rule existed to prevent is worth keeping in view because it is what the machinery is now shaped around. One worktree recreating the shared stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 2). The bundle-identity check in `tests/e2e/bundleIdentity.ts` remains the fail-closed backstop for any mismatch that reaches the suite by some other route.
+
+   **The daemon prerequisites, which the script now names for you.** `npm run e2e:ha:up` needs the Docker daemon, which is not always up in a fresh workspace. Unlike the dev server, this one you may start yourself:
 
    ```bash
    sudo service docker start
    ```
 
-   If the daemon then answers only under `sudo` (`permission denied` on the socket), the invoking user is not in the `docker` group:
+   If the daemon then answers only under `sudo`, the invoking user is not in the `docker` group:
 
    ```bash
    sudo usermod -aG docker "$USER"
@@ -170,7 +186,9 @@ The SDLC skills own the phases. What is specific to this repo:
 
    Do not `chmod` the socket to work around this: `/var/run/docker.sock` is root-equivalent, and widening it trades a two-word prefix for a real privilege change.
 
-   Inside your slot, rebuild and bring the stack up from your own worktree before running Playwright, or you will be testing another branch's bundle and reporting the result as yours. That has produced a false pass in this repo before — which is the same failure the slot exists to prevent, seen from the other side.
+   The reason those three cases are spelled out here as well as in the script: they are the ones whose raw error message misleads. A socket the user cannot open reports **both** `permission denied` **and** `Cannot connect to the Docker daemon`, so the obvious reading sends you to restart a daemon that is running perfectly well. The script classifies permission before reachability for exactly that reason, and prints the fix rather than the socket error.
+
+   Rebuild before you run — `npm run build:ha:prod` — or the stack mounts a stale `dist/` from your own checkout. Per-checkout stacks make that your own staleness rather than someone else's bundle, which is an improvement and not an exemption; the identity check catches it either way.
 
 5. **The unit suite and the workshop cannot reproduce how deeply Home Assistant nests the panel**
 
@@ -565,6 +583,15 @@ All project automation scripts should be maintained in the `/scripts` directory.
   ```bash
   # Usage (optionally export RTSP_TEST_URL first to also scan for its value)
   ./scripts/check-rtsp-leak.sh
+  ```
+
+- **`scripts/e2eStack.mjs`** — the per-checkout e2e stack. Derives the compose project name and both published ports from this checkout's path, refuses to start on a port it does not own, and classifies a missing docker binary / unreachable daemon / unpermitted socket / missing compose plugin into a message that names the cause. Also importable: `playwright.config.ts` and `scripts/onboard.mjs` read `resolveStackConfig()` so the suite addresses the stack this checkout started. See "The e2e stack is one per checkout".
+
+  ```bash
+  npm run e2e:ha:up     # start this checkout's stack
+  npm run e2e:ha:env    # print the project, ports and URLs it resolved to
+  npm run e2e:ha:logs   # compose logs for this checkout's project
+  npm run e2e:ha:down   # stop it and drop its volumes
   ```
 
 ### Creating New Scripts

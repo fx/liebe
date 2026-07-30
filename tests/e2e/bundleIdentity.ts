@@ -8,14 +8,21 @@ import { load } from 'js-yaml'
 // Bundle identity for the e2e harness: proves that the panel artifacts Home
 // Assistant is SERVING are byte-identical to the ones this checkout BUILT.
 //
-// Why this exists: the local stack is one fixed compose project per machine, so
-// its `../dist` bind mount points at whichever worktree last ran `up`. Two
-// checkouts running e2e silently serve each other's build, and a contaminated
-// run looks exactly like a clean one — this repo has already published a green
-// 9/9 that executed entirely against another branch's code. A test that fails
-// because the served artifact lacks the feature is indistinguishable from a
-// mutation being caught, so a mismatch must INVALIDATE the run rather than be
-// scored by it (AGENTS.md, "Probing a test" rule 4).
+// Why this exists: the local stack used to be one fixed compose project per
+// machine, so its `../dist` bind mount pointed at whichever worktree last ran
+// `up`. Two checkouts running e2e silently served each other's build, and a
+// contaminated run looked exactly like a clean one — this repo has already
+// published a green 9/9 that executed entirely against another branch's code. A
+// test that fails because the served artifact lacks the feature is
+// indistinguishable from a mutation being caught, so a mismatch must INVALIDATE
+// the run rather than be scored by it (AGENTS.md, "Probing a test" rule 4).
+//
+// Change 0040 PR 2 made the compose project and both published ports per
+// checkout (scripts/e2eStack.mjs), so that collision can no longer happen by
+// that route. This check stays regardless, and deliberately: it is what makes
+// any FUTURE mismatch loud, whatever produced it — a stale `dist/`, a hand-
+// started container, an explicit HASS_URL pointing somewhere else. Fail-closed
+// beats relying on the arrangement staying correct.
 //
 // The whole mounted tree is hashed, not only `module_url`'s bundle: the same rule
 // warns that `panel.js` is byte-identical for a CSS-only change, so a check
@@ -32,13 +39,16 @@ import { load } from 'js-yaml'
 // what the check closes and both worth knowing before trusting it further:
 //   - HTTP offers no directory listing, so an artifact the served mount has and
 //     `dist/` does not is invisible here.
-//   - `module_url` is read from THIS checkout's ha/config/configuration.yaml,
-//     while a stack another worktree created is running that worktree's copy of
-//     the same file. The committed value is identical in both, so the mounted
-//     path is compared correctly either way; a checkout that locally edits the
-//     value — to the dev server, say — would classify against a registration the
-//     running instance does not have. Reading the live registration would answer
-//     that; removing the shared stack (change 0040, PR 2) removes the question.
+//   - `module_url` is read from THIS checkout's ha/config/configuration.yaml
+//     rather than from the live panel registration. The cross-worktree half of
+//     that gap is closed: the instance at the derived port is the one this
+//     checkout's `npm run e2e:ha:up` created, mounting this checkout's
+//     `ha/config`, so the file read here IS the file the container loaded. What
+//     remains is narrower and local — a container still running an older copy of
+//     a configuration.yaml edited since `up` (recreate the stack), or an
+//     explicit HASS_URL/HASS_BROWSER_URL pointing at an instance this checkout
+//     did not start. Reading the live registration over the WS API would answer
+//     both; it has not been needed.
 //
 // Lives outside a `*.spec.ts` so every branch is unit-testable from tests/unit
 // without Playwright and without bringing the stack up — same arrangement as
