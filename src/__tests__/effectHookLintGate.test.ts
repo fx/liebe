@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { ESLint } from 'eslint'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
 
@@ -108,15 +109,53 @@ export function Probe() {
  * under the repo root, where the recursive `.tsx` include picks them up.
  *
  * That puts deliberately lint-failing files inside the tree the merge-blocking
- * gate scans, which is handled three ways rather than trusting cleanup: the
+ * gate scans, which is handled four ways rather than trusting cleanup. The
  * path is a fixed name listed in `eslint.config.js`'s `ignores` and in
- * `.prettierignore`, it is removed before it is written as well as after, and
- * the run below opts itself back in with `ignore: false`. A run killed between
- * the write and the cleanup then costs nothing — without that, the next
+ * `.prettierignore`; it is `.gitignore`d; it is removed before it is written as
+ * well as after; and the run below opts itself back in with `ignore: false`.
+ *
+ * Those are not four versions of one precaution. The first and third prevent
+ * the directory surviving a run killed mid-flight — without them the next
  * `npm run lint` fails on files that are in nobody's diff, which is a
- * genuinely awful thing to debug.
+ * genuinely awful thing to debug. The `.gitignore` entry is the one that
+ * matters most, because it is the only one that bounds the damage if the
+ * directory survives anyway: untracked leftovers cannot be committed by
+ * accident, so `removeFixtureDir` can never be pointed at a tracked file.
  */
 const fixtureDir = join(repoRoot, 'src', '__lint-fixture__')
+
+/**
+ * Delete the fixture directory, refusing if git tracks anything inside it.
+ *
+ * The failure this exists for: if those files ever became tracked, a recursive
+ * delete on every `npm test` would be quietly destroying real work. The guard
+ * turns that into a loud failure, which is the whole of its value — it is not
+ * expected to fire, and the `.gitignore` entry is what makes it unlikely to.
+ *
+ * A git failure (no git, no repo) is not fatal: this is the backstop to the
+ * ignore entry rather than the primary protection, and refusing to clean up
+ * because `git` is missing would break the suite for no safety gain.
+ */
+function removeFixtureDir() {
+  try {
+    const tracked = execFileSync('git', ['ls-files', '--', fixtureDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }).trim()
+    if (tracked !== '') {
+      throw new Error(
+        `Refusing to delete tracked files under ${fixtureDir}:\n${tracked}\n` +
+          'This directory is meant to hold throwaway lint fixtures and to be gitignored. ' +
+          'Something committed them; remove them from the index rather than letting the ' +
+          'test suite delete them on every run.'
+      )
+    }
+  } catch (error) {
+    // Rethrow our own refusal; swallow git being unavailable.
+    if (error instanceof Error && error.message.startsWith('Refusing to delete')) throw error
+  }
+  rmSync(fixtureDir, { recursive: true, force: true })
+}
 
 /** Rule ids reported at `error` for each fixture, keyed by the effect call. */
 const reported = new Map<string, string[]>()
@@ -137,7 +176,7 @@ const reported = new Map<string, string[]>()
 beforeAll(async () => {
   // Before as well as after: a previous run killed mid-flight is exactly the
   // case this is protecting against, so it must not depend on that run.
-  rmSync(fixtureDir, { recursive: true, force: true })
+  removeFixtureDir()
   mkdirSync(fixtureDir, { recursive: true })
 
   /*
@@ -207,7 +246,7 @@ beforeAll(async () => {
 }, 120_000)
 
 afterAll(() => {
-  rmSync(fixtureDir, { recursive: true, force: true })
+  removeFixtureDir()
 })
 
 describe('effect hooks must be called through the imported binding', () => {
