@@ -322,18 +322,25 @@ describe('InputBooleanCard', () => {
   })
 
   it('shows entity not found state', () => {
+    // The name used to describe a case this card could not reach: with the
+    // connection down it rendered "Disconnected", and with it up a missing
+    // entity was held at the skeleton. `isMissing` is what makes the state real
+    // (docs/specs/entity-state — "Consumer Hooks").
     vi.mocked(useEntity).mockReturnValue({
       entity: undefined,
-      isConnected: false,
+      isConnected: true,
       isLoading: false,
-      isMissing: false,
+      isMissing: true,
       isStale: false,
     })
 
     render(<InputBooleanCard entityId="input_boolean.test_toggle" />)
-    // When entity is undefined and not connected, it shows disconnected state
-    expect(screen.getByText('Disconnected')).toBeInTheDocument()
-    expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
+
+    expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
+    expect(
+      screen.getByText(/input_boolean\.test_toggle is not in Home Assistant/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument()
   })
 
   it('shows unavailable state', () => {

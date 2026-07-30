@@ -57,20 +57,23 @@ describe('ButtonCard', () => {
     })
   })
 
-  it('should render entity not found when entity is null', () => {
+  it('should render entity not found when the entity is missing', () => {
+    // This used to assert "Disconnected", because a missing entity on a live
+    // connection was held at the skeleton and the not-found tile was
+    // unreachable. `isMissing` is what distinguishes the two.
     vi.mocked(useEntity).mockReturnValue({
       entity: undefined,
-      isConnected: false,
+      isConnected: true,
       isLoading: false,
-      isMissing: false,
+      isMissing: true,
       isStale: false,
     })
 
     render(<ButtonCard entityId="unknown.entity" />)
 
-    // When not connected, it shows disconnected state instead of entity not found
-    expect(screen.getByText('Disconnected')).toBeInTheDocument()
-    expect(screen.getByText('Disconnected from Home Assistant')).toBeInTheDocument()
+    expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
+    expect(screen.getByText(/unknown\.entity is not in Home Assistant/)).toBeInTheDocument()
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument()
   })
 
   it('should render disconnected when not connected', () => {

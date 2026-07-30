@@ -562,6 +562,9 @@ describe('SensorCard states without a card', () => {
     expect(document.querySelector('.rt-Skeleton')).toBeNull()
     expect(screen.queryByText('Disconnected')).toBeNull()
     expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
+    // Named, not merely reported: the user has to know which of a screenful of
+    // cards to repoint.
+    expect(screen.getByText(/sensor\.not_here is not in Home Assistant/)).toBeInTheDocument()
   })
 
   it('offers a reload when the connection is down', async () => {

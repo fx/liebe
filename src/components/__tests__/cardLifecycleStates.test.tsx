@@ -72,6 +72,16 @@ const cases: CardCase[] = Object.entries(domainToCard).flatMap(([domain, Card]) 
   casesFor(domain, Card)
 )
 
+/**
+ * An entity id is `domain.object_id`, and the dot is a regex wildcard — a
+ * pattern built from a raw id would match a tile naming a *different* entity.
+ * The assertions below are about which id the tile printed, so the escape is
+ * load-bearing rather than hygiene.
+ */
+function literal(text: string): RegExp {
+  return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+}
+
 function renderCard({ Card, entityId }: CardCase, tier: CardProps['tier'] = 'row') {
   return render(
     <Theme>
@@ -123,7 +133,7 @@ describe('the lifecycle tile a registered card renders instead of itself', () =>
     const { container } = renderCard(testCase)
 
     expect(screen.getByText('Entity Not Found')).toBeInTheDocument()
-    expect(screen.getByText(new RegExp(testCase.entityId))).toBeInTheDocument()
+    expect(screen.getByText(literal(testCase.entityId))).toBeInTheDocument()
     // The defect this change fixes, asserted per card: a skeleton here reads as
     // progress towards a load that will never finish.
     expect(container.querySelector('.rt-Skeleton')).toBeNull()
@@ -154,7 +164,7 @@ describe('the lifecycle tile a registered card renders instead of itself', () =>
 
     expect(
       screen.getByRole('button', {
-        name: new RegExp(`Entity Not Found: ${testCase.entityId} is not in Home Assistant`),
+        name: literal(`Entity Not Found: ${testCase.entityId} is not in Home Assistant`),
       })
     ).toBeInTheDocument()
   })
