@@ -358,21 +358,34 @@ describe('ConfigurationMenu', () => {
   })
 
   /*
-   * On a real clock, deliberately. Reaching this action means opening the
-   * dropdown, and driving Radix's menu through `user-event` under fake timers
-   * deadlocks — worse, a test that times out never reaches its `finally`, so
-   * the fake clock stays installed and every later test in the file hangs too.
+   * On a real clock, deliberately: driving Radix's menu through `user-event`
+   * under fake timers deadlocks, and a test that times out never reaches its
+   * `finally`, so the fake clock would stay installed and hang every later test
+   * in the file.
    *
-   * Only the settled state is asserted. Activating the item closes the menu and
-   * unmounts its content, so the confirmation can only be read by reopening,
-   * and any assertion that the label still reads `Copied!` at that moment would
-   * be racing the 2 s reset — which is the load-sensitive shape this very
-   * change exists to stop writing. Waiting for the label to come back is safe
-   * in the other direction: without the reset it never does.
+   * Both transitions are pinned, which takes some care. Activating the item
+   * closes the menu and unmounts its content, so the confirmation can only be
+   * read by reopening — and asserting it there would normally race the 2 s
+   * reset, the load-sensitive shape this very change exists to stop writing.
+   * Holding the clipboard promise open removes the race rather than tolerating
+   * it: the reset is scheduled only once that promise resolves, so the reopen
+   * happens with no clock running and cannot lose however slow the machine is.
+   * The 2 s then starts on a menu that is already open, leaving one re-render
+   * inside it.
+   *
+   * Asserting only the second transition would be vacuous, because the label
+   * starts on the idle text — "eventually back to it" is satisfied by never
+   * having left. Hence the idle assertion before, and `Copied!` after.
    */
-  it('takes the copy confirmation back down once its delay elapses', async () => {
+  it('shows the copy confirmation and takes it back down once its delay elapses', async () => {
     const user = userEvent.setup()
-    vi.mocked(persistence.copyYAMLToClipboard).mockResolvedValueOnce(undefined)
+    let completeCopy!: () => void
+    vi.mocked(persistence.copyYAMLToClipboard).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completeCopy = resolve
+        })
+    )
 
     renderWithTheme(<ConfigurationMenu />)
 
@@ -380,7 +393,17 @@ describe('ConfigurationMenu', () => {
     await user.click(trigger)
     await user.click(screen.getByText('Copy YAML to Clipboard'))
 
+    // Reopened while the clipboard write is still in flight: nothing has been
+    // confirmed yet, so the label must still read the idle text.
     await user.click(trigger)
+    expect(screen.getByText('Copy YAML to Clipboard')).toBeInTheDocument()
+
+    await act(async () => {
+      completeCopy()
+    })
+
+    expect(screen.getByText('Copied!')).toBeInTheDocument()
+
     await waitFor(() => expect(screen.getByText('Copy YAML to Clipboard')).toBeInTheDocument(), {
       timeout: 6000,
     })
