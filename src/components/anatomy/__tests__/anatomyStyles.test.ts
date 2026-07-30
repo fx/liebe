@@ -88,10 +88,30 @@ describe('domain colour', () => {
       const { base, tint, text } = domainColorTokens(name)
       const rule = ruleBody(`[data-color='${name}']`)
 
-      expect(rule).toContain(`--part-color: var(${base});`)
+      expect(rule).toContain(`--liebe-part-color: var(${base});`)
       expect(rule).toContain(`--part-tint: var(${tint});`)
       expect(rule).toContain(`--part-text: var(${text});`)
       expect(rule).toContain(`--part-glyph: var(--part-${name}-glyph);`)
+    }
+  })
+
+  /**
+   * The published half of the resolution, and what a theme is entitled to read.
+   *
+   * A theme that wants a part's own hue used to have to restate this whole
+   * ten-way mapping, because the only names carrying the answer were
+   * `--part-*` — internal plumbing the anatomy reserves the right to rename
+   * (docs/changes/0036-theming-contract-gaps.md PR 3). The contract token is
+   * declared per part instead, and the internal one is DERIVED from it: two
+   * declarations of one hue would be a pair that can silently disagree, and the
+   * disagreement would show as a theme colouring a part differently from the
+   * part itself.
+   */
+  it('publishes the resolved hue as a contract token the internals derive from', () => {
+    for (const { name } of domainColors) {
+      const rule = ruleBody(`[data-color='${name}']`)
+      expect(rule).toContain(`--liebe-part-color: var(${domainColorTokens(name).base});`)
+      expect(rule).toContain('--part-color: var(--liebe-part-color);')
     }
   })
 
@@ -208,6 +228,55 @@ describe('pill group', () => {
     const vertical = ruleBody(".liebe-pill-group[data-orientation='vertical']")
     expect(vertical).toContain('grid-auto-flow: row;')
     expect(vertical).toContain('grid-auto-rows: 1fr;')
+  })
+})
+
+/**
+ * The label on a pill or a chip, which the tint pattern deliberately does not
+ * colour: the pattern's hue is calibrated for a glyph at 3:1 and a 12.5px label
+ * needs 4.5:1, which no end of the triplet clears on a 20% tint.
+ *
+ * A theme that fills the part solid rather than tinting it has a different
+ * ground under the same label, and until change 0036 PR 3 had no way to say so
+ * — the two colours were literals behind `liebe-pill-label` / `liebe-chip-label`,
+ * internal class names the selector contract explicitly withholds. Reading them
+ * from tokens is the fix, and the tokens defaulting to the two values that were
+ * literals here is what makes it inert for every theme that does not fill.
+ */
+describe('the label on a part', () => {
+  it('takes its colour from a token in each state, defaulting to the old neutral', () => {
+    // The default is a `var()` FALLBACK rather than a declaration on the root,
+    // and that is the load-bearing half. A custom property is substituted at
+    // the element that declares it, so `--liebe-part-label: var(--liebe-muted)`
+    // on `.liebe-root` would resolve the neutral there and inherit the answer —
+    // dropping a `--liebe-muted` set anywhere between the root and the label,
+    // which these two rules honoured when the neutral was written here and the
+    // rest of the sheet still does. Unset, the fallback resolves at the label.
+    expect(ruleBody('.liebe-pill-label,\n  .liebe-chip-label')).toContain(
+      'color: var(--liebe-part-label, var(--liebe-muted));'
+    )
+    expect(
+      ruleBody(
+        '.liebe-pill[data-active] .liebe-pill-label,\n  .liebe-chip[data-active] .liebe-chip-label'
+      )
+    ).toContain('color: var(--liebe-part-label-active, var(--liebe-fg));')
+  })
+
+  it('reaches the neutral only through the token', () => {
+    // The point of the tokens is that these two rules stop deciding. A bare
+    // `color: var(--liebe-muted)` left behind in either — the form they both
+    // had — would be a label a theme still could not recolour, which is the
+    // whole defect. The neutral may appear only as the token's fallback.
+    const rules = [
+      ruleBody('.liebe-pill-label,\n  .liebe-chip-label'),
+      ruleBody(
+        '.liebe-pill[data-active] .liebe-pill-label,\n  .liebe-chip[data-active] .liebe-chip-label'
+      ),
+    ]
+    for (const rule of rules) {
+      expect(rule).not.toContain('color: var(--liebe-muted);')
+      expect(rule).not.toContain('color: var(--liebe-fg);')
+    }
   })
 })
 
