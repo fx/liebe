@@ -534,6 +534,19 @@ describe('FanCard', () => {
       expect(tileLevel()).toBe('0.5')
     })
 
+    it('reports no level for a running fan that publishes no speed', () => {
+      // A fan advertising SET_SPEED while reporting no `percentage` — a preset
+      // mode is the shipped case. Its speed is unknown, not zero, so the tile
+      // takes the undimmed tint rather than the faintest one on the scale.
+      withEntity({
+        attributes: { friendly_name: 'Living Room Fan', supported_features: 49 },
+      })
+
+      renderCard({ iconOnly: true })
+
+      expect(tileLevel()).toBe('')
+    })
+
     it('reports no level for a fan with no speed capability', () => {
       // TURN_OFF | TURN_ON and nothing else: a fan that switches but does not
       // set a percentage has no level, and an undimmed tint is the right tile

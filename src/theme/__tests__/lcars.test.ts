@@ -321,8 +321,10 @@ describe('LCARS stylesheet', () => {
       )
     ).toBe(true)
     expect(
-      iconOnlyRules.some(({ declarations }) =>
-        declarations.includes('color: var(--liebe-part-color);')
+      iconOnlyRules.some(
+        ({ selector, declarations }) =>
+          selector.includes('.liebe-icon[data-active]') &&
+          declarations.includes('color: var(--liebe-part-color);')
       )
     ).toBe(true)
 

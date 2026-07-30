@@ -1015,10 +1015,18 @@ export const GridCard = React.memo(
       const iconTileStyle = iconOnly
         ? {
             ...(effectiveHue ? hueStyle(effectiveHue) : {}),
-            // Clamped rather than trusted: a card computing a percentage off a
-            // live attribute can hand over 105, and `calc()` would carry it
-            // into a tint stronger than the undimmed one.
-            ...(level === undefined
+            /*
+             * Clamped rather than trusted, and a non-finite value is treated
+             * as no level at all. A card computing a percentage off a live
+             * attribute can hand over 105 — `calc()` would carry that into a
+             * tint stronger than the undimmed one — or `NaN`, from an
+             * arithmetic on a missing attribute, which clamping preserves.
+             * `calc(40% + 60% * NaN)` is invalid, so `color-mix()` fails, and
+             * a REGISTERED property whose value is invalid falls back to its
+             * initial one: the active tile would lose its only state signal
+             * outright, which is the failure the floor exists to prevent.
+             */
+            ...(level === undefined || !Number.isFinite(level)
               ? {}
               : { '--liebe-icon-tile-level': Math.min(1, Math.max(0, level)) }),
           }

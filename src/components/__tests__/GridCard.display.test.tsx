@@ -356,6 +356,24 @@ describe('GridCard display options', () => {
         expect(card().style.getPropertyValue('--liebe-icon-tile-level')).toBe('1')
       })
 
+      it('treats a non-finite level as no level rather than clamping it', () => {
+        // `Math.min(1, Math.max(0, NaN))` is `NaN`, and a card deriving the
+        // fraction from a missing attribute can produce one. Written through,
+        // it makes the sheet's `calc()` invalid, which makes `color-mix()`
+        // invalid, which sends the REGISTERED tint property back to its
+        // `transparent` initial value — an active tile with no state signal at
+        // all, the outcome the strength floor exists to prevent.
+        render(
+          <GridCard domain="light" color="light" level={Number.NaN} config={{ iconOnly: true }}>
+            <GridCard.Icon>
+              <svg data-testid="card-own-icon" />
+            </GridCard.Icon>
+          </GridCard>
+        )
+
+        expect(card().style.getPropertyValue('--liebe-icon-tile-level')).toBe('')
+      })
+
       it('writes nothing for a card with no level, which is not the same as zero', () => {
         // The absence is what makes the sheet's `1` fallback apply: a switch
         // or a lock has no level, and an undimmed tint is the right tile for
