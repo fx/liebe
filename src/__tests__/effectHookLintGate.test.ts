@@ -121,9 +121,13 @@ const RULE_SUPPRESSION_PATTERN =
  *
  * Anchored, unlike the pattern above, because ESLint only honours a directive
  * when the comment *begins* with it — and because an unanchored version would
- * flag ordinary prose that ends a sentence on the word.
+ * flag ordinary prose that ends a sentence on the word. The trailing `--`
+ * branch is ESLint's description syntax: a blanket disable may carry a reason
+ * after `--` and still names no rule, so it is the same directive wearing an
+ * explanation.
  */
-const BLANKET_SUPPRESSION_PATTERN = /^[\s*]*eslint-disable(?:-next-line|-line)?[\s*]*$/
+const BLANKET_SUPPRESSION_PATTERN =
+  /^[\s*]*eslint-disable(?:-next-line|-line)?[\s*]*(?:--[\s\S]*)?$/
 
 /**
  * Whether a source file disarms the rule from a comment, by either route.
@@ -570,16 +574,24 @@ describe('an exhaustive-deps suppression silences the rule for its whole functio
     async (path) => {
       const eslint = new ESLint({ cwd: repoRoot })
       const source = readFileSync(join(repoRoot, path), 'utf8')
-      const planted = source
-        .replace(
-          'const ref = useRef<HTMLDivElement>(null)',
-          "const ref = useRef<HTMLDivElement>(null)\n  const [, setPlanted] = useState<string>('')"
-        )
-        .replace('useEffect(() => {', "useEffect(() => {\n    setPlanted('planted')")
+      const withState = source.replace(
+        'const ref = useRef<HTMLDivElement>(null)',
+        "const ref = useRef<HTMLDivElement>(null)\n  const [, setPlanted] = useState<string>('')"
+      )
+      const planted = withState.replace(
+        'useEffect(() => {',
+        "useEffect(() => {\n    setPlanted('planted')"
+      )
 
-      // The plant has to have landed, or "reports at error" is measuring the
-      // untouched file and both assertions below are about the same source.
-      expect(planted).not.toBe(source)
+      /*
+       * Each anchor separately, not their combined effect. If only the
+       * `useRef` one lands the file gains an unused `useState` and no write
+       * inside the effect — and "the rule did not report" would then read as a
+       * regression in the rule rather than as a drifted anchor, which is the
+       * confusion this whole change document is about.
+       */
+      expect(withState).not.toBe(source)
+      expect(planted).not.toBe(withState)
 
       const errors = async (code: string) => {
         const [result] = await eslint.lintText(code, { filePath: join(repoRoot, path) })
