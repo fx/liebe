@@ -156,6 +156,18 @@ describe('domain colour', () => {
     // `flex: none` survives: it is the main-axis rule for a row line — never
     // squeezed by a long name beside it — and does not meet the clamp above.
     expect(icon).toContain('flex: none;')
+
+    /*
+     * And the glyph inside it scales too. A card's icon is an SVG with its own
+     * width and height (20–24px across the set), so clamping only the circle
+     * would move the overhang one box inwards rather than remove it — a 24px
+     * glyph spilling over a circle narrowed to LCARS's 19px region. Found by
+     * the pre-PR review pass on 0042 PR 4, which is why it is asserted next to
+     * the clamp it completes rather than somewhere else.
+     */
+    const contents = ruleBody('.liebe-icon > *')
+    expect(contents).toContain('max-inline-size: 100%;')
+    expect(contents).toContain('max-block-size: 100%;')
   })
 
   it('applies one tint pattern to every tinted part', () => {

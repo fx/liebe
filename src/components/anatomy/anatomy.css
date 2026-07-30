@@ -269,6 +269,20 @@
    * two do not meet. On a line wide enough for the token, `min()` resolves to
    * the token and nothing moves.
    */
+  /*
+   * And whatever the circle contains scales with it. The clamp above sizes the
+   * circle; a card's glyph is an SVG with its own `width`/`height` (20–24px
+   * across the set), so a circle narrowed to LCARS's 19px region would keep a
+   * 24px glyph and spill it over the tint — the overhang moved one box inwards
+   * rather than removed, which is the failure mode change 0042 has hit at every
+   * level of this chain. Percentages rather than a size: the glyph keeps its
+   * own dimensions wherever the circle can afford them.
+   */
+  .liebe-icon > * {
+    max-block-size: 100%;
+    max-inline-size: 100%;
+  }
+
   .liebe-icon {
     aspect-ratio: 1;
     block-size: auto;

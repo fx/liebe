@@ -21,12 +21,20 @@
 
 @layer liebe-base {
   .liebe-media-artwork {
-    block-size: var(--liebe-icon-circle);
+    /*
+     * Cross-axis flexible on the same terms as the icon circle it stands in
+     * for (`anatomy.css`, change 0042 PR 4): this occupies the tile's anchor
+     * slot, so a fixed 40px box overhangs a `tall` tile's 35px content region
+     * exactly as the circle did, and "a part MUST NOT rely on the tile's inset
+     * to absorb an overhang" binds the slot rather than one occupant of it.
+     */
+    aspect-ratio: 1;
+    block-size: auto;
     border-radius: var(--liebe-control-radius);
     /* Never squeezed by a long title beside it in a row layout, exactly as the
        icon circle it replaces is not. */
     flex: none;
-    inline-size: var(--liebe-icon-circle);
+    inline-size: min(var(--liebe-icon-circle), 100%);
     /* Album art is rarely square at the size it is served; cover crops rather
        than distorting, which is what the HA frontend does with the same URL. */
     object-fit: cover;
