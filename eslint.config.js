@@ -103,7 +103,10 @@ export default [
             "Call the effect hooks through the imported binding — `import { useEffect } from 'react'` — not as a computed member call like `React['useEffect']`. react-hooks/set-state-in-effect cannot see the member-call form, so writing it that way silently exempts the effect from that rule. See docs/changes/0040-test-harness-reliability.md.",
         },
         {
-          selector: 'ObjectPattern > Property[key.name=/^use(Layout|Insertion)?Effect$/]',
+          // Both key spellings: `{ useEffect }` / `{ useEffect: alias }` carry an
+          // identifier key, `{ ['useEffect']: alias }` a string literal.
+          selector:
+            'ObjectPattern > Property:matches([key.name=/^use(Layout|Insertion)?Effect$/], [key.value=/^use(Layout|Insertion)?Effect$/])',
           message:
             "Import the effect hooks directly — `import { useEffect } from 'react'` — rather than destructuring them off the React namespace. A hook bound that way is a plain identifier at the call site, which react-hooks/set-state-in-effect does not recognise as an effect, so the state-writing check silently does not apply. See docs/changes/0040-test-harness-reliability.md.",
         },
@@ -146,6 +149,16 @@ export default [
       '.vite-temp/',
       '.tailscale/',
       'storybook-static/',
+      /*
+       * Fixtures written by `src/__tests__/effectHookLintGate.test.ts`. They
+       * contain the banned spellings on purpose, and the spec deletes them —
+       * but a run killed between the write and the cleanup would otherwise
+       * leave the merge-blocking lint gate failing on files that are not
+       * anybody's diff, which is a miserable thing to debug. The spec opts
+       * itself back in with `ignore: false`, so ignoring them here costs it
+       * nothing.
+       */
+      'src/__lint-fixture__/',
     ],
   },
   prettierConfig,

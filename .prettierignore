@@ -12,3 +12,8 @@ ha/config/**
 
 # Local throwaway design mockups (untracked, see .gitignore)
 mockups/
+
+# Lint fixtures written and deleted by src/__tests__/effectHookLintGate.test.ts.
+# Ignored so a run killed mid-flight cannot leave the format gate failing on
+# files nobody wrote by hand.
+src/__lint-fixture__/

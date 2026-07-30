@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { ESLint } from 'eslint'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
 
@@ -79,12 +79,19 @@ export function Probe() {
  * The fixtures are written to real files inside the repo rather than linted as
  * strings, because the TypeScript parser is configured with `project` — it
  * resolves each file against `tsconfig.json`, and a path that is not in the
- * project is not linted the way the real sources are. Under a temp directory
- * inside the repo so the recursive `.tsx` include in `tsconfig.json` picks them
- * up, and removed afterwards so a crashed run cannot leave a file that fails
- * the gate it is testing.
+ * project is not linted the way the real sources are. So they have to live
+ * under the repo root, where the recursive `.tsx` include picks them up.
+ *
+ * That puts deliberately lint-failing files inside the tree the merge-blocking
+ * gate scans, which is handled three ways rather than trusting cleanup: the
+ * path is a fixed name listed in `eslint.config.js`'s `ignores` and in
+ * `.prettierignore`, it is removed before it is written as well as after, and
+ * the run below opts itself back in with `ignore: false`. A run killed between
+ * the write and the cleanup then costs nothing — without that, the next
+ * `npm run lint` fails on files that are in nobody's diff, which is a
+ * genuinely awful thing to debug.
  */
-let fixtureDir: string
+const fixtureDir = join(repoRoot, 'src', '__lint-fixture__')
 
 /** Rule ids reported at `error` for each fixture, keyed by the effect call. */
 const reported = new Map<string, string[]>()
@@ -103,7 +110,10 @@ const reported = new Map<string, string[]>()
  * that is still a signal rather than something this number would absorb.
  */
 beforeAll(async () => {
-  fixtureDir = mkdtempSync(join(repoRoot, 'src', '__lint-fixture-'))
+  // Before as well as after: a previous run killed mid-flight is exactly the
+  // case this is protecting against, so it must not depend on that run.
+  rmSync(fixtureDir, { recursive: true, force: true })
+  mkdirSync(fixtureDir, { recursive: true })
 
   const cases = [
     ['React.useEffect', join(fixtureDir, 'member.tsx'), ''],
@@ -112,19 +122,32 @@ beforeAll(async () => {
     // named `React` — an aliased namespace import, and computed access.
     ['Hooks.useEffect', join(fixtureDir, 'aliased.tsx'), ''],
     ["React['useEffect']", join(fixtureDir, 'computed.tsx'), ''],
-    // And the one that is not a member call at the call site at all.
+    // And the two that are not a member call at the call site at all, keyed by
+    // an identifier and by a string literal respectively.
     [
       'scopedEffect',
       join(fixtureDir, 'destructured.tsx'),
       'const { useEffect: scopedEffect } = React',
     ],
+    [
+      'stringKeyedEffect',
+      join(fixtureDir, 'destructured-string-key.tsx'),
+      "const { ['useEffect']: stringKeyedEffect } = React",
+    ],
   ] as const
 
   for (const [effectCall, file, prelude] of cases) writeFileSync(file, fixture(effectCall, prelude))
 
-  // One instance, one invocation: both the config and the TypeScript program
-  // are then built a single time for the whole file.
-  const eslint = new ESLint({ cwd: repoRoot })
+  /*
+   * One instance, one invocation: both the config and the TypeScript program
+   * are then built a single time for the whole file.
+   *
+   * `ignore: false` is what opts the fixture directory back in — it is listed
+   * in the config's `ignores` so a leftover cannot break the real gate, and
+   * without this the run would skip the very files it is here to inspect and
+   * every assertion would pass vacuously.
+   */
+  const eslint = new ESLint({ cwd: repoRoot, ignore: false })
   const results = await eslint.lintFiles(cases.map(([, file]) => file))
 
   for (const [effectCall, file] of cases) {
@@ -174,7 +197,10 @@ describe('effect hooks must be called through the imported binding', () => {
    * come from an import it recognises. Verified directly — that fixture linted
    * clean, with a setState in an effect, before this selector existed.
    */
-  it('rejects an effect hook destructured off the namespace', () => {
-    expect(reported.get('scopedEffect')).toContain('no-restricted-syntax')
-  })
+  it.each(['scopedEffect', 'stringKeyedEffect'])(
+    'rejects an effect hook destructured off the namespace (%s)',
+    (effectCall) => {
+      expect(reported.get(effectCall)).toContain('no-restricted-syntax')
+    }
+  )
 })
