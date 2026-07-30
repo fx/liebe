@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { EntityDetailDialog, type EntityDetailDialogProps } from './index'
 import { GridCardWithComponents as GridCard, type GridCardProps } from '../GridCard'
 import { CardItemProvider } from '../cardItemContext'
@@ -276,6 +276,23 @@ export const HoldACardToOpen: StoryObj<
  * The dialog is portalled, so every assertion below queries `document.body`
  * rather than the story canvas.
  */
+/**
+ * The service calls the helper controls issue, for the one story that has to
+ * observe a dispatch rather than a render.
+ *
+ * The workshop's Home Assistant answers a call and pushes nothing back, so a
+ * control driven purely by entity state cannot be seen to change by clicking
+ * it — that flip belongs to the `state_changed` a real instance sends. What the
+ * click *can* be observed to do is dispatch, so the story asserts that.
+ *
+ * It resolves rather than returning `undefined`: `callService` is a promise in
+ * `mockHass.ts` and in Home Assistant alike, and `useServiceCall` awaits it. A
+ * recorder that breaks that contract would still pass here — `await undefined`
+ * is legal — while quietly making the story a worse model of the panel than the
+ * mock it replaces.
+ */
+const dispatched = fn(() => Promise.resolve())
+
 function helperControlStory(
   entity: HassEntity,
   assert: (controls: HTMLElement) => Promise<void>
@@ -283,7 +300,19 @@ function helperControlStory(
   return {
     args: { entityId: entity.entity_id },
     parameters: { liebe: { entities: [entity] } },
+    // Nested inside the global service-call decorator, so this provider is the
+    // one the controls resolve — same mock, with the call recorded.
+    decorators: [
+      (Story) => (
+        <HomeAssistantProvider
+          hass={{ ...createMockHass({ entities: [entity] }), callService: dispatched }}
+        >
+          <Story />
+        </HomeAssistantProvider>
+      ),
+    ],
     play: async () => {
+      dispatched.mockClear()
       const body = within(document.body)
       const controls = await body.findByTestId('detail-controls')
       await assert(controls)
@@ -302,7 +331,11 @@ export const BooleanControl = helperControlStory(createInputBooleanEntity(), asy
   const toggle = within(controls).getByRole('switch')
   await expect(toggle).not.toBeChecked()
   await userEvent.click(toggle)
-  await expect(toggle).toBeChecked()
+  // Exactly once: `input_boolean.toggle` is not idempotent, and one gesture
+  // issuing it twice is the defect the guarded dispatch path exists to prevent
+  // (options/common.md — "Dispatch guarantees").
+  await waitFor(() => expect(dispatched).toHaveBeenCalledTimes(1))
+  await expect(dispatched.mock.calls[0].slice(0, 2)).toEqual(['input_boolean', 'toggle'])
 })
 
 /**
