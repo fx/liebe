@@ -14,6 +14,9 @@ import {
   describePortCollision,
   describeStack,
   findPortConflicts,
+  describeOwnershipConflict,
+  inspectProjectOwnership,
+  parseProjectListing,
   probeDocker,
   resolveStackConfig,
   runStack,
@@ -37,20 +40,28 @@ interface DockerProbe {
   error?: { code?: string }
 }
 
-/** A capture stub that answers each `docker <subcommand>` from a table. */
+/**
+ * A capture stub that answers each `docker` invocation from a table, keyed by
+ * its first two arguments — `compose version`, `compose ls` and `version` are
+ * three different questions with three different failure modes.
+ */
 function fakeCapture(answers: Record<string, DockerProbe>) {
   const calls: string[][] = []
   const capture = (_command: string, args: string[]): DockerProbe => {
     calls.push(args)
-    const key = args[0] === 'compose' ? 'compose' : args[0]
-    return answers[key] ?? { status: 0, stdout: '', stderr: '' }
+    return (
+      answers[args.slice(0, 2).join(' ')] ??
+      answers[args[0]] ?? { status: 0, stdout: '', stderr: '' }
+    )
   }
   return { capture, calls }
 }
 
-const healthyDocker = () =>
+/** A daemon that answers everything, with no compose projects on the machine. */
+const healthyDocker = (projects: unknown[] = []) =>
   fakeCapture({
-    compose: { status: 0, stdout: 'Docker Compose version v2.30.0\n', stderr: '' },
+    'compose version': { status: 0, stdout: 'Docker Compose version v2.30.0\n', stderr: '' },
+    'compose ls': { status: 0, stdout: JSON.stringify(projects), stderr: '' },
     version: { status: 0, stdout: '27.3.1\n', stderr: '' },
   })
 
@@ -296,7 +307,7 @@ describe('probeDocker', () => {
 
   it('stops at the compose probe when the plugin is missing', () => {
     const { capture, calls } = fakeCapture({
-      compose: { status: 125, stderr: "docker: 'compose' is not a docker command." },
+      'compose version': { status: 125, stderr: "docker: 'compose' is not a docker command." },
     })
     expect(probeDocker({ capture, env: {} })?.cause).toBe('compose-missing')
     expect(calls).toHaveLength(1)
@@ -306,7 +317,7 @@ describe('probeDocker', () => {
     // `docker compose version` answers without touching the socket, so it is
     // green on a machine whose daemon is dead. Only the second probe can tell.
     const { capture } = fakeCapture({
-      compose: { status: 0, stdout: 'Docker Compose version v2.30.0' },
+      'compose version': { status: 0, stdout: 'Docker Compose version v2.30.0' },
       version: { status: 1, stderr: 'Cannot connect to the Docker daemon at unix://…' },
     })
     expect(probeDocker({ capture, env: {} })?.cause).toBe('docker-daemon-down')
@@ -360,6 +371,144 @@ describe('describePortCollision', () => {
   })
 })
 
+describe('parseProjectListing', () => {
+  it('reads the project list', () => {
+    expect(parseProjectListing({ status: 0, stdout: '[{"Name":"a"}]' })).toEqual([{ Name: 'a' }])
+  })
+
+  it('treats an empty answer as no projects', () => {
+    expect(parseProjectListing({ status: 0, stdout: '' })).toEqual([])
+  })
+
+  it.each([
+    ['the command failed', { status: 1, stdout: '', stderr: 'boom' }],
+    ['the output is not JSON', { status: 0, stdout: 'not json' }],
+  ])('refuses to assume ownership when %s', (_label, probe) => {
+    // Degrading to "assume it is ours" here would put the hole back in the one
+    // place a green tick hides it.
+    expect(() => parseProjectListing(probe)).toThrow(/Refusing to start rather than assuming/)
+  })
+})
+
+describe('inspectProjectOwnership', () => {
+  const composePath = `${WORKTREE_B}/ha/docker-compose.yml`
+  const ownName = 'liebe-e2e-0040b-015d904f'
+
+  it('recognises this checkout’s own running stack', () => {
+    expect(
+      inspectProjectOwnership({
+        projects: [{ Name: ownName, Status: 'running(2)', ConfigFiles: composePath }],
+        projectName: ownName,
+        composePath,
+      })
+    ).toEqual({ ours: true, conflict: null })
+  })
+
+  it('does not treat this checkout’s stopped stack as holding the ports', () => {
+    expect(
+      inspectProjectOwnership({
+        projects: [{ Name: ownName, Status: 'exited(2)', ConfigFiles: composePath }],
+        projectName: ownName,
+        composePath,
+      })
+    ).toEqual({ ours: false, conflict: null })
+  })
+
+  it('rejects a project of our name that another checkout created', () => {
+    // Reachable through the documented LIEBE_E2E_PROJECT escape hatch: two
+    // checkouts pointed at one project name would have compose recreate it
+    // against the second's mounts, re-entering the contamination by hand.
+    const result = inspectProjectOwnership({
+      projects: [
+        {
+          Name: ownName,
+          Status: 'running(2)',
+          ConfigFiles: '/workspace/liebe/ha/docker-compose.yml',
+        },
+      ],
+      projectName: ownName,
+      composePath,
+    })
+    expect(result).toEqual({
+      ours: false,
+      conflict: {
+        kind: 'foreign-project',
+        name: ownName,
+        configFiles: '/workspace/liebe/ha/docker-compose.yml',
+      },
+    })
+  })
+
+  it('rejects this checkout’s stack already running under a different project name', () => {
+    // What an older fixed-name stack looks like after this change: two Home
+    // Assistants bind-mounting one writable ha/config. The bundle-identity
+    // check cannot see it, because both serve the same dist/.
+    const result = inspectProjectOwnership({
+      projects: [{ Name: 'ha', Status: 'running(2)', ConfigFiles: composePath }],
+      projectName: ownName,
+      composePath,
+    })
+    expect(result.conflict).toMatchObject({ kind: 'duplicate-stack', name: 'ha' })
+  })
+
+  it('ignores an unrelated project, and a stopped stray', () => {
+    expect(
+      inspectProjectOwnership({
+        projects: [
+          { Name: 'someone-else', Status: 'running(3)', ConfigFiles: '/elsewhere/compose.yml' },
+          { Name: 'ha', Status: 'exited(2)', ConfigFiles: composePath },
+        ],
+        projectName: ownName,
+        composePath,
+      })
+    ).toEqual({ ours: false, conflict: null })
+  })
+
+  it('compares compose files by resolved path across a multi-file project', () => {
+    expect(
+      inspectProjectOwnership({
+        projects: [
+          {
+            Name: ownName,
+            Status: 'running(2)',
+            ConfigFiles: `/other/compose.yml, ${WORKTREE_B}/ha/../ha/docker-compose.yml`,
+          },
+        ],
+        projectName: ownName,
+        composePath,
+      })
+    ).toEqual({ ours: true, conflict: null })
+  })
+})
+
+describe('describeOwnershipConflict', () => {
+  const config = resolveStackConfig({
+    checkoutPath: WORKTREE_B,
+    env: { [ENV_PROJECT]: 'shared-stack' },
+  })
+  const composePath = `${WORKTREE_B}/ha/docker-compose.yml`
+
+  it('points a foreign project back at the derived name', () => {
+    const message = describeOwnershipConflict({
+      conflict: { kind: 'foreign-project', name: 'shared-stack', configFiles: '/elsewhere.yml' },
+      config,
+      composePath,
+    })
+    expect(message).toContain('/elsewhere.yml')
+    expect(message).toContain(ENV_PROJECT)
+    expect(message).toContain(config.derivedProjectName)
+  })
+
+  it('gives a duplicate stack the command that stops it', () => {
+    const message = describeOwnershipConflict({
+      conflict: { kind: 'duplicate-stack', name: 'ha', configFiles: composePath },
+      config,
+      composePath,
+    })
+    expect(message).toContain(`docker compose -p ha -f ${composePath} down -v`)
+  })
+})
+
 describe('runStack', () => {
   const base = { checkoutPath: WORKTREE_B, env: {} as Record<string, string> }
 
@@ -384,7 +533,7 @@ describe('runStack', () => {
     expect(inherited[0].args).toEqual([
       'compose',
       '-f',
-      'ha/docker-compose.yml',
+      `${WORKTREE_B}/ha/docker-compose.yml`,
       '-p',
       config.projectName,
       'up',
@@ -392,10 +541,8 @@ describe('runStack', () => {
       '--wait',
     ])
     expect(inherited[0].env).toEqual(stackEnv(config))
-    // The pre-flight asks compose whether OUR project is already up.
-    expect(calls.some((args) => args.includes('ps') && args.includes(config.projectName))).toBe(
-      true
-    )
+    // The pre-flight asks which compose projects exist before claiming a name.
+    expect(calls).toContainEqual(['compose', 'ls', '--all', '--format', 'json'])
   })
 
   it.each([
@@ -420,7 +567,7 @@ describe('runStack', () => {
 
   it('refuses to start and names the cause when the daemon is unreachable', async () => {
     const { capture } = fakeCapture({
-      compose: { status: 0, stdout: 'Docker Compose version v2.30.0' },
+      'compose version': { status: 0, stdout: 'Docker Compose version v2.30.0' },
       version: {
         status: 1,
         stderr: 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock.',
@@ -443,7 +590,7 @@ describe('runStack', () => {
 
   it('refuses to start and names the cause when the socket is unpermitted', async () => {
     const { capture } = fakeCapture({
-      compose: { status: 0, stdout: 'Docker Compose version v2.30.0' },
+      'compose version': { status: 0, stdout: 'Docker Compose version v2.30.0' },
       version: {
         status: 1,
         stderr:
@@ -467,18 +614,13 @@ describe('runStack', () => {
   })
 
   it('fails loudly on a port collision instead of sharing the instance', async () => {
-    const { capture } = fakeCapture({
-      compose: { status: 0, stdout: 'Docker Compose version v2.30.0' },
-      version: { status: 0, stdout: '27.3.1' },
-      // No containers in our project: whatever holds the port is not ours.
-      ps: { status: 0, stdout: '' },
-    })
+    // No compose project of ours exists: whatever holds the port is not ours.
+    const { capture } = healthyDocker()
     const logged: string[] = []
     const code = await runStack({
       ...base,
       argv: ['up'],
-      capture: (command: string, args: string[]) =>
-        args.includes('ps') ? { status: 0, stdout: '', stderr: '' } : capture(command, args),
+      capture,
       portFree: async () => false,
       inherit: () => {
         throw new Error('compose must not run into an occupied port')
@@ -493,15 +635,18 @@ describe('runStack', () => {
     // `up` on a running stack is an ordinary re-run; the ports are busy because
     // they are ours. Treating that as a collision would make the script refuse
     // to do the one thing it is for.
-    const { capture } = healthyDocker()
+    const { capture } = healthyDocker([
+      {
+        Name: resolveStackConfig({ checkoutPath: WORKTREE_B, env: {} }).projectName,
+        Status: 'running(2)',
+        ConfigFiles: `${WORKTREE_B}/ha/docker-compose.yml`,
+      },
+    ])
     let started = false
     const code = await runStack({
       ...base,
       argv: ['up'],
-      capture: (command: string, args: string[]) =>
-        args.includes('ps')
-          ? { status: 0, stdout: 'c0ffee\ndeadbeef\n', stderr: '' }
-          : capture(command, args),
+      capture,
       portFree: async () => false,
       inherit: () => {
         started = true

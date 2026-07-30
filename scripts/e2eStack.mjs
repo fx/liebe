@@ -70,7 +70,8 @@ export const ENV_GO2RTC_PORT = 'LIEBE_E2E_GO2RTC_PORT'
  * @typedef {{ status?: number | null, error?: { code?: string } }} Spawned
  * @typedef {{ checkoutPath: string, slug: string, hash: string, slot: number,
  *   projectName: string, haPort: number, go2rtcPort: number }} StackIdentity
- * @typedef {StackIdentity & { bind: string, hassUrl: string, browserUrl: string,
+ * @typedef {StackIdentity & { derivedProjectName: string, bind: string, hassUrl: string,
+ *   browserUrl: string,
  *   overridden: { projectName: boolean, haPort: boolean, go2rtcPort: boolean } }} StackConfig
  */
 
@@ -175,6 +176,8 @@ export function resolveStackConfig({ checkoutPath = CHECKOUT_PATH, env = process
   return {
     ...derived,
     projectName,
+    /** What the path alone would have chosen, for messages about an override. */
+    derivedProjectName: derived.projectName,
     haPort,
     go2rtcPort,
     bind,
@@ -376,6 +379,110 @@ const COMMANDS = {
 }
 
 /**
+ * Parse `docker compose ls --all --format json`. Throws rather than degrading:
+ * this listing is what proves the project about to be started is this
+ * checkout's, and skipping the proof when it is unavailable would put the hole
+ * back exactly where a green tick hides it.
+ *
+ * @param {DockerProbe} probe
+ * @returns {{ Name?: string, Status?: string, ConfigFiles?: string }[]}
+ */
+export function parseProjectListing({ status, stdout = '', stderr = '' } = {}) {
+  if (status !== 0) {
+    throw new Error(
+      `Could not list docker compose projects (\`docker compose ls\` exited ${status}), so the ` +
+        `e2e stack cannot confirm that the project it is about to start belongs to this ` +
+        `checkout. Refusing to start rather than assuming.\n${`${stderr}`.trim() || '(no output)'}`
+    )
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(stdout || '[]')
+  } catch (cause) {
+    throw new Error(
+      `Could not parse \`docker compose ls --format json\` output, so the e2e stack cannot ` +
+        `confirm project ownership. Refusing to start rather than assuming.`,
+      { cause }
+    )
+  }
+  return Array.isArray(parsed) ? parsed : []
+}
+
+const isRunning = (entry) => /running/i.test(entry.Status ?? '')
+const usesComposeFile = (entry, composePath) =>
+  `${entry.ConfigFiles ?? ''}`
+    .split(',')
+    .map((file) => resolve(file.trim()))
+    .includes(composePath)
+
+/**
+ * Decide whether an existing compose project is this checkout's, and catch the
+ * two ways it can fail to be. Both are reachable despite the path derivation:
+ *
+ *   - **A foreign project under our name.** `LIEBE_E2E_PROJECT` is documented, so
+ *     two checkouts can be pointed at one project by hand. Compose would then
+ *     recreate that project against the second checkout's mounts, and both
+ *     suites would address one instance — the contamination, re-entered through
+ *     the escape hatch.
+ *   - **This checkout's stack running under a DIFFERENT project name.** Upgrading
+ *     across this change leaves the old fixed-name project up; starting the new
+ *     one gives two Home Assistants bind-mounting one writable `ha/config`, so
+ *     they share `.storage` and the recorder database. The bundle-identity check
+ *     cannot see that: both serve the same `dist/`.
+ *
+ * @param {{ projects: { Name?: string, Status?: string, ConfigFiles?: string }[],
+ *   projectName: string, composePath: string }} options
+ */
+export function inspectProjectOwnership({ projects, projectName, composePath }) {
+  const named = projects.find((entry) => entry.Name === projectName)
+  if (named && !usesComposeFile(named, composePath)) {
+    return {
+      ours: false,
+      conflict: { kind: 'foreign-project', name: projectName, configFiles: named.ConfigFiles },
+    }
+  }
+
+  const strays = projects.filter(
+    (entry) => entry.Name !== projectName && isRunning(entry) && usesComposeFile(entry, composePath)
+  )
+  if (strays.length > 0) {
+    return {
+      ours: false,
+      conflict: {
+        kind: 'duplicate-stack',
+        name: strays[0].Name,
+        configFiles: strays[0].ConfigFiles,
+      },
+    }
+  }
+
+  return { ours: Boolean(named && isRunning(named)), conflict: null }
+}
+
+/** The message an ownership conflict exits with. */
+export function describeOwnershipConflict({ conflict, config, composePath }) {
+  if (conflict.kind === 'foreign-project') {
+    return (
+      `Compose project "${conflict.name}" already exists and was created from ` +
+      `${conflict.configFiles}, not from this checkout's ${composePath}. Starting it would ` +
+      `recreate another checkout's stack against this one's mounts, and both suites would then ` +
+      `address one instance — the contamination the per-checkout stack exists to prevent.\n` +
+      `${ENV_PROJECT} is almost certainly set to a name another checkout also uses. Unset it to ` +
+      `use this checkout's derived name (${config.derivedProjectName}), or pick one nobody else has.`
+    )
+  }
+  return (
+    `A stack for this checkout is already running under compose project "${conflict.name}", ` +
+    `which is not the project this checkout now uses (${config.projectName}). That is what an ` +
+    `older fixed-name stack looks like after this change. Starting a second one would give two ` +
+    `Home Assistants bind-mounting one writable ha/config, sharing .storage and the recorder ` +
+    `database — and the bundle-identity check cannot see it, because both serve the same dist/.\n` +
+    `Stop the old one first:\n` +
+    `  docker compose -p ${conflict.name} -f ${composePath} down -v`
+  )
+}
+
+/**
  * The CLI, with every side effect injected so each branch is testable without a
  * docker daemon — which is the point: the branches that matter are the ones
  * that fire when there is no daemon to test against.
@@ -430,16 +537,32 @@ export async function runStack({
     return 1
   }
 
+  // Absolute rather than relative, so compose resolves the file and its bind
+  // mounts identically whatever the caller's cwd is — and so the path can be
+  // compared against what `docker compose ls` reports for existing projects.
+  const composePath = resolve(checkoutPath, COMPOSE_FILE)
+
   if (command === 'up') {
+    let ownership
+    try {
+      ownership = inspectProjectOwnership({
+        projects: parseProjectListing(
+          capture('docker', ['compose', 'ls', '--all', '--format', 'json'], composeEnv)
+        ),
+        projectName: config.projectName,
+        composePath,
+      })
+    } catch (thrown) {
+      log(thrown.message)
+      return 1
+    }
+    if (ownership.conflict) {
+      log(describeOwnershipConflict({ conflict: ownership.conflict, config, composePath }))
+      return 1
+    }
     // An already-running stack of OUR project legitimately holds these ports;
     // only a foreign holder is a collision.
-    const existing = capture(
-      'docker',
-      ['compose', '-f', COMPOSE_FILE, '-p', config.projectName, 'ps', '--quiet'],
-      composeEnv
-    )
-    const ours = existing.status === 0 && existing.stdout.trim() !== ''
-    if (!ours) {
+    if (!ownership.ours) {
       const conflicts = await findPortConflicts({ config, portFree })
       if (conflicts.length > 0) {
         log(describePortCollision({ config, conflicts }))
@@ -454,7 +577,7 @@ export async function runStack({
 
   const run = inherit(
     'docker',
-    ['compose', '-f', COMPOSE_FILE, '-p', config.projectName, ...COMMANDS[command]],
+    ['compose', '-f', composePath, '-p', config.projectName, ...COMMANDS[command]],
     composeEnv
   )
   if (run.error) {

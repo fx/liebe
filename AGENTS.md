@@ -159,7 +159,9 @@ The SDLC skills own the phases. What is specific to this repo:
    LIEBE_E2E_HA_PORT=28123 LIEBE_E2E_GO2RTC_PORT=28555 npm run e2e
    ```
 
-   `LIEBE_E2E_PROJECT` overrides the project name the same way, and `HA_BIND=0.0.0.0` still exposes the instance beyond loopback.
+   `LIEBE_E2E_PROJECT` overrides the project name the same way, and `HA_BIND=0.0.0.0` still exposes the instance beyond loopback. Do not point two checkouts at one `LIEBE_E2E_PROJECT`: `up` compares the existing project's compose file against its own and refuses, because compose would otherwise recreate the other checkout's stack against this one's mounts.
+
+   **The one upgrade trap.** A stack started before this change is still running under the old fixed project name (`ha`), and it bind-mounts the same writable `ha/config` this checkout's new stack would. Two Home Assistants sharing `.storage` and the recorder database is a corruption the bundle-identity check cannot see — both serve the same `dist/`. `up` detects the stray and refuses; stop it as the message says (`docker compose -p ha -f <checkout>/ha/docker-compose.yml down -v`) and start again.
 
    This replaces the exclusive-slot rule that used to live here, and the harm that rule existed to prevent is worth keeping in view because it is what the machinery is now shaped around. One worktree recreating the shared stack mid-run cost another agent a full run — twenty specs failing in under 150 ms each with `ECONNRESET` while Home Assistant restarted underneath them — and, worse, invalidated that agent's probe run: some probes had been measured against the other worktree's bundle, and a test failing because the served bundle lacks the feature entirely is indistinguishable from a mutation being caught. It scored 3/3 and proved nothing (see the artifact-identity rule in item 2). The bundle-identity check in `tests/e2e/bundleIdentity.ts` remains the fail-closed backstop for any mismatch that reaches the suite by some other route.
 
