@@ -127,21 +127,17 @@ export function ClimateDialContent(props: CardProps) {
    * it would have made the two variants of one domain disagree about what an
    * icon-only thermostat looks like.
    *
-   * Off the published item, and deliberately not off `props.config` as the
-   * other cards that read a universal option for themselves do. Those hand the
-   * same resolution to the shell they render (`config={storedConfig}`), so the
-   * card and its tile cannot disagree; this variant renders no shell — it
-   * delegates to `ClimateCompactContent`, whose tile and whose own options both
-   * come off this context. Reading the prop here would resolve the option from a
-   * source the tile it delegates to never sees: a compact layout that suppressed
-   * nothing, under a tile carrying no marker. Rerouting the climate family's
-   * config through its props would fix that at the family level, and belongs to
-   * the family rather than to this audit.
+   * Prop over published item, which is what the two components this wrapper
+   * dispatches to now resolve as well — and they hand that same resolution to
+   * the shell each of them renders. All three agreeing is the point rather than
+   * a detail: this wrapper renders no tile of its own, so an `iconOnly` read
+   * from a source the delegate never sees would send the card down the compact
+   * path under a tile that suppressed nothing and stamped no marker.
    *
    * Read before the branch below, so the hook order is settled the same way the
    * tier settles it: whichever component renders, it renders from the top.
    */
-  const { iconOnly } = readCardDisplay(config)
+  const { iconOnly } = readCardDisplay(props.config ?? config)
 
   // The tier decides which component renders at all, so it is settled before any
   // hook runs — the dial and the compact layout do not share a hook order, and
@@ -151,10 +147,19 @@ export function ClimateDialContent(props: CardProps) {
   return <ClimateDialFull {...props} />
 }
 
-function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: CardProps) {
+function ClimateDialFull({
+  entityId,
+  onDelete,
+  isSelected = false,
+  onSelect,
+  config: configProp,
+}: CardProps) {
   const model = useClimateModel(entityId)
   const control = useClimateControl(entityId)
-  const { config } = useCardItem()
+  const { config: publishedConfig } = useCardItem()
+  // Prop over published item, and the same resolution to the shell below — see
+  // `ClimateCompactContent`, which resolves it the same way for the same reason.
+  const config = configProp ?? publishedConfig
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
 
@@ -417,6 +422,8 @@ function ClimateDialFull({ entityId, onDelete, isSelected = false, onSelect }: C
       defaultAction="more-info"
       title={control.error || undefined}
       className="climate-card"
+      entityId={entityId}
+      config={config}
     >
       {/*
        * No `CardBody`, unlike the compact layout. The dial is not the four-slot

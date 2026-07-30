@@ -634,6 +634,7 @@ describe('the targets that bypassed the seam', () => {
       tier: 'full',
     },
     { name: 'input_number', Card: domainToCard.input_number, tier: 'glance' },
+    { name: 'climate (dial variant)', Card: domainToCard.climate.variants!.dial, tier: 'full' },
   ] as const)(
     '$name reads the option from the same place its tile does',
     ({ name, Card, tier }) => {
@@ -661,7 +662,7 @@ describe('the targets that bypassed the seam', () => {
        * (docs/specs/entity-cards/options/common.md — "Visual suppression never
        * removes accessible semantics").
        */
-      const domain = name.startsWith('weather') ? 'weather' : 'input_number'
+      const domain = name.split(' ')[0] as FixtureDomain
       const entity = entityFactories[domain]()
       const entityId = entity.entity_id
 
