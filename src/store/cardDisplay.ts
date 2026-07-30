@@ -3,8 +3,8 @@ import type { DomainColorName } from '~/theme/tokens'
 
 /**
  * The card display contract — the persisted shape of `name`, `icon`,
- * `hideName`, `hideState` and `color` under `item.config`, and the rules for
- * resolving them into what the shell renders.
+ * `hideName`, `hideState`, `color` and the alignment pair under `item.config`,
+ * and the rules for resolving them into what the shell renders.
  *
  * Spec: docs/specs/entity-cards/options/common.md — "Universal options". Lives
  * beside `cardActions.ts` for the same two reasons: it is config validation
@@ -50,7 +50,36 @@ export type CardColorOption = (typeof CARD_COLOR_OPTIONS)[number]
  */
 export const cardColorSchema = z.enum(CARD_COLOR_OPTIONS)
 
-export const CARD_DISPLAY_KEYS = ['name', 'icon', 'hideName', 'hideState', 'color'] as const
+/**
+ * Where the card's content block sits on one of the tile's axes.
+ *
+ * `start`/`center`/`end` rather than `left`/`top`: the stylesheet states the
+ * tile's geometry in logical properties throughout, so the option's vocabulary
+ * is the one the rules it drives are written in. The text widget's `left`/
+ * `right` alignment predates that and keeps its own naming
+ * (docs/specs/entity-cards/options/common.md — "Content alignment").
+ *
+ * `auto` is not "no value": it is the tier's own arrangement, which is a
+ * different answer per tier and per arrangement — centred in `glance`,
+ * space-between in `tall`, leading in `row`/`full` — and is why the pair cannot
+ * be expressed as a plain default of `start`.
+ */
+export const CARD_ALIGN_OPTIONS = ['auto', 'start', 'center', 'end'] as const
+
+export type CardAlignOption = (typeof CARD_ALIGN_OPTIONS)[number]
+
+/** Closed like `color`'s, and for the same reason: the import gate names it. */
+export const cardAlignSchema = z.enum(CARD_ALIGN_OPTIONS)
+
+export const CARD_DISPLAY_KEYS = [
+  'name',
+  'icon',
+  'hideName',
+  'hideState',
+  'color',
+  'alignHorizontal',
+  'alignVertical',
+] as const
 
 export type CardDisplayKey = (typeof CARD_DISPLAY_KEYS)[number]
 
@@ -63,10 +92,14 @@ export interface CardDisplayOptions {
   hideName: boolean
   hideState: boolean
   color: CardColorOption
+  /** Where the content block sits on the tile's horizontal axis. */
+  alignHorizontal: CardAlignOption
+  /** Where the content block sits on the tile's vertical axis. */
+  alignVertical: CardAlignOption
 }
 
 /**
- * The stored defaults. All five are "leave the card alone": an unconfigured
+ * The stored defaults. All seven are "leave the card alone": an unconfigured
  * card renders exactly what it rendered before the option existed.
  */
 export const CARD_DISPLAY_DEFAULTS: Readonly<CardDisplayOptions> = {
@@ -75,6 +108,8 @@ export const CARD_DISPLAY_DEFAULTS: Readonly<CardDisplayOptions> = {
   hideName: false,
   hideState: false,
   color: 'auto',
+  alignHorizontal: 'auto',
+  alignVertical: 'auto',
 }
 
 /** The display-key fragment of `item.config`, merged into the item schema. */
@@ -84,6 +119,8 @@ export const cardDisplayConfigSchema = z.object({
   hideName: z.boolean().optional(),
   hideState: z.boolean().optional(),
   color: cardColorSchema.optional(),
+  alignHorizontal: cardAlignSchema.optional(),
+  alignVertical: cardAlignSchema.optional(),
 })
 
 /**
@@ -96,6 +133,8 @@ const displayKeySchemas: Readonly<Record<CardDisplayKey, z.ZodTypeAny>> = {
   hideName: z.boolean(),
   hideState: z.boolean(),
   color: cardColorSchema,
+  alignHorizontal: cardAlignSchema,
+  alignVertical: cardAlignSchema,
 }
 
 export interface ReadCardDisplayOptions {
@@ -120,6 +159,15 @@ export interface ReadCardDisplayOptions {
  * `name` is the exception and stays: it identifies the entity ("Back door")
  * rather than describing what it is doing, and a user who renamed a card still
  * needs to know which one is alarming.
+ *
+ * The alignment pair stays for the same reason, one step further: it says
+ * nothing at all about the entity. It slides the card's content along an axis
+ * without changing a word, a glyph or a colour of it, so a top-aligned hazard
+ * tile still carries its whole warning — "a hazard tile may be top-aligned, it
+ * just cannot hide what it says" (docs/specs/entity-cards/options/common.md —
+ * "Content alignment"). This is a per-key list rather than a reset for exactly
+ * this: a floor written as "revert everything" would have taken layout with
+ * it.
  */
 function applyDangerFloor(display: CardDisplayOptions): CardDisplayOptions {
   return {

@@ -1,5 +1,5 @@
 import { CARD_ACTION_DEFAULTS } from '~/store/cardActions'
-import { CARD_COLOR_OPTIONS, CARD_DISPLAY_DEFAULTS } from '~/store/cardDisplay'
+import { CARD_ALIGN_OPTIONS, CARD_COLOR_OPTIONS, CARD_DISPLAY_DEFAULTS } from '~/store/cardDisplay'
 import type { ConfigDefinition } from '../CardConfig'
 
 /**
@@ -25,6 +25,35 @@ const COLOR_LABELS: Readonly<Record<(typeof CARD_COLOR_OPTIONS)[number], string>
   water: 'Water (cyan)',
   default: 'Generic (blue)',
 }
+
+/**
+ * How the alignment values read in the form, per axis.
+ *
+ * Two label sets rather than one, because `start` and `end` are logical: on the
+ * horizontal axis they are the reading direction's edges, on the vertical axis
+ * they are the top and the bottom. A shared "Start / End" pair would be exact
+ * and unreadable — the form is where the abstraction has to come back down to
+ * what the user is looking at.
+ */
+const ALIGN_LABELS: Readonly<
+  Record<'horizontal' | 'vertical', Record<(typeof CARD_ALIGN_OPTIONS)[number], string>>
+> = {
+  horizontal: {
+    auto: 'Automatic (follows the layout)',
+    start: 'Leading edge',
+    center: 'Centre',
+    end: 'Trailing edge',
+  },
+  vertical: {
+    auto: 'Automatic (follows the layout)',
+    start: 'Top',
+    center: 'Middle',
+    end: 'Bottom',
+  },
+}
+
+const alignOptions = (axis: 'horizontal' | 'vertical') =>
+  CARD_ALIGN_OPTIONS.map((value) => ({ value, label: ALIGN_LABELS[axis][value] }))
 
 export const displayConfigOptions: ConfigDefinition = {
   name: {
@@ -64,6 +93,22 @@ export const displayConfigOptions: ConfigDefinition = {
     // Driven off the canonical enum, so the form cannot offer a value the schema
     // would reject — nor miss one it would accept.
     options: CARD_COLOR_OPTIONS.map((value) => ({ value, label: COLOR_LABELS[value] })),
+  },
+  alignHorizontal: {
+    type: 'select',
+    default: CARD_DISPLAY_DEFAULTS.alignHorizontal,
+    label: 'Horizontal alignment',
+    description:
+      'Slides the card’s content across the tile. Automatic keeps the layout’s own placement.',
+    options: alignOptions('horizontal'),
+  },
+  alignVertical: {
+    type: 'select',
+    default: CARD_DISPLAY_DEFAULTS.alignVertical,
+    label: 'Vertical alignment',
+    description:
+      'Slides the card’s content up or down the tile. Automatic keeps the layout’s own placement.',
+    options: alignOptions('vertical'),
   },
 }
 
