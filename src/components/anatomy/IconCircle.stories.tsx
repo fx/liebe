@@ -60,8 +60,8 @@ export const Active: Story = {
  *
  * The per-appearance glyph step does not reach this case: a live hue overrides
  * every `--part-*` property with the same colour, so the glyph stays the bulb's
- * own in both appearances and does not clear 3:1 against a 20% tint of itself —
- * at its worst, a bulb reporting white renders both at roughly 1:1. That is the
+ * own in both appearances and its contrast against the tint is whatever the
+ * bulb makes it — a bulb reporting white renders both at roughly 1:1. That is the
  * shipped behaviour of the `useLightColor` exception rather than anything this
  * pattern decides, and whether the exception is meant to reach the glyph is
  * unsettled in the option doc that grants it. See the design system's
