@@ -9,6 +9,7 @@ import { WeatherCardMinimal } from './WeatherCardMinimal'
 import { WeatherCardModern } from './WeatherCardModern'
 import { WeatherCardDetailed } from './WeatherCardDetailed'
 import type { WeatherVariant } from '~/store/weatherOptions'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 /*
  * The presentation helpers used to live in this file, which meant every variant
@@ -32,7 +33,7 @@ const VARIANT_COMPONENTS: Readonly<Record<WeatherVariant, React.ComponentType<Ca
 }
 
 // Main WeatherCard that handles variant selection based on config
-export function WeatherCard(props: CardProps) {
+function WeatherCardContent(props: CardProps) {
   const [configOpen, setConfigOpen] = useState(false)
   const screens = useDashboardStore((state) => state.screens)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
@@ -102,7 +103,14 @@ export function WeatherCard(props: CardProps) {
 // whose entry reaches a card before the registry. `getCardVariant` reads
 // `card.variants`, so lookups are unchanged — and the variants are now
 // registered before the first render instead of after it.
-Object.assign(WeatherCard, {
+//
+// The boundary sits here as well as inside each variant. Every variant carries
+// its own, but a variant's boundary is *below* this component: it cannot catch a
+// throw in the option read above, in the store subscriptions, or anywhere in the
+// `CardConfig.Modal` subtree this component renders as the variant's sibling.
+// This is the one the registry dispatches to, so this is the one the convention
+// is about.
+export const WeatherCard = Object.assign(withCardErrorBoundary(WeatherCardContent), {
   defaultDimensions: { width: 4, height: 3 },
   variants: {
     minimal: WeatherCardMinimal,

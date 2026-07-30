@@ -2,13 +2,14 @@ import { createElement } from 'react'
 import { Flex, Text } from '@radix-ui/themes'
 import { Thermometer } from 'lucide-react'
 import { useEntity } from '../../hooks'
-import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
+import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
 import { useWeatherForecastSections, WeatherForecastSections } from './WeatherForecast'
 import type { CardProps } from '../cardRegistry'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import {
   formatTemperature,
   getConditionEmoji,
@@ -322,14 +323,6 @@ function WeatherCardDefaultContent(props: CardProps) {
   )
 }
 
-function WeatherCardDefaultWithBoundary(props: CardProps) {
-  return (
-    <ErrorBoundary>
-      <WeatherCardDefaultContent {...props} />
-    </ErrorBoundary>
-  )
-}
-
-export const WeatherCardDefault = Object.assign(WeatherCardDefaultWithBoundary, {
+export const WeatherCardDefault = Object.assign(withCardErrorBoundary(WeatherCardDefaultContent), {
   defaultDimensions: { width: 4, height: 3 },
 })

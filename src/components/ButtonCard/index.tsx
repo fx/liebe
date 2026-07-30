@@ -12,6 +12,7 @@ import { useCardItem } from '../cardItemContext'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import { resolveSwitchIconName, type SwitchIconName } from './icon'
 import { useRelativeSince } from './lastChanged'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface ButtonCardProps {
   entityId: string
@@ -217,6 +218,6 @@ const MemoizedButtonCard = memo(ButtonCardComponent, (prevProps, nextProps) => {
   )
 })
 
-export const ButtonCard = Object.assign(MemoizedButtonCard, {
+export const ButtonCard = Object.assign(withCardErrorBoundary(MemoizedButtonCard), {
   defaultDimensions: { width: 2, height: 1 },
 })

@@ -31,6 +31,7 @@ import {
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 import './AlarmCard.css'
 
 interface AlarmCardProps {
@@ -452,6 +453,6 @@ const MemoizedAlarmCard = memo(AlarmCardComponent, (prevProps, nextProps) => {
   )
 })
 
-export const AlarmCard = Object.assign(MemoizedAlarmCard, {
+export const AlarmCard = Object.assign(withCardErrorBoundary(MemoizedAlarmCard), {
   defaultDimensions: { width: 2, height: 2 },
 })

@@ -15,6 +15,7 @@ import {
 import { readBooleanControlStyle } from '~/store/inputHelperOptions'
 import { useCardItem } from './cardItemContext'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { withCardErrorBoundary } from './cardErrorBoundary'
 
 interface InputBooleanCardProps {
   entityId: string
@@ -238,6 +239,6 @@ function InputBooleanCardComponent({
  */
 const MemoizedInputBooleanCard = memo(InputBooleanCardComponent)
 
-export const InputBooleanCard = Object.assign(MemoizedInputBooleanCard, {
+export const InputBooleanCard = Object.assign(withCardErrorBoundary(MemoizedInputBooleanCard), {
   defaultDimensions: { width: 2, height: 1 },
 })

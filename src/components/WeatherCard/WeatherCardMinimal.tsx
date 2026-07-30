@@ -1,12 +1,13 @@
 import { Flex } from '@radix-ui/themes'
 import { useEntity } from '../../hooks'
-import { ErrorBoundary, SkeletonCard, ErrorDisplay } from '../ui'
+import { SkeletonCard, ErrorDisplay } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
 import type { CardProps } from '../cardRegistry'
 import { formatTemperature, getTemperatureDisplay, resolveUnavailableStatus } from './presentation'
+import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 function WeatherCardMinimalContent(props: CardProps) {
   const {
@@ -116,14 +117,6 @@ function WeatherCardMinimalContent(props: CardProps) {
   )
 }
 
-function WeatherCardMinimalWithBoundary(props: CardProps) {
-  return (
-    <ErrorBoundary>
-      <WeatherCardMinimalContent {...props} />
-    </ErrorBoundary>
-  )
-}
-
-export const WeatherCardMinimal = Object.assign(WeatherCardMinimalWithBoundary, {
+export const WeatherCardMinimal = Object.assign(withCardErrorBoundary(WeatherCardMinimalContent), {
   defaultDimensions: { width: 2, height: 2 },
 })
