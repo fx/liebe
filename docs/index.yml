@@ -319,7 +319,7 @@ changes:
     path: changes/0039-responsive-drag-integrity.md
     description: Stop a drag at a narrow breakpoint silently rewriting every other card's stored width and x through lossy inverse column scaling
     spec: grid-layout
-    status: draft
+    status: complete
     depends_on: []
   - id: '0040'
     name: test-harness-reliability

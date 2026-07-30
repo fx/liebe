@@ -58,6 +58,6 @@
 | 0036 | [Theming Contract & Cascade Gaps](changes/0036-theming-contract-gaps.md)                                     | [Theming](specs/theming/)                   | draft    | —                |
 | 0037 | [Card State, Capability & Primary-Action Correctness](changes/0037-card-state-and-capability-correctness.md) | [Entity Cards](specs/entity-cards/)         | draft    | —                |
 | 0038 | [Resolve the stateLabels Option-Key Collision](changes/0038-option-key-collision.md)                         | [Dashboard Config](specs/dashboard-config/) | complete | —                |
-| 0039 | [Responsive Drag Layout Integrity](changes/0039-responsive-drag-integrity.md)                                | [Grid Layout](specs/grid-layout/)           | draft    | —                |
+| 0039 | [Responsive Drag Layout Integrity](changes/0039-responsive-drag-integrity.md)                                | [Grid Layout](specs/grid-layout/)           | complete | —                |
 | 0040 | [Test & CI Harness Reliability](changes/0040-test-harness-reliability.md)                                    | [Architecture](specs/architecture/)         | draft    | —                |
 | 0041 | [Card Conventions & Reference Accuracy](changes/0041-card-conventions-and-reference.md)                      | [Entity Cards](specs/entity-cards/)         | draft    | —                |
