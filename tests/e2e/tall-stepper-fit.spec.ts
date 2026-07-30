@@ -241,6 +241,22 @@ test('a tall input_number pinned to the stepper renders a control that fits its 
   // assertion a first-match selector could never make.
   await expect.poll(() => cardTier(page, neighbour)).toBe('full')
 
+  /*
+   * And wait for a control to exist before measuring one. The tier is stamped
+   * as soon as the card renders, which is before the helper's state has
+   * arrived over the websocket — a snapshot taken in between would find an
+   * empty slot and pass every "inside the tile" comparison vacuously.
+   *
+   * The predicate is "any control", deliberately, NOT "the vertical slider":
+   * a poll for the slider would turn the defect this spec exists to catch — a
+   * stepper rendering here — into a 5-second timeout with no measurement in
+   * the failure, instead of the assertions below naming exactly which surface
+   * rendered and how far past the edge it reached.
+   */
+  await expect
+    .poll(async () => (await tallControlGeometry(page, level))?.controls.length ?? 0)
+    .toBeGreaterThan(0)
+
   const geometry = await tallControlGeometry(page, level)
   expect(geometry, 'the tall card should have rendered').not.toBeNull()
 
