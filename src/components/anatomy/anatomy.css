@@ -38,17 +38,77 @@
 
 @layer liebe-base {
   /* ------------------------------------------------------------------ *
+   * The glyph role, resolved on the theme root
+   *
+   * A glyph on a tint has to clear 3:1 against that tint, and the tint is a 20%
+   * veil of the base hue over the card — so which step of the hue reads against
+   * it depends on the appearance. Over the dark card the veil stays dark and
+   * the saturated base step reads; over the near-white card it comes out a pale
+   * wash the base step cannot clear 3:1 against, whatever the hue (1.40:1 for
+   * amber, 2.50:1 for green, measured — change 0035). In light the glyph
+   * therefore takes the domain's TEXT step, which every theme already has to
+   * pin to clear 4.5:1 against that same card surface, so no theme owes a token
+   * for this.
+   *
+   * WHY THIS IS DECLARED ON THE ROOT AND NOT ON THE PART
+   * ---------------------------------------------------
+   * The obvious form — an appearance selector as an ancestor of the part —
+   * leaks through nested themes: a `<Theme appearance="light">` inside a dark
+   * root (the workshop's appearance split, the panel's fullscreen modal) is
+   * still a descendant of the dark root, so the dark rule would keep matching
+   * inside the light pane and put the failing glyph back exactly where the
+   * treatment is reviewed. Declaring per appearance on the root instead is what
+   * src/styles/tokens.css does with the surfaces, and it composes: a nested
+   * root redeclares the property on itself and every part below inherits the
+   * nearest one. The selector pair below is that sheet's, unchanged — a theme
+   * root that declares itself dark, and a nested theme inheriting darkness from
+   * an ancestor without overriding it — and light is unconditional because
+   * Radix's classless default is light.
+   *
+   * These are per triplet rather than one switch because CSS cannot compose a
+   * property name: the choice is between two named tokens, so it has to be made
+   * where both names are in scope.
+   * ------------------------------------------------------------------ */
+
+  :where(.radix-themes) {
+    --part-light-glyph: var(--liebe-c-light-text);
+    --part-heat-glyph: var(--liebe-c-heat-text);
+    --part-cool-glyph: var(--liebe-c-cool-text);
+    --part-ok-glyph: var(--liebe-c-ok-text);
+    --part-alert-glyph: var(--liebe-c-alert-text);
+    --part-media-glyph: var(--liebe-c-media-text);
+    --part-vacuum-glyph: var(--liebe-c-vacuum-text);
+    --part-water-glyph: var(--liebe-c-water-text);
+    --part-default-glyph: var(--liebe-c-default-text);
+    --part-brand-glyph: var(--liebe-c-brand-text);
+  }
+
+  .radix-themes:where(.dark, .dark-theme),
+  :is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
+    --part-light-glyph: var(--liebe-c-light);
+    --part-heat-glyph: var(--liebe-c-heat);
+    --part-cool-glyph: var(--liebe-c-cool);
+    --part-ok-glyph: var(--liebe-c-ok);
+    --part-alert-glyph: var(--liebe-c-alert);
+    --part-media-glyph: var(--liebe-c-media);
+    --part-vacuum-glyph: var(--liebe-c-vacuum);
+    --part-water-glyph: var(--liebe-c-water);
+    --part-default-glyph: var(--liebe-c-default);
+    --part-brand-glyph: var(--liebe-c-brand);
+  }
+
+  /* ------------------------------------------------------------------ *
    * Domain colour resolution
    *
    * `--part-color` (saturated glyph/solid role), `--part-tint` (the ~20%
-   * surface role) and `--part-text` (the readable text role) are internal
-   * plumbing: parts read them, themes read the `--liebe-c-*` tokens they
-   * resolve from. Custom properties inherit, so stamping `data-color` on a
-   * container propagates the triplet to anything inside it that has not
-   * resolved one of its own.
+   * surface role), `--part-text` (the readable text role) and `--part-glyph`
+   * (the glyph-on-tint role, per appearance above) are internal plumbing: parts
+   * read them, themes read the `--liebe-c-*` tokens they resolve from. Custom
+   * properties inherit, so stamping `data-color` on a container propagates the
+   * triplet to anything inside it that has not resolved one of its own.
    *
    * A data-driven colour — a bulb's actual RGB, the one exception the spec
-   * grants — arrives as an inline override of these three properties, which
+   * grants — arrives as an inline override of these four properties, which
    * wins over these rules by being inline. See `anatomyPart.ts`.
    * ------------------------------------------------------------------ */
 
@@ -56,70 +116,86 @@
     --part-color: var(--liebe-c-light);
     --part-tint: var(--liebe-c-light-tint);
     --part-text: var(--liebe-c-light-text);
+    --part-glyph: var(--part-light-glyph);
   }
 
   [data-color='heat'] {
     --part-color: var(--liebe-c-heat);
     --part-tint: var(--liebe-c-heat-tint);
     --part-text: var(--liebe-c-heat-text);
+    --part-glyph: var(--part-heat-glyph);
   }
 
   [data-color='cool'] {
     --part-color: var(--liebe-c-cool);
     --part-tint: var(--liebe-c-cool-tint);
     --part-text: var(--liebe-c-cool-text);
+    --part-glyph: var(--part-cool-glyph);
   }
 
   [data-color='ok'] {
     --part-color: var(--liebe-c-ok);
     --part-tint: var(--liebe-c-ok-tint);
     --part-text: var(--liebe-c-ok-text);
+    --part-glyph: var(--part-ok-glyph);
   }
 
   [data-color='alert'] {
     --part-color: var(--liebe-c-alert);
     --part-tint: var(--liebe-c-alert-tint);
     --part-text: var(--liebe-c-alert-text);
+    --part-glyph: var(--part-alert-glyph);
   }
 
   [data-color='media'] {
     --part-color: var(--liebe-c-media);
     --part-tint: var(--liebe-c-media-tint);
     --part-text: var(--liebe-c-media-text);
+    --part-glyph: var(--part-media-glyph);
   }
 
   [data-color='vacuum'] {
     --part-color: var(--liebe-c-vacuum);
     --part-tint: var(--liebe-c-vacuum-tint);
     --part-text: var(--liebe-c-vacuum-text);
+    --part-glyph: var(--part-vacuum-glyph);
   }
 
   [data-color='water'] {
     --part-color: var(--liebe-c-water);
     --part-tint: var(--liebe-c-water-tint);
     --part-text: var(--liebe-c-water-text);
+    --part-glyph: var(--part-water-glyph);
   }
 
   [data-color='default'] {
     --part-color: var(--liebe-c-default);
     --part-tint: var(--liebe-c-default-tint);
     --part-text: var(--liebe-c-default-text);
+    --part-glyph: var(--part-default-glyph);
   }
 
   [data-color='brand'] {
     --part-color: var(--liebe-c-brand);
     --part-tint: var(--liebe-c-brand-tint);
     --part-text: var(--liebe-c-brand-text);
+    --part-glyph: var(--part-brand-glyph);
   }
 
   /* ------------------------------------------------------------------ *
    * The active/inactive treatment
    *
-   * One pattern for every tinted part: a saturated glyph on the domain's 20%
+   * One pattern for every tinted part: the domain's glyph on the domain's 20%
    * tint when active, a muted glyph on a 5% neutral when not. The neutral is
    * `--gray-a3` by name — the spec pins the inactive ground to the Radix
    * neutral rather than to a domain token, because an inactive part carries no
    * state meaning and must not carry hue.
+   *
+   * The glyph takes `--part-glyph` — the per-appearance role resolved at the
+   * top of this sheet, which is the text step in light and the base hue in
+   * dark, and why. It is not `--part-color`: that role is the saturated solid
+   * (the slider's leading edge, the sparkline's stroke), which sits on the
+   * neutral track or the card rather than on a tint of itself.
    * ------------------------------------------------------------------ */
 
   .liebe-icon,
@@ -140,7 +216,7 @@
   .liebe-pill[data-active],
   .liebe-chip[data-active] {
     background: var(--part-tint);
-    color: var(--part-color);
+    color: var(--part-glyph);
   }
 
   /* ------------------------------------------------------------------ *

@@ -61,13 +61,18 @@ describe('anatomyPart', () => {
 
   it('overrides the triplet inline for a data-driven colour', () => {
     // A bulb's real RGB is the one documented exception to token-only colour;
-    // the tint is mixed at the same 20% the token layer derives it at.
+    // the tint is mixed at the same 20% the token layer derives it at. The
+    // glyph role is overridden too, and to the live hue in both appearances:
+    // the pattern's per-appearance glyph step reaches for a darker step of the
+    // domain hue, and a live colour has none to reach for. Leaving it out would
+    // put the glyph on the token's hue inside a tint mixed from the bulb's.
     expect(
       anatomyPart('liebe-icon', { color: 'light', domain: 'light', hue: 'rgb(255, 170, 80)' }).style
     ).toEqual({
       '--part-color': 'rgb(255, 170, 80)',
       '--part-tint': 'color-mix(in srgb, rgb(255, 170, 80) 20%, transparent)',
       '--part-text': 'rgb(255, 170, 80)',
+      '--part-glyph': 'rgb(255, 170, 80)',
     })
   })
 })
