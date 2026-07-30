@@ -193,8 +193,11 @@ export function classifyBundleUrl(moduleUrl: string, origin: string): BundleSour
 interface ArtifactMismatch {
   relativePath: string
   url: string
+  /** Absent when the artifact could not be retrieved at all. */
   served?: { sha256: string; bytes: number }
+  /** Why it could not be: an HTTP status, or the error the request threw. */
   status?: number
+  error?: string
   built: { sha256: string; bytes: number }
 }
 
@@ -240,15 +243,24 @@ export async function assertServedArtifactsMatchDist({
     const builtDigest = { sha256: sha256(built), bytes: built.byteLength }
     if (relativePath === source.distFile) bundleHash = builtDigest.sha256
 
-    const res = await fetchImpl(url, { signal: AbortSignal.timeout(30_000) })
-    if (!res.ok) {
-      mismatches.push({ relativePath, url, status: res.status, built: builtDigest })
-      continue
-    }
-    const servedBytes = new Uint8Array(await res.arrayBuffer())
-    const servedDigest = { sha256: sha256(servedBytes), bytes: servedBytes.byteLength }
-    if (servedDigest.sha256 !== builtDigest.sha256) {
-      mismatches.push({ relativePath, url, served: servedDigest, built: builtDigest })
+    // A request that THROWS — connection reset, the timeout firing — is recorded
+    // rather than rethrown, so the run still reports which artifacts diverged
+    // instead of dying on the first one. It remains a mismatch either way: the
+    // gate never passes an artifact it could not compare.
+    try {
+      const res = await fetchImpl(url, { signal: AbortSignal.timeout(30_000) })
+      if (!res.ok) {
+        mismatches.push({ relativePath, url, status: res.status, built: builtDigest })
+        continue
+      }
+      const servedBytes = new Uint8Array(await res.arrayBuffer())
+      const servedDigest = { sha256: sha256(servedBytes), bytes: servedBytes.byteLength }
+      if (servedDigest.sha256 !== builtDigest.sha256) {
+        mismatches.push({ relativePath, url, served: servedDigest, built: builtDigest })
+      }
+    } catch (thrown) {
+      const error = thrown instanceof Error ? `${thrown.name}: ${thrown.message}` : String(thrown)
+      mismatches.push({ relativePath, url, error, built: builtDigest })
     }
   }
 
@@ -276,10 +288,21 @@ export async function assertServedArtifactsMatchDist({
   }
 }
 
-function describeMismatch({ relativePath, url, served, status, built }: ArtifactMismatch): string {
+function describeMismatch({
+  relativePath,
+  url,
+  served,
+  status,
+  error,
+  built,
+}: ArtifactMismatch): string {
+  const unretrievable =
+    error === undefined
+      ? `answered HTTP ${status} — the mount does not have this file`
+      : `could not be retrieved — ${error}`
   const servedLine =
     served === undefined
-      ? `    served ${url} answered HTTP ${status} — the mount does not have this file`
+      ? `    served ${url} ${unretrievable}`
       : `    served ${url}\n      sha256 ${served.sha256} (${served.bytes} bytes)`
   return (
     `  ${MOUNT_LOCAL_DIR}/${relativePath}\n` +

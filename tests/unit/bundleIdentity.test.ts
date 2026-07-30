@@ -301,6 +301,30 @@ describe('assertServedArtifactsMatchDist', () => {
     expect(error.message).toContain(sha256('styles-v1'))
   })
 
+  it('reports a request that throws instead of dying on it', async () => {
+    // A connection reset or a firing timeout must still produce the aggregate
+    // report — and must still be fatal, since an artifact that could not be
+    // compared has not been shown to match.
+    const error = await rejectionOf(
+      assertServedArtifactsMatchDist({
+        moduleUrl: MOUNTED_URL,
+        origin: ORIGIN,
+        fetchImpl: async (url) => {
+          if (url.endsWith('liebe.css')) throw new TypeError('fetch failed')
+          return serving({ ...clean, 'panel.js': 'other' })(url)
+        },
+        ...built(clean),
+        log: vi.fn(),
+      })
+    )
+
+    expect(error.message).toContain('2 of 3 panel artifact(s)')
+    expect(error.message).toContain('could not be retrieved — TypeError: fetch failed')
+    // The artifacts after the throwing one are still compared and reported.
+    expect(error.message).toContain('dist/panel.js')
+    expect(error.message).toContain(sha256('other'))
+  })
+
   it('skips the allowlisted dev server without fetching or reading anything', async () => {
     const fetchImpl = serving(clean)
     const listLocalArtifacts = vi.fn()
