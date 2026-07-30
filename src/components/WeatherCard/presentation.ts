@@ -37,6 +37,32 @@ import type { CSSProperties } from 'react'
  */
 
 /* ------------------------------------------------------------------ *
+ * Lifecycle state
+ * ------------------------------------------------------------------ */
+
+/**
+ * The status line for a weather entity that is reporting no weather, or
+ * `undefined` for one that is reporting some.
+ *
+ * `unavailable` and `unknown` share the *treatment* — neither carries a
+ * condition or a temperature, so both take the shell's inert card — and they do
+ * not share a meaning. `unavailable` is "Home Assistant cannot reach this";
+ * `unknown` is "it reached it and got no data back". Printing a hardcoded
+ * `UNAVAILABLE` over an `unknown` entity reports the first when the second
+ * happened, which is the one thing a status line must not do. The raw state
+ * uppercased says which arrived and invents nothing for it, which is what the
+ * fan card settled on (docs/changes/0037 — "Uppercased raw state is the
+ * fallback for an unrecognised state, not a friendly label").
+ *
+ * Returned as the label rather than as a predicate so no variant can gate on
+ * one rule and print another: all four ask this whether to draw the inert card
+ * and what to put in its status slot.
+ */
+export function resolveUnavailableStatus(state: string): string | undefined {
+  return state === 'unavailable' || state === 'unknown' ? state.toUpperCase() : undefined
+}
+
+/* ------------------------------------------------------------------ *
  * Attribute reading
  * ------------------------------------------------------------------ */
 

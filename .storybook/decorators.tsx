@@ -18,6 +18,7 @@ import {
   seedWeatherForecast,
   type LiebeStoryParameters,
 } from '~/test/fixtures'
+import { deriveCardTier, type CardSpan } from '~/utils/cardTier'
 import { gridConfig } from '../app/utils/responsive'
 import { createMockHass } from './mockHass'
 
@@ -243,13 +244,15 @@ export interface GridCellArgs {
 export const gridCellArgTypes = {
   gridWidth: {
     name: 'grid width',
-    description: 'Column span of the grid cell the card is rendered in',
+    description:
+      'Column span of the grid cell the card is rendered in. The layout tier is derived from the span — resize the cell to change it.',
     control: { type: 'range' as const, min: 1, max: gridConfig.desktop.columns, step: 1 },
     table: { category: 'Grid cell' },
   },
   gridHeight: {
     name: 'grid height',
-    description: 'Row span of the grid cell the card is rendered in',
+    description:
+      'Row span of the grid cell the card is rendered in. The layout tier is derived from the span — resize the cell to change it.',
     control: { type: 'range' as const, min: 1, max: gridConfig.desktop.rows, step: 1 },
     table: { category: 'Grid cell' },
   },
@@ -278,10 +281,27 @@ export function gridCellSize(width: number, height: number) {
 /**
  * Renders a card story inside a fixed-size cell with real grid metrics, so
  * every layout tier is reachable from the `grid width`/`grid height` controls.
+ *
+ * The tier and the span are **derived from the cell**, through the same
+ * `deriveCardTier` the grid renderer uses, and injected into the story's args —
+ * so the workshop shows what the grid would show for that cell, by construction
+ * (docs/specs/storybook/index.md — "Global decorators & toolbar"). Reusing the
+ * production derivation rather than copying its boundaries is the point: a
+ * boundary change in the renderer reaches the workshop with no story edits.
+ *
+ * Derived beats given, deliberately: a story that also set a `tier` arg would
+ * otherwise be able to render a combination the grid cannot produce, which is
+ * exactly the drift change 0029 removes.
+ *
+ * One cell, one card. A story that frames several cards at once gives each of
+ * them its own cell with `nestedGridCell` instead — forwarding this cell's tier
+ * to a tile drawn at a different size would reintroduce the same contradiction
+ * one level in.
  */
 export const withGridCell: Decorator = (Story, context) => {
   const { gridWidth = 2, gridHeight = 2 } = context.args as Partial<GridCellArgs>
   const { width, height, gapX } = gridCellSize(gridWidth, gridHeight)
+  const span: CardSpan = { width: gridWidth, height: gridHeight }
 
   return (
     <div
@@ -297,7 +317,36 @@ export const withGridCell: Decorator = (Story, context) => {
         } as CSSProperties
       }
     >
-      <Story />
+      <Story args={{ ...context.args, span, tier: deriveCardTier(span) }} />
     </div>
   )
+}
+
+/**
+ * A cell for a story that frames several cards at once — a gallery comparing
+ * states or display options, a side-by-side tier comparison.
+ *
+ * `withGridCell` derives one tier for one card from one cell, which is the whole
+ * point of it; a story rendering N tiles inside that cell therefore cannot use
+ * the cell's tier for the tiles. Forwarding it would put every tile at a tier
+ * its own box could not produce — a 150px tile inheriting `full` from a 12×3
+ * frame — which is the contradiction change 0029 exists to remove, one level in.
+ *
+ * So each tile gets a real cell of its own: spread `frame` onto the element that
+ * wraps the tile and hand `tier` to the card. Both come from the same metrics
+ * and the same derivation the decorator uses, so a tile is drawn at the size its
+ * tier is for, and a tier comparison is a comparison of four cells rather than
+ * of four `tier` props.
+ */
+export function nestedGridCell(width: number, height: number) {
+  const cell = gridCellSize(width, height)
+  const span: CardSpan = { width, height }
+
+  return {
+    frame: {
+      style: { width: cell.width, height: cell.height, display: 'grid' } as CSSProperties,
+    },
+    tier: deriveCardTier(span),
+    span,
+  }
 }

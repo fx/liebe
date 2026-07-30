@@ -22,15 +22,11 @@ const meta: Meta<SensorCardStoryProps> = {
   title: 'Cards/SensorCard',
   component: SensorCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 2,
-    gridHeight: 2,
+    gridHeight: 1,
   },
   parameters: {
     liebe: { entities: [createSensorEntity()] },
@@ -139,7 +135,7 @@ export const EditMode: Story = {
  */
 export const TierGlance: Story = {
   name: 'Tier — glance (1×1)',
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
 }
 
 /**
@@ -148,13 +144,13 @@ export const TierGlance: Story = {
  */
 export const TierRow: Story = {
   name: 'Tier — row (3×1)',
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
 }
 
 /** Icon on top, the big value centred beneath it, name at the bottom. */
 export const TierTall: Story = {
   name: 'Tier — tall (1×3)',
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
 }
 
 /**
@@ -163,7 +159,7 @@ export const TierTall: Story = {
  */
 export const TierFull: Story = {
   name: 'Tier — full (3×2)',
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
 }
 
 /* ------------------------------------------------------------------ *
@@ -182,7 +178,7 @@ function readValue(canvasElement: HTMLElement): string {
 
 /** Two forced decimals, over the one `auto` gives a temperature. */
 export const PrecisionTwoDecimals: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [createSensorEntity({ state: '21.427' })],
@@ -196,7 +192,7 @@ export const PrecisionTwoDecimals: Story = {
 
 /** No decimals at all — the same reading, rounded whole. */
 export const PrecisionWholeNumbers: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [createSensorEntity({ state: '21.427' })],
@@ -213,7 +209,7 @@ export const PrecisionWholeNumbers: Story = {
  * mislabelled entity is corrected, not how one is converted.
  */
 export const UnitOverride: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [createSensorEntity()],
@@ -239,7 +235,7 @@ const housePower = (state = '2450') =>
 
 /** `valueScale: none` — the raw magnitude, where the default would say kW. */
 export const ValueScaleNone: Story = {
-  args: { entityId: 'sensor.house_power', tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { entityId: 'sensor.house_power', gridWidth: 1, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [housePower()],
@@ -336,7 +332,7 @@ export const GraphInRow: Story = historyStory(
   graphEntity('row'),
   temperatureCurve('sensor.graph_row'),
   {
-    args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+    args: { gridWidth: 3, gridHeight: 1 },
     play: async ({ canvasElement }) => {
       await drawnSpark(canvasElement)
       await expect(within(canvasElement).getByTestId('sensor-graph')).toHaveAttribute(
@@ -352,7 +348,7 @@ export const GraphInTall: Story = historyStory(
   graphEntity('tall'),
   temperatureCurve('sensor.graph_tall'),
   {
-    args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+    args: { gridWidth: 1, gridHeight: 3 },
     play: async ({ canvasElement }) => {
       await drawnSpark(canvasElement)
       await expect(within(canvasElement).getByTestId('sensor-graph')).toHaveAttribute(
@@ -368,7 +364,7 @@ export const GraphInFull: Story = historyStory(
   graphEntity('full'),
   temperatureCurve('sensor.graph_full'),
   {
-    args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+    args: { gridWidth: 3, gridHeight: 2 },
     play: async ({ canvasElement }) => {
       await drawnSpark(canvasElement)
       // The footer reports the same window, through the same formatting
@@ -459,7 +455,7 @@ export const GraphAsBars: Story = historyStory(
       recentSamples((_, index) => index)
     ),
   {
-    args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+    args: { gridWidth: 3, gridHeight: 2 },
     parameters: { liebe: { entities: [energyCounter], itemConfig: { graphMode: 'bar' } } },
     play: async ({ canvasElement }) => {
       await drawnSpark(canvasElement)
@@ -478,7 +474,7 @@ export const GraphLoading: Story = historyStory(
   graphEntity('loading'),
   () => new Promise(() => {}),
   {
-    args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+    args: { gridWidth: 3, gridHeight: 2 },
     play: async ({ canvasElement }) => {
       const canvas = within(canvasElement)
       await expect(canvas.getByTestId('sensor-graph')).toBeInTheDocument()
@@ -493,7 +489,7 @@ export const GraphLoading: Story = historyStory(
  * entirely rather than standing empty — an option with no data renders nothing.
  */
 export const GraphEmptyHistory: Story = historyStory(graphEntity('empty'), async () => ({}), {
-  args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+  args: { gridWidth: 3, gridHeight: 2 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await waitFor(() => expect(canvas.queryByTestId('sensor-graph-skeleton')).toBeNull())
@@ -519,7 +515,7 @@ export const GraphUnsupported: Story = historyStory(
     throw new Error('the card must not ask the recorder about a text sensor')
   },
   {
-    args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+    args: { gridWidth: 3, gridHeight: 2 },
     play: async ({ canvasElement }) => {
       await expect(within(canvasElement).queryByTestId('sensor-graph')).toBeNull()
       await expect(readValue(canvasElement)).toBe('CHARGING')
@@ -532,7 +528,7 @@ export const GraphOff: Story = historyStory(
   graphEntity('off'),
   temperatureCurve('sensor.graph_off'),
   {
-    args: { tier: 'full', gridWidth: 3, gridHeight: 2 },
+    args: { gridWidth: 3, gridHeight: 2 },
     parameters: {
       liebe: { entities: [graphEntity('off')], itemConfig: { showGraph: false } },
     },
@@ -556,7 +552,7 @@ export const GlanceTrend: Story = historyStory(
       recentSamples((_, index) => 18 + index)
     ),
   {
-    args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+    args: { gridWidth: 1, gridHeight: 1 },
     play: async ({ canvasElement }) => {
       const canvas = within(canvasElement)
       await waitFor(() => expect(canvas.getByTestId('sensor-trend')).toHaveTextContent('↑'))
@@ -575,7 +571,7 @@ export const GlanceTrendFalling: Story = historyStory(
       recentSamples((_, index) => 41 - index)
     ),
   {
-    args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+    args: { gridWidth: 1, gridHeight: 1 },
     play: async ({ canvasElement }) => {
       await waitFor(() =>
         expect(within(canvasElement).getByTestId('sensor-trend')).toHaveTextContent('↓ -23')
@@ -589,7 +585,7 @@ export const GlanceTrendOff: Story = historyStory(
   graphEntity('trend_off'),
   temperatureCurve('sensor.graph_trend_off'),
   {
-    args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+    args: { gridWidth: 1, gridHeight: 1 },
     parameters: {
       liebe: { entities: [graphEntity('trend_off')], itemConfig: { showTrend: false } },
     },

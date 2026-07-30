@@ -33,13 +33,9 @@ const meta: Meta<WeatherCardStoryProps> = {
   title: 'Cards/WeatherCard',
   component: WeatherCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'row',
     gridWidth: 4,
     gridHeight: 3,
   },
@@ -133,15 +129,41 @@ export const Fahrenheit: Story = {
   args: { config: { variant: 'minimal', temperatureUnit: 'fahrenheit' }, gridWidth: 2 },
 }
 
+/** Home Assistant cannot reach the entity: the inert card, status `UNAVAILABLE`. */
 export const Unavailable: Story = {
   args: { gridHeight: 2 },
   parameters: { liebe: { entities: [asUnavailable(createWeatherEntity())] } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('UNAVAILABLE')
+  },
 }
 
-/** `unknown` is treated exactly like `unavailable` by every weather variant. */
+/**
+ * `unknown` takes the same inert card as `unavailable` and **not** the same
+ * status line: it means Home Assistant reached the entity and got no weather
+ * back, which is a different fault from not reaching it, so the card prints the
+ * raw state rather than the `UNAVAILABLE` literal it used to (change 0037 PR 1).
+ */
 export const UnknownState: Story = {
   args: { gridHeight: 2 },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'unknown' })] } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('UNKNOWN')
+    await expect(cardText(canvasElement)).not.toContain('UNAVAILABLE')
+  },
+}
+
+/**
+ * The same `unknown` entity in `minimal`, the variant that renders least: all
+ * four agree about the status line, because they all resolve it from one place
+ * (`presentation.ts` — `resolveUnavailableStatus`).
+ */
+export const UnknownStateMinimal: Story = {
+  args: { gridHeight: 2, gridWidth: 2, config: { variant: 'minimal' } },
+  parameters: { liebe: { entities: [createWeatherEntity({ state: 'unknown' })] } },
+  play: async ({ canvasElement }) => {
+    await expect(cardText(canvasElement)).toContain('UNKNOWN')
+  },
 }
 
 export const Loading: Story = {
@@ -183,7 +205,7 @@ export const EditMode: Story = {
 
 /** 1×1: condition glyph, name, and the temperature in the state slot. */
 export const TierGlance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('stack')
     await expect(cardText(canvasElement)).toContain('22°C')
@@ -195,7 +217,7 @@ export const TierGlance: Story = {
 
 /** 2×1: the condition text and the secondary line join it. */
 export const TierRow: Story = {
-  args: { tier: 'row', gridWidth: 2, gridHeight: 1 },
+  args: { gridWidth: 2, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('row')
     await expect(cardText(canvasElement)).toContain('partlycloudy')
@@ -205,7 +227,7 @@ export const TierRow: Story = {
 
 /** 1×3: the same content stacked down the tile. */
 export const TierTall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('tall')
     await expect(cardText(canvasElement)).toContain('51%')
@@ -214,7 +236,7 @@ export const TierTall: Story = {
 
 /** 4×3: the detail line continues with wind. */
 export const TierFull: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3 },
+  args: { gridWidth: 4, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('row')
     // The featured reading first, then what it did not use — this entity
@@ -226,7 +248,7 @@ export const TierFull: Story = {
 
 /** `detailed` at `row`: pressure is the first thing that does not fit. */
 export const TierRowDetailed: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, config: { variant: 'detailed' } },
+  args: { gridWidth: 3, gridHeight: 1, config: { variant: 'detailed' } },
   play: async ({ canvasElement }) => {
     await expect(cardText(canvasElement)).toContain('Humidity')
     await expect(cardText(canvasElement)).not.toContain('Pressure')
@@ -242,7 +264,7 @@ export const TierRowDetailed: Story = {
 
 /** `minimal` at 1×1: a name and the temperature in the state slot. */
 export const TierGlanceMinimal: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1, config: { variant: 'minimal' } },
+  args: { gridWidth: 1, gridHeight: 1, config: { variant: 'minimal' } },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('stack')
     await expect(canvasElement.querySelector('.liebe-value')).toBeNull()
@@ -252,7 +274,7 @@ export const TierGlanceMinimal: Story = {
 
 /** `minimal` at 1×3: the big readout, and still nothing else. */
 export const TierTallMinimal: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3, config: { variant: 'minimal' } },
+  args: { gridWidth: 1, gridHeight: 3, config: { variant: 'minimal' } },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('tall')
     await expect(canvasElement.querySelector('.liebe-value')).toHaveTextContent('22°C')
@@ -263,7 +285,7 @@ export const TierTallMinimal: Story = {
 
 /** `modern` at 1×3: glyph on top, temperature, then the secondary line. */
 export const TierTallModern: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3, config: { variant: 'modern' } },
+  args: { gridWidth: 1, gridHeight: 3, config: { variant: 'modern' } },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('tall')
     await expect(cardText(canvasElement)).toContain('51%')
@@ -272,7 +294,7 @@ export const TierTallModern: Story = {
 
 /** `detailed` at 1×3: the labelled block stacked down the tile. */
 export const TierTallDetailed: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3, config: { variant: 'detailed' } },
+  args: { gridWidth: 1, gridHeight: 3, config: { variant: 'detailed' } },
   play: async ({ canvasElement }) => {
     await expect(arrangement(canvasElement)).toBe('tall')
     await expect(cardText(canvasElement)).toContain('Humidity')
@@ -282,7 +304,7 @@ export const TierTallDetailed: Story = {
 
 /** `detailed` at 4×4: the whole block, pressure included. */
 export const TierFullDetailed: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 4, config: { variant: 'detailed' } },
+  args: { gridWidth: 4, gridHeight: 4, config: { variant: 'detailed' } },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector('.liebe-value')).toHaveTextContent('22°C')
     await expect(cardText(canvasElement)).toContain('Pressure')
@@ -292,7 +314,7 @@ export const TierFullDetailed: Story = {
 
 /** `modern` at 4×3: the big readout and the continued detail line. */
 export const TierFullModern: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3, config: { variant: 'modern' } },
+  args: { gridWidth: 4, gridHeight: 3, config: { variant: 'modern' } },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector('.liebe-value')).toHaveTextContent('22°C')
     await expect(cardText(canvasElement)).toContain('Wind 12 km/h SW')
@@ -308,7 +330,7 @@ export const TierFullModern: Story = {
  * below is one value of the select, on an entity that publishes all five.
  */
 export const SecondaryInfoWind: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'wind' } },
+  args: { gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'wind' } },
   play: async ({ canvasElement }) => {
     // Speed, unit and the bearing named as a compass point rather than "220".
     await expect(cardText(canvasElement)).toContain('12 km/h SW')
@@ -316,7 +338,7 @@ export const SecondaryInfoWind: Story = {
 }
 
 export const SecondaryInfoFeelsLike: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'feels-like' } },
+  args: { gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'feels-like' } },
   parameters: {
     liebe: { entities: [createWeatherEntity({ attributes: { apparent_temperature: 19.4 } })] },
   },
@@ -326,7 +348,7 @@ export const SecondaryInfoFeelsLike: Story = {
 }
 
 export const SecondaryInfoUv: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'uv' } },
+  args: { gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'uv' } },
   parameters: { liebe: { entities: [createWeatherEntity({ attributes: { uv_index: 6 } })] } },
   play: async ({ canvasElement }) => {
     await expect(cardText(canvasElement)).toContain('6')
@@ -335,7 +357,7 @@ export const SecondaryInfoUv: Story = {
 }
 
 export const SecondaryInfoPressure: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'pressure' } },
+  args: { gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'pressure' } },
   play: async ({ canvasElement }) => {
     await expect(cardText(canvasElement)).toContain('1014 hPa')
   },
@@ -347,7 +369,7 @@ export const SecondaryInfoPressure: Story = {
  * than a blank.
  */
 export const SecondaryInfoFallback: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'uv' } },
+  args: { gridWidth: 3, gridHeight: 1, config: { secondaryInfo: 'uv' } },
   parameters: { liebe: { entities: [createWeatherEntity()] } },
   play: async ({ canvasElement }) => {
     await expect(cardText(canvasElement)).toContain('51%')
@@ -360,7 +382,7 @@ export const SecondaryInfoFallback: Story = {
  * entirely, and the card lays out as if the option were unset.
  */
 export const SecondaryInfoUnavailable: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3, config: { secondaryInfo: 'wind' } },
+  args: { gridWidth: 4, gridHeight: 3, config: { secondaryInfo: 'wind' } },
   parameters: {
     liebe: {
       entities: [
@@ -385,7 +407,7 @@ export const SecondaryInfoUnavailable: Story = {
 
 /** `showConditionBackground: false` — the flat themed surface, normal text. */
 export const NoConditionBackground: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3, config: { showConditionBackground: false } },
+  args: { gridWidth: 4, gridHeight: 3, config: { showConditionBackground: false } },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'rainy' })] } },
   play: async ({ canvasElement }) => {
     await expect(backgroundImage(canvasElement)).toBe('')
@@ -394,7 +416,7 @@ export const NoConditionBackground: Story = {
 
 /** The same card with the option at its default — artwork and white text. */
 export const ConditionBackground: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3, config: { showConditionBackground: true } },
+  args: { gridWidth: 4, gridHeight: 3, config: { showConditionBackground: true } },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'rainy' })] } },
   play: async ({ canvasElement }) => {
     await expect(backgroundImage(canvasElement)).toContain('weather-backgrounds/rain.png')
@@ -411,7 +433,7 @@ export const ConditionBackground: Story = {
  * used one would be asserting the wrong thing is unknown.
  */
 export const UnmappedCondition: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3 },
+  args: { gridWidth: 4, gridHeight: 3 },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'zorptastic' })] } },
   play: async ({ canvasElement }) => {
     await expect(backgroundImage(canvasElement)).toBe('')
@@ -429,7 +451,7 @@ export const UnmappedCondition: Story = {
  * background images, and change 0020 puts those out of scope.
  */
 export const ExceptionalCondition: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: { liebe: { entities: [createWeatherEntity({ state: 'exceptional' })] } },
   play: async ({ canvasElement }) => {
     await expect(cardText(canvasElement)).toContain('⚠️')
@@ -449,7 +471,7 @@ export const ExceptionalCondition: Story = {
 
 /** 4×3 with both sections at their defaults: four hours, four days. */
 export const Forecasts: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3, span: { width: 4, height: 3 } },
+  args: { gridWidth: 4, gridHeight: 3 },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
   play: async ({ canvasElement }) => {
     await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
@@ -460,10 +482,8 @@ export const Forecasts: Story = {
 /** The same card tuned wider: eight hours across, seven days configured. */
 export const ForecastsWide: Story = {
   args: {
-    tier: 'full',
     gridWidth: 6,
     gridHeight: 3,
-    span: { width: 6, height: 3 },
     config: { forecastHours: 8, forecastDays: 7 },
   },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
@@ -477,7 +497,7 @@ export const ForecastsWide: Story = {
 
 /** 3×1: the hourly strip is a `row` section; the multi-day row is not. */
 export const ForecastRowTier: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1, span: { width: 3, height: 1 } },
+  args: { gridWidth: 3, gridHeight: 1 },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
   play: async ({ canvasElement }) => {
     await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(4)
@@ -487,7 +507,7 @@ export const ForecastRowTier: Story = {
 
 /** 1×6: one column wide, so the strip runs down the tile instead of across. */
 export const ForecastTallTier: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 6, span: { width: 1, height: 6 } },
+  args: { gridWidth: 1, gridHeight: 6 },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
   play: async ({ canvasElement }) => {
     await expect(
@@ -499,7 +519,7 @@ export const ForecastTallTier: Story = {
 
 /** 1×2: a tall tile with no room left after the readout omits the strip. */
 export const ForecastTallTooShort: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 2, span: { width: 1, height: 2 } },
+  args: { gridWidth: 1, gridHeight: 2 },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
   play: async ({ canvasElement }) => {
     await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(0)
@@ -509,10 +529,8 @@ export const ForecastTallTooShort: Story = {
 /** Both options off: the sections go, and nothing else moves. */
 export const ForecastsHidden: Story = {
   args: {
-    tier: 'full',
     gridWidth: 4,
     gridHeight: 3,
-    span: { width: 4, height: 3 },
     config: { showHourlyForecast: false, showDailyForecast: false },
   },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
@@ -529,7 +547,7 @@ export const ForecastsHidden: Story = {
  * placeholder, no error — with the options still at their defaults.
  */
 export const ForecastUnsupported: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3, span: { width: 4, height: 3 } },
+  args: { gridWidth: 4, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [createWeatherEntity()],
@@ -551,7 +569,7 @@ export const ForecastUnsupported: Story = {
  * and only the multi-day row goes.
  */
 export const ForecastHourlyOnly: Story = {
-  args: { tier: 'full', gridWidth: 4, gridHeight: 3, span: { width: 4, height: 3 } },
+  args: { gridWidth: 4, gridHeight: 3 },
   parameters: {
     liebe: {
       entities: [createWeatherEntity()],
@@ -575,10 +593,8 @@ export const ForecastHourlyOnly: Story = {
  */
 export const ForecastDayWithoutHigh: Story = {
   args: {
-    tier: 'full',
     gridWidth: 4,
     gridHeight: 3,
-    span: { width: 4, height: 3 },
     config: { showHourlyForecast: false, forecastDays: 3 },
   },
   parameters: {
@@ -611,10 +627,8 @@ export const ForecastDayWithoutHigh: Story = {
 /** `temperatureUnit` converts the forecast columns with the rest of the card. */
 export const ForecastsFahrenheit: Story = {
   args: {
-    tier: 'full',
     gridWidth: 4,
     gridHeight: 3,
-    span: { width: 4, height: 3 },
     config: { temperatureUnit: 'fahrenheit', showHourlyForecast: false },
   },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },

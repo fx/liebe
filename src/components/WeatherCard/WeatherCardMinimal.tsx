@@ -6,7 +6,7 @@ import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
 import { readWeatherOptions } from '~/store/weatherOptions'
 import type { CardProps } from '../cardRegistry'
-import { formatTemperature, getTemperatureDisplay } from './presentation'
+import { formatTemperature, getTemperatureDisplay, resolveUnavailableStatus } from './presentation'
 
 function WeatherCardMinimalContent(props: CardProps) {
   const {
@@ -45,11 +45,11 @@ function WeatherCardMinimalContent(props: CardProps) {
     attributes?.temperature_unit,
     options.temperatureUnit
   )
-  const isUnavailable = entity.state === 'unavailable' || entity.state === 'unknown'
+  const unavailableStatus = resolveUnavailableStatus(entity.state)
   const isGlance = tier === 'glance'
 
   // Handle unavailable state
-  if (isUnavailable) {
+  if (unavailableStatus) {
     return (
       <GridCard
         domain="weather"
@@ -63,7 +63,7 @@ function WeatherCardMinimalContent(props: CardProps) {
       >
         <Flex direction="column" align="center" justify="center" gap="2" height="100%">
           <GridCard.Title>{entity.attributes?.friendly_name || entity.entity_id}</GridCard.Title>
-          <GridCard.Status>UNAVAILABLE</GridCard.Status>
+          <GridCard.Status>{unavailableStatus}</GridCard.Status>
         </Flex>
       </GridCard>
     )

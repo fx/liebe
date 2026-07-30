@@ -249,7 +249,7 @@ changes:
     path: changes/0029-workshop-tier-fidelity.md
     description: Storybook grid-cell decorator derives the layout tier from the cell span like the real grid; story tier/cell mismatches reconciled
     spec: storybook
-    status: draft
+    status: complete
     depends_on: []
   - id: '0030'
     name: weather-forecast-legibility
@@ -319,7 +319,7 @@ changes:
     path: changes/0039-responsive-drag-integrity.md
     description: Stop a drag at a narrow breakpoint silently rewriting every other card's stored width and x through lossy inverse column scaling
     spec: grid-layout
-    status: draft
+    status: complete
     depends_on: []
   - id: '0040'
     name: test-harness-reliability

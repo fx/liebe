@@ -4,7 +4,12 @@ import { SunIcon } from '@radix-ui/react-icons'
 import { GridCardWithComponents as GridCard, type GridCardProps } from './GridCard'
 import { CardItemProvider } from './cardItemContext'
 import { Slider } from './anatomy'
-import { gridCellArgTypes, withGridCell, type GridCellArgs } from '../../.storybook/decorators'
+import {
+  gridCellArgTypes,
+  nestedGridCell,
+  withGridCell,
+  type GridCellArgs,
+} from '../../.storybook/decorators'
 import { domainColors } from '~/theme/tokens'
 import { CARD_COLOR_OPTIONS } from '~/store/cardDisplay'
 
@@ -67,7 +72,6 @@ const meta: Meta<GridCardStoryProps> = {
   decorators: [withGridCell],
   argTypes: {
     ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
     color: {
       control: { type: 'select' },
       options: domainColors.map(({ name }) => name),
@@ -75,8 +79,7 @@ const meta: Meta<GridCardStoryProps> = {
   },
   args: {
     gridWidth: 2,
-    gridHeight: 2,
-    tier: 'row',
+    gridHeight: 1,
     domain: 'light',
     color: 'light',
     children: <SampleContents />,
@@ -85,6 +88,17 @@ const meta: Meta<GridCardStoryProps> = {
 
 export default meta
 type Story = StoryObj<GridCardStoryProps>
+
+/**
+ * The cell every gallery tile below is drawn in, and the tier derived from it.
+ *
+ * The galleries lay several tiles inside one story cell, so the story cell's own
+ * tier belongs to none of them; each tile gets a cell of its own instead, and
+ * `row` is what a 2×1 one derives (`nestedGridCell`). One shared size keeps the
+ * gallery a comparison of the thing it is about — a state, an option — rather
+ * than of tile geometry.
+ */
+const TILE = nestedGridCell(2, 1)
 
 /** Resting state: no entity activity, view mode. The tile is flat and neutral. */
 export const Default: Story = {}
@@ -186,8 +200,8 @@ export const Gallery: Story = {
           },
         ] as const
       ).map(({ key, label, props }) => (
-        <div key={key} style={{ width: 150 }}>
-          <GridCard {...args} {...props}>
+        <div key={key} {...TILE.frame}>
+          <GridCard {...args} tier={TILE.tier} {...props}>
             <SampleContents label={label} state={label.toUpperCase()} />
           </GridCard>
         </div>
@@ -244,13 +258,13 @@ export const NameOverride: Story = {
   args: { gridWidth: 6, gridHeight: 2 },
   render: (args) => (
     <Flex gap="4" align="start">
-      <div style={{ width: 160 }}>
-        <PlacedCard {...args}>
+      <div {...TILE.frame}>
+        <PlacedCard {...args} tier={TILE.tier}>
           <SampleContents />
         </PlacedCard>
       </div>
-      <div style={{ width: 160 }}>
-        <PlacedCard {...args} config={{ name: 'Reading lamp' }}>
+      <div {...TILE.frame}>
+        <PlacedCard {...args} tier={TILE.tier} config={{ name: 'Reading lamp' }}>
           <SampleContents />
         </PlacedCard>
       </div>
@@ -263,13 +277,13 @@ export const IconOverride: Story = {
   args: { gridWidth: 6, gridHeight: 2 },
   render: (args) => (
     <Flex gap="4" align="start">
-      <div style={{ width: 160 }}>
-        <PlacedCard {...args}>
+      <div {...TILE.frame}>
+        <PlacedCard {...args} tier={TILE.tier}>
           <SampleContents label="Card icon" />
         </PlacedCard>
       </div>
-      <div style={{ width: 160 }}>
-        <PlacedCard {...args} config={{ icon: 'Bulb' }}>
+      <div {...TILE.frame}>
+        <PlacedCard {...args} tier={TILE.tier} config={{ icon: 'Bulb' }}>
           <SampleContents label="Configured" />
         </PlacedCard>
       </div>
@@ -304,8 +318,8 @@ export const HiddenLines: Story = {
           },
         ] as const
       ).map(({ key, label, config }) => (
-        <div key={key} style={{ width: 150 }} data-testid={`hidden-lines-${key}`}>
-          <PlacedCard {...args} config={config}>
+        <div key={key} {...TILE.frame} data-testid={`hidden-lines-${key}`}>
+          <PlacedCard {...args} tier={TILE.tier} config={config}>
             <StackedContents label={label} state="ON" />
           </PlacedCard>
         </div>
@@ -331,8 +345,8 @@ export const ColorOverride: Story = {
   render: (args) => (
     <Flex gap="3" align="start" wrap="wrap">
       {CARD_COLOR_OPTIONS.map((color) => (
-        <div key={color} style={{ width: 130 }}>
-          <PlacedCard {...args} config={{ color }}>
+        <div key={color} {...TILE.frame}>
+          <PlacedCard {...args} tier={TILE.tier} config={{ color }}>
             <SampleContents label={color} state="ON" />
           </PlacedCard>
         </div>
@@ -353,13 +367,13 @@ export const DangerIgnoresOverrides: Story = {
   args: { gridWidth: 6, gridHeight: 2, domain: 'lock', isOn: true },
   render: (args) => (
     <Flex gap="4" align="start">
-      <div style={{ width: 160 }}>
-        <PlacedCard {...args} color="ok" config={CALMING_CONFIG}>
+      <div {...TILE.frame}>
+        <PlacedCard {...args} tier={TILE.tier} color="ok" config={CALMING_CONFIG}>
           <SampleContents label="Back door" state="LOCKED" />
         </PlacedCard>
       </div>
-      <div style={{ width: 160 }}>
-        <PlacedCard {...args} color="alert" danger config={CALMING_CONFIG}>
+      <div {...TILE.frame}>
+        <PlacedCard {...args} tier={TILE.tier} color="alert" danger config={CALMING_CONFIG}>
           <SampleContents label="Back door" state="JAMMED" />
         </PlacedCard>
       </div>
@@ -368,19 +382,31 @@ export const DangerIgnoresOverrides: Story = {
 }
 
 /**
- * Every layout tier the shell stamps, side by side. The tiles are shown at one
- * width so the tier is the only thing that differs; on a real grid each one
- * comes from the span its name describes (docs/specs/design-system —
- * "Size-adaptive layouts").
+ * Every layout tier the shell stamps, side by side — each in the smallest cell
+ * that derives it (docs/specs/design-system — "Size-adaptive layouts").
+ *
+ * No tier is named here. Each tile is a cell, the tier comes from that cell
+ * through the same derivation the grid uses, and the tiles differ in size
+ * because the tiers do: that is the comparison. A story cannot produce four
+ * tiers from the one cell the decorator sizes for it, but it can lay out four
+ * cells of its own — which keeps the frame honest without pinning anything
+ * (docs/specs/storybook — "Global decorators & toolbar").
  */
+const TIER_CELLS = [
+  { key: 'glance', cell: nestedGridCell(1, 1) },
+  { key: 'row', cell: nestedGridCell(2, 1) },
+  { key: 'tall', cell: nestedGridCell(1, 2) },
+  { key: 'full', cell: nestedGridCell(2, 2) },
+] as const
+
 export const Tiers: Story = {
-  args: { gridWidth: 6, gridHeight: 2 },
+  args: { gridWidth: 8, gridHeight: 3 },
   render: (args) => (
     <Flex gap="4" align="start">
-      {(['glance', 'row', 'tall', 'full'] as const).map((tier) => (
-        <div key={tier} style={{ width: 160 }}>
-          <GridCard {...args} tier={tier}>
-            <SampleContents label={tier} />
+      {TIER_CELLS.map(({ key, cell }) => (
+        <div key={key} {...cell.frame}>
+          <GridCard {...args} tier={cell.tier}>
+            <SampleContents label={cell.tier} />
           </GridCard>
         </div>
       ))}

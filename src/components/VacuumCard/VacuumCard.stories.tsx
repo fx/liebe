@@ -25,13 +25,9 @@ const meta: Meta<VacuumCardStoryProps> = {
   title: 'Cards/VacuumCard',
   component: VacuumCard,
   decorators: [withGridCell],
-  argTypes: {
-    ...gridCellArgTypes,
-    tier: { control: { type: 'inline-radio' }, options: ['glance', 'row', 'tall', 'full'] },
-  },
+  argTypes: gridCellArgTypes,
   args: {
     entityId,
-    tier: 'full',
     gridWidth: 3,
     gridHeight: 3,
   },
@@ -134,7 +130,7 @@ export const Unavailable: Story = {
 
 /** 1×1: icon, name and state only. The tile's own action is the control. */
 export const Glance: Story = {
-  args: { tier: 'glance', gridWidth: 1, gridHeight: 1 },
+  args: { gridWidth: 1, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(nameLine(canvasElement)).toBe('Robby')
     await expect(cluster(canvasElement)).toEqual([])
@@ -143,7 +139,7 @@ export const Glance: Story = {
 
 /** 3×1: the same content plus the command cluster. */
 export const Row: Story = {
-  args: { tier: 'row', gridWidth: 3, gridHeight: 1 },
+  args: { gridWidth: 3, gridHeight: 1 },
   play: async ({ canvasElement }) => {
     await expect(cluster(canvasElement)).toEqual(['Start', 'Return to dock'])
   },
@@ -151,7 +147,7 @@ export const Row: Story = {
 
 /** 1×3: no `tall` layout is specified, so the card renders `glance`. */
 export const Tall: Story = {
-  args: { tier: 'tall', gridWidth: 1, gridHeight: 3 },
+  args: { gridWidth: 1, gridHeight: 3 },
   play: async ({ canvasElement }) => {
     await expect(cluster(canvasElement)).toEqual([])
   },
