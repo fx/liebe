@@ -87,10 +87,11 @@ export function renderCardLifecycle({
   showButton = false,
   size,
 }: CardLifecycleProps): ReactElement {
-  // Pending. `!entity && isConnected` covers the window between a reconnect
-  // clearing the map and the fresh snapshot landing, which `isInitialLoading`
-  // has not been raised for yet; `!isMissing` is what stops it swallowing the
-  // state below, as it did for every card before this existed.
+  // Pending. `!entity && isConnected` is the defensive half: a caller that
+  // reports neither flag for an absent entity on a live connection has not
+  // established that Home Assistant lacks it, and waiting is the answer that
+  // cannot be wrong about that. `!isMissing` is what stops this arm swallowing
+  // the state below, as it did for every card before this existed.
   if (isLoading || (!entity && isConnected && !isMissing)) {
     return <SkeletonCard tier={tier} showIcon={showIcon} lines={lines} showButton={showButton} />
   }
