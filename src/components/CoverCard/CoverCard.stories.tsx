@@ -236,11 +236,13 @@ export const UnknownEntity: Story = {
      * docs/changes/0043-card-tile-control-semantics.md PR 6 owns it — including
      * restoring an assertion here.
      *
-     * What replaces it is stronger for this story's own purpose. `Entity Not
-     * Found` is what separates this tile from the disconnected one and from a
-     * skeleton — all three are "something rendered instead of the card", and
-     * `.liebe-card` could not tell them apart — and the message names the
-     * entity, which is the half the docstring above is actually about.
+     * What replaces it is stronger for this story's own purpose, and not
+     * because the old assertion was undiscriminating — it was not.
+     * `querySelector('.liebe-card')` returns a node for a skeleton and `null`
+     * for the two error tiles, so it separates the skeleton from them; what it
+     * cannot do is separate THIS tile from the disconnected one. `Entity Not
+     * Found` does, and the message names the entity, which the class never did
+     * and which is the half the docstring above is actually about.
      */
     await expect(canvas.getByText('Entity Not Found')).toBeInTheDocument()
     await expect(canvas.getByText(entityId, { exact: false })).toBeInTheDocument()
