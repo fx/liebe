@@ -444,9 +444,11 @@ export const Disconnected: Story = {
 }
 
 /**
- * An entity id that is not in the store. `useEntity` cannot tell "not loaded
- * yet" from "does not exist", so the card holds its skeleton indefinitely
- * rather than reporting the entity as missing.
+ * An entity id that is not in the store, on a live connection whose snapshot has
+ * already landed — a card left pointing at an entity that was renamed or
+ * removed. The card reports it missing and names it, rather than holding a
+ * skeleton that reads as progress towards a load that will never finish
+ * (docs/specs/entity-state — "Consumer Hooks").
  */
 export const UnknownEntity: Story = {
   args: { gridHeight: 2 },

@@ -1,7 +1,7 @@
 import { useEntity } from '~/hooks'
 import { createElement, memo, useState, useMemo } from 'react'
 import { Text } from '@radix-ui/themes'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, type CardArrangement } from '../CardBody'
 import { useDashboardStore, dashboardStore, dashboardActions } from '~/store'
@@ -71,7 +71,13 @@ function BinarySensorCardComponent({
   onSelect,
   item,
 }: BinarySensorCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   const { mode } = useDashboardStore()
   const isEditMode = mode === 'edit'
   const [configOpen, setConfigOpen] = useState(false)
@@ -122,26 +128,15 @@ function BinarySensorCardComponent({
    */
   const since = useRelativeSince(entity?.last_changed, tier === 'full')
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  /*
-   * The one error state this read-only card can reach: a missing entity on a
-   * live connection returns at the skeleton above, so everything that reaches
-   * here is a disconnection.
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   const friendlyName = readStringAttribute(entity, 'friendly_name') || entity.entity_id

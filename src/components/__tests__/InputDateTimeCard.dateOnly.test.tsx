@@ -87,6 +87,7 @@ function mockEntity(state: string, shape: Record<string, boolean> = DATE_ONLY) {
     entity: createEntity(state, shape),
     isConnected: true,
     isLoading: false,
+    isMissing: false,
     isStale: false,
   } as unknown as ReturnType<typeof useEntity>)
 }

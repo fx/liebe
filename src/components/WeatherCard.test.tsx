@@ -45,6 +45,7 @@ describe('WeatherCard', () => {
       isConnected: true,
       isStale: false,
       isLoading: false,
+      isMissing: false,
     })
   })
 
@@ -141,6 +142,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       render(<WeatherCard entityId="weather.home" />)
@@ -158,6 +160,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       render(<WeatherCard entityId="weather.home" />)
@@ -174,6 +177,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       render(<WeatherCard entityId="weather.home" />)
@@ -190,6 +194,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       // `full`: pressure is `detailed`'s third data point, and the first thing
@@ -209,6 +214,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       // `full`: pressure is `detailed`'s third data point, and the first thing
@@ -224,6 +230,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: true,
+        isMissing: false,
       })
 
       render(<WeatherCard entityId="weather.home" />)
@@ -240,6 +247,7 @@ describe('WeatherCard', () => {
         isConnected: false,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       render(<WeatherCard entityId="weather.home" />)
@@ -254,6 +262,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: true,
         isLoading: false,
+        isMissing: false,
       })
 
       const { container } = render(<WeatherCard entityId="weather.home" />)
@@ -288,6 +297,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       const { container } = render(<WeatherCard entityId="weather.home" />)
@@ -303,6 +313,7 @@ describe('WeatherCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: false,
+        isMissing: false,
       })
 
       const { container } = render(<WeatherCard entityId="weather.home" />)

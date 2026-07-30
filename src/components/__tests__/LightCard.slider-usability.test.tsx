@@ -57,6 +57,7 @@ describe('LightCard Slider Usability', () => {
       entity: mockEntity,
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 
@@ -137,6 +138,7 @@ describe('LightCard Slider Usability', () => {
       entity: { ...mockEntity, state: 'off' },
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
 

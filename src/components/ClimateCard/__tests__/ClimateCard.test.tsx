@@ -200,6 +200,7 @@ describe('ClimateCard', () => {
         isConnected: true,
         isStale: false,
         isLoading: true,
+        isMissing: false,
       })
 
       renderWithTheme(<ClimateCard entityId="climate.test_thermostat" tier="full" />)

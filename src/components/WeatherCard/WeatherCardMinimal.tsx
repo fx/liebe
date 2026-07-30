@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { Flex } from '@radix-ui/themes'
 import { useEntity } from '../../hooks'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardValue } from '../anatomy'
@@ -61,24 +61,19 @@ function WeatherCardMinimalContent(props: CardProps) {
    * their resolved config down for exactly this reason.
    */
   const { iconOnly } = readCardDisplay(config)
-  const { entity, isConnected, isLoading: isEntityLoading } = useEntity(entityId)
+  const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={false} lines={1} />
-  }
-
-  // Show error state when disconnected or entity not found
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error={!isConnected ? 'Disconnected from Home Assistant' : `Entity ${entityId} not found`}
-        variant="card"
-        tier={tier}
-        title={!isConnected ? 'Disconnected' : 'Entity Not Found'}
-        onRetry={!isConnected ? () => window.location.reload() : undefined}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+      lines: 1,
+      showIcon: false,
+    })
   }
 
   const attributes = entity.attributes as Record<string, unknown> | undefined

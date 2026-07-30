@@ -51,6 +51,7 @@ describe('BinarySensorCard domain colour', () => {
       entity: makeEntity(deviceClass, state),
       isConnected: true,
       isLoading: false,
+      isMissing: false,
       isStale: false,
     })
     const { container } = render(<BinarySensorCard entityId="binary_sensor.test" />)

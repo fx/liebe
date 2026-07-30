@@ -27,6 +27,7 @@ vi.mock('~/hooks/useEntity', () => ({
     isConnected: true,
     isStale: false,
     isLoading: true,
+    isMissing: false,
   }),
 }))
 

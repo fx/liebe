@@ -4,7 +4,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore, dashboardActions } from '~/store'
 import { readSwitchOptions, resolveSwitchStateLabel } from '~/store/switchOptions'
 import type { GridItem } from '~/store/types'
-import { SkeletonCard, ErrorDisplay } from '../ui'
+import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
 import { CardConfig } from '../CardConfig'
@@ -53,7 +53,13 @@ function ButtonCardComponent({
   item,
   config,
 }: ButtonCardProps) {
-  const { entity, isConnected, isStale, isLoading: isEntityLoading } = useEntity(entityId)
+  const {
+    entity,
+    isConnected,
+    isStale,
+    isMissing,
+    isLoading: isEntityLoading,
+  } = useEntity(entityId)
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
   const { screens, currentScreenId } = useDashboardStore()
   const [configOpen, setConfigOpen] = useState(false)
@@ -76,28 +82,15 @@ function ButtonCardComponent({
   const showSince = options.showLastChanged && tier !== 'glance'
   const since = useRelativeSince(entity?.last_changed, showSince)
 
-  // Show skeleton while loading initial data
-  if (isEntityLoading || (!entity && isConnected)) {
-    return <SkeletonCard tier={tier} showIcon={true} lines={2} />
-  }
-
-  /*
-   * Reachable only while disconnected. `useEntity` cannot tell "not loaded yet"
-   * from "does not exist", so a missing entity on a live connection is held at
-   * the skeleton above rather than reported as missing (docs/specs/entity-cards
-   * — "Initial load shows a skeleton"); by the time control reaches here, the
-   * connection is down whether or not the entity arrived.
-   */
   if (!entity || !isConnected) {
-    return (
-      <ErrorDisplay
-        error="Disconnected from Home Assistant"
-        variant="card"
-        tier={tier}
-        title="Disconnected"
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return renderCardLifecycle({
+      entityId,
+      entity,
+      isConnected,
+      isLoading: isEntityLoading,
+      isMissing,
+      tier,
+    })
   }
 
   const friendlyName = entity.attributes.friendly_name || entity.entity_id

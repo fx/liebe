@@ -24,6 +24,7 @@ function mockEntity(state: string) {
     entity: createEntity(state),
     isConnected: true,
     isLoading: false,
+    isMissing: false,
     isStale: false,
   } as unknown as ReturnType<typeof useEntity>)
 }
