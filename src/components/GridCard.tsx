@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconButton, Spinner } from '@radix-ui/themes'
 import { X, Settings } from 'lucide-react'
@@ -485,7 +486,7 @@ export const GridCard = React.memo(
       const isIconOnly = display.hideName && display.hideState
 
       // Handle ESC key press to exit fullscreen
-      React.useEffect(() => {
+      useEffect(() => {
         const handleKeyPress = (event: KeyboardEvent) => {
           if (event.key === 'Escape' && isFullscreen) {
             onFullscreenChange?.(false)
@@ -546,7 +547,23 @@ export const GridCard = React.memo(
        * edit mode closes it, which costs nothing: it could not have been open
        * in edit mode anyway.
        */
-      React.useEffect(() => {
+      useEffect(() => {
+        /*
+         * Suppressed, not fixed. This is the exact call site
+         * docs/changes/0040-test-harness-reliability.md names: it was written
+         * `React.useEffect(...)`, which the rule could not see, so it has never
+         * been reported before. PR 3 of that change made it visible; **PR 4 is
+         * what fixes it**, by moving this reset to the render-phase pattern the
+         * cover card already uses — deliberately separate, because restructuring
+         * the shell's dialog state is a behavioural change that deserves its own
+         * review and its own tests.
+         *
+         * REMOVE THIS SUPPRESSION IN PR 4. It exists only so the rule starts
+         * guarding *new* code immediately rather than waiting for the cleanup;
+         * leaving it in place after PR 4 lands would re-open the hole one line
+         * narrower than before.
+         */
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDetailFor(null)
       }, [isEditMode, detailEntityId])
 
@@ -565,7 +582,18 @@ export const GridCard = React.memo(
        */
       const [confirmRequest, setConfirmRequest] = React.useState<CardConfirmRequest | null>(null)
 
-      React.useEffect(() => {
+      useEffect(() => {
+        /*
+         * Same reset, same keys and same disposition as `setDetailFor` above:
+         * newly visible because the call was `React.useEffect(...)`, and left
+         * for PR 4 of docs/changes/0040-test-harness-reliability.md to move to
+         * the render-phase pattern. Listed in its own right rather than folded
+         * into the one above, because the change document requires all five
+         * member-call sites audited individually.
+         *
+         * REMOVE THIS SUPPRESSION IN PR 4.
+         */
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setConfirmRequest(null)
       }, [isEditMode, detailEntityId])
 
