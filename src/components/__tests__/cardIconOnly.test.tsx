@@ -11,6 +11,8 @@ import { dashboardActions } from '~/store'
 import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { createAllDomainEntities, entityFactories, type FixtureDomain } from '~/test/fixtures'
 import { CardItemProvider } from '../cardItemContext'
+import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardBody } from '../CardBody'
 import { domainToCard, type CardComponent, type CardProps } from '../cardRegistry'
 import type { GridItem } from '~/store/types'
 import type { CardTier } from '~/utils/cardTier'
@@ -31,9 +33,9 @@ import type { CardTier } from '~/utils/cardTier'
  *    tier. A card whose tile never sees the option is the bypass the option's
  *    universality would die of, and it is invisible to any per-component count.
  *  - **The body suppresses.** Wherever a card composes through `CardBody`, the
- *    body under the option carries the lead and nothing else visible — no
- *    control slot, no secondary content, and no meta outside the accessible
- *    label the contract requires it to keep.
+ *    body under the option carries the lead and nothing else — no meta, no
+ *    control slot, no secondary content. What identifies the tile instead is
+ *    the shell's own clipped label, built from the entity.
  *
  * What it is NOT is the per-card anchor audit. "Every card and every registered
  * variant MUST resolve an icon-only form" is the second task of change 0033,
@@ -47,8 +49,8 @@ import type { CardTier } from '~/utils/cardTier'
  * jsdom applies no stylesheet, so "suppressed" is asserted as absent from the
  * DOM rather than as an invisible box. That is the mechanism: the body omits
  * its slots rather than hiding them, and the shell drops the fenced layers.
- * The one thing that is hidden rather than dropped — the accessible label — is
- * asserted on the declarations in `cardBodyStyles.test.ts`.
+ * The one thing that is hidden rather than dropped — the shell's accessible
+ * label — is asserted on the declarations in `cardShellStyles.test.ts`.
  */
 
 const ICON_ONLY = { iconOnly: true } as const
@@ -284,6 +286,36 @@ describe('the families the contract names', () => {
     // The track title is what the suppressed meta carried, and it is not what
     // identifies this tile.
     expect(label.textContent).not.toContain(speaker.attributes?.media_title)
+  })
+
+  it('reports a failed service call, which suppression took the words for', () => {
+    // Cards report a failure inline — a light's state line reads `ERROR` — so
+    // the option removes the text that identifies it, and the contract requires
+    // the message to become the tile's accessible name instead
+    // (docs/specs/entity-cards/options/common.md — "Card states outrank
+    // suppression"). The tile's own error outline is untouched by suppression.
+    const message = 'Failed to call service light.turn_on'
+
+    const { container } = render(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard
+            domain="light"
+            entityId="light.living_room"
+            isError
+            title={message}
+            config={ICON_ONLY}
+          >
+            <CardBody arrangement="stack" lead={<svg data-testid="lead" />} />
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+
+    const tile = container.querySelector('.liebe-card')!
+    expect(tile.querySelector('.liebe-card-label')!.textContent).toContain(message)
+    expect(tile.getAttribute('aria-label')).toContain(message)
+    expect(tile).toHaveAttribute('data-error', 'true')
   })
 
   it('lets the user’s name override win, because that is the name they gave the tile', () => {

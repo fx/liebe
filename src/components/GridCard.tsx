@@ -660,6 +660,16 @@ export const GridCard = React.memo(
        * media player's is the track). The user's `name` override still wins,
        * because that is the name they gave this tile.
        *
+       * A failed service call replaces the state with its message, because that
+       * is the state the tile is actually in and the one the user has to act
+       * on. Cards report a failure inline — a light's state line reads `ERROR`
+       * — so suppression takes exactly the text that identifies it, and the
+       * contract says what has to happen then: "where suppression removes the
+       * text that identifies the state … the message becomes the tile's
+       * accessible name" (docs/specs/entity-cards/options/common.md — "Card
+       * states outrank suppression"). The tile's error outline and pulse are
+       * the shell's own and suppression never touched them.
+       *
        * The selector returns a string, so it re-runs on every store change and
        * re-renders on none of them unless the answer moved — and it answers
        * `undefined` whenever the option is off, which is every card on a
@@ -672,7 +682,8 @@ export const GridCard = React.memo(
         const resolved = display.name || entity?.attributes?.friendly_name || detailEntityId
         if (!resolved) return undefined
 
-        return entity?.state ? `${resolved}, ${entity.state}` : resolved
+        const reported = (isError && title) || entity?.state
+        return reported ? `${resolved}, ${reported}` : resolved
       })
       // The entity the dialog is open for, rather than a boolean: it is the
       // same state, and holding the id means the render below needs no second
