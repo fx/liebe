@@ -1,11 +1,11 @@
 import type { Plugin } from 'vite'
-import { prepareBaselineCss } from '../src/theme/cssLayers'
+import { isVendoredSheet, prepareBaselineCss, prepareVendorCss } from '../src/theme/cssLayers'
 
 /**
- * Gives every stylesheet the panel ships the baseline treatment: inside the
- * `liebe-base` cascade layer, and free of `!important` on themable properties.
+ * Gives every stylesheet the panel ships the baseline treatment: inside a
+ * cascade layer, and free of `!important` on themable properties.
  *
- * Liebe's own sheets are authored inside their layer and pass through
+ * Liebe's own sheets are authored inside `liebe-base` and pass through
  * unchanged. The ones that need this are the vendored sheets — Radix Themes,
  * react-grid-layout, react-resizable — which cannot be authored at all: left
  * as they ship, they would be *unlayered* author CSS, which outranks every
@@ -13,6 +13,11 @@ import { prepareBaselineCss } from '../src/theme/cssLayers'
  * theme most wants to restyle the ones it cannot touch. Their `!important`
  * declarations are worse still, because importance runs the layer order in
  * reverse: an important baseline rule beats important theme *and* user rules.
+ *
+ * They land in `liebe-base.vendor` rather than in `liebe-base` itself, which is
+ * what lets a baseline rule beat a vendor rule that out-specifies it — the
+ * coarse-pointer touch floor over Radix's own control sizing. `cssLayers.ts`
+ * carries why that is a sub-layer and not a fourth layer.
  * See docs/specs/theming/index.md, "Application mechanism".
  *
  * A build-time transform rather than a runtime one: the panel links its CSS as
@@ -37,7 +42,7 @@ export function baselineCssPlugin(): Plugin {
       // baseline.
       if (!id.endsWith('.css')) return null
 
-      const css = prepareBaselineCss(code)
+      const css = isVendoredSheet(id) ? prepareVendorCss(code) : prepareBaselineCss(code)
       return css === code ? null : { code: css, map: null }
     },
   }

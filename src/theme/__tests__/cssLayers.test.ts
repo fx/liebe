@@ -4,17 +4,25 @@ import { describe, expect, it } from 'vitest'
 import {
   BASE_LAYER,
   LAYER_ORDER_STATEMENT,
+  VENDOR_LAYER,
   isFullyLayered,
   isThemableProperty,
+  isVendoredSheet,
   prepareBaselineCss,
+  prepareVendorCss,
   stripThemableImportance,
   wrapInLayer,
 } from '../cssLayers'
 
 /**
  * The layer contract, asserted on the text the panel actually ships: the
- * transforms are what stand between an unlayered vendored stylesheet and a
- * theme that cannot override it (docs/specs/theming — "Application mechanism").
+ * transforms are what stand between a vendored stylesheet and a theme that
+ * cannot override it, and between one and a baseline rule it out-specifies
+ * (docs/specs/theming — "Application mechanism").
+ *
+ * What these cannot reach is whether the resulting layer order actually decides
+ * a declaration, which is a property of the cascade rather than of the text —
+ * `tests/e2e/touch-floor.spec.ts` measures that in a browser.
  */
 
 const require = createRequire(import.meta.url)
@@ -219,20 +227,67 @@ describe('prepareBaselineCss', () => {
   })
 })
 
+describe('prepareVendorCss', () => {
+  it('layers a vendored sheet below the baseline and de-emphasises it', () => {
+    const prepared = prepareVendorCss(
+      '.rt-reset { min-height: 0 !important; color: red !important }'
+    )
+
+    expect(prepared).toContain(`@layer ${VENDOR_LAYER} {`)
+    // `min-height` is the component's own geometry and keeps its importance;
+    // `color` is a token-contract property and loses it.
+    expect(prepared).toContain('min-height: 0 !important')
+    expect(prepared).toContain('color: red }')
+  })
+
+  it('nests that layer inside the baseline rather than beside it', () => {
+    // Not a spelling detail. A sibling `liebe-vendor` would have to be named in
+    // the order statement, and a layer's position is fixed by the FIRST
+    // statement a root sees — so in any root where a sheet carrying the
+    // three-layer statement loaded first, the new name would sort AFTER
+    // `liebe-user` and the vendored sheet would outrank everything. A sub-layer
+    // is ordered by its parent and needs no statement, which is why the
+    // statement below still names three layers.
+    expect(VENDOR_LAYER).toBe(`${BASE_LAYER}.vendor`)
+    expect(LAYER_ORDER_STATEMENT).toBe(`@layer ${BASE_LAYER}, liebe-theme, liebe-user;`)
+  })
+})
+
+describe('isVendoredSheet', () => {
+  it.each([
+    '/repo/node_modules/@radix-ui/themes/styles.css',
+    '/repo/node_modules/react-grid-layout/css/styles.css',
+    'C:\\repo\\node_modules\\react-resizable\\css\\styles.css',
+    // A nested dependency, which is where a transitive sheet arrives from.
+    '/repo/node_modules/a/node_modules/b/styles.css',
+  ])('reads %s as vendored', (id) => {
+    expect(isVendoredSheet(id)).toBe(true)
+  })
+
+  it.each([
+    '/repo/src/styles/app.css',
+    '/repo/src/components/anatomy/anatomy.css',
+    // The name without the path separators around it is a first-party file.
+    '/repo/src/styles/node_modules-notes.css',
+  ])('reads %s as first-party', (id) => {
+    expect(isVendoredSheet(id)).toBe(false)
+  })
+})
+
 describe('the vendored stylesheets as they ship', () => {
   it.each(Object.entries(vendoredSheets))(
-    '%s lands in the base layer with no themable importance',
+    '%s lands in the vendor sub-layer with no themable importance',
     (_specifier, css) => {
-      const prepared = prepareBaselineCss(css)
+      const prepared = prepareVendorCss(css)
 
       expect(prepared).toContain(LAYER_ORDER_STATEMENT)
-      expect(prepared).toContain(`@layer ${BASE_LAYER} {`)
+      expect(prepared).toContain(`@layer ${VENDOR_LAYER} {`)
       expect(importantProperties(prepared).filter(isThemableProperty)).toEqual([])
     }
   )
 
   it('preserves the behavioural importance Radix depends on', () => {
-    const prepared = prepareBaselineCss(vendoredSheets['@radix-ui/themes/styles.css'])
+    const prepared = prepareVendorCss(vendoredSheets['@radix-ui/themes/styles.css'])
 
     // The ScrollArea viewport and the Skeleton mask: overriding these is not
     // theming, it is breaking the component.

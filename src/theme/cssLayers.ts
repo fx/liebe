@@ -2,12 +2,12 @@
  * The cascade-layer machinery of the theming engine.
  *
  * Everything the panel styles itself with lands in one of three layers —
- * `liebe-base` (tokens, component sheets, the vendored Radix stylesheet),
- * `liebe-theme` (the active theme) and `liebe-user` (custom CSS) — and a later
- * layer wins regardless of selector specificity. Source order alone could not
- * deliver that: a theme rule scoped to an appearance would outrank a less
- * specific user override. See docs/specs/theming/index.md, "Application
- * mechanism".
+ * `liebe-base` (tokens and component sheets), `liebe-theme` (the active theme)
+ * and `liebe-user` (custom CSS) — and a later layer wins regardless of selector
+ * specificity. Source order alone could not deliver that: a theme rule scoped to
+ * an appearance would outrank a less specific user override. Vendored sheets sit
+ * in `liebe-base.vendor`, a sub-layer below the baseline's own rules. See
+ * docs/specs/theming/index.md, "Application mechanism".
  *
  * These are pure text transforms with no DOM dependency, because they run in
  * two places: the build (the Vite plugin in `vite/baselineCssPlugin.ts` wraps
@@ -24,8 +24,30 @@
  * sanitizer.
  */
 
-/** Baseline: tokens, component sheets, vendored stylesheets. */
+/** Baseline: tokens and Liebe's own component sheets. */
 export const BASE_LAYER = 'liebe-base'
+/**
+ * Vendored stylesheets — Radix Themes, react-grid-layout, react-resizable — as a
+ * sub-layer of the baseline.
+ *
+ * A sub-layer loses to the declarations sitting directly in its parent
+ * regardless of selector specificity, which is the whole point: Radix's
+ * `.rt-reset { min-height: 0 }` is a class selector and `app.css`'s coarse-
+ * pointer floor is a bare `button`, so with both in `liebe-base` the floor lost
+ * every Radix control it was written for — a `size="3"` button measured 40px
+ * with a computed `min-height` of `0px`, a text field 38px at `auto`. Below the
+ * baseline, Liebe's own rules win by being where they are rather than by
+ * out-specifying a vendor selector that changes on every upgrade.
+ *
+ * A sub-layer rather than a fourth top-level layer, because a layer's position
+ * is fixed by the FIRST `@layer` statement a root sees: `liebe-vendor` named
+ * only in a new order statement would sort *after* `liebe-user` in any root
+ * where a sheet still carrying the three-layer statement loaded first — the
+ * exact inversion of the fix, and invisible to a test that reads stylesheet
+ * text. Nesting needs no order statement at all, so the three layers the
+ * theming contract names stay the three layers themes and user CSS see.
+ */
+export const VENDOR_LAYER = `${BASE_LAYER}.vendor`
 /** The active theme's token overrides and scoped rules. */
 export const THEME_LAYER = 'liebe-theme'
 /** User-authored custom CSS — the last word on every token. */
@@ -217,4 +239,32 @@ export function wrapInLayer(css: string, layer: string): string {
  */
 export function prepareBaselineCss(css: string): string {
   return wrapInLayer(stripThemableImportance(css), BASE_LAYER)
+}
+
+/**
+ * Baseline treatment for a vendored stylesheet: the same, one layer lower.
+ *
+ * Separate from `prepareBaselineCss` rather than a parameter, because which of
+ * the two a sheet gets is not a caller's option — it follows from where the
+ * sheet came from, which is what `isVendoredSheet` answers.
+ */
+export function prepareVendorCss(css: string): string {
+  return wrapInLayer(stripThemableImportance(css), VENDOR_LAYER)
+}
+
+// A module id under a package directory. Matched on the path rather than on the
+// import specifier because that is what a bundler hands a transform: `import
+// '@radix-ui/themes/styles.css'` arrives resolved, as an absolute path.
+const VENDORED_ID = /[\\/]node_modules[\\/]/
+
+/**
+ * Whether a stylesheet is vendored, and so belongs below Liebe's own baseline.
+ *
+ * The distinction is authorship, not content: a vendored sheet cannot be
+ * authored inside a layer, cannot be asked to keep its selectors weak, and
+ * changes shape on every upgrade — so it is the one that yields. Liebe's own
+ * sheets are authored inside `liebe-base` and stay there.
+ */
+export function isVendoredSheet(id: string): boolean {
+  return VENDORED_ID.test(id)
 }
