@@ -1,4 +1,4 @@
-import { Flex } from '@radix-ui/themes'
+import { Flex, Text } from '@radix-ui/themes'
 import { Dialog } from '~/components/ui/portals'
 import { createElement, memo, useCallback, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
@@ -13,7 +13,7 @@ import { readCardDisplay } from '~/store/cardDisplay'
 import { readLockOptions } from '~/store/lockOptions'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { LockDetailControls } from './LockDetailControls'
-import { Keypad, readCodeFormat, type CodeFormat } from '~/components/Keypad'
+import { Keypad, readCodeFormat, redactCode, type CodeFormat } from '~/components/Keypad'
 import {
   LOCK_CONFIRM_PROMPT,
   LOCK_SERVICE_LABEL,
@@ -96,6 +96,10 @@ function LockCardComponent({
     service: LockService
     format: CodeFormat
   } | null>(null)
+  /** The lock's refusal of the last code, already redacted — see `submitCode`. */
+  const [keypadError, setKeypadError] = useState<string | null>(null)
+  /** Bumped per refusal and used as the keypad's `key`, to remount it. */
+  const [attempt, setAttempt] = useState(0)
 
   /*
    * Dropped on the two keys the shell drops its own on, during render rather
@@ -120,6 +124,7 @@ function LockCardComponent({
     setPrevEntityId(entityId)
     setConfirmRequest(null)
     setKeypadRequest(null)
+    setKeypadError(null)
   }
 
   const state = entity?.state ?? 'unknown'
@@ -155,20 +160,59 @@ function LockCardComponent({
    * whichever gate owns it.
    */
   const send = useCallback(
-    (service: LockService, code?: string) => {
+    (service: LockService) => {
       if (error) clearError()
-      void dispatchGuarded({
+      // No `data`: a coded command goes through `submitCode` below, which has
+      // to await its result rather than fire and forget.
+      void dispatchGuarded({ domain: 'lock', service, entityId })
+    },
+    [clearError, dispatchGuarded, entityId, error]
+  )
+
+  /**
+   * Submit a collected code, and keep the keypad up if the lock refuses it.
+   *
+   * Two things this cannot do the way the codeless path does, and both are the
+   * reason it is a separate function rather than an optional argument:
+   *
+   *  - **It awaits the result.** Closing the keypad on submit made a wrong code
+   *    look exactly like a successful unlock. The keypad now stays up with the
+   *    lock's own message, remounted (`attempt`) so the rejected entry is
+   *    cleared and the at-most-once submit latch is released for a retry.
+   *  - **It takes the raw message off the hook.** `useServiceCall` stores
+   *    `error` verbatim, and this card renders that in its state line and in
+   *    `title` — which is exactly where a credential would surface if an
+   *    integration ever echoed the code back. So the hook's copy is cleared and
+   *    a redacted one is held here instead. `clearError` lands in the same
+   *    React batch as the setter below, so the raw string never paints.
+   *
+   * The code is a parameter here and never state: what survives the call is the
+   * redacted message, not the credential that produced it.
+   */
+  const submitCode = useCallback(
+    async (service: LockService, code: string) => {
+      const result = await dispatchGuarded({
         domain: 'lock',
         service,
         entityId,
         // The code travels with the call and nowhere else: never validated
         // here, never written to `item.config`, and so never in the exported
-        // YAML. Validation is the lock's job, and a rejected code surfaces as
-        // an ordinary service error.
-        data: code ? { code } : undefined,
+        // YAML. Validation is the lock's job.
+        data: { code },
       })
+
+      clearError()
+
+      if (result.success) {
+        setKeypadRequest(null)
+        setKeypadError(null)
+        return
+      }
+
+      setKeypadError(redactCode(result.error ?? 'The lock refused that command.', code))
+      setAttempt((n) => n + 1)
     },
-    [clearError, dispatchGuarded, entityId, error]
+    [clearError, dispatchGuarded, entityId]
   )
 
   /**
@@ -423,14 +467,26 @@ function LockCardComponent({
             <Dialog.Title>{`${LOCK_SERVICE_LABEL[keypadRequest.service]} ${
               display.name || friendlyName
             }`}</Dialog.Title>
+            {keypadError && (
+              <Text
+                as="p"
+                size="2"
+                mb="2"
+                role="alert"
+                style={{ color: 'var(--liebe-c-alert-text)' }}
+              >
+                {keypadError}
+              </Text>
+            )}
             <Keypad
+              key={attempt}
               format={keypadRequest.format}
               actionLabel={LOCK_SERVICE_LABEL[keypadRequest.service]}
-              onSubmit={(code) => {
-                send(keypadRequest.service, code)
+              onSubmit={(code) => void submitCode(keypadRequest.service, code)}
+              onCancel={() => {
                 setKeypadRequest(null)
+                setKeypadError(null)
               }}
-              onCancel={() => setKeypadRequest(null)}
             />
           </Dialog.Content>
         </Dialog.Root>

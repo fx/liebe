@@ -64,9 +64,17 @@ Home Assistant's `lock.lock`, `lock.unlock` and `lock.open` all accept an option
 
 **A configured `call-service` route is the exception, and it stays gated.** Such a route is dispatched with the payload the user configured and no keypad of this card's stands in front of it, so no code of this card's can join it — which leaves the confirmation the only gate it meets, and suppressing that would leave a coded lock's re-routed unlock with nothing in front of it at all. `lock.open` reaches the device only by this path today: the card ships no unlatch control (see [Open Questions](#open-questions)), so there is nothing here to collect a code for, and the route is protected by classifying as an unlock direction. **When an unlatch control lands it takes a code the same way the other two do.**
 
+**A refused code MUST be distinguishable from an accepted one.** The lock validates, so a wrong code comes back as a service error — and a keypad that closed on submit would make the two outcomes identical on screen, which on a credential surface is the one thing the user must be able to tell apart. So the keypad MUST stay open until the call settles: on success it closes, and on refusal it MUST report the failure next to the keypad and MUST allow another attempt (the entry is cleared and the at-most-once submit latch released). The alarm pins the same property from the other side, in its e2e spec "a wrong code is refused by the panel and changes nothing".
+
+**The message MUST NOT contain the entered code.** What comes back is whatever the integration raised, and no card can enumerate what every integration puts in that string — so the code is stripped from the message before anything renders it, rather than the string being trusted. This is the only path by which a code could reach the DOM, and it applies wherever the message is surfaced, the card's own state line and `title` included.
+
 - **GIVEN** a `locked` lock publishing `code_format: 'number'` with default options
 - **WHEN** the user taps Unlock
 - **THEN** a keypad is presented and no confirmation dialog is; **WHEN** the user enters a code and submits, **THEN** the card calls `lock.unlock` once, carrying that code, and the code is written nowhere else.
+
+- **GIVEN** the same card with the keypad open
+- **WHEN** the user submits a code the lock refuses
+- **THEN** the keypad stays open, the refusal is reported beside it with the code stripped out of the message, and a second attempt can be entered and submitted.
 
 ### Tier layouts
 

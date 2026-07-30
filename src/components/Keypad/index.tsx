@@ -55,6 +55,27 @@ export function readCodeFormat(
   return raw === 'number' || raw === 'text' ? raw : undefined
 }
 
+/**
+ * Strip an entered code out of a message before anything renders it.
+ *
+ * A rejected code comes back as whatever the integration raised, and this
+ * codebase cannot enumerate what every integration puts in that string — so the
+ * message is treated as untrusted with respect to the credential rather than
+ * assumed clean. Cheap insurance on the one surface where a leak would matter.
+ *
+ * **Call it where the code is still an argument, never from state.** The point
+ * is that the redacted message is what survives the call; a card that held the
+ * raw code around in order to redact later would have traded a possible leak
+ * for a certain one.
+ *
+ * An empty code redacts nothing: `split('')` would shatter the message into
+ * characters, and there is no secret in an empty string to hide.
+ */
+export function redactCode(message: string, code: string): string {
+  if (code.length === 0) return message
+  return message.split(code).join('[code]')
+}
+
 export interface KeypadProps {
   /** `number` renders the digit pad, `text` a masked field. */
   format: CodeFormat

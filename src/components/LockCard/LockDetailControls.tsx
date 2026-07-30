@@ -1,9 +1,9 @@
-import { Box, Heading } from '@radix-ui/themes'
+import { Box, Heading, Text } from '@radix-ui/themes'
 import { useCallback, useState } from 'react'
 import { useServiceCall } from '~/hooks'
 import { Pill, PillGroup } from '../anatomy'
 import { ConfirmToggleDialog } from '../ConfirmToggleDialog'
-import { Keypad, readCodeFormat, type CodeFormat } from '~/components/Keypad'
+import { Keypad, readCodeFormat, redactCode, type CodeFormat } from '~/components/Keypad'
 import { LOCK_OPTION_DEFAULTS } from '~/store/lockOptions'
 import {
   LOCK_CONFIRM_PROMPT,
@@ -55,6 +55,22 @@ export function LockDetailControls({ entity }: EntityDetailControlsProps) {
     service: LockService
     format: CodeFormat
   } | null>(null)
+  /*
+   * What the lock said when it refused the last code, already redacted.
+   *
+   * Held here rather than read off `useServiceCall`'s `error` for two reasons:
+   * the message has to sit beside the keypad that produced it rather than in a
+   * card's state line, and the hook's copy is the raw string, which is the one
+   * place a credential could plausibly appear.
+   */
+  const [keypadError, setKeypadError] = useState<string | null>(null)
+  /*
+   * Bumped on every refusal, and used as the keypad's `key`, so React remounts
+   * it: that clears the rejected entry AND releases the at-most-once submit
+   * latch, which is what makes a second attempt possible at all. Without the
+   * remount the keypad would stay open showing an error above a dead button.
+   */
+  const [attempt, setAttempt] = useState(0)
 
   const entityId = entity.entity_id
   const { state, canLock, canUnlock, isActive } = resolveLockPresentation({ state: entity.state })
@@ -73,9 +89,45 @@ export function LockDetailControls({ entity }: EntityDetailControlsProps) {
    * is the part that must not differ.
    */
   const send = useCallback(
-    (service: LockService, code?: string) => {
-      // As on the card: the code goes with the call and nowhere else.
-      void dispatchGuarded({ domain: 'lock', service, entityId, data: code ? { code } : undefined })
+    (service: LockService) => {
+      // No `data`: a coded command goes through `submitCode`, which awaits its
+      // result instead of firing and forgetting.
+      void dispatchGuarded({ domain: 'lock', service, entityId })
+    },
+    [dispatchGuarded, entityId]
+  )
+
+  /**
+   * Submit a collected code, and keep the keypad up if the lock refuses it.
+   *
+   * The keypad used to close the moment submit was pressed, before the call had
+   * settled — so a **wrong code looked exactly like a successful unlock**: the
+   * keypad vanished and nothing else changed. On a credential surface that is
+   * the one outcome the user must be able to tell apart, and the alarm's own
+   * e2e spec ("a wrong code is refused by the panel and changes nothing")
+   * treats it as behaviour worth pinning.
+   *
+   * The message is redacted **here**, where `code` is a parameter — so what
+   * reaches state is the redacted string and the credential is not retained in
+   * order to redact it later.
+   */
+  const submitCode = useCallback(
+    async (service: LockService, code: string) => {
+      const result = await dispatchGuarded({
+        domain: 'lock',
+        service,
+        entityId,
+        data: { code },
+      })
+
+      if (result.success) {
+        setKeypadRequest(null)
+        setKeypadError(null)
+        return
+      }
+
+      setKeypadError(redactCode(result.error ?? 'The lock refused that command.', code))
+      setAttempt((n) => n + 1)
     },
     [dispatchGuarded, entityId]
   )
@@ -83,6 +135,7 @@ export function LockDetailControls({ entity }: EntityDetailControlsProps) {
   const dispatch = useCallback(
     (service: LockService) => {
       if (codeFormat !== undefined) {
+        setKeypadError(null)
         setKeypadRequest({ service, format: codeFormat })
         return
       }
@@ -122,14 +175,26 @@ export function LockDetailControls({ entity }: EntityDetailControlsProps) {
       </PillGroup>
       {keypadRequest && (
         <Box mt="3">
+          {keypadError && (
+            <Text
+              as="p"
+              size="2"
+              mb="2"
+              role="alert"
+              style={{ color: 'var(--liebe-c-alert-text)' }}
+            >
+              {keypadError}
+            </Text>
+          )}
           <Keypad
+            key={attempt}
             format={keypadRequest.format}
             actionLabel={LOCK_SERVICE_LABEL[keypadRequest.service]}
-            onSubmit={(code) => {
-              send(keypadRequest.service, code)
+            onSubmit={(code) => void submitCode(keypadRequest.service, code)}
+            onCancel={() => {
               setKeypadRequest(null)
+              setKeypadError(null)
             }}
-            onCancel={() => setKeypadRequest(null)}
           />
         </Box>
       )}

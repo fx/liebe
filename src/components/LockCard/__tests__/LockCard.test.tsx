@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { LockCard } from '..'
 import { CardItemProvider } from '../../cardItemContext'
 import { useEntity, useServiceCall } from '~/hooks'
@@ -20,7 +20,12 @@ vi.mock('~/store', () => ({
 const ENTITY_ID = 'lock.front_door'
 
 describe('LockCard', () => {
-  const mockDispatchGuarded = vi.fn()
+  /*
+   * Resolves a real `ServiceCallResult`, because the coded path AWAITS the
+   * dispatch: a bare `vi.fn()` returns `undefined`, and `await undefined` then
+   * throws on `.success` as an unhandled rejection the suite reports as green.
+   */
+  const mockDispatchGuarded = vi.fn().mockResolvedValue({ success: true })
   const mockClearError = vi.fn()
 
   const lockEntity = (state: string, attributes?: Record<string, unknown>) => ({
@@ -477,6 +482,70 @@ describe('LockCard', () => {
 
       expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument()
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
+    })
+
+    it('keeps the keypad open and says so when the lock refuses the code', async () => {
+      // Closing on submit made a wrong code indistinguishable from a
+      // successful unlock — the keypad vanished either way.
+      mockDispatchGuarded.mockResolvedValueOnce({ success: false, error: 'Invalid code' })
+      codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      for (const digit of ['1', '1', '1', '1'])
+        fireEvent.click(screen.getByRole('button', { name: digit }))
+      fireEvent.click(submit('Unlock'))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Invalid code')
+      expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
+    })
+
+    it('never prints the entered code anywhere in the DOM when it is refused', async () => {
+      /*
+       * This card renders the hook's `error` in its state line AND in the
+       * tile's `title` attribute, so an integration that echoed the code back
+       * would put a credential in two places at once. The hook's raw copy is
+       * dropped and a redacted message held instead.
+       */
+      mockDispatchGuarded.mockResolvedValueOnce({
+        success: false,
+        error: 'Invalid code 4821 rejected',
+      })
+      const { container } = codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      for (const digit of ['4', '8', '2', '1'])
+        fireEvent.click(screen.getByRole('button', { name: digit }))
+      fireEvent.click(submit('Unlock'))
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).not.toHaveTextContent('4821')
+      // Redacted, not swallowed — the rest of the message survives.
+      expect(alert).toHaveTextContent('rejected')
+      expect(mockClearError).toHaveBeenCalled()
+      expect(document.body.textContent).not.toContain('4821')
+      expect(container.innerHTML).not.toContain('4821')
+    })
+
+    it('says something useful when the refusal carries no message', async () => {
+      mockDispatchGuarded.mockResolvedValueOnce({ success: false })
+      codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+      fireEvent.click(submit('Unlock'))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('The lock refused that command.')
+    })
+
+    it('closes the keypad when the lock accepts the code', async () => {
+      codedCard('locked')
+
+      fireEvent.click(pill('Unlock'))
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+      fireEvent.click(submit('Unlock'))
+
+      await waitFor(() => expect(screen.queryByTestId('code-keypad')).not.toBeInTheDocument())
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
 
     it('drops the keypad when the dialog itself is dismissed', () => {

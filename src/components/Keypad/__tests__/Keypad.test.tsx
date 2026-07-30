@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { Keypad, readCodeFormat } from '..'
+import { Keypad, readCodeFormat, redactCode } from '..'
 
 /**
  * The code collector on its own — a dumb component, and the tests are about
@@ -126,6 +126,24 @@ describe('Keypad', () => {
 
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe('redactCode', () => {
+  it('strips every occurrence of the code out of the message', () => {
+    expect(redactCode('Invalid code 4821; 4821 was refused', '4821')).toBe(
+      'Invalid code [code]; [code] was refused'
+    )
+  })
+
+  it('leaves a message that does not contain the code alone', () => {
+    expect(redactCode('Lock is unavailable', '4821')).toBe('Lock is unavailable')
+  })
+
+  it('redacts nothing for an empty code', () => {
+    // `split('')` would shatter the message into characters, and an empty
+    // string is not a secret worth hiding.
+    expect(redactCode('Invalid code', '')).toBe('Invalid code')
   })
 })
 
