@@ -240,7 +240,7 @@ changes:
   - id: '0028'
     name: slider-rendering-fixes
     path: changes/0028-slider-rendering-fixes.md
-    description: Fix the vertical slider's half-width clipped fill, its left-flush placement in tall tiles, and the input_number card's missing fill band
+    description: Fix the vertical slider's fill so it spans the track's whole width instead of being clipped at its edge, and give the input_number card's tall slider the fill band it never received
     spec: design-system
     status: complete
     depends_on: []

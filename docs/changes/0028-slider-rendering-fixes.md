@@ -2,7 +2,7 @@
 
 ## Summary
 
-Fix the three rendering defects in the embedded slider's vertical form: the fill covering only half the track's width (and being clipped at its edge), the vertical slider sitting left-flush instead of centred in a `tall` tile, and the `input_number` card's `tall` slider getting no travel because it never receives the fill band. The slider anatomy rules these violate now live in [design-system — card anatomy](../specs/design-system/index.md#card-anatomy).
+Fix the rendering defects in the embedded slider's vertical form: the fill covering only half the track's width (and being clipped at its edge), and the `input_number` card's `tall` slider getting no travel because it never receives the fill band. A third defect was expected — the vertical slider sitting left-flush instead of centred in a `tall` tile — and measurement during implementation showed it was not happening; see the struck-through bullet under [Motivation](#motivation). The slider anatomy rules these violate now live in [design-system — card anatomy](../specs/design-system/index.md#card-anatomy).
 
 **Spec:** [design-system](../specs/design-system/), [entity-cards options — input-helpers](../specs/entity-cards/options/input-helpers.md)
 **Status:** complete
