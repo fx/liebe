@@ -321,7 +321,9 @@ describe('LCARS stylesheet', () => {
       )
     ).toBe(true)
     expect(
-      iconOnlyRules.some(({ declarations }) => declarations.includes('color: var(--lcars-hue);'))
+      iconOnlyRules.some(({ declarations }) =>
+        declarations.includes('color: var(--liebe-part-color);')
+      )
     ).toBe(true)
 
     // …and gives way in turn to the person card, whose anchor IS a disc. The
