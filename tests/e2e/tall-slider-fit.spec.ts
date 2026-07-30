@@ -270,7 +270,20 @@ test('a tall card’s vertical slider takes the content region where the token d
   const level = await entityName(page, E2E_LEVEL)
   expect(light, 'the two seeded cards must be distinguishable by name').not.toBe(level)
   await expect.poll(() => sliderValueNow(page, { name: light })).toBe('50')
-  await expect.poll(() => tallSliderGeometry(page, { name: level })).not.toBeNull()
+  /*
+   * The `input_number` card needs its own synchronisation, and NOT on its
+   * slider. Its helper state arrives over the websocket after the card first
+   * renders, so a snapshot taken in between would measure a card with an empty
+   * control slot and fail the "a control must still render here" assertion for a
+   * reason that is not the geometry. Waiting on the BAND is the predicate that
+   * synchronises without prejudging the outcome: the band is there as soon as
+   * the card has a control to place, whether or not the floors kept it — so a
+   * genuine omission still reaches the assertions below with its measurements in
+   * the failure message, rather than turning into a bare poll timeout.
+   */
+  await expect
+    .poll(async () => (await tallSliderGeometry(page, { name: level }))?.band ?? null)
+    .not.toBeNull()
 
   for (const [family, name] of [
     ['light', light],

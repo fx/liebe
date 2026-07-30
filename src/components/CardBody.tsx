@@ -394,7 +394,7 @@ export function CardBody({
    * still leaves its band standing. That is not a cosmetic choice — the band is
    * where the long-axis capacity is measured, and a band that disappeared with
    * its control would take the measurement with it and oscillate (see
-   * `useControlBandHeight`).
+   * `useControlBandBox`).
    */
   const filling = arrangement === 'tall' && controlSize === 'fill' && Boolean(requestedControl)
 

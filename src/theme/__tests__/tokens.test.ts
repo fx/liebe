@@ -413,6 +413,13 @@ describe('token catalogue', () => {
 
     expect(control, 'the geometry group must still catalogue the control height').toBeDefined()
     expect(control!.purpose).toMatch(/maximum/i)
+    /*
+     * Both halves, because "maximum" alone still reads as a size a theme sets
+     * and gets: what the re-pin actually says is that the tile narrows the
+     * control below it. A purpose that dropped the second half would document
+     * a token this build does not have.
+     */
+    expect(control!.purpose).toMatch(/narrow/i)
     expect(control!.purpose).not.toMatch(/^Embedded slider height$/)
   })
 
