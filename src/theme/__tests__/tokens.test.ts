@@ -149,7 +149,11 @@ const LIGHT_TEXT_STEPS = new Map([
 ])
 
 describe('token stylesheet', () => {
-  it('declares every token the contract catalogues', () => {
+  it('declares exactly the tokens the contract catalogues as root-declared', () => {
+    // Both directions: a token catalogued but not declared, and a token
+    // declared but not catalogued, each fail here. The `defaultedAtUse` few are
+    // the deliberate exception and are checked by the test below instead — the
+    // two together still cover the whole contract.
     expect([...base.keys()].sort()).toEqual([...listRootDeclaredTokenNames()].sort())
   })
 

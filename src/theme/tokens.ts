@@ -136,7 +136,7 @@ export const tokenGroups: readonly TokenGroup[] = [
     id: 'parts',
     title: 'Parts',
     description:
-      'What the base layer resolves for one anatomy part. The label pair are ordinary overrides, declared on the theme root like every other token. The hue is different in kind: the base layer re-declares it on every part carrying a domain colour, so it always reads as “this part’s own colour” — which also means a root-level override reaches only a subtree that resolved none. It is published to be read; the way to change what a part’s hue IS remains that domain’s --liebe-c-* triplet.',
+      'What the base layer resolves for one anatomy part. The label pair are ordinary overrides — a theme or user sets them on the theme root like any other token — but their DEFAULTS are not values on the root: they are var() fallbacks where the labels are painted, so an unset token resolves the neutral at the label rather than once at the root. The hue is different in kind: the base layer re-declares it on every part carrying a domain colour, so it always reads as “this part’s own colour” — which also means a root-level override reaches only a subtree that resolved none. It is published to be read; the way to change what a part’s hue IS remains that domain’s --liebe-c-* triplet.',
     preview: 'text',
     tokens: [
       {
