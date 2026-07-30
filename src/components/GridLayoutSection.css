@@ -52,12 +52,49 @@
     flex-direction: column;
   }
 
-  /* Resize handles */
+  /*
+   * Resize handles.
+   *
+   * These rules are one class shallower than either vendor sheet styles the
+   * same elements — `react-resizable` uses `.react-resizable-handle`,
+   * `react-grid-layout` uses `.react-grid-item > .react-resizable-handle.react-resizable-handle-s`
+   * — so for as long as those sheets shipped unlayered, not one declaration
+   * below here rendered. Both packages are now in `liebe-base.vendor`
+   * (`src/theme/cssLayers.ts`), which puts this block in charge.
+   *
+   * The three resets on the base rule are what that costs, and each neutralises
+   * a vendor declaration Liebe has no counterpart for — so without them the
+   * vendor's value survives underneath Liebe's and the two compose into
+   * something neither sheet describes:
+   *
+   *  - `background-image`: react-resizable paints a grey grip SVG. Liebe draws
+   *    its own dot in `::after`, so the vendor's would sit behind it.
+   *  - `margin`: react-resizable centres edge handles with `margin-left: -10px`
+   *    / `margin-top: -10px` while Liebe centres them with a translate. Both
+   *    apply, and the handle lands half its own width PLUS ten pixels off
+   *    centre — the "40×20 bar shifted 16px left" that made demotion wait for
+   *    this reconciliation.
+   *  - `transform`: react-resizable rotates each handle to point its grip
+   *    outward (45°, 135°, 225°, 315°). Liebe overrides that on the four edge
+   *    handles because it needs the property for centring, but sets no
+   *    transform on the corners — so their rotation would survive and spin the
+   *    `::after` dot to the wrong corner of a box whose own square shape hides
+   *    that the rotation happened at all.
+   *
+   * `padding` goes with them for tidiness rather than necessity: it is the
+   * vendor's inset for that grip image, and an absolutely positioned `::after`
+   * resolves against the padding box, so it changes nothing once the image is
+   * gone. Reset anyway, so the box this file describes is the box that renders.
+   */
   .react-resizable-handle {
     position: absolute;
     width: 20px;
     height: 20px;
     background-color: transparent;
+    background-image: none;
+    margin: 0;
+    padding: 0;
+    transform: none;
     z-index: 1;
   }
 
@@ -207,8 +244,26 @@
     bottom: 6px;
   }
 
-  /* Ensure ButtonCard fills the grid item */
-  .grid-item > * {
+  /*
+   * Ensure the card fills the grid item.
+   *
+   * `:not(.react-resizable-handle)` is load-bearing, and it is the rule that
+   * made demoting the grid packages a real change rather than a cascade tidy.
+   * `react-grid-layout` puts the eight resize handles in the SAME element as the
+   * card — `.react-grid-item` and `.grid-item` are one node, and the handles are
+   * its direct children — so an unqualified `.grid-item > *` matches every
+   * handle too and stretches each to the full card.
+   *
+   * That never showed while the vendor sheets were unlayered: their
+   * `.react-grid-item > .react-resizable-handle { width: 20px }` out-specified
+   * this rule and held the handles at 20×20. Demotion reversed it, and because
+   * this selector is both later in the file and no less specific than
+   * `.react-resizable-handle`, it won — eight invisible full-card handles
+   * stacked over the tile, the last of them (`s`) swallowing every press. The
+   * grid still resized, from whichever handle happened to be on top, which is
+   * why the symptom was a card that only ever changed height.
+   */
+  .grid-item > *:not(.react-resizable-handle) {
     width: 100%;
     height: 100%;
   }
@@ -228,25 +283,21 @@
       width: 24px;
       height: 24px;
     }
-
-    /* Disable hover effects on touch devices */
-    @media (pointer: coarse) {
-      .react-grid-item:hover .react-resizable-handle::after {
-        opacity: 0;
-      }
-
-      /* Show resize handles when in edit mode */
-      .react-grid-item.react-draggable .react-resizable-handle::after {
-        opacity: 1;
-      }
-    }
   }
 
   @media (min-width: 768px) and (max-width: 1023px) {
     /* Tablet adjustments */
   }
 
-  /* Touch-friendly adjustments */
+  /*
+   * Touch-friendly adjustments.
+   *
+   * The floor [grid-layout](../../docs/specs/grid-layout/index.md#touch-first-sizing)
+   * states as a MUST, and the reason the whole block above had to become live:
+   * these three rules are the grid's half of the project's touch-target
+   * principle, and for as long as the vendor sheets outranked them a coarse
+   * pointer got the same 20×20 handles a mouse did.
+   */
   @media (pointer: coarse) {
     /* Larger touch targets for resize handles */
     .react-resizable-handle {
@@ -264,6 +315,51 @@
     .react-resizable-handle-s {
       width: 60px;
       height: 32px;
+    }
+
+    /*
+     * And never more than a share of the tile, whatever the numbers above say.
+     *
+     * The floor is written in pixels and a grid cell is not: at the 8-column
+     * `tablet` breakpoint on a 480px viewport a 1×1 tile measures 33×51, and a
+     * touch device asking for 32×32 corners with 60px edges puts eight handles
+     * over every pixel of it — measured, 0 of 100 sampled points left uncovered.
+     * A card whose whole surface is a resize handle cannot be dragged, tapped or
+     * opened, so on the smallest tiles the floor and the card's own operability
+     * are in direct conflict.
+     *
+     * The drag surface wins, which is the precedence
+     * [grid-layout](../../docs/specs/grid-layout/index.md#touch-first-sizing)
+     * states: a handle below its target is smaller than we would like, a tile
+     * nobody can grab is broken. 40% is the largest share that leaves the tile's
+     * centre reachable with all eight handles present, and it binds only on
+     * tiles too small to have honoured the floor anyway — on any tile wide
+     * enough for a 60px edge handle (150px and up) it is inert.
+     */
+    .react-resizable-handle {
+      max-width: 40%;
+      max-height: 40%;
+    }
+
+    /*
+     * And visible, which the size alone does not buy. `react-grid-layout` hides
+     * every handle at `opacity: 0` and reveals it on `:hover`, an event a touch
+     * device never sends — so enlarging the target without this ships a 32×32
+     * hit area nobody can see.
+     *
+     * This replaces a rule that tried the same thing and could not work: the
+     * old one raised the `::after` dot's opacity while the vendor kept the
+     * handle *containing* it at zero, and opacity composites down a subtree. It
+     * was also nested inside the `max-width: 767px` block, so it said nothing
+     * about a tablet. Revealing the handle itself is what the intent needed.
+     *
+     * No edit-mode qualifier: in view mode the grid passes no resize handles at
+     * all (grid-layout — eight in edit mode, none in view), so a handle in the
+     * DOM already means edit mode.
+     */
+    .react-resizable-handle,
+    .react-resizable-handle::after {
+      opacity: 1;
     }
   }
 }

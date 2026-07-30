@@ -307,12 +307,17 @@ Why this needs stating: the stored-to-effective mapping is deliberately lossy in
 ### Touch-First Sizing
 
 - Interactive grid affordances MUST be enlarged on coarse-pointer devices: resize handles MUST grow to at least `32×32` (edge handles `32×60` / `60×32`) under `@media (pointer: coarse)`, and cards MUST provide active-press feedback and a tap-highlight there.
+- The enlarged handle MUST also be **visible** without a hover, and MUST stay an affordance ON the card rather than covering it. `react-grid-layout` hides every handle at `opacity: 0` until `:hover`, an event a touch device never sends, so a floor met in size alone ships a target nobody can see.
+- **A tile MUST keep a surface that is not a resize handle, and that outranks the floor.** The floor is written in pixels and a grid cell is not: at the 8-column `tablet` breakpoint on a 480px viewport a 1×1 tile measures 33×51, and eight handles at the sizes above cover every pixel of it — measured, 0 of 100 sampled points left free. A card whose whole surface is a handle cannot be dragged, tapped or opened. So no handle may exceed **40%** of its tile on either axis; where that binds, the handle is smaller than the floor asks and the card stays operable. The cap is inert on any tile large enough to honour the floor (about 150px for a 60px edge handle).
+- **This rule was unmet for the whole of its existence, and the reason is a cascade fact rather than a missing rule.** `GridLayoutSection.css` has always contained exactly the geometry above, one class shallower than either grid package selects the same handles — and both packages shipped **unlayered**, which outranks every cascade layer regardless of specificity. A coarse pointer therefore got the same 20×20 handles a mouse did. Closed by change [0036](../../changes/0036-theming-contract-gaps.md) PR 5, which demoted `react-grid-layout` and `react-resizable` into `liebe-base.vendor` and reconciled the two rule sets.
 
 #### Scenario: Coarse pointer enlarges resize handles
 
 - **GIVEN** a coarse-pointer device
 - **WHEN** the grid renders in edit mode
-- **THEN** `.react-resizable-handle` is sized `32×32` (`src/components/GridLayoutSection.css:244`)
+- **THEN** the corner handles measure at least `32×32` and the edge handles `32×60` / `60×32`, each visible without hover and each smaller than the card it resizes — unless the tile is too small to hold them, where the 40% cap applies instead and the tile keeps a free surface (`tests/e2e/grid-handle-geometry.spec.ts`)
+
+**The evidence is e2e and cannot be anything else.** The stylesheet said `32×32` throughout the years the handle measured 20×20, so a test reading the CSS would have passed the whole time; only a real cascade in a real browser can answer it. The upper bound is in the scenario for the same reason — the first run after the demotion met every lower bound while all eight handles measured the full card, because a neighbouring rule (`.grid-item > *`) had started matching them too.
 
 ## Design
 
@@ -384,7 +389,7 @@ Store actions consumed by the grid layer (defined in `../dashboard-config/`): `u
 - **`GridLayoutSection`** (`src/components/GridLayoutSection.tsx`): `react-grid-layout` config, responsive column scaling, row-height measurement, layout-change persistence.
 - **`GridCard`** (`src/components/GridCard.tsx`): shared card chrome and compound sub-components (`Icon`, `Title`, `Controls`, `Status`); size → `minHeight`/`padding`/font-size mapping; fullscreen portal.
 - **`Separator`** (`src/components/Separator.tsx`) and **`TextCard`** (`src/components/TextCard.tsx`): non-entity grid item types, each carrying a static `defaultDimensions`.
-- **`GridLayoutSection.css`**: `react-grid-layout` overrides, resize-handle styling, coarse-pointer touch sizing.
+- **`GridLayoutSection.css`**: `react-grid-layout` overrides, resize-handle styling, coarse-pointer touch sizing. Its handle rules only render because both grid packages sit in `liebe-base.vendor` (`src/theme/cssLayers.ts`); the resets on `.react-resizable-handle` are what keeps the vendor's own centring, rotation and grip image from composing with Liebe's.
 
 ### Business Logic
 
@@ -445,7 +450,7 @@ item.width >= 4 && item.height >= 3
 - **Absolute item positioning (`positionStrategy={absoluteStrategy}`)**: items are laid out with `top`/`left`, not `transform: translate(...)`. This is a deliberate global choice so no grid-item transform creates a containing block that would trap the camera card's in-place `position: fixed` fullscreen overlay ([../camera-streaming/](../camera-streaming/index.md#fullscreen)); the trade-off is `top`/`left` positioning instead of compositor-friendly transforms.
 - **compactType null + preventCollision**: user positions are never auto-compacted at render time; compaction happens only on explicit `reorderGrid`.
 - **Integer grid cells against stored resolution**: all persisted coordinates are integers relative to `resolution.columns`. The stored-to-effective mapping is deliberately lossy — a span floored at one cell and an `x` clamped into bounds cannot be inverted — so only a field the user actually moved is ever scaled back. A genuine move is therefore coarse: it is rounded to the nearest stored column, landing on an exact multiple of the ratio where the ratio is a whole number (a drag to effective column 2 of 4 stores `x: 6` of 12) and on a rounded approximation where it is not (12 columns at the 8-column `tablet` breakpoint), and it may be clamped further to keep the item on screen. Narrow breakpoints therefore offer coarser placement than the stored resolution, not corrupted placement.
-- **Touch targets**: coarse-pointer resize handles are enlarged to ≥32px; the project's 44px touch-target principle is only partially met by handle CSS.
+- **Touch targets**: coarse-pointer resize handles are enlarged to ≥32px (`32×60` / `60×32` on the edges) and revealed without hover — live since change [0036](../../changes/0036-theming-contract-gaps.md) PR 5, and previously stated by CSS that never rendered. The project's 44px touch-target principle is still only partially met by handle CSS: 32 is the number the grid spec states, not 44.
 - **Whole-card drag**: dragging is enabled on the entire card, relying on `draggableCancel` to exclude interactive controls (buttons, inputs, `[role='button']`, `.no-drag`).
 
 ## Open Questions
