@@ -257,10 +257,10 @@ function SensorCardComponent({
    * The `full` footer's slot: present exactly while the graph it describes is on
    * screen — a footer standing under no graph is a window nothing else names —
    * and therefore present while that graph is still loading, empty. The empty
-   * line is the point: the extremes exist only once the series lands, and the
+   * box is the point: the extremes exist only once the series lands, and the
    * graph above is flexible, so a footer that arrived with its text would take
-   * its line out of the graph and shrink it. Reserving the line here is what the
-   * tier rule means by the placeholder holding the graph AND its footer
+   * its space out of the graph and shrink it. Reserving that space here is what
+   * the tier rule means by the placeholder holding the graph AND its footer
    * (docs/specs/entity-cards/options/sensor.md — "the graph claims the tile").
    */
   const footerState = tier === 'full' ? sensorGraphState(samples) : 'none'
