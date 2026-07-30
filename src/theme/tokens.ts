@@ -21,6 +21,24 @@ export interface TokenDefinition {
   name: string
   /** What the token controls. */
   purpose: string
+  /**
+   * True for a token whose default is a `var()` FALLBACK at the point of use
+   * rather than a declaration in `src/styles/tokens.css`.
+   *
+   * Almost every token here is declared on the root, which is what makes the
+   * appearance flip and the alias work. A few must not be, and the reason is
+   * the same one that forces the rest onto the root: a custom property is
+   * substituted at the element that declares it. A token whose default is
+   * another token that components resolve LOCALLY — the label pair's
+   * `--liebe-muted` / `--liebe-fg` — would, if aliased on the root, resolve
+   * that neutral once at the root and inherit the answer, silently ignoring a
+   * scoped override the rule used to honour. Left undeclared, the fallback
+   * resolves where the rule is.
+   *
+   * `src/theme/__tests__/tokens.test.ts` asserts both halves: everything
+   * without this flag IS declared in the sheet, and everything with it is NOT.
+   */
+  defaultedAtUse?: true
 }
 
 export interface TokenGroup {
@@ -114,6 +132,30 @@ export const tokenGroups: readonly TokenGroup[] = [
       { name: '--liebe-font-numeric', purpose: 'Typeface for numeric readouts' },
     ],
   },
+  {
+    id: 'parts',
+    title: 'Parts',
+    description:
+      'What the base layer resolves for one anatomy part. The label pair are ordinary overrides, declared on the theme root like every other token. The hue is different in kind: the base layer re-declares it on every part carrying a domain colour, so it always reads as “this part’s own colour” — which also means a root-level override reaches only a subtree that resolved none. It is published to be read; the way to change what a part’s hue IS remains that domain’s --liebe-c-* triplet.',
+    preview: 'text',
+    tokens: [
+      {
+        name: '--liebe-part-color',
+        purpose:
+          'The domain colour this part resolved to, live bulb colour included — re-declared per part, so the value shown is the fallback where none resolved',
+      },
+      {
+        name: '--liebe-part-label',
+        purpose: 'Label on an inactive pill or chip (defaults to --liebe-muted where it is used)',
+        defaultedAtUse: true,
+      },
+      {
+        name: '--liebe-part-label-active',
+        purpose: 'Label on an active pill or chip (defaults to --liebe-fg where it is used)',
+        defaultedAtUse: true,
+      },
+    ],
+  },
 ] as const
 
 export interface DomainColor {
@@ -184,4 +226,25 @@ export function listTokenNames(): string[] {
     ...tokenGroups.flatMap((group) => group.tokens.map((token) => token.name)),
     ...domainColors.flatMap(({ name }) => Object.values(domainColorTokens(name))),
   ]
+}
+
+/**
+ * The tokens the base sheet declares on the root — the contract minus the few
+ * whose default is a `var()` fallback at the point of use. See
+ * `TokenDefinition.defaultedAtUse`.
+ */
+export function listRootDeclaredTokenNames(): string[] {
+  return [
+    ...tokenGroups.flatMap((group) =>
+      group.tokens.filter((token) => !token.defaultedAtUse).map((token) => token.name)
+    ),
+    ...domainColors.flatMap(({ name }) => Object.values(domainColorTokens(name))),
+  ]
+}
+
+/** The contract tokens deliberately left undeclared in the base sheet. */
+export function listUseDefaultedTokenNames(): string[] {
+  return tokenGroups.flatMap((group) =>
+    group.tokens.filter((token) => token.defaultedAtUse).map((token) => token.name)
+  )
 }

@@ -70,21 +70,26 @@
  * theme draws is therefore the screen's — a rail and an elbow — plus a bar per
  * section, and it gains its title the day a section renders one.
  *
- * The ten-way `data-color` → hue mapping below is a restatement of one the base
- * layer already does. It has to be: the anatomy resolves the attribute onto
- * `--part-color` / `--part-tint` / `--part-text`, and those are internal
- * plumbing the anatomy sheet reserves the right to rename, so a theme that read
- * them would be relying on something outside the contract.
+ * WHERE THE HUE COMES FROM
+ * ------------------------
+ * `--liebe-part-color` — the domain colour the part in hand resolved to,
+ * published by the base layer for exactly this purpose. This sheet used to
+ * carry a ten-way `data-color` → `--lcars-hue` mapping restating one the
+ * anatomy already performs, because the anatomy's own answer lived in
+ * `--part-color`, internal plumbing a theme may not read. Change 0036 PR 3
+ * published it, and the restatement is gone: a rule below styles whichever
+ * part it matched in that part's own hue without knowing which part it is.
  *
- * Controls are solid blocks with a black glyph on the icon circle, but pill and
- * chip LABELS keep the neutral foreground rather than going black with the
- * glyph as the spec describes. That is not a choice: the base layer pins those
- * labels to `--liebe-fg` / `--liebe-muted` through `liebe-pill-label` /
- * `liebe-chip-label`, which are internal class names a theme may not target, so
- * a solid saturated fill under them would be pale-on-pale. The pills and chips
- * below therefore take a dark block of their hue, which the neutral label
- * clears. It is a contract gap, reported with the change rather than worked
- * around here.
+ * Two of the three scoped rules the spec asks of this theme shipped partial in
+ * 0013, and this is the one that is now whole. Every active control is a solid
+ * block of the domain hue with black on it — the glyph on the icon circle,
+ * which carries no label, and the label on the pill and the chip, which is the
+ * half that was missing. The label goes through
+ * `--liebe-part-label-active` rather than through
+ * `liebe-pill-label` / `liebe-chip-label`, which are internal class names a
+ * theme may not target and which were the reason the pills and chips had to
+ * settle for a dark 38% block under a neutral label. The other partial, the
+ * section title bar, still waits on `liebe-section-title`.
  *
  * OFFLINE
  * -------
@@ -195,60 +200,24 @@
 
     --liebe-c-brand: var(--lcars-almond);
     --liebe-c-brand-text: var(--lcars-almond);
-  }
 
-  /* ------------------------------------------------------------------ *
-   * The domain hue, re-derived for the theme's own rules
-   *
-   * The anatomy resolves `data-color` onto `--part-color` / `--part-tint` /
-   * `--part-text` and styles itself from those — but those three are internal
-   * plumbing the anatomy sheet is explicit about being free to change, so a
-   * theme may not read them. The contract a theme gets is the attribute itself
-   * plus the `--liebe-c-*` tokens, so the mapping is restated here under a
-   * theme-private name. Ten rules, one per triplet, mirroring the base layer's.
-   *
-   * It inherits like `--part-color` does, which is what lets a rule below use
-   * the hue of whichever part it matched without knowing which one that is.
-   * ------------------------------------------------------------------ */
-
-  [data-color='light'] {
-    --lcars-hue: var(--liebe-c-light);
-  }
-
-  [data-color='heat'] {
-    --lcars-hue: var(--liebe-c-heat);
-  }
-
-  [data-color='cool'] {
-    --lcars-hue: var(--liebe-c-cool);
-  }
-
-  [data-color='ok'] {
-    --lcars-hue: var(--liebe-c-ok);
-  }
-
-  [data-color='alert'] {
-    --lcars-hue: var(--liebe-c-alert);
-  }
-
-  [data-color='media'] {
-    --lcars-hue: var(--liebe-c-media);
-  }
-
-  [data-color='vacuum'] {
-    --lcars-hue: var(--liebe-c-vacuum);
-  }
-
-  [data-color='water'] {
-    --lcars-hue: var(--liebe-c-water);
-  }
-
-  [data-color='default'] {
-    --lcars-hue: var(--liebe-c-default);
-  }
-
-  [data-color='brand'] {
-    --lcars-hue: var(--liebe-c-brand);
+    /* --- The label on a filled part -------------------------------------
+     *
+     * Active pills and chips are solid blocks of their domain hue below, so
+     * the label on one goes black with the glyph — the okudagram treatment,
+     * and the half of it that only became reachable when change 0036 PR 3
+     * published this token. Only the ACTIVE token is set: an inactive part is
+     * a dark block here, and its label wants the base layer's neutral.
+     *
+     * On the root rather than on the part, even though only the parts consume
+     * it. A token declared on a descendant is the value that descendant uses
+     * however the cascade went above it, so a user's
+     * `.liebe-root { --liebe-part-label-active: … }` in the LAST layer would
+     * lose to a theme declaration on the pill — which inverts the precedence
+     * the whole layer model exists to deliver. `.liebe-root` is where the
+     * spec says a theme declares tokens, and this is why.
+     */
+    --liebe-part-label-active: var(--lcars-black);
   }
 
   /* ------------------------------------------------------------------ *
@@ -386,7 +355,7 @@
   }
 
   .liebe-card::before {
-    background: var(--lcars-hue, var(--liebe-c-default));
+    background: var(--liebe-part-color);
     content: '';
     inline-size: 18px;
     inset-block: 0;
@@ -397,12 +366,26 @@
   /* ------------------------------------------------------------------ *
    * Controls
    *
-   * The icon circle becomes a solid block of the domain hue with a black
-   * glyph, which is the okudagram treatment and clears 5:1 on every hue in the
-   * palette. Pills and chips take a dark block of the same hue instead — see
-   * the header: their labels are pinned to the neutral foreground by the base
-   * layer through internal class names, so a saturated fill under them would
-   * be unreadable and unreachable.
+   * Every active control is a solid block of the domain hue with black on it,
+   * which is the okudagram treatment the spec describes ("solid color fills
+   * with black glyphs/labels") and the reason the palette is what it is: black
+   * on the tightest hue in the set — lilac, the `vacuum` triplet — measures
+   * 5.05:1, and the rest run to 13.27:1 on almond-creme.
+   *
+   * The icon circle has rendered that way since 0013. Pills and chips could
+   * not, and shipped a 38% block of the hue with the base layer's neutral
+   * label on it: the label's colour lived behind `liebe-pill-label` /
+   * `liebe-chip-label`, internal class names a theme may not target, so a
+   * saturated fill under it would have been pale-on-pale with no way to say
+   * otherwise. `--liebe-part-label-active` is that way of saying it
+   * (docs/changes/0036-theming-contract-gaps.md PR 3), and the fills are
+   * completed here.
+   *
+   * `--liebe-part-label-active` is set with the rest of the tokens on the
+   * root, not here on the parts — see the note there for why a token declared
+   * on a descendant defeats a user override. `--liebe-part-label` is left
+   * alone, because an inactive part is a dark block and its label wants the
+   * base layer's neutral.
    * ------------------------------------------------------------------ */
 
   .liebe-icon,
@@ -412,15 +395,11 @@
     color: var(--liebe-muted);
   }
 
-  .liebe-icon[data-active] {
-    background: var(--lcars-hue);
-    color: var(--lcars-black);
-  }
-
+  .liebe-icon[data-active],
   .liebe-pill[data-active],
   .liebe-chip[data-active] {
-    background: color-mix(in srgb, var(--lcars-hue) 38%, var(--lcars-black));
-    color: var(--lcars-hue);
+    background: var(--liebe-part-color);
+    color: var(--lcars-black);
   }
 
   /*

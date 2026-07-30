@@ -110,76 +110,94 @@
    * properties inherit, so stamping `data-color` on a container propagates the
    * triplet to anything inside it that has not resolved one of its own.
    *
+   * `--liebe-part-color` is the one of the four that IS contract: the hue this
+   * part resolved to, published under a `--liebe-*` name so a theme can say
+   * "this part's own colour" without restating the whole mapping below (LCARS
+   * did, under a private property — see docs/specs/theming, "Stable selector
+   * contract"). `--part-color` is derived from it here rather than declared
+   * beside it, so the published value and the one the parts paint with cannot
+   * drift apart.
+   *
    * A data-driven colour — a bulb's actual RGB, the one exception the spec
    * grants — arrives as an inline override of these four properties, which
    * wins over these rules by being inline. See `anatomyPart.ts`.
    * ------------------------------------------------------------------ */
 
   [data-color='light'] {
-    --part-color: var(--liebe-c-light);
+    --liebe-part-color: var(--liebe-c-light);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-light-tint);
     --part-text: var(--liebe-c-light-text);
     --part-glyph: var(--part-light-glyph);
   }
 
   [data-color='heat'] {
-    --part-color: var(--liebe-c-heat);
+    --liebe-part-color: var(--liebe-c-heat);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-heat-tint);
     --part-text: var(--liebe-c-heat-text);
     --part-glyph: var(--part-heat-glyph);
   }
 
   [data-color='cool'] {
-    --part-color: var(--liebe-c-cool);
+    --liebe-part-color: var(--liebe-c-cool);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-cool-tint);
     --part-text: var(--liebe-c-cool-text);
     --part-glyph: var(--part-cool-glyph);
   }
 
   [data-color='ok'] {
-    --part-color: var(--liebe-c-ok);
+    --liebe-part-color: var(--liebe-c-ok);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-ok-tint);
     --part-text: var(--liebe-c-ok-text);
     --part-glyph: var(--part-ok-glyph);
   }
 
   [data-color='alert'] {
-    --part-color: var(--liebe-c-alert);
+    --liebe-part-color: var(--liebe-c-alert);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-alert-tint);
     --part-text: var(--liebe-c-alert-text);
     --part-glyph: var(--part-alert-glyph);
   }
 
   [data-color='media'] {
-    --part-color: var(--liebe-c-media);
+    --liebe-part-color: var(--liebe-c-media);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-media-tint);
     --part-text: var(--liebe-c-media-text);
     --part-glyph: var(--part-media-glyph);
   }
 
   [data-color='vacuum'] {
-    --part-color: var(--liebe-c-vacuum);
+    --liebe-part-color: var(--liebe-c-vacuum);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-vacuum-tint);
     --part-text: var(--liebe-c-vacuum-text);
     --part-glyph: var(--part-vacuum-glyph);
   }
 
   [data-color='water'] {
-    --part-color: var(--liebe-c-water);
+    --liebe-part-color: var(--liebe-c-water);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-water-tint);
     --part-text: var(--liebe-c-water-text);
     --part-glyph: var(--part-water-glyph);
   }
 
   [data-color='default'] {
-    --part-color: var(--liebe-c-default);
+    --liebe-part-color: var(--liebe-c-default);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-default-tint);
     --part-text: var(--liebe-c-default-text);
     --part-glyph: var(--part-default-glyph);
   }
 
   [data-color='brand'] {
-    --part-color: var(--liebe-c-brand);
+    --liebe-part-color: var(--liebe-c-brand);
+    --part-color: var(--liebe-part-color);
     --part-tint: var(--liebe-c-brand-tint);
     --part-text: var(--liebe-c-brand-text);
     --part-glyph: var(--part-brand-glyph);
@@ -371,16 +389,34 @@
    * so the label takes the neutral foreground and the whole part stays
    * readable in both appearances. Inactive labels take `--liebe-muted` rather
    * than the glyph's fainter `--liebe-faint`, for the same reason.
+   *
+   * That reasoning holds for the tint pattern and only for it, which is why
+   * the two colours are read from tokens rather than written here. A theme
+   * that fills the part with a saturated hue instead of tinting it has a
+   * different ground under the same label and needs a dark one on it — the
+   * treatment the design system specifies for LCARS, and the one that was
+   * unreachable while these two classes were the only way to name a label
+   * (docs/changes/0036-theming-contract-gaps.md PR 3).
+   *
+   * The default is a `var()` FALLBACK here rather than a declaration on the
+   * root, and that placement is the whole of what makes this a no-op. A
+   * custom property is substituted at the element that DECLARES it, so
+   * `--liebe-part-label: var(--liebe-muted)` on `.liebe-root` would resolve
+   * the neutral at the root and inherit the result — quietly ignoring a
+   * `--liebe-muted` set on anything between the root and the label, which is
+   * what these two rules used to honour and what the rest of the sheet still
+   * does (`.liebe-state-detail` reads the neutral the same way). Unset, the
+   * fallback resolves at the label, exactly as the literal did.
    */
   .liebe-pill-label,
   .liebe-chip-label {
-    color: var(--liebe-muted);
+    color: var(--liebe-part-label, var(--liebe-muted));
     transition: color 280ms ease-out;
   }
 
   .liebe-pill[data-active] .liebe-pill-label,
   .liebe-chip[data-active] .liebe-chip-label {
-    color: var(--liebe-fg);
+    color: var(--liebe-part-label-active, var(--liebe-fg));
   }
 
   /* ------------------------------------------------------------------ *

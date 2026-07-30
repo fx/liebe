@@ -84,6 +84,21 @@ const CONTRACT_ATTRIBUTES = new Set(['data-domain', 'data-active', 'data-color',
 
 const sheetSelectors = selectors(rules)
 
+/**
+ * The declarations of the rule written with exactly this selector list.
+ *
+ * Matched on the selector as the sheet writes it — Prettier normalises the
+ * formatting, so the newline-and-two-spaces between the parts of a list is
+ * stable — and asserted to exist, so a rule that is renamed or split fails here
+ * rather than silently satisfying a `not.toContain` somewhere below.
+ */
+function ruleBody(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = rules.match(new RegExp(`${escaped}\\s*\\{([^{}]*)\\}`))
+  expect(match, `no rule for ${selector}`).not.toBeNull()
+  return match![1]
+}
+
 describe('LCARS stylesheet', () => {
   it('is the registered theme’s payload', () => {
     // Reading the file and reading the registry must be the same thing, or
@@ -123,9 +138,83 @@ describe('LCARS stylesheet', () => {
 
   it('reads no internal custom property of the anatomy', () => {
     // `--part-color` and its companions are the anatomy's own plumbing, which
-    // its sheet reserves the right to rename. The theme re-derives the hue from
-    // `data-color` instead.
+    // its sheet reserves the right to rename. `--liebe-part-color` is the
+    // published name for the same answer and is what this theme reads — the
+    // assertion is on the `--part-` prefix precisely because the two look alike
+    // and only one of them is contract.
     expect(rules).not.toContain('--part-')
+  })
+
+  it('takes the resolved hue from the contract token instead of remapping it', () => {
+    // Ten `[data-color='…'] { --lcars-hue: … }` rules used to sit here,
+    // mirroring the base layer's mapping, because the base layer's own answer
+    // was only reachable under an internal name. Publishing it retired them
+    // (docs/changes/0036-theming-contract-gaps.md PR 3), and a theme that went
+    // back to restating the mapping would be carrying a copy that drifts the
+    // next time a domain colour is added.
+    // Asserted as the absence of the RESTATEMENT rather than of the selector
+    // form it happened to take. `data-color` is contract and a theme is free to
+    // key off it; what may not come back is a rule pinned to one of its values
+    // whose job is to park the hue under a private name — and pinning the
+    // written form (`[data-color='light'] { --lcars-hue: … }`) would miss
+    // `.liebe-pill[data-color='light']` doing the same thing.
+    expect(rules).not.toContain('--lcars-hue')
+    const valuePinned = sheetSelectors.filter((selector) => /\[data-color=/.test(selector))
+    for (const selector of valuePinned) {
+      expect(ruleBody(selector), `${selector} declares a property per domain colour`).not.toMatch(
+        /--[\w-]+\s*:/
+      )
+    }
+
+    // Both consumers of the retired property, asserted where they are rather
+    // than as one `toContain` over the file: the card's colour cap used to
+    // carry its own `var(--lcars-hue, …)` fallback for a card that resolved no
+    // domain colour, and the token's own default is what replaced it.
+    expect(ruleBody('.liebe-card::before')).toContain('background: var(--liebe-part-color);')
+  })
+
+  it('fills an active control solid and darkens the label on it', () => {
+    // The spec's LCARS treatment is "solid color fills with black glyphs/
+    // labels", and the label half was unreachable until the token existed: the
+    // base layer's `.liebe-pill[data-active] .liebe-pill-label` names an
+    // internal class, so this sheet could neither recolour the label nor safely
+    // saturate the ground under it, and shipped a dark 38% block instead.
+    //
+    // Asserted on one rule covering all three parts, because the point of the
+    // completion is that the pill and the chip now take the same treatment the
+    // icon circle already had rather than a compromise beside it.
+    const active = ruleBody(
+      '.liebe-icon[data-active],\n  .liebe-pill[data-active],\n  .liebe-chip[data-active]'
+    )
+    expect(active).toContain('background: var(--liebe-part-color);')
+    expect(active).toContain('color: var(--lcars-black);')
+    expect(ruleBody(':where(.liebe-root)')).toContain(
+      '--liebe-part-label-active: var(--lcars-black);'
+    )
+
+    // The 38% compromise is gone rather than left beside the fill.
+    expect(rules).not.toContain('38%')
+  })
+
+  it('declares every token override on the root and none on a part', () => {
+    // A token declared on a descendant is the value that descendant uses
+    // however the cascade went above it, so a theme setting one on a pill
+    // would beat a user's `.liebe-root { … }` in the LAST layer — inverting
+    // the precedence the layer model exists to deliver. The rule already
+    // existed ("Configuration & selection": the root is the element themes and
+    // user CSS MUST declare token overrides on); nothing enforced it, and the
+    // first draft of the label fix broke it.
+    const rootBlock = ruleBody(':where(.liebe-root)')
+    const declared = [...rules.matchAll(/(--liebe-[\w-]+)\s*:/g)].map(([, name]) => name)
+    const onRoot = [...rootBlock.matchAll(/(--liebe-[\w-]+)\s*:/g)].map(([, name]) => name)
+    expect(declared.filter((name) => !onRoot.includes(name))).toEqual([])
+  })
+
+  it('leaves the inactive label neutral', () => {
+    // An inactive part is a dark block here, so its label wants the base
+    // layer's neutral and nothing else. Overriding `--liebe-part-label` too
+    // would put black on near-black.
+    expect(rules).not.toContain('--liebe-part-label:')
   })
 
   it('declares its tokens on the theme root, in every appearance', () => {

@@ -70,9 +70,16 @@ export interface AnatomyPartAttributes {
  * and a live hue has no darker step to reach for. This is the latitude the
  * design system's `useLightColor` exception grants — the bulb's own colour is
  * the information — and it reaches no other part.
+ *
+ * `--liebe-part-color` is the published half of the same value — the token a
+ * theme reads to get "this part's own colour" (docs/specs/theming, "Stable
+ * selector contract"). It is overridden alongside the internal one and from the
+ * same `hue`, so a theme colouring a part by the token sees the bulb's real
+ * colour rather than the `data-color` triplet the bulb is standing in for.
  */
 function hueStyle(hue: string): CSSProperties {
   return {
+    '--liebe-part-color': hue,
     '--part-color': hue,
     '--part-tint': `color-mix(in srgb, ${hue} 20%, transparent)`,
     '--part-text': hue,

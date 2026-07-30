@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { getTheme } from '../themeRegistry'
 import { ThemeGallery, galleryEntities } from '../../../.storybook/themeGallery'
+import { PartLabelSplit } from '../../../.storybook/partLabels'
 
 /**
  * **LCARS** — a dark-only okudagram console, and the theming system's stress
@@ -51,4 +52,22 @@ export const Gallery: Story = {
  */
 export const SectionFrames: Story = {
   render: () => <ThemeGallery sections={3} />,
+}
+
+/**
+ * The completed control treatment, across the whole palette.
+ *
+ * Every active part is a solid block of its domain hue with black on it —
+ * glyph AND label, which is the treatment the spec has always specified for
+ * this theme and the half that was unreachable until `--liebe-part-label-active`
+ * existed (docs/changes/0036-theming-contract-gaps.md PR 3). Pills and chips
+ * shipped a dark 38% block under a neutral label instead; that is what this
+ * story replaces.
+ *
+ * Both panes are the same, deliberately: LCARS is `dark-only` and declares its
+ * tokens unconditionally, so a light subtree inside the panel gets the black
+ * ground too rather than half a theme.
+ */
+export const PartLabels: Story = {
+  render: () => <PartLabelSplit />,
 }

@@ -192,6 +192,30 @@
     --liebe-c-brand: var(--crimson-9);
     --liebe-c-brand-tint: color-mix(in srgb, var(--liebe-c-brand) 20%, transparent);
     --liebe-c-brand-text: var(--liebe-c-brand);
+
+    /*
+     * --- Part roles ----------------------------------------------------
+     *
+     * What the base layer knows about a part and a theme otherwise cannot
+     * reach (docs/changes/0036-theming-contract-gaps.md PR 3).
+     *
+     * `--liebe-part-color` is the domain hue the part in hand RESOLVED to.
+     * `anatomy.css` re-declares it in each `[data-color]` block, so on any
+     * part it reads as that part's own hue and a theme wanting "this part's
+     * colour" no longer has to restate the ten-way `data-color` mapping the
+     * base layer already performs. The value here is what a subtree that
+     * resolved no domain colour at all falls back to — the same `default`
+     * triplet an unmapped domain takes.
+     *
+     * The other two part tokens — `--liebe-part-label` and
+     * `--liebe-part-label-active` — are contract too and are deliberately NOT
+     * declared here. Their defaults are `var()` fallbacks at the point of use
+     * in `anatomy.css`, because a neutral declared on the root is substituted
+     * on the root: aliasing them here would resolve `--liebe-muted` once and
+     * inherit the answer, ignoring a scoped override the two rules used to
+     * honour. Unset is what makes them inert; see the note above the rule.
+     */
+    --liebe-part-color: var(--liebe-c-default);
   }
 
   /*
