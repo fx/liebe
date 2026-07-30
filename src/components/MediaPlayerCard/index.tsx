@@ -419,7 +419,16 @@ function MediaPlayerCardComponent({
    */
   const artworkPresentation = resolveArtworkPresentation(options.artworkMode, tier)
   const hasArtwork = artworkUrl !== undefined && artworkUrl !== failedArtworkUrl
-  const showArtwork = !isCollapsed && artworkPresentation === 'thumbnail' && hasArtwork
+  /*
+   * `iconOnly` takes the album art with it, in both presentations. The option
+   * names exactly two cards whose identity anchor is not a glyph — the camera's
+   * thumbnail and the person's avatar — and a media player is not one of them:
+   * what identifies this tile is the speaker, not what happens to be playing on
+   * it (docs/specs/entity-cards/options/common.md — "Icon-only presentation").
+   * So the lead falls through to the icon circle, the same one that stands in
+   * whenever a track has no art.
+   */
+  const showArtwork = !isCollapsed && !iconOnly && artworkPresentation === 'thumbnail' && hasArtwork
 
   /*
    * Full-bleed artwork behind the whole tile, under a scrim.

@@ -361,6 +361,12 @@ describe('the families the contract names', () => {
 
     const tile = container.querySelector('.liebe-card')!
     expect(tile.querySelector('.liebe-person-avatar')).not.toBeNull()
+    // The anchor is exempt; the badge riding on it is not — the option
+    // suppresses badges, and this one is a badge.
+    expect(tile.querySelector('.liebe-person-badge')).toBeNull()
+
+    const { container: plain } = renderCard('person', 'full', {})
+    expect(plain.querySelector('.liebe-card .liebe-person-badge')).not.toBeNull()
   })
 
   it('reduces the camera to its thumbnail rather than a live stream', () => {
@@ -388,11 +394,33 @@ describe('the families the contract names', () => {
 
     const tile = container.querySelector('.liebe-card')!
     expect(tile.querySelector('.liebe-media-backdrop')).toBeNull()
-    expect(tile.querySelector('.liebe-media-artwork, .liebe-icon')).not.toBeNull()
+    // And onto the glyph rather than the album art: the option names only the
+    // camera's thumbnail and the person's avatar as non-glyph anchors, and what
+    // identifies a speaker is the speaker rather than the track on it.
+    expect(tile.querySelector('.liebe-media-artwork')).toBeNull()
+    expect(tile.querySelector('.liebe-icon')).not.toBeNull()
 
     const { container: plain } = renderCard('media_player', 'full', {
       artworkMode: 'background',
     })
     expect(plain.querySelector('.liebe-card .liebe-media-backdrop')).not.toBeNull()
+  })
+
+  it('drops the media player’s thumbnail artwork for the same reason', () => {
+    // `thumbnail` is the default presentation, so this is the mode most media
+    // tiles are actually in.
+    const { container } = renderCard('media_player', 'full', {
+      ...ICON_ONLY,
+      artworkMode: 'thumbnail',
+    })
+
+    const tile = container.querySelector('.liebe-card')!
+    expect(tile.querySelector('.liebe-media-artwork')).toBeNull()
+    expect(tile.querySelector('.liebe-icon')).not.toBeNull()
+
+    const { container: plain } = renderCard('media_player', 'full', {
+      artworkMode: 'thumbnail',
+    })
+    expect(plain.querySelector('.liebe-card .liebe-media-artwork')).not.toBeNull()
   })
 })
