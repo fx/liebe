@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { ESLint } from 'eslint'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
@@ -88,6 +88,46 @@ interface LintCase {
  * enforces the policy would be the file the policy could not see into.
  */
 const EXHAUSTIVE_DEPS_DIRECTIVE = `eslint-disable-next-line react-hooks/exhaustive` + '-deps'
+
+/**
+ * Any ESLint directive comment that names the rule, in any of the spellings
+ * ESLint accepts.
+ *
+ * Deliberately a pattern rather than the one string above. Matching a single
+ * spelling is the mistake this whole change document exists to correct: PR 3's
+ * defect was a rule that saw `useEffect(...)` and not `React.useEffect(...)`,
+ * and a scan keyed on the next-line form alone would be the same shape of hole.
+ * A block directive disabling the rule for a whole file, the `-line` suffix,
+ * and a multi-rule list naming some other rule first all silence exactly the
+ * same thing, and all three would read as clean.
+ *
+ * Note what this constrains about the file itself: it is scanned like every
+ * other source under `src/`, so neither the prose above nor any example in it
+ * may spell a directive out. That is the intended pressure — the spec is inside
+ * its own rule rather than exempt from it — and it is why the fixture's
+ * directive is assembled at runtime instead of written here.
+ */
+const EXHAUSTIVE_DEPS_DIRECTIVE_PATTERN =
+  /(?:\/\/|\/\*)\s*eslint-disable(?:-next-line|-line)?[^\n*]*react-hooks\/exhaustive-deps/
+
+/**
+ * Every `.ts`/`.tsx` file under `src/`, walked with Node rather than listed by
+ * `git ls-files`.
+ *
+ * `removeFixtureDir` tolerates git being unavailable on purpose; a scan that
+ * *required* a subprocess would make the merge-blocking suite unrunnable
+ * wherever process creation is restricted, which is a worse failure than the
+ * one it is guarding against. The throwaway fixture directory is skipped —
+ * it is written by this very spec and contains a directive on purpose.
+ */
+function sourceFilesUnderSrc(dir = 'src'): string[] {
+  return readdirSync(join(repoRoot, dir), { withFileTypes: true }).flatMap((entry) => {
+    const path = `${dir}/${entry.name}`
+    if (entry.isDirectory())
+      return entry.name === '__lint-fixture__' ? [] : sourceFilesUnderSrc(path)
+    return /\.tsx?$/.test(entry.name) ? [path] : []
+  })
+}
 
 /**
  * A component that resets state from an effect — the pattern the rule rejects.
@@ -408,17 +448,14 @@ describe('an exhaustive-deps suppression silences the rule for its whole functio
    * report it.
    */
   it('leaves no exhaustive-deps directive anywhere under src/', () => {
-    const tracked = execFileSync('git', ['ls-files', '--', 'src'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-    })
-      .split('\n')
-      .filter((path) => /\.(ts|tsx)$/.test(path))
+    const sources = sourceFilesUnderSrc()
 
-    expect(tracked.length).toBeGreaterThan(0)
+    // Guards the scan against passing on an empty set — the shape in which a
+    // walk that silently found nothing reads exactly like a clean repo.
+    expect(sources.length).toBeGreaterThan(100)
 
-    const offenders = tracked.filter((path) =>
-      readFileSync(join(repoRoot, path), 'utf8').includes(EXHAUSTIVE_DEPS_DIRECTIVE)
+    const offenders = sources.filter((path) =>
+      EXHAUSTIVE_DEPS_DIRECTIVE_PATTERN.test(readFileSync(join(repoRoot, path), 'utf8'))
     )
 
     expect(offenders).toEqual([])
