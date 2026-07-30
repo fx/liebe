@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Theme } from '@radix-ui/themes'
-import { usePortalContainer } from './portals'
+import { portalMountPoint, usePortalContainer } from './portals'
 
 interface FullscreenModalProps {
   open: boolean
@@ -107,14 +107,13 @@ export function FullscreenModal({
   zIndex = 99999,
   portalContainer,
 }: FullscreenModalProps) {
-  // The container every Liebe overlay mounts into. `document.body` only where
-  // there is no provider above this modal at all, which is the pre-container
-  // behaviour and leaves the content unthemed exactly as it was — and nothing
-  // at all where there is no document, so a non-DOM render has nowhere to
-  // portal to rather than throwing on `document`.
+  // The container every Liebe overlay mounts into. `portalMountPoint()` only
+  // where there is no provider above this modal at all, which is the
+  // pre-container behaviour and leaves the content unthemed exactly as it was —
+  // and it is `null` where there is no document, so a non-DOM render has
+  // nowhere to portal to rather than throwing on the global.
   const liebePortalRoot = usePortalContainer()
-  const target =
-    portalContainer ?? liebePortalRoot ?? (typeof document === 'undefined' ? null : document.body)
+  const target = portalContainer ?? liebePortalRoot ?? portalMountPoint()
 
   // Handle ESC key
   useEffect(() => {

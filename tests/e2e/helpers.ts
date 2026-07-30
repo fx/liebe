@@ -1,6 +1,7 @@
 import { type ConsoleMessage, type Locator, type Page, expect } from '@playwright/test'
 import { getCredentials, HASS_URL } from '../../scripts/onboard.mjs'
 import { HOLD_DURATION_MS } from '../../src/store/cardActions'
+import { splitSelectorList } from './portalScoping'
 import { safeStringify } from './safeStringify'
 
 // Demo/helper entities the suite asserts against. The demo integration provides
@@ -828,23 +829,25 @@ export async function overlayTokens(
 //
 // Selectors come from the parsed stylesheet rather than its text, walking into
 // the `@layer` block, so what is asserted is what the browser will match on and
-// not what the sanitizer happened to write.
+// not what the sanitizer happened to write. Each rule's list comes back WHOLE
+// and is split out here, by `splitSelectorList` — a top-level split, because the
+// rewrite this is checking emits `:is(…)` and a `String.split(',')` would cut
+// correctly-bounded selectors into fragments (see that function for why the
+// failure runs in both directions).
 export async function documentLevelLeak(page: Page): Promise<{
   slots: string[]
   userSelectors: string[]
 }> {
-  return page.evaluate(() => {
-    const slots = Array.from(document.head.querySelectorAll('style[data-liebe]'))
+  const { slots, selectorTexts } = await page.evaluate(() => {
+    const styleSlots = Array.from(document.head.querySelectorAll('style[data-liebe]'))
       .map((style) => style.getAttribute('data-liebe') ?? '')
       .filter((slot) => slot !== 'fonts')
 
-    const userSelectors: string[] = []
+    const texts: string[] = []
     const walk = (rules: CSSRuleList) => {
       for (const rule of Array.from(rules)) {
         const { selectorText } = rule as CSSStyleRule
-        if (selectorText) {
-          userSelectors.push(...selectorText.split(',').map((selector) => selector.trim()))
-        }
+        if (selectorText) texts.push(selectorText)
         const nested = (rule as CSSGroupingRule).cssRules
         if (nested) walk(nested)
       }
@@ -852,8 +855,10 @@ export async function documentLevelLeak(page: Page): Promise<{
     const sheet = document.head.querySelector<HTMLStyleElement>('style[data-liebe="user"]')?.sheet
     if (sheet) walk(sheet.cssRules)
 
-    return { slots, userSelectors }
+    return { slots: styleSlots, selectorTexts: texts }
   })
+
+  return { slots, userSelectors: selectorTexts.flatMap(splitSelectorList) }
 }
 
 // Whether the Home Assistant frontend around the panel is still being rendered.

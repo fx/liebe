@@ -13,6 +13,7 @@ import {
   themeToken,
   userLayerCss,
 } from './helpers'
+import { unboundedSelectors } from './portalScoping'
 
 // The e2e obligations of the theming engine
 // (docs/changes/0012-theming-engine.md): appearance switches live, a theme
@@ -133,12 +134,13 @@ test('a document-level user selector does not reach the frontend around the pane
 
   // Every selector the browser parsed out of the mirror is bounded by the
   // container — including `body`, which is why it matches nothing out here.
+  // `unboundedSelectors` reports the offenders rather than the count, so a
+  // failure here names the rule that got out.
   expect(userSelectors.length).toBeGreaterThan(0)
-  for (const selector of userSelectors) {
-    expect(selector, 'every mirrored selector is bounded by the container').toMatch(
-      /^\.liebe-portal-root[ :]/
-    )
-  }
+  expect(
+    unboundedSelectors(userSelectors),
+    'every mirrored selector stays in the container'
+  ).toEqual([])
 
   // And the reach half on the same configuration: the token still lands on an
   // open overlay, so containment was not bought by mirroring nothing.

@@ -106,19 +106,32 @@ export interface PortalHostProps {
 }
 
 /**
- * The mount point of the `liebe-portal-root` container: the body of the
- * document this code is running in.
+ * Where a Liebe overlay lands when nothing nearer has claimed it: the body of
+ * the document this code is running in, or `null` where there is no document at
+ * all.
+ *
+ * The DOM-less case is why this is a function rather than `document.body`
+ * written at each site. A render with no document — a prerender pass — must not
+ * throw on the global, and there are two places that need the answer: the
+ * container's own mount point below, and `FullscreenModal`'s last-resort
+ * fallback, which is the one overlay in the panel with no Radix machinery to
+ * default for it. One decision, one place, one test.
+ */
+export function portalMountPoint(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.body
+}
+
+/**
+ * The mount point of the `liebe-portal-root` container, held for the life of
+ * the tree.
  *
  * Read once, in state, rather than at every render — `document.body` does not
  * change under a mounted panel, and reading it during render keeps the portal
- * available on the first commit. `null` where there is no document at all, so a
- * non-DOM render (a prerender pass) simply has no container and every overlay
- * falls back to Radix's own default.
+ * available on the first commit. With no document there is no container, and
+ * every overlay falls back to Radix's own default.
  */
 function usePortalMountPoint(): HTMLElement | null {
-  const [mountPoint] = useState<HTMLElement | null>(() =>
-    typeof document === 'undefined' ? null : document.body
-  )
+  const [mountPoint] = useState<HTMLElement | null>(portalMountPoint)
   return mountPoint
 }
 

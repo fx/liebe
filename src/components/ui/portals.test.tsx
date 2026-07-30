@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createPortal } from 'react-dom'
 import { render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
@@ -10,6 +10,7 @@ import {
   HoverCard,
   Popover,
   PortalHost,
+  portalMountPoint,
   Select,
   Tooltip,
   usePortalContainer,
@@ -46,6 +47,25 @@ function renderInHost(ui: React.ReactNode) {
     </Theme>
   )
 }
+
+describe('portalMountPoint', () => {
+  it('is the document body', () => {
+    expect(portalMountPoint()).toBe(document.body)
+  })
+
+  it('is nothing outside a document, so a DOM-less render does not throw', () => {
+    // A prerender pass has no `document`, and reading the global would take the
+    // render down rather than simply leaving the overlay to Radix's default.
+    // Both callers — the container below and `FullscreenModal`'s fallback —
+    // route through here so the case is decided once.
+    vi.stubGlobal('document', undefined)
+    try {
+      expect(portalMountPoint()).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
 
 describe('PortalHost', () => {
   it('publishes the container element it mounts', () => {
