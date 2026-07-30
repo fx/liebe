@@ -442,30 +442,57 @@
    * The middle rung, for browsers that have relative colour syntax but not
    * `contrast-color()` — a much wider set, since the latter is very new.
    *
-   * Same job by hand: read the disc's own lightness and snap the glyph to black
-   * or white. `clamp()` does the branching CSS otherwise cannot — the inner
-   * expression is hugely positive below the threshold and hugely negative above
-   * it, so it saturates to 1 or 0 and the chroma of 0 keeps the result neutral.
-   * The threshold is measured rather than derived, and it does NOT fully
-   * reproduce the function above: swept at 0.45 / 0.50 / 0.56 / 0.62 / 0.70,
-   * the best value leaves one of the eight identity hues at 4.42:1 against the
-   * 4.5:1 an avatar's initials answer to as text. No single lightness cut can
-   * reproduce `contrast-color()` for chromatic colours, because Oklch L does
-   * not track WCAG relative luminance across hues. This rung is therefore a
-   * NARROWING, not a closure: on a browser without the function it takes the
-   * failing composites from six to one, and the residual is recorded in change
-   * 0035 PR 7 rather than papered over.
+   * It does the function's job by hand, and it does it EXACTLY rather than
+   * approximately. That is the correction change 0035 PR 7 carries: this rung
+   * used to snap on Oklch lightness (`clamp(0, (l - 0.56) * -1000, 1)`), swept
+   * at five thresholds, and the best of them still left `plum` — one of the
+   * eight person identity hues — at 4.42:1 against the 4.5:1 an avatar's
+   * initials answer to as text. No single lightness cut can do better, because
+   * Oklch L does not track WCAG relative luminance across hues.
+   *
+   * So this computes WCAG relative luminance itself. `rgb(from …)` exposes the
+   * channels, `pow()` does the sRGB→linear transfer, and `clamp()` does the
+   * branching CSS otherwise cannot: the inner expression is hugely positive
+   * below the threshold and hugely negative above it, so each channel saturates
+   * to 255 or 0 and the result is white or black.
+   *
+   * 0.17913 is the crossover, derived rather than tuned — the luminance at which
+   * black and white contrast equally is the L solving (L + 0.05)² = 1.05 × 0.05.
+   *
+   * The transfer function drops WCAG's linear segment below 0.03928, which the
+   * power branch alone over-darkens by at most 0.0024 in a channel and 0.0017 in
+   * L. That cannot move a decision taken at 0.17913 for any colour, and the
+   * sweep below confirms it: measured against `contrast-color()` over the eight
+   * identity hues and twelve bulb colours, this picks the **same** foreground
+   * every time, and lifts `plum` from 4.42:1 to 4.75:1
+   * (`tests/e2e/lcars-fallback-rung.spec.ts`).
+   *
+   * The luminance is factored into a custom property so it is written once
+   * instead of three times. Custom property substitution is textual, so `r`, `g`
+   * and `b` survive as tokens and resolve inside the `rgb(from …)` that consumes
+   * them — verified in Chromium, not assumed.
    *
    * Nested inside `not (contrast-color)` so the two rungs are mutually
    * exclusive rather than racing on source order, and so a browser with both
-   * takes the purpose-built function.
+   * takes the purpose-built function. The inner condition probes the exact
+   * construct used — relative colour syntax with `pow()` inside a channel
+   * calculation — rather than a proxy for it.
    */
   @supports not (color: contrast-color(red)) {
-    @supports (color: oklch(from red l c h)) {
+    @supports (color: rgb(from red calc(pow(r / 255, 2.4) * 255) g b)) {
       .liebe-icon[data-active],
       .liebe-pill[data-active],
       .liebe-chip[data-active] {
-        color: oklch(from var(--liebe-part-color) clamp(0, (l - 0.56) * -1000, 1) 0 h);
+        --lcars-part-luminance: (
+          0.2126 * pow((r / 255 + 0.055) / 1.055, 2.4) + 0.7152 *
+            pow((g / 255 + 0.055) / 1.055, 2.4) + 0.0722 * pow((b / 255 + 0.055) / 1.055, 2.4)
+        );
+        --lcars-on-part-channel: clamp(0, (0.17913 - var(--lcars-part-luminance)) * 100000, 255);
+
+        color: rgb(
+          from var(--liebe-part-color) calc(var(--lcars-on-part-channel))
+            calc(var(--lcars-on-part-channel)) calc(var(--lcars-on-part-channel))
+        );
       }
     }
   }
