@@ -375,7 +375,7 @@ export function resolveCardHue(
  * and cannot render differently than it did (docs/changes/0032). It is the same
  * presence-only contract `data-active` and `data-icon-only` carry.
  */
-export function alignAttribute(value: CardAlignOption): CardAlignOption | undefined {
+function alignAttribute(value: CardAlignOption): CardAlignOption | undefined {
   return value === 'auto' ? undefined : value
 }
 

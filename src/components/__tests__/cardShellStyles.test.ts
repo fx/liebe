@@ -269,7 +269,20 @@ describe('card shell stylesheet', () => {
       // Both selectors carry one class and one attribute, so source order is
       // what decides — an icon-only tile with `alignVertical: start` must end
       // up with its glyph at the top rather than centred.
-      expect(css.indexOf('[data-align-h]')).toBeGreaterThan(css.indexOf('[data-icon-only] {'))
+      //
+      // Both positions are found by pattern rather than by an exact substring:
+      // keying on `'[data-icon-only] {'` would have failed on a reformatting
+      // that dropped the space before the brace, while the ordering it is
+      // about was still correct.
+      const at = (pattern: RegExp) => {
+        const index = css.search(pattern)
+        expect(index, `no rule matching ${pattern}`).toBeGreaterThan(-1)
+        return index
+      }
+
+      expect(at(/\.liebe-card\[data-align-[hv]\]\s*[,{]/)).toBeGreaterThan(
+        at(/\.liebe-card\[data-icon-only\]\s*\{/)
+      )
     })
   })
 
