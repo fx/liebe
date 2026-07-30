@@ -345,8 +345,13 @@ export function useCardActions({
    *    make it depend on every card answering correctly, which is exactly the
    *    per-card duplication this hook exists to avoid.
    *
-   * `performDispatch`'s own `if (unavailable) return` stays as a backstop for a
-   * route that reaches dispatch some other way; it is no longer the mechanism.
+   * Being the single mechanism is also why `performDispatch` and `isActionable`
+   * no longer test `unavailable` themselves. They used to, and after this change
+   * those arms were **provably dead** — the coverage report put the `unavailable`
+   * branch of the dispatch guard at zero taken across the whole suite, because
+   * no resolved action reaching it is a `toggle` any more. An unreachable arm
+   * reads as a handled case to the next person, which is the same reason change
+   * 0037 PR 1 deleted the climate guard that made its own fallback unreachable.
    */
   const resolveWhileUnavailable = useCallback(
     (action: ResolvedCardAction): ResolvedCardAction =>
@@ -386,11 +391,11 @@ export function useCardActions({
   const isActionable = useCallback(
     (action: ResolvedCardAction): boolean => {
       if (action === 'none') return false
-      if (action === 'toggle') return !unavailable && Boolean(onToggle || entityId)
+      if (action === 'toggle') return Boolean(onToggle || entityId)
       if (action === 'more-info') return Boolean(onMoreInfo)
       return true
     },
-    [entityId, onMoreInfo, onToggle, unavailable]
+    [entityId, onMoreInfo, onToggle]
   )
 
   const performDispatch = useCallback(
@@ -400,7 +405,6 @@ export function useCardActions({
       if (action === 'none') return
 
       if (action === 'toggle') {
-        if (unavailable) return
         if (onToggle) {
           // A family whose toggle means "open the details" says so by returning
           // the resolution; the shell is what actually opens the dialog.
@@ -435,7 +439,7 @@ export function useCardActions({
       const [domain, service] = action.service.split('.')
       dispatchService({ domain, service, entityId, data: action.data })
     },
-    [dispatchService, entityId, hass, onMoreInfo, onToggle, router, unavailable]
+    [dispatchService, entityId, hass, onMoreInfo, onToggle, router]
   )
 
   /**
