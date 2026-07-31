@@ -193,8 +193,21 @@ function channelLuminance(value: number): number {
   return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4
 }
 
-/** WCAG 2.x relative luminance. Alpha is ignored — composite before calling. */
-export function relativeLuminance({ r, g, b }: Rgba): number {
+/**
+ * WCAG 2.x relative luminance of an **opaque** colour.
+ *
+ * The opacity is enforced rather than documented. A translucent value here is
+ * always a caller that skipped compositing, and ignoring its alpha yields a
+ * figure for a colour that is not on screen — the same class of quietly-wrong
+ * number the rest of this module exists to prevent, so it throws instead.
+ */
+export function relativeLuminance(colour: Rgba): number {
+  const { r, g, b, a } = colour
+  if (a !== 255) {
+    throw new Error(
+      `relativeLuminance: ${formatRgba(colour)} is translucent — composite it before measuring`
+    )
+  }
   return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b)
 }
 
@@ -239,6 +252,16 @@ export async function assertRigSound(page: Page): Promise<void> {
   }
   if (!refused) {
     throw new Error('rig self-check: an unparseable colour was accepted instead of throwing')
+  }
+
+  let refusedTranslucent = false
+  try {
+    contrastRatio({ r: 0, g: 0, b: 255, a: 51 }, { r: 255, g: 255, b: 255, a: 255 })
+  } catch {
+    refusedTranslucent = true
+  }
+  if (!refusedTranslucent) {
+    throw new Error('rig self-check: a translucent colour produced a ratio instead of throwing')
   }
 
   const white = { r: 255, g: 255, b: 255, a: 255 }

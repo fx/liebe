@@ -27,9 +27,12 @@ import {
  * the theme's rule and computed ~2.33:1; a synthetic harness built for the same
  * composite measured 6.81–10.80:1, because in that rig `--liebe-part-color`
  * resolved to LCARS's own colour rather than to the hue the card sets inline —
- * so it measured a composite that does not occur. That is the artifact-identity
- * trap one level up: the rig was faithful to the stylesheets and not to how the
- * DOM is assembled.
+ * so it measured a composite that does not occur. The rig was faithful to the
+ * stylesheets and wrong about how the DOM is assembled — which is a
+ * RECONSTRUCTION failure and deliberately not an artifact-identity one, because
+ * the tells are opposite: the artifact was current and hashing it would have
+ * confirmed everything except the omission (AGENTS.md, "a reconstruction is
+ * cheap and sound for confirming a mechanism you have already located").
  *
  * Hence this spec, and hence its shape. It measures through `GridCard`'s own
  * path in a real Home Assistant frontend — a placed grid item, `iconOnly`,
@@ -295,10 +298,16 @@ test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async
     brightness: 255,
   })
   await expect
-    .poll(() => customProperty(glyph, '--liebe-part-color'), {
-      message: 'the priming colour should have reached the part before the sweep starts',
-    })
-    .not.toBe(await customProperty(tile, '--liebe-c-light-text'))
+    .poll(
+      async () =>
+        formatRgba(await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))),
+      { message: 'the priming colour should have reached the part before the sweep starts' }
+    )
+    // Normalised on BOTH sides. A custom property computes to its token text, so
+    // the part reads `rgb(255, 128, 64)` while the theme token reads `#edb378` —
+    // comparing the raw strings would be satisfied by two spellings of the same
+    // colour, which is a poll that cannot fail.
+    .not.toBe(formatRgba(themeHue))
   let previousHue = await customProperty(glyph, '--liebe-part-color')
 
   for (const [r, g, b] of REQUESTED_BULB_COLOURS) {

@@ -223,9 +223,10 @@ function DomainColorTable() {
       <Text as="p" size="2" mb="2" style={{ color: 'var(--liebe-muted)' }}>
         Each domain is a triplet: the base hue, a 20% tint derived from it, and a text step. Remap
         the base and the tint follows; under the Default theme the text step is pinned, so remap it
-        too. The active swatch renders the shipped pattern, whose glyph step is per appearance — the
-        base hue in dark, the text step in light, where a base-step glyph on a 20% tint of itself
-        measures as little as 1.40:1.
+        too. The active swatch renders the shipped pattern, whose glyph step is the text step in
+        both appearances — a base-step glyph on a 20% tint of itself measures as little as 1.40:1,
+        and the dark side missed the floor too, so the per-appearance switch was retired rather than
+        kept for one half.
       </Text>
       <Table.Root size="1" variant="ghost">
         <Table.Header>
