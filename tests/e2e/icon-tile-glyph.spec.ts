@@ -92,12 +92,12 @@ const REQUESTED_BULB_COLOURS: ReadonlyArray<readonly [number, number, number]> =
  * except the one under test, so the second tile is a genuine control for the
  * first rather than another card that happens to be nearby.
  */
-function seedLcarsIconTiles(): SeedConfig {
+function seedIconTiles(themeId = 'lcars'): SeedConfig {
   return buildSeedConfig({
-    id: 'e2e-lcars-icon-tile-screen',
-    name: 'E2E LCARS Icon Tile',
-    slug: 'e2e-lcars-icon-tile',
-    theme: { id: 'lcars', appearance: 'dark', customCss: '' },
+    id: 'e2e-icon-tile-screen',
+    name: 'E2E Icon Tile',
+    slug: 'e2e-icon-tile',
+    theme: { id: themeId, appearance: 'dark', customCss: '' },
     items: [
       {
         id: 'item-live-hue-tile',
@@ -230,12 +230,12 @@ function worstRatio(foreground: Rgba, ground: Ground): number {
 }
 
 test('the contrast rig measures known pairs at known ratios', async ({ page }) => {
-  await openPanel(page, seedLcarsIconTiles())
+  await openPanel(page, seedIconTiles())
   await assertRigSound(page)
 })
 
 test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async ({ page }) => {
-  const { accessToken } = await openPanel(page, seedLcarsIconTiles())
+  const { accessToken } = await openPanel(page, seedIconTiles())
   expect(await themeStamp(page)).toEqual({ themeId: 'lcars', appearance: 'dark' })
   await assertRigSound(page)
 
@@ -421,7 +421,7 @@ test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async
 test('an LCARS icon-only tile with no live hue keeps the theme hue on its glyph', async ({
   page,
 }) => {
-  const { accessToken } = await openPanel(page, seedLcarsIconTiles())
+  const { accessToken } = await openPanel(page, seedIconTiles())
   expect(await themeStamp(page)).toEqual({ themeId: 'lcars', appearance: 'dark' })
 
   const tile = tileAt(page, 1)
@@ -502,3 +502,91 @@ test('an LCARS icon-only tile with no live hue keeps the theme hue on its glyph'
     `the theme's own hue on its own tile measured ${ratio.toFixed(2)}:1 (glyph ${formatRgba(foreground)}, ground ${ground.signature})`
   ).toBeGreaterThanOrEqual(GLYPH_FLOOR)
 })
+
+/**
+ * Whether the defect is LCARS's or the anatomy's — the scope question the
+ * mechanism correction opened, settled by measurement rather than by reading.
+ *
+ * The **token resolution is theme-independent**: `anatomyPart` stamps the live
+ * hue inline on the part under every theme, so `--liebe-part-color` carries the
+ * bulb's own RGB on a Default tile exactly as it does on an LCARS one. If that
+ * were sufficient for the failure, every theme would be exposed and the remedy
+ * would belong in the anatomy rather than in one stylesheet.
+ *
+ * It is not sufficient, and this is what shows it: the failure needs a theme to
+ * *paint the glyph with that token*, which only LCARS did. Default and Liquid
+ * Glass leave the base layer's glyph role alone, and under a live hue that
+ * resolves to a neutral — the split change 0035 PR 4 landed. So the same
+ * resolution reaches all three themes and only one turned it into a glyph on a
+ * veil of itself. A remedy scoped to LCARS is therefore the right shape, and the
+ * general rule belongs in the design system, where it now is.
+ *
+ * **These two stop at the scope question and take no contrast figure**, which is
+ * deliberate rather than an omission. The composite on these themes is 0035
+ * PR 4's and was measured there; re-measuring it here would need two things this
+ * rig does not do — a translucent glyph paints its composite rather than its own
+ * value, so the painted-pixel tie-back does not apply, and Liquid Glass's
+ * surface is not flat, which is the limitation this change already records as
+ * the reason pixel banding cannot be read there. Answering "is this theme
+ * exposed" needs neither.
+ */
+for (const themeId of ['default', 'liquid-glass']) {
+  test(`a live hue on an icon-only tile under ${themeId} takes a neutral glyph, not the hue`, async ({
+    page,
+  }) => {
+    const { accessToken } = await openPanel(page, seedIconTiles(themeId))
+    expect(await themeStamp(page)).toEqual({ themeId, appearance: 'dark' })
+
+    const tile = tileAt(page, 0)
+    const glyph = tile.locator('.liebe-icon')
+    await expect(tile).toHaveCount(1)
+
+    await callService(accessToken, 'light', 'turn_off', { entity_id: DEMO_LIGHT })
+    await expect(glyph, 'the tile should read inactive first').not.toHaveAttribute(
+      'data-active',
+      /.*/
+    )
+    await callService(accessToken, 'light', 'turn_on', {
+      entity_id: DEMO_LIGHT,
+      rgb_color: [0, 0, 255],
+      brightness: 255,
+    })
+    await expect(glyph, 'the tile should be active before anything is read').toHaveAttribute(
+      'data-active',
+      /.+/
+    )
+
+    // Half one: the resolution is the same as LCARS's. The bulb's own colour is
+    // on the part, so nothing about the token chain distinguishes these themes.
+    const liveHue = formatRgba(
+      await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))
+    )
+    expect(liveHue, 'the bulb should reach the part under this theme too').toBe('0,0,255,255')
+
+    /*
+     * Half two: the painting is not. Asserted as "neutral, and not the bulb"
+     * rather than as equality with a token, because the glyph's painted value is
+     * not the token's — it is drawn at less than full alpha under both themes,
+     * so an equality assertion would pin a coincidence. What the rule requires is
+     * that no hue reaches the glyph.
+     */
+    const painted = await normalizeColor(
+      page,
+      await glyph.evaluate((el) => getComputedStyle(el).color)
+    )
+    const chroma =
+      Math.max(painted.r, painted.g, painted.b) - Math.min(painted.r, painted.g, painted.b)
+    expect(
+      chroma,
+      `the glyph is not neutral — it painted ${formatRgba(painted)}, spread ${chroma}`
+    ).toBeLessThanOrEqual(12)
+    expect(formatRgba(painted), 'the glyph must not be painted in the bulb colour').not.toBe(
+      liveHue
+    )
+
+    await test.info().attach(`${themeId}-live-hue-glyph`, {
+      body: JSON.stringify({ partColour: liveHue, glyphColour: formatRgba(painted) }, null, 2),
+      contentType: 'application/json',
+    })
+  })
+}
