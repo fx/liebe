@@ -558,7 +558,7 @@
    * the 3:1 glyph floor, with `rgb(128, 0, 255)` next at 3.08:1 — the whole dark
    * end of the hue circle at or under the line, not one pathological colour
    * (docs/changes/0035-light-appearance-contrast.md PR 7,
-   * `tests/e2e/lcars-icon-tile-glyph.spec.ts`).
+   * `tests/e2e/icon-tile-glyph.spec.ts`).
    *
    * The base layer has already answered this for its own tile, and under a live
    * hue its answer is the neutral foreground — "a live hue colours the surface,

@@ -92,12 +92,12 @@ const REQUESTED_BULB_COLOURS: ReadonlyArray<readonly [number, number, number]> =
  * except the one under test, so the second tile is a genuine control for the
  * first rather than another card that happens to be nearby.
  */
-function seedLcarsIconTiles(): SeedConfig {
+function seedIconTiles(themeId = 'lcars'): SeedConfig {
   return buildSeedConfig({
-    id: 'e2e-lcars-icon-tile-screen',
-    name: 'E2E LCARS Icon Tile',
-    slug: 'e2e-lcars-icon-tile',
-    theme: { id: 'lcars', appearance: 'dark', customCss: '' },
+    id: 'e2e-icon-tile-screen',
+    name: 'E2E Icon Tile',
+    slug: 'e2e-icon-tile',
+    theme: { id: themeId, appearance: 'dark', customCss: '' },
     items: [
       {
         id: 'item-live-hue-tile',
@@ -224,18 +224,44 @@ async function settledGround(page: Page, tile: Locator, label: string): Promise<
   return second
 }
 
+/**
+ * A part's painted colour, read twice and required stable — the foreground half
+ * of what {@link settledGround} does for the ground.
+ *
+ * The anatomy transitions colour over 280 ms, so a reading taken the moment
+ * `data-active` appears samples the *inactive* neutral or something between it
+ * and the active target. That direction is the dangerous one here: the inactive
+ * glyph is already neutral, so a test asserting "neutral, not the hue" would
+ * pass against the pre-transition value even if the active target had regressed
+ * to the bulb's colour — the exact defect it exists to catch. Both obligations
+ * from change 0035's testing rules therefore apply to the foreground too: wait
+ * past the transition, and assert the settling rather than assuming it.
+ */
+async function settledColour(page: Page, part: Locator, label: string): Promise<Rgba> {
+  const read = async (): Promise<string> => part.evaluate((el) => getComputedStyle(el).color)
+  await page.waitForTimeout(350)
+  const first = await normalizeColor(page, await read())
+  await page.waitForTimeout(350)
+  const second = await normalizeColor(page, await read())
+  expect(
+    formatRgba(second),
+    `${label}: the colour was still moving — ${formatRgba(first)} then ${formatRgba(second)}`
+  ).toBe(formatRgba(first))
+  return second
+}
+
 /** The ratio against the least favourable pixel in the ground band. */
 function worstRatio(foreground: Rgba, ground: Ground): number {
   return Math.min(...ground.colours.map((colour) => contrastRatio(foreground, colour)))
 }
 
 test('the contrast rig measures known pairs at known ratios', async ({ page }) => {
-  await openPanel(page, seedLcarsIconTiles())
+  await openPanel(page, seedIconTiles())
   await assertRigSound(page)
 })
 
 test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async ({ page }) => {
-  const { accessToken } = await openPanel(page, seedLcarsIconTiles())
+  const { accessToken } = await openPanel(page, seedIconTiles())
   expect(await themeStamp(page)).toEqual({ themeId: 'lcars', appearance: 'dark' })
   await assertRigSound(page)
 
@@ -421,7 +447,7 @@ test('a live-hue glyph on an LCARS icon-only tile clears the glyph floor', async
 test('an LCARS icon-only tile with no live hue keeps the theme hue on its glyph', async ({
   page,
 }) => {
-  const { accessToken } = await openPanel(page, seedLcarsIconTiles())
+  const { accessToken } = await openPanel(page, seedIconTiles())
   expect(await themeStamp(page)).toEqual({ themeId: 'lcars', appearance: 'dark' })
 
   const tile = tileAt(page, 1)
@@ -502,3 +528,125 @@ test('an LCARS icon-only tile with no live hue keeps the theme hue on its glyph'
     `the theme's own hue on its own tile measured ${ratio.toFixed(2)}:1 (glyph ${formatRgba(foreground)}, ground ${ground.signature})`
   ).toBeGreaterThanOrEqual(GLYPH_FLOOR)
 })
+
+/**
+ * Whether the defect is LCARS's or the anatomy's — the scope question the
+ * mechanism correction opened, settled by measurement rather than by reading.
+ *
+ * The **token resolution is theme-independent**: `anatomyPart` stamps the live
+ * hue inline on the part under every theme, so `--liebe-part-color` carries the
+ * bulb's own RGB on a Default tile exactly as it does on an LCARS one. If that
+ * were sufficient for the failure, every theme would be exposed and the remedy
+ * would belong in the anatomy rather than in one stylesheet.
+ *
+ * It is not sufficient, and this is what shows it: the failure needs a theme to
+ * *paint the glyph with that token*, which only LCARS did. Default and Liquid
+ * Glass leave the base layer's glyph role alone, and under a live hue that
+ * resolves to a neutral — the split change 0035 PR 4 landed. So the same
+ * resolution reaches all three themes and only one turned it into a glyph on a
+ * veil of itself. A remedy scoped to LCARS is therefore the right shape, and the
+ * general rule belongs in the design system, where it now is.
+ *
+ * **These two stop at the scope question and take no contrast figure**, which is
+ * deliberate rather than an omission. The composite on these themes is 0035
+ * PR 4's and was measured there; re-measuring it here would need two things this
+ * rig does not do — a translucent glyph paints its composite rather than its own
+ * value, so the painted-pixel tie-back does not apply, and Liquid Glass's
+ * surface is not flat, which is the limitation this change already records as
+ * the reason pixel banding cannot be read there. Answering "is this theme
+ * exposed" needs neither.
+ */
+for (const themeId of ['default', 'liquid-glass']) {
+  test(`a live hue on an icon-only tile under ${themeId} takes a neutral glyph, not the hue`, async ({
+    page,
+  }) => {
+    const { accessToken } = await openPanel(page, seedIconTiles(themeId))
+    expect(await themeStamp(page)).toEqual({ themeId, appearance: 'dark' })
+
+    const tile = tileAt(page, 0)
+    const glyph = tile.locator('.liebe-icon')
+    await expect(tile).toHaveCount(1)
+
+    await callService(accessToken, 'light', 'turn_off', { entity_id: DEMO_LIGHT })
+    await expect(glyph, 'the tile should read inactive first').not.toHaveAttribute(
+      'data-active',
+      /.*/
+    )
+    const inactive = await settledColour(page, glyph, `${themeId} inactive glyph`)
+    // What the part carries with no bulb colour to offer — the theme's own
+    // fallback, and the value the live hue below has to be shown to displace.
+    const offHue = formatRgba(
+      await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))
+    )
+
+    await callService(accessToken, 'light', 'turn_on', {
+      entity_id: DEMO_LIGHT,
+      rgb_color: [0, 0, 255],
+      brightness: 255,
+    })
+    await expect(glyph, 'the tile should be active before anything is read').toHaveAttribute(
+      'data-active',
+      /.+/
+    )
+
+    /*
+     * Half one: the resolution is the same as LCARS's — a bulb colour is on the
+     * part, so nothing about the token chain distinguishes these themes.
+     *
+     * Asserted as "it displaced the theme's fallback with a chromatic value",
+     * not as equality with the RGB that was requested. A Home Assistant light
+     * reports through `hs`, so the request is not the resolved colour, and
+     * pinning the request would make this fail on a round-trip that is Home
+     * Assistant being accurate rather than the theme being wrong. The claim
+     * under test is that a live hue reaches the part at all.
+     */
+    const live = await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))
+    const liveHue = formatRgba(live)
+    expect(liveHue, 'the part should have taken a bulb colour, not the theme fallback').not.toBe(
+      offHue
+    )
+    const hueChroma = Math.max(live.r, live.g, live.b) - Math.min(live.r, live.g, live.b)
+    expect(
+      hueChroma,
+      `the part took ${liveHue}, which carries no hue for the glyph rule to go wrong with`
+    ).toBeGreaterThan(64)
+
+    /*
+     * Half two: the painting is not. Asserted as "neutral, and not the bulb"
+     * rather than as equality with a particular token, because what the rule
+     * requires is that no hue reaches the glyph — and the neutral each theme
+     * resolves to is that theme's business.
+     *
+     * An earlier version of this pinned equality with `--liebe-fg` and failed,
+     * apparently because the glyph painted a translucent value. It was not:
+     * those readings were taken inside the 280 ms transition, and once settled
+     * both themes paint an opaque neutral. The false conclusion survived until
+     * `codex` pointed at the missing settle — which is the transition trap doing
+     * exactly what change 0035 says it does, one level up from a contrast
+     * figure.
+     */
+    const painted = await settledColour(page, glyph, `${themeId} active glyph`)
+    // Asserted because it is claimed: an earlier reading of this looked
+    // translucent and was mid-transition, and a translucent neutral would
+    // otherwise satisfy everything below while contradicting the record.
+    expect(painted.a, 'the settled active glyph should be opaque').toBe(255)
+    expect(
+      formatRgba(painted),
+      'the active glyph never moved off the inactive colour, so nothing was measured'
+    ).not.toBe(formatRgba(inactive))
+    const chroma =
+      Math.max(painted.r, painted.g, painted.b) - Math.min(painted.r, painted.g, painted.b)
+    expect(
+      chroma,
+      `the glyph is not neutral — it painted ${formatRgba(painted)}, spread ${chroma}`
+    ).toBeLessThanOrEqual(12)
+    expect(formatRgba(painted), 'the glyph must not be painted in the bulb colour').not.toBe(
+      liveHue
+    )
+
+    await test.info().attach(`${themeId}-live-hue-glyph`, {
+      body: JSON.stringify({ partColour: liveHue, glyphColour: formatRgba(painted) }, null, 2),
+      contentType: 'application/json',
+    })
+  })
+}
