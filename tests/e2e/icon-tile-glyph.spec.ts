@@ -573,6 +573,11 @@ for (const themeId of ['default', 'liquid-glass']) {
       /.*/
     )
     const inactive = await settledColour(page, glyph, `${themeId} inactive glyph`)
+    // What the part carries with no bulb colour to offer — the theme's own
+    // fallback, and the value the live hue below has to be shown to displace.
+    const offHue = formatRgba(
+      await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))
+    )
 
     await callService(accessToken, 'light', 'turn_on', {
       entity_id: DEMO_LIGHT,
@@ -584,19 +589,41 @@ for (const themeId of ['default', 'liquid-glass']) {
       /.+/
     )
 
-    // Half one: the resolution is the same as LCARS's. The bulb's own colour is
-    // on the part, so nothing about the token chain distinguishes these themes.
-    const liveHue = formatRgba(
-      await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))
+    /*
+     * Half one: the resolution is the same as LCARS's — a bulb colour is on the
+     * part, so nothing about the token chain distinguishes these themes.
+     *
+     * Asserted as "it displaced the theme's fallback with a chromatic value",
+     * not as equality with the RGB that was requested. A Home Assistant light
+     * reports through `hs`, so the request is not the resolved colour, and
+     * pinning the request would make this fail on a round-trip that is Home
+     * Assistant being accurate rather than the theme being wrong. The claim
+     * under test is that a live hue reaches the part at all.
+     */
+    const live = await normalizeColor(page, await customProperty(glyph, '--liebe-part-color'))
+    const liveHue = formatRgba(live)
+    expect(liveHue, 'the part should have taken a bulb colour, not the theme fallback').not.toBe(
+      offHue
     )
-    expect(liveHue, 'the bulb should reach the part under this theme too').toBe('0,0,255,255')
+    const hueChroma = Math.max(live.r, live.g, live.b) - Math.min(live.r, live.g, live.b)
+    expect(
+      hueChroma,
+      `the part took ${liveHue}, which carries no hue for the glyph rule to go wrong with`
+    ).toBeGreaterThan(64)
 
     /*
      * Half two: the painting is not. Asserted as "neutral, and not the bulb"
-     * rather than as equality with a token, because the glyph's painted value is
-     * not the token's — it is drawn at less than full alpha under both themes,
-     * so an equality assertion would pin a coincidence. What the rule requires is
-     * that no hue reaches the glyph.
+     * rather than as equality with a particular token, because what the rule
+     * requires is that no hue reaches the glyph — and the neutral each theme
+     * resolves to is that theme's business.
+     *
+     * An earlier version of this pinned equality with `--liebe-fg` and failed,
+     * apparently because the glyph painted a translucent value. It was not:
+     * those readings were taken inside the 280 ms transition, and once settled
+     * both themes paint an opaque neutral. The false conclusion survived until
+     * `codex` pointed at the missing settle — which is the transition trap doing
+     * exactly what change 0035 says it does, one level up from a contrast
+     * figure.
      */
     const painted = await settledColour(page, glyph, `${themeId} active glyph`)
     expect(
