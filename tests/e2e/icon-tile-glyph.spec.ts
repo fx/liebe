@@ -626,6 +626,10 @@ for (const themeId of ['default', 'liquid-glass']) {
      * figure.
      */
     const painted = await settledColour(page, glyph, `${themeId} active glyph`)
+    // Asserted because it is claimed: an earlier reading of this looked
+    // translucent and was mid-transition, and a translucent neutral would
+    // otherwise satisfy everything below while contradicting the record.
+    expect(painted.a, 'the settled active glyph should be opaque').toBe(255)
     expect(
       formatRgba(painted),
       'the active glyph never moved off the inactive colour, so nothing was measured'
