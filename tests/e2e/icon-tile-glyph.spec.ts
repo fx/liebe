@@ -224,6 +224,32 @@ async function settledGround(page: Page, tile: Locator, label: string): Promise<
   return second
 }
 
+/**
+ * A part's painted colour, read twice and required stable — the foreground half
+ * of what {@link settledGround} does for the ground.
+ *
+ * The anatomy transitions colour over 280 ms, so a reading taken the moment
+ * `data-active` appears samples the *inactive* neutral or something between it
+ * and the active target. That direction is the dangerous one here: the inactive
+ * glyph is already neutral, so a test asserting "neutral, not the hue" would
+ * pass against the pre-transition value even if the active target had regressed
+ * to the bulb's colour — the exact defect it exists to catch. Both obligations
+ * from change 0035's testing rules therefore apply to the foreground too: wait
+ * past the transition, and assert the settling rather than assuming it.
+ */
+async function settledColour(page: Page, part: Locator, label: string): Promise<Rgba> {
+  const read = async (): Promise<string> => part.evaluate((el) => getComputedStyle(el).color)
+  await page.waitForTimeout(350)
+  const first = await normalizeColor(page, await read())
+  await page.waitForTimeout(350)
+  const second = await normalizeColor(page, await read())
+  expect(
+    formatRgba(second),
+    `${label}: the colour was still moving — ${formatRgba(first)} then ${formatRgba(second)}`
+  ).toBe(formatRgba(first))
+  return second
+}
+
 /** The ratio against the least favourable pixel in the ground band. */
 function worstRatio(foreground: Rgba, ground: Ground): number {
   return Math.min(...ground.colours.map((colour) => contrastRatio(foreground, colour)))
@@ -546,6 +572,8 @@ for (const themeId of ['default', 'liquid-glass']) {
       'data-active',
       /.*/
     )
+    const inactive = await settledColour(page, glyph, `${themeId} inactive glyph`)
+
     await callService(accessToken, 'light', 'turn_on', {
       entity_id: DEMO_LIGHT,
       rgb_color: [0, 0, 255],
@@ -570,10 +598,11 @@ for (const themeId of ['default', 'liquid-glass']) {
      * so an equality assertion would pin a coincidence. What the rule requires is
      * that no hue reaches the glyph.
      */
-    const painted = await normalizeColor(
-      page,
-      await glyph.evaluate((el) => getComputedStyle(el).color)
-    )
+    const painted = await settledColour(page, glyph, `${themeId} active glyph`)
+    expect(
+      formatRgba(painted),
+      'the active glyph never moved off the inactive colour, so nothing was measured'
+    ).not.toBe(formatRgba(inactive))
     const chroma =
       Math.max(painted.r, painted.g, painted.b) - Math.min(painted.r, painted.g, painted.b)
     expect(
