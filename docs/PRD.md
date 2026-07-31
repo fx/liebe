@@ -129,7 +129,7 @@ Extend entity support beyond basic switches to include lights, climate, sensors,
 
 ## Constraints and Considerations
 
-1. **Browser Support**: Modern browsers only (Chrome, Firefox, Safari, Edge)
+1. **Browser Support**: Modern browsers only (Chrome, Firefox, Safari, Edge). **No version floor has been decided.** That is not the same as none being applied — the build applies two, for JavaScript and for CSS, and they disagree; the versions, the measured support figures and the options for settling them are owned by [architecture — Open Questions](specs/architecture/index.md#open-questions) and deliberately not restated here.
 2. **Mobile**: Responsive design but mobile-first optimization in Phase 2
 3. **Security**: Inherits Home Assistant's security model
 4. **Configuration**: Single YAML file for entire dashboard, edited only through UI

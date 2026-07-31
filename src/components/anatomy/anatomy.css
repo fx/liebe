@@ -176,9 +176,12 @@
    * neutral rather than to a domain token, because an inactive part carries no
    * state meaning and must not carry hue.
    *
-   * The glyph takes `--part-glyph` — the per-appearance role resolved at the
-   * top of this sheet, which is the text step in light and the base hue in
-   * dark, and why. It is not `--part-color`: that role is the saturated solid
+   * The glyph takes `--part-glyph` — the role resolved with the rest of the
+   * triplet above, and the `-text` companion in **both** appearances. It was
+   * per-appearance until change 0035 PR 5 measured the dark side and found the
+   * base step missing 3:1 there too, which retired the switch and the
+   * `--part-<name>-glyph` indirection with it; this sheet now keys nothing off
+   * the appearance at all. It is not `--part-color`: that role is the saturated solid
    * (the slider's leading edge, the sparkline's stroke), which sits on the
    * neutral track or the card rather than on a tint of itself.
    * ------------------------------------------------------------------ */

@@ -442,30 +442,78 @@
    * The middle rung, for browsers that have relative colour syntax but not
    * `contrast-color()` — a much wider set, since the latter is very new.
    *
-   * Same job by hand: read the disc's own lightness and snap the glyph to black
-   * or white. `clamp()` does the branching CSS otherwise cannot — the inner
-   * expression is hugely positive below the threshold and hugely negative above
-   * it, so it saturates to 1 or 0 and the chroma of 0 keeps the result neutral.
-   * The threshold is measured rather than derived, and it does NOT fully
-   * reproduce the function above: swept at 0.45 / 0.50 / 0.56 / 0.62 / 0.70,
-   * the best value leaves one of the eight identity hues at 4.42:1 against the
-   * 4.5:1 an avatar's initials answer to as text. No single lightness cut can
-   * reproduce `contrast-color()` for chromatic colours, because Oklch L does
-   * not track WCAG relative luminance across hues. This rung is therefore a
-   * NARROWING, not a closure: on a browser without the function it takes the
-   * failing composites from six to one, and the residual is recorded in change
-   * 0035 PR 7 rather than papered over.
+   * It does the function's job by hand, and it does it EXACTLY rather than
+   * approximately. That is the correction change 0035 PR 7 carries: this rung
+   * used to snap on Oklch lightness (`clamp(0, (l - 0.56) * -1000, 1)`), swept
+   * at five thresholds, and the best of them still left `plum` — one of the
+   * eight person identity hues — at 4.42:1 against the 4.5:1 an avatar's
+   * initials answer to as text. No single lightness cut can do better, because
+   * Oklch L does not track WCAG relative luminance across hues.
+   *
+   * So this computes WCAG relative luminance itself. `rgb(from …)` exposes the
+   * channels and `pow()` does the sRGB→linear transfer.
+   *
+   * 0.17913 is the crossover, derived rather than tuned — the luminance at which
+   * black and white contrast equally is the L solving (L + 0.05)² = 1.05 × 0.05.
+   *
+   * **`round(up, …)` does the branching, and a steep `clamp()` does not.** The
+   * first version of this rung scaled the distance from the crossover by 100000
+   * and clamped it into 0–255, which reads as a binary switch and is not one:
+   * every luminance within 0.00255 below the crossover lands *inside* the ramp
+   * and produces a mid grey. `codex` review found `rgb(221, 5, 153)` there by
+   * exhaustive search — channel 117, a glyph at **1.00:1** on its own disc,
+   * which is worse than the fixed black this rung replaced. `round(up, x, 1)` is
+   * the ceiling, so any positive distance however small becomes 1 and anything
+   * at or below zero becomes 0; `clamp(0, …, 1)` bounds it and the ×255 makes it
+   * a channel. Exactly two outputs are reachable, by construction rather than by
+   * steepness.
+   *
+   * The transfer drops WCAG's linear segment below 0.03928, and the power branch
+   * alone over-reports luminance by at most 8.34e-4 — verified over all 2^24
+   * colours, not sampled, in `src/theme/__tests__/lcarsFallbackRung.test.ts`.
+   * That can flip the decision only for a colour within that distance of the
+   * crossover, where black and white are near enough equal that it does not
+   * matter: across the whole space the worst foreground this picks achieves
+   * **4.5707:1**, against the 4.5826:1 that `contrast-color()` itself cannot
+   * beat, and it differs from the true WCAG choice on 489 colours out of
+   * 16777216. Both figures clear the 4.5:1 text floor, so the piecewise transfer
+   * would triple this expression to buy 0.012 of a ratio.
+   *
+   * That test is the answer to the fair objection `codex` raised about the one
+   * below it: a browser sweep over twenty hues cannot establish an algorithm
+   * whose input is unbounded. So the two are split — the exhaustive test proves
+   * the arithmetic over the entire space, and
+   * `tests/e2e/lcars-fallback-rung.spec.ts` proves that CSS computes this
+   * arithmetic, by lifting the rule out of the live stylesheet and measuring it
+   * against `contrast-color()` in a real engine.
+   *
+   * The luminance is factored into a custom property so it is written once
+   * instead of three times. Custom property substitution is textual, so `r`, `g`
+   * and `b` survive as tokens and resolve inside the `rgb(from …)` that consumes
+   * them — verified in Chromium, not assumed.
    *
    * Nested inside `not (contrast-color)` so the two rungs are mutually
    * exclusive rather than racing on source order, and so a browser with both
-   * takes the purpose-built function.
+   * takes the purpose-built function. The inner condition probes the exact
+   * construct used — relative colour syntax with `pow()` and `round()` inside a
+   * channel calculation — rather than a proxy for it.
    */
   @supports not (color: contrast-color(red)) {
-    @supports (color: oklch(from red l c h)) {
+    @supports (color: rgb(from red calc(round(up, pow(r / 255, 2.4), 1) * 255) g b)) {
       .liebe-icon[data-active],
       .liebe-pill[data-active],
       .liebe-chip[data-active] {
-        color: oklch(from var(--liebe-part-color) clamp(0, (l - 0.56) * -1000, 1) 0 h);
+        --lcars-part-luminance: (
+          0.2126 * pow((r / 255 + 0.055) / 1.055, 2.4) + 0.7152 *
+            pow((g / 255 + 0.055) / 1.055, 2.4) + 0.0722 * pow((b / 255 + 0.055) / 1.055, 2.4)
+        );
+        --lcars-on-part-channel: clamp(0, round(up, 0.17913 - var(--lcars-part-luminance), 1), 1) *
+          255;
+
+        color: rgb(
+          from var(--liebe-part-color) calc(var(--lcars-on-part-channel))
+            calc(var(--lcars-on-part-channel)) calc(var(--lcars-on-part-channel))
+        );
       }
     }
   }
@@ -479,9 +527,9 @@
    * the doubled tint the base rule exists to prevent and a black glyph on a
    * ground calibrated for a saturated one.
    *
-   * The glyph takes the hue instead of the black it takes inside a block,
-   * which is the same move the base pattern makes in dark appearance — and
-   * LCARS is dark-only, so there is no second appearance to answer for.
+   * The glyph therefore takes something lighter than the black it takes inside
+   * a block — LCARS is dark-only, so there is no second appearance to answer
+   * for.
    *
    * The person card is excepted, because its anchor IS a disc: the base layer
    * keeps the initials avatar's background for exactly that reason, and this
@@ -496,8 +544,48 @@
     background: none;
   }
 
+  /*
+   * The glyph is where this theme stops answering and lets the base layer
+   * answer, which is what `revert-layer` says and what no value could.
+   *
+   * This rule used to paint the glyph `var(--liebe-part-color)`. For all ten
+   * triplets that is right and stays right — every `-text` companion here is
+   * pinned to its own hue, so the base layer resolves the same colour. It is
+   * wrong for the one input the theme never saw: a **live** hue, where the token
+   * is the bulb's own RGB and painting the glyph in it puts a colour on a 20%
+   * veil of itself. Measured through the real card in a real frontend, a
+   * pure-blue bulb gave `rgb(0, 0, 255)` on `rgb(0, 0, 51)` = **2.33:1** against
+   * the 3:1 glyph floor, with `rgb(128, 0, 255)` next at 3.08:1 — the whole dark
+   * end of the hue circle at or under the line, not one pathological colour
+   * (docs/changes/0035-light-appearance-contrast.md PR 7,
+   * `tests/e2e/lcars-icon-tile-glyph.spec.ts`).
+   *
+   * The base layer has already answered this for its own tile, and under a live
+   * hue its answer is the neutral foreground — "a live hue colours the surface,
+   * and the foreground it lands on is neutral" (docs/specs/design-system,
+   * "Domain color discipline"), the same move it makes for a pill label and a
+   * slider readout. `revert-layer` takes that answer whatever it is.
+   *
+   * WHY NOT NAME THE PROPERTY IT RESOLVES TO. The base layer holds it in
+   * `--part-glyph`, and reading that here would work and would be a contract
+   * violation: the `--part-*` family is the anatomy's own plumbing, which its
+   * sheet reserves the right to rename, and only `--liebe-part-*` is published
+   * (docs/specs/theming — "Stable selector contract"). `src/theme/__tests__/
+   * lcars.test.ts` refuses any `--part-` in this sheet and caught exactly that
+   * on the first attempt at this fix. `revert-layer` needs no name at all, which
+   * is also why it is the more honest statement: the theme is declining to
+   * override, not reaching for a value.
+   *
+   * Note what is NOT the fix. `contrast-color()` answers the disc above, where
+   * the ground IS the hue; on this tile the ground is a 20% tint of the hue over
+   * the card, so a foreground chosen against the hue is chosen against the wrong
+   * colour — for a yellow bulb it picks black, which lands at 1.6:1 on the
+   * near-black tint. Deleting this rule is not the fix either: the theme's own
+   * disc rule above would then apply, putting `--lcars-black` on a tile that has
+   * no disc.
+   */
   .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
-    color: var(--liebe-part-color);
+    color: revert-layer;
   }
 
   /*
