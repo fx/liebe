@@ -431,8 +431,9 @@ test('an LCARS icon-only tile with no live hue keeps the theme hue on its glyph'
   /*
    * The control, and the reason it is here: the remedy for the live-hue tile
    * must not move a tile the theme calibrated. Under LCARS every `-text`
-   * companion is pinned to its own hue, so a `light` tile's glyph is barley
-   * whether it reads the published hue or the glyph role — and this pins that
+   * companion is pinned to its own hue, so a `light` tile's glyph is the
+   * okudagram `--lcars-barley` either way — whether it reads the published hue
+   * or the glyph role — and this pins that
    * they agree, so a change that silently repointed it at something else fails
    * here rather than in a screenshot nobody takes.
    *

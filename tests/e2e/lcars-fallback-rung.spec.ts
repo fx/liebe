@@ -186,6 +186,17 @@ test('the fallback rung reproduces contrast-color() for every hue a part can tak
      * on a real part. A probe element rather than the part itself, because the
      * part cannot take this rule in a browser that has `contrast-color()`.
      *
+     * **Mounted inside `.liebe-root`, not on `document.body`.** Nothing outside
+     * the panel's shadow root inherits its custom properties, so a probe on the
+     * body resolves every `--liebe-*` the rung reads except the one bound below
+     * to nothing at all — which drops the whole `color` declaration as invalid
+     * and hands back the inherited near-black, a plausible dark foreground that
+     * would pass a floor assertion. That is the same silent-pass this file's
+     * docstring is about, one layer down, and it is bounded rather than argued
+     * away: the rung today reads only `--liebe-part-color`, and mounting it
+     * where the theme's tokens live means it keeps working if that stops being
+     * true.
+     *
      * A colour that fails to parse falls back to the inherited one and looks
      * like a result, so every reading below goes through `normalizeColor`, whose
      * two-sentinel probe throws on anything the browser refuses, and the
@@ -193,9 +204,13 @@ test('the fallback rung reproduces contrast-color() for every hue a part can tak
      */
     const paint = async (style: string): Promise<string> =>
       page.evaluate((styleText) => {
+        const panel = (window as unknown as { __liebePanel?: { shadowRoot?: ShadowRoot } })
+          .__liebePanel
+        const host = panel?.shadowRoot?.querySelector('.liebe-root')
+        if (!host) throw new Error('the panel root is not mounted, so no theme token would resolve')
         const probe = document.createElement('div')
         probe.setAttribute('style', styleText)
-        document.body.appendChild(probe)
+        host.appendChild(probe)
         const computed = getComputedStyle(probe).color
         probe.remove()
         return computed
