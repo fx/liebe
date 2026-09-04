@@ -233,7 +233,12 @@ export function Slider({
         className="liebe-slider-thumb"
         aria-label={label}
         aria-valuetext={readout}
-        tabIndex={isBackground ? -1 : undefined}
+        // No `tabIndex={-1}` on the background surface: the keyboard path is
+        // a real adjustment route (options/common — "Gestures in `background`
+        // placement" only splits pointer gestures; keyboard commits always go
+        // through), so the thumb must stay Tab-reachable. A background tile
+        // whose slider cannot be tabbed to is a keyboard trap by omission —
+        // the value would be adjustable only by pointer.
       />
     </SliderPrimitive.Root>
   )

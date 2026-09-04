@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HomeAssistantProvider, type HomeAssistant } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
@@ -382,6 +383,26 @@ describe('LightCard background slider gestures', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+  it('reaches the background slider by Tab and commits a keyboard step', async () => {
+    // The keyboard path is a real adjustment route, so the background thumb
+    // must stay in the tab order (no `tabIndex={-1}`). Proved with a genuine
+    // Tab traversal — a direct `.focus()` would pass on an element no
+    // keyboard user can ever reach, which is exactly what the review caught.
+    backgroundCard()
+    const user = userEvent.setup()
+
+    await user.tab()
+    expect(screen.getByLabelText('Brightness')).toHaveFocus()
+
+    await user.keyboard('{ArrowRight}')
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith('light', 'turn_on', {
+        entity_id: LIGHT,
+        brightness: 130,
+      })
+    )
+    expect(hass.callService).toHaveBeenCalledTimes(1)
   })
 
   it('commits a background drag without firing the tap action', async () => {
