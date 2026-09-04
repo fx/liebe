@@ -10,5 +10,9 @@ function DevOnlyNotFound() {
 // Dev-only route: same production exclusion as `/test-store` — the perf
 // harness never ships in the panel artifact.
 export const Route = createFileRoute('/__root/test/performance')({
-  component: resolveDevRouteComponent(import.meta.env.DEV, EntityBrowserPerformanceTest, DevOnlyNotFound),
+  component: resolveDevRouteComponent(
+    import.meta.env.DEV,
+    EntityBrowserPerformanceTest,
+    DevOnlyNotFound
+  ),
 })

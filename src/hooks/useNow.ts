@@ -69,6 +69,9 @@ function ensureInterval(rateMs: number): void {
       // throwing notify must not skip the listeners behind it or escape the
       // shared interval — the per-consumer intervals this clock replaced
       // never shared a loop.
+      // Snapshot: one small array per tick. Unsubscribing inside a notify
+      // mutates the live set mid-iteration, which would skip listeners —
+      // the starvation the boundary above exists to prevent.
       for (const listener of [...listeners.get(rateMs)!]) {
         try {
           listener()

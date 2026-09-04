@@ -108,8 +108,15 @@ function runDueTasks(wheel: Wheel, nowMs: number = Date.now()): void {
     // the sync boundary above never sees it. Awaiting here routes async
     // faults through the same per-task boundary, and the task stays
     // registered so the next due tick retries it.
-    if (result instanceof Promise) {
-      result.catch((error: unknown) => {
+    // Thenable check, not instanceof: a cross-realm promise (or any
+    // promise-like a pipeline returns) has no local Promise in its chain and
+    // would slip past instanceof into an unhandled rejection.
+    if (
+      typeof result === 'object' &&
+      result !== null &&
+      typeof (result as { catch?: unknown }).catch === 'function'
+    ) {
+      ;(result as Promise<unknown>).catch((error: unknown) => {
         logger.error('pipelineScheduler: scheduled task rejected (kept registered):', error)
       })
     }

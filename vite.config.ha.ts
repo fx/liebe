@@ -3,6 +3,7 @@ import tsConfigPaths from 'vite-tsconfig-paths'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import { baselineCssPlugin } from './vite/baselineCssPlugin'
+import { devRouteStubPlugin } from './vite/devRouteStubPlugin'
 
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production'
@@ -42,6 +43,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       baselineCssPlugin(),
+      devRouteStubPlugin(isProduction),
       react(),
       tsConfigPaths({
         projects: ['./tsconfig.json'],
