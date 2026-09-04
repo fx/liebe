@@ -73,6 +73,9 @@ interface GraphFillGeometry {
   region: string | null
   graph: number | null
   leftover: number
+  /** The two rendered inter-part gaps, for the failure message. */
+  gapAbove: number
+  gapBelow: number
 }
 
 /**
@@ -94,15 +97,31 @@ async function allFullGraphFillGeometries(page: Page): Promise<GraphFillGeometry
       const graph = card.querySelector('[data-testid="sensor-graph"]')
       const bodyEl = card.querySelector('.liebe-card-body')
       if (!bodyEl) continue
-      const rowGap = Number.parseFloat(getComputedStyle(bodyEl).rowGap)
       const body = box(card, '.liebe-card-body')
       const line = box(card, '.liebe-card-body-line')
       const footer = box(card, '.liebe-sensor-graph-footer')
-      if (body === null || line === null || footer === null) continue
+      if (body === null || line === null || footer === null || !graph) continue
+      // The two gaps as the engine rendered them — the body's content order
+      // is line, graph, footer, so each gap is the vertical distance between
+      // two neighbouring boxes, measured off `getBoundingClientRect`, never
+      // off the declared `row-gap` (change 0045: only real layout reads).
+      // Rounded up at zero: sub-pixel boxes can report a hairline overlap
+      // that no rule here is about.
+      const rect = (element: Element) => element.getBoundingClientRect()
+      const gapAbove = Math.max(
+        0,
+        rect(graph).top - rect(card.querySelector('.liebe-card-body-line')!).bottom
+      )
+      const gapBelow = Math.max(
+        0,
+        rect(card.querySelector('.liebe-sensor-graph-footer')!).top - rect(graph).bottom
+      )
       geometries.push({
         region: graph?.getAttribute('data-region') ?? null,
-        graph: graph ? (graph as HTMLElement).getBoundingClientRect().height : null,
-        leftover: body - line - footer - rowGap * 2,
+        graph: (graph as HTMLElement).getBoundingClientRect().height,
+        leftover: body - line - footer - gapAbove - gapBelow,
+        gapAbove,
+        gapBelow,
       })
     }
     return geometries
