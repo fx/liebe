@@ -675,6 +675,38 @@ describe('confirmOpen', () => {
     expect(hass.callService).not.toHaveBeenCalled()
   })
 
+  it('keeps the tilt slider operable with a background surface mounted', () => {
+    // The pointer-events opt-in half for `.liebe-slider` itself: an embedded
+    // INLINE slider inside the body (the tilt control at `full`) inherits
+    // the body's `pointer-events: none` while a background surface is
+    // mounted, and only the thumb (`[role="slider"]`) was opted back in —
+    // so track clicks/drags broke. The sheet now opts the slider root back
+    // in too; this pins the track half at the DOM level jsdom can see (the
+    // real drag proof is the e2e background spec).
+    seed(
+      garage('open', { current_position: 40, current_tilt_position: 40, supported_features: 255 })
+    )
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, {
+      sliderPlacement: 'background',
+    })
+
+    const tiltTrack = screen
+      .getByLabelText('Tilt position')
+      .closest('.liebe-slider')!
+      .querySelector('.liebe-slider-track') as HTMLElement
+    expect(tiltTrack).not.toBeNull()
+
+    // Keyboard path proves the control is live and bound: one step commits
+    // `set_cover_tilt_position` exactly once.
+    const thumb = screen.getByLabelText('Tilt position')
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(hass.callService).toHaveBeenCalledWith('cover', 'set_cover_tilt_position', {
+      entity_id: ENTITY_ID,
+      tilt_position: 41,
+    })
+  })
+
   it('opens without asking when the option is off', () => {
     seed(garage('closed', { current_position: 0 }))
     renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, { confirmOpen: false })

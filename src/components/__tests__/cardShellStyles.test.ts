@@ -565,6 +565,11 @@ describe('card shell stylesheet', () => {
     expect(optIn!.selector).toContain("[role='slider']")
     expect(optIn!.selector).toContain("[role='button']")
     expect(optIn!.selector).toContain('button')
+    // The regression Copilot caught: the slider ROOT itself must opt back
+    // in, not just its thumb role — an embedded inline slider (cover tilt)
+    // inherits the body's `pointer-events: none`, and track clicks/drags
+    // target the root/track rather than the thumb.
+    expect(optIn!.selector).toContain('.liebe-slider')
   })
 })
 

@@ -527,6 +527,7 @@
       select,
       label,
       [contenteditable='true'],
+      .liebe-slider,
       [role='button'],
       [role='checkbox'],
       [role='combobox'],
