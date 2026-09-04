@@ -551,6 +551,44 @@
     inline-size: 100%;
   }
 
+  /*
+   * The tile action control: the shell tile's keyboard and assistive-technology
+   * surface (docs/specs/design-system — "Size-adaptive layouts", the tile's
+   * control contract). A sibling of the embedded controls rather than their
+   * ancestor, so no tier nests interactive content inside a button. First in
+   * the tile's DOM order, absolutely positioned over it and visually nothing —
+   * the `:focus-visible` ring below is its only paint — so it changes no
+   * layout at any tier and every theme inherits it. `pointer-events: none`
+   * keeps the pointer pipeline exactly where it was: the tile's own handlers
+   * own every pointer gesture, and the control's click is the keyboard
+   * activation path (Enter/Space natively, Shift/Alt for the hold and
+   * double-tap routes). No Tab stop in edit mode — the shell renders no
+   * control there, where the tile is the grid's drag target.
+   */
+  .liebe-tile-action {
+    background: none;
+    border: none;
+    border-radius: var(--liebe-card-radius);
+    cursor: inherit;
+    inset: 0;
+    padding: 0;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  /*
+   * The focus treatment: a 2px outline in the `default` triplet at −2px
+   * offset — the selection treatment's own token, so the ring survives a
+   * theme remapping the hue. `outline` rather than `border` takes no layout
+   * space, so a card does not resize as it gains focus; `:focus-visible`
+   * rather than `:focus` keeps the ring for keyboard users without painting
+   * it after every pointer tap.
+   */
+  .liebe-tile-action:focus-visible {
+    outline: 2px solid var(--liebe-c-default);
+    outline-offset: -2px;
+  }
+
   /* ------------------------------------------------------------------ *
    * Touch
    * ------------------------------------------------------------------ */

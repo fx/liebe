@@ -28,6 +28,30 @@ export interface UseServiceCallResult {
   toggle: (entityId: string, data?: Record<string, unknown>) => Promise<ServiceCallResult>
   setValue: (entityId: string, value: unknown) => Promise<ServiceCallResult>
   clearError: () => void
+  /**
+   * The failed dispatch the shell can offer to repeat, or null. Retained, not
+   * reconstructed: `Retry` re-dispatches the identical command through the
+   * confirmation gate and the at-most-once guard, exactly as the original
+   * gesture did. A `callServiceOnce` failure that already entered the guard
+   * keeps its window — a transport rejection after Home Assistant accepted the
+   * command is indistinguishable from one before it, so an immediate `Retry`
+   * stays refused there until the watched entity transitions or the
+   * acknowledgement timeout elapses. A pre-dispatch refusal (validation,
+   * capability) never entered the guard and offers no repeat, so the flag
+   * rides along rather than being re-derived elsewhere.
+   */
+  failedCommand?: FailedServiceCall | null
+}
+
+/**
+ * A failed service call, with what repeating it takes: the command itself, and
+ * whether re-sending it is meaningful.
+ */
+export interface FailedServiceCall {
+  /** The exact command that failed, to re-dispatch rather than reconstruct. */
+  command: ServiceCallOptions
+  /** False for a pre-dispatch refusal, where there is nothing to repeat. */
+  retryable: boolean
 }
 
 const MINIMUM_LOADING_TIME = process.env.NODE_ENV === 'test' ? 0 : 400 // milliseconds
@@ -35,6 +59,7 @@ const MINIMUM_LOADING_TIME = process.env.NODE_ENV === 'test' ? 0 : 400 // millis
 export function useServiceCall(): UseServiceCallResult {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [failedCommand, setFailedCommand] = useState<FailedServiceCall | null>(null)
   const activeCallRef = useRef<AbortController | null>(null)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const hass = useHomeAssistantOptional()
@@ -81,6 +106,7 @@ export function useServiceCall(): UseServiceCallResult {
       const startTime = Date.now()
       setLoading(true)
       setError(null)
+      setFailedCommand(null)
 
       try {
         const result = await dispatch(options)
@@ -161,7 +187,14 @@ export function useServiceCall(): UseServiceCallResult {
        * the failure it was about to report while the repeat returned success.
        */
       if (!admitCommand(options)) return { success: true }
-      return runCall(options, hassService.callServiceOnce.bind(hassService))
+      const result = await runCall(options, hassService.callServiceOnce.bind(hassService))
+      if (!result.success) {
+        // Retained, not reconstructed: `Retry` re-dispatches the identical
+        // command through the gate and the guard, and nothing here releases the
+        // guard's window — the ambiguous-outcome case stays refused there.
+        setFailedCommand({ command: options, retryable: true })
+      }
+      return result
     },
     [runCall]
   )
@@ -236,6 +269,10 @@ export function useServiceCall(): UseServiceCallResult {
           // wants and the format that would satisfy it.
           const message = describeInputDatetimeShape(entityId, attributes)
           setError(message)
+          setFailedCommand({
+            command: { domain, service: 'set_datetime', entityId },
+            retryable: false,
+          })
           return { success: false, error: message }
         }
 
@@ -253,20 +290,21 @@ export function useServiceCall(): UseServiceCallResult {
           data: { brightness: value },
         })
       }
-
       setError(`setValue not supported for domain: ${domain}`)
+      setFailedCommand({ command: { domain, service: 'set_value', entityId }, retryable: false })
       return { success: false, error: `setValue not supported for domain: ${domain}` }
     },
     [dispatchGuarded]
   )
-
   const clearError = useCallback(() => {
     setError(null)
+    setFailedCommand(null)
   }, [])
 
   return {
     loading,
     error,
+    failedCommand,
     callService,
     dispatchGuarded,
     turnOn,

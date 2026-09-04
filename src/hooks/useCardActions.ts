@@ -223,6 +223,18 @@ export interface CardGestures {
   press: () => void
   /** Pointer up, cancel, or leave — disarms hold detection. */
   release: () => void
+  /**
+   * The hold route as a keyboard activation: `Shift+Enter`/`Shift+Space` on the
+   * tile control. Resolves off the same stored `holdAction` as the gesture, so
+   * a card whose hold is `none` — or whose hold has nothing behind it — stays
+   * inert, and a modifier activation never falls back to the tap.
+   */
+  activateHold: () => void
+  /**
+   * The double-tap route as a keyboard activation: `Alt+Enter`/`Alt+Space` on
+   * the tile control. Same inertness rule as the hold route.
+   */
+  activateDoubleTap: () => void
 }
 
 /** Screens are a tree, and a `navigate` target may be either identifier. */
@@ -501,6 +513,21 @@ export function useCardActions({
     }
   }, [])
 
+  /*
+   * What the deferred work re-reads at execution time. The timers below close
+   * over the resolution made when the gesture started; an entity that goes
+   * quiet inside the window must not still receive the `toggle` armed while it
+   * was available — the gesture re-resolves from the latest render instead.
+   * Plain refs rather than state, because they are read from inside timer
+   * callbacks rather than rendered.
+   */
+  const latestActionsRef = useRef(actions)
+  latestActionsRef.current = actions
+  const latestIsActionableRef = useRef(isActionable)
+  latestIsActionableRef.current = isActionable
+  const latestDispatchRef = useRef(dispatch)
+  latestDispatchRef.current = dispatch
+
   const press = useCallback(() => {
     if (disabled) return
 
@@ -515,7 +542,13 @@ export function useCardActions({
       // A hold ends whatever the previous click started: if this press was the
       // second half of a would-be double tap, the pending single tap is gone.
       clearTapTimer()
-      dispatch(actions.hold)
+      // Re-read at execution time: the `toggle` armed while available becomes
+      // `more-info` if the entity went quiet inside the window, and a route
+      // that lost its handler while armed stays inert rather than dispatching
+      // stale.
+      const action = latestActionsRef.current.hold
+      if (!latestIsActionableRef.current(action)) return
+      latestDispatchRef.current(action)
     }, HOLD_DURATION_MS)
   }, [actions.hold, clearTapTimer, disabled, dispatch, isActionable, release])
 
@@ -529,36 +562,49 @@ export function useCardActions({
       return
     }
 
-    if (isActionable(actions.doubleTap)) {
+    if (latestIsActionableRef.current(latestActionsRef.current.doubleTap)) {
       if (tapTimerRef.current) {
         clearTapTimer()
-        dispatch(actions.doubleTap)
+        // The second tap completes the gesture now, so this half executes
+        // against the current resolution rather than waiting out a window.
+        const action = latestActionsRef.current.doubleTap
+        if (!latestIsActionableRef.current(action)) return
+        latestDispatchRef.current(action)
         return
       }
 
       tapTimerRef.current = setTimeout(() => {
         tapTimerRef.current = null
-        dispatch(actions.tap)
+        // Re-read at execution time, like the hold above: the window outlives
+        // the availability it was armed under.
+        const action = latestActionsRef.current.tap
+        if (!latestIsActionableRef.current(action)) return
+        latestDispatchRef.current(action)
       }, DOUBLE_TAP_WINDOW_MS)
       return
     }
-
     dispatch(actions.tap)
   }, [actions, clearTapTimer, disabled, dispatch, isActionable])
 
   /*
-   * Suppression has to reach the gestures already in flight, not only the ones
-   * that start afterwards: a tap waiting out the double-tap window when the user
-   * switches to edit mode would otherwise still dispatch a quarter of a second
-   * into a mode where nothing may.
+   * The keyboard routes to the two secondary gestures. Synchronous by
+   * construction: a key press has no hold duration and no second tap to wait
+   * for, so there is no window for availability to change inside — the current
+   * resolution is the execution-time one. Inert under the same rule as the
+   * gestures: a route with nothing behind it, including a `none` hold, does
+   * nothing rather than falling back to the tap.
    */
-  useEffect(() => {
-    if (!disabled) return
+  const activateHold = useCallback(() => {
+    if (disabled) return
+    if (!isActionable(actions.hold)) return
+    dispatch(actions.hold)
+  }, [actions.hold, disabled, dispatch, isActionable])
 
-    release()
-    clearTapTimer()
-    holdFiredRef.current = false
-  }, [clearTapTimer, disabled, release])
+  const activateDoubleTap = useCallback(() => {
+    if (disabled) return
+    if (!isActionable(actions.doubleTap)) return
+    dispatch(actions.doubleTap)
+  }, [actions.doubleTap, disabled, dispatch, isActionable])
 
   useEffect(() => {
     return () => {
@@ -572,5 +618,7 @@ export function useCardActions({
     tap,
     press,
     release,
+    activateHold,
+    activateDoubleTap,
   }
 }

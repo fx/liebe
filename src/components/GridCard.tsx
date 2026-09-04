@@ -163,8 +163,24 @@ export interface GridCardProps {
    * its *embedded* controls itself: the shell gates what the shell dispatches.
    */
   confirmRoute?: (action: ResolvedCardAction) => CardConfirmPrompt | null
+  /**
+   * The failure the tile carries while `isError` holds, and what recovers it.
+   * The shell owns the tile, the gestures, the detail dialog and the
+   * confirmation gate already, so it owns these too — a contract that needed
+   * an edit in twenty-five card files would be in the wrong place. Cards keep
+   * passing `title` for the hover convenience; the dialog is the carrier.
+   * `onRetry` re-dispatches the retained command through the gate and the
+   * guard; `onDismiss` clears the presentation state and dispatches nothing.
+   * `canRetry` is false for the sources with nothing to re-send — a
+   * pre-dispatch refusal, a stream that would not start.
+   */
+  failureMessage?: string | null
+  canRetry?: boolean
+  onRetry?: () => void | Promise<void>
+  onDismiss?: () => void
   onConfigure?: () => void
   hasConfiguration?: boolean
+  /** Sighted-hover convenience only; never the failure carrier. */
   title?: string
   className?: string
   style?: React.CSSProperties
@@ -723,6 +739,10 @@ export const GridCard = React.memo(
         defaultAction,
         onMoreInfo,
         confirmRoute,
+        failureMessage,
+        canRetry = false,
+        onRetry,
+        onDismiss,
         onConfigure,
         hasConfiguration = false,
         title,
@@ -885,6 +905,22 @@ export const GridCard = React.memo(
         const reported = (isError && title) || entity?.state
         return reported ? `${resolved}, ${reported}` : resolved
       })
+      /*
+       * The tile control's accessible name: the tile's resolved name (the
+       * universal `name` override, else the entity's friendly name, else the
+       * entity id) plus the state the tile is in — the entity's state, or the
+       * failure message while `isError` holds. The `title` tooltip MAY remain
+       * as a sighted-hover convenience; it is never the carrier. Read from the
+       * same store subscription shape as the icon-only label, so a live
+       * message and state cannot disagree about the name they give one tile.
+       */
+      const tileActionLabel = useStore(entityStore, (state) => {
+        const entity = detailEntityId ? state.entities[detailEntityId] : undefined
+        const name = display.name || entity?.attributes?.friendly_name || detailEntityId
+        if (!name) return undefined
+        const reported = (isError && title) || entity?.state
+        return reported ? `${name}, ${reported}` : name
+      })
       // The entity the dialog is open for, rather than a boolean: it is the
       // same state, and holding the id means the render below needs no second
       // check that a card with no entity somehow opened one.
@@ -1038,6 +1074,27 @@ export const GridCard = React.memo(
           (!isEmbeddedControl(e) || isBackgroundSliderTarget(e))
         ) {
           gestures.tap()
+        }
+      }
+      /*
+       * The keyboard routes to the tile's secondary gestures. `Enter`/`Space`
+       * fire the tap through the control's native activation; the modifiers
+       * reach the hold and double-tap routes the pointer discriminates by
+       * timing — 500ms and a 250ms window — which a keyboard has neither.
+       * Native activation is suppressed for every key handled here, so the
+       * tap and the secondary route cannot both fire; `repeat` is ignored so
+       * a held key does not re-dispatch. Edit mode renders no control, so
+       * there is nothing to route.
+       */
+      const handleTileActionKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        if (e.repeat) return
+        if (e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault()
+          gestures.activateHold()
+        } else if (e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault()
+          gestures.activateDoubleTap()
         }
       }
 
@@ -1254,6 +1311,38 @@ export const GridCard = React.memo(
                   })
                 : backgroundSlider
               : null}
+            {/*
+             * The tile action control (route D). A real `<button>`, not the
+             * tile itself: tiers embed sliders, steppers, switches, select
+             * triggers and text fields, and interactive content inside a
+             * `<button>` is invalid markup whose focus and announcement
+             * behaviour is defined by nothing. As a sibling of the embedded
+             * controls rather than their ancestor it sidesteps nesting
+             * entirely — one Tab stop per tile, in DOM order, carrying the
+             * tile's resolved name as its accessible name. Rendered only in
+             * view mode: edit mode's tile is the grid's drag target and
+             * selection semantics own it there. `Shift` reaches the hold
+             * route, `Alt` the double-tap route; a route with nothing behind
+             * it stays inert and never falls back to the tap.
+             * Absolutely positioned over the tile and visually nothing — the
+             * ring on `:focus-visible` is its only paint — so it changes no
+             * layout at any tier and every theme inherits it. Pointer events
+             * are off: the pointer pipeline on the tile stays exactly what it
+             * was, and the existing gesture suite passes unmodified.
+             */}
+            {!isEditMode && tileActionLabel && (
+              <button
+                type="button"
+                className="liebe-tile-action"
+                aria-label={tileActionLabel}
+                onClick={(e) => {
+                  if (isEmbeddedControl(e) || !isRealDescendant(e)) return
+                  gestures.tap()
+                }}
+                onKeyDown={handleTileActionKeyDown}
+                data-testid="tile-action"
+              />
+            )}
             {/* Content — fenced to the card body while `iconOnly` holds, so a
                 backdrop or an overlay a card renders beside its body does not
                 survive the suppression its body just applied. */}
@@ -1358,15 +1447,6 @@ export const GridCard = React.memo(
            * it renders inside this card's React tree, so a press within it
            * would otherwise arm the hold timer of the card behind it.
            */}
-          {/*
-           * `!isEditMode` as well as the state. The reset above now runs during
-           * render, so nothing stale reaches a commit and this guard cannot be
-           * the thing that hides it — which is the point of keeping it. It is a
-           * belt to the reset's braces, and cheap: a dialog that can only be
-           * opened in view mode should also only be *rendered* in view mode, so
-           * a future path that sets `detailFor` without going through the reset
-           * still cannot leave one standing over a draggable card.
-           */}
           {!isEditMode && detailFor && (
             <EntityDetailDialog
               entityId={detailFor}
@@ -1379,6 +1459,14 @@ export const GridCard = React.memo(
               onOpenChange={(open) => {
                 if (!open) setDetailFor(null)
               }}
+              // The failure the tile carries while `isError` holds, with its
+              // recovery actions. `isError` without a message is a tile whose
+              // card reports the state but names nothing to recover from —
+              // the dialog stays the plain one.
+              failureMessage={isError ? (failureMessage ?? title ?? null) : null}
+              canRetry={canRetry}
+              onRetry={onRetry}
+              onDismiss={onDismiss}
             />
           )}
           {/*
