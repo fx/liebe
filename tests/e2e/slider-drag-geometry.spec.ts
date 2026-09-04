@@ -120,27 +120,13 @@ async function dragPointer(
 test('dragging past the track edge drives the value to maximum with a single commit', async ({
   page,
 }) => {
-  const { accessToken } = await openPanel(page, seedSliderDragConfig())
-
-  // Mid-travel, not off and not full: the slider only renders for a light
-  // that is on, and starting at an extreme would leave the drag nothing to
-  // prove. 128 of 255 is the 50 the card announces, so waiting on the value
-  // is waiting on the state having reached the panel.
-  await callService(accessToken, 'light', 'turn_on', { entity_id: DEMO_LIGHT, brightness: 128 })
-  const light = await entityName(page, DEMO_LIGHT)
-  await expect.poll(() => sliderValueNow(page, light)).toBe('50')
-
-  const track = await sliderTrackBox(page, light)
-  expect(track.width, 'the track should have a box to drag across').toBeGreaterThan(0)
-
-  // Count every `call_service` frame the panel sends for this entity from
-  // here on: the counter starts after the setup `turn_on` above has settled
-  // (the `sliderValueNow` poll is that settlement), so what it counts is the
-  // drag's own dispatches and nothing else. Registered on the raw socket —
-  // the same boundary `hass.callService` writes to — so the gesture is
-  // observed, never stubbed. A card that dispatched per pointer-move would
-  // fail here with one frame per travel step while still converging on the
-  // same final brightness.
+  // Count every `call_service` frame the panel sends for this entity. The
+  // observer registers BEFORE openPanel: Playwright only fires `websocket`
+  // for sockets created after the listener attaches (camera-stream
+  // precedent), and the HA socket opens during navigation — registering
+  // after would miss it entirely and the array would stay empty even for a
+  // correct drag. Frames are filtered to this entity's `service_data`, so
+  // only the drag's own dispatches count.
   const turnOnFrames: string[] = []
   page.on('websocket', (ws) => {
     ws.on('framesent', (frame) => {
@@ -168,6 +154,19 @@ test('dragging past the track edge drives the value to maximum with a single com
       }
     })
   })
+
+  const { accessToken } = await openPanel(page, seedSliderDragConfig())
+
+  // Mid-travel, not off and not full: the slider only renders for a light
+  // that is on, and starting at an extreme would leave the drag nothing to
+  // prove. 128 of 255 is the 50 the card announces, so waiting on the value
+  // is waiting on the state having reached the panel.
+  await callService(accessToken, 'light', 'turn_on', { entity_id: DEMO_LIGHT, brightness: 128 })
+  const light = await entityName(page, DEMO_LIGHT)
+  await expect.poll(() => sliderValueNow(page, light)).toBe('50')
+
+  const track = await sliderTrackBox(page, light)
+  expect(track.width, 'the track should have a box to drag across').toBeGreaterThan(0)
 
   // Press on the track's centre, drag well past its right edge so the value
   // clamps to the maximum rather than landing on whatever fraction a pixel
