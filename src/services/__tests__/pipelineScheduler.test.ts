@@ -206,6 +206,29 @@ describe('pipelineScheduler', () => {
     releaseLate()
   })
 
+  it('an off-tick registration waits its full interval, not the next tick', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.parse('2026-07-25T12:00:00.000Z'))
+
+    // Advance to 1ms after a slow tick, then register a 2-tick task: the next
+    // tick is a full interval minus 1ms too early, so the task must stay
+    // silent there and fire only once the wall clock has advanced everyMs.
+    act_advance(SCHEDULER_SLOW_TICK_MS)
+    vi.setSystemTime(Date.parse('2026-07-25T12:00:00.000Z') + SCHEDULER_SLOW_TICK_MS + 1)
+    const late = vi.fn()
+    const release = schedulePipelineTask('slow', SCHEDULER_SLOW_TICK_MS * 2, late)
+
+    act_advance(SCHEDULER_SLOW_TICK_MS)
+    expect(late).not.toHaveBeenCalled()
+
+    // Wall clock reaches registration + interval: the following tick fires it.
+    vi.setSystemTime(Date.parse('2026-07-25T12:00:00.000Z') + SCHEDULER_SLOW_TICK_MS * 2 + 1)
+    act_advance(SCHEDULER_SLOW_TICK_MS)
+    expect(late).toHaveBeenCalledTimes(1)
+
+    release()
+  })
+
   it('a double release does not take another task down', () => {
     vi.useFakeTimers()
 

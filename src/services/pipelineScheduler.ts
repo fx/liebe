@@ -37,15 +37,22 @@ interface ScheduledTask {
   /** Run every Nth tick of the wheel. */
   every: number
   /**
-   * Wheel tick (global `elapsed`) the task is next due on, anchored at
-   * REGISTRATION, not at the wheel's phase: a task registered at elapsed E
-   * with `every` N first fires at E+N. The old global-phase test
-   * (`elapsed % every === 0`) fired a late-registered task on the next tick
-   * whose global count was a multiple — e.g. a newly mounted daily forecast
-   * refreshing after 5min instead of its 2h interval — where the per-task
-   * intervals this wheel replaced began at registration.
+   * Wheel tick (global `elapsed`) the task is next due on. Steady-state ticks
+   * advance it by `every` (phase-aligned, drift-free). The FIRST due is
+   * additionally gated on wall time (see `dueAtMs`): `nextDue` alone anchors
+   * at the previous tick, so a task registering between ticks would first
+   * fire up to one tick short of its full interval.
    */
   nextDue: number
+  /**
+   * Wall-clock time of registration plus the full interval: the first fire
+   * is never earlier than this, however the registration lands between
+   * ticks. Anchoring the first due at the previous tick (`elapsed + every`)
+   * short-changes an off-tick registration by up to one tick — a daily
+   * forecast mounted 1ms after a slow tick would run 1ms short of 2h, where
+   * the per-task intervals this wheel replaced began at registration.
+   */
+  dueAtMs: number
 }
 
 interface Wheel {
@@ -78,7 +85,12 @@ function runDueTasks(wheel: Wheel): void {
   wheel.elapsed += 1
   for (const task of [...wheel.tasks.values()]) {
     if (wheel.elapsed < task.nextDue) continue
+    // First-fire wall-clock gate: until the full interval has elapsed since
+    // registration, the task waits no matter the tick phase. Cleared on
+    // first fire; steady state rides `nextDue` alone.
+    if (task.dueAtMs !== 0 && Date.now() < task.dueAtMs) continue
     task.nextDue = wheel.elapsed + task.every
+    task.dueAtMs = 0
     let result: unknown
     try {
       result = task.run()
@@ -138,7 +150,13 @@ export function schedulePipelineTask(
   const wheel = ensureWheel(rate)
   const every = Math.max(1, Math.ceil(everyMs / RATE_TICK_MS[rate]))
   const id = nextId++
-  wheel.tasks.set(id, { id, run, every, nextDue: wheel.elapsed + every })
+  wheel.tasks.set(id, {
+    id,
+    run,
+    every,
+    nextDue: wheel.elapsed + every,
+    dueAtMs: Date.now() + everyMs,
+  })
 
   let released = false
   return () => {
