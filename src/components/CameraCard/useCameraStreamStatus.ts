@@ -159,6 +159,12 @@ export interface UseCameraStreamStatusResult {
    * restores the auto-remount budget, and bumps remountKey.
    */
   retry: () => void
+  /**
+   * Clear the surfaced error without remounting: the `Dismiss` half of the
+   * dialog's recovery pair for the stream-error source. Clears presentation
+   * state and dispatches nothing — the stream is not restarted.
+   */
+  dismiss: () => void
 }
 
 // Status machine for the <ha-camera-stream> element: watches decoded frames on
@@ -248,6 +254,16 @@ export function useCameraStreamStatus({
     setHasFrameWarning(false)
     setSurfacedError(null)
     setRemountKey((key) => key + 1)
+  }, [setSurfacedError])
+
+  // Dismiss without remounting: drop the surfaced error and its warning, but
+  // leave the watch epoch, the budgets and the element alone — nothing
+  // restarts, nothing re-dispatches. A fresh stall surfaces again through
+  // the normal machine path.
+  const dismiss = useCallback(() => {
+    hasFrameWarningRef.current = false
+    setHasFrameWarning(false)
+    setSurfacedError(null)
   }, [setSurfacedError])
 
   // An entity state transition means the camera itself changed (restarted,
@@ -604,5 +620,6 @@ export function useCameraStreamStatus({
     remountKey,
     onStreamEvent,
     retry,
+    dismiss,
   }
 }

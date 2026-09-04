@@ -57,11 +57,17 @@ const statusMock: Pick<
 }
 const mockOnStreamEvent = vi.fn()
 const mockRetry = vi.fn()
+const mockDismiss = vi.fn()
 const statusOptionsLog: UseCameraStreamStatusOptions[] = []
 vi.mock('../useCameraStreamStatus', () => ({
   useCameraStreamStatus: (options: UseCameraStreamStatusOptions): UseCameraStreamStatusResult => {
     statusOptionsLog.push(options)
-    return { ...statusMock, onStreamEvent: mockOnStreamEvent, retry: mockRetry }
+    return {
+      ...statusMock,
+      onStreamEvent: mockOnStreamEvent,
+      retry: mockRetry,
+      dismiss: mockDismiss,
+    }
   },
 }))
 
@@ -612,6 +618,26 @@ describe('CameraCard', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
       expect(mockRetry).toHaveBeenCalledTimes(1)
+    })
+
+    it('dismisses the stream error from the detail dialog without remounting', () => {
+      // The stream-error source offers the full recovery pair: remount
+      // `Retry` plus a `Dismiss` that clears presentation state and
+      // dispatches nothing (no service call exists to repeat).
+      statusMock.error = 'Stream stalled'
+      entityStore.setState((state) => ({
+        ...state,
+        entities: { 'camera.front_door': makeEntity() },
+      }))
+      renderCard()
+
+      const tile = screen.getByRole('button', { name: /^Front Door, Stream stalled$/ })
+      fireEvent.click(tile)
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('Stream stalled')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+      expect(mockDismiss).toHaveBeenCalledTimes(1)
+      expect(mockRetry).not.toHaveBeenCalled()
     })
 
     it('does not open tap-fullscreen while a stream error is shown', () => {

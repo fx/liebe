@@ -234,6 +234,7 @@ function CameraCardComponent({
     remountKey,
     onStreamEvent,
     retry: retryStream,
+    dismiss: dismissStream,
   } = useCameraStreamStatus({
     getInnerVideo,
     getMjpegImg,
@@ -539,6 +540,7 @@ function CameraCardComponent({
         // reaches the remount through `onStreamRetry` instead of the gate.
         canRetry={streamError != null}
         onStreamRetry={streamError ? retryStream : undefined}
+        onDismiss={streamError ? dismissStream : undefined}
         className="camera-card"
         customPadding={mattingPadding}
         style={{
