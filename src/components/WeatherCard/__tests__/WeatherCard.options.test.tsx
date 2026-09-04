@@ -205,6 +205,7 @@ describe('showConditionBackground', () => {
       const plainActions = card().querySelector('.liebe-card-actions') as HTMLElement
       expect(plainActions).not.toBeNull()
       const plainScope = plainActions.closest('.radix-themes') as HTMLElement
+      expect(plainScope).not.toBeNull()
       expect(plainScope.getAttribute('data-is-root-theme')).toBe('true')
       expect(plainScope.classList.contains('dark')).toBe(false)
       unmountPlain()

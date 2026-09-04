@@ -574,8 +574,8 @@ describe('GridCard shell', () => {
         content
       </GridCard>
     )
-
     const actions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(actions).not.toBeNull()
     const scope = actions.closest('.radix-themes') as HTMLElement
     expect(scope).not.toBeNull()
     expect(scope.classList.contains('dark')).toBe(true)
@@ -602,8 +602,8 @@ describe('GridCard shell', () => {
         </GridCard>
       </CardItemProvider>
     )
-
     const iconOnlyActions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(iconOnlyActions).not.toBeNull()
     expect(iconOnlyActions.closest('.radix-themes')).toBeNull()
     unmountIconOnly()
 
@@ -617,6 +617,7 @@ describe('GridCard shell', () => {
     )
 
     const plainActions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(plainActions).not.toBeNull()
     expect(plainActions.closest('.radix-themes')).toBeNull()
   })
 })

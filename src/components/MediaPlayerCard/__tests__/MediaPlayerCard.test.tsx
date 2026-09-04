@@ -1453,6 +1453,7 @@ describe('MediaPlayerCard source picker', () => {
 
     const trigger = screen.getByLabelText('Source')
     const scope = trigger.closest('.radix-themes') as HTMLElement
+    expect(scope).not.toBeNull()
     expect(scope.getAttribute('data-is-root-theme')).toBe('true')
     expect(scope.classList.contains('dark')).toBe(false)
     unmount()
