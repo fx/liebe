@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Button, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Hash, Minus, Plus } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -87,6 +87,13 @@ interface NumberHelperControlProps {
   onEditingChange?: (editing: boolean) => void
   /** Reaches the slider thumb, so the card's tile tap can focus it. */
   sliderThumbRef?: React.Ref<HTMLSpanElement>
+  /**
+   * Reports whether the stepper's value button is mounted, so the card's tile
+   * tap can tell a rendered stepper from a suppressed one (`iconOnly` drops
+   * the slot the button lives in). Called with `true` on mount and `false`
+   * on unmount; absent, the card assumes the stepper renders.
+   */
+  onStepperMountChange?: (mounted: boolean) => void
 }
 
 /**
@@ -103,6 +110,27 @@ interface NumberHelperControlProps {
  * dispatch stays the caller's, so the card shell keeps showing its own loading
  * and error state around it.
  */
+
+/**
+ * Reports the stepper's mount state to the card: mounted with `true`,
+ * unmounted with `false`. An effect rather than a render-phase call — the
+ * callback writes the card's ref, and refs must not be assigned during
+ * render — and symmetric on unmount, so a tier change that drops the control
+ * cannot leave a stale "rendered" behind.
+ */
+function StepperMountReporter({
+  onChange,
+  children,
+}: {
+  onChange?: (mounted: boolean) => void
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    onChange?.(true)
+    return () => onChange?.(false)
+  }, [onChange])
+  return <>{children}</>
+}
 export function NumberHelperControl({
   entity,
   style,
@@ -112,6 +140,7 @@ export function NumberHelperControl({
   editing: editingProp,
   onEditingChange,
   sliderThumbRef,
+  onStepperMountChange,
 }: NumberHelperControlProps) {
   const attributes = entity.attributes as InputNumberAttributes
 
@@ -238,7 +267,7 @@ export function NumberHelperControl({
 
   if (style === 'stepper') {
     return (
-      <>
+      <StepperMountReporter onChange={onStepperMountChange}>
         <IconButton
           size="3"
           variant="soft"
@@ -262,7 +291,7 @@ export function NumberHelperControl({
         >
           <Plus size={16} />
         </IconButton>
-      </>
+      </StepperMountReporter>
     )
   }
 
@@ -382,9 +411,13 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
   // The slider thumb, so the tap can focus it where the slider renders. A ref
   // rather than state: focusing is imperative and renders nothing.
   const sliderThumbRef = useRef<HTMLSpanElement>(null)
+  // Whether the stepper's value button is mounted: `iconOnly` drops every
+  // body slot but the lead, so under it no control renders and the tap must
+  // resolve to `more-info` rather than flip invisible edit state. A ref
+  // rather than state: presence is read imperatively by the tap.
+  const stepperMountedRef = useRef(false)
 
   const isGlance = tier === 'glance'
-
   /*
    * The presentation the tap routes on, resolved before the entity guards so
    * the handler below closes over a value rather than a ref no effect keeps
@@ -410,6 +443,11 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
     [entityId, setValue]
   )
 
+  // Stable identity for the mount reporter: its effect re-runs on change, so
+  // an inline closure would report unmount/remount every render.
+  const handleStepperMountChange = useCallback((mounted: boolean) => {
+    stepperMountedRef.current = mounted
+  }, [])
   /*
    * The tile tap is the card's primary action: it focuses the value control —
    * entering edit state where the stepper renders, focusing the thumb where
@@ -432,6 +470,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        * its own — a tile with an explicit toggle would call this, find no
        * control to focus, and do nothing at all. Returning `'more-info'`
        * routes the gesture to the detail dialog instead, which is the escape
+       * hatch `GridCard`'s `onClick` contract exists for and that the text card
        * already uses for its own control-free tiers.
        */
       return 'more-info'
@@ -445,6 +484,11 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
       sliderThumbRef.current.focus()
       return undefined
     }
+    // The stepper reports its mount through `stepperMountedRef`: suppressed
+    // (`iconOnly`) or omitted, the button never mounts and entering edit state
+    // would flip invisible state with no control to show it — so the tap
+    // resolves to `more-info` there too.
+    if (!stepperMountedRef.current) return 'more-info'
     setIsEditing(true)
     return undefined
   }
@@ -642,6 +686,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
                 editing={isEditing}
                 onEditingChange={setIsEditing}
                 sliderThumbRef={sliderThumbRef}
+                onStepperMountChange={handleStepperMountChange}
               />
             </GridCard.Controls>
           )

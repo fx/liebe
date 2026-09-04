@@ -381,6 +381,23 @@ describe('InputNumberCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
+    it('opens the detail dialog on tap when iconOnly suppresses the stepper', () => {
+      // `iconOnly` drops every body slot but the lead, so the value button
+      // never mounts: the tap must resolve to `more-info` rather than flip
+      // invisible edit state with no control to show it.
+      render(
+        <CardItemProvider entityId="input_number.test_number" config={{ iconOnly: true }}>
+          <InputNumberCard entityId="input_number.test_number" tier="row" />
+        </CardItemProvider>
+      )
+      expect(screen.queryByRole('button', { name: /Set value/ })).not.toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Number' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
     it('focuses the slider thumb on tap where the slider renders', () => {
       vi.mocked(useEntity).mockReturnValue({
         entity: {
