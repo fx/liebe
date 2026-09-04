@@ -209,27 +209,35 @@ function keyThemeCssToInstance(css: string, instance: string): string {
     .replace(UNKEYED_ROOT, keyedRoot)
     .split(SENTINEL)
     .join(keyedWhere)
-  // The font token rides the same mirror: each panel's `@font-face` registers
-  // a per-instance family (`fontRegistration.ts`), and the theme payload is
-  // what names it — so the mirrored copy names the instance family while the
-  // in-shadow-root sheet keeps the global one its own registration serves.
-  // Keyed on the `--liebe-font-family` token declaration rather than on a
-  // hardcoded family name, so a future bundled face keys the same way without
-  // this module learning its name; the `var()`-valued numeric token follows
-  // the family token and needs no rewrite of its own.
-  return keyed.replace(/--liebe-font-family(\s*:\s*)(['"]?)([A-Za-z][\w-]*)\2/, (_m, sep: string, q: string, fam: string) => `--liebe-font-family${sep}${q}${fam}__${instance}${q}`)
+  // The font token rides both sheets via the helper below; the mirror adds
+  // the selector scoping on top.
+  return keyFontFamilyToInstance(keyed, instance)
+}
+
+/**
+ * Names the panel's per-instance font family in a theme sheet, leaving every
+ * selector untouched.
+ *
+ * Split out because the in-shadow-root sheet needs exactly this and nothing
+ * else: that root belongs to exactly one panel, so its selectors stay as
+ * authored while its `--liebe-font-family` token names `Antonio__<instance>`
+ * — the only family the panel's `@font-face` registers.
+ */
+function keyFontFamilyToInstance(css: string, instance: string): string {
+  return css.replace(/--liebe-font-family(\s*:\s*)(['"]?)([A-Za-z][\w-]*)\2/, (_m, sep: string, q: string, fam: string) => `--liebe-font-family${sep}${q}${fam}__${instance}${q}`)
 }
 
 /**
  * Applies a theme to whichever root `node` is mounted in, keying the
  * document-level mirror to this panel's container.
  *
- * The in-root sheet is the theme CSS as authored; the mirrored copy is the
- * same sheet with every `.liebe-root` / `.liebe-portal-root` subject further
- * bound to `data-liebe-instance="<token>"`, so it matches only this panel's
- * container. Keyed textually here rather than re-derived from the registry,
- * because the theme payload is an opaque string by the time it arrives — and
- * because the user layer's keying lives in `sanitizeCustomCss`'s own output
+ * The in-root sheet keeps its selectors as authored (that root belongs to
+ * exactly one panel) but names the instance family, since the panel's
+ * `@font-face` registers ONLY `Antonio__<instance>`; the mirrored copy adds
+ * the selector scoping on top, so it matches only this panel's container.
+ * Keyed textually here rather than re-derived from the registry, because the
+ * theme payload is an opaque string by the time it arrives — and because the
+ * user layer's keying lives in `sanitizeCustomCss`'s own output
  * (`scopePortalCssToInstance`), so both mirrors key the same way at the same
  * boundary. A document root takes the sheet as-is: the workshop renders one
  * panel, and its container sits inside that document with everything else.
@@ -243,7 +251,15 @@ export function applyThemeCssToRootOf(
   if (!isStyleRoot(root)) return null
 
   if (root instanceof ShadowRoot) {
+    // The in-root sheet keeps its selectors as authored (that root belongs to
+    // exactly one panel) but names the instance family: the panel's
+    // `@font-face` registers ONLY `Antonio__<instance>`, so the global name
+    // would resolve to the fallback stack.
+    applyThemeCss(root, instance ? keyFontFamilyToInstance(css, instance) : css)
     applyThemeCss(root.ownerDocument, instance ? keyThemeCssToInstance(css, instance) : css, instance)
+    // Return the in-root element, as before: callers read the panel's own
+    // sheet back off the return value.
+    return root.querySelector('style[data-liebe="theme"]')
   }
   return applyThemeCss(root, css)
 }

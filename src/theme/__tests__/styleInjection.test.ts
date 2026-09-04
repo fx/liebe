@@ -196,6 +196,34 @@ describe('applyThemeCss', () => {
     expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toBe(text)
   })
 
+  it('names the per-instance font family in the mirror and at home', () => {
+    // Each panel's `@font-face` registers ONLY `Antonio__<instance>`
+    // (`fontRegistration.ts`): the in-shadow-root sheet must name the
+    // instance family too, or the dashboard falls back to the condensed
+    // system stack — and the mirrored copy must name it as well, or the
+    // overlay resolves the other panel's file.
+    const root = shadowRoot()
+    const child = document.createElement('div')
+    root.appendChild(child)
+
+    applyThemeCssToRootOf(
+      child,
+      "@layer liebe-theme { :where(.liebe-root) { --liebe-font-family: 'Antonio', sans-serif; } }",
+      'panel-a'
+    )
+
+    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toContain(
+      "--liebe-font-family: 'Antonio__panel-a'"
+    )
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain(
+      "--liebe-font-family: 'Antonio__panel-a'"
+    )
+    // …while the selectors at home stay as authored: that root belongs to
+    // exactly one panel, so there is nothing to scope in it.
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain(':where(.liebe-root)')
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).not.toContain('data-liebe-instance')
+  })
+
   it('leaves longer class names alone when keying the theme mirror', () => {
     // The escape class the portal-scoping tests guard against on the user
     // layer: `.liebe-root-ish` is a different class from `.liebe-root`, and
