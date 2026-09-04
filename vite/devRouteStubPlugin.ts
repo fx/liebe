@@ -12,6 +12,27 @@ import type { Plugin } from 'vite'
  * `NotFound`, zero harness bytes. Development resolves the real files, so the
  * workshop and its route tests keep working.
  */
+/**
+ * Strip a trailing extension so './routes/x' and './routes/x.tsx' map
+ * identically; anything else passes through unchanged (and misses the map).
+ */
+export function normalizeRouteSource(source: string): string {
+  return source.replace(/\.tsx?$/, '')
+}
+
+/**
+ * The file-route id + path the stub registers for a normalized dev source, or
+ * null when the source is not a stubbed dev route. Both fields mirror the
+ * real route modules (`createFileRoute('/test-store')`,
+ * `createFileRoute('/__root/test/performance')` with path '/test/performance').
+ */
+export function stubRoutePath(normalized: string): { id: string; path: string } | null {
+  if (normalized === './routes/test-store') return { id: '/test-store', path: '/test-store' }
+  if (normalized === './routes/__root.test.performance')
+    return { id: '/__root/test/performance', path: '/test/performance' }
+  return null
+}
+
 export function devRouteStubPlugin(isProduction: boolean): Plugin {
   return {
     name: 'liebe:dev-route-stub',

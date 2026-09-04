@@ -14,14 +14,21 @@ describe('ClockWidget', () => {
 
   it('renders the current time and advances it once per shared tick', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(Date.parse('2026-07-27T12:00:00Z'))
+    const T0 = Date.parse('2026-07-27T12:00:00Z')
+    vi.setSystemTime(T0)
+
+    // Zone-independent: both sides format the fixed instant in the runner's
+    // zone, so the exact text pins in ANY timezone (verified failing under
+    // TZ=America/New_York with hardcoded 12:00 expectations).
+    const timeText = (t: number) =>
+      new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
     const { container } = render(<ClockWidget widget={{ id: '1' }} />)
-    expect(container.textContent).toMatch(/12:00/)
+    expect(container.textContent).toContain(timeText(T0))
 
     act(() => {
       vi.advanceTimersByTime(NOW_1S_MS * 61)
     })
-    expect(container.textContent).toMatch(/12:01/)
+    expect(container.textContent).toContain(timeText(T0 + NOW_1S_MS * 61))
   })
 })

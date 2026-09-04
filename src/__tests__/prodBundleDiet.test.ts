@@ -60,14 +60,19 @@ function panel(): string | null {
 }
 
 function readPanel(): string | null {
-  if (!existsSync(ARTIFACT)) {
+  return readPanelAt(ARTIFACT)
+}
+
+/** The missing-artifact branch, directly callable with any path. */
+export function readPanelAt(artifactPath: string): string | null {
+  if (!existsSync(artifactPath)) {
     // Fail-closed when the flag says the artifact must exist, skip locally:
     // the CI step builds `dist/` before testing, so a missing artifact there
     // means the build stopped producing what this gate asserts about — not
     // "nothing to check". Locally, unit runs without a build stay green.
     if (process.env.LIEBE_REQUIRE_PANEL_ARTIFACT === '1') {
       throw new Error(
-        `prod-bundle diet gate: ${ARTIFACT} is missing — the CI pipeline builds it before testing, so this means the build regressed, not that there is nothing to assert`
+        `prod-bundle diet gate: ${artifactPath} is missing — the CI pipeline builds it before testing, so this means the build regressed, not that there is nothing to assert`
       )
     }
     return null
@@ -95,13 +100,23 @@ describe('prod-bundle diet', () => {
   it('fails loudly when the artifact is missing and the flag requires it', () => {
     const previous = process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
     process.env.LIEBE_REQUIRE_PANEL_ARTIFACT = '1'
-    // `panelMissingForTests` points at a path that cannot exist, without
-    // touching the real `dist/`.
+    // A path that cannot exist, without touching the real `dist/`.
+    const missing = join(repoRoot, 'dist', 'no-such-panel.js')
     try {
-      expect(() => panelMissingForTests()).toThrow(/missing/)
+      expect(() => readPanelAt(missing)).toThrow(/missing/)
     } finally {
       if (previous === undefined) delete process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
       else process.env.LIEBE_REQUIRE_PANEL_ARTIFACT = previous
+    }
+  })
+
+  it('skips a missing artifact locally (no flag)', () => {
+    const previous = process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
+    delete process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
+    try {
+      expect(readPanelAt(join(repoRoot, 'dist', 'no-such-panel.js'))).toBeNull()
+    } finally {
+      if (previous !== undefined) process.env.LIEBE_REQUIRE_PANEL_ARTIFACT = previous
     }
   })
 
