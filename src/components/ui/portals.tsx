@@ -56,10 +56,21 @@
  * AGENTS.md, "Radix UI Styling Best Practices").
  */
 
-import { createContext, useContext, useId, useState, type ComponentProps, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { Theme } from '@radix-ui/themes'
-import { LIEBE_INSTANCE_ATTRIBUTE, LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from '~/theme/rootSelectors'
+import {
+  LIEBE_INSTANCE_ATTRIBUTE,
+  LIEBE_ROOT_CLASS,
+  PORTAL_ROOT_CLASS,
+} from '~/theme/rootSelectors'
 import type { ThemeAppearance } from '~/theme/themeRegistry'
 // This module is the wrapper the rest of the panel imports instead, so it is
 // the one place the raw portalled components may be named.

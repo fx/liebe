@@ -101,11 +101,7 @@ function applyLayerStyle(
  * The instance token keys the DOCUMENT-level mirror element; the in-root sheet
  * belongs to exactly one panel and takes none.
  */
-export function applyThemeCss(
-  root: StyleRoot,
-  css: string,
-  instance?: string
-): HTMLStyleElement {
+export function applyThemeCss(root: StyleRoot, css: string, instance?: string): HTMLStyleElement {
   return applyLayerStyle(root, THEME_STYLE_SLOT, wrapInLayer(css, THEME_LAYER), instance)
 }
 
@@ -117,11 +113,7 @@ export function applyThemeCss(
  * repairs it, because there is only one thing that may be injected as the user
  * layer and this is not the module that decides what that is.
  */
-export function applyUserCss(
-  root: StyleRoot,
-  css: string,
-  instance?: string
-): HTMLStyleElement {
+export function applyUserCss(root: StyleRoot, css: string, instance?: string): HTMLStyleElement {
   return applyLayerStyle(root, USER_STYLE_SLOT, css, instance)
 }
 
@@ -183,7 +175,11 @@ function keyThemeCssToInstance(css: string, instance: string): string {
  * — the only family the panel's `@font-face` registers.
  */
 function keyFontFamilyToInstance(css: string, instance: string): string {
-  return css.replace(/--liebe-font-family(\s*:\s*)(['"]?)([A-Za-z][\w-]*)\2/, (_m, sep: string, q: string, fam: string) => `--liebe-font-family${sep}${q}${fam}__${instance}${q}`)
+  return css.replace(
+    /--liebe-font-family(\s*:\s*)(['"]?)([A-Za-z][\w-]*)\2/,
+    (_m, sep: string, q: string, fam: string) =>
+      `--liebe-font-family${sep}${q}${fam}__${instance}${q}`
+  )
 }
 
 /**
@@ -215,7 +211,11 @@ export function applyThemeCssToRootOf(
     // `@font-face` registers ONLY `Antonio__<instance>`, so the global name
     // would resolve to the fallback stack.
     applyThemeCss(root, instance ? keyFontFamilyToInstance(css, instance) : css)
-    applyThemeCss(root.ownerDocument, instance ? keyThemeCssToInstance(css, instance) : css, instance)
+    applyThemeCss(
+      root.ownerDocument,
+      instance ? keyThemeCssToInstance(css, instance) : css,
+      instance
+    )
     // Return the in-root element, as before: callers read the panel's own
     // sheet back off the return value.
     return root.querySelector('style[data-liebe="theme"]')

@@ -26,9 +26,7 @@ import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from '~/the
  * root) falls back to a per-component token, unique per tree like before.
  */
 function usePanelInstanceKey(explicit?: string): string {
-  const [key] = useState(
-    () => explicit ?? `p${Math.random().toString(36).slice(2, 10)}`
-  )
+  const [key] = useState(() => explicit ?? `p${Math.random().toString(36).slice(2, 10)}`)
   return key
 }
 export interface LiebeThemeProviderProps {

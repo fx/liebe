@@ -439,7 +439,10 @@ class LiebePanel extends HTMLElement {
             // file otherwise builds its tree with untyped `createElement`, so a
             // function-type assertion keeps this call site in that style rather
             // than introducing a one-off `ComponentType` import cast.
-            React.createElement(PanelApp as (props: { instanceKey?: string }) => React.JSX.Element, { instanceKey: mirrorKey })
+            React.createElement(
+              PanelApp as (props: { instanceKey?: string }) => React.JSX.Element,
+              { instanceKey: mirrorKey }
+            )
           )
         )
       )
