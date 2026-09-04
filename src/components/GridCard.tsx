@@ -1183,7 +1183,9 @@ export const GridCard = React.memo(
              * order rather than by a z-index keeps the project's
              * no-arbitrary-z-index rule intact.
              */}
-            {isEditMode && (canConfigure || onDelete) && !isFullscreen &&
+            {isEditMode &&
+              (canConfigure || onDelete) &&
+              !isFullscreen &&
               (overArtwork && !iconOnly ? (
                 /*
                  * The scrimmed-ground rule's Radix half
