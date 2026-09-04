@@ -94,6 +94,7 @@ function BrightnessSlider({
   onValueChange,
   onValueCommit,
   onBackgroundDragStart,
+  onBackgroundCancel,
 }: {
   isOn: boolean
   orientation: SliderOrientation
@@ -102,6 +103,7 @@ function BrightnessSlider({
   onValueChange: (value: number) => void
   onValueCommit: (value: number) => void
   onBackgroundDragStart?: () => void
+  onBackgroundCancel?: () => void
 }) {
   const hue = useGridCardHue()
 
@@ -121,6 +123,7 @@ function BrightnessSlider({
       onValueChange={onValueChange}
       onValueCommit={onValueCommit}
       onBackgroundDragStart={onBackgroundDragStart}
+      onBackgroundCancel={onBackgroundCancel}
     />
   )
 }
@@ -345,6 +348,12 @@ function LightCardComponent({
     [beginDrag]
   )
 
+  // The tap half of the background split: a no-travel release claims no
+  // drag, so the optimistic value the touch-point set must be released too —
+  // otherwise the tile keeps painting the tapped value and `handleToggle`
+  // declines the tap as "a drag in flight".
+  const handleBrightnessCancel = useCallback(() => endDrag('brightness'), [endDrag])
+
   const handleBrightnessCommit = useCallback(
     async (value: number) => {
       // Only a slider dropped at 0 turns the light off; the conversion never
@@ -553,8 +562,13 @@ function LightCardComponent({
    * decides its axis.
    */
   const sliderOrientation = readSliderOrientation(config, tier)
+  // Background placement renders as the card surface itself — never as the
+  // inline control too. `readSliderOrientation` folds `background` into the
+  // tier's own axis as a fallback, so the exclusion must read the stored
+  // placement, not the resolved orientation.
   const showBrightness =
     sliderOrientation !== undefined &&
+    !isBackgroundPlacement(config) &&
     !isEditMode &&
     isOn &&
     supportsBrightness &&
@@ -581,6 +595,7 @@ function LightCardComponent({
       value={displayBrightness}
       onValueChange={handleBrightnessChange}
       onValueCommit={handleBrightnessCommit}
+      onBackgroundCancel={handleBrightnessCancel}
     />
   ) : undefined
 

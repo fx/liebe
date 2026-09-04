@@ -210,6 +210,14 @@ function FanCardComponent({
     setLocalPercentage(value)
   }, [])
 
+  // The tap half of the background split (see LightCard): a no-travel release
+  // claims no drag, so the optimistic value the touch-point set must be
+  // released too — otherwise the slider keeps painting the tapped value.
+  const handleSliderCancel = useCallback(() => {
+    setIsDragging(false)
+    setLocalPercentage(null)
+  }, [])
+
   const handleSliderCommit = useCallback(
     async (value: number) => {
       setIsDragging(false)
@@ -340,8 +348,13 @@ function FanCardComponent({
    * itself is options/common's. The resolver's `undefined` is `glance`, which
    * `controlsVisible` has already ruled out by the time this is read.
    */
+  // Background placement renders as the card surface itself — never as the
+  // inline control too. The pills branch below keys on this being undefined,
+  // so background must read as "no inline slider" here.
   const sliderOrientation =
-    options.speedControl === 'slider' ? readSliderOrientation(config, tier) : undefined
+    options.speedControl === 'slider' && !isBackgroundPlacement(config)
+      ? readSliderOrientation(config, tier)
+      : undefined
   /*
    * The card-surface slider (docs/specs/entity-cards/options/common.md —
    * "Shared slider placement"): every tier including `glance`, with no layout
@@ -385,6 +398,7 @@ function FanCardComponent({
         readout={`${displayPercentage}%`}
         onValueChange={handleSliderChange}
         onValueCommit={handleSliderCommit}
+        onBackgroundCancel={handleSliderCancel}
       />
     ) : undefined
   /*

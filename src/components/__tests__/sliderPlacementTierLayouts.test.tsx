@@ -209,6 +209,29 @@ describe('the light card’s brightness placement', () => {
     expect(stampedControlOrientation()).toBeNull()
   })
 
+  it('renders exactly one slider under `background`: the surface, never the inline control too', () => {
+    // The contract's own wording: background "renders the slider as the card
+    // surface itself" — one primary slider per placement, not the surface
+    // plus the tier's own inline control. Outside `glance` both branches
+    // could render (the tier keeps deciding *whether* an inline slider
+    // renders), so without the exclusion a `row` tile would carry two
+    // sliders answering one name.
+    renderCard(
+      <LightCard
+        entityId="light.living_room"
+        tier="row"
+        span={{ width: 2, height: 1 }}
+        item={placedLight({ sliderPlacement: 'background' })}
+      />
+    )
+
+    const sliders = screen.getAllByLabelText('Brightness')
+    expect(sliders).toHaveLength(1)
+    expect(sliders[0].closest('.liebe-slider')).toHaveAttribute('data-placement', 'background')
+    expect(cardBody()).not.toBeNull()
+    expect(stampedControlOrientation()).toBeNull()
+  })
+
   it('renders the surface at glance under `background`, whatever the tier keeps', () => {
     // The one placement the tier does not gate: the surface consumes no layout
     // space, which is what makes a 1×1 dimmable tile possible. The body keeps
@@ -324,6 +347,21 @@ describe('the cover card’s position placement', () => {
     unmount()
   })
 
+  it('renders exactly one slider under `background`: the surface, never the inline control too', () => {
+    // Same contract as the light's: one primary slider per placement. At
+    // `row` the tier would render the inline control as well as the surface,
+    // so without the exclusion two sliders answer one name.
+    const { unmount } = withConfig(
+      <CoverCard entityId="cover.living_room" tier="row" span={{ width: 3, height: 1 }} />,
+      { sliderPlacement: 'background' }
+    )
+
+    const sliders = screen.getAllByLabelText('Position')
+    expect(sliders).toHaveLength(1)
+    expect(sliders[0].closest('.liebe-slider')).toHaveAttribute('data-placement', 'background')
+    unmount()
+  })
+
   it('renders the surface at glance under `background`, running from the span', () => {
     // The direction comes from the effective span, not the tier: a 3×1 tile
     // fills left→right, a 1×3 tile bottom→top, squares included as vertical.
@@ -432,6 +470,23 @@ describe('the fan card’s speed placement', () => {
     expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
   })
+  it('renders exactly one slider under `background`: the surface, never the inline control too', () => {
+    // Same contract as the light's: one primary slider per placement. At
+    // `row` the tier would render the inline control as well as the surface,
+    // so without the exclusion two sliders answer one name.
+    const { unmount } = withConfig(
+      <FanCard entityId="fan.living_room" tier="row" span={{ width: 3, height: 1 }} />,
+      { sliderPlacement: 'background' }
+    )
+
+    // `getAllByLabelText` also matches the step-button group that shares
+    // the name: scope to the slider role, which is what "one slider" means.
+    const sliders = screen.getAllByRole('slider', { name: 'Fan speed' })
+    expect(sliders).toHaveLength(1)
+    expect(sliders[0].closest('.liebe-slider')).toHaveAttribute('data-placement', 'background')
+    unmount()
+  })
+
   it('renders the surface at glance under `background`, inert under steps', () => {
     const { unmount } = withConfig(
       <FanCard entityId="fan.living_room" tier="glance" span={{ width: 1, height: 1 }} />,

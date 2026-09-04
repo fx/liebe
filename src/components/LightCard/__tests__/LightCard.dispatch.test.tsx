@@ -319,6 +319,16 @@ describe('LightCard background slider gestures', () => {
     // The toggle — and only the toggle. A leaked commit would be a second
     // call (`turn_on` with a brightness).
     expect(hass.callService).toHaveBeenCalledTimes(1)
+
+    // And the tile still shows the entity's own value afterwards: the tap
+    // claimed no drag, so the cancel path released the optimistic value the
+    // touch-point set. Without it the tile would keep painting the tapped
+    // value — and the toggle guard (`drag !== null`) would decline the next
+    // tap as "a drag in flight". The guard, not a second toggle (which the
+    // at-most-once dispatch window would refuse as an identical repeat),
+    // is the observable: the drag slot is clear, so the tile is operable.
+    expect(screen.getByLabelText('Brightness').getAttribute('aria-valuenow')).toBe('50')
+    expect(tile()).toHaveStyle({ cursor: 'pointer' })
   })
 
   it('suppresses the tap action once the pointer travels past the threshold', () => {

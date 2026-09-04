@@ -78,6 +78,17 @@ export interface SliderProps extends AnatomyPartProps {
    */
   thumbRef?: Ref<HTMLSpanElement>
   /**
+   * Called once when a background-slider pointer is released without ever
+   * travelling past the drag threshold — i.e. the gesture turned out to be a
+   * tap, not a drag. The card wires it to clear any optimistic drag state its
+   * `onValueChange` claimed (see below): Radix reports the touch-point value
+   * on pointer down, but the gated commit never fires, so without this the
+   * card would keep painting the tapped value and decline the tap action as
+   * "a drag in flight". Never called for inline sliders, drags, or keyboard
+   * adjustments.
+   */
+  onBackgroundCancel?: () => void
+  /**
    * Called once when a background-slider pointer travels past the drag
    * threshold and becomes a real drag. The shell wires it to the gesture
    * controller's `release()` — press-and-hold arms on pointer down, so a slow
@@ -122,6 +133,7 @@ export function Slider({
   onValueCommit,
   thumbRef,
   onBackgroundDragStart,
+  onBackgroundCancel,
   ...part
 }: SliderProps) {
   const { className, ...partAttributes } = anatomyPart('liebe-slider', part)
@@ -207,6 +219,16 @@ export function Slider({
           backgroundDraggedRef.current = true
           onBackgroundDragStart?.()
         }
+      }}
+      onPointerUpCapture={() => {
+        // The tap half of the split: a release that never travelled is a tap,
+        // not a drag. Radix already reported the touch-point value through
+        // `onValueChange` (optimistic state claimed), but the gated commit
+        // will never fire — so the card must reset that state here, or it
+        // keeps painting the tapped value and declines the tap action as "a
+        // drag in flight". Drags and keyboard adjustments never reach this.
+        if (isBackground && !backgroundDraggedRef.current && !backgroundKeyboardRef.current)
+          onBackgroundCancel?.()
       }}
       onClickCapture={(event) => {
         // Capture, not bubble alone: the click that ends a drag must die

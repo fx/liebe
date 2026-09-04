@@ -356,6 +356,14 @@ function CoverCardComponent({
     setLocalPosition(value)
   }, [])
 
+  // The tap half of the background split (see LightCard): a no-travel release
+  // claims no drag, so the optimistic value the touch-point set must be
+  // released too — otherwise the slider keeps painting the tapped value.
+  const handlePositionCancel = useCallback(() => {
+    setIsDraggingPosition(false)
+    setLocalPosition(null)
+  }, [])
+
   const handlePositionCommit = useCallback(
     (value: number) => {
       setIsDraggingPosition(false)
@@ -516,7 +524,14 @@ function CoverCardComponent({
    * tier that asked for it.
    */
   const sliderOrientation = readSliderOrientation(config, tier)
-  const showPositionSlider = !isEditMode && supportsSetPosition && options.showPositionSlider
+  // Background placement renders as the card surface itself — never as the
+  // inline control too (see LightCard: the resolved orientation cannot tell
+  // them apart, only the stored placement can).
+  const showPositionSlider =
+    !isBackgroundPlacement(config) &&
+    !isEditMode &&
+    supportsSetPosition &&
+    options.showPositionSlider
   /*
    * The card-surface slider (docs/specs/entity-cards/options/common.md —
    * "Shared slider placement"): every tier including `glance`, with no layout
@@ -542,6 +557,7 @@ function CoverCardComponent({
       readout={`${displayPosition}%`}
       onValueChange={handlePositionChange}
       onValueCommit={handlePositionCommit}
+      onBackgroundCancel={handlePositionCancel}
     />
   ) : undefined
   const showButtons = isFull && !isEditMode && options.showButtons
