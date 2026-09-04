@@ -84,11 +84,10 @@ describe('LockCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       clearError: mockClearError,
     })
-    ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
-
-          selector: (state: { mode: string }) => unknown
-
-        ) => selector({ mode: 'view' })) as never)
+    ;(
+      useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+    ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+      selector({ mode: 'view' })) as never)
   })
 
   describe('rendering', () => {
@@ -186,11 +185,10 @@ describe('LockCard', () => {
     })
 
     it('hides the pills in edit mode', () => {
-      ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
-
-            selector: (state: { mode: string }) => unknown
-
-          ) => selector({ mode: 'edit' })) as never)
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
       renderCard('locked')
 
       expect(screen.queryByRole('button', { name: 'Unlock' })).not.toBeInTheDocument()
@@ -895,11 +893,10 @@ describe('LockCard', () => {
     it('reports selection back to the grid', () => {
       const onSelect = vi.fn()
       mockEntities({ [ENTITY_ID]: lockEntity('locked') })
-      ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
-
-            selector: (state: { mode: string }) => unknown
-
-          ) => selector({ mode: 'edit' })) as never)
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       const { container } = render(
         <CardItemProvider entityId={ENTITY_ID}>

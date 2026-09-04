@@ -330,12 +330,11 @@ function MediaPlayerCardComponent({
    * the first interval corrected it.
    */
   // Shared 1s clock: every playing media card re-renders in the same commit
-  // instead of each owning a 1s interval at its own phase. The wall time is
-  // read at render; the tick only decides when. Gated on `progressTicks` so a
-  // paused card — or one whose bar does not render — holds no subscription and
-  // pays no wake: `useNowSecond` with `enabled: false` returns the clock's
-  // current version without subscribing, which is exactly the `now` the
-  // non-extrapolated branch needs.
+  // instead of each owning a 1s interval at its own phase. Gated on
+  // `progressTicks` so a paused card — or one whose bar does not render —
+  // holds no subscription and pays no wake: `useNowTimestamp` with
+  // `enabled: false` skips the subscription and keeps its mount reading,
+  // which is exactly the `now` the non-extrapolated branch needs.
   const now = useMediaProgressNow(progressTicks)
 
   /*

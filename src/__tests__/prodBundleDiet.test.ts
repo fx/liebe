@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 /** The missing-artifact branch, pointed at a path that cannot exist. */
 function panelMissingForTests(): string | null {
@@ -83,15 +83,13 @@ describe('prod-bundle diet', () => {
   it('fails loudly when the artifact is missing and the flag requires it', () => {
     const previous = process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
     process.env.LIEBE_REQUIRE_PANEL_ARTIFACT = '1'
-    // Point the gate at a directory that cannot hold the artifact, without
+    // `panelMissingForTests` points at a path that cannot exist, without
     // touching the real `dist/`.
-    vi.stubEnv('LIEBE_DIET_PROBE', '1')
     try {
       expect(() => panelMissingForTests()).toThrow(/missing/)
     } finally {
       if (previous === undefined) delete process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
       else process.env.LIEBE_REQUIRE_PANEL_ARTIFACT = previous
-      vi.unstubAllEnvs()
     }
   })
 

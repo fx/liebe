@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import {
+  subscribeSecondTick,
   useNow,
   useNowSecond,
   useNowTimestamp,
@@ -211,6 +212,47 @@ describe('useNow shared clocks', () => {
     // The tick re-rendered the consumer exactly once AND left the
     // subscription count unchanged — one notify, no resubscribe loop.
     expect((listenersForTests(NOW_1S_MS) as Set<unknown>).size).toBe(before)
+  })
+
+  it('shares one interval between hook consumers and imperative samplers', () => {
+    vi.useFakeTimers()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+
+    // CameraStats' shape: an effect-owned sampler, no render subscription.
+    const sampled: number[] = []
+    const stop = subscribeSecondTick(() => sampled.push(1))
+
+    function Probe() {
+      useNowSecond()
+      return null
+    }
+    render(<Probe />)
+
+    // One interval for the hook consumer AND the imperative sampler.
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(1)
+
+    act(() => {
+      vi.advanceTimersByTime(NOW_1S_MS)
+    })
+    expect(sampled).toEqual([1])
+
+    stop()
+  })
+
+  it('a disabled useNow holds no subscription and reads zero', () => {
+    vi.useFakeTimers()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+
+    function Probe() {
+      const seen = useNow(NOW_1S_MS, false)
+      return <span>{seen}</span>
+    }
+    const { container } = render(<Probe />)
+
+    expect(container.textContent).toBe('0')
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+    expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(0)
   })
 
   it('tears the interval down when the last consumer unmounts', () => {

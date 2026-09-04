@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  formatFixedNumber,
   formatSensorNumber,
   formatSensorState,
   formatSensorTrend,
@@ -236,5 +237,22 @@ describe('formatSensorTrend', () => {
     expect(
       formatSensorTrend(1250, power, { ...defaults, unitOverride: 'Watt', displayPrecision: 2 })
     ).toEqual({ direction: 'up', text: '+1.25 kWatt' })
+  })
+})
+
+describe('formatFixedNumber', () => {
+  // The number-helper card's shared formatter: step-decided decimals, and an
+  // unrestored helper renders the em-dash rather than a NaN literal.
+  it('formats at the given decimals', () => {
+    expect(formatFixedNumber('50.25', 2)).toBe('50.25')
+    expect(formatFixedNumber('50.25', 0)).toBe('50')
+  })
+
+  it('renders the em-dash when the state carries no reading', () => {
+    expect(formatFixedNumber('unknown', 1)).toBe('—')
+    expect(formatFixedNumber('unavailable', 1)).toBe('—')
+    expect(formatFixedNumber('', 1)).toBe('—')
+    expect(formatFixedNumber('   ', 1)).toBe('—')
+    expect(formatFixedNumber('a word', 1)).toBe('—')
   })
 })

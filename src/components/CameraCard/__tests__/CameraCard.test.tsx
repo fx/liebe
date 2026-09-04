@@ -184,10 +184,9 @@ function mockMotionSensor(
 function mockStoreMode(mode: 'view' | 'edit', currentScreenId: string | null = 'screen-1') {
   // Honor the selector contract: apply the caller's selector to the mock
   // state instead of returning the whole state for every call.
-  vi.mocked(useDashboardStore).mockImplementation(
-    ((selector: (state: { mode: string; currentScreenId: string | null }) => unknown) =>
-      selector({ mode, currentScreenId })) as typeof useDashboardStore
-  )
+  vi.mocked(useDashboardStore).mockImplementation(((
+    selector: (state: { mode: string; currentScreenId: string | null }) => unknown
+  ) => selector({ mode, currentScreenId })) as typeof useDashboardStore)
 }
 
 /*

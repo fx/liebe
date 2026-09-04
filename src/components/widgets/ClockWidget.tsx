@@ -7,8 +7,9 @@ interface ClockWidgetProps {
 
 export function ClockWidget({ widget: _widget }: ClockWidgetProps) {
   // Shared 1s clock: every clock widget re-renders in the same commit. The
-  // timestamp rides the hook's mount initializer and tick callback — never
-  // constructed during render, where the purity rule forbids it.
+  // clock is read in the hook's mount initializer and tick callback — never
+  // during render, where the purity rule forbids it; wrapping that timestamp
+  // in a `Date` here is a pure construction from hook state.
   const time = new Date(useNowTimestamp(NOW_1S_MS))
 
   return (

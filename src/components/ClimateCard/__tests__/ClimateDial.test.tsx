@@ -87,11 +87,10 @@ describe('ClimateCard dial variant', () => {
       dispatchGuarded: mockDispatchGuarded,
       clearError: mockClearError,
     })
-    ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
-
-          selector: (state: { mode: string }) => unknown
-
-        ) => selector({ mode: 'view' })) as never)
+    ;(
+      useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+    ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+      selector({ mode: 'view' })) as never)
   })
 
   describe('Registration and tier fallback', () => {
@@ -259,11 +258,10 @@ describe('ClimateCard dial variant', () => {
 
     it('hides both the stepper and the mode pills in edit mode', () => {
       seed(createMockClimateEntity())
-      ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
-
-            selector: (state: { mode: string }) => unknown
-
-          ) => selector({ mode: 'edit' })) as never)
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       renderDial()
 
@@ -274,11 +272,10 @@ describe('ClimateCard dial variant', () => {
     it('selects the dial in edit mode instead of acting on it', () => {
       const onSelect = vi.fn()
       seed(createMockClimateEntity())
-      ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
-
-            selector: (state: { mode: string }) => unknown
-
-          ) => selector({ mode: 'edit' })) as never)
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       renderDial({ onSelect })
 

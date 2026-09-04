@@ -161,9 +161,7 @@ export class WeatherForecastService {
     // no phase of its own. Rates unchanged — coalescing aligns, not retunes.
     this.refreshTasks.set(
       key,
-      schedulePipelineTask('slow', FORECAST_REFRESH_MS[type], () =>
-        this.refresh(entityId, type)
-      )
+      schedulePipelineTask('slow', FORECAST_REFRESH_MS[type], () => this.refresh(entityId, type))
     )
   }
 
