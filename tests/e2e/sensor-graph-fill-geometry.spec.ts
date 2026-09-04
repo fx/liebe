@@ -40,7 +40,7 @@ function seedGraphFillConfig() {
       {
         id: 'item-graph-small',
         type: 'entity',
-        entityId: E2E_LEVEL,
+        entityId: 'sensor.e2e_level_doubled',
         x: 0,
         y: 0,
         width: 2,
@@ -51,7 +51,7 @@ function seedGraphFillConfig() {
       {
         id: 'item-graph-large',
         type: 'entity',
-        entityId: E2E_LEVEL,
+        entityId: 'sensor.e2e_level_doubled',
         x: 3,
         y: 0,
         width: 3,
@@ -156,19 +156,13 @@ test('the added tile height goes to the graph, not to the fixed parts', async ({
   await seedHistory(accessToken, page)
 
   // Both tiles draw before either is measured: the leftover is only
-  // comparable across tiles once both series have landed.
+  // comparable across tiles once both series have landed. Both seeded cards
+  // carry the same entity, so the tier alone cannot tell them apart — the
+  // pair is read as every full tile on the screen, small and large together.
   await expect
     .poll(async () => (await graphFillGeometry(page, 'full'))?.region ?? null)
     .toBe('full')
 
-  const first = await graphFillGeometry(page, 'full')
-  expect(first, 'the full tile should have rendered').not.toBeNull()
-
-  // The two tiles are different sizes of the same tier; the large tile's
-  // leftover exceeds the small one's, and its graph exceeds it by the same
-  // amount. Read twice rather than once because both seeded cards carry the
-  // same entity and the tier alone cannot tell them apart — so the pair is
-  // asserted as a comparison of the tier's two seeded sizes.
   const geometries = await page.evaluate(() => {
     const panel = (window as unknown as { __liebePanel?: GraphPanelHandle }).__liebePanel
     const cards = [...(panel?.shadowRoot?.querySelectorAll('.grid-item .liebe-card') ?? [])].filter(
