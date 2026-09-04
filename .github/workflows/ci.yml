@@ -33,8 +33,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # The prod-bundle diet gate (`src/__tests__/prodBundleDiet.test.ts`)
+      # asserts the BUILT `dist/panel.js` carries no dev-route content. It
+      # fail-closes only when LIEBE_REQUIRE_PANEL_ARTIFACT=1, which is set
+      # here — the one CI job that builds the artifact before testing (the
+      # e2e and deploy workflows build it too, but run no unit tests).
+      - name: Build production panel artifact
+        run: npm run build:ha:prod
+
       - name: Run tests with coverage
         run: npm run test:coverage
+        env:
+          LIEBE_REQUIRE_PANEL_ARTIFACT: '1'
 
       # Fork PRs run without repository secrets, so CODECOV_TOKEN is empty —
       # on this public repo codecov-action then falls back to a tokenless

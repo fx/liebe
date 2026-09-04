@@ -30,6 +30,8 @@ export const NOW_60S_MS = 60_000
 const versions = new Map<number, number>()
 const listeners = new Map<number, Set<() => void>>()
 const intervals = new Map<number, ReturnType<typeof setInterval>>()
+/** One stable `useSyncExternalStore` shell per rate (see `clockStore`). */
+const stableStores = new Map<number, { subscribe: (notify: () => void) => () => void }>()
 
 /** The subscription a disabled consumer holds: never notifies, reads zero. */
 const EMPTY_STORE = { subscribe: () => () => {} }
@@ -102,9 +104,17 @@ export function subscribeSecondTick(run: () => void): () => void {
  */
 function clockStore(rateMs: number): { subscribe: (notify: () => void) => () => void } {
   ensureEntry(rateMs)
-  return {
-    subscribe: (notify: () => void) => subscribeClockTick(rateMs, notify),
+  let store = stableStores.get(rateMs)
+  if (!store) {
+    // One stable shell per rate: `useSyncExternalStore` re-subscribes whenever
+    // the `subscribe` identity changes, so a fresh closure per render would
+    // unsubscribe/resubscribe every consumer on every tick — churning the
+    // very subscriptions the shared clock exists to keep still.
+    const subscribe = (notify: () => void) => subscribeClockTick(rateMs, notify)
+    store = { subscribe }
+    stableStores.set(rateMs, store)
   }
+  return store
 }
 
 /** Test-only seam: look up a clock's store shell without subscribing. */
@@ -120,6 +130,12 @@ export function resetClocksForTests(): void {
   versions.clear()
   listeners.clear()
   intervals.clear()
+  stableStores.clear()
+}
+
+/** Test-only seam: the live listener set for one rate. */
+export function listenersForTests(rateMs: number): Set<() => void> {
+  return ensureEntry(rateMs)
 }
 
 /** Test-only seam: how many live intervals one rate currently owns. */

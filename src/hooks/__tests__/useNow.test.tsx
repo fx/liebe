@@ -9,6 +9,7 @@ import {
   resetClocksForTests,
   clockIntervalCountForTests,
   clockStoreForTests,
+  listenersForTests,
 } from '../useNow'
 
 // PR 2 probes: the shared clocks MUST wake N consumers with one interval, and
@@ -182,6 +183,34 @@ describe('useNow shared clocks', () => {
     vi.setSystemTime(T0 + 5 * NOW_1S_MS)
     rerender(<Probe enabled />)
     expect(container.textContent).toBe(String(T0 + 5 * NOW_1S_MS))
+  })
+
+  it('keeps a stable subscribe identity across re-renders (no churn)', () => {
+    vi.useFakeTimers()
+
+    // One stable shell per rate: `useSyncExternalStore` re-subscribes whenever
+    // the `subscribe` identity changes, so a fresh closure per render would
+    // unsubscribe/resubscribe every consumer on every tick — churning the very
+    // subscriptions the shared clock exists to keep still.
+    expect(clockStoreForTests(NOW_1S_MS)).toBe(clockStoreForTests(NOW_1S_MS))
+
+    function Probe() {
+      useNowSecond()
+      return null
+    }
+    const { rerender } = render(<Probe />)
+    const before = (listenersForTests(NOW_1S_MS) as Set<unknown>).size
+
+    // A parent re-render (no tick) must not add or drop subscriptions.
+    rerender(<Probe />)
+    expect((listenersForTests(NOW_1S_MS) as Set<unknown>).size).toBe(before)
+
+    act(() => {
+      vi.advanceTimersByTime(NOW_1S_MS)
+    })
+    // The tick re-rendered the consumer exactly once AND left the
+    // subscription count unchanged — one notify, no resubscribe loop.
+    expect((listenersForTests(NOW_1S_MS) as Set<unknown>).size).toBe(before)
   })
 
   it('tears the interval down when the last consumer unmounts', () => {

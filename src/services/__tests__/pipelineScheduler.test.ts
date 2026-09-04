@@ -85,27 +85,41 @@ describe('pipelineScheduler', () => {
 
   it('a throwing task neither skips the rest nor escapes the interval', () => {
     vi.useFakeTimers()
-
-    const after = vi.fn()
-    const throwing = vi.fn(() => {
-      throw new Error('history prune blew up')
+    const logged: unknown[][] = []
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      logged.push(args)
     })
-    const releaseThrowing = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, throwing)
-    const releaseAfter = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, after)
+    try {
+      const after = vi.fn()
+      const throwing = vi.fn(() => {
+        throw new Error('history prune blew up')
+      })
+      const releaseThrowing = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, throwing)
+      const releaseAfter = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, after)
 
-    // Must not throw out of the shared interval callback, and the task
-    // behind the throwing one still runs.
-    expect(() => act_advance(SCHEDULER_FAST_TICK_MS)).not.toThrow()
-    expect(throwing).toHaveBeenCalledTimes(1)
-    expect(after).toHaveBeenCalledTimes(1)
+      // Must not throw out of the shared interval callback, and the task
+      // behind the throwing one still runs.
+      expect(() => act_advance(SCHEDULER_FAST_TICK_MS)).not.toThrow()
+      expect(throwing).toHaveBeenCalledTimes(1)
+      expect(after).toHaveBeenCalledTimes(1)
 
-    // The throwing task stays registered: the next tick retries it.
-    expect(() => act_advance(SCHEDULER_FAST_TICK_MS)).not.toThrow()
-    expect(throwing).toHaveBeenCalledTimes(2)
-    expect(after).toHaveBeenCalledTimes(2)
+      // The throwing task stays registered: the next tick retries it.
+      expect(() => act_advance(SCHEDULER_FAST_TICK_MS)).not.toThrow()
+      expect(throwing).toHaveBeenCalledTimes(2)
+      expect(after).toHaveBeenCalledTimes(2)
 
-    releaseThrowing()
-    releaseAfter()
+      // The logged value is the error object itself — stack preserved —
+      // not a flattened string.
+      expect(logged.length).toBeGreaterThan(0)
+      const loggedError = logged[0][1]
+      expect(loggedError).toBeInstanceOf(Error)
+      expect(String((loggedError as Error).stack)).toContain('history prune blew up')
+
+      releaseThrowing()
+      releaseAfter()
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 
   it('a double release does not take another task down', () => {

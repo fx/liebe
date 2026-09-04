@@ -68,7 +68,7 @@ function runDueTasks(wheel: Wheel): void {
     try {
       task.run()
     } catch (error) {
-      logger.error(`pipelineScheduler: scheduled task threw (kept registered): ${String(error)}`)
+      logger.error('pipelineScheduler: scheduled task threw (kept registered):', error)
     }
   }
 }

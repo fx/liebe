@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 function panelMissingForTests(): string | null {
   const missing = join(repoRoot, 'dist', 'no-such-panel.js')
   if (!existsSync(missing)) {
-    if (process.env.CI === 'true') {
+    if (process.env.LIEBE_REQUIRE_PANEL_ARTIFACT === '1') {
       throw new Error(`prod-bundle diet gate: ${missing} is missing`)
     }
     return null
@@ -25,8 +25,12 @@ import { fileURLToPath } from 'node:url'
  * is the model — here the built artifact itself is the thing under test.
  *
  * The assertion runs against `dist/panel.js`. A missing artifact fails loudly
- * under CI (`CI=true`, where the pipeline builds before testing) and skips
- * only for local unit runs without a build — a gate that goes green when the
+ * when `LIEBE_REQUIRE_PANEL_ARTIFACT=1` (set by the CI step that builds the
+ * artifact before testing) and skips otherwise, so local unit runs without a
+ * build stay green. Gating on bare `CI=true` would go red in CI itself: the
+ * Test job runs `test:coverage` without building `dist/` (only the e2e and
+ * deploy workflows run `build:ha:prod`), so the flag — not the CI environment —
+ * is what says the artifact must be there. A gate that goes green when the
  * build stops producing the artifact is worse than no gate.
  *
  * What counts as "dev content" is chosen for stability, not precision:
@@ -45,11 +49,11 @@ const ARTIFACT = join(repoRoot, 'dist', 'panel.js')
 
 function panel(): string | null {
   if (!existsSync(ARTIFACT)) {
-    // Fail-closed in CI, skip locally: CI builds `dist/` before testing (see
-    // `e2e:full` and the CI workflow), so a missing artifact there means the
-    // build stopped producing what this gate asserts about — not "nothing to
-    // check". Locally, unit runs without a build stay green.
-    if (process.env.CI === 'true') {
+    // Fail-closed when the flag says the artifact must exist, skip locally:
+    // the CI step builds `dist/` before testing, so a missing artifact there
+    // means the build stopped producing what this gate asserts about — not
+    // "nothing to check". Locally, unit runs without a build stay green.
+    if (process.env.LIEBE_REQUIRE_PANEL_ARTIFACT === '1') {
       throw new Error(
         `prod-bundle diet gate: ${ARTIFACT} is missing — the CI pipeline builds it before testing, so this means the build regressed, not that there is nothing to assert`
       )
@@ -76,16 +80,17 @@ describe('prod-bundle diet', () => {
     expect(bundle).toContain('test/performance')
   })
 
-  it('fails loudly when the artifact is missing under CI=true', () => {
-    const previous = process.env.CI
-    process.env.CI = 'true'
+  it('fails loudly when the artifact is missing and the flag requires it', () => {
+    const previous = process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
+    process.env.LIEBE_REQUIRE_PANEL_ARTIFACT = '1'
     // Point the gate at a directory that cannot hold the artifact, without
     // touching the real `dist/`.
     vi.stubEnv('LIEBE_DIET_PROBE', '1')
     try {
       expect(() => panelMissingForTests()).toThrow(/missing/)
     } finally {
-      process.env.CI = previous
+      if (previous === undefined) delete process.env.LIEBE_REQUIRE_PANEL_ARTIFACT
+      else process.env.LIEBE_REQUIRE_PANEL_ARTIFACT = previous
       vi.unstubAllEnvs()
     }
   })
