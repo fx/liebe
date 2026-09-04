@@ -230,6 +230,18 @@ export function Slider({
         if (isBackground && !backgroundDraggedRef.current && !backgroundKeyboardRef.current)
           onBackgroundCancel?.()
       }}
+      onPointerCancelCapture={() => {
+        // The interrupted-touch sibling of the release path above: the OS
+        // took the pointer (incoming call, alert, scroll takeover) after
+        // Radix already reported values, but no commit will ever arrive —
+        // Radix only commits on pointer-up. Same stale state, same reset:
+        // clear the optimistic value without committing, so the tile shows
+        // the entity's own value and stays operable. Drags that already
+        // travelled keep their in-flight state — only the release settles
+        // them — so this fires only where the up-handler would have.
+        if (isBackground && !backgroundDraggedRef.current && !backgroundKeyboardRef.current)
+          onBackgroundCancel?.()
+      }}
       onClickCapture={(event) => {
         // Capture, not bubble alone: the click that ends a drag must die
         // before it reaches the shell's tile handler regardless of which

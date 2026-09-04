@@ -309,7 +309,13 @@ describe('LightCard background slider gestures', () => {
     // 50 until the card repaints, so there is no DOM value to assert here),
     // the gesture travels nothing, and the suppressed commit means only the
     // toggle dispatches.
-    fireEvent.pointerDown(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
+    fireEvent.pointerDown(slider, {
+      clientX: 150,
+      clientY: 10,
+      pointerId: 1,
+      button: 0,
+      buttons: 1,
+    })
     fireEvent.pointerUp(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
     fireEvent.click(tile())
 
@@ -331,6 +337,62 @@ describe('LightCard background slider gestures', () => {
     expect(tile()).toHaveStyle({ cursor: 'pointer' })
   })
 
+  it('restores the entity value when a background touch is cancelled mid-change', async () => {
+    // The interrupted-touch sibling of the tap-away case above: the OS takes
+    // the pointer (incoming call, alert, scroll takeover) after Radix already
+    // reported the touch-point value, but no commit will ever arrive — Radix
+    // only commits on pointer-up. Same stale state, same reset: the tile
+    // shows the entity's own value and stays operable, with no service call.
+    backgroundCard()
+
+    const thumb = screen.getByLabelText('Brightness')
+    const slider = thumb.closest('.liebe-slider') as HTMLElement
+    slider.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 20,
+        right: 200,
+        bottom: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect
+    slider.setPointerCapture = () => {}
+    slider.releasePointerCapture = () => {}
+    slider.hasPointerCapture = () => true
+
+    // Touch point sets a value, then the OS cancels — no travel, no commit,
+    // no ending click. The shell's own `onPointerCancel={gestures.release}`
+    // only disarms the hold timer; the card's optimistic value needs the
+    // slider's cancel path. Without it the tile would keep painting the
+    // claimed value and decline the next tap as "a drag in flight".
+    // (The `buttons: 1` on pointer-down mirrors `beginDrag` in
+    // `LightCard.dragGuard.test.tsx`: without a pressed button the synthetic
+    // sequence never becomes a Radix slide, nothing is claimed, and the test
+    // passes against no gate at all.)
+    fireEvent.pointerDown(slider, {
+      clientX: 150,
+      clientY: 10,
+      pointerId: 1,
+      button: 0,
+      buttons: 1,
+    })
+    fireEvent.pointerCancel(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
+
+    expect(screen.getByLabelText('Brightness').getAttribute('aria-valuenow')).toBe('50')
+    expect(tile()).toHaveStyle({ cursor: 'pointer' })
+    expect(hass.callService).not.toHaveBeenCalled()
+
+    // And the next tap still works: the slot is clear, so the toggle goes
+    // through exactly once.
+    fireEvent.click(tile())
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: LIGHT })
+    )
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
   it('suppresses the tap action once the pointer travels past the threshold', () => {
     // The mirror at the anatomy level: travel past BACKGROUND_TRAVEL_PX marks
     // the gesture a drag, so the ending click is stopped even when the click
