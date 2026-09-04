@@ -415,6 +415,26 @@ describe('InputSelectCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
+    it('opens the detail dialog on tap when iconOnly suppresses the pills', () => {
+      // Same absence-of-control rule in pill presentation: `iconOnly` drops
+      // the group, so no live pill exists to focus and the tap resolves to
+      // `more-info` rather than no-op.
+      render(
+        <CardItemProvider
+          entityId="input_select.test_select"
+          config={{ controlStyle: 'pills', iconOnly: true }}
+        >
+          <InputSelectCard entityId="input_select.test_select" tier="full" />
+        </CardItemProvider>
+      )
+      expect(screen.queryByRole('group')).not.toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Select' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
     it('opens the detail dialog on tap at glance, and dispatches nothing', () => {
       // Through the grid's item provider, as on a dashboard: the shell reads
       // the dialog's entity from the placed item, and without it `more-info`
