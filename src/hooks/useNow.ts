@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { logger } from '../utils/logger'
 
 /**
  * Shared clocks: one interval per tick rate for the whole panel, replacing one
@@ -64,7 +65,17 @@ function ensureInterval(rateMs: number): void {
     rateMs,
     setInterval(() => {
       versions.set(rateMs, (versions.get(rateMs) ?? 0) + 1)
-      for (const listener of [...(listeners.get(rateMs) ?? [])]) listener()
+      // Per-listener boundary, same class as the pipeline scheduler's: one
+      // throwing notify must not skip the listeners behind it or escape the
+      // shared interval — the per-consumer intervals this clock replaced
+      // never shared a loop.
+      for (const listener of [...(listeners.get(rateMs) ?? [])]) {
+        try {
+          listener()
+        } catch (error) {
+          logger.error('useNow: clock listener threw (kept subscribed):', error)
+        }
+      }
     }, rateMs)
   )
 }

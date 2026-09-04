@@ -10,17 +10,20 @@ import { logger } from '../utils/logger'
  * forecast). Here each rate class owns one interval, and members register a
  * callback plus a due-interval measured in ticks of that wheel:
  *
- * - fast (30s): connection health, staleness checks, history maintenance.
- *   History maintenance is a freshness decision, not a cadence: a window with
- *   a short bucket interval still checks every 30s and refetches only when its
+ * - fast (30s): connection health (every tick), staleness checks and
+ *   history maintenance (every 2nd tick, i.e. 60s). History maintenance is a
+ *   freshness decision, not a cadence: each check refetches only when the
  *   entry is stale, which the per-window tests pin.
  * - slow (5min): forecast refresh. Hourly forecasts refresh every 30min and
  *   daily every 2h; both divide 5min evenly, so each refresh lands on a tick
  *   with no phase of its own.
  *
  * No wheel grows with dashboard size: subscribing the fiftieth entity adds a
- * map entry, not a timer. Rates are NOT retuned — coalescing aligns phases, it
- * does not change cadences.
+ * map entry, not a timer. Refresh, health and staleness cadences are NOT
+ * retuned — coalescing aligns phases, it does not change them. One deliberate
+ * exception: history maintenance is standardized at 60s for every window (was
+ * max(60s, window/100) per window), trading more cheap store-read wakeups for
+ * the single wheel; refetches still happen only on staleness.
  */
 
 export const SCHEDULER_FAST_TICK_MS = 30_000

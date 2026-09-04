@@ -314,6 +314,46 @@ describe('useNow shared clocks', () => {
     expect(setIntervalSpy).not.toHaveBeenCalled()
   })
 
+  it('a throwing listener neither skips the rest nor escapes the interval', () => {
+    vi.useFakeTimers()
+    const logged: unknown[][] = []
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      logged.push(args)
+    })
+    try {
+      const after = vi.fn()
+      const throwing = vi.fn(() => {
+        throw new Error('consumer notify blew up')
+      })
+      const releaseThrowing = subscribeClockTick(NOW_1S_MS, throwing)
+      const releaseAfter = subscribeClockTick(NOW_1S_MS, after)
+
+      expect(() => {
+        act(() => {
+          vi.advanceTimersByTime(NOW_1S_MS)
+        })
+      }).not.toThrow()
+      expect(throwing).toHaveBeenCalledTimes(1)
+      expect(after).toHaveBeenCalledTimes(1)
+
+      // Logged with the error object (stack preserved), listener kept
+      // subscribed and retried next tick.
+      expect(logged.length).toBeGreaterThan(0)
+      expect(logged[0][1]).toBeInstanceOf(Error)
+
+      act(() => {
+        vi.advanceTimersByTime(NOW_1S_MS)
+      })
+      expect(throwing).toHaveBeenCalledTimes(2)
+      expect(after).toHaveBeenCalledTimes(2)
+
+      releaseThrowing()
+      releaseAfter()
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('tears the interval down when the last consumer unmounts', () => {
     vi.useFakeTimers()
     const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')

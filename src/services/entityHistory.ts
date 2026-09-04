@@ -256,12 +256,15 @@ export class EntityHistoryService {
   private startMaintenance(entityId: string, hours: number): void {
     const key = historyCacheKey(entityId, hours)
     this.stopMaintenance(key)
-    // A freshness decision, not a cadence: the scheduler's 30s wheel wakes
-    // the window, and `maintain` refetches only when the entry is stale (TTL)
-    // or went unwatched. The bucket-derived interval this replaced set how
-    // often a short window re-pruned; pruning now happens at TTL granularity,
-    // which is the coarser but behaviour-preserving choice the coalescing
-    // requires — the entry, not the timer, decides.
+    // A freshness decision, not a cadence: the fast wheel wakes the window
+    // every 60s (MIN_MAINTENANCE_INTERVAL_MS, i.e. every 2nd 30s tick), and
+    // `maintain` refetches only when the entry is stale (TTL) or went
+    // unwatched — the entry, not the timer, decides. Deliberate retune of one
+    // edge: the old per-window interval was max(60s, window/100), so a 24h
+    // window woke every ~15min; now every window checks every 60s. More
+    // wakeups, but each is a cheap store read that refetches only when stale,
+    // and no wheel grows with dashboard size — the tradeoff the coalescing
+    // requires.
     this.maintenanceTasks.set(
       key,
       schedulePipelineTask('fast', MIN_MAINTENANCE_INTERVAL_MS, () =>
