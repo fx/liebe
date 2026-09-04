@@ -64,7 +64,7 @@ function ensureInterval(rateMs: number): void {
   intervals.set(
     rateMs,
     setInterval(() => {
-      versions.set(rateMs, (versions.get(rateMs) ?? 0) + 1)
+      versions.set(rateMs, versions.get(rateMs)! + 1)
       // Per-listener boundary, same class as the pipeline scheduler's: one
       // throwing notify must not skip the listeners behind it or escape the
       // shared interval — the per-consumer intervals this clock replaced

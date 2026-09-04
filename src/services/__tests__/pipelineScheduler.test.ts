@@ -229,6 +229,25 @@ describe('pipelineScheduler', () => {
     release()
   })
 
+  it('a registration on the tick grid fires at the aligned tick (no over-block)', () => {
+    vi.useFakeTimers()
+    const T0 = Date.parse('2026-07-25T12:00:00.000Z')
+    vi.setSystemTime(T0)
+
+    // Registered exactly on the grid: dueAtMs lands exactly on tick 2, and the
+    // gate must not hold it past its due tick (equality fires).
+    const gated = vi.fn()
+    const release = schedulePipelineTask('slow', SCHEDULER_SLOW_TICK_MS * 2, gated)
+
+    act_advance(SCHEDULER_SLOW_TICK_MS)
+    expect(gated).not.toHaveBeenCalled()
+
+    act_advance(SCHEDULER_SLOW_TICK_MS)
+    expect(gated).toHaveBeenCalledTimes(1)
+
+    release()
+  })
+
   it('a double release does not take another task down', () => {
     vi.useFakeTimers()
 

@@ -87,7 +87,11 @@ function runDueTasks(wheel: Wheel): void {
     if (wheel.elapsed < task.nextDue) continue
     // First-fire wall-clock gate: until the full interval has elapsed since
     // registration, the task waits no matter the tick phase. Cleared on
-    // first fire; steady state rides `nextDue` alone.
+    // first fire; steady state rides `nextDue` alone. (Only observable with a
+    // real drifting clock: under fake timers ticks and wall advance in
+    // lockstep, so the gate observes equality-or-past and fires — the strict
+    // block is prod-only logic for setInterval drift. The aligned-tick test
+    // pins that the gate never over-blocks.)
     if (task.dueAtMs !== 0) {
       if (Date.now() < task.dueAtMs) continue
       task.dueAtMs = 0
