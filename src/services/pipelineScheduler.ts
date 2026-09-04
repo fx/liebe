@@ -33,7 +33,7 @@ export type ScheduleRate = 'fast' | 'slow'
 
 interface ScheduledTask {
   id: number
-  run: () => void
+  run: () => void | Promise<unknown>
   /** Run every Nth tick of the wheel. */
   every: number
   /**
