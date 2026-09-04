@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import { anatomyPart, type AnatomyPartProps } from './anatomyPart'
 import './anatomy.css'
@@ -61,6 +62,12 @@ export interface SliderProps extends AnatomyPartProps {
    * still gets one command per step rather than none.
    */
   onValueCommit?: (value: number) => void
+  /**
+   * Reaches the thumb, so a card whose tile tap focuses the slider can put
+   * keyboard focus where the value is operated. Optional and inert by default:
+   * every existing slider renders exactly as before with no ref passed.
+   */
+  thumbRef?: Ref<HTMLSpanElement>
 }
 
 /**
@@ -86,6 +93,7 @@ export function Slider({
   readout,
   onValueChange,
   onValueCommit,
+  thumbRef,
   ...part
 }: SliderProps) {
   return (
@@ -118,6 +126,7 @@ export function Slider({
         </span>
       ) : null}
       <SliderPrimitive.Thumb
+        ref={thumbRef}
         className="liebe-slider-thumb"
         aria-label={label}
         aria-valuetext={readout}

@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import { Box, Flex, Text } from '@radix-ui/themes'
 import { Select } from '~/components/ui/portals'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
@@ -55,6 +55,10 @@ interface SelectHelperControlProps {
   loading?: boolean
   /** Select one of the helper's own options. */
   onCommit: (option: string) => void
+  /** Reaches the dropdown trigger, so the card's tile tap can focus it. */
+  triggerRef?: React.Ref<HTMLButtonElement>
+  /** Reaches the pill group, so the tile tap can focus its first live pill. */
+  pillGroupRef?: React.Ref<HTMLDivElement>
 }
 
 /**
@@ -70,6 +74,8 @@ export function SelectHelperControl({
   presentation,
   loading = false,
   onCommit,
+  triggerRef,
+  pillGroupRef,
 }: SelectHelperControlProps) {
   const attributes = entity.attributes as InputSelectAttributes
   /*
@@ -82,7 +88,7 @@ export function SelectHelperControl({
 
   if (presentation === 'pills') {
     return (
-      <PillGroup label={helperName}>
+      <PillGroup label={helperName} groupRef={pillGroupRef}>
         {options.map((option) => (
           <Pill
             key={option}
@@ -119,6 +125,7 @@ export function SelectHelperControl({
          * already conveyed as the combobox's value.
          */}
         <Select.Trigger
+          ref={triggerRef}
           variant="soft"
           aria-label={`Select ${helperName}`}
           style={{ width: '100%' }}
@@ -183,9 +190,74 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
   const { setValue, loading, error } = useServiceCall()
   const publishedItem = useCardItem()
 
-  const handleClick = useCallback(() => {
-    // Card click is handled by GridCard
-  }, [])
+  const isGlance = tier === 'glance'
+  // The dropdown trigger and the pill group, so the tile tap can focus
+  // whichever presentation renders. Refs rather than state: focusing is
+  // imperative and renders nothing.
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const pillGroupRef = useRef<HTMLDivElement>(null)
+  // The presentation the tap routes on, resolved before the entity guards so
+  // no hook sits below an early return. The stored style needs the option
+  // count, which is unknown until the entity loads, so this reads it
+  // defensively — an absent entity resolves as the `dropdown` default, which
+  // is exactly what the resolver returns for zero options. The render below
+  // resolves the same value from the loaded entity; the two agree wherever a
+  // tap can happen, because a tap needs a rendered tile.
+  const attributesForPresentation = entity?.attributes as InputSelectAttributes | undefined
+  const earlyPresentation = resolveSelectPresentation(
+    readSelectControlStyle(config ?? publishedItem.config),
+    tier,
+    readSelectOptions(attributesForPresentation).length
+  )
+  const presentationRef = useRef<SelectControlStyle>('dropdown')
+  // An effect rather than a render-phase write — refs must not be assigned
+  // during render — and current whenever a tap can happen, because a tap
+  // needs a committed tile and effects flush before the next event.
+  useEffect(() => {
+    presentationRef.current = earlyPresentation
+  }, [earlyPresentation])
+
+  /*
+   * The tile tap is the card's primary action: it opens the control — focusing
+   * the dropdown trigger where the dropdown renders, the first live pill where
+   * the pills do (the option doc's "Primary action"). At `glance` there is no
+   * control to focus, so the tap resolves to `more-info` instead and this
+   * declines — it is still passed, because an absent handler would tell the
+   * shell the card has no toggle of its own and route a configured `toggle`
+   * to `homeassistant.toggle` on an `input_select`.
+   *
+   * A plain function rather than a `useCallback`: it closes over nothing that
+   * changes — the refs are stable, `isGlance` is fixed per mount — so there is
+   * no identity to preserve. The routing consults the resolved presentation
+   * via the ref above, never the stored `controlStyle`: a stored `pills`
+   * degrades to the dropdown outside `full` or past five options, and the tap
+   * must focus what is there rather than what is stored.
+   */
+  const handleClick = () => {
+    if (isGlance) {
+      /*
+       * A configured `tapAction: toggle` resolves to this handler whatever the
+       * tier, so declaring `more-info` as the card's DEFAULT is not enough on
+       * its own — a tile with an explicit toggle would call this, find no
+       * control to focus, and do nothing at all. Returning `'more-info'`
+       * routes the gesture to the detail dialog instead, which is the escape
+       * hatch `GridCard`'s `onClick` contract exists for and that the text card
+       * already uses for its own control-free tiers.
+       */
+      return 'more-info'
+    }
+    if (presentationRef.current === 'pills') {
+      // The current option's pill is disabled by design — pressing it would
+      // send a `select_option` that changes nothing — so focus skips it for
+      // the first pill that can actually be chosen.
+      const group = pillGroupRef.current
+      const firstLive = group?.querySelector('button:not([disabled])') as HTMLElement | null
+      firstLive?.focus()
+      return undefined
+    }
+    triggerRef.current?.focus()
+    return undefined
+  }
 
   const handleValueChange = useCallback(
     (value: string) => {
@@ -240,8 +312,6 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
   const attributes = entity.attributes as InputSelectAttributes
   const isStale = attributes._stale === true
   const options = readSelectOptions(attributes)
-
-  const isGlance = tier === 'glance'
 
   /*
    * `controlStyle` chooses the presentation, and the tier and the option count
@@ -315,6 +385,8 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
                 presentation={presentation}
                 loading={loading}
                 onCommit={handleValueChange}
+                triggerRef={triggerRef}
+                pillGroupRef={pillGroupRef}
               />
             </GridCard.Controls>
           )

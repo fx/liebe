@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '../test/utils'
 import { InputSelectCard } from './InputSelectCard'
+import { CardItemProvider } from './cardItemContext'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
@@ -292,6 +293,80 @@ describe('InputSelectCard', () => {
     render(<InputSelectCard entityId="input_select.test_select" />)
 
     expect(screen.getByRole('combobox')).toBeDisabled()
+  })
+
+  describe('tile tap (tapAction: default)', () => {
+    // The option doc's "Primary action": a tap opens the control — focusing
+    // the dropdown trigger where the dropdown renders, the first live pill
+    // where the pills do — and selects no option of its own.
+    it('focuses the dropdown trigger on tap where the dropdown renders', () => {
+      render(<InputSelectCard entityId="input_select.test_select" tier="row" />)
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(document.activeElement).toBe(screen.getByRole('combobox'))
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('focuses the first live pill on tap where the pills render', () => {
+      render(<InputSelectCard entityId="input_select.test_select" tier="full" config={{ controlStyle: 'pills' }} />)
+      // Three options at `full`: the resolved presentation is the pills.
+      expect(screen.getByRole('button', { name: 'Option 2' })).toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      // The current option's pill is disabled by design, so focus skips it
+      // for the first pill that can actually be chosen.
+      expect(document.activeElement).toHaveTextContent('Option 2')
+      expect((document.activeElement as HTMLButtonElement).disabled).toBe(false)
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('focuses the degraded dropdown at row, not the stored pills', () => {
+      // Consults the resolved presentation rather than the stored style: a
+      // stored `pills` degrades to the dropdown outside `full`, and the tap
+      // must focus what is there rather than what is stored.
+      render(<InputSelectCard entityId="input_select.test_select" tier="row" config={{ controlStyle: 'pills' }} />)
+      expect(screen.getByRole('combobox')).toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(document.activeElement).toBe(screen.getByRole('combobox'))
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it("routes a stored toggle to the dialog at glance, where there is nothing to focus", () => {
+      // A configured `tapAction: toggle` resolves to the card's own handler
+      // whatever the tier, so the `more-info` default alone is not enough —
+      // the handler must return the resolution itself (the text card's shape).
+      render(
+        <CardItemProvider entityId="input_select.test_select" config={{ tapAction: 'toggle' }}>
+          <InputSelectCard entityId="input_select.test_select" tier="glance" />
+        </CardItemProvider>
+      )
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Select' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('opens the detail dialog on tap at glance, and dispatches nothing', () => {
+      // Through the grid's item provider, as on a dashboard: the shell reads
+      // the dialog's entity from the placed item, and without it `more-info`
+      // is not actionable (cardTierLayouts.test.tsx renders the same way).
+      render(
+        <CardItemProvider entityId="input_select.test_select">
+          <InputSelectCard entityId="input_select.test_select" tier="glance" />
+        </CardItemProvider>
+      )
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      // The `more-info` fallback: the dialog names the entity it opened for.
+      expect(screen.getByRole('heading', { name: 'Test Select' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
   })
 
   it('shows singular option count in edit mode', () => {

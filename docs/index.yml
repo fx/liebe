@@ -305,7 +305,7 @@ changes:
     path: changes/0037-card-state-and-capability-correctness.md
     description: Cards stop misreporting state and capability — weather/climate state honesty, fan toggle gated on TURN_ON/TURN_OFF, a useEntity not-found state, date-only input_datetime timezone fix, number/select primary actions, and lock code support
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: []
   - id: '0038'
     name: option-key-collision

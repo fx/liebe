@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import type { ReactNode } from 'react'
 import { anatomyPart, type AnatomyPartProps } from './anatomyPart'
 import './anatomy.css'
@@ -20,6 +21,12 @@ export interface PillGroupProps {
   orientation?: 'horizontal' | 'vertical'
   children: ReactNode
   className?: string
+  /**
+   * Reaches the group element, so a card whose tile tap focuses the pill
+   * presentation can move keyboard focus to the first operable pill.
+   * Optional and inert by default.
+   */
+  groupRef?: Ref<HTMLDivElement>
 }
 
 /**
@@ -32,9 +39,11 @@ export function PillGroup({
   orientation = 'horizontal',
   children,
   className,
+  groupRef,
 }: PillGroupProps) {
   return (
     <div
+      ref={groupRef}
       className={className ? `liebe-pill-group ${className}` : 'liebe-pill-group'}
       data-orientation={orientation}
       role="group"
