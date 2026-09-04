@@ -1,5 +1,6 @@
 import type { HomeAssistant } from '../contexts/HomeAssistantContext'
 import { entityStore } from '../store/entityStore'
+import { schedulePipelineTask } from './pipelineScheduler'
 import { forecastCacheKey, forecastStore, forecastStoreActions } from '../store/forecastStore'
 import {
   buildForecastRequest,
@@ -30,7 +31,12 @@ export class WeatherForecastService {
   /** Live subscriber count per requested forecast. */
   private subscribers = new Map<string, number>()
   private inflight = new Map<string, Promise<void>>()
-  private refreshTimers = new Map<string, ReturnType<typeof setInterval>>()
+  /**
+   * Scheduler unsubscribes per requested forecast. Replaces the per-forecast
+   * `setInterval` map: subscribing the fiftieth forecast adds a map entry,
+   * not a timer.
+   */
+  private refreshTasks = new Map<string, () => void>()
   /**
    * Bumped by `reset()`. A fetch already in flight resolves into a service that
    * no longer wants it, and without this it would resurrect the forecast it was
@@ -104,8 +110,8 @@ export class WeatherForecastService {
   /** Drop all state. Test-only seam — the singleton is module-global. */
   reset(): void {
     this.generation += 1
-    for (const timer of this.refreshTimers.values()) clearInterval(timer)
-    this.refreshTimers.clear()
+    for (const release of this.refreshTasks.values()) release()
+    this.refreshTasks.clear()
     this.subscribers.clear()
     this.inflight.clear()
     this.hass = null
@@ -150,17 +156,22 @@ export class WeatherForecastService {
   private startRefresh(entityId: string, type: ForecastType): void {
     const key = forecastCacheKey(entityId, type)
     this.stopRefresh(key)
-    this.refreshTimers.set(
+    // The slow wheel ticks every 5min; hourly (30min) and daily (2h) refresh
+    // intervals both divide it evenly, so each refresh lands on a tick with
+    // no phase of its own. Rates unchanged — coalescing aligns, not retunes.
+    this.refreshTasks.set(
       key,
-      setInterval(() => this.refresh(entityId, type), FORECAST_REFRESH_MS[type])
+      schedulePipelineTask('slow', FORECAST_REFRESH_MS[type], () =>
+        this.refresh(entityId, type)
+      )
     )
   }
 
   private stopRefresh(key: string): void {
-    const timer = this.refreshTimers.get(key)
-    if (!timer) return
-    clearInterval(timer)
-    this.refreshTimers.delete(key)
+    const release = this.refreshTasks.get(key)
+    if (!release) return
+    release()
+    this.refreshTasks.delete(key)
   }
 
   /** Deduped fetch: concurrent requests for one forecast share a single call. */

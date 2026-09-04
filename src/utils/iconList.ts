@@ -14,7 +14,6 @@ import {
   IconWind,
   IconFlame,
   IconFlameOff,
-  IconShield,
   IconShieldCheck,
   IconVolume,
   IconVolumeOff,
@@ -25,8 +24,6 @@ import {
   IconUserOff,
   IconPower,
   IconCircleX,
-  IconDeviceTv,
-  IconDeviceTvOff,
   IconWifi,
   IconWifiOff,
   IconCircleCheck,
@@ -35,10 +32,7 @@ import {
   IconInfoCircle,
   IconEye,
   IconEyeOff,
-  IconClock,
-  IconCalendar,
   IconBattery,
-  IconBatteryOff,
 } from '@tabler/icons-react'
 
 export interface Icon {
@@ -67,7 +61,6 @@ export const ICONS: Icon[] = [
   { name: 'DoorOff', displayName: 'Door Open', component: IconDoorOff, category: 'security' },
   { name: 'Lock', displayName: 'Locked', component: IconLock, category: 'security' },
   { name: 'LockOpen', displayName: 'Unlocked', component: IconLockOpen, category: 'security' },
-  { name: 'Shield', displayName: 'Security', component: IconShield, category: 'security' },
   { name: 'ShieldCheck', displayName: 'Armed', component: IconShieldCheck, category: 'security' },
   { name: 'Bell', displayName: 'Bell On', component: IconBell, category: 'security' },
   { name: 'BellOff', displayName: 'Bell Off', component: IconBellOff, category: 'security' },
@@ -88,8 +81,6 @@ export const ICONS: Icon[] = [
   // Media & Devices
   { name: 'Volume', displayName: 'Sound On', component: IconVolume, category: 'media' },
   { name: 'VolumeOff', displayName: 'Sound Off', component: IconVolumeOff, category: 'media' },
-  { name: 'DeviceTv', displayName: 'TV On', component: IconDeviceTv, category: 'media' },
-  { name: 'DeviceTvOff', displayName: 'TV Off', component: IconDeviceTvOff, category: 'media' },
   { name: 'Wifi', displayName: 'Connected', component: IconWifi, category: 'media' },
   { name: 'WifiOff', displayName: 'Disconnected', component: IconWifiOff, category: 'media' },
 
@@ -106,10 +97,7 @@ export const ICONS: Icon[] = [
     category: 'status',
   },
   { name: 'InfoCircle', displayName: 'Info', component: IconInfoCircle, category: 'status' },
-  { name: 'Clock', displayName: 'Time', component: IconClock, category: 'status' },
-  { name: 'Calendar', displayName: 'Schedule', component: IconCalendar, category: 'status' },
   { name: 'Battery', displayName: 'Battery', component: IconBattery, category: 'status' },
-  { name: 'BatteryOff', displayName: 'Battery Low', component: IconBatteryOff, category: 'status' },
 ]
 
 /**

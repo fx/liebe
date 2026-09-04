@@ -78,7 +78,7 @@ function BinarySensorCardComponent({
     isMissing,
     isLoading: isEntityLoading,
   } = useEntity(entityId)
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   const [configOpen, setConfigOpen] = useState(false)
 
@@ -107,10 +107,6 @@ function BinarySensorCardComponent({
   /*
    * The glyph, with the generic pair behind it for a name this build has no
    * icon for — a configured `onIcon` from a newer Liebe, or a hand-edited YAML.
-   *
-   * One lookup, not two: this used to try `getTablerIcon` and then `getIcon`,
-   * but the former is a one-line alias of the latter, so the second call could
-   * only ever repeat the first one's answer.
    */
   const IconComponent = useMemo(() => {
     const { iconName, presentedOn } = presentation

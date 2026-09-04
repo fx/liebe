@@ -56,9 +56,9 @@ describe('InputNumberCard', () => {
       clearError: vi.fn(),
     })
 
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'view',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'view' } as DashboardState)) as typeof useDashboardStore)
   })
 
   it('renders input number with friendly name and value', () => {
@@ -232,9 +232,9 @@ describe('InputNumberCard', () => {
   })
 
   it('selects card in edit mode', async () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
 
     render(
       <InputNumberCard

@@ -70,7 +70,7 @@ function LockCardComponent({
    * and the change doc forbids the retrying wrapper for this family outright.
    */
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
   const { config } = useCardItem()

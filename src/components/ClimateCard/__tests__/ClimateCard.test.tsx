@@ -75,7 +75,11 @@ describe('ClimateCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       clearError: mockClearError,
     })
-    ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
+    ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
+
+          selector: (state: { mode: string }) => unknown
+
+        ) => selector({ mode: 'view' })) as never)
   })
 
   describe('Basic Rendering', () => {
@@ -748,7 +752,11 @@ describe('ClimateCard', () => {
 
   describe('Edit Mode', () => {
     beforeEach(() => {
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(((
+
+            selector: (state: { mode: string }) => unknown
+
+          ) => selector({ mode: 'edit' })) as never)
     })
 
     it('shows delete button in edit mode', () => {

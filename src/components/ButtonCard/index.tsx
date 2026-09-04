@@ -61,7 +61,8 @@ function ButtonCardComponent({
     isLoading: isEntityLoading,
   } = useEntity(entityId)
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
-  const { screens, currentScreenId } = useDashboardStore()
+  const screens = useDashboardStore((state) => state.screens)
+  const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const [configOpen, setConfigOpen] = useState(false)
 
   /*

@@ -182,8 +182,12 @@ function mockMotionSensor(
 }
 
 function mockStoreMode(mode: 'view' | 'edit', currentScreenId: string | null = 'screen-1') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  vi.mocked(useDashboardStore).mockReturnValue({ mode, currentScreenId } as any)
+  // Honor the selector contract: apply the caller's selector to the mock
+  // state instead of returning the whole state for every call.
+  vi.mocked(useDashboardStore).mockImplementation(
+    ((selector: (state: { mode: string; currentScreenId: string | null }) => unknown) =>
+      selector({ mode, currentScreenId })) as typeof useDashboardStore
+  )
 }
 
 /*

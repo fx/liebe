@@ -1,8 +1,14 @@
 import { entityStore, entityStoreActions } from '../store/entityStore'
+import { schedulePipelineTask } from './pipelineScheduler'
 import { logger } from '../utils/logger'
 
 export class StaleEntityMonitor {
-  private checkInterval: NodeJS.Timeout | null = null
+  /**
+   * Scheduler unsubscribe for the periodic check. Replaces the private 60s
+   * `setInterval`: one entry on the shared fast wheel firing every 2nd tick,
+   * not a timer of its own. The 60s cadence is unchanged.
+   */
+  private checkRelease: (() => void) | null = null
   private readonly CHECK_INTERVAL = 60000 // Check every 60 seconds
   private readonly STALE_THRESHOLD = 300000 // 5 minutes - entity is considered stale
 
@@ -10,21 +16,21 @@ export class StaleEntityMonitor {
   private readonly EXCLUDED_ENTITY_TYPES = new Set(['camera'])
 
   start(): void {
-    this.stop() // Clear any existing interval
+    this.stop() // Clear any existing schedule
 
     // Start periodic checks
-    this.checkInterval = setInterval(() => {
+    this.checkRelease = schedulePipelineTask('fast', this.CHECK_INTERVAL, () => {
       this.checkStaleEntities()
-    }, this.CHECK_INTERVAL)
+    })
 
     // Do an initial check
     this.checkStaleEntities()
   }
 
   stop(): void {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval)
-      this.checkInterval = null
+    if (this.checkRelease) {
+      this.checkRelease()
+      this.checkRelease = null
     }
   }
 

@@ -354,7 +354,7 @@ changes:
     path: changes/0044-render-and-bundle-performance.md
     description: Finish the render-churn work 0001 started — narrow whole-store subscriptions, share one clock per rate, coalesce pipeline timers — plus a prod-bundle diet and named dead-code removal
     spec: entity-state
-    status: draft
+    status: complete
     depends_on: ['0001']
   - id: '0045'
     name: browser-home-for-geometry-assertions

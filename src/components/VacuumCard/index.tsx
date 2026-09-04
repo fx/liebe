@@ -90,7 +90,7 @@ function VacuumCardComponent({
    */
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
   const hass = useHomeAssistantOptional()
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
   const { config } = useCardItem()

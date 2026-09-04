@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react'
 import { Card, Flex, Text, Heading } from '@radix-ui/themes'
+import { useNowSecond } from '~/hooks/useNow'
 
 interface ClockWidgetProps {
   widget: { id: string }
 }
 
 export function ClockWidget({ widget: _widget }: ClockWidgetProps) {
-  const [time, setTime] = useState(new Date())
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+  // Shared 1s clock: every clock widget re-renders in the same commit.
+  const secondTick = useNowSecond()
+  void secondTick
+  const time = new Date()
 
   return (
     <Card size="2">

@@ -437,6 +437,13 @@ export const dashboardActions = {
   },
 }
 
-export const useDashboardStore = <TSelected = DashboardState>(
-  selector: (state: DashboardState) => TSelected = (state) => state as unknown as TSelected
-) => useStore(dashboardStore, selector)
+/**
+ * The selector is required: the default used to return the whole state, so a
+ * consumer that forgot it re-rendered on every dashboard mutation — an
+ * `isDirty` flip from the persistence subscriber included. Callers name the
+ * slice they read (`(state) => state.mode`); the one probe that needs the
+ * whole state passes `(state) => state` explicitly, which keeps that cost
+ * visible at the call site instead of hiding it in the default.
+ */
+export const useDashboardStore = <TSelected>(selector: (state: DashboardState) => TSelected) =>
+  useStore(dashboardStore, selector)

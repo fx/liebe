@@ -1,9 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Button, Flex, Card, Text, Badge, Separator } from '@radix-ui/themes'
 import { useDashboardStore, dashboardActions, useDashboardPersistence } from '../store'
+import { NotFound } from '~/components/NotFound'
 
+function DevOnlyNotFound() {
+  return <NotFound />
+}
+
+// Dev-only route: the production bundle serves NotFound here so the store
+// workshop never ships in the panel artifact. The route module stays (and its
+// route test keeps passing) — only what it renders changes by build mode.
 export const Route = createFileRoute('/test-store')({
-  component: StoreTestPage,
+  component: import.meta.env.DEV ? StoreTestPage : DevOnlyNotFound,
 })
 
 function StoreTestPage() {

@@ -54,9 +54,9 @@ describe('InputSelectCard', () => {
       clearError: vi.fn(),
     })
 
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'view',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'view' } as DashboardState)) as typeof useDashboardStore)
   })
 
   it('renders input select with friendly name and current value', () => {
@@ -134,9 +134,9 @@ describe('InputSelectCard', () => {
   })
 
   it('selects card in edit mode', async () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
 
     render(
       <InputSelectCard
@@ -173,9 +173,9 @@ describe('InputSelectCard', () => {
   })
 
   it('shows delete button in edit mode', () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
 
     render(<InputSelectCard entityId="input_select.test_select" onDelete={mockOnDelete} />)
 
@@ -477,9 +477,9 @@ describe('InputSelectCard', () => {
   })
 
   it('shows singular option count in edit mode', () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
     vi.mocked(useEntity).mockReturnValue({
       entity: {
         ...defaultEntity,

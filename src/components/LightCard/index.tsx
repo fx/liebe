@@ -282,7 +282,8 @@ function LightCardComponent({
     isLoading: isEntityLoading,
   } = useEntity(entityId)
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
-  const { mode, currentScreenId } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
+  const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const isEditMode = mode === 'edit'
 
   // Local state for slider while dragging

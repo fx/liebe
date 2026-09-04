@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
+import { useNowSecond } from '~/hooks/useNow'
 import { useDashboardStore } from '~/store'
 import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '~/store/cardActions'
 import { readCardDisplay } from '~/store/cardDisplay'
@@ -79,6 +80,17 @@ const WIDE_ROW_COLUMNS = 4
  */
 const PROGRESS_TICK_MS = 1000
 
+/**
+ * The wall time the progress bar extrapolates from. While the bar ticks this
+ * is the shared 1s clock (`useNowSecond` subscribed); while it does not tick
+ * the clock is read unsubscribed — the same value, with no wake attached.
+ */
+function useMediaProgressNow(progressTicks: boolean): number {
+  const tick = useNowSecond(progressTicks)
+  void tick
+  return Date.now()
+}
+
 /** What each resolved primary service looks like on the play/pause button. */
 const PRIMARY_GLYPH: Readonly<Record<MediaPrimaryService, typeof IconPlayerPlay>> = {
   turn_on: IconPower,
@@ -117,7 +129,7 @@ function MediaPlayerCardComponent({
    * guarantees"; docs/changes/0023).
    */
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
   const { config } = useCardItem()
@@ -325,19 +337,14 @@ function MediaPlayerCardComponent({
    * this the first frame after playback resumes would draw the bar short before
    * the first interval corrected it.
    */
-  const [now, setNow] = useState(() => Date.now())
-
-  useEffect(() => {
-    if (!progressTicks) return
-
-    const priming = setTimeout(() => setNow(Date.now()), 0)
-    const ticking = setInterval(() => setNow(Date.now()), PROGRESS_TICK_MS)
-
-    return () => {
-      clearTimeout(priming)
-      clearInterval(ticking)
-    }
-  }, [progressTicks])
+  // Shared 1s clock: every playing media card re-renders in the same commit
+  // instead of each owning a 1s interval at its own phase. The wall time is
+  // read at render; the tick only decides when. Gated on `progressTicks` so a
+  // paused card — or one whose bar does not render — holds no subscription and
+  // pays no wake: `useNowSecond` with `enabled: false` returns the clock's
+  // current version without subscribing, which is exactly the `now` the
+  // non-extrapolated branch needs.
+  const now = useMediaProgressNow(progressTicks)
 
   /*
    * The seek head under a finger, which suspends the ticker's authority the same

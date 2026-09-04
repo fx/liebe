@@ -51,7 +51,9 @@ describe('LightCard Slider Usability', () => {
     vi.clearAllMocks()
 
     // Default mock implementations
-    vi.mocked(useDashboardStore).mockReturnValue({ mode: 'view' })
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: { mode: string }) => unknown
+    ) => selector({ mode: 'view' })) as typeof useDashboardStore)
 
     vi.mocked(hooks.useEntity).mockReturnValue({
       entity: mockEntity,
@@ -125,7 +127,9 @@ describe('LightCard Slider Usability', () => {
   })
 
   it('does not show slider in edit mode', () => {
-    vi.mocked(useDashboardStore).mockReturnValue({ mode: 'edit' })
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: { mode: string }) => unknown
+    ) => selector({ mode: 'edit' })) as typeof useDashboardStore)
 
     render(<LightCard entityId="light.test_light" />)
 

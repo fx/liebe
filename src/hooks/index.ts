@@ -15,3 +15,4 @@ export {
   useIsConnecting,
   useConnectionDetails,
 } from './useConnectionStatus'
+export { useNow, useNowSecond, useNowMinute, NOW_1S_MS, NOW_60S_MS } from './useNow'
