@@ -63,3 +63,5 @@
 | 0041 | [Card Conventions & Reference Accuracy](changes/0041-card-conventions-and-reference.md)                      | [Entity Cards](specs/entity-cards/)         | complete | —                |
 | 0042 | [Tall-Tile Control Geometry](changes/0042-tall-tile-control-geometry.md)                                     | [Design System](specs/design-system/)       | complete | —                |
 | 0043 | [Card-Tile Control Semantics & Error Recovery](changes/0043-card-tile-control-semantics.md)                  | [Design System](specs/design-system/)       | draft    | —                |
+| 0044 | [Render & Bundle Performance Pass](changes/0044-render-and-bundle-performance.md)                            | [Entity State](specs/entity-state/)         | draft    | 0001             |
+| 0045 | [A Browser Home for the Five Geometry Assertions](changes/0045-browser-home-for-geometry-assertions.md)      | [Storybook](specs/storybook/)               | draft    | 0005             |
