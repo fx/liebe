@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { HomeAssistantProvider, type HomeAssistant } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
 import { dashboardActions } from '~/store'
 import { resetDispatchGuard } from '~/services/guardedDispatch'
+import { DOUBLE_TAP_WINDOW_MS, HOLD_DURATION_MS } from '~/store/cardActions'
 import type { HassEntity } from '~/store/entityTypes'
 import { LightCard } from '..'
-
+import { CardItemProvider } from '../../cardItemContext'
 /**
  * The light card's commands, through the real service path.
  *
@@ -209,5 +210,144 @@ describe('LightCard dispatch', () => {
     fireEvent.keyDown(thumb, { key: 'Home' })
 
     await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+  })
+})
+
+/**
+ * The background placement's gesture split
+ * (docs/specs/entity-cards/options/common.md — "Shared slider placement"):
+ * the tile is simultaneously the control and the action surface, so a drag
+ * adjusts the slider and MUST NOT fire any action, while a tap falls through
+ * to `tapAction` and hold/double-tap keep their universal meanings. The card
+ * here is a light at `glance` — the tier with no inline slider — so the
+ * surface is the only control on the tile.
+ */
+describe('LightCard background slider gestures', () => {
+  const backgroundCard = (config: Record<string, unknown> = {}) => {
+    const item = {
+      id: 'background-light',
+      type: 'entity' as const,
+      entityId: LIGHT,
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      config: { sliderPlacement: 'background', ...config },
+    }
+    // The shell reads tap/hold/double-tap off the placed-item context while
+    // the card reads its own keys off the item prop — both routes carry the
+    // same config, the way GridView supplies one.
+    return renderCard(
+      <CardItemProvider entityId={LIGHT} config={item.config}>
+        <LightCard entityId={LIGHT} tier="glance" span={{ width: 1, height: 1 }} item={item} />
+      </CardItemProvider>
+    )
+  }
+
+  it('renders the surface behind the body at glance', () => {
+    backgroundCard()
+
+    const slider = screen.getByLabelText('Brightness').closest('.liebe-slider')
+    expect(slider).toHaveAttribute('data-placement', 'background')
+    expect(tile().querySelector('.liebe-card-body')).not.toBeNull()
+  })
+
+  it('taps the tile without travel to toggle, with no brightness call', async () => {
+    backgroundCard()
+
+    fireEvent.click(tile())
+
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: LIGHT })
+    )
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+
+  it('commits a background drag without firing the tap action', async () => {
+    backgroundCard()
+
+    // A drag is exactly the gesture that moves the value: the anatomy marks
+    // the gesture moved, stops the click that ends it, and the shell never
+    // sees a tap. The commit is the card's own brightness path — optimistic
+    // drag, single commit, at-most-once through the guard.
+    const thumb = screen.getByLabelText('Brightness')
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith('light', 'turn_on', {
+        entity_id: LIGHT,
+        brightness: 130,
+      })
+    )
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+
+  it('commits a drag ending outside the tile like any other slider drag', async () => {
+    // The contract names this explicitly: a drag that ends outside the tile
+    // still commits. Keyboard `End` is the same settlement path as a pointer
+    // released past the edge — one `onValueCommit`, no tap.
+    backgroundCard()
+
+    const thumb = screen.getByLabelText('Brightness')
+    fireEvent.keyDown(thumb, { key: 'End' })
+
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith('light', 'turn_on', {
+        entity_id: LIGHT,
+        brightness: 255,
+      })
+    )
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+  it('holds the tile to open details, without toggling', () => {
+    // Driven through the real shell with fake timers (the GridCard.actions
+    // pattern): a press held past HOLD_DURATION_MS fires hold and consumes
+    // the tap behind it. The background pointer reaches the press pipeline
+    // because the anatomy does not stop it — that wiring is the assertion.
+    // `onMoreInfo` is the shell's own dialog opener, so the dialog assertion
+    // is that the hold route resolved to it rather than to the toggle.
+    vi.useFakeTimers()
+    try {
+      backgroundCard()
+
+      const target = screen.getByLabelText('Brightness').closest('.liebe-slider')!
+      fireEvent.pointerDown(target, { isPrimary: true, button: 0 })
+      act(() => {
+        vi.advanceTimersByTime(HOLD_DURATION_MS + 100)
+      })
+      fireEvent.pointerUp(target)
+      fireEvent.click(tile())
+
+      expect(hass.callService).not.toHaveBeenCalled()
+      expect(tile().textContent).toContain('Living Room')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('fires double-tap instead of tap when two taps land in the window', () => {
+    // Same shell path, from the click side: two taps inside the window
+    // dispatch the double-tap route once and never the tap behind it. The
+    // tap timer is real-timed by the shell, so fake timers must be running
+    // before the clicks land — and the guarded dispatch resolves async, so
+    // the assertion leaves fake timers first.
+    vi.useFakeTimers()
+    try {
+      backgroundCard({
+        doubleTapAction: { action: 'call-service', service: 'script.movie_mode' },
+      })
+
+      fireEvent.click(tile())
+      fireEvent.click(tile())
+      act(() => {
+        vi.advanceTimersByTime(DOUBLE_TAP_WINDOW_MS * 2)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    return expect(hass.callService).toHaveBeenCalledWith('script', 'movie_mode', {
+      entity_id: LIGHT,
+    })
   })
 })

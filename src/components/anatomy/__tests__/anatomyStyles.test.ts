@@ -397,6 +397,22 @@ describe('embedded slider', () => {
     )
   })
 
+  it('fills the whole tile edge to edge as the background placement', () => {
+    // The background placement is the card surface itself: absolute, inset to
+    // the tile on all four sides, both axes at 100% so the fill reaches the
+    // edge. The tile's own radius clips it (the shell's `overflow: hidden`),
+    // so the track drops its own radius rather than drawing a second rounded
+    // box inside the tile's.
+    const surface = ruleBody(".liebe-slider[data-placement='background']")
+    expect(surface).toContain('position: absolute;')
+    expect(surface).toContain('inset: 0;')
+    expect(surface).toContain('block-size: 100%;')
+    expect(surface).toContain('inline-size: 100%;')
+    expect(ruleBody(".liebe-slider[data-placement='background'] .liebe-slider-track")).toContain(
+      'border-radius: 0;'
+    )
+  })
+
   it('anchors the vertical fill to the track rather than to the text flow', () => {
     /*
      * The vertical fill is absolutely positioned, so with no inline inset its

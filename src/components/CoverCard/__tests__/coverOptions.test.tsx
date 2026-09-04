@@ -592,6 +592,45 @@ describe('confirmOpen', () => {
     expect(screen.getByText('Open Garage Door?')).toBeInTheDocument()
   })
 
+  it('gates a background-drag commit on a cover with no position to compare against', () => {
+    // The binary opener has no `current_position`, so the background commit
+    // (like the inline slider's) classifies by effect and resolves
+    // conservatively: unclassifiable routes confirm exactly like opening
+    // ones. Rendered at `glance`, where only the surface exists.
+    seed(garage('closed', { supported_features: 15 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    const thumb = screen.getByLabelText('Position')
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+
+    expect(hass.callService).not.toHaveBeenCalled()
+    expect(screen.getByText('Open Garage Door?')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(hass.callService).toHaveBeenCalledWith('cover', 'set_cover_position', {
+      entity_id: ENTITY_ID,
+      position: 1,
+    })
+  })
+
+  it('lets a background-drag close straight through on a positioned cover', () => {
+    seed(garage('open', { current_position: 40, supported_features: 15 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    const thumb = screen.getByLabelText('Position')
+    fireEvent.keyDown(thumb, { key: 'ArrowLeft' })
+
+    expect(screen.queryByText('Open Garage Door?')).not.toBeInTheDocument()
+    expect(hass.callService).toHaveBeenCalledWith('cover', 'set_cover_position', {
+      entity_id: ENTITY_ID,
+      position: 39,
+    })
+  })
   it('opens without asking when the option is off', () => {
     seed(garage('closed', { current_position: 0 }))
     renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, { confirmOpen: false })

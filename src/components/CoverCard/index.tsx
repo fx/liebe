@@ -17,7 +17,11 @@ import { useCardItem } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import { readCardDisplay } from '~/store/cardDisplay'
 import { isSecurityCover, readCoverOptions } from '~/store/coverOptions'
-import { isBackgroundPlacement, readSliderOrientation, resolveBackgroundDirection } from '~/store/sliderPlacement'
+import {
+  isBackgroundPlacement,
+  readSliderOrientation,
+  resolveBackgroundDirection,
+} from '~/store/sliderPlacement'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { CoverDetailControls } from './CoverDetailControls'
 import {
@@ -371,7 +375,14 @@ function CoverCardComponent({
       const position = toRawPosition(value, options.invertPosition)
 
       guardOpening(
-        effectivePosition !== undefined && value > effectivePosition ? 'opening' : 'not-opening',
+        classifyCoverRoute(
+          {
+            action: 'call-service',
+            service: 'cover.set_cover_position',
+            data: { position },
+          },
+          routeContext
+        ),
         async () => {
           await dispatchGuarded({
             domain: 'cover',
@@ -386,11 +397,11 @@ function CoverCardComponent({
     [
       clearError,
       dispatchGuarded,
-      effectivePosition,
       entityId,
       error,
       guardOpening,
       options.invertPosition,
+      routeContext,
     ]
   )
 
@@ -515,7 +526,10 @@ function CoverCardComponent({
    * back to the plain tile where the slider is gated off.
    */
   const showBackgroundSlider =
-    !isEditMode && supportsSetPosition && options.showPositionSlider && isBackgroundPlacement(config)
+    !isEditMode &&
+    supportsSetPosition &&
+    options.showPositionSlider &&
+    isBackgroundPlacement(config)
   const backgroundSlider = showBackgroundSlider ? (
     <Slider
       domain="cover"

@@ -422,6 +422,54 @@ export const PlacementHorizontal: Story = {
   },
 }
 
+/**
+ * `background` — the tile itself is the speed control, edge to edge behind
+ * the body. Shown at `glance`, where no inline placement renders, and at
+ * `full`, where the surface still consumes no layout space. The icon-only
+ * companion shows the composition the contract requires: the fill IS the
+ * state tint.
+ */
+export const PlacementBackgroundGlance: Story = {
+  args: { gridWidth: 1, gridHeight: 1 },
+  parameters: {
+    liebe: { itemConfig: { speedControl: 'slider', sliderPlacement: 'background' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
+
+export const PlacementBackgroundFull: Story = {
+  args: FULL_CELL,
+  parameters: {
+    liebe: { itemConfig: { speedControl: 'slider', sliderPlacement: 'background' } },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
+
+export const PlacementBackgroundIconOnly: Story = {
+  args: { gridWidth: 2, gridHeight: 2 },
+  parameters: {
+    liebe: {
+      itemConfig: { speedControl: 'slider', sliderPlacement: 'background', iconOnly: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-card')).toHaveAttribute(
+      'data-icon-tile',
+      'true'
+    )
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
 /** The same key under `speedControl: 'steps'`: inert, because there is no slider. */
 export const PlacementInertUnderSteps: Story = {
   args: { gridWidth: 3, gridHeight: 1 },
