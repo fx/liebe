@@ -172,6 +172,54 @@ describe('applyThemeCss', () => {
     expect(texts.some((text) => text.includes('color: blue'))).toBe(true)
   })
 
+  it('keys the :where() root exactly once, however often it re-renders', () => {
+    // The bare `.liebe-root` replacement must not run again inside the
+    // rewritten `:where(.liebe-root[…])` and stack a second attribute
+    // (`:where(.liebe-root[…][…])`) — the selector would still match, but the
+    // contract says one key per subject, and a doubled key is the tell that
+    // the rewrite is prefix-blind.
+    const root = shadowRoot()
+    const child = document.createElement('div')
+    root.appendChild(child)
+
+    applyThemeCssToRootOf(
+      child,
+      '@layer liebe-theme { :where(.liebe-root) { --liebe-bg: red } }',
+      'panel-a'
+    )
+
+    const text = document.head.querySelector(SLOT_SELECTOR)?.textContent ?? ''
+    expect(text).toContain(':where(.liebe-root[data-liebe-instance="panel-a"])')
+    expect(text).not.toContain('[data-liebe-instance="panel-a"][data-liebe-instance')
+    // Re-keying the mirror output is a no-op: no unkeyed subject remains.
+    applyThemeCssToRootOf(child, text, 'panel-a')
+    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toBe(text)
+  })
+
+  it('names the per-instance font family in the mirror, and the global one at home', () => {
+    // The theme payload names the global family (`--liebe-font-family:
+    // 'Antonio', …`) while each panel's `@font-face` registers its own
+    // (`fontRegistration.ts`): the mirrored copy must name the instance
+    // family, or the overlay resolves the other panel's file.
+    const root = shadowRoot()
+    const child = document.createElement('div')
+    root.appendChild(child)
+
+    applyThemeCssToRootOf(
+      child,
+      "@layer liebe-theme { :where(.liebe-root) { --liebe-font-family: 'Antonio', sans-serif; } }",
+      'panel-a'
+    )
+
+    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toContain(
+      "--liebe-font-family: 'Antonio__panel-a'"
+    )
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain(
+      "--liebe-font-family: 'Antonio'"
+    )
+    expect(root.querySelector(SLOT_SELECTOR)?.textContent).not.toContain('Antonio__panel-a')
+  })
+
   it('does nothing for a node that is in no root yet', () => {
     // A tree rendered into a detached container, or one mid-mount: there is
     // nowhere to hold a stylesheet, and that must not throw.

@@ -183,13 +183,36 @@ function applyLayerToRootOf(
  */
 function keyThemeCssToInstance(css: string, instance: string): string {
   const key = `[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
-  return css
+  // The `:where()` form first, parked under a sentinel while the bare form
+  // keys: the bare replacement would otherwise run again inside the rewritten
+  // `:where(.liebe-root[…])` and stack a second attribute
+  // (`:where(.liebe-root[…][…])`). Re-keying an already-keyed sheet is a
+  // no-op, because every emitted prefix carries the key — a second pass finds
+  // no unkeyed subject left to bind.
+  const keyedWhere = `:where(.liebe-root${key})`
+  const keyedPortal = `.liebe-portal-root${key}`
+  const keyedRoot = `.liebe-root${key}`
+  const SENTINEL = 'LIEBEKEYEDWHERE'
+  const keyed = css
     .split(':where(.liebe-root)')
-    .join(`:where(.liebe-root${key})`)
+    .join(keyedWhere)
+    .split(keyedWhere)
+    .join(SENTINEL)
     .split('.liebe-portal-root')
-    .join(`.liebe-portal-root${key}`)
+    .join(keyedPortal)
     .split('.liebe-root')
-    .join(`.liebe-root${key}`)
+    .join(keyedRoot)
+    .split(SENTINEL)
+    .join(keyedWhere)
+  // The font token rides the same mirror: each panel's `@font-face` registers
+  // a per-instance family (`fontRegistration.ts`), and the theme payload is
+  // what names it — so the mirrored copy names the instance family while the
+  // in-shadow-root sheet keeps the global one its own registration serves.
+  // Keyed on the `--liebe-font-family` token declaration rather than on a
+  // hardcoded family name, so a future bundled face keys the same way without
+  // this module learning its name; the `var()`-valued numeric token follows
+  // the family token and needs no rewrite of its own.
+  return keyed.replace(/--liebe-font-family(\s*:\s*)(['"]?)([A-Za-z][\w-]*)\2/, (_m, sep: string, q: string, fam: string) => `--liebe-font-family${sep}${q}${fam}__${instance}${q}`)
 }
 
 /**

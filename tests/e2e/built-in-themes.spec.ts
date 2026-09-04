@@ -157,7 +157,9 @@ test('LCARS applies live, forces dark, and paints its console frame', async ({ p
   expect(await documentFontLoaded(page, '16px Antonio'), 'the bundled woff2 loaded').toBe(true)
 
   const meta = await shadowComputedStyle(page, '.liebe-name', ['font-family', 'text-transform'])
-  expect(meta?.['font-family'], 'card text renders in the bundled face').toMatch(/^Antonio/)
+  // Per-instance family since change 0036 PR 7: `Antonio__<token>`, where the
+  // token is the panel mount's mirror key.
+  expect(meta?.['font-family'], 'card text renders in the bundled face').toMatch(/^Antonio__/)
   expect(meta?.['text-transform']).toBe('uppercase')
 
   // The console frame, drawn entirely on the structural hooks of the stable

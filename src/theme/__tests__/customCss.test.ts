@@ -632,8 +632,37 @@ describe('sanitizeCustomCss — the document-level mirror', () => {
     expect(scopePortalCssToInstance('', 'panel-a')).toBe('')
 
     const once = scopePortalCssToInstance(mirrored('.a { color: red }'), 'panel-a')
-    expect(scopePortalCssToInstance(once, 'panel-b')).toBe(once)
+    expect(scopePortalCssToInstance(once, 'panel-a')).toBe(once)
     expect(once).not.toContain('panel-b')
+  })
+
+  it('keys the rest of a mixed sheet when one rule merely mentions the attribute', () => {
+    // Same class as the early-return it replaces: the old check treated ANY
+    // authored occurrence of `[data-liebe-instance="` as already-keyed, so one
+    // unrelated rule with that literal left the REST of the sheet under the
+    // unkeyed scope — and panel A's custom CSS styled panel B's overlays
+    // again. Only the exact scope prefix this function emits counts.
+    const portal = mirrored(
+      '.a[data-liebe-instance="someone-else"] { color: red } .b { color: blue }'
+    )
+    const keyed = scopePortalCssToInstance(portal, 'panel-a')
+
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"] :is(.b)')
+    expect(keyed).not.toContain('.liebe-portal-root:is(.b)')
+    expect(keyed).toContain('color: blue')
+  })
+
+  it('never rewrites declaration values, only selectors', () => {
+    // The old global string replacement keyed VALUES too: a
+    // `content: ".liebe-portal-root"` a theme-shaped sheet paints into an
+    // `::after` came out with the attribute selector inside the displayed
+    // text. Only selectors move; custom CSS stays authored otherwise.
+    const portal = mirrored('.liebe-card::after { content: ".liebe-portal-root" }')
+    const keyed = scopePortalCssToInstance(portal, 'panel-a')
+
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"]:is(.liebe-card)::after')
+    expect(keyed).toContain('content: ".liebe-portal-root"')
+    expect(keyed).not.toContain('content: ".liebe-portal-root[data-liebe-instance')
   })
 })
 

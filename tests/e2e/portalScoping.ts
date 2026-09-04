@@ -70,7 +70,11 @@ function endOfString(text: string, start: number): number {
  * descendant of it as the subject. Anything after the closing parenthesis is
  * the pseudo-element tail, which does not move the subject.
  */
-const BOUNDED_PREFIXES = ['.liebe-portal-root:is(', '.liebe-portal-root :is(']
+const BOUNDED_PREFIXES = [
+  '.liebe-portal-root:is(',
+  '.liebe-portal-root :is(',
+  '.liebe-portal-root[data-liebe-instance=',
+]
 
 /**
  * The selectors that are NOT confined to the portal container — what a real

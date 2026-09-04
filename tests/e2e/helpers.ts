@@ -730,10 +730,14 @@ export async function shadowAttribute(
 // the shadow root — a shadow root does not load faces declared inside it — and
 // its `url()`s are the asset base as the real install resolved it.
 export async function fontRegistrationCss(page: Page, themeId: string): Promise<string> {
+  // Per-instance since change 0036 PR 7: each panel registers its own family
+  // (`Antonio__<instance>`), so the helper concatenates every matching sheet
+  // rather than reading one global registration.
   return page.evaluate(
     (id) =>
-      document.head.querySelector(`style[data-liebe="fonts"][data-liebe-theme="${id}"]`)
-        ?.textContent ?? '',
+      [...document.head.querySelectorAll(`style[data-liebe="fonts"][data-liebe-theme="${id}"]`)]
+        .map((style) => style.textContent ?? '')
+        .join('\n'),
     themeId
   )
 }

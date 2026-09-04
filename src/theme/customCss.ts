@@ -962,18 +962,33 @@ function scopeToPortalRoot(root: Root, instance?: string): { css: string; notice
  * The engine calls this on `sanitizeCustomCss`'s `portalCss` with the panel's
  * mount token before injecting the document-level mirror, so two panels'
  * mirrors match only their own containers. Pass-through for an empty sheet —
- * nothing survived the scoping — and for a sheet whose selectors already carry
- * the token, which keeps the function idempotent across re-injection.
+ * nothing survived the scoping — and for a sheet already keyed to this
+ * instance, which keeps the function idempotent across re-injection.
  *
- * Textual by design: the sheet is already serialised inside its layer, and
- * re-parsing it here would redo the scoping `sanitizeCustomCss` owns. The
- * unkeyed prefix is emitted in exactly one shape (see `scopeSelector`), so a
- * plain replacement keys every selector it produced without touching anything
- * else in the sheet — grouping at-rules, declarations, pseudo-element tails.
+ * Parsed, not textual: the sheet is re-parsed with postcss and only SELECTORS
+ * are rewritten — declaration values (a `content: ".liebe-portal-root"` a
+ * theme-shaped sheet paints into an `::after`, a `url()`, a custom property)
+ * are never touched. Likewise the already-keyed check looks only for the
+ * exact scope prefix this function emits
+ * (`.liebe-portal-root[data-liebe-instance="…"]`), never for a bare mention
+ * of the attribute: one unrelated authored rule naming the attribute must not
+ * leave the rest of the sheet under the unkeyed scope matching both panels.
  */
 export function scopePortalCssToInstance(portalCss: string, instance: string): string {
-  if (portalCss === '' || portalCss.includes(`[${LIEBE_INSTANCE_ATTRIBUTE}="`)) return portalCss
-  return portalCss.split(`.${PORTAL_ROOT_CLASS}`).join(`.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`)
+  if (portalCss === '') return portalCss
+  const keyedPrefix = `.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+  const root = postcss.parse(portalCss)
+  root.walkRules((rule) => {
+    rule.selector = list
+      .comma(rule.selector)
+      .map((part) =>
+        part.includes(keyedPrefix)
+          ? part
+          : part.split(`.${PORTAL_ROOT_CLASS}`).join(keyedPrefix)
+      )
+      .join(', ')
+  })
+  return root.toString()
 }
 
 /**
