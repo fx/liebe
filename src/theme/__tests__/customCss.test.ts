@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import postcss, { list } from 'postcss'
-import { sanitizeCustomCss, scanValue, unescapeCss } from '../customCss'
+import { sanitizeCustomCss, scanValue, scopePortalCssToInstance, unescapeCss } from '../customCss'
 import { isFullyLayered, USER_LAYER } from '../cssLayers'
 
 /**
@@ -612,6 +612,28 @@ describe('sanitizeCustomCss — the document-level mirror', () => {
     // Same structural guarantee as the in-panel sheet: it is serialised from
     // the AST inside the layer block, so the rewrite cannot have let a rule out.
     expect(isFullyLayered(mirrored('body { display: none } .a { color: red }'))).toBe(true)
+  })
+
+  it("keys a portal sheet to one panel's container, and nothing else moves", () => {
+    // The second half of the two-panel keying (change 0036 PR 7): the engine
+    // keys the already-sanitized portal sheet to the panel's own container
+    // before injecting the document-level mirror, so one panel's custom CSS
+    // stops styling the other's overlays. The key narrows WHICH container —
+    // never WHAT the selectors may match, which the scoping above owns.
+    const keyed = scopePortalCssToInstance(mirrored('.liebe-root { --x: 1 }'), 'panel-a')
+
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"]:is(.liebe-root)')
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"] :is(.liebe-root)')
+    expect(keyed).not.toContain('.liebe-portal-root:is(')
+    expect(isFullyLayered(keyed)).toBe(true)
+  })
+
+  it('leaves an empty sheet and an already-keyed sheet alone', () => {
+    expect(scopePortalCssToInstance('', 'panel-a')).toBe('')
+
+    const once = scopePortalCssToInstance(mirrored('.a { color: red }'), 'panel-a')
+    expect(scopePortalCssToInstance(once, 'panel-b')).toBe(once)
+    expect(once).not.toContain('panel-b')
   })
 })
 

@@ -17,6 +17,7 @@
  */
 
 import type { ThemeDefinition } from './themeRegistry'
+import { LIEBE_INSTANCE_ATTRIBUTE } from './rootSelectors'
 
 /** The `data-liebe` slot marking a document-level font registration. */
 export const FONT_STYLE_SLOT = 'fonts'
@@ -56,18 +57,27 @@ function assetBaseUrl(): string {
  * when something renders in it), while removing and re-adding one on every
  * switch would drop the loaded font and fetch it again on the way back.
  *
+ * `instance` keys the registration to one panel's mirror, alongside the other
+ * two slots (change 0036 PR 7): two panels registering the same theme's faces
+ * would otherwise share one element, and the last panel to render would own
+ * the asset-base text for both. Omitted, the lookup is the historical
+ * slot-plus-theme shape, which is what single-panel trees and unit tests use.
+ *
  * Returns the `<style>` element, or `null` when there is nothing to register —
  * a theme with no bundled font, or a tree that is not in a document yet.
  */
 export function registerThemeFonts(
   theme: ThemeDefinition,
-  doc: Document | null | undefined
+  doc: Document | null | undefined,
+  instance?: string
 ): HTMLStyleElement | null {
   if (!theme.fontFaces || !doc) return null
 
   const css = theme.fontFaces.split(ASSET_BASE_PLACEHOLDER).join(assetBaseUrl())
   const existing = doc.head.querySelector<HTMLStyleElement>(
-    `style[data-liebe="${FONT_STYLE_SLOT}"][data-liebe-theme="${theme.id}"]`
+    instance
+      ? `style[data-liebe="${FONT_STYLE_SLOT}"][data-liebe-theme="${theme.id}"][${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+      : `style[data-liebe="${FONT_STYLE_SLOT}"][data-liebe-theme="${theme.id}"]`
   )
 
   if (existing) {
@@ -80,6 +90,7 @@ export function registerThemeFonts(
   const style = doc.createElement('style')
   style.setAttribute('data-liebe', FONT_STYLE_SLOT)
   style.setAttribute('data-liebe-theme', theme.id)
+  if (instance) style.setAttribute(LIEBE_INSTANCE_ATTRIBUTE, instance)
   style.textContent = css
   doc.head.appendChild(style)
 

@@ -13,20 +13,23 @@
  * addressed through the same call so the workshop injects exactly what the
  * panel injects.
  *
- * **A known limit of the document-level mirror, which the user layer inherits
- * rather than introduces.** The slots below are keyed by name alone, so two
- * Liebe panels mounted in one Home Assistant document — the production and dev
- * panels side by side, which `panel_custom` allows and AGENTS.md describes for
- * development — share `style[data-liebe="theme"]` and `style[data-liebe="user"]`
- * and the last one to render wins for both. The mirrored rules match on
- * `.liebe-root` / `.liebe-portal-root`, which both panels carry, so one panel's
- * theme and custom CSS reach the other's overlays. Making the mirror
- * per-instance means an instance token on the slot AND on the container's
- * scope, for all three layers; it is a change to the mechanism rather than to
- * this call, and it is not what change 0036 PR 2 is.
+ * **Two panels, one document.** The document-level mirror is keyed per panel
+ * instance, not by slot name alone (change 0036 PR 7): `panel_custom` lets the
+ * production and dev panels mount side by side, and the panel resists removal,
+ * so both can live in one Home Assistant document at once. Every mirror
+ * element carries `data-liebe-instance="<token>"` alongside its slot, generated
+ * per panel mount (`src/theme/rootSelectors.ts`), and each panel's container
+ * carries the same token — so the last panel to render rewrites only its own
+ * element, and each panel's mirrored rules match only its own container. The
+ * user layer inherits the scoping rather than introducing it: theme CSS is
+ * first-party, but its rules match on `.liebe-root` too, which both panels
+ * carry, so a slot alone would still leave both sheets matching both
+ * containers.
  */
 
+import { scopePortalCssToInstance } from './customCss'
 import { THEME_LAYER, wrapInLayer } from './cssLayers'
+import { LIEBE_INSTANCE_ATTRIBUTE } from './rootSelectors'
 
 /** Roots a Liebe tree can be mounted in. */
 export type StyleRoot = Document | ShadowRoot
@@ -52,19 +55,33 @@ function styleHost(root: StyleRoot): Element | ShadowRoot {
 /**
  * Injects (or updates) one layer's `<style>` element in `root`.
  *
- * Idempotent by slot: the element is found by its `data-liebe` marker and
- * rewritten, so a theme switch swaps the CSS text of the element already in the
- * root instead of stacking sheets whose precedence would then depend on
- * insertion order.
+ * Idempotent by slot — and, where the document holds mirrors for more than one
+ * panel, by slot AND instance: the element is found by its `data-liebe` marker
+ * plus `data-liebe-instance` when an instance token is given, and rewritten, so
+ * a theme switch swaps the CSS text of the element already in the root instead
+ * of stacking sheets whose precedence would then depend on insertion order. A
+ * second panel's mirror with a different token is a different element and is
+ * never touched. Omitting the token keeps the historical slot-only lookup,
+ * which is what the in-shadow-root sheets and the document-root workshop still
+ * use — those roots belong to exactly one panel, so there is nothing to tell
+ * apart in them.
  */
-function applyLayerStyle(root: StyleRoot, slot: string, css: string): HTMLStyleElement {
+function applyLayerStyle(
+  root: StyleRoot,
+  slot: string,
+  css: string,
+  instance?: string
+): HTMLStyleElement {
   const host = styleHost(root)
-  const selector = `style[data-liebe="${slot}"]`
+  const selector = instance
+    ? `style[data-liebe="${slot}"][${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+    : `style[data-liebe="${slot}"]`
   const existing = host.querySelector<HTMLStyleElement>(selector)
   const style = existing ?? host.ownerDocument.createElement('style')
 
   if (!existing) {
     style.setAttribute('data-liebe', slot)
+    if (instance) style.setAttribute(LIEBE_INSTANCE_ATTRIBUTE, instance)
     host.appendChild(style)
   }
 
@@ -81,9 +98,15 @@ function applyLayerStyle(root: StyleRoot, slot: string, css: string): HTMLStyleE
  * Built-in themes are authored inside their layer, so `wrapInLayer` normally
  * only prepends the order statement — but it also means a theme payload that
  * forgot its `@layer` block cannot land unlayered and outrank everything.
+ * The instance token keys the DOCUMENT-level mirror element; the in-root sheet
+ * belongs to exactly one panel and takes none.
  */
-export function applyThemeCss(root: StyleRoot, css: string): HTMLStyleElement {
-  return applyLayerStyle(root, THEME_STYLE_SLOT, wrapInLayer(css, THEME_LAYER))
+export function applyThemeCss(
+  root: StyleRoot,
+  css: string,
+  instance?: string
+): HTMLStyleElement {
+  return applyLayerStyle(root, THEME_STYLE_SLOT, wrapInLayer(css, THEME_LAYER), instance)
 }
 
 /**
@@ -94,8 +117,12 @@ export function applyThemeCss(root: StyleRoot, css: string): HTMLStyleElement {
  * repairs it, because there is only one thing that may be injected as the user
  * layer and this is not the module that decides what that is.
  */
-export function applyUserCss(root: StyleRoot, css: string): HTMLStyleElement {
-  return applyLayerStyle(root, USER_STYLE_SLOT, css)
+export function applyUserCss(
+  root: StyleRoot,
+  css: string,
+  instance?: string
+): HTMLStyleElement {
+  return applyLayerStyle(root, USER_STYLE_SLOT, css, instance)
 }
 
 /**
@@ -113,8 +140,11 @@ export function applyUserCss(root: StyleRoot, css: string): HTMLStyleElement {
  * child of `document.body` and so outside every layer injected here. What gets
  * mirrored through THIS function is the *theme* layer, and only that:
  * `applyThemeCssToRootOf` is the sole caller. It is safe to copy as authored
- * because theme CSS is first-party and every rule in it is scoped to
- * `.liebe-root`, a class only Liebe's own trees carry.
+ * because theme CSS is first-party — but only once keyed: every rule in it
+ * matches on `.liebe-root`, which both panels' containers carry, so an
+ * unkeyed mirror would style the other panel's overlays too. The keying
+ * happens in `applyThemeCssToRootOf`, which scopes the mirrored copy to this
+ * panel's own container before it leaves the shadow root.
  *
  * The user layer is mirrored too, and it is the one that could NOT be copied as
  * authored: its selectors are the user's, nothing scopes them to Liebe, and a
@@ -136,18 +166,64 @@ function applyLayerToRootOf(
   if (root instanceof ShadowRoot) apply(root.ownerDocument, css)
   return apply(root, css)
 }
+/**
+ * Keys a theme sheet's mirrored copy to one panel's container.
+ *
+ * Every first-party theme rule is scoped to `.liebe-root` (and LCARS adds
+ * `.liebe-portal-root`-adjacent hooks), which both panels' containers carry —
+ * so the slot key alone would leave both sheets matching both containers. The
+ * replacement binds each of those subjects to the panel's own instance token,
+ * the same boundary `scopePortalCssToInstance` keys the user layer at. The
+ * in-shadow-root sheet is never keyed: that root belongs to exactly one panel.
+ *
+ * Textual for the same reason the user-layer keying is: the payload is an
+ * opaque string here, and the two selectors it keys are emitted in exactly one
+ * shape each (`:where(.liebe-root)`, `.liebe-root`, `.liebe-portal-root`).
+ * Grouping at-rules pass through untouched — only the subjects move.
+ */
+function keyThemeCssToInstance(css: string, instance: string): string {
+  const key = `[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+  return css
+    .split(':where(.liebe-root)')
+    .join(`:where(.liebe-root${key})`)
+    .split('.liebe-portal-root')
+    .join(`.liebe-portal-root${key}`)
+    .split('.liebe-root')
+    .join(`.liebe-root${key}`)
+}
 
-/** Applies a theme to whichever root `node` is mounted in. */
+/**
+ * Applies a theme to whichever root `node` is mounted in, keying the
+ * document-level mirror to this panel's container.
+ *
+ * The in-root sheet is the theme CSS as authored; the mirrored copy is the
+ * same sheet with every `.liebe-root` / `.liebe-portal-root` subject further
+ * bound to `data-liebe-instance="<token>"`, so it matches only this panel's
+ * container. Keyed textually here rather than re-derived from the registry,
+ * because the theme payload is an opaque string by the time it arrives — and
+ * because the user layer's keying lives in `sanitizeCustomCss`'s own output
+ * (`scopePortalCssToInstance`), so both mirrors key the same way at the same
+ * boundary. A document root takes the sheet as-is: the workshop renders one
+ * panel, and its container sits inside that document with everything else.
+ */
 export function applyThemeCssToRootOf(
   node: Node | null | undefined,
-  css: string
+  css: string,
+  instance?: string
 ): HTMLStyleElement | null {
-  return applyLayerToRootOf(node, css, applyThemeCss)
+  const root = node?.getRootNode()
+  if (!isStyleRoot(root)) return null
+
+  if (root instanceof ShadowRoot) {
+    applyThemeCss(root.ownerDocument, instance ? keyThemeCssToInstance(css, instance) : css, instance)
+  }
+  return applyThemeCss(root, css)
 }
 
 /**
  * Applies sanitized custom CSS to whichever root `node` is mounted in, and —
- * from a shadow root — the rewritten copy to the owning document.
+ * from a shadow root — the rewritten copy to the owning document, keyed to
+ * this panel's container.
  *
  * The two sheets are not interchangeable and that is the whole point of the
  * signature. `css` is the sheet as the user authored it, contained by the shadow
@@ -159,6 +235,11 @@ export function applyThemeCssToRootOf(
  * frontend around the panel. Both come from one call to `sanitizeCustomCss`,
  * which is the only thing that may produce either.
  *
+ * `instance` keys the outward copy to this panel's container
+ * (`scopePortalCssToInstance`), the same boundary at which the theme mirror is
+ * keyed — a slot alone leaves both sheets matching both containers, and a scope
+ * alone leaves them overwriting one element, so the two halves land together.
+ *
  * A document root gets `css` alone: there is no shadow boundary to cross, so the
  * document IS the panel's root — the workshop and unit tests — and the container
  * sits inside it with everything else.
@@ -166,11 +247,18 @@ export function applyThemeCssToRootOf(
 export function applyUserCssToRootOf(
   node: Node | null | undefined,
   css: string,
-  portalCss: string
+  portalCss: string,
+  instance?: string
 ): HTMLStyleElement | null {
   const root = node?.getRootNode()
   if (!isStyleRoot(root)) return null
 
-  if (root instanceof ShadowRoot) applyUserCss(root.ownerDocument, portalCss)
+  if (root instanceof ShadowRoot) {
+    applyUserCss(
+      root.ownerDocument,
+      instance ? scopePortalCssToInstance(portalCss, instance) : portalCss,
+      instance
+    )
+  }
   return applyUserCss(root, css)
 }

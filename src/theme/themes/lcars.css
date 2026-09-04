@@ -531,16 +531,19 @@
    * a block — LCARS is dark-only, so there is no second appearance to answer
    * for.
    *
-   * The person card is excepted, because its anchor IS a disc: the base layer
-   * keeps the initials avatar's background for exactly that reason, and this
-   * rule would clear it again from a later layer. The exception is by domain
-   * rather than by the class the base sheet uses, because a theme may name
-   * only the stable selector contract — `data-domain` is in it, an avatar
-   * class is not — so LCARS leaves every person circle on its own okudagram
-   * treatment, which is the disc the contract asks for.
-   */
-  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon,
-  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
+  * The initials disc is excepted, because its anchor IS a disc: the base layer
+  * keeps that circle's background for exactly that reason, and this rule would
+  * clear it again from a later layer. The exception names the anchor FORM
+  * (`data-avatar='initials'`) rather than the domain, because that is what the
+  * base layer's own exception turns on — a person card falling back to the
+  * glyph circle (an `icon` override, or a name yielding no initials) IS an
+  * ordinary glyph circle and takes the ordinary treatment, instead of keeping
+  * a solid disc on an already-tinted tile under a whole-domain exception
+  * (change 0036, identity-disc hook). A theme may name only the stable
+  * selector contract, and `data-avatar` is in it where an avatar class is not.
+  */
+  .liebe-card[data-icon-tile] .liebe-icon:not([data-avatar='initials']),
+  .liebe-card[data-icon-tile] .liebe-icon[data-active]:not([data-avatar='initials']) {
     background: none;
   }
 
@@ -576,15 +579,15 @@
    * is also why it is the more honest statement: the theme is declining to
    * override, not reaching for a value.
    *
-   * Note what is NOT the fix. `contrast-color()` answers the disc above, where
-   * the ground IS the hue; on this tile the ground is a 20% tint of the hue over
-   * the card, so a foreground chosen against the hue is chosen against the wrong
-   * colour — for a yellow bulb it picks black, which lands at 1.6:1 on the
-   * near-black tint. Deleting this rule is not the fix either: the theme's own
-   * disc rule above would then apply, putting `--lcars-black` on a tile that has
-   * no disc.
-   */
-  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
+  * Note what is NOT the fix. `contrast-color()` answers the disc above, where
+  * the ground IS the hue; on this tile the ground is a 20% tint of the hue over
+  * the card, so a foreground chosen against the hue is chosen against the wrong
+  * colour — for a yellow bulb it picks black, which lands at 1.6:1 on the
+  * near-black tint. Deleting this rule is not the fix either: the theme's own
+  * disc rule above would then apply, putting `--lcars-black` on a tile that has
+  * no disc.
+  */
+  .liebe-card[data-icon-tile] .liebe-icon[data-active]:not([data-avatar='initials']) {
     color: revert-layer;
   }
 

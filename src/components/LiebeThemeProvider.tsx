@@ -1,5 +1,5 @@
 import { Theme } from '@radix-ui/themes'
-import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { PortalHost } from '~/components/ui/portals'
 import { useCameraFullscreenActive, CAMERA_FULLSCREEN_Z_INDEX } from '~/store/cameraFullscreenStore'
 import { sanitizeCustomCss } from '~/theme/customCss'
@@ -78,6 +78,16 @@ export function LiebeThemeProvider({
   const cameraFullscreenActive = useCameraFullscreenActive()
 
   const themeRoot = useRef<HTMLDivElement>(null)
+  // The document-level mirror's instance key: stable per mount, unique per
+  // panel tree, so two panels in one Home Assistant document key their mirrors
+  // — and their portal containers — to different tokens (change 0036 PR 7).
+  // `useId` is stable across re-renders and unique across trees; the colons it
+  // emits are stripped so the value reads cleanly in the selectors it is
+  // keyed into. The SAME token goes to the container below and to both mirror
+  // writes, which is what makes one panel's sheets match only its own
+  // container — the slot alone leaves both sheets matching both containers,
+  // and the scope alone leaves them overwriting one element.
+  const instance = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   // Stamped from the theme that is actually rendered, not from what was asked
   // for: an unregistered id falls back to Default, and a stamp naming the
   // missing theme would leave that theme's scoped rules addressing a palette
@@ -91,8 +101,8 @@ export function LiebeThemeProvider({
   // to the panel's root, and removing it would strip the theme from a tree that
   // is only remounting.
   useLayoutEffect(() => {
-    applyThemeCssToRootOf(themeRoot.current, themeCss)
-  }, [themeCss])
+    applyThemeCssToRootOf(themeRoot.current, themeCss, instance)
+  }, [themeCss, instance])
 
   // A theme's bundled typeface goes into the OWNING DOCUMENT, not into the root
   // the theme layer lands in: a shadow root does not load `@font-face` declared
@@ -102,8 +112,8 @@ export function LiebeThemeProvider({
   // and outlives the switch away, so remounting the panel neither stacks sheets
   // nor re-fetches the font.
   useLayoutEffect(() => {
-    registerThemeFonts(activeTheme, themeRoot.current?.ownerDocument)
-  }, [activeTheme])
+    registerThemeFonts(activeTheme, themeRoot.current?.ownerDocument, instance)
+  }, [activeTheme, instance])
 
   // Parsing is not free, and the same CSS arrives on every render of every
   // consumer of the store.
@@ -115,8 +125,8 @@ export function LiebeThemeProvider({
     // dashboard is already wearing. The editor is where the rejection is
     // reported (`sanitizeCustomCss` returns the notices).
     if (sanitized.rejected) return
-    applyUserCssToRootOf(themeRoot.current, sanitized.css, sanitized.portalCss)
-  }, [sanitized])
+    applyUserCssToRootOf(themeRoot.current, sanitized.css, sanitized.portalCss, instance)
+  }, [sanitized, instance])
 
   return (
     <Theme
@@ -137,7 +147,7 @@ export function LiebeThemeProvider({
        * context, which is what makes it a NESTED theme and so free of the root
        * theme's stacking context.
        */}
-      <PortalHost themeId={activeThemeId} appearance={appearance}>
+      <PortalHost themeId={activeThemeId} appearance={appearance} instance={instance}>
         {children}
       </PortalHost>
     </Theme>

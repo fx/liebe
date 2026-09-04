@@ -88,6 +88,10 @@ const CONTRACT_ATTRIBUTES = new Set([
   // Stamped by change 0033; the theme needs it to reach the icon-only tile,
   // whose treatment its own icon rules would otherwise undo.
   'data-icon-tile',
+  // Stamped by change 0036 (identity-disc hook); the theme needs it to tell
+  // the initials identity disc — whose background the base layer keeps — from
+  // a glyph circle its own icon-tile rule clears.
+  'data-avatar',
 ])
 
 const sheetSelectors = selectors(rules)
@@ -371,13 +375,19 @@ describe('LCARS stylesheet', () => {
       )
     ).toBe(true)
 
-    // …and gives way in turn to the person card, whose anchor IS a disc. The
-    // base layer keeps that one's background; a theme rule clearing every
-    // `.liebe-icon` would win across layers and leave bare initials on the
-    // tinted tile. The exception is by domain because that is the vocabulary a
-    // theme is allowed — `data-domain` is contract, an avatar class is not.
+    // …and gives way in turn to the initials identity disc, whose anchor IS a
+    // disc. The base layer keeps that one's background; a theme rule clearing
+    // every `.liebe-icon` would win across layers and leave bare initials on
+    // the tinted tile. The exception names the anchor FORM
+    // (`:not([data-avatar='initials'])`) rather than the domain, because that
+    // is what the base layer's own exception turns on: a person card falling
+    // back to the glyph circle (an `icon` override, or a name yielding no
+    // initials) IS an ordinary glyph circle and takes the ordinary treatment,
+    // instead of keeping a solid disc on an already-tinted tile under a
+    // whole-domain exception (change 0036, identity-disc hook). `data-avatar`
+    // is contract where an avatar class is not.
     expect(
-      iconOnlyRules.every(({ selector }) => selector.includes(":not([data-domain='person'])"))
+      iconOnlyRules.every(({ selector }) => selector.includes(":not([data-avatar='initials'])"))
     ).toBe(true)
   })
 

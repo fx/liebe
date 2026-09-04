@@ -104,6 +104,74 @@ describe('applyThemeCss', () => {
     expect(document.head.querySelectorAll(SLOT_SELECTOR)).toHaveLength(1)
   })
 
+  it("keys two panels' mirrors to their own slots and their own containers", () => {
+    // `panel_custom` lets the production and dev panels mount side by side in
+    // one Home Assistant document. Keyed by slot NAME alone, the last panel to
+    // render wins for both — and the mirrored rules match on `.liebe-root`,
+    // which both panels' containers carry, so one panel's theme styles the
+    // other's overlays (change 0036 PR 7). Both halves have to land together:
+    // a slot alone leaves both sheets matching both containers, and a scope
+    // alone leaves them overwriting one element.
+    const first = shadowRoot()
+    const second = shadowRoot()
+    const firstChild = document.createElement('div')
+    const secondChild = document.createElement('div')
+    first.appendChild(firstChild)
+    second.appendChild(secondChild)
+
+    applyThemeCssToRootOf(
+      firstChild,
+      '@layer liebe-theme { :where(.liebe-root) { --liebe-bg: red } }',
+      'panel-a'
+    )
+    applyThemeCssToRootOf(
+      secondChild,
+      '@layer liebe-theme { :where(.liebe-root) { --liebe-bg: blue } }',
+      'panel-b'
+    )
+
+    // Two mirror elements, not one rewritten twice: each panel owns its slot.
+    const mirrors = [...document.head.querySelectorAll(SLOT_SELECTOR)]
+    expect(mirrors).toHaveLength(2)
+    const texts = mirrors.map((style) => style.textContent ?? '')
+    expect(texts.some((text) => text.includes('--liebe-bg: red'))).toBe(true)
+    expect(texts.some((text) => text.includes('--liebe-bg: blue'))).toBe(true)
+
+    // …and each copy is scoped to its own container, so neither sheet matches
+    // the other's overlays.
+    const red = texts.find((text) => text.includes('--liebe-bg: red')) ?? ''
+    const blue = texts.find((text) => text.includes('--liebe-bg: blue')) ?? ''
+    expect(red).toContain('.liebe-root[data-liebe-instance="panel-a"]')
+    expect(red).not.toContain('panel-b')
+    expect(blue).toContain('.liebe-root[data-liebe-instance="panel-b"]')
+    expect(blue).not.toContain('panel-a')
+
+    // The in-root sheets stay as authored: that root belongs to exactly one
+    // panel, so there is nothing to tell apart in it.
+    expect(first.querySelector(SLOT_SELECTOR)?.textContent).toContain(':where(.liebe-root)')
+    expect(first.querySelector(SLOT_SELECTOR)?.textContent).not.toContain('data-liebe-instance')
+  })
+
+  it("re-renders one panel's mirror without touching the other's", () => {
+    const first = shadowRoot()
+    const second = shadowRoot()
+    const firstChild = document.createElement('div')
+    const secondChild = document.createElement('div')
+    first.appendChild(firstChild)
+    second.appendChild(secondChild)
+
+    applyThemeCssToRootOf(firstChild, '@layer liebe-theme { .a { color: red } }', 'panel-a')
+    applyThemeCssToRootOf(secondChild, '@layer liebe-theme { .a { color: blue } }', 'panel-b')
+    applyThemeCssToRootOf(firstChild, '@layer liebe-theme { .a { color: green } }', 'panel-a')
+
+    const texts = [...document.head.querySelectorAll(SLOT_SELECTOR)].map(
+      (style) => style.textContent ?? ''
+    )
+    expect(texts).toHaveLength(2)
+    expect(texts.some((text) => text.includes('color: green'))).toBe(true)
+    expect(texts.some((text) => text.includes('color: blue'))).toBe(true)
+  })
+
   it('does nothing for a node that is in no root yet', () => {
     // A tree rendered into a detached container, or one mid-mount: there is
     // nowhere to hold a stylesheet, and that must not throw.
@@ -223,5 +291,43 @@ describe('the mirror boundary', () => {
     expect(root.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(HOSTILE_USER_CSS)
     expect(document.head.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(SCOPED_USER_CSS)
     expect(document.head.textContent).not.toContain('\nbody {')
+  })
+
+  it("keys the user mirror to one panel's container", () => {
+    // The same two-panel setup as the theme mirror above, for the user layer:
+    // one panel's custom CSS must not style the other's overlays, and the
+    // containment bound still holds — the key narrows WHICH container, never
+    // WHAT the selectors may match.
+    const first = shadowRoot()
+    const second = shadowRoot()
+    const firstChild = document.createElement('div')
+    const secondChild = document.createElement('div')
+    first.appendChild(firstChild)
+    second.appendChild(secondChild)
+
+    const firstScoped = SCOPED_USER_CSS.replaceAll(
+      '.liebe-portal-root',
+      '.liebe-portal-root[data-liebe-instance="panel-a"]'
+    )
+    const secondScoped = SCOPED_USER_CSS.replaceAll(
+      '.liebe-portal-root',
+      '.liebe-portal-root[data-liebe-instance="panel-b"]'
+    )
+
+    applyUserCssToRootOf(firstChild, HOSTILE_USER_CSS, firstScoped, 'panel-a')
+    applyUserCssToRootOf(secondChild, HOSTILE_USER_CSS, secondScoped, 'panel-b')
+
+    const mirrors = [...document.head.querySelectorAll(USER_SLOT_SELECTOR)]
+    expect(mirrors).toHaveLength(2)
+    const texts = mirrors.map((style) => style.textContent ?? '')
+    expect(texts.some((text) => text.includes('panel-a'))).toBe(true)
+    expect(texts.some((text) => text.includes('panel-b'))).toBe(true)
+    for (const text of texts) {
+      expect(text).toContain('display: none')
+      expect(text).not.toContain('\nbody {')
+    }
+
+    // The in-root sheets stay as authored: the shadow boundary contains them.
+    expect(first.querySelector(USER_SLOT_SELECTOR)?.textContent).toBe(HOSTILE_USER_CSS)
   })
 })

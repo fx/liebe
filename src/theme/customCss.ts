@@ -71,7 +71,7 @@ import postcss, {
   type Rule,
 } from 'postcss'
 import { LAYER_ORDER_STATEMENT, USER_LAYER } from './cssLayers'
-import { LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from './rootSelectors'
+import { LIEBE_INSTANCE_ATTRIBUTE, LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from './rootSelectors'
 
 /**
  * The token namespace Liebe defines and therefore vouches for.
@@ -128,6 +128,10 @@ export interface CustomCssResult {
    * `liebe-portal-root` container — what the engine injects into the Home
    * Assistant document so overlays get the user layer too. Empty exactly when
    * `css` is. See {@link scopeToPortalRoot}.
+   *
+   * Unkeyed: it matches every panel's container, which is how the single-panel
+   * case has always worked. The engine keys it to one panel's container with
+   * {@link scopePortalCssToInstance} before injecting a document-level mirror.
    */
   portalCss: string
   /** Everything stripped or rejected, named — one sentence each. */
@@ -814,16 +818,21 @@ function isScopableRule(rule: Rule): boolean {
  * `:is()` is also forgiving, which is the safe direction here: a selector the
  * document cannot parse — `:host` out of a shadow root, most obviously — is
  * dropped from the match rather than taking the rule with it.
+ *
+ * With an instance token the scope carries it on both prefixes, so a keyed
+ * sheet matches one panel's container and its descendants and nothing else —
+ * including not the other panel's container. Without one the scope is the bare
+ * container class, the historical shape matching every panel's container.
  */
-function scopeSelector(selector: string): string {
+function scopeSelector(selector: string, instance?: string): string {
+  const scope = instance
+    ? `.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+    : `.${PORTAL_ROOT_CLASS}`
   return list
     .comma(selector)
     .flatMap((part) => {
       const { subject, pseudoElement } = splitPseudoElement(part)
-      return [
-        `.${PORTAL_ROOT_CLASS}:is(${subject})${pseudoElement}`,
-        `.${PORTAL_ROOT_CLASS} :is(${subject})${pseudoElement}`,
-      ]
+      return [`${scope}:is(${subject})${pseudoElement}`, `${scope} :is(${subject})${pseudoElement}`]
     })
     .join(', ')
 }
@@ -925,7 +934,7 @@ function startsLegacyPseudoElement(rest: string): boolean {
  * dialog, with nothing said. The spec's rule that everything stripped is named
  * covers it.
  */
-function scopeToPortalRoot(root: Root): { css: string; notices: string[] } {
+function scopeToPortalRoot(root: Root, instance?: string): { css: string; notices: string[] } {
   const scoped = root.clone()
   const notices: string[] = []
 
@@ -941,10 +950,30 @@ function scopeToPortalRoot(root: Root): { css: string; notices: string[] } {
   }
 
   scoped.walkRules((rule) => {
-    if (isScopableRule(rule)) rule.selector = scopeSelector(rule.selector)
+    if (isScopableRule(rule)) rule.selector = scopeSelector(rule.selector, instance)
   })
 
   return { css: scoped.toString().trim(), notices }
+}
+
+/**
+ * Keys an already-sanitized portal sheet to one panel's container.
+ *
+ * The engine calls this on `sanitizeCustomCss`'s `portalCss` with the panel's
+ * mount token before injecting the document-level mirror, so two panels'
+ * mirrors match only their own containers. Pass-through for an empty sheet —
+ * nothing survived the scoping — and for a sheet whose selectors already carry
+ * the token, which keeps the function idempotent across re-injection.
+ *
+ * Textual by design: the sheet is already serialised inside its layer, and
+ * re-parsing it here would redo the scoping `sanitizeCustomCss` owns. The
+ * unkeyed prefix is emitted in exactly one shape (see `scopeSelector`), so a
+ * plain replacement keys every selector it produced without touching anything
+ * else in the sheet — grouping at-rules, declarations, pseudo-element tails.
+ */
+export function scopePortalCssToInstance(portalCss: string, instance: string): string {
+  if (portalCss === '' || portalCss.includes(`[${LIEBE_INSTANCE_ATTRIBUTE}="`)) return portalCss
+  return portalCss.split(`.${PORTAL_ROOT_CLASS}`).join(`.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`)
 }
 
 /**
