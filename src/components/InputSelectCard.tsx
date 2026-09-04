@@ -60,9 +60,10 @@ interface SelectHelperControlProps {
   /** Reaches the pill group, so the tile tap can focus its first live pill. */
   pillGroupRef?: Ref<HTMLDivElement>
   /**
-   * Whether the dropdown is open. Owned by the caller, so a tap on the tile
-   * can open the menu the same way the trigger does. Absent — `undefined` —
-   * the menu owns it as before, which is what the detail dialog relies on.
+   * Whether the dropdown menu is open. Owned by the caller, so a tap on the
+   * tile can open the menu the same way the trigger does. Absent —
+   * `undefined` — the control falls back to its own internal open state,
+   * which is what the detail dialog relies on.
    */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -95,11 +96,11 @@ export function SelectHelperControl({
   const currentValue = entity.state
   const helperName = attributes.friendly_name || entity.entity_id.split('.')[1]
   // A controlled caller (the card, driving the tile tap) owns the open state;
-  // the dialog mounts the control bare and the menu owns it itself.
+  // the dialog mounts the control bare and it falls back to its own internal
+  // one there.
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const open = openProp ?? uncontrolledOpen
   const handleOpenChange = onOpenChange ?? setUncontrolledOpen
-
   if (presentation === 'pills') {
     return (
       <PillGroup label={helperName} groupRef={pillGroupRef}>
@@ -271,9 +272,11 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
     }
     // Focus first for the keyboard path, then open: opening moves focus into
     // the menu itself, and a trigger that never takes focus leaves a
-    // keyboard opener with no visible anchor when the menu closes.
+    // keyboard opener with no visible anchor when the menu closes. Held shut
+    // while the menu cannot open — a dispatch in flight or no options at all
+    // — so a tap cannot arm an open that fires late, after the load lands.
     triggerRef.current?.focus()
-    setIsOpen(true)
+    if (!loading && readSelectOptions(attributesForPresentation).length > 0) setIsOpen(true)
     return undefined
   }
 
