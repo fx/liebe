@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNowMinute } from '~/hooks/useNow'
+import { NOW_60S_MS, useNowTimestamp } from '~/hooks/useNow'
 import type { ServiceCallResult } from '~/services/hassService'
 import type { EntityAttributes } from '~/store/entityTypes'
 import { formatLastActivated, readActivationTimestamp } from './actions'
@@ -104,9 +104,8 @@ export function useLastActivated(
 ): string | null {
   // Same shared 60s clock as the since-lines: one wheel for every per-minute
   // consumer on the dashboard.
-  const tick = useNowMinute(enabled)
-  void tick
+  const now = useNowTimestamp(NOW_60S_MS, enabled)
 
   if (!enabled) return null
-  return formatLastActivated(readActivationTimestamp(domain, state, attributes), Date.now())
+  return formatLastActivated(readActivationTimestamp(domain, state, attributes), now)
 }

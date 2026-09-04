@@ -1,6 +1,6 @@
 import { Card, Flex, Text } from '@radix-ui/themes'
 import { useEffect, useState } from 'react'
-import { subscribeSecondTick, useNowSecond } from '~/hooks/useNow'
+import { subscribeSecondTick } from '~/hooks/useNow'
 import { getPlaybackQuality } from './videoQuality'
 
 export interface CameraStatsProps {
@@ -41,10 +41,8 @@ export function CameraStats({ size, videoElement }: CameraStatsProps) {
   // Shared 1s clock: every stats overlay samples in the same commit instead
   // of each owning a 1s interval at its own phase. The FPS math still reads
   // `Date.now()` per tick — the shared tick decides WHEN it samples, never
-  // what the rate is.
-  const secondTick = useNowSecond(videoElement !== null)
-  void secondTick
-
+  // what the rate is. Subscription lives in the effect below (commit phase),
+  // so a null video element holds no subscription and pays no wake.
   useEffect(() => {
     if (!videoElement) return
 

@@ -3,10 +3,12 @@ import { render, act } from '@testing-library/react'
 import {
   useNow,
   useNowSecond,
+  useNowTimestamp,
   NOW_1S_MS,
   NOW_60S_MS,
   resetClocksForTests,
   clockIntervalCountForTests,
+  clockStoreForTests,
 } from '../useNow'
 
 // PR 2 probes: the shared clocks MUST wake N consumers with one interval, and
@@ -104,6 +106,56 @@ describe('useNow shared clocks', () => {
       vi.advanceTimersByTime(NOW_1S_MS * 5)
     })
     expect(renders).toBe(1)
+  })
+
+  it('schedules no timer during render: an abandoned render leaks no interval', () => {
+    vi.useFakeTimers()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+
+    // The store shell is what render touches (via useSyncExternalStore's
+    // getSnapshot path): looking it up must allocate a listener set and
+    // nothing else. Only the commit-phase subscribe may start the timer.
+    const store = clockStoreForTests(NOW_1S_MS)
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+    expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(0)
+
+    // The abandoned render never subscribes — still no timer.
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+
+    // The committed subscriber starts exactly one interval; its release stops
+    // it, so teardown is guaranteed however the subscriber leaves.
+    const notify = vi.fn()
+    const release = store.subscribe(notify)
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(1)
+
+    release()
+    release()
+    expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(0)
+  })
+
+  it('reads the wall time without an impure render-phase call', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.parse('2026-07-27T12:00:00Z'))
+
+    function Probe({ enabled }: { enabled: boolean }) {
+      const now = useNowTimestamp(NOW_1S_MS, enabled)
+      return <span>{now}</span>
+    }
+    const { container, rerender } = render(<Probe enabled />)
+    expect(container.textContent).toBe(String(Date.parse('2026-07-27T12:00:00Z')))
+
+    act(() => {
+      vi.advanceTimersByTime(NOW_1S_MS)
+    })
+    expect(container.textContent).toBe(String(Date.parse('2026-07-27T12:00:01Z')))
+
+    rerender(<Probe enabled={false} />)
+    const frozen = container.textContent
+    act(() => {
+      vi.advanceTimersByTime(NOW_1S_MS * 5)
+    })
+    expect(container.textContent).toBe(frozen)
   })
 
   it('tears the interval down when the last consumer unmounts', () => {

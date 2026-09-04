@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 /**
  * Shared clocks: one interval per tick rate for the whole panel, replacing one
@@ -10,58 +10,79 @@ import { useEffect, useSyncExternalStore } from 'react'
  * per tick, so those subtrees re-render in the same commit. The 1s and 60s
  * rates are separate clocks because their phases genuinely differ — a per-hour
  * forecast aligned to a 1s phase would re-render sixty times too often.
+ *
+ * Render-phase purity: NOTHING here schedules a timer during render. Looking
+ * up (or creating) a clock entry during render only allocates a listener set —
+ * the interval starts in the subscription path (`clockSubscribe`), which React
+ * invokes from the commit phase via `useSyncExternalStore`, never from render.
+ * A render React abandons therefore leaves an empty entry behind, never a live
+ * timer with no owner. Interval teardown is likewise owned by the
+ * unsubscribe: the last release clears the timer, so teardown is guaranteed
+ * however the subscriber leaves.
  */
-
-interface ClockState {
-  version: number
-  interval: ReturnType<typeof setInterval> | null
-  subscribers: number
-  fire?: () => void
-}
-
-const clocks = new Map<number, ClockState>()
-const stores = new Map<number, { subscribe: (notify: () => void) => () => void }>()
-
-/** The subscription a disabled consumer holds: never notifies, reads zero. */
-const EMPTY_STORE = { subscribe: () => () => {} }
-
-function clockStore(rateMs: number): { subscribe: (notify: () => void) => () => void } {
-  let store = stores.get(rateMs)
-  if (!store) {
-    const listeners = new Set<() => void>()
-    store = {
-      subscribe: (notify: () => void) => {
-        listeners.add(notify)
-        return () => {
-          listeners.delete(notify)
-        }
-      },
-    }
-    stores.set(rateMs, store)
-    // The tick closure reads the map so tests can reset clocks without
-    // leaving a stale listener set behind.
-    const fire = () => {
-      const clock = clocks.get(rateMs)
-      if (!clock) return
-      clock.version += 1
-      for (const listener of [...listeners]) listener()
-    }
-    const clock: ClockState = {
-      version: 0,
-      interval: setInterval(fire, rateMs),
-      subscribers: 0,
-    }
-    clocks.set(rateMs, clock)
-    clock.fire = fire
-  }
-  return store
-}
 
 /** The 1s clock: media progress, camera stats, clock widget. */
 export const NOW_1S_MS = 1000
 
 /** The 60s clock: recency/since lines, last-activated lines. */
 export const NOW_60S_MS = 60_000
+
+const versions = new Map<number, number>()
+const listeners = new Map<number, Set<() => void>>()
+const intervals = new Map<number, ReturnType<typeof setInterval>>()
+
+/** The subscription a disabled consumer holds: never notifies, reads zero. */
+const EMPTY_STORE = { subscribe: () => () => {} }
+
+function ensureEntry(rateMs: number): Set<() => void> {
+  let set = listeners.get(rateMs)
+  if (!set) {
+    set = new Set()
+    listeners.set(rateMs, set)
+    versions.set(rateMs, 0)
+  }
+  return set
+}
+
+function ensureInterval(rateMs: number): void {
+  if (intervals.has(rateMs)) return
+  intervals.set(
+    rateMs,
+    setInterval(() => {
+      versions.set(rateMs, (versions.get(rateMs) ?? 0) + 1)
+      for (const listener of [...(listeners.get(rateMs) ?? [])]) listener()
+    }, rateMs)
+  )
+}
+
+function maybeTeardown(rateMs: number): void {
+  if ((listeners.get(rateMs)?.size ?? 0) > 0) return
+  const interval = intervals.get(rateMs)
+  if (interval === undefined) return
+  clearInterval(interval)
+  intervals.delete(rateMs)
+}
+
+/**
+ * Subscribe `notify` to the clock at `rateMs`, starting the interval on first
+ * subscription. MUST be called from the commit phase (an effect, an event
+ * handler, or `useSyncExternalStore`'s subscribe) — never during render.
+ * Returns the release, which stops the interval once the last subscriber
+ * leaves. Double release is safe and releases nothing further.
+ */
+export function subscribeClockTick(rateMs: number, notify: () => void): () => void {
+  const set = ensureEntry(rateMs)
+  set.add(notify)
+  ensureInterval(rateMs)
+
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    set.delete(notify)
+    maybeTeardown(rateMs)
+  }
+}
 
 /**
  * Imperative subscription to the 1s clock, for sampling owned by an effect
@@ -70,42 +91,40 @@ export const NOW_60S_MS = 60_000
  * one interval, one wake, however many listeners it has.
  */
 export function subscribeSecondTick(run: () => void): () => void {
-  const store = clockStore(NOW_1S_MS)
-  // An imperative listener holds the clock alive like a mounted consumer.
-  const clock = clocks.get(NOW_1S_MS)
-  if (clock) clock.subscribers += 1
-  const notify = () => run()
-  const release = store.subscribe(notify)
-  let released = false
-  return () => {
-    if (released) return
-    released = true
-    release()
-    const current = clocks.get(NOW_1S_MS)
-    if (current) {
-      current.subscribers -= 1
-      if (current.subscribers <= 0) {
-        if (current.interval !== null) clearInterval(current.interval)
-        clocks.delete(NOW_1S_MS)
-        stores.delete(NOW_1S_MS)
-      }
-    }
+  return subscribeClockTick(NOW_1S_MS, run)
+}
+
+/**
+ * The store shell for `useSyncExternalStore`. Render-safe by construction:
+ * creating the entry allocates a listener set and nothing else — no timer, so
+ * an abandoned render cannot leak one. The interval starts when React
+ * subscribes (commit phase) and stops on the last unsubscribe.
+ */
+function clockStore(rateMs: number): { subscribe: (notify: () => void) => () => void } {
+  ensureEntry(rateMs)
+  return {
+    subscribe: (notify: () => void) => subscribeClockTick(rateMs, notify),
   }
+}
+
+/** Test-only seam: look up a clock's store shell without subscribing. */
+export function clockStoreForTests(rateMs: number): {
+  subscribe: (notify: () => void) => () => void
+} {
+  return clockStore(rateMs)
 }
 
 /** Test-only seam: the clocks are module-global. */
 export function resetClocksForTests(): void {
-  for (const clock of clocks.values()) {
-    if (clock.interval !== null) clearInterval(clock.interval)
-  }
-  clocks.clear()
-  stores.clear()
+  for (const interval of intervals.values()) clearInterval(interval)
+  versions.clear()
+  listeners.clear()
+  intervals.clear()
 }
 
 /** Test-only seam: how many live intervals one rate currently owns. */
 export function clockIntervalCountForTests(rateMs: number): number {
-  const clock = clocks.get(rateMs)
-  return clock?.interval == null ? 0 : 1
+  return intervals.has(rateMs) ? 1 : 0
 }
 
 /**
@@ -116,27 +135,29 @@ export function clockIntervalCountForTests(rateMs: number): number {
  */
 export function useNow(rateMs: number, enabled = true): number {
   const store = enabled ? clockStore(rateMs) : EMPTY_STORE
-  useEffect(() => {
-    if (!enabled) return
-    const clock = clocks.get(rateMs)
-    if (clock) clock.subscribers += 1
-    return () => {
-      const current = clocks.get(rateMs)
-      if (!current) return
-      current.subscribers -= 1
-      if (current.subscribers <= 0) {
-        if (current.interval !== null) clearInterval(current.interval)
-        clocks.delete(rateMs)
-        stores.delete(rateMs)
-      }
-    }
-  }, [rateMs, enabled])
-  useSyncExternalStore(
+  const version = useSyncExternalStore(
     store.subscribe,
-    () => clocks.get(rateMs)?.version ?? 0,
+    () => versions.get(rateMs) ?? 0,
     () => 0
   )
-  return clocks.get(rateMs)?.version ?? 0
+  return enabled ? version : 0
+}
+
+/**
+ * The wall time, kept current by the shared clock at `rateMs`. The tick only
+ * decides WHEN it recomputes; the value is read from the clock, never during
+ * render — `Date.now()` runs in the state initializer (mount) and in the
+ * interval callback (commit-adjacent), both of which the purity rule permits.
+ */
+export function useNowTimestamp(rateMs: number, enabled = true): number {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!enabled) return
+    return subscribeClockTick(rateMs, () => setNow(Date.now()))
+  }, [rateMs, enabled])
+
+  return now
 }
 
 /** A tick of the shared 1s clock. */

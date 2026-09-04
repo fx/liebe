@@ -1,4 +1,4 @@
-import { useNowMinute } from '~/hooks/useNow'
+import { NOW_60S_MS, useNowTimestamp } from '~/hooks/useNow'
 
 /**
  * The `showLastChanged` secondary text: how long the entity has held its
@@ -44,9 +44,12 @@ export function useRelativeSince(lastChanged: string | undefined, enabled: boole
   // same commit instead of each owning a 60s interval at its own phase. The
   // text is derived from the wall time at render, so the shared tick only
   // decides WHEN it recomputes, never what it says.
-  const tick = useNowMinute(enabled)
-  void tick
+  // The wall time rides the shared 60s clock: the tick decides WHEN the
+  // text recomputes, and every since-line on the dashboard recomputes in the
+  // same commit. `Date.now()` runs in the hook's mount initializer and tick
+  // callback — never during render, where the purity rule forbids it.
+  const now = useNowTimestamp(NOW_60S_MS, enabled)
 
   if (!enabled) return null
-  return formatSince(lastChanged, Date.now())
+  return formatSince(lastChanged, now)
 }

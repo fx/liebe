@@ -13,7 +13,7 @@ import {
 } from '@tabler/icons-react'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
-import { useNowSecond } from '~/hooks/useNow'
+import { NOW_1S_MS, useNowTimestamp } from '~/hooks/useNow'
 import { useDashboardStore } from '~/store'
 import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '~/store/cardActions'
 import { readCardDisplay } from '~/store/cardDisplay'
@@ -74,21 +74,13 @@ interface MediaPlayerCardProps {
 const WIDE_ROW_COLUMNS = 4
 
 /**
- * How often the extrapolated position is redrawn — "a local ~1s ticker"
- * (docs/changes/0023). A second is the resolution the readout shows, so a faster
- * tick would re-render for a value that cannot change on screen.
- */
-const PROGRESS_TICK_MS = 1000
-
-/**
  * The wall time the progress bar extrapolates from. While the bar ticks this
- * is the shared 1s clock (`useNowSecond` subscribed); while it does not tick
- * the clock is read unsubscribed — the same value, with no wake attached.
+ * rides the shared 1s clock; while it does not tick the value stays at its
+ * mount reading — no subscription, no wake. `Date.now()` runs in the hook's
+ * mount initializer and tick callback, never during render.
  */
 function useMediaProgressNow(progressTicks: boolean): number {
-  const tick = useNowSecond(progressTicks)
-  void tick
-  return Date.now()
+  return useNowTimestamp(NOW_1S_MS, progressTicks)
 }
 
 /** What each resolved primary service looks like on the play/pause button. */

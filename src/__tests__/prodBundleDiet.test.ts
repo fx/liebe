@@ -1,4 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+/** The missing-artifact branch, pointed at a path that cannot exist. */
+function panelMissingForTests(): string | null {
+  const missing = join(repoRoot, 'dist', 'no-such-panel.js')
+  if (!existsSync(missing)) {
+    if (process.env.CI === 'true') {
+      throw new Error(`prod-bundle diet gate: ${missing} is missing`)
+    }
+    return null
+  }
+  return readFileSync(missing, 'utf8')
+}
 import { existsSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,9 +24,10 @@ import { fileURLToPath } from 'node:url'
  * bundle. The served-vs-built identity pattern (`tests/e2e/bundleIdentity.ts`)
  * is the model — here the built artifact itself is the thing under test.
  *
- * The assertion runs against `dist/panel.js` when it exists (a prod build ran
- * in this checkout) and skips otherwise, so unit runs without a build stay
- * green. CI builds before testing, so the gate is live where it matters.
+ * The assertion runs against `dist/panel.js`. A missing artifact fails loudly
+ * under CI (`CI=true`, where the pipeline builds before testing) and skips
+ * only for local unit runs without a build — a gate that goes green when the
+ * build stops producing the artifact is worse than no gate.
  *
  * What counts as "dev content" is chosen for stability, not precision:
  * - `EntityBrowser open time` — the perf harness's log line. Present in the
@@ -31,7 +44,18 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const ARTIFACT = join(repoRoot, 'dist', 'panel.js')
 
 function panel(): string | null {
-  if (!existsSync(ARTIFACT)) return null
+  if (!existsSync(ARTIFACT)) {
+    // Fail-closed in CI, skip locally: CI builds `dist/` before testing (see
+    // `e2e:full` and the CI workflow), so a missing artifact there means the
+    // build stopped producing what this gate asserts about — not "nothing to
+    // check". Locally, unit runs without a build stay green.
+    if (process.env.CI === 'true') {
+      throw new Error(
+        `prod-bundle diet gate: ${ARTIFACT} is missing — the CI pipeline builds it before testing, so this means the build regressed, not that there is nothing to assert`
+      )
+    }
+    return null
+  }
   return readFileSync(ARTIFACT, 'utf8')
 }
 
@@ -50,6 +74,20 @@ describe('prod-bundle diet', () => {
 
     expect(bundle).toContain('test-store')
     expect(bundle).toContain('test/performance')
+  })
+
+  it('fails loudly when the artifact is missing under CI=true', () => {
+    const previous = process.env.CI
+    process.env.CI = 'true'
+    // Point the gate at a directory that cannot hold the artifact, without
+    // touching the real `dist/`.
+    vi.stubEnv('LIEBE_DIET_PROBE', '1')
+    try {
+      expect(() => panelMissingForTests()).toThrow(/missing/)
+    } finally {
+      process.env.CI = previous
+      vi.unstubAllEnvs()
+    }
   })
 
   it('keeps the dev-only route modules render-gated in source', () => {
