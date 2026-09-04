@@ -50,6 +50,14 @@ describe('stubRoutePath', () => {
     expect(stubRoutePath('./routes/other')).toBeNull()
   })
 
+  it('strips query suffixes before mapping', () => {
+    expect(normalizeRouteSource('./routes/test-store.tsx?v=123')).toBe('./routes/test-store')
+    expect(
+      stubRoutePath(normalizeRouteSource('./routes/__root.test.performance.tsx?import'))
+    ).toEqual({ id: '/__root/test/performance', path: '/test/performance' })
+    expect(stubRoutePath(normalizeRouteSource('./routes/$slug?v=1'))).toBeNull()
+  })
+
   it('maps extension variants through normalizeRouteSource first', () => {
     expect(stubRoutePath(normalizeRouteSource('./routes/test-store.tsx'))).toEqual({
       id: '/test-store',

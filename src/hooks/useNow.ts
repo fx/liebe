@@ -182,10 +182,11 @@ export function useNow(rateMs: number, enabled = true): number {
   const store = enabled ? clockStore(rateMs) : EMPTY_STORE
   const version = useSyncExternalStore(
     store.subscribe,
-    // Entry guaranteed by `clockStore(rateMs)` above in the same render (same
-    // dead-defense class as the interval loop: the map always holds the key
-    // here, since nothing deletes entries but the test-only reset).
-    () => versions.get(rateMs)!,
+    // Entry guaranteed by `clockStore(rateMs)` above in the same render when
+    // enabled (same dead-defense class as the interval loop: the map always
+    // holds the key here). Disabled, no entry is ever created — return 0 so
+    // the snapshot honors the number contract instead of undefined.
+    () => (enabled ? versions.get(rateMs)! : 0),
     () => 0
   )
   return enabled ? version : 0

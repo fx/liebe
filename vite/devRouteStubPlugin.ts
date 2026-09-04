@@ -27,7 +27,7 @@ export function isRouteTreeImporter(importer: string): boolean {
  * identically; anything else passes through unchanged (and misses the map).
  */
 export function normalizeRouteSource(source: string): string {
-  return source.replace(/\.tsx?$/, '')
+  return source.split('?')[0].replace(/\.tsx?$/, '')
 }
 
 /**
@@ -55,7 +55,7 @@ export function devRouteStubPlugin(isProduction: boolean): Plugin {
       // Direct imports elsewhere (route tests, dev SPA) keep the real files.
       // Both hooks share normalizeRouteSource/stubRoutePath (unit-tested) so
       // the mapping cannot drift between them.
-      if (!importer.endsWith('/src/routeTree.gen.ts')) return null
+      if (!isRouteTreeImporter(importer)) return null
       const normalized = normalizeRouteSource(source)
       if (stubRoutePath(normalized) === null) return null
       return `\0liebe:dev-route-stub:${normalized}`
