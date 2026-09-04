@@ -14,7 +14,7 @@
 | [Navigation](specs/navigation/)             | Base-path-aware routing, Home Assistant URL sync, screen slugs, and taskbar/sidebar screen-tree navigation                                                                                                                                                           | active |
 | [Panel Lifecycle](specs/panel-lifecycle/)   | LiebePanel custom element — shadow-DOM React mount, hass propagation, and lifecycle-resilience mechanisms                                                                                                                                                            | active |
 | [Storybook](specs/storybook/)               | Component workshop — Storybook with entity fixtures, theme/appearance/grid-cell decorators, per-state stories, a11y, CI gate, Pages publishing                                                                                                                       | active |
-| [Theming](specs/theming/)                   | CSS-token theming — theme model/cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection and custom CSS, built-in Default/Liquid Glass/LCARS (implemented; custom CSS does not yet reach portalled overlays, no section-title hook stamped) | active |
+| [Theming](specs/theming/)                   | CSS-token theming — theme model/cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection and custom CSS, built-in Default/Liquid Glass/LCARS (implemented; all three layers reach portalled overlays per panel instance; section-title hook removed; identity-disc hook stamped) | active |
 
 ## Changes
 
@@ -55,7 +55,7 @@
 | 0033 | [Icon-Only Cards](changes/0033-icon-only-cards.md)                                                           | [Entity Cards](specs/entity-cards/)         | complete | —                |
 | 0034 | [Slider Placement Options](changes/0034-slider-placement.md)                                                 | [Entity Cards](specs/entity-cards/)         | draft    | 0028, 0033       |
 | 0035 | [Light-Appearance Contrast & Accessible Names](changes/0035-light-appearance-contrast.md)                    | [Design System](specs/design-system/)       | complete | —                |
-| 0036 | [Theming Contract & Cascade Gaps](changes/0036-theming-contract-gaps.md)                                     | [Theming](specs/theming/)                   | draft    | —                |
+| 0036 | [Theming Contract & Cascade Gaps](changes/0036-theming-contract-gaps.md)                                     | [Theming](specs/theming/)                   | complete | —                |
 | 0037 | [Card State, Capability & Primary-Action Correctness](changes/0037-card-state-and-capability-correctness.md) | [Entity Cards](specs/entity-cards/)         | complete | —                |
 | 0038 | [Resolve the stateLabels Option-Key Collision](changes/0038-option-key-collision.md)                         | [Dashboard Config](specs/dashboard-config/) | complete | —                |
 | 0039 | [Responsive Drag Layout Integrity](changes/0039-responsive-drag-integrity.md)                                | [Grid Layout](specs/grid-layout/)           | complete | —                |

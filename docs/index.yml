@@ -44,7 +44,7 @@ specs:
     status: active
   - name: theming
     path: specs/theming/
-    description: CSS-token theming — theme model and cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection/custom CSS, and built-in Default, Liquid Glass, and LCARS themes (implemented; custom CSS does not yet reach portalled overlays and no section-title hook is stamped)
+    description: CSS-token theming — theme model and cascade, stable selector contract, shadow-DOM injection, YAML-persisted selection/custom CSS, and built-in Default, Liquid Glass, and LCARS themes (implemented; all three layers reach portalled overlays per panel instance; section-title hook removed; identity-disc hook stamped)
     status: active
 
 changes:
@@ -298,7 +298,7 @@ changes:
     path: changes/0036-theming-contract-gaps.md
     description: Theming contract and cascade gaps — layer the vendored Radix sheet so the 44px touch floor applies again, mount overlays in a shadow-root portal host so user CSS reaches them, expose part label/hue tokens, and settle liebe-section-title
     spec: theming
-    status: draft
+    status: complete
     depends_on: []
   - id: '0037'
     name: card-state-and-capability-correctness

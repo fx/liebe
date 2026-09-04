@@ -58,10 +58,11 @@ function selectors(css: string): string[] {
 }
 
 /**
- * The classes a theme is allowed to name: the nine anatomy classes, the three
+ * The classes a theme is allowed to name: the nine anatomy classes, the two
  * structural hooks, and the Liebe root the token contract declares on.
- * `liebe-section-title` is in the contract but not yet in any markup, so it is
- * permitted rather than required.
+ * `liebe-section-title` was removed from the contract without ever stamping
+ * (change 0036 PR 4): naming it fails here like any other non-contract class,
+ * which is what stops the removed hook drifting back into the sheet.
  */
 const CONTRACT_CLASSES = new Set([
   'liebe-root',
@@ -76,7 +77,6 @@ const CONTRACT_CLASSES = new Set([
   'liebe-spark',
   'liebe-screen',
   'liebe-section',
-  'liebe-section-title',
 ])
 
 /** The data attributes the contract promises are stamped (or will be). */

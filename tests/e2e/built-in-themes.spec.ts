@@ -163,11 +163,11 @@ test('LCARS applies live, forces dark, and paints its console frame', async ({ p
   // The console frame, drawn entirely on the structural hooks of the stable
   // selector contract: the screen's butterscotch rail and elbow, plus a bar per
   // `liebe-section`. There is deliberately no section TITLE bar to assert —
-  // `liebe-section-title` is stamped nowhere, because nothing in the markup
-  // means "the title of a section", so LCARS ships without the title, the
-  // concave inner fillet and the per-title code label. Recorded as outstanding
-  // in the contract and tracked as #218; the change document's acceptance
-  // scenario names the frame below rather than the one that is not built.
+  // `liebe-section-title` was removed from the contract without ever stamping
+  // (change 0036 PR 4): nothing in the markup means "the title of a section",
+  // so LCARS ships without the per-title bar, the concave inner fillet and the
+  // per-title code label. The change document's acceptance scenario names the
+  // frame below rather than the one that is not built.
   expect(await shadowComputedStyle(page, '.liebe-screen', ['background-color'], '::after')).toEqual(
     {
       'background-color': LCARS_BUTTERSCOTCH,
