@@ -43,24 +43,20 @@ export function devRouteStubPlugin(isProduction: boolean): Plugin {
 
       // routeTree.gen imports the dev routes as './routes/...' from src/.
       // Direct imports elsewhere (route tests, dev SPA) keep the real files.
-      if (
-        importer.endsWith('/src/routeTree.gen.ts') &&
-        (source === './routes/test-store' ||
-          source === './routes/__root.test.performance' ||
-          source === './routes/__root.test.performance.tsx' ||
-          source === './routes/test-store.tsx')
-      ) {
-        return `\0liebe:dev-route-stub:${source}`
-      }
-      return null
+      // Both hooks share normalizeRouteSource/stubRoutePath (unit-tested) so
+      // the mapping cannot drift between them.
+      if (!importer.endsWith('/src/routeTree.gen.ts')) return null
+      const normalized = normalizeRouteSource(source)
+      if (stubRoutePath(normalized) === null) return null
+      return `\0liebe:dev-route-stub:${normalized}`
     },
     load(id) {
       if (!id.startsWith('\0liebe:dev-route-stub:')) return null
-      const source = id.slice('\0liebe:dev-route-stub:'.length)
-      const routePath = source === './routes/test-store' ? '/test-store' : '/test/performance'
+      const route = stubRoutePath(id.slice('\0liebe:dev-route-stub:'.length))
+      if (route === null) return null
       return `import { createFileRoute } from '@tanstack/react-router'
 import { NotFound } from '~/components/NotFound'
-export const Route = createFileRoute('${routePath}')({
+export const Route = createFileRoute('${route.id}')({
   component: NotFound,
 })
 `

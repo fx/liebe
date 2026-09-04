@@ -77,7 +77,7 @@ export function readPanelAt(artifactPath: string): string | null {
     }
     return null
   }
-  return readFileSync(ARTIFACT, 'utf8')
+  return readFileSync(artifactPath, 'utf8')
 }
 
 describe('prod-bundle diet', () => {

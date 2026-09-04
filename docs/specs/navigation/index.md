@@ -44,7 +44,7 @@ The application MUST expose exactly the following routes under the root route (`
 - `/` (index) MUST redirect to the first screen when screens exist, otherwise render the dashboard shell (`src/routes/index.tsx`).
 - `/$slug` MUST render the screen whose slug matches the param (`src/routes/$slug.tsx`).
 - `/$` (catch-all splat) MUST render the `NotFound` component (`src/routes/$.tsx`).
-- `/test-store` and `/test/performance` are development/diagnostic routes and are not part of the user-facing navigation surface. In production builds both MUST render the `NotFound` component instead of their workshop pages, so no dev content ships in the panel artifact (the prod build resolves both file routes to a `NotFound` stub — change 0044 — while development serves the real modules).
+- `/test-store` and `/test/performance` are development/diagnostic routes and are not part of the user-facing navigation surface. In production builds both MUST render the `NotFound` component instead of their workshop pages, and the built panel artifact MUST contain none of their content (no harness strings, no workshop markup) while keeping both route paths registered.
 - The root route MUST register `DefaultCatchBoundary` as its `errorComponent` and `NotFound` as its `notFoundComponent` (`src/routes/__root.tsx:15`).
 
 #### Scenario: Index redirects to first screen
