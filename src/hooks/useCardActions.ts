@@ -27,6 +27,14 @@ export interface UseCardActionsOptions {
    */
   config?: Record<string, unknown>
   /**
+   * Observes a Retry re-dispatch reaching the transport, with the settle
+   * result. Lets the card clear its error on success and re-surface the
+   * failure on failure; without it the shell gesture path would leave
+   * isError true after a successful retry. Null (guard-refused) reports
+   * nothing, since a refusal is not a failure.
+   */
+  onRetrySettled?: (result: { success: boolean; error?: string } | null) => void
+  /**
    * What the literal `default` resolves to for this card — the one thing a card
    * declares about actions. Interactive cards leave it at `toggle`; read-only
    * ones (sensor, weather, person) declare `more-info`.

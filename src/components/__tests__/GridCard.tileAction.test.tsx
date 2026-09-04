@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { Pill } from '../anatomy'
+import { CardBody } from '../CardBody'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { dashboardActions } from '~/store'
@@ -83,6 +84,33 @@ describe('GridCard tile action control', () => {
     // The tile control is a sibling of the embedded control, not its ancestor.
     expect(tileAction(/^Desk Lamp, on$/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Heat' })).toBeInTheDocument()
+  })
+
+  it('steps out of the Tab order where the tile already has a focusable control', () => {
+    // A tier embedding a control already puts a Tab stop on the tile (the
+    // slider thumb); the tile-action control must not add a second one. At
+    // `glance`, with nothing embedded, it stays the tile's one Tab stop.
+    // (Through `CardBody control={...}`, the seam real cards use — not the
+    // `GridCard.Controls` div, which is a layout wrapper the detector does
+    // not read.)
+    const { unmount } = renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} tier="row" onClick={vi.fn()}>
+        <CardBody
+          arrangement="row"
+          lead={<span>lead</span>}
+          control={<Pill domain="light" label="Heat" onClick={vi.fn()} />}
+        />
+      </GridCard>
+    )
+    expect(tileAction(/^Desk Lamp, on$/)).toHaveAttribute('tabindex', '-1')
+    unmount()
+
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} tier="glance" onClick={vi.fn()}>
+        content
+      </GridCard>
+    )
+    expect(tileAction(/^Desk Lamp, on$/)).not.toHaveAttribute('tabindex')
   })
 
   it('fires the tap action on Enter and on Space', () => {

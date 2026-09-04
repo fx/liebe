@@ -6,6 +6,7 @@ import {
   isParameterizedCardAction,
   readCardAction,
   resolveCardAction,
+  retainedRetryAction,
 } from '../cardActions'
 
 /**
@@ -154,5 +155,72 @@ describe('isParameterizedCardAction', () => {
     expect(isParameterizedCardAction({ action: 'call-service', service: 'light.turn_on' })).toBe(
       true
     )
+  })
+})
+
+describe('retainedRetryAction', () => {
+  it('replays the retained target inside the payload, never the current entity', () => {
+    // The retry must repeat what was dispatched: the failed command's own
+    // `entityId` travels as `data.entity_id`, so the shell's current entity
+    // cannot hijack it after an A→B recycle.
+    expect(
+      retainedRetryAction({
+        command: { domain: 'switch', service: 'toggle', entityId: 'switch.a' },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'switch.toggle',
+      data: { entity_id: 'switch.a' },
+    })
+  })
+
+  it('lets an explicit data.entity_id win over the implicit one', () => {
+    // Mirrors `HassService.buildServiceData`: explicit data spreads over the
+    // implicit target.
+    expect(
+      retainedRetryAction({
+        command: {
+          domain: 'button',
+          service: 'press',
+          entityId: 'button.a',
+          data: { entity_id: 'button.b' },
+        },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'button.press',
+      data: { entity_id: 'button.b' },
+    })
+  })
+
+  it('carries extra payload keys alongside the target', () => {
+    expect(
+      retainedRetryAction({
+        command: {
+          domain: 'light',
+          service: 'turn_on',
+          entityId: 'light.desk',
+          data: { brightness: 130 },
+        },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'light.turn_on',
+      data: { entity_id: 'light.desk', brightness: 130 },
+    })
+  })
+
+  it('returns nothing without a retryable failure', () => {
+    expect(retainedRetryAction(null)).toBeUndefined()
+    expect(retainedRetryAction(undefined)).toBeUndefined()
+    expect(
+      retainedRetryAction({
+        command: { domain: 'switch', service: 'toggle', entityId: 'switch.a' },
+        retryable: false,
+      })
+    ).toBeUndefined()
   })
 })

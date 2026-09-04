@@ -160,17 +160,30 @@ export function isParameterizedCardAction(
 export function retainedRetryAction(
   failed:
     | {
-        command: { domain: string; service: string; data?: Record<string, unknown> }
+        command: {
+          domain: string
+          service: string
+          entityId?: string
+          data?: Record<string, unknown>
+        }
         retryable: boolean
       }
     | null
     | undefined
 ): ResolvedCardAction | undefined {
   if (!failed?.retryable) return undefined
-  const { domain, service, data } = failed.command
+  const { domain, service, entityId, data } = failed.command
+  // Built the way `HassService.buildServiceData` builds it: the command's own
+  // target travels inside the payload, so the retry replays what was actually
+  // dispatched — never the shell's current entity. An explicit `data.entity_id`
+  // wins over the implicit one, exactly as at dispatch.
+  const payload =
+    entityId === undefined && data === undefined
+      ? undefined
+      : { ...(entityId !== undefined ? { entity_id: entityId } : {}), ...data }
   return {
     action: 'call-service',
     service: `${domain}.${service}`,
-    ...(data !== undefined ? { data } : {}),
+    ...(payload !== undefined ? { data: payload } : {}),
   }
 }

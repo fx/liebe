@@ -1143,6 +1143,70 @@ export const GridCard = React.memo(
         }
       }
 
+      /*
+       * Whether the tile carries a natively focusable surface of its own. A
+       * `CardBody` `control` slot that survived omission (cross-axis-fit
+       * floors empty it genuinely) is a slider thumb, stepper field, switch,
+       * select trigger or text field the Tab order already reaches — so the
+       * tile-action control steps out of the Tab order (`tabIndex={-1}`) and
+       * stays activatable through the tile itself. Control-free tiers
+       * (`glance`, and any tier whose control was omitted) keep one Tab stop
+       * on the tile control, which is the tier that needs it most.
+       */
+      const hasEmbeddedControl = React.useMemo(() => {
+        // Card bodies carrying a surviving `control` slot (sliders, steppers,
+        // switches, select triggers, text fields) and the camera's own
+        // keyboard-operable stream surface both put a Tab stop on the tile
+        // already — so the tile-action control steps out of the Tab order
+        // there. Control-free tiers keep one Tab stop on the tile control.
+        const nodes = React.Children.toArray(iconOnly ? fenceToCardBody(children) : children)
+        const bodies = nodes.filter(isCardBodyElement) as Array<{
+          props?: { control?: unknown }
+        }>
+        if (bodies.some((body) => body.props?.control !== undefined && body.props.control !== null))
+          return true
+        const isFocusableElement = (node: React.ReactNode): boolean => {
+          if (!React.isValidElement(node)) return false
+          const { type, props } = node as React.ReactElement<{
+            role?: string
+            tabIndex?: number
+            href?: string
+            children?: React.ReactNode
+          }>
+          if (typeof type === 'string') {
+            if (
+              type === 'button' ||
+              type === 'input' ||
+              type === 'textarea' ||
+              type === 'select' ||
+              (type === 'a' && props.href !== undefined)
+            )
+              return true
+            if (
+              props.role !== undefined &&
+              [
+                'button',
+                'checkbox',
+                'combobox',
+                'listbox',
+                'menuitem',
+                'option',
+                'radio',
+                'slider',
+                'spinbutton',
+                'switch',
+                'tab',
+                'textbox',
+              ].includes(props.role)
+            )
+              return true
+            if (props.tabIndex !== undefined && props.tabIndex >= 0) return true
+          }
+          return React.Children.toArray(props.children).some(isFocusableElement)
+        }
+        return nodes.some(isFocusableElement)
+      }, [children, iconOnly])
+
       const effectiveHue = resolveCardHue(hue, display, danger)
 
       /*
@@ -1380,6 +1444,7 @@ export const GridCard = React.memo(
                 type="button"
                 className="liebe-tile-action"
                 aria-label={tileActionLabel}
+                tabIndex={hasEmbeddedControl ? -1 : undefined}
                 onClick={(e) => {
                   if (isEmbeddedControl(e) || !isRealDescendant(e)) return
                   // Same recovery route as the pointer tap above: while the

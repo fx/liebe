@@ -62,6 +62,11 @@ export function useServiceCall(): UseServiceCallResult {
   const [failedCommand, setFailedCommand] = useState<FailedServiceCall | null>(null)
   const activeCallRef = useRef<AbortController | null>(null)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // The options of the most recently started request. `runCall` aborts the
+  // previous controller on entry, so an older request settling later is
+  // always stale — its result (and its failure retention) must not overwrite
+  // the newer request's state.
+  const latestOptionsRef = useRef<ServiceCallOptions | null>(null)
   const hass = useHomeAssistantOptional()
 
   // Update hassService with current hass instance
@@ -102,6 +107,7 @@ export function useServiceCall(): UseServiceCallResult {
       // Create new abort controller
       const abortController = new AbortController()
       activeCallRef.current = abortController
+      latestOptionsRef.current = options
 
       const startTime = Date.now()
       setLoading(true)
@@ -192,7 +198,12 @@ export function useServiceCall(): UseServiceCallResult {
         // Retained, not reconstructed: `Retry` re-dispatches the identical
         // command through the gate and the guard, and nothing here releases the
         // guard's window — the ambiguous-outcome case stays refused there.
-        setFailedCommand({ command: options, retryable: true })
+        // Guarded on currency: an aborted request lost the race to a newer
+        // one, and its failure must not overwrite the newer request's state —
+        // otherwise `Retry` would re-dispatch the older command.
+        if (latestOptionsRef.current === options) {
+          setFailedCommand({ command: options, retryable: true })
+        }
       }
       return result
     },
