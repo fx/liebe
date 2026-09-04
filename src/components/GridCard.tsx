@@ -1184,7 +1184,7 @@ export const GridCard = React.memo(
              * no-arbitrary-z-index rule intact.
              */}
             {isEditMode && (canConfigure || onDelete) && !isFullscreen &&
-              (overArtwork ? (
+              (overArtwork && !iconOnly ? (
                 /*
                  * The scrimmed-ground rule's Radix half
                  * (docs/specs/design-system — "Card anatomy"): a Radix control
@@ -1195,12 +1195,15 @@ export const GridCard = React.memo(
                  * dark-on-dark (the delete glyph measured 3.19 → 1.18:1). The
                  * nested dark `Theme` re-resolves the controls to their dark
                  * scale while the artwork scope's tokens pass through
-                 * untouched. Artwork tiles only: on the flat themed surface
-                 * the controls keep the panel's own appearance. Rendered after
-                 * the content like the scrimmed layers it can sit over, for
-                 * the same DOM-order reason; `hasBackground={false}` so the
-                 * scope paints no surface of its own, exactly as the portal
-                 * host does.
+                 * untouched. Artwork tiles only — and not icon-only ones: the
+                 * shell fences the artwork paint off an icon-only tile
+                 * (`withoutBackgroundPaint` + `fenceToCardBody`), so no
+                 * scrimmed ground stands behind the affordances there and the
+                 * controls keep the panel's own appearance like everywhere
+                 * off artwork. Rendered after the content like the scrimmed
+                 * layers it can sit over, for the same DOM-order reason;
+                 * `hasBackground={false}` so the scope paints no surface of
+                 * its own, exactly as the portal host does.
                  */
                 <Theme appearance="dark" hasBackground={false}>
                   <EditAffordances

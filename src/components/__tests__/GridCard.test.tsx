@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardItemProvider } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import type { DashboardState } from '~/store/types'
 
@@ -583,10 +584,32 @@ describe('GridCard shell', () => {
     expect(scope.getAttribute('data-has-background')).toBe('false')
     unmount()
 
-    // Off artwork the affordances keep the panel's own appearance: `closest`
-    // must walk past the actions to the root `Theme` rather than stopping at
-    // a nested dark scope. (GridCard tests render no `Theme` at all, so there
-    // the absence is literal — no `.radix-themes` ancestor.)
+    // An icon-only tile fences the artwork paint off (`withoutBackgroundPaint`
+    // + `fenceToCardBody`), so no scrimmed ground stands behind the
+    // affordances there either: same absence, even with `overArtwork` passed.
+    // The stored config travels through the item context, the way a placed
+    // card receives it.
+    const { unmount: unmountIconOnly } = render(
+      <CardItemProvider entityId="weather.home" config={{ iconOnly: true }}>
+        <GridCard
+          domain="weather"
+          hasConfiguration
+          onConfigure={() => {}}
+          onDelete={() => {}}
+          overArtwork
+        >
+          content
+        </GridCard>
+      </CardItemProvider>
+    )
+
+    const iconOnlyActions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(iconOnlyActions.closest('.radix-themes')).toBeNull()
+    unmountIconOnly()
+
+    // Off artwork the affordances keep the panel's own appearance: no nested
+    // dark scope. (GridCard tests render no `Theme` at all, so there the
+    // absence is literal — no `.radix-themes` ancestor.)
     render(
       <GridCard domain="light" hasConfiguration onConfigure={() => {}} onDelete={() => {}}>
         content
