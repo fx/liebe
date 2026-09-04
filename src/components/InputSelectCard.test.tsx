@@ -358,6 +358,24 @@ describe('InputSelectCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
+    it('opens the detail dialog on tap when iconOnly suppresses the control slot', () => {
+      // `iconOnly` drops every body slot but the lead, so the trigger never
+      // mounts and its ref stays null: the tap must resolve to `more-info`
+      // rather than no-op on a missing control (the option doc states the rule
+      // on the absence of a control rather than on the tier).
+      render(
+        <CardItemProvider entityId="input_select.test_select" config={{ iconOnly: true }}>
+          <InputSelectCard entityId="input_select.test_select" tier="row" />
+        </CardItemProvider>
+      )
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Select' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
     it('opens the detail dialog on tap at glance, and dispatches nothing', () => {
       // Through the grid's item provider, as on a dashboard: the shell reads
       // the dialog's entity from the placed item, and without it `more-info`

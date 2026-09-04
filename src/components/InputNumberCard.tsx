@@ -432,13 +432,17 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        * its own — a tile with an explicit toggle would call this, find no
        * control to focus, and do nothing at all. Returning `'more-info'`
        * routes the gesture to the detail dialog instead, which is the escape
-       * hatch `GridCard`'s `onClick` contract exists for and that the text card
        * already uses for its own control-free tiers.
        */
       return 'more-info'
     }
     if (tapPresentation === 'slider') {
-      sliderThumbRef.current?.focus()
+      // Absent thumb: the control slot was suppressed (`iconOnly`) or omitted
+      // (cross-axis-fit floors), so there is nothing to focus and the tap
+      // resolves to `more-info` exactly as at `glance` — the option doc states
+      // the rule on the absence of a control rather than on the tier.
+      if (!sliderThumbRef.current) return 'more-info'
+      sliderThumbRef.current.focus()
       return undefined
     }
     setIsEditing(true)

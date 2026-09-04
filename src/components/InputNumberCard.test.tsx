@@ -433,6 +433,33 @@ describe('InputNumberCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
+    it('opens the detail dialog on tap when iconOnly suppresses the slider', () => {
+      // `iconOnly` drops every body slot but the lead, so the thumb never
+      // mounts and its ref stays null: the tap must resolve to `more-info`
+      // rather than no-op on a missing control.
+      vi.mocked(useEntity).mockReturnValue({
+        entity: {
+          ...defaultEntity,
+          attributes: { ...defaultEntity.attributes, mode: 'slider' },
+        },
+        isConnected: true,
+        isLoading: false,
+        isMissing: false,
+        isStale: false,
+      })
+      render(
+        <CardItemProvider entityId="input_number.test_number" config={{ iconOnly: true }}>
+          <InputNumberCard entityId="input_number.test_number" tier="row" />
+        </CardItemProvider>
+      )
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Number' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
     it('opens the detail dialog on tap at glance, and dispatches nothing', () => {
       // Through the grid's item provider, as on a dashboard: the shell reads
       // the dialog's entity from the placed item, and without it `more-info`

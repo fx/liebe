@@ -267,7 +267,15 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
       // the first pill that can actually be chosen.
       const group = pillGroupRef.current
       const firstLive = group?.querySelector('button:not([disabled])') as HTMLElement | null
-      firstLive?.focus()
+      if (!firstLive) {
+        // No pill rendered: `iconOnly` drops every slot but the lead, and the
+        // cross-axis-fit floors can empty the slot — in both cases there is
+        // nothing to focus, so the tap resolves to `more-info` exactly as at
+        // `glance` (the option doc states the rule on the absence of a
+        // control rather than on the tier).
+        return 'more-info'
+      }
+      firstLive.focus()
       return undefined
     }
     // Focus first for the keyboard path, then open: opening moves focus into
@@ -275,7 +283,11 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
     // keyboard opener with no visible anchor when the menu closes. Held shut
     // while the menu cannot open — a dispatch in flight or no options at all
     // — so a tap cannot arm an open that fires late, after the load lands.
-    triggerRef.current?.focus()
+    // Absent trigger, same fallback as above: the control slot was suppressed
+    // (`iconOnly`) or omitted (cross-axis-fit floors), so there is nothing to
+    // open and the tap resolves to `more-info`.
+    if (!triggerRef.current) return 'more-info'
+    triggerRef.current.focus()
     if (!loading && readSelectOptions(attributesForPresentation).length > 0) setIsOpen(true)
     return undefined
   }
