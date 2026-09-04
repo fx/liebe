@@ -5,7 +5,7 @@
 Give the weather card's forecast sections the visual pass the spec now requires — labelled, distinguishable hourly/daily sections on a shared column rhythm, emphasized high–low pairs, degree-only cells, one icon language — and put a real scrim under text rendered over condition artwork, closing [#215](https://github.com/fx/liebe/issues/215). The presentation rules live in [options/weather — forecast presentation](../specs/entity-cards/options/weather.md#forecast-presentation); the scrim rule in [design-system — card anatomy](../specs/design-system/index.md#card-anatomy).
 
 **Spec:** [entity-cards](../specs/entity-cards/) (options/weather), [design-system](../specs/design-system/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -75,7 +75,7 @@ The rig itself is deliberately **not** committed — it depends on a Storybook b
 ## Tasks
 
 - [x] Artwork scrim: scrim layer + scoped foreground-token overrides on every artwork-bearing weather surface, shadow treatment demoted to accent; measure the media backdrop (the rule's reference implementation) against the same 4.5:1 floor and strengthen its gradient where it misses, so the rule's two consumers both comply when it lands; contrast-bearing tests and the `showConditionBackground: false` story; closes #215
-- [ ] **Radix controls over artwork.** A Radix control colours itself from a Radix scale and reads none of the Liebe foreground tokens, so its contrast follows the **appearance** rather than the ground it stands on. Two shipped instances: the shell's edit-mode configure/delete `IconButton`s on any artwork-bearing tile, and the media card's `Select.Trigger` at `artworkMode: background` with `showSourcePicker` (story: `BackgroundArtworkWithSourcePicker`, added in PR 1 because the combination had none — which is why the defect had never been seen). Measured on PR 1's rig, worst image of each pair, before → after:
+- [x] **Radix controls over artwork.** A Radix control colours itself from a Radix scale and reads none of the Liebe foreground tokens, so its contrast follows the **appearance** rather than the ground it stands on. Two shipped instances: the shell's edit-mode configure/delete `IconButton`s on any artwork-bearing tile, and the media card's `Select.Trigger` at `artworkMode: background` with `showSourcePicker` (story: `BackgroundArtworkWithSourcePicker`, added in PR 1 because the combination had none — which is why the defect had never been seen). Measured on PR 1's rig, worst image of each pair, before → after:
 
   | Control                        | Light           | Dark        | Floor |
   | ------------------------------ | --------------- | ----------- | ----- |
@@ -90,6 +90,17 @@ The rig itself is deliberately **not** committed — it depends on a Storybook b
   - **Dark needs nothing.** An appearance-scoped dark `Theme` around overlaid content is therefore the obvious mechanism rather than one candidate among several: it is the scope light is missing, it covers every control at once, and it leaves the half that already works alone. A per-control override would have to be written and re-written for each new control.
 
   Record the mechanism under the design-system scrim rule, then implement and re-measure the same way. Found by local review on PR 1.
+
+  **Done this PR.** The mechanism is the one the task names: an appearance-scoped dark `Theme` (`appearance="dark"`, `hasBackground={false}` so the scope paints no surface of its own) nested around the overlaid Radix controls _inside_ the existing artwork scopes — the shell's `liebe-card-actions` block in `GridCard.tsx` (gated on a new `overArtwork` prop the artwork-bearing cards pass: the three weather variants from `!!backgroundImage`, the media card from `showBackgroundArtwork`; the shell additionally withholds the scope under `iconOnly`, where it fences the artwork paint off the tile so no scrimmed ground stands behind the affordances), the source-picker `Select.Root` in `MediaPlayerCard/index.tsx` (gated on `showBackgroundArtwork`; trigger and its portalled `Content`, which inherits the scope's appearance through Radix's own nested `Theme`) — above the scrim in DOM order, so it re-themes the controls without disturbing the scrim ordering. Off artwork both scopes are absent and the controls keep the panel's own appearance. The design-system scrim rule now records it. Re-derived from the shipped Radix scales composited over the scrim's weakest stop (65% black over white, `#595959`), worst image by construction:
+
+  | Control (light appearance)     | Before | After | Floor |
+  | ------------------------------ | ------ | ----- | ----- |
+  | Weather edit — configure glyph | 2.62   | 4.32  | 3:1   |
+  | Weather edit — delete glyph    | 1.18   | 3.32  | 3:1   |
+  | Media picker — trigger label   | 1.23   | 5.12  | 4.5:1 |
+  | Media picker — chevron         | 1.20   | 5.12  | 3:1   |
+
+  "After" is the dark-appearance resolution every control now takes inside the scope, at the weakest point of the gradient (deeper stops only improve: 4.77 / 5.76 / 6.67:1 at 74%). "Before" is PR 1's rig reading, kept for the inversion analysis above rather than recomputed — the estimates from compositing the Radix steps agree in direction but not in the second decimal, because the rig decodes painted pixels (including each control's own translucent chip behind its glyph) while compositing idealises the steps. Dark appearance is untouched: the scope inherits what the panel already resolved there. Tests: `GridCard.test.tsx` (dark scope present over the actions with `overArtwork`, absent without), `MediaPlayerCard.test.tsx` (dark scope present over the trigger in background mode, panel appearance at thumbnail), `WeatherCard.options.test.tsx` (shell scope present over weather artwork in edit mode, absent with `showConditionBackground: false`); `BackgroundArtworkWithSourcePicker` and the GridCard edit-affordance stories are the acceptance surfaces.
 
 - [x] Forecast visual pass: section labels, shared column rhythm, width-aware horizontal capacity in `hourlyForecastCapacity`/`dailyForecastCapacity` fed by the shell's content-width signal (per the owning contract), hi–lo pair emphasis, degree-only cells, unified icon language, glyph sizing; forecast stories for `modern`/`detailed`/max-count including a max-count strip on a minimum-width tile; refresh `card-reference.md`'s weather section
 

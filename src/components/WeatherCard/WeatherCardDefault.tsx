@@ -305,6 +305,11 @@ function WeatherCardDefaultContent(props: CardProps) {
       title={isStale ? 'Weather data may be outdated' : undefined}
       backdrop={!backgroundImage}
       className={weatherArtworkClass(!!backgroundImage)}
+      // The shell's edit-mode affordances stand on this tile's scrimmed
+      // photograph while artwork paints, so they take the scrimmed-ground
+      // rule's Radix half with them (docs/specs/design-system — "Card
+      // anatomy").
+      overArtwork={!!backgroundImage}
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
         backgroundSize: 'cover',

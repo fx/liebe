@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
+import { CardItemProvider } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import type { DashboardState } from '~/store/types'
 
@@ -549,5 +550,74 @@ describe('GridCard shell', () => {
     expect(actions.style.position).toBe('')
     expect(screen.getByRole('button', { name: 'Configure card' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete entity' })).toBeInTheDocument()
+  })
+
+  it('scopes the edit affordances to the dark appearance over artwork, and leaves them on the panel appearance elsewhere', () => {
+    // The scrimmed-ground rule's Radix half (docs/specs/design-system —
+    // "Card anatomy"): a Radix `IconButton` resolves its glyph from a Radix
+    // scale keyed off the nearest ancestor `Theme`, reading none of the
+    // foreground tokens the artwork scopes pin — so over the reliably dark
+    // scrim a light-appearance control renders dark-on-dark. The nested dark
+    // `Theme` re-resolves the controls while the scope's tokens pass through.
+    // Artwork tiles only: on the flat themed surface the controls keep the
+    // panel's own appearance, which is what forcing the scope there would
+    // take away.
+    setMode('edit')
+    const { unmount } = render(
+      <GridCard
+        domain="weather"
+        hasConfiguration
+        onConfigure={() => {}}
+        onDelete={() => {}}
+        overArtwork
+      >
+        content
+      </GridCard>
+    )
+    const actions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(actions).not.toBeNull()
+    const scope = actions.closest('.radix-themes') as HTMLElement
+    expect(scope).not.toBeNull()
+    expect(scope.classList.contains('dark')).toBe(true)
+    // A scope, not a surface: it re-themes the controls without painting over
+    // the artwork behind them.
+    expect(scope.getAttribute('data-has-background')).toBe('false')
+    unmount()
+
+    // An icon-only tile fences the artwork paint off (`withoutBackgroundPaint`
+    // + `fenceToCardBody`), so no scrimmed ground stands behind the
+    // affordances there either: same absence, even with `overArtwork` passed.
+    // The stored config travels through the item context, the way a placed
+    // card receives it.
+    const { unmount: unmountIconOnly } = render(
+      <CardItemProvider entityId="weather.home" config={{ iconOnly: true }}>
+        <GridCard
+          domain="weather"
+          hasConfiguration
+          onConfigure={() => {}}
+          onDelete={() => {}}
+          overArtwork
+        >
+          content
+        </GridCard>
+      </CardItemProvider>
+    )
+    const iconOnlyActions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(iconOnlyActions).not.toBeNull()
+    expect(iconOnlyActions.closest('.radix-themes')).toBeNull()
+    unmountIconOnly()
+
+    // Off artwork the affordances keep the panel's own appearance: no nested
+    // dark scope. (GridCard tests render no `Theme` at all, so there the
+    // absence is literal — no `.radix-themes` ancestor.)
+    render(
+      <GridCard domain="light" hasConfiguration onConfigure={() => {}} onDelete={() => {}}>
+        content
+      </GridCard>
+    )
+
+    const plainActions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(plainActions).not.toBeNull()
+    expect(plainActions.closest('.radix-themes')).toBeNull()
   })
 })

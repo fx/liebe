@@ -499,6 +499,15 @@ export const BackgroundDegradesOnResize: Story = {
  * per-control override.
  */
 export const BackgroundArtworkWithSourcePicker: Story = {
+  /*
+   * The acceptance surface for the scrimmed-ground rule's Radix half
+   * (docs/specs/design-system — "Card anatomy"): the `Select.Trigger` over
+   * the backdrop must resolve to the dark appearance, whatever the panel's
+   * own appearance is. Asserted on the scope rather than on pixels — the
+   * story runner has no painted-pixel rig — with the floors re-derived from
+   * the shipped Radix scales at the scrim's weakest stop in the change
+   * document's measurement table.
+   */
   parameters: {
     liebe: {
       entities: [
@@ -512,6 +521,10 @@ export const BackgroundArtworkWithSourcePicker: Story = {
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector('.liebe-media-scrim')).not.toBeNull()
     await expect(within(canvasElement).getByLabelText('Source')).toBeInTheDocument()
+    const trigger = within(canvasElement).getByLabelText('Source')
+    const scope = trigger.closest('.radix-themes')
+    await expect(scope?.classList.contains('dark')).toBe(true)
+    await expect(scope?.getAttribute('data-has-background')).toBe('false')
   },
 }
 

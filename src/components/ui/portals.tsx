@@ -217,6 +217,16 @@ function DropdownMenuSubContent(props: ComponentProps<typeof ThemesDropdownMenu.
 }
 
 function SelectContent(props: ComponentProps<typeof ThemesSelect.Content>) {
+  /*
+   * Radix wraps the portalled content in its own nested `Theme`, which
+   * inherits the appearance through React context — portals preserve the
+   * React tree, so the nearest `Theme` in the React tree is what counts,
+   * not the nearest in the DOM. An appearance-scoped nested `Theme` around
+   * the `Root` (the scrimmed-ground rule's mechanism for controls over
+   * artwork, docs/specs/design-system — "Card anatomy") therefore reaches
+   * the dropdown exactly as it reaches the trigger, with nothing further to
+   * wire here.
+   */
   const container = usePortalContainer()
   return <ThemesSelect.Content container={container} {...props} />
 }

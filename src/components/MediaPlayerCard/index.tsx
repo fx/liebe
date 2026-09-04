@@ -1,4 +1,4 @@
-import { Box, Flex } from '@radix-ui/themes'
+import { Box, Flex, Theme } from '@radix-ui/themes'
 import { Select } from '~/components/ui/portals'
 import {
   IconDeviceSpeaker,
@@ -756,28 +756,53 @@ function MediaPlayerCardComponent({
    * opens a portal: the click that chooses an item lands outside the tile, but
    * the click that opens the trigger does not, and without this it would also
    * be a tap on the card.
+   *
+   * The nested dark `Theme` is the scrimmed-ground rule's Radix half
+   * (docs/specs/design-system — "Card anatomy"): the `Select.Trigger` is a
+   * Radix control, so it colours itself from a Radix scale keyed off the
+   * ancestor `Theme`'s appearance and reads none of the foreground tokens the
+   * backdrop scope pins white. In background mode the ground under it is the
+   * scrimmed photograph — reliably dark — so a light-appearance trigger
+   * renders dark-on-dark (label 1.02 → 1.23:1, never compliant in either
+   * appearance). The scope re-resolves the trigger to its dark scale; the
+   * backdrop scope's own tokens pass through untouched. Background mode only:
+   * on the flat themed surface there is no artwork behind the trigger, so the
+   * scope would restyle a control the panel's own appearance already serves.
+   * `hasBackground={false}` so the scope paints no surface of its own,
+   * exactly as the portal host does. The `Content` is inside the same scope
+   * because Radix wraps portalled content in its own nested `Theme`, which
+   * inherits this appearance rather than the panel's.
    */
+  const sourcePickerRoot = (
+    <Select.Root
+      value={readCurrentSource(attributes)}
+      onValueChange={handleSelectSource}
+      disabled={isLoading}
+    >
+      <Select.Trigger
+        variant="soft"
+        style={{ width: '100%' }}
+        aria-label="Source"
+        placeholder="Select source"
+      />
+      <Select.Content>
+        {sourceList.map((source) => (
+          <Select.Item key={source} value={source}>
+            {source}
+          </Select.Item>
+        ))}
+      </Select.Content>
+    </Select.Root>
+  )
   const sourcePicker = (
     <Box onClick={(e) => e.stopPropagation()} width="100%">
-      <Select.Root
-        value={readCurrentSource(attributes)}
-        onValueChange={handleSelectSource}
-        disabled={isLoading}
-      >
-        <Select.Trigger
-          variant="soft"
-          style={{ width: '100%' }}
-          aria-label="Source"
-          placeholder="Select source"
-        />
-        <Select.Content>
-          {sourceList.map((source) => (
-            <Select.Item key={source} value={source}>
-              {source}
-            </Select.Item>
-          ))}
-        </Select.Content>
-      </Select.Root>
+      {showBackgroundArtwork ? (
+        <Theme appearance="dark" hasBackground={false}>
+          {sourcePickerRoot}
+        </Theme>
+      ) : (
+        sourcePickerRoot
+      )}
     </Box>
   )
 
@@ -839,6 +864,11 @@ function MediaPlayerCardComponent({
       className={
         showBackgroundArtwork ? 'media-player-card media-player-card-backdrop' : 'media-player-card'
       }
+      // The shell's edit-mode affordances stand on the backdrop's scrimmed
+      // photograph in background mode, so they take the scrimmed-ground
+      // rule's Radix half with them (docs/specs/design-system — "Card
+      // anatomy").
+      overArtwork={showBackgroundArtwork}
     >
       {/*
        * Behind the body rather than around it, so the content keeps the layout
