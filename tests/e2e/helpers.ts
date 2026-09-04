@@ -843,9 +843,18 @@ export async function documentLevelLeak(page: Page): Promise<{
   userSelectors: string[]
 }> {
   const { slots, selectorTexts } = await page.evaluate(() => {
-    const styleSlots = Array.from(document.head.querySelectorAll('style[data-liebe]'))
-      .map((style) => style.getAttribute('data-liebe') ?? '')
-      .filter((slot) => slot !== 'fonts')
+    // Deduplicated: two panels in one document hold one mirror element per
+    // slot each (change 0036 PR 7), so the raw attribute list names every
+    // slot twice. The gate is which layers got out, not how many panels hold
+    // them — and the per-panel isolation is pinned by unit tests keying two
+    // panels' mirrors to their own slots and containers.
+    const styleSlots = [
+      ...new Set(
+        Array.from(document.head.querySelectorAll('style[data-liebe]'))
+          .map((style) => style.getAttribute('data-liebe') ?? '')
+          .filter((slot) => slot !== 'fonts')
+      ),
+    ]
 
     const texts: string[] = []
     const walk = (rules: CSSRuleList) => {
