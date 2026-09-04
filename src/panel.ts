@@ -42,6 +42,15 @@ class LiebePanel extends HTMLElement {
   private root?: ReactDOM.Root
   private initialized = false
   private instanceId = Math.random().toString(36).substr(2, 9)
+  /**
+   * The document-mirror key for THIS element's panel (change 0036 PR 7).
+   * Minted once per custom element — never per React mount — so reconnects
+   * and StrictMode remounts reuse the same keyed mirror `<style>`s and font
+   * registration instead of orphaning a stale set per cycle. Distinct per
+   * element, so the production and dev panels mounted side by side key their
+   * mirrors — and their portal containers — to different tokens.
+   */
+  readonly mirrorKey = `p${Math.random().toString(36).slice(2, 10)}`
   private visibilityHandler?: () => void
   private beforeUnloadHandler?: () => void
   private keepAliveInterval?: number
@@ -418,11 +427,16 @@ class LiebePanel extends HTMLElement {
     if (!this.root || !this._hass) return
 
     try {
+      const mirrorKey = this.mirrorKey
       this.root.render(
         React.createElement(
           React.StrictMode,
           null,
-          React.createElement(Provider, { hass: this._hass }, React.createElement(PanelApp))
+          React.createElement(
+            Provider,
+            { hass: this._hass },
+            React.createElement(PanelApp as React.ComponentType<{ instanceKey?: string }>, { instanceKey: mirrorKey })
+          )
         )
       )
     } catch (error) {

@@ -988,13 +988,31 @@ export function scopePortalCssToInstance(portalCss: string, instance: string): s
       rule.selector = keyedGuard
       return
     }
+    // Only the OUTER scope — the container prefix the scoping itself emitted —
+    // is keyed. The `:is(…)` subject is user-authored and may legitimately
+    // name `.liebe-portal-root` (or `.liebe-portal-root-ish`) inside it; keying
+    // there would rewrite the user's subject rather than our scope, while a
+    // part carrying the keyed prefix only inside the subject must not count
+    // as already-keyed for the outer scope. Split each comma-part on its
+    // FIRST `:is(`: everything before it is our scope, everything from it on
+    // is the subject (plus the pseudo-element tail, which never contains the
+    // bare class at depth zero outside the subject).
     rule.selector = list
       .comma(rule.selector)
-      .map((part) =>
-        part.includes(keyedPrefix)
-          ? part
-          : part.split(`.${PORTAL_ROOT_CLASS}`).join(keyedPrefix)
-      )
+      .map((part) => {
+        const at = part.indexOf(':is(')
+        if (at === -1) {
+          return part.includes(keyedPrefix)
+            ? part
+            : part.split(`.${PORTAL_ROOT_CLASS}`).join(keyedPrefix)
+        }
+        const scope = part.slice(0, at)
+        const rest = part.slice(at)
+        const keyedScope = scope.includes(keyedPrefix)
+          ? scope
+          : scope.split(`.${PORTAL_ROOT_CLASS}`).join(keyedPrefix)
+        return `${keyedScope}${rest}`
+      })
       .join(', ')
   })
   return root.toString()
