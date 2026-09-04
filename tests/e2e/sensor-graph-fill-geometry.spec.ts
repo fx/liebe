@@ -167,8 +167,14 @@ for (const [label, size, pick] of [
 
     expect(geometry.graph, `the ${label} graph should have a box to compare`).not.toBeNull()
 
-    // The invariant, at this size: the graph is all of the leftover.
-    expect(geometry.graph!).toBeCloseTo(geometry.leftover, 0)
+    // The invariant, at this size: the graph is all of the leftover. The
+    // message carries every measured number — graph, leftover, and the two
+    // rendered gaps it was derived from — so a failure names which part of
+    // the tile moved rather than just the two heights that disagreed.
+    const where =
+      `${label} tile: graph ${geometry.graph}px vs leftover ${geometry.leftover}px ` +
+      `(gap above ${geometry.gapAbove}px, gap below ${geometry.gapBelow}px)`
+    expect(geometry.graph!, where).toBeCloseTo(geometry.leftover, 0)
   })
 }
 
@@ -190,7 +196,10 @@ test('the added tile height goes to the graph, not to the fixed parts', async ({
   const drawn = geometries.filter((geometry) => geometry.graph !== null)
   expect(drawn, 'both tiles should have drawn their series').toHaveLength(2)
   for (const geometry of drawn) {
-    expect(geometry.graph!).toBeCloseTo(geometry.leftover, 0)
+    const where =
+      `comparison tile: graph ${geometry.graph}px vs leftover ${geometry.leftover}px ` +
+      `(gap above ${geometry.gapAbove}px, gap below ${geometry.gapBelow}px)`
+    expect(geometry.graph!, where).toBeCloseTo(geometry.leftover, 0)
   }
 
   // The comparison the pair exists for: the leftovers differ (different tile
