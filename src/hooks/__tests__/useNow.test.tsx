@@ -3,6 +3,7 @@ import { render, act } from '@testing-library/react'
 import {
   subscribeSecondTick,
   useNow,
+  useNowMinute,
   useNowSecond,
   useNowTimestamp,
   NOW_1S_MS,
@@ -253,6 +254,28 @@ describe('useNow shared clocks', () => {
     expect(container.textContent).toBe('0')
     expect(setIntervalSpy).not.toHaveBeenCalled()
     expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(0)
+  })
+
+  it('exposes the per-rate conveniences on the shared clocks', () => {
+    vi.useFakeTimers()
+
+    function Probe() {
+      const second = useNowSecond()
+      const minute = useNowMinute()
+      return (
+        <span>
+          {second}:{minute}
+        </span>
+      )
+    }
+    const { container } = render(<Probe />)
+    expect(container.textContent).toBe('0:0')
+
+    // Separate wheels: the 1s tick advances only the second reading.
+    act(() => {
+      vi.advanceTimersByTime(NOW_1S_MS)
+    })
+    expect(container.textContent).toBe('1:0')
   })
 
   it('tears the interval down when the last consumer unmounts', () => {

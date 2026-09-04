@@ -82,18 +82,6 @@ function ensureWheel(rate: ScheduleRate): Wheel {
   return wheel
 }
 
-/**
- * Advance the wheels' elapsed counters without waiting: the test seam for
- * asserting phase alignment. A task with `every: N` fires when the wheel's
- * elapsed count is a multiple of N — the same condition the interval applies.
- */
-export function advanceSchedulerForTests(ms: number): void {
-  for (const [rate, wheel] of Object.entries(wheels) as [ScheduleRate, Wheel][]) {
-    const ticks = Math.floor(ms / RATE_TICK_MS[rate])
-    for (let i = 0; i < ticks; i++) runDueTasks(wheel)
-  }
-}
-
 function releaseWheel(rate: ScheduleRate): void {
   const wheel = wheels[rate]
   if (wheel.tasks.size === 0 && wheel.interval !== null) {
