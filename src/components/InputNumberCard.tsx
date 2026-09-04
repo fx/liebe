@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
+import React, { memo, useCallback, useRef, useState } from 'react'
 import { Button, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Hash, Minus, Plus } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -110,26 +110,18 @@ interface NumberHelperControlProps {
  * dispatch stays the caller's, so the card shell keeps showing its own loading
  * and error state around it.
  */
-
 /**
- * Reports the stepper's mount state to the card: mounted with `true`,
- * unmounted with `false`. An effect rather than a render-phase call — the
- * callback writes the card's ref, and refs must not be assigned during
- * render — and symmetric on unmount, so a tier change that drops the control
- * cannot leave a stale "rendered" behind.
+ * Reports the stepper's mount state to the card: set with the node on mount,
+ * cleared with `null` on unmount. A callback ref rather than an effect, so
+ * the card's ref is correct in the same commit as the DOM change — an effect
+ * would run after paint and leave a window where a tap misroutes.
  */
-function StepperMountReporter({
-  onChange,
-  children,
-}: {
+function stepperMountRef(
   onChange?: (mounted: boolean) => void
-  children: React.ReactNode
-}) {
-  useEffect(() => {
-    onChange?.(true)
-    return () => onChange?.(false)
-  }, [onChange])
-  return <>{children}</>
+): (node: HTMLDivElement | null) => void {
+  return (node: HTMLDivElement | null) => {
+    onChange?.(node !== null)
+  }
 }
 export function NumberHelperControl({
   entity,
@@ -267,7 +259,9 @@ export function NumberHelperControl({
 
   if (style === 'stepper') {
     return (
-      <StepperMountReporter onChange={onStepperMountChange}>
+      // `display: contents` so the wrapper adds no box: the card's flex row
+      // sees the stepper's buttons directly, exactly as before.
+      <div ref={stepperMountRef(onStepperMountChange)} style={{ display: 'contents' }}>
         <IconButton
           size="3"
           variant="soft"
@@ -291,10 +285,9 @@ export function NumberHelperControl({
         >
           <Plus size={16} />
         </IconButton>
-      </StepperMountReporter>
+      </div>
     )
   }
-
   /*
    * The slider commits on release, never while dragging: the value under the
    * finger is a position, not an intent, and dispatching per pixel would send a
