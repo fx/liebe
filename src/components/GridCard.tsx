@@ -588,9 +588,12 @@ function fenceToCardBody(children: React.ReactNode): React.ReactNode {
  */
 function isBackgroundSlider(node: React.ReactNode): boolean {
   if (!React.isValidElement(node)) return false
-  const props: unknown = node.props
-  if (typeof props !== 'object' || props === null) return false
-  return 'placement' in props && props.placement === 'background'
+  // `node.props` is always an object for a valid element (React freezes it;
+  // even `createElement('div', null)` yields `{}`) — so the guard reads the
+  // placement off it directly, with no defensive `typeof` arm that no test
+  // (and no caller) can ever take. An element without the background
+  // placement prop is backdrop chrome, not the state surface.
+  return (node.props as { placement?: unknown }).placement === 'background'
 }
 
 /**

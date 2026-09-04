@@ -631,6 +631,50 @@ describe('confirmOpen', () => {
       position: 39,
     })
   })
+
+  it('releases the optimistic position when a background touch is cancelled', () => {
+    // Same cancel path as the light's tap-away case, through this card's own
+    // optimistic state: the touch-point sets a value via `onValueChange`, no
+    // commit fires, and the slider must show the entity's position again.
+    // The rect + capture stubs mirror the light suite (see `beginDrag` in
+    // `LightCard.dragGuard.test.tsx`): without them Radix never reports a
+    // value and the test passes against no gate at all.
+    seed(garage('open', { current_position: 40, supported_features: 15 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    const thumb = screen.getByLabelText('Position')
+    const slider = thumb.closest('.liebe-slider') as HTMLElement
+    slider.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 20,
+        right: 200,
+        bottom: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect
+    slider.setPointerCapture = () => {}
+    slider.releasePointerCapture = () => {}
+    slider.hasPointerCapture = () => true
+
+    fireEvent.pointerDown(slider, {
+      clientX: 150,
+      clientY: 10,
+      pointerId: 1,
+      button: 0,
+      buttons: 1,
+    })
+    fireEvent.pointerCancel(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
+
+    expect(thumb.getAttribute('aria-valuenow')).toBe('40')
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
   it('opens without asking when the option is off', () => {
     seed(garage('closed', { current_position: 0 }))
     renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, { confirmOpen: false })

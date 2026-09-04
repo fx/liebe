@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   CardMeta,
@@ -410,6 +411,279 @@ describe('Slider', () => {
     await userEvent.keyboard('{ArrowRight}')
 
     expect(onValueChange).toHaveBeenCalledWith(31)
+  })
+
+  it('stops an inline pointer-down before the tile sees it, but lets a background one through', () => {
+    // The inline/background split at the gesture root: an inline slider owns
+    // its gesture outright (its pointer-down never reaches the tile), while a
+    // background slider IS the tile and must join the shell's press pipeline
+    // (hold and double-tap keep working). `stopPropagation` on a React
+    // synthetic event is not observable from a wrapper listener in jsdom, so
+    // this pins the two halves the shell actually branches on: the placement
+    // attribute the exclusion predicate reads, and the role the embedded-
+    // control selector matches. The behavioral proof — hold fires on a
+    // background press, never on an inline one, and the tap/drag split holds
+    // — is the shell's own `GridCard.actions.test.tsx` plus the gesture
+    // suite in `LightCard.dispatch.test.tsx`.
+    const { unmount, container } = render(
+      <Slider label="Inline" value={50} domain="light" onValueChange={() => {}} />
+    )
+    const inlineRoot = container.querySelector('.liebe-slider') as HTMLElement
+    expect(inlineRoot.hasAttribute('data-placement')).toBe(false)
+    expect(inlineRoot.querySelector('[role="slider"]')).not.toBeNull()
+    unmount()
+
+    const { unmount: unmountBackground, container: backgroundContainer } = render(
+      <Slider
+        label="Background"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+      />
+    )
+    const backgroundRoot = backgroundContainer.querySelector(
+      '.liebe-slider[data-placement="background"]'
+    ) as HTMLElement
+    expect(backgroundRoot).not.toBeNull()
+    expect(backgroundRoot.querySelector('[role="slider"]')).not.toBeNull()
+    unmountBackground()
+  })
+
+  it('commits keyboard steps on a background surface', async () => {
+    // The keyboard flag is what lets background commits through the tap
+    // gate: each key press is a deliberate adjustment, never a tap.
+    const onValueCommit = vi.fn()
+    render(
+      <Slider
+        label="Background keys"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+        onValueCommit={onValueCommit}
+      />
+    )
+
+    screen.getByRole('slider', { name: 'Background keys' }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+
+    expect(onValueCommit).toHaveBeenCalledWith(51)
+  })
+
+  it('ignores a background move with no pointer-down recorded', () => {
+    // The `!down` early arm: a move arriving without a preceding down (a
+    // re-targeted pointer, a synthetic sequence) declares no drag — there is
+    // no origin to measure travel from.
+    const onBackgroundDragStart = vi.fn()
+    const { unmount, container } = render(
+      <Slider
+        label="Background no-down"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+        onBackgroundDragStart={onBackgroundDragStart}
+      />
+    )
+    const root = container.querySelector('.liebe-slider') as HTMLElement
+    fireEvent.pointerMove(root, { clientX: 130, clientY: 100 })
+    expect(onBackgroundDragStart).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('cancels a tap release but never a drag release', () => {
+    // Both arms of the shared release predicate in one place: a no-travel
+    // release resets the optimistic value the touch-point set, while the
+    // same release after travel keeps the drag's in-flight state for the
+    // commit to settle. The dispatch proof is the card-level tap-away and
+    // cancel suites in `LightCard.dispatch.test.tsx`.
+    const tapCancel = vi.fn()
+    const { unmount: unmountTap, container: tapContainer } = render(
+      <Slider
+        label="Background tap cancel"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+        onBackgroundCancel={tapCancel}
+      />
+    )
+    const tapRoot = tapContainer.querySelector('.liebe-slider') as HTMLElement
+    fireEvent.pointerDown(tapRoot, { clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(tapRoot, { clientX: 100, clientY: 100 })
+    expect(tapCancel).toHaveBeenCalledTimes(1)
+    unmountTap()
+
+    const dragCancel = vi.fn()
+    const { unmount: unmountDrag, container: dragContainer } = render(
+      <Slider
+        label="Background drag no-cancel"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+        onBackgroundCancel={dragCancel}
+      />
+    )
+    const dragRoot = dragContainer.querySelector('.liebe-slider') as HTMLElement
+    fireEvent.pointerDown(dragRoot, { clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(dragRoot, { clientX: 130, clientY: 100 })
+    fireEvent.pointerUp(dragRoot, { clientX: 130, clientY: 100 })
+    expect(dragCancel).not.toHaveBeenCalled()
+    unmountDrag()
+
+    // The cancel path's own both-arms half: an interrupted touch (cancel,
+    // not release) after no travel resets like a tap release does.
+    const cancelCancel = vi.fn()
+    const { unmount: unmountCancel, container: cancelContainer } = render(
+      <Slider
+        label="Background tap cancel-event"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+        onBackgroundCancel={cancelCancel}
+      />
+    )
+    const cancelRoot = cancelContainer.querySelector('.liebe-slider') as HTMLElement
+    fireEvent.pointerDown(cancelRoot, { clientX: 100, clientY: 100 })
+    fireEvent.pointerCancel(cancelRoot, { clientX: 100, clientY: 100 })
+    expect(cancelCancel).toHaveBeenCalledTimes(1)
+    unmountCancel()
+
+    // The cancel-event false arm: a travelled drag that is then cancelled
+    // keeps its in-flight state — interruption is not a tap, and must not
+    // wipe the value a real drag claimed.
+    const noCancel = vi.fn()
+    const { unmount: unmountTravelled, container: travelledContainer } = render(
+      <Slider
+        label="Background travelled cancel"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+        onBackgroundCancel={noCancel}
+      />
+    )
+    const travelledRoot = travelledContainer.querySelector('.liebe-slider') as HTMLElement
+    fireEvent.pointerDown(travelledRoot, { clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(travelledRoot, { clientX: 130, clientY: 100 })
+    fireEvent.pointerCancel(travelledRoot, { clientX: 130, clientY: 100 })
+    expect(noCancel).not.toHaveBeenCalled()
+    unmountTravelled()
+  })
+
+  it('ignores a cancel event on an inline slider', () => {
+    // The `isBackground` false arm of the cancel gate: inline sliders own
+    // their gesture outright — interruption settles through Radix, never
+    // through the background cancel path.
+    const onBackgroundCancel = vi.fn()
+    const { unmount, container } = render(
+      <Slider
+        label="Inline cancel"
+        value={50}
+        domain="light"
+        onValueChange={() => {}}
+        onBackgroundCancel={onBackgroundCancel}
+      />
+    )
+    const root = container.querySelector('.liebe-slider') as HTMLElement
+    fireEvent.pointerDown(root, { clientX: 100, clientY: 100 })
+    fireEvent.pointerCancel(root, { clientX: 100, clientY: 100 })
+    expect(onBackgroundCancel).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('declares no drag for a below-threshold background move', () => {
+    // The `travelled >= BACKGROUND_TRAVEL_PX` false arm: a 1px tremor is
+    // still a tap, so no drag-start fires and the hold timer stays armed.
+    const onBackgroundDragStart = vi.fn()
+    const { unmount, container } = render(
+      <Slider
+        label="Background tremor"
+        value={50}
+        domain="light"
+        placement="background"
+        onValueChange={() => {}}
+        onBackgroundDragStart={onBackgroundDragStart}
+      />
+    )
+    const root = container.querySelector('.liebe-slider') as HTMLElement
+    fireEvent.pointerDown(root, { clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(root, { clientX: 101, clientY: 100 })
+    expect(onBackgroundDragStart).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('suppresses a background commit without travel or keys', async () => {
+    // The tap half of the split at the unit level: a commit with neither a
+    // declared drag nor a keyboard flag is a no-travel tap and adjusts
+    // nothing — no brightness call, no cover confirmation, just the tap
+    // action. The harness repaints from the change like a card would: the
+    // release commit compares against the value at slide start, and without
+    // the repaint it compares 50 against 50 and never fires — so the gate
+    // is never exercised. Capture stubs follow the story drag helper.
+    // (The card-level proof is the tap-away test in
+    // `LightCard.dispatch.test.tsx`.)
+    const onValueCommit = vi.fn()
+    function TapRepaint() {
+      const [value, setValue] = useState(50)
+      return (
+        <Slider
+          label="Background tap"
+          value={value}
+          domain="light"
+          placement="background"
+          onValueChange={setValue}
+          onValueCommit={onValueCommit}
+        />
+      )
+    }
+    const { unmount, container } = render(<TapRepaint />)
+
+    const root = container.querySelector('.liebe-slider') as HTMLElement
+    root.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 20,
+        right: 200,
+        bottom: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect
+    root.setPointerCapture = () => {}
+    root.releasePointerCapture = () => {}
+    root.hasPointerCapture = () => true
+    fireEvent.pointerDown(root, { clientX: 10, clientY: 10, pointerId: 1, button: 0, buttons: 1 })
+    fireEvent.pointerUp(root, { clientX: 10, clientY: 10, pointerId: 1, button: 0 })
+    expect(onValueCommit).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('commits an inline change without any gesture flag', async () => {
+    // The `!isBackground` arm of the commit gate: inline sliders own their
+    // gesture outright and commit whatever Radix reports — no drag or
+    // keyboard flag required.
+    const onValueCommit = vi.fn()
+    const { unmount } = render(
+      <Slider
+        label="Inline commit"
+        value={50}
+        domain="light"
+        onValueChange={() => {}}
+        onValueCommit={onValueCommit}
+      />
+    )
+
+    screen.getByRole('slider', { name: 'Inline commit' }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+
+    expect(onValueCommit).toHaveBeenCalledWith(51)
+    unmount()
   })
 
   it('respects the range it is given', () => {

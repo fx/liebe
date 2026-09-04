@@ -335,6 +335,36 @@ describe('GridCard actions', () => {
     expect(onMoreInfo).toHaveBeenCalledTimes(1)
   })
 
+  it('arms the hold when the press lands on the background slider', () => {
+    // The `isBackgroundSliderTarget` exception to the rule above: the surface
+    // IS the tile, so a press held on it must still open the detail dialog —
+    // the `slider &&` arm of the Boolean chain. Without this only the
+    // excluded-controls half has coverage.
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        onMoreInfo={onMoreInfo}
+        backgroundSlider={
+          <Slider
+            domain="light"
+            color="light"
+            label="Brightness"
+            value={50}
+            placement="background"
+            onValueChange={() => {}}
+          />
+        }
+      >
+        content
+      </GridCard>
+    )
+
+    pressAndRelease(screen.getByRole('slider', { name: 'Brightness' }), HOLD_DURATION_MS * 2)
+    expect(onMoreInfo).toHaveBeenCalledTimes(1)
+  })
+
   it('leaves the tile alone when the click lands on an embedded control', () => {
     // The pre-existing convention was for each control to stop its own click,
     // and several do not — the input_boolean switch among them, which is why
@@ -424,6 +454,52 @@ describe('GridCard actions', () => {
     expect(onToggle).not.toHaveBeenCalled()
   })
 
+  it('treats a non-slider background layer as backdrop chrome under iconOnly', () => {
+    // The `isBackgroundSlider` guard's early arms: a non-element (or an
+    // element without the background placement prop) is backdrop chrome, not
+    // the state surface, so the `iconOnly` fence drops it. Without this only
+    // the slider-survives half has coverage — the first two `return false`
+    // arms (GridCard.tsx `isBackgroundSlider`) never run.
+    const { unmount } = renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        config={{ iconOnly: true }}
+        backgroundSlider="not a slider element"
+      >
+        content
+      </GridCard>
+    )
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+    expect(screen.queryByText('not a slider element')).not.toBeInTheDocument()
+    unmount()
+
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        config={{ iconOnly: true }}
+        backgroundSlider={<div data-testid="plain-layer">plain</div>}
+      >
+        content
+      </GridCard>
+    )
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+    expect(screen.queryByTestId('plain-layer')).not.toBeInTheDocument()
+  })
+
+  it('renders a non-element background layer without cloning', () => {
+    // The mount ternary's fallback arm: a truthy non-element layer (a string
+    // from a card rendering text, say) is not cloneable, so it renders as-is.
+    // Without this only the clone arm has coverage (GridCard.tsx mount).
+    renderCard(
+      <GridCard domain="light" entityId="light.desk" backgroundSlider="surface text">
+        content
+      </GridCard>
+    )
+    expect(card().textContent).toContain('surface text')
+  })
+
   it('starts no gesture on a secondary pointer', () => {
     // A right-button press is not an activation, and it may never produce the
     // click that would consume a hold it had fired.
@@ -446,6 +522,27 @@ describe('GridCard actions', () => {
       vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
     })
     expect(onMoreInfo).not.toHaveBeenCalled()
+  })
+
+  it('treats a function-component background layer as backdrop chrome under iconOnly', () => {
+    // The `typeof props !== 'object'` guard's object half: a function
+    // component's props resolve through `isValidElement` but carry no
+    // `placement` key, so `'placement' in props` is false and the layer is
+    // backdrop chrome. (React freezes element props, so the `props === null`
+    // half is defensive-only and not constructible in a test.)
+    const Plain = () => <div data-testid="plain-fn-layer">plain</div>
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        config={{ iconOnly: true }}
+        backgroundSlider={<Plain />}
+      >
+        content
+      </GridCard>
+    )
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+    expect(screen.queryByTestId('plain-fn-layer')).not.toBeInTheDocument()
   })
 
   it('sends a stored toggle on an indeterminate entity to the details instead', () => {

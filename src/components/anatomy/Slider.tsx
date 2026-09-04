@@ -162,6 +162,16 @@ export function Slider({
   // runs before Radix's own key handling), cleared on every pointer down.
   const backgroundKeyboardRef = useRef(false)
   const isBackground = placement === 'background'
+  // Whether a reported background commit settles a real adjustment: drags
+  // (travel past the threshold) and keyboard steps do; a no-travel tap
+  // adjusts nothing — no brightness call, no cover confirmation, just the
+  // tap action (options/common — "Gestures in `background` placement").
+  // One predicate so the commit gate cannot disagree with itself.
+  const shouldCommitBackground = () => backgroundDraggedRef.current || backgroundKeyboardRef.current
+  // The tap half of the split, shared by the release and cancel paths below:
+  // a background pointer that never became a drag or a keyboard adjustment
+  // claimed optimistic state that no commit will settle.
+  const shouldCancelBackground = () => isBackground && !shouldCommitBackground()
   return (
     <SliderPrimitive.Root
       {...partAttributes}
@@ -183,11 +193,14 @@ export function Slider({
       // tap action only; only a drag adjusts the slider). Inline sliders
       // commit whatever Radix reports — they own their gesture outright.
       onValueCommit={([next]) => {
-        if (!isBackground || backgroundDraggedRef.current || backgroundKeyboardRef.current)
-          onValueCommit?.(next)
+        if (!isBackground || shouldCommitBackground()) onValueCommit?.(next)
       }}
       onKeyDownCapture={() => {
-        if (isBackground) backgroundKeyboardRef.current = true
+        // Set unconditionally: the flag is only ever READ on the background
+        // path (commit/cancel gates), so an inline key press parking it is
+        // unobservable — and the branchless write keeps every keyboard test
+        // (inline and background alike) covering the same line.
+        backgroundKeyboardRef.current = true
       }}
       // An inline slider owns its gesture, so it stops the tile's action
       // pipeline from seeing it (below): dragging brightness must not also
@@ -239,8 +252,7 @@ export function Slider({
         // the entity's own value and stays operable. Drags that already
         // travelled keep their in-flight state — only the release settles
         // them — so this fires only where the up-handler would have.
-        if (isBackground && !backgroundDraggedRef.current && !backgroundKeyboardRef.current)
-          onBackgroundCancel?.()
+        if (shouldCancelBackground()) onBackgroundCancel?.()
       }}
       onClickCapture={(event) => {
         // Capture, not bubble alone: the click that ends a drag must die

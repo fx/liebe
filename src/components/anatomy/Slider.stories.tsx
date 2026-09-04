@@ -19,6 +19,8 @@ interface DemoSliderProps {
   orientation?: 'horizontal' | 'vertical'
   /** Stands in for a bulb's real RGB — the one data-driven colour the spec allows. */
   hue?: string
+  /** Where the slider renders; background stories prove the gated commit path. */
+  placement?: 'inline' | 'background'
 }
 
 /**
