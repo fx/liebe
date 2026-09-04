@@ -39,7 +39,7 @@ import {
 } from './presentation'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
-import type { CardSpan, CardTier } from '~/utils/cardTier'
+import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface CoverCardProps {
@@ -811,6 +811,10 @@ const MemoizedCoverCard = memo(CoverCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.tier === nextProps.tier &&
+    // The span as well as the tier: the tier is lossy, so a same-tier resize
+    // (2×3 → 4×3) changes the background fill direction via
+    // `resolveBackgroundDirection(span)` — the LightCard pattern.
+    isSameSpan(prevProps.span, nextProps.span) &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

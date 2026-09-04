@@ -362,6 +362,33 @@ describe('the cover card’s position placement', () => {
     unmount()
   })
 
+  it('switches the surface direction across a same-tier span resize', () => {
+    // The span decides the fill direction where the tier cannot: a 2×3 tile
+    // fills bottom→top, a 4×3 tile left→right, both `full`. Mounted
+    // separately (the memo comparator short-circuits rerenders by design —
+    // asserting through it would pin React's bailout, not the card), this
+    // proves the card reads the span it was handed each mount. The
+    // comparator half — that a span change IS a re-render trigger — is the
+    // `isSameSpan` assertion the LightCard already carries in its own
+    // comparator, now mirrored here.
+    const first = withConfig(
+      <CoverCard entityId="cover.living_room" tier="full" span={{ width: 2, height: 3 }} />,
+      { sliderPlacement: 'background' }
+    )
+    expect(
+      screen.getByLabelText('Position').closest('.liebe-slider[data-placement="background"]')
+    ).toHaveAttribute('data-orientation', 'vertical')
+    first.unmount()
+
+    withConfig(
+      <CoverCard entityId="cover.living_room" tier="full" span={{ width: 4, height: 3 }} />,
+      { sliderPlacement: 'background' }
+    )
+    expect(
+      screen.getByLabelText('Position').closest('.liebe-slider[data-placement="background"]')
+    ).toHaveAttribute('data-orientation', 'horizontal')
+  })
+
   it('renders the surface at glance under `background`, running from the span', () => {
     // The direction comes from the effective span, not the tier: a 3×1 tile
     // fills left→right, a 1×3 tile bottom→top, squares included as vertical.
@@ -485,6 +512,37 @@ describe('the fan card’s speed placement', () => {
     expect(sliders).toHaveLength(1)
     expect(sliders[0].closest('.liebe-slider')).toHaveAttribute('data-placement', 'background')
     unmount()
+  })
+
+  it('switches the surface direction across a same-tier span resize', () => {
+    // Same contract as the cover's: the span decides the fill direction
+    // where the tier cannot (2×3 bottom→top, 4×3 left→right, both `full`).
+    // Mounted separately — the memo comparator short-circuits rerenders by
+    // design, so asserting through it would pin React's bailout, not the
+    // card. The comparator half is the `isSameSpan` mirror of LightCard's.
+    // `getByLabelText` also matches the step-button group sharing the
+    // name here (the `full` tier renders steps alongside the surface in
+    // this fixture) — scope to the slider role, as the single-slider test
+    // above does.
+    const first = withConfig(
+      <FanCard entityId="fan.living_room" tier="full" span={{ width: 2, height: 3 }} />,
+      { sliderPlacement: 'background' }
+    )
+    expect(
+      screen
+        .getByRole('slider', { name: 'Fan speed' })
+        .closest('.liebe-slider[data-placement="background"]')
+    ).toHaveAttribute('data-orientation', 'vertical')
+    first.unmount()
+
+    withConfig(<FanCard entityId="fan.living_room" tier="full" span={{ width: 4, height: 3 }} />, {
+      sliderPlacement: 'background',
+    })
+    expect(
+      screen
+        .getByRole('slider', { name: 'Fan speed' })
+        .closest('.liebe-slider[data-placement="background"]')
+    ).toHaveAttribute('data-orientation', 'horizontal')
   })
 
   it('renders the surface at glance under `background`, inert under steps', () => {
