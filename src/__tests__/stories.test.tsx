@@ -151,10 +151,10 @@ installStaticFileImageLoader()
  * failure mode this whole change exists to remove, one level down. And each
  * entry pins the message it MUST throw with: none of these stories asserts only
  * geometry, so "it threw" alone would swallow a real regression in the
- * assertions around it — `ForecastsMaxCount` counts columns before it measures
- * one, `DragToMaximum` has to find the slider before it can drag it. Matching
- * the message keeps the entry an exemption from one assertion rather than from
- * the whole story.
+ * assertions around it — `ForecastsMaxCountOnMinimumWidthTile` counts columns
+ * before it measures one, `DragToMaximum` has to find the slider before it can
+ * drag it. Matching the message keeps the entry an exemption from one
+ * assertion rather than from the whole story.
  */
 const BROWSER_ONLY: Record<string, { reason: string; throws: RegExp }> = {
   'WeatherCard/ForecastsMaxCountOnMinimumWidthTile': {

@@ -141,13 +141,18 @@ test('a wide tile draws every served hour at an equal rhythm above the legible f
 
   // Synchronise on the columns, not merely on the card: the forecast arrives
   // over the WebSocket after first paint, and a snapshot taken in between
-  // would measure a strip that has not drawn yet.
+  // would measure a strip that has not drawn yet (30s budget: the
+  // forecast arrives over the HA websocket after first paint, and slow CI /
+  // HA startup leaves the 15s default no headroom).
   let geometry: ForecastGeometry | null = null
   await expect
-    .poll(async () => {
-      geometry = await forecastGeometry(page, 'full')
-      return geometry?.count ?? null
-    })
+    .poll(
+      async () => {
+        geometry = await forecastGeometry(page, 'full')
+        return geometry?.count ?? null
+      },
+      { timeout: 30_000 }
+    )
     .toBe(served)
 
   // The configured count is an upper bound: twelve asked, `served` sent, all
@@ -170,10 +175,13 @@ test('a minimum-width tile omits columns rather than clipping, scrolling or sque
 
   let geometry: ForecastGeometry | null = null
   await expect
-    .poll(async () => {
-      geometry = await forecastGeometry(page, 'row')
-      return geometry?.count ?? null
-    })
+    .poll(
+      async () => {
+        geometry = await forecastGeometry(page, 'row')
+        return geometry?.count ?? null
+      },
+      { timeout: 30_000 }
+    )
     .not.toBeNull()
 
   // Fewer than were configured, because this tile cannot hold twelve.

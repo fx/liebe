@@ -153,13 +153,19 @@ for (const [label, size, pick] of [
     // paint, and a snapshot taken in between would measure a skeleton. Both
     // seeded cards carry the same entity at the same tier, so the helper
     // below reads every full tile and this picks by seeded size — the smaller
-    // leftover is the 2×2, the larger the 3×3.
+    // leftover is the 2×2, the larger the 3×3. Explicit 30s budget
+    // (entity-history precedent): the writes alone take ~7.5s before the
+    // recorder even commits, then history still has to reach the panel over
+    // the websocket.
     let geometries: GraphFillGeometry[] = []
     await expect
-      .poll(async () => {
-        geometries = await allFullGraphFillGeometries(page)
-        return geometries.filter((geometry) => geometry.region === 'full').length
-      })
+      .poll(
+        async () => {
+          geometries = await allFullGraphFillGeometries(page)
+          return geometries.filter((geometry) => geometry.region === 'full').length
+        },
+        { timeout: 30_000 }
+      )
       .toBe(2)
 
     const ordered = [...geometries].sort((a, b) => a.leftover - b.leftover)
@@ -183,13 +189,17 @@ test('the added tile height goes to the graph, not to the fixed parts', async ({
   await seedHistory(accessToken, page)
 
   // Both tiles draw before either is measured: the leftover is only
-  // comparable across tiles once both series have landed.
+  // comparable across tiles once both series have landed (same 30s budget
+  // as above).
   let geometries: GraphFillGeometry[] = []
   await expect
-    .poll(async () => {
-      geometries = await allFullGraphFillGeometries(page)
-      return geometries.filter((geometry) => geometry.region === 'full').length
-    })
+    .poll(
+      async () => {
+        geometries = await allFullGraphFillGeometries(page)
+        return geometries.filter((geometry) => geometry.region === 'full').length
+      },
+      { timeout: 30_000 }
+    )
     .toBe(2)
 
   expect(geometries, 'both full tiles should have rendered').toHaveLength(2)
