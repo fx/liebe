@@ -69,7 +69,7 @@ function ensureInterval(rateMs: number): void {
       // throwing notify must not skip the listeners behind it or escape the
       // shared interval — the per-consumer intervals this clock replaced
       // never shared a loop.
-      for (const listener of [...(listeners.get(rateMs) ?? [])]) {
+      for (const listener of [...listeners.get(rateMs)!]) {
         try {
           listener()
         } catch (error) {

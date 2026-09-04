@@ -88,9 +88,11 @@ function runDueTasks(wheel: Wheel): void {
     // First-fire wall-clock gate: until the full interval has elapsed since
     // registration, the task waits no matter the tick phase. Cleared on
     // first fire; steady state rides `nextDue` alone.
-    if (task.dueAtMs !== 0 && Date.now() < task.dueAtMs) continue
+    if (task.dueAtMs !== 0) {
+      if (Date.now() < task.dueAtMs) continue
+      task.dueAtMs = 0
+    }
     task.nextDue = wheel.elapsed + task.every
-    task.dueAtMs = 0
     let result: unknown
     try {
       result = task.run()
