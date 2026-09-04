@@ -313,6 +313,29 @@ describe('InputSelectCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
+    it('opens nothing on tap while a dispatch is in flight', () => {
+      // Held shut while the menu cannot open: the disabled trigger cannot
+      // take focus, and no menu opens from a tap made while loading.
+      vi.mocked(useServiceCall).mockReturnValue({
+        callService: vi.fn(),
+        dispatchGuarded: vi.fn(),
+        turnOn: vi.fn(),
+        turnOff: vi.fn(),
+        toggle: vi.fn(),
+        setValue: mockSetValue,
+        loading: true,
+        error: null,
+        clearError: vi.fn(),
+      })
+      render(<InputSelectCard entityId="input_select.test_select" tier="row" />)
+      expect(screen.getByRole('combobox')).toBeDisabled()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.queryByRole('option', { name: 'Option 2' })).not.toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
     it('focuses the first live pill on tap where the pills render', () => {
       render(
         <InputSelectCard
