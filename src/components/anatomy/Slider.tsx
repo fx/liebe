@@ -144,6 +144,11 @@ export function Slider({
   const backgroundMovedRef = useRef(false)
   const backgroundDraggedRef = useRef(false)
   const backgroundDownRef = useRef<{ x: number; y: number } | null>(null)
+  // Keyboard adjustments are always deliberate: each key press is a real
+  // adjustment with no pointer press/release at all, so a keyboard commit is
+  // never a tap and must never be suppressed. Set on key-down capture (which
+  // runs before Radix's own key handling), cleared on every pointer down.
+  const backgroundKeyboardRef = useRef(false)
   const isBackground = placement === 'background'
   return (
     <SliderPrimitive.Root
@@ -160,8 +165,16 @@ export function Slider({
         if (isBackground && backgroundDraggedRef.current) backgroundMovedRef.current = true
         onValueChange(next)
       }}
-      onValueCommit={([next]) => onValueCommit?.(next)}
-      // toggle the light it is dimming. A background slider IS the tile — the
+      // A zero-travel tap on the track away from the thumb still *sets* a
+      // value — Radix jumps the track to the touch point on pointer down —
+      // and then commits it on pointer up. Gating the commit on the same
+      onValueCommit={([next]) => {
+        if (!isBackground || backgroundDraggedRef.current || backgroundKeyboardRef.current)
+          onValueCommit?.(next)
+      }}
+      onKeyDownCapture={() => {
+        if (isBackground) backgroundKeyboardRef.current = true
+      }}
       // drag/tap split above is what separates the two, so the pointer down is
       // NOT stopped here and the shell's press pipeline sees it (hold and
       // double-tap keep working). Radix composes its own pointer handler after
@@ -171,10 +184,10 @@ export function Slider({
         if (isBackground) {
           backgroundMovedRef.current = false
           backgroundDraggedRef.current = false
+          backgroundKeyboardRef.current = false
           backgroundDownRef.current = { x: event.clientX, y: event.clientY }
         } else event.stopPropagation()
       }}
-      // Capture phase: the move target is the track (or the thumb inside
       // it) — capture runs Root-first, so the threshold is seen no matter
       // which descendant the finger is over. (Relying on bubble phase misses
       // synthetic moves dispatched at the track: the Root's own React

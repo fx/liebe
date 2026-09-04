@@ -223,9 +223,10 @@ describe('the light card’s brightness placement', () => {
     )
 
     expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
-    expect(
-      screen.getByLabelText('Brightness').closest('.liebe-slider')
-    ).toHaveAttribute('data-placement', 'background')
+    expect(screen.getByLabelText('Brightness').closest('.liebe-slider')).toHaveAttribute(
+      'data-placement',
+      'background'
+    )
     expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
   })
@@ -267,7 +268,7 @@ describe('the light card’s brightness placement', () => {
 
   it('composes with `iconOnly` under `background`: the fill IS the state tint', () => {
     // options/common — "Icon-only presentation": the surface survives the
-   // fence that drops backdrops, because it is the tile's state surface
+    // fence that drops backdrops, because it is the tile's state surface
     // rather than chrome. The tile keeps its accessible name and the danger
     // floor is untouched — this asserts the composition, not the floor.
     const config = { sliderPlacement: 'background', iconOnly: true }
@@ -283,9 +284,10 @@ describe('the light card’s brightness placement', () => {
 
     expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
     expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
-    expect(
-      screen.getByLabelText('Brightness').closest('.liebe-slider')
-    ).toHaveAttribute('data-placement', 'background')
+    expect(screen.getByLabelText('Brightness').closest('.liebe-slider')).toHaveAttribute(
+      'data-placement',
+      'background'
+    )
   })
 })
 

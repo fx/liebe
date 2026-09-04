@@ -9,7 +9,11 @@ import { Pill, PillGroup, Slider } from '../anatomy'
 import { useCardItem } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import { readFanOptions } from '~/store/fanOptions'
-import { isBackgroundPlacement, readSliderOrientation, resolveBackgroundDirection } from '~/store/sliderPlacement'
+import {
+  isBackgroundPlacement,
+  readSliderOrientation,
+  resolveBackgroundDirection,
+} from '~/store/sliderPlacement'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { FanDetailControls } from './FanDetailControls'
 import {

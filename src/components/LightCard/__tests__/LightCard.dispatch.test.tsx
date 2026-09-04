@@ -263,45 +263,60 @@ describe('LightCard background slider gestures', () => {
     )
     expect(hass.callService).toHaveBeenCalledTimes(1)
   })
-  it('preserves the tap action when a tap-away-from-thumb sets a value with zero travel', async () => {
-    // The review's sharp case: a tap landing away from the thumb still *sets*
-    // a value — the track jumps to the touch point — with zero pointer
-    // travel. Travel below BACKGROUND_TRAVEL_PX stays a tap: the ending click
-    // must bubble to the shell and toggle, not be stopped as a drag. Pinned
-    // at the anatomy level (no card dispatch involved): the click bubbles iff
-    // the gesture never travelled.
-    const onChange = vi.fn()
-    const { unmount } = render(
-      <Theme>
-        <Slider
-          domain="light"
-          color="light"
-          label="Tap split"
-          value={50}
-          placement="background"
-          onValueChange={onChange}
-        />
-      </Theme>
-    )
-
-    const slider = document.querySelector('.liebe-slider')!
-    let bubbled = 0
-    slider.parentElement!.addEventListener('click', () => {
-      bubbled += 1
-    })
-    fireEvent.pointerDown(slider, { isPrimary: true, button: 0, clientX: 100, clientY: 100 })
-    onChange(70)
-    fireEvent.click(slider, { clientX: 100, clientY: 100 })
-
-    expect(bubbled).toBe(1)
-    unmount()
-
-    // And through the card: a no-travel click on the tile toggles.
+  it('commits nothing on a tap-away-from-thumb: no-travel tap is the tap action only', async () => {
+    // The review's sharp case, through the real commit path rather than a
+    // manual `onChange` call: a tap landing away from the thumb still *sets*
+    // a value — Radix jumps the track to the touch point on pointer down —
+    // and then commits it on pointer up. With zero travel the commit must be
+    // suppressed and the ending click must bubble to the shell and toggle.
+    // (Unsuppressed, this double-acts: a brightness call AND a toggle — or,
+    // on a security cover, a brightness-style commit plus a confirmation.)
+    //
+    // The rect stub is what makes the drag real (see `beginDrag` in
+    // `LightCard.dragGuard.test.tsx`): jsdom reports every element as
+    // zero-sized, so without it Radix computes the value the slider already
+    // has, skips both callbacks, and the test passes against no gate at all.
     backgroundCard()
+
+    const thumb = screen.getByLabelText('Brightness')
+    const slider = thumb.closest('.liebe-slider') as HTMLElement
+    // The rect Radix measures is the ROOT's (`slider.getBoundingClientRect`
+    // in `getValueFromPointer`), so the stub goes there — stubbing a child
+    // leaves the math at zero-size and the drag never begins (see `beginDrag`
+    // in `LightCard.dragGuard.test.tsx`).
+    slider.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 20,
+        right: 200,
+        bottom: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect
+    // jsdom implements no pointer capture, and Radix gates its slide start on
+    // `setPointerCapture` — without the stub the touch point never sets a
+    // value and the test passes against no gate at all.
+    slider.setPointerCapture = () => {}
+    slider.releasePointerCapture = () => {}
+    slider.hasPointerCapture = () => true
+
+    // Same clientX for down and up: the touch point sets a value (the card's
+    // optimistic drag path fires `onValueChange` — the controlled prop stays
+    // 50 until the card repaints, so there is no DOM value to assert here),
+    // the gesture travels nothing, and the suppressed commit means only the
+    // toggle dispatches.
+    fireEvent.pointerDown(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
+    fireEvent.pointerUp(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
     fireEvent.click(tile())
+
     await waitFor(() =>
       expect(hass.callService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: LIGHT })
     )
+    // The toggle — and only the toggle. A leaked commit would be a second
+    // call (`turn_on` with a brightness).
     expect(hass.callService).toHaveBeenCalledTimes(1)
   })
 
