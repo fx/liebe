@@ -65,10 +65,22 @@ function runDueTasks(wheel: Wheel): void {
   wheel.elapsed += 1
   for (const task of [...wheel.tasks.values()]) {
     if (wheel.elapsed % task.every !== 0) continue
+    let result: unknown
     try {
-      task.run()
+      result = task.run()
     } catch (error) {
       logger.error('pipelineScheduler: scheduled task threw (kept registered):', error)
+      continue
+    }
+    // The 30s health check is async: without this, a rejection in
+    // reconnect()/connect()/disconnect() escapes as an unhandled rejection —
+    // the sync boundary above never sees it. Awaiting here routes async
+    // faults through the same per-task boundary, and the task stays
+    // registered so the next tick retries it.
+    if (result instanceof Promise) {
+      result.catch((error: unknown) => {
+        logger.error('pipelineScheduler: scheduled task rejected (kept registered):', error)
+      })
     }
   }
 }
@@ -98,7 +110,7 @@ function releaseWheel(rate: ScheduleRate): void {
 export function schedulePipelineTask(
   rate: ScheduleRate,
   everyMs: number,
-  run: () => void
+  run: () => void | Promise<unknown>
 ): () => void {
   const wheel = ensureWheel(rate)
   const every = Math.max(1, Math.ceil(everyMs / RATE_TICK_MS[rate]))

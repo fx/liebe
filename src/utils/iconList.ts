@@ -62,6 +62,13 @@ export const ICONS: Icon[] = [
   { name: 'Lock', displayName: 'Locked', component: IconLock, category: 'security' },
   { name: 'LockOpen', displayName: 'Unlocked', component: IconLockOpen, category: 'security' },
   { name: 'ShieldCheck', displayName: 'Armed', component: IconShieldCheck, category: 'security' },
+  // Removed in change 0044 (compat note): 'Shield', 'DeviceTv', 'DeviceTvOff',
+  // 'Clock', 'Calendar' and 'BatteryOff' used to resolve here. A persisted
+  // `display.icon` override naming one now resolves to `undefined` via
+  // `getIcon` — which every caller already treats as "no override" (GridCard
+  // falls back to the card's own glyph per the dashboard-config Forward
+  // Compatibility contract), so no migration was written: the tile keeps its
+  // glyph instead of the chosen icon. Re-adding a name here restores it.
   { name: 'Bell', displayName: 'Bell On', component: IconBell, category: 'security' },
   { name: 'BellOff', displayName: 'Bell Off', component: IconBellOff, category: 'security' },
 

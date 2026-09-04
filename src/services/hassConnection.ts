@@ -319,9 +319,9 @@ export class HassConnectionManager {
 
     // Monitor WebSocket connection health every 30 seconds — one entry on the
     // shared fast wheel, whose tick IS 30s, so the cadence is unchanged.
-    this.connectionHealthRelease = schedulePipelineTask('fast', 30000, () => {
-      void this.checkConnectionHealth()
-    })
+    this.connectionHealthRelease = schedulePipelineTask('fast', 30000, () =>
+      this.checkConnectionHealth()
+    )
   }
 
   // Stop connection health monitoring

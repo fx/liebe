@@ -122,6 +122,47 @@ describe('pipelineScheduler', () => {
     }
   })
 
+  it('a rejecting async task neither escapes nor skips the rest', async () => {
+    vi.useFakeTimers()
+    const logged: unknown[][] = []
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      logged.push(args)
+    })
+    try {
+      const after = vi.fn()
+      const rejecting = vi.fn(() => Promise.reject(new Error('health check blew up')))
+      const releaseRejecting = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, rejecting)
+      const releaseAfter = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, after)
+
+      // Must not throw or reject out of the shared interval callback, and the
+      // task behind the rejecting one still runs.
+      await vi.advanceTimersByTimeAsync(SCHEDULER_FAST_TICK_MS)
+      expect(rejecting).toHaveBeenCalledTimes(1)
+      expect(after).toHaveBeenCalledTimes(1)
+
+      // The rejection surfaces through a microtask (promise .catch): flush it
+      // before asserting what was logged.
+      await Promise.resolve()
+      await Promise.resolve()
+
+      // The rejection routes through the same boundary: logged with the error
+      // object (stack preserved), task kept registered and retried next tick.
+      expect(logged.length).toBeGreaterThan(0)
+      const loggedError = logged[0][1]
+      expect(loggedError).toBeInstanceOf(Error)
+      expect(String((loggedError as Error).stack)).toContain('health check blew up')
+
+      await vi.advanceTimersByTimeAsync(SCHEDULER_FAST_TICK_MS)
+      expect(rejecting).toHaveBeenCalledTimes(2)
+      expect(after).toHaveBeenCalledTimes(2)
+
+      releaseRejecting()
+      releaseAfter()
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('a double release does not take another task down', () => {
     vi.useFakeTimers()
 

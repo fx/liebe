@@ -161,9 +161,10 @@ export function useNow(rateMs: number, enabled = true): number {
 
 /**
  * The wall time, kept current by the shared clock at `rateMs`. The tick only
- * decides WHEN it recomputes; the value is read from the clock, never during
- * render — `Date.now()` runs in the state initializer (mount) and in the
- * interval callback (commit-adjacent), both of which the purity rule permits.
+ * decides WHEN it recomputes; the render body itself never reads the clock —
+ * `Date.now()` runs in the lazy state initializer (once per mount, not per
+ * render) and in the interval callback (commit phase), both of which the
+ * purity rule permits.
  */
 export function useNowTimestamp(rateMs: number, enabled = true): number {
   const [now, setNow] = useState(() => Date.now())
