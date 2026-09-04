@@ -1143,6 +1143,18 @@ export const GridCard = React.memo(
       const handleTileActionKeyDown = (e: React.KeyboardEvent) => {
         if (e.key !== 'Enter' && e.key !== ' ') return
         if (e.repeat) return
+        // While the tile carries a failure, EVERY activation is a recovery
+        // activation — the modifier routes included. A configured
+        // consequential hold/double-tap must not dispatch behind the ERROR
+        // surface; the failure is the thing the user has to act on, so the
+        // dialog opens instead (same rule as the pointer tap above).
+        if (isError && detailEntityId && (e.shiftKey || e.altKey)) {
+          if (!e.ctrlKey && !e.metaKey && e.shiftKey !== e.altKey) {
+            e.preventDefault()
+            setDetailFor(detailEntityId)
+          }
+          return
+        }
         if (e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
           e.preventDefault()
           gestures.activateHold()
@@ -1151,7 +1163,6 @@ export const GridCard = React.memo(
           gestures.activateDoubleTap()
         }
       }
-
       /*
        * Whether the tile carries a natively focusable surface of its own. A
        * `CardBody` `control` slot that survived omission (cross-axis-fit

@@ -166,6 +166,47 @@ describe('GridCard tile action control', () => {
     expect(onToggle).not.toHaveBeenCalled()
   })
 
+  it('routes Shift/Alt activations to recovery on an error tile, never behind ERROR', () => {
+    // A configured consequential hold/double-tap must not dispatch behind the
+    // ERROR surface: every activation is a recovery activation while `isError`
+    // holds, modifiers included.
+    const onToggle = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId={ENTITY_ID}
+        isError
+        title="Service not found"
+        failureMessage="Service not found"
+        onDismiss={vi.fn()}
+        onClick={onToggle}
+        config={{
+          holdAction: { action: 'call-service', service: 'light.turn_on' },
+          doubleTapAction: { action: 'call-service', service: 'script.movie_mode' },
+        }}
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.keyDown(tileAction(/^Desk Lamp, Service not found$/), {
+      key: 'Enter',
+      shiftKey: true,
+    })
+    expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service not found')
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    fireEvent.keyDown(tileAction(/^Desk Lamp, Service not found$/), {
+      key: 'Enter',
+      altKey: true,
+    })
+    expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service not found')
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
   it('leaves a Shift activation inert when holdAction is none', () => {
     const onToggle = vi.fn()
     const onMoreInfo = vi.fn()
