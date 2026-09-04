@@ -16,9 +16,10 @@ import { buildSeedConfig, callService, DEMO_LIGHT, getRestState, openPanel } fro
  * The claim is the whole point of separating change from commit: dragging
  * past the track's edge drives the value to its maximum and dispatches
  * exactly one service call, not one per pixel of travel. The value is read
- * off the thumb's `aria-valuenow`; the single commit is read off the entity
- * itself — brightness 255 on the demo light after one `light.turn_on` — via
- * REST, which is what a second commit would also have to move through.
+ * off the thumb's `aria-valuenow`; the single commit is counted at the
+ * WebSocket boundary — every `call_service` frame the panel sends for this
+ * entity during the drag — with the final brightness 255 (via REST) as the
+ * converging evidence that the one counted call carried the maximum.
  *
  * The minimum sibling rides along: the same gesture the other way parks the
  * value at zero, through `light.turn_off`.
@@ -132,6 +133,42 @@ test('dragging past the track edge drives the value to maximum with a single com
   const track = await sliderTrackBox(page, light)
   expect(track.width, 'the track should have a box to drag across').toBeGreaterThan(0)
 
+  // Count every `call_service` frame the panel sends for this entity from
+  // here on: the counter starts after the setup `turn_on` above has settled
+  // (the `sliderValueNow` poll is that settlement), so what it counts is the
+  // drag's own dispatches and nothing else. Registered on the raw socket —
+  // the same boundary `hass.callService` writes to — so the gesture is
+  // observed, never stubbed. A card that dispatched per pointer-move would
+  // fail here with one frame per travel step while still converging on the
+  // same final brightness.
+  const turnOnFrames: string[] = []
+  page.on('websocket', (ws) => {
+    ws.on('framesent', (frame) => {
+      const payload =
+        typeof frame.payload === 'string' ? frame.payload : frame.payload.toString('utf8')
+      let message:
+        | { type?: unknown; domain?: unknown; service?: unknown; service_data?: unknown }
+        | undefined
+      try {
+        message = JSON.parse(payload) as NonNullable<typeof message>
+      } catch {
+        return
+      }
+      // Scoped to this entity's service data (`entity_id` travels in
+      // `service_data` per `hassService.buildServiceData`), so a stray
+      // `light.turn_on` for any other entity could not satisfy the count.
+      const serviceData = (message?.service_data ?? {}) as { entity_id?: unknown }
+      if (
+        message?.type === 'call_service' &&
+        message?.domain === 'light' &&
+        message?.service === 'turn_on' &&
+        serviceData.entity_id === DEMO_LIGHT
+      ) {
+        turnOnFrames.push(payload)
+      }
+    })
+  })
+
   // Press on the track's centre, drag well past its right edge so the value
   // clamps to the maximum rather than landing on whatever fraction a pixel
   // offset works out to.
@@ -147,13 +184,12 @@ test('dragging past the track edge drives the value to maximum with a single com
   await expect.poll(() => sliderValueNow(page, light)).toBe('100')
 
   // And the drag committed exactly once: one `light.turn_on` carrying full
-  // brightness, read off HA state rather than off a counter the page owns.
-  // The REST poll comes first (the service call resolves before the state
-  // reaches the panel over the websocket); the panel poll then waits for that
-  // state to have arrived, so a snapshot taken in between cannot read the
-  // pre-drag brightness and report a defect that is not there. The entity id
-  // travels as an argument — `page.evaluate` serializes its function, which
-  // cannot close over this module.
+  // brightness. The REST poll comes first (the service call resolves before
+  // the state reaches the panel over the websocket); the panel poll then
+  // waits for that state to have arrived, so a snapshot taken in between
+  // cannot read the pre-drag brightness and report a defect that is not
+  // there. The entity id travels as an argument — `page.evaluate`
+  // serializes its function, which cannot close over this module.
   await expect.poll(() => getRestState(accessToken, DEMO_LIGHT), { timeout: 15_000 }).toBe('on')
   await expect
     .poll(async () => {
@@ -167,6 +203,10 @@ test('dragging past the track edge drives the value to maximum with a single com
       return attributes?.brightness ?? null
     })
     .toBe(255)
+  expect(
+    turnOnFrames,
+    'one drag should dispatch one light.turn_on, not one per pixel'
+  ).toHaveLength(1)
 })
 
 test('dragging past the leading edge parks the value at zero', async ({ page }) => {
