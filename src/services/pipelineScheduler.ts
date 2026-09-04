@@ -36,6 +36,16 @@ interface ScheduledTask {
   run: () => void
   /** Run every Nth tick of the wheel. */
   every: number
+  /**
+   * Wheel tick (global `elapsed`) the task is next due on, anchored at
+   * REGISTRATION, not at the wheel's phase: a task registered at elapsed E
+   * with `every` N first fires at E+N. The old global-phase test
+   * (`elapsed % every === 0`) fired a late-registered task on the next tick
+   * whose global count was a multiple — e.g. a newly mounted daily forecast
+   * refreshing after 5min instead of its 2h interval — where the per-task
+   * intervals this wheel replaced began at registration.
+   */
+  nextDue: number
 }
 
 interface Wheel {
@@ -67,7 +77,8 @@ const RATE_TICK_MS: Record<ScheduleRate, number> = {
 function runDueTasks(wheel: Wheel): void {
   wheel.elapsed += 1
   for (const task of [...wheel.tasks.values()]) {
-    if (wheel.elapsed % task.every !== 0) continue
+    if (wheel.elapsed < task.nextDue) continue
+    task.nextDue = wheel.elapsed + task.every
     let result: unknown
     try {
       result = task.run()
@@ -116,9 +127,9 @@ export function schedulePipelineTask(
   run: () => void | Promise<unknown>
 ): () => void {
   // Same fail-fast class as the clock rates: a non-finite or non-positive
-  // interval computes `every` as NaN, and `elapsed % NaN !== 0` is always
-  // true — so the task would sit registered-but-never-due while the wheel
-  // still wakes for it. Throwing names the culprit instead.
+  // interval poisons the due arithmetic (`every` NaN → `nextDue` NaN, and no
+  // tick is ever `>= NaN`) — so the task would sit registered-but-never-due
+  // while the wheel still wakes for it. Throwing names the culprit instead.
   if (!Number.isFinite(everyMs) || everyMs <= 0) {
     throw new RangeError(
       `schedulePipelineTask: everyMs must be a positive finite number, got ${String(everyMs)}`
@@ -127,7 +138,7 @@ export function schedulePipelineTask(
   const wheel = ensureWheel(rate)
   const every = Math.max(1, Math.ceil(everyMs / RATE_TICK_MS[rate]))
   const id = nextId++
-  wheel.tasks.set(id, { id, run, every })
+  wheel.tasks.set(id, { id, run, every, nextDue: wheel.elapsed + every })
 
   let released = false
   return () => {

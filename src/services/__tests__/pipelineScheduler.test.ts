@@ -24,6 +24,9 @@ import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
 // matter how many members subscribe, and advancing past the longest member
 // interval MUST produce the member calls. Fake timers throughout.
 
+/** A daily-like interval: 24 slow-wheel ticks (2h at 5min/tick). */
+const FORECAST_LIKE_DAILY_MS = SCHEDULER_SLOW_TICK_MS * 24
+
 describe('pipelineScheduler', () => {
   afterEach(() => {
     resetSchedulerForTests()
@@ -173,6 +176,34 @@ describe('pipelineScheduler', () => {
     // Nothing scheduled, no wheel started for any of them.
     expect(setIntervalSpy).not.toHaveBeenCalled()
     expect(schedulerIntervalCountForTests()).toBe(0)
+  })
+
+  it('a late-registered task first fires after its full interval', () => {
+    vi.useFakeTimers()
+
+    // The wheel is already at elapsed 23 when the daily forecast mounts: with
+    // the old global-phase test (elapsed % 24 === 0) it would fire on the very
+    // next tick — 5min after registration instead of its 2h interval. Due
+    // ticks anchor at registration, like the per-task intervals this wheel
+    // replaced.
+    const early = vi.fn()
+    const releaseEarly = schedulePipelineTask('slow', SCHEDULER_SLOW_TICK_MS, early)
+    act_advance(SCHEDULER_SLOW_TICK_MS * 23)
+    expect(early).toHaveBeenCalledTimes(23)
+
+    const late = vi.fn()
+    const releaseLate = schedulePipelineTask('slow', FORECAST_LIKE_DAILY_MS, late)
+    act_advance(SCHEDULER_SLOW_TICK_MS)
+    // One more tick (elapsed 24): early fires (its own phase), late must not
+    // (its first due is 23+24=47).
+    expect(late).not.toHaveBeenCalled()
+
+    act_advance(SCHEDULER_SLOW_TICK_MS * 23)
+    // Elapsed 47: late fires for the first time — a full 2h after it mounted.
+    expect(late).toHaveBeenCalledTimes(1)
+
+    releaseEarly()
+    releaseLate()
   })
 
   it('a double release does not take another task down', () => {
