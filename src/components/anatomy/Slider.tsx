@@ -76,7 +76,24 @@ export interface SliderProps extends AnatomyPartProps {
    * every existing slider renders exactly as before with no ref passed.
    */
   thumbRef?: Ref<HTMLSpanElement>
+  /**
+   * Called once when a background-slider pointer travels past the drag
+   * threshold and becomes a real drag. The shell wires it to the gesture
+   * controller's `release()` — press-and-hold arms on pointer down, so a slow
+   * drag past HOLD_DURATION_MS would otherwise fire hold under the finger
+   * still adjusting the value. Never called for inline sliders.
+   */
+  onBackgroundDragStart?: () => void
 }
+
+/**
+ * How far a background-slider pointer must travel (CSS px) before the gesture
+ * counts as a drag. Below it the gesture stays a tap — even when the tap
+ * lands away from the thumb and the track jumps to the touch point, setting a
+ * value with zero travel. Above it the ending click is stopped so no tile
+ * action fires.
+ */
+export const BACKGROUND_TRAVEL_PX = 8
 
 /**
  * The embedded slider (`liebe-slider`) — a `--liebe-control-height` track
@@ -103,16 +120,30 @@ export function Slider({
   onValueChange,
   onValueCommit,
   thumbRef,
+  onBackgroundDragStart,
   ...part
 }: SliderProps) {
   const { className, ...partAttributes } = anatomyPart('liebe-slider', part)
-  // Whether this gesture moved the value. A background slider IS the tile, so
-  // a tap (press and release without travel) must fall through to the tile's
-  // action while a drag must not: the drag is exactly the gesture that changed
-  // the value, so the click that ends one is stopped and the click that ends
-  // the other bubbles to the shell. Reset on every pointer down, set on every
-  // value the drag passes through.
+  // The tap/drag split for a background slider, which IS the tile: a tap
+  // (press and release without meaningful travel) must fall through to the
+  // tile's action while a drag must not. Two halves, on two different events:
+  // - The pointer half tracks travel in CSS pixels from the pointer-down
+  //   point. A tap that lands away from the thumb still *sets* a value — the
+  //   track jumps to the touch point — with zero travel, so "the value
+  //   changed" alone would wrongly kill the tap action. Only travel past
+  //   BACKGROUND_TRAVEL_PX counts as a drag; anything less stays a tap.
+  // - The value half marks the gesture moved, so the click that ends a real
+  //   drag is stopped and never reaches the shell's tap. It is set only once
+  //   the pointer half has already declared a drag, for the same reason.
+  //
+  // Both reset on every pointer down. A drag also cancels the shell's armed
+  // hold timer (via the `onBackgroundDragStart` callback the shell wires to
+  // `gestures.release()`): press-and-hold arms on pointer down, so without
+  // this a slow drag past HOLD_DURATION_MS would fire hold under the finger
+  // still adjusting the value.
   const backgroundMovedRef = useRef(false)
+  const backgroundDraggedRef = useRef(false)
+  const backgroundDownRef = useRef<{ x: number; y: number } | null>(null)
   const isBackground = placement === 'background'
   return (
     <SliderPrimitive.Root
@@ -126,12 +157,10 @@ export function Slider({
       orientation={orientation}
       disabled={disabled}
       onValueChange={([next]) => {
-        if (isBackground) backgroundMovedRef.current = true
+        if (isBackground && backgroundDraggedRef.current) backgroundMovedRef.current = true
         onValueChange(next)
       }}
       onValueCommit={([next]) => onValueCommit?.(next)}
-      // An inline slider owns its gesture, so it stops the tile's action
-      // pipeline from seeing it (below): dragging brightness must not also
       // toggle the light it is dimming. A background slider IS the tile — the
       // drag/tap split above is what separates the two, so the pointer down is
       // NOT stopped here and the shell's press pipeline sees it (hold and
@@ -139,11 +168,39 @@ export function Slider({
       // this one and only skips it on `preventDefault`, so the drag still
       // starts either way.
       onPointerDown={(event) => {
-        if (isBackground) backgroundMovedRef.current = false
-        else event.stopPropagation()
+        if (isBackground) {
+          backgroundMovedRef.current = false
+          backgroundDraggedRef.current = false
+          backgroundDownRef.current = { x: event.clientX, y: event.clientY }
+        } else event.stopPropagation()
+      }}
+      // Capture phase: the move target is the track (or the thumb inside
+      // it) — capture runs Root-first, so the threshold is seen no matter
+      // which descendant the finger is over. (Relying on bubble phase misses
+      // synthetic moves dispatched at the track: the Root's own React
+      // bubble handler does not re-fire for an event already dispatched at
+      // a descendant in the synthetic system.)
+      onPointerMoveCapture={(event) => {
+        if (!isBackground || backgroundDraggedRef.current) return
+        const down = backgroundDownRef.current
+        if (!down) return
+        const travelled = Math.hypot(event.clientX - down.x, event.clientY - down.y)
+        if (travelled >= BACKGROUND_TRAVEL_PX) {
+          backgroundDraggedRef.current = true
+          onBackgroundDragStart?.()
+        }
+      }}
+      onClickCapture={(event) => {
+        // Capture, not bubble alone: the click that ends a drag must die
+        // before it reaches the shell's tile handler regardless of which
+        // descendant it lands on. The drag flag alone decides — NOT the
+        // moved flag, which also requires a value change that a synthetic
+        // pointer sequence never produces. Only a drag stops it; a tap's
+        // click bubbles to the shell and becomes the tap action.
+        if (isBackground && backgroundDraggedRef.current) event.stopPropagation()
       }}
       onClick={(event) => {
-        if (!isBackground || backgroundMovedRef.current) event.stopPropagation()
+        if (!isBackground || backgroundDraggedRef.current) event.stopPropagation()
       }}
     >
       <SliderPrimitive.Track className="liebe-slider-track">

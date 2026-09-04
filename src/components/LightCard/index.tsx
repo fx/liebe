@@ -13,7 +13,12 @@ import {
   readShowColorTempControl,
   readUseLightColor,
 } from '~/store/lightOptions'
-import { isBackgroundPlacement, readSliderOrientation, resolveBackgroundDirection, type SliderOrientation } from '~/store/sliderPlacement'
+import {
+  isBackgroundPlacement,
+  readSliderOrientation,
+  resolveBackgroundDirection,
+  type SliderOrientation,
+} from '~/store/sliderPlacement'
 import { kelvinToRgb, resolveLightHue } from './lightColor'
 import {
   readColorTempRange,
@@ -88,6 +93,7 @@ function BrightnessSlider({
   value,
   onValueChange,
   onValueCommit,
+  onBackgroundDragStart,
 }: {
   isOn: boolean
   orientation: SliderOrientation
@@ -95,6 +101,7 @@ function BrightnessSlider({
   value: number
   onValueChange: (value: number) => void
   onValueCommit: (value: number) => void
+  onBackgroundDragStart?: () => void
 }) {
   const hue = useGridCardHue()
 
@@ -107,14 +114,13 @@ function BrightnessSlider({
       label="Brightness"
       // Resolved by the card from `sliderPlacement` and the tier: `tall` is the
       // tier that gives a control its own axis and every other one runs it along
-      // the row, unless the option forces the other way
-      // (docs/specs/entity-cards/options/common.md — "Shared slider placement").
       orientation={orientation}
       placement={placement}
       value={value}
       readout={`${value}%`}
       onValueChange={onValueChange}
       onValueCommit={onValueCommit}
+      onBackgroundDragStart={onBackgroundDragStart}
     />
   )
 }
@@ -562,7 +568,11 @@ function LightCardComponent({
    * behind it from the shell.
    */
   const showBackgroundSlider =
-    !isEditMode && isOn && supportsBrightness && showBrightnessSlider && isBackgroundPlacement(config)
+    !isEditMode &&
+    isOn &&
+    supportsBrightness &&
+    showBrightnessSlider &&
+    isBackgroundPlacement(config)
   const backgroundSlider = showBackgroundSlider ? (
     <BrightnessSlider
       isOn={isOn}

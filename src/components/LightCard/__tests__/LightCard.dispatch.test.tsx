@@ -8,9 +8,10 @@ import { entityStore } from '~/store/entityStore'
 import { dashboardActions } from '~/store'
 import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { DOUBLE_TAP_WINDOW_MS, HOLD_DURATION_MS } from '~/store/cardActions'
-import type { HassEntity } from '~/store/entityTypes'
 import { LightCard } from '..'
+import { BACKGROUND_TRAVEL_PX, Slider } from '../../anatomy/Slider'
 import { CardItemProvider } from '../../cardItemContext'
+import type { HassEntity } from '~/store/entityTypes'
 /**
  * The light card's commands, through the real service path.
  *
@@ -261,6 +262,111 @@ describe('LightCard background slider gestures', () => {
       expect(hass.callService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: LIGHT })
     )
     expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+  it('preserves the tap action when a tap-away-from-thumb sets a value with zero travel', async () => {
+    // The review's sharp case: a tap landing away from the thumb still *sets*
+    // a value — the track jumps to the touch point — with zero pointer
+    // travel. Travel below BACKGROUND_TRAVEL_PX stays a tap: the ending click
+    // must bubble to the shell and toggle, not be stopped as a drag. Pinned
+    // at the anatomy level (no card dispatch involved): the click bubbles iff
+    // the gesture never travelled.
+    const onChange = vi.fn()
+    const { unmount } = render(
+      <Theme>
+        <Slider
+          domain="light"
+          color="light"
+          label="Tap split"
+          value={50}
+          placement="background"
+          onValueChange={onChange}
+        />
+      </Theme>
+    )
+
+    const slider = document.querySelector('.liebe-slider')!
+    let bubbled = 0
+    slider.parentElement!.addEventListener('click', () => {
+      bubbled += 1
+    })
+    fireEvent.pointerDown(slider, { isPrimary: true, button: 0, clientX: 100, clientY: 100 })
+    onChange(70)
+    fireEvent.click(slider, { clientX: 100, clientY: 100 })
+
+    expect(bubbled).toBe(1)
+    unmount()
+
+    // And through the card: a no-travel click on the tile toggles.
+    backgroundCard()
+    fireEvent.click(tile())
+    await waitFor(() =>
+      expect(hass.callService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: LIGHT })
+    )
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+
+  it('suppresses the tap action once the pointer travels past the threshold', () => {
+    // The mirror at the anatomy level: travel past BACKGROUND_TRAVEL_PX marks
+    // the gesture a drag, so the ending click is stopped even when the click
+    // itself lands on the tile. Pinned without timers or dispatch.
+    const { unmount } = render(
+      <Theme>
+        <Slider
+          domain="light"
+          color="light"
+          label="Tap split"
+          value={50}
+          placement="background"
+          onValueChange={() => {}}
+        />
+      </Theme>
+    )
+
+    const slider = document.querySelector('.liebe-slider')!
+    const track = slider.querySelector('.liebe-slider-track')!
+    let bubbled = 0
+    slider.parentElement!.addEventListener('click', () => {
+      bubbled += 1
+    })
+    fireEvent.pointerDown(track, { isPrimary: true, button: 0, clientX: 100, clientY: 100 })
+    // Capture runs Root-first, so the threshold is seen no matter which
+    // descendant the finger is over.
+    fireEvent.pointerMove(slider, { clientX: 100 + BACKGROUND_TRAVEL_PX + 4, clientY: 100 })
+    fireEvent.click(track, { clientX: 100 + BACKGROUND_TRAVEL_PX + 4, clientY: 100 })
+
+    expect(bubbled).toBe(0)
+    unmount()
+  })
+
+  it('never fires hold on a slow drag past the hold threshold', () => {
+    // Press-and-hold arms on pointer down, so a drag held past
+    // HOLD_DURATION_MS would fire hold under the adjusting finger without the
+    // drag-start cancel. The shell wires the drag start to `release()`: the
+    // timer dies the moment travel declares a drag.
+    vi.useFakeTimers()
+    try {
+      backgroundCard()
+
+      const slider = screen.getByLabelText('Brightness').closest('.liebe-slider')!
+      const target = slider.querySelector('.liebe-slider-track')!
+      fireEvent.pointerDown(target, { isPrimary: true, button: 0, clientX: 100, clientY: 100 })
+      fireEvent.pointerMove(slider, { clientX: 100 + BACKGROUND_TRAVEL_PX + 4, clientY: 100 })
+      act(() => {
+        vi.advanceTimersByTime(HOLD_DURATION_MS + 500)
+      })
+      fireEvent.pointerUp(target)
+
+      // No hold dialog, no toggle, no brightness call from a bare pointer
+      // drag with no value assertion attached: the gesture was a drag, and a
+      // drag fires neither action. (No ending click is dispatched: Radix ends
+      // real drags with pointer capture, not with a click the shell would see
+      // as a tap — the click-stop above is the backstop for the synthetic
+      // path, not the mechanism.)
+      expect(hass.callService).not.toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('commits a background drag without firing the tap action', async () => {

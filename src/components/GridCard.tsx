@@ -1021,10 +1021,7 @@ export const GridCard = React.memo(
         // is decided by whether the gesture moved the value — the anatomy
         // stops the click that ends a drag. Every other embedded control owns
         // its gesture and stays excluded.
-        if (
-          isRealDescendant(e) &&
-          (!isEmbeddedControl(e) || isBackgroundSliderTarget(e))
-        )
+        if (isRealDescendant(e) && (!isEmbeddedControl(e) || isBackgroundSliderTarget(e)))
           gestures.press()
       }
 
@@ -1232,9 +1229,21 @@ export const GridCard = React.memo(
              * the body's siblings under `iconOnly` — where the fill IS the
              * state tint rather than backdrop chrome — and inert in edit mode
              * like every embedded control.
+             *
+             * Cloned with the drag-start callback rather than asked of the
+             * card: the card owns value/commit/colour and nothing else, and a
+             * second gesture prop threaded through three cards is how the
+             * shared semantics drift. The callback cancels the shell's armed
+             * hold timer (`gestures.release()`), so a slow drag past
+             * HOLD_DURATION_MS adjusts the value without firing hold under
+             * the finger.
              */}
             {!isEditMode && backgroundSlider && (!iconOnly || isBackgroundSlider(backgroundSlider))
-              ? backgroundSlider
+              ? React.isValidElement<{ onBackgroundDragStart?: () => void }>(backgroundSlider)
+                ? React.cloneElement(backgroundSlider, {
+                    onBackgroundDragStart: gestures.release,
+                  })
+                : backgroundSlider
               : null}
             {/* Content — fenced to the card body while `iconOnly` holds, so a
                 backdrop or an overlay a card renders beside its body does not

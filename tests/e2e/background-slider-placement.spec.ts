@@ -1,16 +1,16 @@
 import { test, expect, type Page } from '@playwright/test'
+import { HASS_URL } from '../../scripts/onboard.mjs'
 import { buildSeedConfig, callService, DEMO_LIGHT, getRestState, openPanel } from './helpers'
 
 /**
- * The background `sliderPlacement`, measured in a real engine.
- *
- * The unit suite proves the cards route `background` through the shared
- * reader, mount the surface behind the body at every tier including `glance`,
- * and split drag from tap — it cannot prove the surface then covers the tile
- * edge to edge, or that a drag on the real grid adjusts the value while a tap
- * toggles. jsdom applies no stylesheet and lays nothing out, so an absolutely
- * positioned layer with a wrong inset renders a byte-identical DOM. That is
- * the defect this spec exists for, beside `forced-slider-placement.spec.ts`.
+ * The background `sliderPlacement`, measured in a real engine — the test name
+ * ends "...taps to toggle", and this header is its rationale. The unit suite
+ * proves routing, mounting and the tap/drag split, but not that the surface
+ * covers the tile edge to edge, or that a real-grid drag adjusts the value
+ * while a tap toggles. jsdom applies no stylesheet and lays nothing out, so
+ * an absolutely positioned layer with a wrong inset renders a byte-identical
+ * DOM. That is the defect this spec exists for, beside
+ * `forced-slider-placement.spec.ts`.
  *
  * Two tiles, one screen: a 1×1 `glance` tile (the tier no inline placement
  * renders in) and a 3×1 `row` tile (where the surface must still consume no
@@ -166,16 +166,19 @@ test('a background slider covers the tile, drags to adjust, taps to toggle', asy
   await callService(accessToken, 'light', 'turn_on', { entity_id: DEMO_LIGHT, brightness: 128 })
   await expect.poll(() => getRestState(accessToken, DEMO_LIGHT), { timeout: 15_000 }).toBe('on')
 
-  // A drag across the tile adjusts instead: press near the left edge, drag
-  // past the right edge, release — the brightness commits near maximum and no
-  // tap fires behind it.
+  // A drag along the value axis adjusts instead. The glance surface is
+  // vertical (square span fills bottom→top), so the drag runs from near the
+  // bottom edge to past the top edge — a horizontal drag at fixed Y would
+  // move along the track's thickness rather than its travel. The commit
+  // lands near maximum brightness and no tap fires behind it.
   const box = await glanceCard.boundingBox()
   expect(box, 'the glance tile should lay out').not.toBeNull()
-  await page.mouse.move(box!.x + 4, box!.y + box!.height / 2)
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height - 4)
   await page.mouse.down()
-  await page.mouse.move(box!.x + box!.width + 20, box!.y + box!.height / 2, { steps: 10 })
+  await page.mouse.move(box!.x + box!.width / 2, box!.y - 20, { steps: 10 })
   await page.mouse.up()
 
+  // The panel's own reading follows the drag to the top of the track…
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -184,5 +187,26 @@ test('a background slider covers the tile, drags to adjust, taps to toggle', asy
         return card?.querySelector('[role="slider"]')?.getAttribute('aria-valuenow') ?? null
       })
     )
-    .not.toBe('50')
+    .toBe('100')
+
+  // …and Home Assistant agrees: the brightness attribute landed near
+  // maximum, read back over REST rather than off the panel's optimistic
+  // value. `getRestState` returns only the state string, so the attribute
+  // is fetched inline.
+  const brightness = await expect
+    .poll(
+      async () => {
+        const res = await fetch(`${HASS_URL}/api/states/${DEMO_LIGHT}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!res.ok) return null
+        const body = (await res.json()) as {
+          attributes?: { brightness?: number }
+        }
+        return body.attributes?.brightness ?? null
+      },
+      { timeout: 15_000 }
+    )
+    .toBeGreaterThanOrEqual(250)
+  expect(brightness).toBeGreaterThanOrEqual(250)
 })
