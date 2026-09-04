@@ -43,6 +43,40 @@ describe('LiebePanel custom element', () => {
     }
   )
 
+  it(
+    'mints one mirror key per element, stable across renders',
+    { timeout: 30_000 },
+    async () => {
+      // Change 0036 PR 7: the document-mirror key isolates one panel's
+      // overlays from another's, so it must be one identity per custom
+      // element — never per React mount (which would orphan a stale keyed
+      // set per reconnect) and never shared (which would be "last panel
+      // wins" again through the very attribute meant to end it).
+      // Dynamic import like the neighbouring tests: importing `../panel`
+      // statically would register the element and start its guardians at
+      // module load, outside the fake timers this file arms in `beforeAll`.
+      const { default: _ } = await import('../panel')
+      void _
+
+      const { elementName } = getPanelConfig()
+      const first = document.createElement(elementName) as HTMLElement & {
+        mirrorKey?: string
+      }
+      const second = document.createElement(elementName) as HTMLElement & {
+        mirrorKey?: string
+      }
+      try {
+        document.body.append(first, second)
+        expect(typeof first.mirrorKey).toBe('string')
+        expect(first.mirrorKey!.length).toBeGreaterThan(0)
+        expect(second.mirrorKey).not.toBe(first.mirrorKey)
+      } finally {
+        first.remove()
+        second.remove()
+      }
+    }
+  )
+
   // Mounts the panel with `scriptSrc` standing in for the served bundle and
   // asserts it publishes `expectedBaseUrl`. The panel keeps global state
   // (`window.__LIEBE_ASSET_BASE_URL__`, a `<link>` in `document.head`), so this

@@ -666,6 +666,20 @@ describe('sanitizeCustomCss — the document-level mirror', () => {
     expect(keyed).toContain('content: ".liebe-portal-root"')
     expect(keyed).not.toContain('content: ".liebe-portal-root[data-liebe-instance')
   })
+
+  it('keys a selector with no :is( scope, and leaves its keyed twin alone', () => {
+    // The `at === -1` branch: a scopeless selector — reachable when the sheet
+    // under keying was built by hand rather than by the scoping above — keys
+    // by plain replacement, while the same selector already carrying this
+    // panel's prefix passes through untouched (idempotent re-injection).
+    const keyed = scopePortalCssToInstance(
+      '@layer liebe-user { .liebe-portal-root { color: red } }',
+      'panel-a'
+    )
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"]')
+
+    expect(scopePortalCssToInstance(keyed, 'panel-a')).toBe(keyed)
+  })
 })
 
 describe('sanitizeCustomCss — values laundered in from outside', () => {
