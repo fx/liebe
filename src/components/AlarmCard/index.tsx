@@ -394,9 +394,9 @@ function AlarmCardComponent({
         failureMessage={error || undefined}
         canRetry={failedCommand?.retryable ?? false}
         retryAction={retainedRetryAction(failedCommand)}
-onRetrySettled={(result) => {
-  if (result?.success) clearError()
-}}
+        onRetrySettled={(result) => {
+          if (result?.success) clearError()
+        }}
         onDismiss={clearError}
         /*
          * Carried on `className` rather than as `data-*` attributes: the shell

@@ -136,4 +136,59 @@ describe('useServiceCall retained failure', () => {
     expect(result.current.failedCommand).toEqual({ command: newer, retryable: true })
     expect(result.current.error).toBe('Desk jammed')
   })
+
+  it('keeps currency when Retry reuses the retained options object', async () => {
+    // The `Retry` path re-dispatches `failedCommand.command` — the SAME object
+    // — so currency by reference equality would call the older call current
+    // and let it clobber the newer retention. The dispatch id distinguishes
+    // the two calls regardless of object reuse.
+    const shared = { domain: 'switch', service: 'toggle', entityId: 'switch.desk' }
+    const gate = (key: string) => {
+      let resolve!: (r: { success: boolean; error?: string }) => void
+      const promise = new Promise<{ success: boolean; error?: string }>((res) => {
+        resolve = res
+      })
+      return { key, promise, resolve }
+    }
+    const first = gate('first')
+    const second = gate('second')
+    const calls: Array<{
+      promise: Promise<{ success: boolean; error?: string }>
+      resolve: (r: { success: boolean; error?: string }) => void
+    }> = [first, second]
+    vi.mocked(hassService.callServiceOnce).mockImplementation(() => {
+      const next = calls.shift()
+      if (!next) throw new Error('unexpected third dispatch')
+      return next.promise
+    })
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    resetDispatchGuard()
+    let older: Promise<unknown> | undefined
+    act(() => {
+      older = result.current.dispatchGuarded(shared)
+    })
+    resetDispatchGuard()
+    let latest: Promise<unknown> | undefined
+    act(() => {
+      latest = result.current.dispatchGuarded(shared)
+    })
+
+    await act(async () => {
+      second.resolve({ success: false, error: 'second failed' })
+      await latest
+    })
+    await waitFor(() =>
+      expect(result.current.failedCommand).toEqual({ command: shared, retryable: true })
+    )
+    expect(result.current.error).toBe('second failed')
+
+    await act(async () => {
+      first.resolve({ success: false, error: 'first failed' })
+      await older
+    })
+    // Same object, older call: still must not clobber.
+    expect(result.current.failedCommand).toEqual({ command: shared, retryable: true })
+    expect(result.current.error).toBe('second failed')
+  })
 })

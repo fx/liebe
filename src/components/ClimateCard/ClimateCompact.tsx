@@ -150,6 +150,9 @@ export function ClimateCompactContent({
       failureMessage={control.error || undefined}
       canRetry={control.failedCommand?.retryable ?? false}
       retryAction={retainedRetryAction(control.failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) control.clearError()
+      }}
       onDismiss={control.clearError}
       className="climate-card"
       // The entity travels with the config: the shell resolves the universal

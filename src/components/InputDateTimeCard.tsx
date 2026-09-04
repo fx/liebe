@@ -416,9 +416,9 @@ const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
       failureMessage={error || undefined}
       canRetry={failedCommand?.retryable ?? false}
       retryAction={retainedRetryAction(failedCommand)}
-onRetrySettled={(result) => {
-  if (result?.success) clearError()
-}}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
       onDismiss={clearError}
     >
       {/*

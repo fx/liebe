@@ -588,9 +588,9 @@ function FanCardComponent({
       failureMessage={error || undefined}
       canRetry={failedCommand?.retryable ?? false}
       retryAction={retainedRetryAction(failedCommand)}
-onRetrySettled={(result) => {
-  if (result?.success) clearError()
-}}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
       onDismiss={clearError}
       className="fan-card"
       backgroundSlider={backgroundSlider}

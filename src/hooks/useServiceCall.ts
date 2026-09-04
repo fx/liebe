@@ -62,11 +62,13 @@ export function useServiceCall(): UseServiceCallResult {
   const [failedCommand, setFailedCommand] = useState<FailedServiceCall | null>(null)
   const activeCallRef = useRef<AbortController | null>(null)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // The options of the most recently started request. `runCall` aborts the
+  // Monotonic id of the most recently started request. `runCall` aborts the
   // previous controller on entry, so an older request settling later is
-  // always stale — its result (and its failure retention) must not overwrite
-  // the newer request's state.
-  const latestOptionsRef = useRef<ServiceCallOptions | null>(null)
+  // always stale — its failure retention must not overwrite the newer
+  // request's state. An id rather than the options identity: a retained
+  // command re-dispatched for `Retry` reuses the same options object, and
+  // reference equality would wrongly call the older call current.
+  const latestDispatchIdRef = useRef(0)
   const hass = useHomeAssistantOptional()
 
   // Update hassService with current hass instance
@@ -93,7 +95,7 @@ export function useServiceCall(): UseServiceCallResult {
     async (
       options: ServiceCallOptions,
       dispatch: (options: ServiceCallOptions) => Promise<ServiceCallResult>
-    ): Promise<ServiceCallResult> => {
+    ): Promise<{ result: ServiceCallResult; dispatchId: number }> => {
       // Cancel any existing call
       if (activeCallRef.current) {
         activeCallRef.current.abort()
@@ -107,7 +109,8 @@ export function useServiceCall(): UseServiceCallResult {
       // Create new abort controller
       const abortController = new AbortController()
       activeCallRef.current = abortController
-      latestOptionsRef.current = options
+      latestDispatchIdRef.current += 1
+      const dispatchId = latestDispatchIdRef.current
 
       const startTime = Date.now()
       setLoading(true)
@@ -137,7 +140,7 @@ export function useServiceCall(): UseServiceCallResult {
           }
         }
 
-        return result
+        return { result, dispatchId }
       } catch (error) {
         // Only update state if this call wasn't aborted
         if (!abortController.signal.aborted) {
@@ -156,7 +159,10 @@ export function useServiceCall(): UseServiceCallResult {
           }
         }
 
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+        return {
+          result: { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+          dispatchId,
+        }
       } finally {
         // Clear the ref if this was the active call
         if (activeCallRef.current === abortController) {
@@ -168,7 +174,9 @@ export function useServiceCall(): UseServiceCallResult {
   )
 
   const callService = useCallback(
-    (options: ServiceCallOptions) => runCall(options, hassService.callService.bind(hassService)),
+    async (options: ServiceCallOptions) => (
+      await runCall(options, hassService.callService.bind(hassService))
+    ).result,
     [runCall]
   )
 
@@ -193,15 +201,19 @@ export function useServiceCall(): UseServiceCallResult {
        * the failure it was about to report while the repeat returned success.
        */
       if (!admitCommand(options)) return { success: true }
-      const result = await runCall(options, hassService.callServiceOnce.bind(hassService))
+      const { result, dispatchId } = await runCall(
+        options,
+        hassService.callServiceOnce.bind(hassService)
+      )
       if (!result.success) {
         // Retained, not reconstructed: `Retry` re-dispatches the identical
         // command through the gate and the guard, and nothing here releases the
         // guard's window — the ambiguous-outcome case stays refused there.
-        // Guarded on currency: an aborted request lost the race to a newer
-        // one, and its failure must not overwrite the newer request's state —
-        // otherwise `Retry` would re-dispatch the older command.
-        if (latestOptionsRef.current === options) {
+        // Guarded on currency by dispatch id (not the options identity, which
+        // a `Retry` re-dispatch reuses): an aborted request lost the race to a
+        // newer one, and its failure must not overwrite the newer request's
+        // state — otherwise `Retry` would re-dispatch the older command.
+        if (latestDispatchIdRef.current === dispatchId) {
           setFailedCommand({ command: options, retryable: true })
         }
       }

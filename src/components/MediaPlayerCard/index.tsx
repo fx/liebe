@@ -863,9 +863,9 @@ function MediaPlayerCardComponent({
       failureMessage={error || undefined}
       canRetry={failedCommand?.retryable ?? false}
       retryAction={retainedRetryAction(failedCommand)}
-onRetrySettled={(result) => {
-  if (result?.success) clearError()
-}}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
       onDismiss={clearError}
       className={
         showBackgroundArtwork ? 'media-player-card media-player-card-backdrop' : 'media-player-card'
