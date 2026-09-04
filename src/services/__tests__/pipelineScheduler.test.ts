@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
+  runFastWheelTickForTests,
   schedulePipelineTask,
   resetSchedulerForTests,
   schedulerIntervalCountForTests,
@@ -246,6 +247,26 @@ describe('pipelineScheduler', () => {
     expect(gated).toHaveBeenCalledTimes(1)
 
     release()
+  })
+
+  it('the wall gate holds a tick-due task whose interval has not elapsed', () => {
+    vi.useFakeTimers()
+    const T0 = Date.parse('2026-07-25T12:00:00.000Z')
+    vi.setSystemTime(T0)
+
+    // Tick-due but wall-early: elapsed reaches nextDue while the wall is still
+    // 1ms short of dueAtMs. Fake-timer advances move both in lockstep and can
+    // never produce this state — hence the injectable wall.
+    const gated = vi.fn()
+    const release = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, gated)
+    void release
+    // nextDue is elapsed(0)+1 = tick 1; drive tick 1 with wall 1ms short.
+    runFastWheelTickForTests(T0 + SCHEDULER_FAST_TICK_MS - 1)
+    expect(gated).not.toHaveBeenCalled()
+
+    // At dueAtMs exactly: fires, and the gate clears for steady state.
+    runFastWheelTickForTests(T0 + SCHEDULER_FAST_TICK_MS)
+    expect(gated).toHaveBeenCalledTimes(1)
   })
 
   it('a double release does not take another task down', () => {

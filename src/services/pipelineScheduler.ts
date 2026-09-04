@@ -81,19 +81,18 @@ const RATE_TICK_MS: Record<ScheduleRate, number> = {
  * in one never reached another. Failures surface through the logger; the
  * task stays registered, so the next due tick retries it.
  */
-function runDueTasks(wheel: Wheel): void {
+function runDueTasks(wheel: Wheel, nowMs: number = Date.now()): void {
   wheel.elapsed += 1
   for (const task of [...wheel.tasks.values()]) {
     if (wheel.elapsed < task.nextDue) continue
     // First-fire wall-clock gate: until the full interval has elapsed since
     // registration, the task waits no matter the tick phase. Cleared on
-    // first fire; steady state rides `nextDue` alone. (Only observable with a
-    // real drifting clock: under fake timers ticks and wall advance in
-    // lockstep, so the gate observes equality-or-past and fires — the strict
-    // block is prod-only logic for setInterval drift. The aligned-tick test
-    // pins that the gate never over-blocks.)
+    // first fire; steady state rides `nextDue` alone. `nowMs` is injectable
+    // so tests control the wall independently of the tick phase (under fake
+    // timers the two advance in lockstep, which can only observe
+    // equality-or-past); the interval itself always passes the real clock.
     if (task.dueAtMs !== 0) {
-      if (Date.now() < task.dueAtMs) continue
+      if (nowMs < task.dueAtMs) continue
       task.dueAtMs = 0
     }
     task.nextDue = wheel.elapsed + task.every
@@ -171,6 +170,14 @@ export function schedulePipelineTask(
     wheel.tasks.delete(id)
     releaseWheel(rate)
   }
+}
+
+/**
+ * Test-only seam: run one fast-wheel tick with an explicit wall time, so tests
+ * control the wall independently of the tick phase.
+ */
+export function runFastWheelTickForTests(nowMs: number): void {
+  runDueTasks(wheels.fast, nowMs)
 }
 
 /** Test-only seam: the wheels are module-global. */

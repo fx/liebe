@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Button, Flex, Card, Text, Badge, Separator } from '@radix-ui/themes'
 import { useDashboardStore, dashboardActions, useDashboardPersistence } from '../store'
 import { NotFound } from '~/components/NotFound'
+import { resolveDevRouteComponent } from './devRoute'
 
 function DevOnlyNotFound() {
   return <NotFound />
@@ -11,7 +12,7 @@ function DevOnlyNotFound() {
 // workshop never ships in the panel artifact. The route module stays (and its
 // route test keeps passing) — only what it renders changes by build mode.
 export const Route = createFileRoute('/test-store')({
-  component: import.meta.env.DEV ? StoreTestPage : DevOnlyNotFound,
+  component: resolveDevRouteComponent(import.meta.env.DEV, StoreTestPage, DevOnlyNotFound),
 })
 
 function StoreTestPage() {

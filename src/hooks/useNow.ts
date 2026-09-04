@@ -179,7 +179,10 @@ export function useNow(rateMs: number, enabled = true): number {
   const store = enabled ? clockStore(rateMs) : EMPTY_STORE
   const version = useSyncExternalStore(
     store.subscribe,
-    () => versions.get(rateMs) ?? 0,
+    // Entry guaranteed by `clockStore(rateMs)` above in the same render (same
+    // dead-defense class as the interval loop: the map always holds the key
+    // here, since nothing deletes entries but the test-only reset).
+    () => versions.get(rateMs)!,
     () => 0
   )
   return enabled ? version : 0
