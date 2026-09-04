@@ -1191,13 +1191,65 @@ export const GridCard = React.memo(
         if (!control) return
         const tile = control.parentElement
         if (!tile) return
-        // The control itself must not count: it is the thing being decided
-        // about, and counting it would suppress itself everywhere.
-        const tabbable = tile.querySelectorAll(
-          'a[href], button:not(.liebe-tile-action), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
-        if (tabbable.length > 0) control.tabIndex = -1
-        else control.removeAttribute('tabindex')
+        // Decided on rendered tabbability, not mere presence: a `button`
+        // that is `disabled`, or any element parked at `tabindex="-1"`, is
+        // not a Tab stop, and suppressing the tile action beside one would
+        // leave the tile with no keyboard surface at all. `tabIndex`
+        // (the IDL-resolved value, `-1` for the untabbable) is what answers
+        // that — the attribute alone cannot, since a natively tabbable
+        // `button` carries no `tabindex` attribute yet reports `0`.
+        const decide = () => {
+          // Queried fresh on every run: the set changes exactly when the
+          // committed DOM does, and a cached NodeList would answer for the
+          // tile as it was when the control mounted.
+          const others = tile.querySelectorAll(
+            'a[href], button, input, textarea, select, [tabindex]'
+          )
+          // Rendered tabbability, not mere presence. `tabIndex` alone is not
+          // enough: jsdom reports `0` for a disabled button, and a parked
+          // `tabindex="-1"` is never a Tab stop anywhere — either would
+          // suppress the tile action and leave the tile with no keyboard
+          // surface at all.
+          const isTabStop = (el: Element): boolean => {
+            if (el.classList.contains('liebe-tile-action')) return false
+            if (!(el instanceof HTMLElement)) return false
+            if ('disabled' in el && (el as unknown as { disabled: boolean }).disabled) return false
+            return el.tabIndex >= 0
+          }
+          if (Array.from(others).some(isTabStop)) control.tabIndex = -1
+          else control.removeAttribute('tabindex')
+        }
+        decide()
+        // A control mounting, unmounting, or toggling `disabled` re-renders
+        // the tile through its own state, but this ref callback does not
+        // re-run for that — and a `tabIndex = -1` control cannot take focus
+        // to re-check itself. So watch the tile for exactly those changes
+        // and re-decide with them; disconnected when the control detaches.
+        // `decide` writes `control.tabIndex`, which is itself a `tabindex`
+        // mutation the observer watches: without the guard below, deciding
+        // `-1` re-triggers the observer, which re-decides `-1` forever.
+        let settling = false
+        const observer = new MutationObserver(() => {
+          if (settling) return
+          settling = true
+          try {
+            decide()
+          } finally {
+            // Release asynchronously: the `tabindex` write above notifies
+            // synchronously on `setAttribute`, so releasing inline would
+            // still observe our own write.
+            queueMicrotask(() => {
+              settling = false
+            })
+          }
+        })
+        observer.observe(tile, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['disabled', 'tabindex'],
+        })
+        return () => observer.disconnect()
       }, [])
 
       const effectiveHue = resolveCardHue(hue, display, danger)

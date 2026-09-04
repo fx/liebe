@@ -432,4 +432,25 @@ describe('the tile offers exactly one Tab stop (Codex pass 2)', () => {
     expect((tileAction as HTMLElement).tabIndex).toBe(-1)
     expect(tabbables).toHaveLength(2)
   })
+
+  it('keeps the tile-action stop when the pill buttons are all disabled', async () => {
+    // Presence is not tabbability: a `disabled` pill is no Tab stop, so
+    // suppressing the tile action beside one would leave the tile with no
+    // keyboard surface at all. Driven through the DOM: disable the rendered
+    // pills, re-fire the refresh through focus, and the tile action returns
+    // to the Tab order.
+    seed(makeLock('locked'))
+    const { container } = renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    await waitFor(() => expect(pill('Unlock')).toBeInTheDocument())
+
+    const tile = container.querySelector('.liebe-card') as HTMLElement
+    for (const one of Array.from(tile.querySelectorAll('button.liebe-pill'))) {
+      ;(one as HTMLButtonElement).disabled = true
+    }
+    const tileAction = tile.querySelector('.liebe-tile-action') as HTMLElement
+    // The observer watches `disabled` and re-decides asynchronously; the
+    // focus re-check is belt-and-braces for runtimes where it has not run.
+    await waitFor(() => expect(tileAction.tabIndex).toBe(0))
+  })
 })
