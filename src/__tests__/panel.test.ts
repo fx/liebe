@@ -52,8 +52,7 @@ describe('LiebePanel custom element', () => {
     // Dynamic import like the neighbouring tests: importing `../panel`
     // statically would register the element and start its guardians at
     // module load, outside the fake timers this file arms in `beforeAll`.
-    const { default: _ } = await import('../panel')
-    void _
+    await import('../panel')
 
     const { elementName } = getPanelConfig()
     const first = document.createElement(elementName) as HTMLElement & {
