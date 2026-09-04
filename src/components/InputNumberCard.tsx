@@ -388,7 +388,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
   config: configProp,
 }: InputNumberCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { setValue, loading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
+  const { setValue, loading, error, failedCommand, clearError } = useServiceCall()
   const publishedItem = useCardItem()
   /*
    * The renderer's config when it passed one, the published item's otherwise —

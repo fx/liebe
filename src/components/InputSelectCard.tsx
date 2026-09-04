@@ -205,7 +205,7 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
   config,
 }: InputSelectCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { setValue, loading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
+  const { setValue, loading, error, failedCommand, clearError } = useServiceCall()
   const publishedItem = useCardItem()
 
   const isGlance = tier === 'glance'

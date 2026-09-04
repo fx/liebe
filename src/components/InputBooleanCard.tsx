@@ -84,7 +84,7 @@ function InputBooleanCardComponent({
   config,
 }: InputBooleanCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { toggle, loading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
+  const { toggle, loading, error, failedCommand, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   // The same stored options the shell reads, from the same place the grid

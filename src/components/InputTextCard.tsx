@@ -292,7 +292,7 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
   onSelect,
 }: InputTextCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { setValue, loading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
+  const { setValue, loading, error, failedCommand, clearError } = useServiceCall()
 
   const [isEditing, setIsEditing] = useState(false)
 

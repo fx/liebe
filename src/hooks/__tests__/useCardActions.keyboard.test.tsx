@@ -150,5 +150,4 @@ describe('useCardActions keyboard routes and deferred re-read', () => {
     expect(onToggle).not.toHaveBeenCalled()
     expect(onMoreInfo).toHaveBeenCalledTimes(1)
   })
-
 })

@@ -49,9 +49,7 @@ describe('useServiceCall retained failure', () => {
       await result.current.dispatchGuarded(command)
     })
 
-    await waitFor(() =>
-      expect(result.current.failedCommand).toEqual({ command, retryable: true })
-    )
+    await waitFor(() => expect(result.current.failedCommand).toEqual({ command, retryable: true }))
   })
 
   it('retains a pre-dispatch refusal as non-retryable', async () => {

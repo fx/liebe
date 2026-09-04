@@ -527,14 +527,17 @@ export function useCardActions({
    * quiet inside the window must not still receive the `toggle` armed while it
    * was available — the gesture re-resolves from the latest render instead.
    * Plain refs rather than state, because they are read from inside timer
-   * callbacks rather than rendered.
+   * callbacks rather than rendered; synced in an effect, since writing a ref
+   * during render is what `react-hooks/refs` forbids.
    */
   const latestActionsRef = useRef(actions)
-  latestActionsRef.current = actions
   const latestIsActionableRef = useRef(isActionable)
-  latestIsActionableRef.current = isActionable
   const latestDispatchRef = useRef(dispatch)
-  latestDispatchRef.current = dispatch
+  useEffect(() => {
+    latestActionsRef.current = actions
+    latestIsActionableRef.current = isActionable
+    latestDispatchRef.current = dispatch
+  }, [actions, isActionable, dispatch])
 
   const press = useCallback(() => {
     if (disabled) return

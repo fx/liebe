@@ -158,7 +158,13 @@ export function isParameterizedCardAction(
  * repeat — a pre-dispatch refusal, a stream that would not start.
  */
 export function retainedRetryAction(
-  failed: { command: { domain: string; service: string; data?: Record<string, unknown> }; retryable: boolean } | null | undefined
+  failed:
+    | {
+        command: { domain: string; service: string; data?: Record<string, unknown> }
+        retryable: boolean
+      }
+    | null
+    | undefined
 ): ResolvedCardAction | undefined {
   if (!failed?.retryable) return undefined
   const { domain, service, data } = failed.command
