@@ -148,15 +148,25 @@ test('dragging past the track edge drives the value to maximum with a single com
 
   // And the drag committed exactly once: one `light.turn_on` carrying full
   // brightness, read off HA state rather than off a counter the page owns.
+  // The REST poll comes first (the service call resolves before the state
+  // reaches the panel over the websocket); the panel poll then waits for that
+  // state to have arrived, so a snapshot taken in between cannot read the
+  // pre-drag brightness and report a defect that is not there. The entity id
+  // travels as an argument — `page.evaluate` serializes its function, which
+  // cannot close over this module.
   await expect.poll(() => getRestState(accessToken, DEMO_LIGHT), { timeout: 15_000 }).toBe('on')
-  const attributes = await page.evaluate(() => {
-    const panel = (window as unknown as { __liebePanel?: DragPanelHandle }).__liebePanel
-    return (
-      (panel?._hass?.states?.[DEMO_LIGHT] as { attributes?: { brightness?: number } } | undefined)
-        ?.attributes ?? null
-    )
-  })
-  expect(attributes?.brightness, 'the single commit should carry full brightness').toBe(255)
+  await expect
+    .poll(async () => {
+      const attributes = await page.evaluate((entityId) => {
+        const panel = (window as unknown as { __liebePanel?: DragPanelHandle }).__liebePanel
+        return (
+          (panel?._hass?.states?.[entityId] as { attributes?: { brightness?: number } } | undefined)
+            ?.attributes ?? null
+        )
+      }, DEMO_LIGHT)
+      return attributes?.brightness ?? null
+    })
+    .toBe(255)
 })
 
 test('dragging past the leading edge parks the value at zero', async ({ page }) => {

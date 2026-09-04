@@ -76,40 +76,37 @@ interface GraphFillGeometry {
 }
 
 /**
- * The graph's height and the tile's leftover, measured in one pass.
- *
- * `null` while the tile itself is missing, so a poll on this waits for the
- * grid to have laid out. A missing *graph* is not null: the poll that waits
- * for the series to be drawn is the caller's, on `region`.
+ * Every full tile's geometry, smallest leftover first — the reader the
+ * per-size tests share with the comparison test below. Both seeded cards
+ * carry the same entity at the same tier, so neither the name nor the tier
+ * tells them apart; the seeded sizes do, through their leftovers.
  */
-async function graphFillGeometry(page: Page, tier: string): Promise<GraphFillGeometry | null> {
-  return page.evaluate((wantedTier) => {
+async function allFullGraphFillGeometries(page: Page): Promise<GraphFillGeometry[]> {
+  return page.evaluate(() => {
     const panel = (window as unknown as { __liebePanel?: GraphPanelHandle }).__liebePanel
-    const cards = [...(panel?.shadowRoot?.querySelectorAll('.grid-item .liebe-card') ?? [])]
-    const card = cards.find((candidate) => candidate.getAttribute('data-tier') === wantedTier)
-    if (!card) return null
-
-    const box = (selector: string) =>
-      (card.querySelector(selector) as HTMLElement | null)?.getBoundingClientRect().height ?? null
-    const graph = card.querySelector('[data-testid="sensor-graph"]')
-    const rowGap = Number.parseFloat(
-      getComputedStyle(card.querySelector('.liebe-card-body')!).rowGap
+    const cards = [...(panel?.shadowRoot?.querySelectorAll('.grid-item .liebe-card') ?? [])].filter(
+      (candidate) => candidate.getAttribute('data-tier') === 'full'
     )
-
-    const body = box('.liebe-card-body')
-    const line = box('.liebe-card-body-line')
-    const footer = box('.liebe-sensor-graph-footer')
-    if (body === null || line === null || footer === null) return null
-
-    return {
-      region: graph?.getAttribute('data-region') ?? null,
-      graph: graph ? (graph as HTMLElement).getBoundingClientRect().height : null,
-      // The body is a column with one gap above the graph and one below it;
-      // the graph is what remains of the tile after the line, the footer and
-      // those gaps.
-      leftover: body - line - footer - rowGap * 2,
+    const box = (card: Element, selector: string) =>
+      (card.querySelector(selector) as HTMLElement | null)?.getBoundingClientRect().height ?? null
+    const geometries: GraphFillGeometry[] = []
+    for (const card of cards) {
+      const graph = card.querySelector('[data-testid="sensor-graph"]')
+      const bodyEl = card.querySelector('.liebe-card-body')
+      if (!bodyEl) continue
+      const rowGap = Number.parseFloat(getComputedStyle(bodyEl).rowGap)
+      const body = box(card, '.liebe-card-body')
+      const line = box(card, '.liebe-card-body-line')
+      const footer = box(card, '.liebe-sensor-graph-footer')
+      if (body === null || line === null || footer === null) continue
+      geometries.push({
+        region: graph?.getAttribute('data-region') ?? null,
+        graph: graph ? (graph as HTMLElement).getBoundingClientRect().height : null,
+        leftover: body - line - footer - rowGap * 2,
+      })
     }
-  }, tier)
+    return geometries
+  })
 }
 
 async function seedHistory(accessToken: string, page: Page) {
@@ -124,30 +121,35 @@ async function seedHistory(accessToken: string, page: Page) {
   }
 }
 
-for (const [label, size] of [
-  ['small', '2×2'],
-  ['large', '3×3'],
+for (const [label, size, pick] of [
+  ['small', '2×2', 'smaller'],
+  ['large', '3×3', 'larger'],
 ] as const) {
   test(`a ${size} full tile's graph fills the tile's leftover (${label})`, async ({ page }) => {
     const { accessToken } = await openPanel(page, seedGraphFillConfig())
     await seedHistory(accessToken, page)
 
-    // Synchronise on the drawn sparkline, not merely on the graph's
-    // existence: the history arrives over the WebSocket after first paint,
-    // and a snapshot taken in between would measure a skeleton.
-    let geometry: GraphFillGeometry | null = null
+    // Synchronise on BOTH tiles having drawn their series, not merely on a
+    // graph's existence: the history arrives over the WebSocket after first
+    // paint, and a snapshot taken in between would measure a skeleton. Both
+    // seeded cards carry the same entity at the same tier, so the helper
+    // below reads every full tile and this picks by seeded size — the smaller
+    // leftover is the 2×2, the larger the 3×3.
+    let geometries: GraphFillGeometry[] = []
     await expect
       .poll(async () => {
-        geometry = await graphFillGeometry(page, 'full')
-        return geometry?.region ?? null
+        geometries = await allFullGraphFillGeometries(page)
+        return geometries.filter((geometry) => geometry.region === 'full').length
       })
-      .toBe('full')
+      .toBe(2)
 
-    expect(geometry, 'the full tile should have rendered').not.toBeNull()
-    expect(geometry!.graph, 'the graph should have a box to compare').not.toBeNull()
+    const ordered = [...geometries].sort((a, b) => a.leftover - b.leftover)
+    const geometry = pick === 'smaller' ? ordered[0] : ordered[ordered.length - 1]
+
+    expect(geometry.graph, `the ${label} graph should have a box to compare`).not.toBeNull()
 
     // The invariant, at this size: the graph is all of the leftover.
-    expect(geometry!.graph!).toBeCloseTo(geometry!.leftover, 0)
+    expect(geometry.graph!).toBeCloseTo(geometry.leftover, 0)
   })
 }
 
@@ -156,34 +158,14 @@ test('the added tile height goes to the graph, not to the fixed parts', async ({
   await seedHistory(accessToken, page)
 
   // Both tiles draw before either is measured: the leftover is only
-  // comparable across tiles once both series have landed. Both seeded cards
-  // carry the same entity, so the tier alone cannot tell them apart — the
-  // pair is read as every full tile on the screen, small and large together.
+  // comparable across tiles once both series have landed.
+  let geometries: GraphFillGeometry[] = []
   await expect
-    .poll(async () => (await graphFillGeometry(page, 'full'))?.region ?? null)
-    .toBe('full')
-
-  const geometries = await page.evaluate(() => {
-    const panel = (window as unknown as { __liebePanel?: GraphPanelHandle }).__liebePanel
-    const cards = [...(panel?.shadowRoot?.querySelectorAll('.grid-item .liebe-card') ?? [])].filter(
-      (candidate) => candidate.getAttribute('data-tier') === 'full'
-    )
-    const box = (card: Element, selector: string) =>
-      (card.querySelector(selector) as HTMLElement | null)?.getBoundingClientRect().height ?? null
-    return cards.map((card) => {
-      const graph = card.querySelector('[data-testid="sensor-graph"]')
-      const rowGap = Number.parseFloat(
-        getComputedStyle(card.querySelector('.liebe-card-body')!).rowGap
-      )
-      const body = box(card, '.liebe-card-body')!
-      const line = box(card, '.liebe-card-body-line')!
-      const footer = box(card, '.liebe-sensor-graph-footer')!
-      return {
-        graph: graph ? (graph as HTMLElement).getBoundingClientRect().height : null,
-        leftover: body - line - footer - rowGap * 2,
-      }
+    .poll(async () => {
+      geometries = await allFullGraphFillGeometries(page)
+      return geometries.filter((geometry) => geometry.region === 'full').length
     })
-  })
+    .toBe(2)
 
   expect(geometries, 'both full tiles should have rendered').toHaveLength(2)
   const drawn = geometries.filter((geometry) => geometry.graph !== null)
