@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /** The missing-artifact branch, pointed at a path that cannot exist. */
 function panelMissingForTests(): string | null {
@@ -11,9 +14,6 @@ function panelMissingForTests(): string | null {
   }
   return readFileSync(missing, 'utf8')
 }
-import { existsSync, readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 /**
  * PR 3 artifact assertion: the production panel bundle MUST NOT contain the

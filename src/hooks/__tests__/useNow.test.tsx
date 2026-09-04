@@ -354,6 +354,17 @@ describe('useNow shared clocks', () => {
     }
   })
 
+  it('server snapshot reads zero (SSR path)', async () => {
+    // `useSyncExternalStore` takes the server snapshot during server rendering;
+    // jsdom never invokes it, so cover it through react-dom/server instead.
+    const { renderToString } = await import('react-dom/server')
+    function Probe() {
+      const version = useNow(NOW_1S_MS)
+      return <span>{version}</span>
+    }
+    expect(renderToString(<Probe />)).toBe('<span>0</span>')
+  })
+
   it('tears the interval down when the last consumer unmounts', () => {
     vi.useFakeTimers()
     const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')

@@ -14,7 +14,7 @@ import { logger } from '../utils/logger'
  *
  * Render-phase purity: NOTHING here schedules a timer during render. Looking
  * up (or creating) a clock entry during render only allocates a listener set —
- * the interval starts in the subscription path (`clockSubscribe`), which React
+ * the interval starts in the subscription path (`clockStore`'s `subscribe`, i.e. `subscribeClockTick`), which React
  * invokes from the commit phase via `useSyncExternalStore`, never from render.
  * A render React abandons therefore leaves an empty entry behind, never a live
  * timer with no owner. Interval teardown is likewise owned by the
@@ -171,7 +171,8 @@ export function clockIntervalCountForTests(rateMs: number): number {
  * The current tick version of the shared clock at `rateMs`. Re-renders the
  * caller once per tick while mounted — one interval per rate, not one per
  * consumer. The rate SHOULD be one of the exported constants; an arbitrary
- * rate gets its own clock (correct, but a new wheel rather than a shared one).
+ * rate gets its own clock (correct, but a new wheel rather than a shared one —
+ * and wheels are never evicted, so don't mint rates dynamically).
  */
 export function useNow(rateMs: number, enabled = true): number {
   assertValidRate(rateMs)

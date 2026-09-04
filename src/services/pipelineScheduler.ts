@@ -79,7 +79,7 @@ const RATE_TICK_MS: Record<ScheduleRate, number> = {
  * check) must not skip the tasks behind it or escape the shared interval —
  * the independent timers this wheel replaced never shared a loop, so a fault
  * in one never reached another. Failures surface through the logger; the
- * task stays registered, so the next tick retries it.
+ * task stays registered, so the next due tick retries it.
  */
 function runDueTasks(wheel: Wheel): void {
   wheel.elapsed += 1
@@ -102,7 +102,7 @@ function runDueTasks(wheel: Wheel): void {
     // reconnect()/connect()/disconnect() escapes as an unhandled rejection —
     // the sync boundary above never sees it. Awaiting here routes async
     // faults through the same per-task boundary, and the task stays
-    // registered so the next tick retries it.
+    // registered so the next due tick retries it.
     if (result instanceof Promise) {
       result.catch((error: unknown) => {
         logger.error('pipelineScheduler: scheduled task rejected (kept registered):', error)
