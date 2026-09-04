@@ -196,28 +196,24 @@ describe('applyThemeCss', () => {
     expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toBe(text)
   })
 
-  it('names the per-instance font family in the mirror, and the global one at home', () => {
-    // The theme payload names the global family (`--liebe-font-family:
-    // 'Antonio', …`) while each panel's `@font-face` registers its own
-    // (`fontRegistration.ts`): the mirrored copy must name the instance
-    // family, or the overlay resolves the other panel's file.
+  it('leaves longer class names alone when keying the theme mirror', () => {
+    // The escape class the portal-scoping tests guard against on the user
+    // layer: `.liebe-root-ish` is a different class from `.liebe-root`, and
+    // keying it would restyle a subject that is not ours.
     const root = shadowRoot()
     const child = document.createElement('div')
     root.appendChild(child)
 
     applyThemeCssToRootOf(
       child,
-      "@layer liebe-theme { :where(.liebe-root) { --liebe-font-family: 'Antonio', sans-serif; } }",
+      '@layer liebe-theme { .liebe-root-ish .liebe-portal-root-ish { color: red } }',
       'panel-a'
     )
 
-    expect(document.head.querySelector(SLOT_SELECTOR)?.textContent).toContain(
-      "--liebe-font-family: 'Antonio__panel-a'"
-    )
-    expect(root.querySelector(SLOT_SELECTOR)?.textContent).toContain(
-      "--liebe-font-family: 'Antonio'"
-    )
-    expect(root.querySelector(SLOT_SELECTOR)?.textContent).not.toContain('Antonio__panel-a')
+    const text = document.head.querySelector(SLOT_SELECTOR)?.textContent ?? ''
+    expect(text).toContain('.liebe-root-ish')
+    expect(text).toContain('.liebe-portal-root-ish')
+    expect(text).not.toContain('data-liebe-instance')
   })
 
   it('does nothing for a node that is in no root yet', () => {

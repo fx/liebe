@@ -194,8 +194,12 @@ function keyThemeCssToInstance(css: string, instance: string): string {
   const keyedPortal = `.liebe-portal-root${key}`
   const keyedRoot = `.liebe-root${key}`
   const SENTINEL = 'LIEBEKEYEDWHERE'
-  const UNKEYED_PORTAL = /\.liebe-portal-root(?!\[[^\]]*data-liebe-instance)/g
-  const UNKEYED_ROOT = /\.liebe-root(?!\[[^\]]*data-liebe-instance)/g
+  // `(?![\w-])` asserts the identifier boundary first: without it the patterns
+  // also match longer class names (`.liebe-root-ish`,
+  // `.liebe-portal-root-ish`) and key a subject that is not ours — the exact
+  // escape class the portal-scoping tests guard against on the user layer.
+  const UNKEYED_PORTAL = /\.liebe-portal-root(?![\w-])(?!\[[^\]]*data-liebe-instance)/g
+  const UNKEYED_ROOT = /\.liebe-root(?![\w-])(?!\[[^\]]*data-liebe-instance)/g
   const keyed = css
     .split(':where(.liebe-root)')
     .join(keyedWhere)
