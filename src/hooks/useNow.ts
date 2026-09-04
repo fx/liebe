@@ -181,6 +181,10 @@ export function useNow(rateMs: number, enabled = true): number {
  * purity rule permits.
  */
 export function useNowTimestamp(rateMs: number, enabled = true): number {
+  // Same fail-fast timing as `useNow`: a junk rate throws during render, not
+  // later from `subscribeClockTick` inside the effect (an async effect-phase
+  // crash instead of a render error).
+  assertValidRate(rateMs)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {

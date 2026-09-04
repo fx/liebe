@@ -112,6 +112,15 @@ export function schedulePipelineTask(
   everyMs: number,
   run: () => void | Promise<unknown>
 ): () => void {
+  // Same fail-fast class as the clock rates: a non-finite or non-positive
+  // interval computes `every` as NaN, and `elapsed % NaN !== 0` is always
+  // true — so the task would sit registered-but-never-due while the wheel
+  // still wakes for it. Throwing names the culprit instead.
+  if (!Number.isFinite(everyMs) || everyMs <= 0) {
+    throw new RangeError(
+      `schedulePipelineTask: everyMs must be a positive finite number, got ${String(everyMs)}`
+    )
+  }
   const wheel = ensureWheel(rate)
   const every = Math.max(1, Math.ceil(everyMs / RATE_TICK_MS[rate]))
   const id = nextId++

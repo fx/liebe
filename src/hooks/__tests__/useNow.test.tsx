@@ -15,6 +15,11 @@ import {
   listenersForTests,
 } from '../useNow'
 
+function TimestampProbe({ rate }: { rate: number }) {
+  const now = useNowTimestamp(rate)
+  return <span>{now}</span>
+}
+
 // PR 2 probes: the shared clocks MUST wake N consumers with one interval, and
 // a disabled consumer MUST hold no subscription. Fake timers throughout.
 
@@ -290,6 +295,23 @@ describe('useNow shared clocks', () => {
     // Nothing was scheduled for any of them.
     expect(setIntervalSpy).not.toHaveBeenCalled()
     expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(0)
+  })
+
+  it('fails fast in useNowTimestamp too: junk rates throw during render', () => {
+    vi.useFakeTimers()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+
+    for (const rate of [0, -1000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      // Synchronous render-phase throw — not an async effect-phase crash.
+      // Suppress the error boundary noise: the throw is the assertion.
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      try {
+        expect(() => render(<TimestampProbe rate={rate} />)).toThrow(RangeError)
+      } finally {
+        consoleError.mockRestore()
+      }
+    }
+    expect(setIntervalSpy).not.toHaveBeenCalled()
   })
 
   it('tears the interval down when the last consumer unmounts', () => {

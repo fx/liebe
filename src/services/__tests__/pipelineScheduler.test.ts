@@ -163,6 +163,18 @@ describe('pipelineScheduler', () => {
     }
   })
 
+  it('rejects a junk interval instead of a registered-but-never-due task', () => {
+    vi.useFakeTimers()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+
+    for (const everyMs of [0, -1000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => schedulePipelineTask('fast', everyMs, () => {})).toThrow(RangeError)
+    }
+    // Nothing scheduled, no wheel started for any of them.
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+    expect(schedulerIntervalCountForTests()).toBe(0)
+  })
+
   it('a double release does not take another task down', () => {
     vi.useFakeTimers()
 
