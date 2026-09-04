@@ -101,6 +101,45 @@ describe('registerThemeFonts', () => {
     ])
   })
 
+  it('isolates the family per instance, so two panels never share one face', () => {
+    // `@font-face` registers a document-global name: two panels registering
+    // `font-family: 'Antonio'` with identical descriptors serve each other
+    // interchangeably, so the slot key alone would leave panel A's overlays
+    // rendering panel B's file whenever B's asset base differed or B's
+    // registration won. With an instance the family itself is renamed per
+    // panel, and the provider keys the theme payload's `--liebe-font-family`
+    // token to the same name — each panel's text resolves only its own file.
+    window.__LIEBE_ASSET_BASE_URL__ = 'https://ha.example/local/liebe-a/'
+    const first = registerThemeFonts(lcars, document, 'panel-a')!
+    window.__LIEBE_ASSET_BASE_URL__ = 'https://ha.example/local/liebe-b/'
+    const second = registerThemeFonts(lcars, document, 'panel-b')!
+
+    expect(first).not.toBe(second)
+    expect(registrations()).toHaveLength(2)
+    expect(first.textContent).toContain("font-family: 'Antonio__panel-a'")
+    expect(second.textContent).toContain("font-family: 'Antonio__panel-b'")
+    expect(first.textContent).toContain('liebe-a/fonts/antonio/antonio-latin.woff2')
+    expect(second.textContent).toContain('liebe-b/fonts/antonio/antonio-latin.woff2')
+    // The global name is gone from both: nothing resolves the shared face.
+    expect(first.textContent).not.toMatch(/font-family:\s*['"]?Antonio['"]?\s*;/)
+    expect(second.textContent).not.toMatch(/font-family:\s*['"]?Antonio['"]?\s*;/)
+    // …while descriptors and ranges survive the rename untouched.
+    expect(first.textContent).toContain('font-display: swap')
+    expect(first.textContent).toContain('unicode-range:')
+  })
+
+  it('re-registers the same instance idempotently, and leaves the global shape unkeyed', () => {
+    const first = registerThemeFonts(lcars, document, 'panel-a')
+    const second = registerThemeFonts(lcars, document, 'panel-a')
+
+    expect(second).toBe(first)
+    expect(registrations()).toHaveLength(1)
+
+    // No instance: the historical global family, for single-panel trees.
+    const global = registerThemeFonts(stubTheme, document)!
+    expect(global.textContent).toContain("font-family: 'Stub'")
+    expect(global.textContent).not.toContain('Stub__')
+  })
   it('registers nothing for a theme that bundles no font', () => {
     expect(registerThemeFonts(getTheme('default')!, document)).toBeNull()
     expect(registrations()).toHaveLength(0)

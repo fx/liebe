@@ -87,6 +87,18 @@ export function PersonAvatar({
       hue={hue}
       active
       /*
+       * Presence-only, and contract: it names the anchor FORM — this circle is
+       * the initials identity disc — rather than the fact of being an avatar,
+       * which every branch of this component is. A theme deciding whether its
+       * icon-tile rule applies needs exactly this: the base layer keeps this
+       * disc on an icon-only tile where it strips every other circle, so a
+       * theme clearing `.liebe-icon` there would undo the disc unless it can
+       * see which circle is the anchor (change 0036, identity-disc hook). The
+       * internal class below stays for the one base-layer rule that restores
+       * the background; the attribute is what a theme selects on.
+       */
+      data-avatar="initials"
+      /*
        * Names this circle as the initials avatar, for one rule in
        * `PersonCard.css`. An icon-only tile strips the circle's background so
        * the glyph sits on the tile's own state tint rather than on two stacked

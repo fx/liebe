@@ -1,5 +1,5 @@
 import { Theme } from '@radix-ui/themes'
-import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PortalHost } from '~/components/ui/portals'
 import { useCameraFullscreenActive, CAMERA_FULLSCREEN_Z_INDEX } from '~/store/cameraFullscreenStore'
 import { sanitizeCustomCss } from '~/theme/customCss'
@@ -8,6 +8,27 @@ import { LIEBE_ROOT_CLASS } from '~/theme/rootSelectors'
 import { applyThemeCssToRootOf, applyUserCssToRootOf } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from '~/theme/themeRegistry'
 
+/**
+ * The panel mount's document-mirror key, stable for the lifetime of the host
+ * element rather than of one React mount.
+ *
+ * Threaded from the custom element (`src/panel.ts` stamps its own identity on
+ * the element and passes it through `PanelApp`), because the provider cannot
+ * discover its own host: `document.querySelector('liebe-panel,
+ * liebe-panel-dev')` returns the FIRST host in the document, so two mounted
+ * panels would read and share ONE attribute — the exact "last panel wins"
+ * collision the keying exists to end. Each custom element instead mints its
+ * own token once (in its constructor, before any render) and hands that same
+ * token to every React tree it mounts, across reconnects and StrictMode
+ * remounts alike — while the mirror `<style>`s and font registrations
+ * deliberately outlive unmount, so a per-mount token would orphan a stale
+ * keyed set per cycle. A tree with no key (unit tests, the workshop document
+ * root) falls back to a per-component token, unique per tree like before.
+ */
+function usePanelInstanceKey(explicit?: string): string {
+  const [key] = useState(() => explicit ?? `p${Math.random().toString(36).slice(2, 10)}`)
+  return key
+}
 export interface LiebeThemeProviderProps {
   children: ReactNode
   /**
@@ -31,6 +52,14 @@ export interface LiebeThemeProviderProps {
    * the CSS reaches the DOM and not where a user typed it.
    */
   customCss?: string
+  /**
+   * The document-mirror key for this panel, threaded from the custom element
+   * (`src/panel.ts` mints one identity per element and passes it through
+   * `PanelApp`). Required in the panel; omitted in trees with no custom
+   * element above them (unit tests, the workshop), where the provider mints a
+   * per-component fallback instead.
+   */
+  instanceKey?: string
 }
 
 /**
@@ -40,7 +69,6 @@ export interface LiebeThemeProviderProps {
  * registration, no router, no Home Assistant connection) so surfaces that are
  * not the panel — today the Storybook preview — can render components inside
  * exactly the same provider stack the panel uses. See
- * docs/specs/storybook/index.md ("Global decorators & toolbar").
  *
  * It owns two halves of the theming contract (docs/specs/theming —
  * "Application mechanism"):
@@ -68,6 +96,7 @@ export function LiebeThemeProvider({
   appearance,
   themeId = DEFAULT_THEME_ID,
   customCss = '',
+  instanceKey,
 }: LiebeThemeProviderProps) {
   // This is the ROOT Theme (data-is-root-theme="true"), so it establishes a
   // stacking context (`position: relative; z-index: 0`) that would otherwise
@@ -78,6 +107,14 @@ export function LiebeThemeProvider({
   const cameraFullscreenActive = useCameraFullscreenActive()
 
   const themeRoot = useRef<HTMLDivElement>(null)
+  // The document-level mirror's instance key: threaded from the custom element
+  // (one identity per `<liebe-panel>` / `<liebe-panel-dev>`, via `PanelApp`),
+  // falling back to a per-component token where no element exists (unit
+  // tests, the workshop). The SAME token goes to the container below and to
+  // every mirror write, which is what makes one panel's sheets match only its
+  // own container — the slot alone leaves both sheets matching both
+  // containers, and the scope alone leaves them overwriting one element.
+  const instance = usePanelInstanceKey(instanceKey)
   // Stamped from the theme that is actually rendered, not from what was asked
   // for: an unregistered id falls back to Default, and a stamp naming the
   // missing theme would leave that theme's scoped rules addressing a palette
@@ -91,8 +128,8 @@ export function LiebeThemeProvider({
   // to the panel's root, and removing it would strip the theme from a tree that
   // is only remounting.
   useLayoutEffect(() => {
-    applyThemeCssToRootOf(themeRoot.current, themeCss)
-  }, [themeCss])
+    applyThemeCssToRootOf(themeRoot.current, themeCss, instance)
+  }, [themeCss, instance])
 
   // A theme's bundled typeface goes into the OWNING DOCUMENT, not into the root
   // the theme layer lands in: a shadow root does not load `@font-face` declared
@@ -102,8 +139,8 @@ export function LiebeThemeProvider({
   // and outlives the switch away, so remounting the panel neither stacks sheets
   // nor re-fetches the font.
   useLayoutEffect(() => {
-    registerThemeFonts(activeTheme, themeRoot.current?.ownerDocument)
-  }, [activeTheme])
+    registerThemeFonts(activeTheme, themeRoot.current?.ownerDocument, instance)
+  }, [activeTheme, instance])
 
   // Parsing is not free, and the same CSS arrives on every render of every
   // consumer of the store.
@@ -115,8 +152,8 @@ export function LiebeThemeProvider({
     // dashboard is already wearing. The editor is where the rejection is
     // reported (`sanitizeCustomCss` returns the notices).
     if (sanitized.rejected) return
-    applyUserCssToRootOf(themeRoot.current, sanitized.css, sanitized.portalCss)
-  }, [sanitized])
+    applyUserCssToRootOf(themeRoot.current, sanitized.css, sanitized.portalCss, instance)
+  }, [sanitized, instance])
 
   return (
     <Theme
@@ -137,7 +174,7 @@ export function LiebeThemeProvider({
        * context, which is what makes it a NESTED theme and so free of the root
        * theme's stacking context.
        */}
-      <PortalHost themeId={activeThemeId} appearance={appearance}>
+      <PortalHost themeId={activeThemeId} appearance={appearance} instance={instance}>
         {children}
       </PortalHost>
     </Theme>

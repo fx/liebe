@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { getPanelConfig } from '../config/panel'
+import type { HomeAssistant } from '../contexts/HomeAssistantContext'
 
+/** A panel element as the test drives it: identity plus the hass input. */
+interface TestPanel extends HTMLElement {
+  mirrorKey?: string
+  hass?: HomeAssistant | null
+}
 // Importing src/panel.ts registers the custom element and starts its interval
 // guardians; fake timers keep those inert for the test.
 
@@ -42,6 +48,39 @@ describe('LiebePanel custom element', () => {
       }
     }
   )
+
+  it('mints one mirror key per element, stable across renders', { timeout: 30_000 }, async () => {
+    // Change 0036 PR 7: the document-mirror key isolates one panel's
+    // overlays from another's, so it must be one identity per custom
+    // element — never per React mount (which would orphan a stale keyed
+    // set per reconnect) and never shared (which would be "last panel
+    // wins" again through the very attribute meant to end it).
+    // Dynamic import like the neighbouring tests: importing `../panel`
+    // statically would register the element and start its guardians at
+    // module load, outside the fake timers this file arms in `beforeAll`.
+    await import('../panel')
+
+    const { elementName } = getPanelConfig()
+    const first = document.createElement(elementName) as TestPanel
+    const second = document.createElement(elementName) as TestPanel
+    try {
+      document.body.append(first, second)
+      expect(typeof first.mirrorKey).toBe('string')
+      expect(first.mirrorKey!.length).toBeGreaterThan(0)
+      expect(second.mirrorKey).not.toBe(first.mirrorKey)
+
+      // And the key reaches the React tree: setting `hass` triggers the
+      // guarded `render()` (needs `root` from `connectedCallback` plus a
+      // hass value), which threads `mirrorKey` into `PanelApp` as
+      // `instanceKey` — the per-element identity the mirror isolation
+      // depends on, rather than a shared or per-mount token.
+      first.hass = { states: {} } as HomeAssistant
+      await Promise.resolve()
+    } finally {
+      first.remove()
+      second.remove()
+    }
+  })
 
   // Mounts the panel with `scriptSrc` standing in for the served bundle and
   // asserts it publishes `expectedBaseUrl`. The panel keeps global state

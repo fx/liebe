@@ -56,10 +56,21 @@
  * AGENTS.md, "Radix UI Styling Best Practices").
  */
 
-import { createContext, useContext, useState, type ComponentProps, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { Theme } from '@radix-ui/themes'
-import { LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from '~/theme/rootSelectors'
+import {
+  LIEBE_INSTANCE_ATTRIBUTE,
+  LIEBE_ROOT_CLASS,
+  PORTAL_ROOT_CLASS,
+} from '~/theme/rootSelectors'
 import type { ThemeAppearance } from '~/theme/themeRegistry'
 // This module is the wrapper the rest of the panel imports instead, so it is
 // the one place the raw portalled components may be named.
@@ -103,8 +114,17 @@ export interface PortalHostProps {
    */
   themeId?: string
   appearance?: ThemeAppearance
+  /**
+   * The panel mount's instance token, stamped onto the container as
+   * `data-liebe-instance` so the document-level mirror — keyed to the same
+   * token — matches only this panel's overlays (change 0036 PR 7). Optional:
+   * omitted, the host generates one per mount via `useId`, which is stable
+   * across re-renders and unique across trees. An unstamped container is never
+   * emitted — both paths stamp — so a keyed sheet always has a container to
+   * match and two panels never share one.
+   */
+  instance?: string
 }
-
 /**
  * Where a Liebe overlay lands when nothing nearer has claimed it: the body of
  * the document this code is running in, or `null` where there is no document at
@@ -144,9 +164,18 @@ function usePortalMountPoint(): HTMLElement | null {
  * an overlay opened later must see the element rather than a ref object that
  * was empty when it was read.
  */
-export function PortalHost({ children, themeId, appearance }: PortalHostProps) {
+export function PortalHost({ children, themeId, appearance, instance }: PortalHostProps) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const mountPoint = usePortalMountPoint()
+  // Stable per mount, unique per panel: `useId` is stable across re-renders of
+  // this tree and unique across trees in the document, which is exactly the
+  // keying the mirror needs — except for the colons it emits, which no
+  // attribute value minds but which read poorly in a selector. Sanitized here
+  // rather than at each use, so the stamped value and the mirror key are one
+  // value by construction. Falls back to the explicit prop when given, so
+  // tests and the workshop can name the token they assert on.
+  const generated = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const token = instance || generated
 
   return (
     <PortalContainerContext.Provider value={container}>
@@ -172,6 +201,7 @@ export function PortalHost({ children, themeId, appearance }: PortalHostProps) {
             data-appearance={appearance}
             appearance={appearance}
             hasBackground={false}
+            {...{ [LIEBE_INSTANCE_ATTRIBUTE]: token }}
           />,
           mountPoint
         )}

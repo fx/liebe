@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import postcss from 'postcss'
 import { splitSelectorList, unboundedSelectors } from '../e2e/portalScoping'
-import { sanitizeCustomCss } from '~/theme/customCss'
+import { sanitizeCustomCss, scopePortalCssToInstance } from '~/theme/customCss'
 
 /**
  * The containment assertion in `tests/e2e/theming.spec.ts` is a
@@ -70,9 +70,36 @@ describe('unboundedSelectors', () => {
     // The probe. Each of these is a real escape and each would pass a looser
     // "starts with .liebe-portal-root" reading: a sibling combinator selects
     // OUTSIDE the container, and a longer class name is a different class.
-    const escapes = ['body', '.liebe-portal-root ~ .x', '.liebe-portal-root-ish .y', 'html']
+    // The keyed forms are held to the same bar — an instance token on the
+    // container does not bless what follows it.
+    const escapes = [
+      'body',
+      '.liebe-portal-root ~ .x',
+      '.liebe-portal-root-ish .y',
+      'html',
+      '.liebe-portal-root[data-liebe-instance="a"] ~ .y',
+      '.liebe-portal-root[data-liebe-instance="a"]-ish .y',
+    ]
 
     expect(unboundedSelectors(escapes)).toEqual(escapes)
+  })
+
+  it('passes the keyed shapes the engine actually emits', () => {
+    // End to end through the real rewrite plus the real keying: what the
+    // document mirror holds for one panel must satisfy the same gate the
+    // unkeyed sheet satisfies — otherwise the gate has a hole exactly where
+    // the two-panel fix put its selectors.
+    const { portalCss } = sanitizeCustomCss('.liebe-root { --x: 1 }', {
+      baseUrl: 'https://ha.example/local/liebe/',
+    })
+    const keyed = scopePortalCssToInstance(portalCss, 'panel-a')
+    const selectors: string[] = []
+    postcss.parse(keyed).walkRules((rule) => {
+      selectors.push(...splitSelectorList(rule.selector))
+    })
+
+    expect(selectors.length).toBeGreaterThan(0)
+    expect(unboundedSelectors(selectors)).toEqual([])
   })
 
   it('is what a naive comma split would have broken', () => {

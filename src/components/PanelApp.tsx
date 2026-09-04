@@ -5,7 +5,7 @@ import { router } from '~/router'
 import { LiebeThemeProvider } from './LiebeThemeProvider'
 import { useThemeSelection } from '~/theme/useThemeSelection'
 
-export function PanelApp() {
+export function PanelApp({ instanceKey }: { instanceKey?: string } = {}) {
   // Resolved here rather than inside the provider: the provider is the shell
   // the workshop shares, and the workshop's toolbar — not the dashboard
   // configuration — decides what it renders.
@@ -21,7 +21,12 @@ export function PanelApp() {
   }, [])
 
   return (
-    <LiebeThemeProvider themeId={themeId} appearance={appearance} customCss={customCss}>
+    <LiebeThemeProvider
+      themeId={themeId}
+      appearance={appearance}
+      customCss={customCss}
+      instanceKey={instanceKey}
+    >
       <RouterProvider router={router} />
     </LiebeThemeProvider>
   )

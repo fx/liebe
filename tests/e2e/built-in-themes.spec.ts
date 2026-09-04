@@ -153,21 +153,29 @@ test('LCARS applies live, forces dark, and paints its console frame', async ({ p
     '__LIEBE_ASSET_BASE_URL__'
   )
   expect(registration).toContain('/fonts/antonio/antonio-latin.woff2')
-  expect(await documentFontFamilies(page), 'the switch registered the face').toContain('Antonio')
-  expect(await documentFontLoaded(page, '16px Antonio'), 'the bundled woff2 loaded').toBe(true)
+  // Per-instance family since change 0036 PR 7: the panel registers
+  // `Antonio__<mirror-key>` (never the global `Antonio`), and the mirrored
+  // theme names the same family — so the face the document carries and the
+  // face the overlay resolves are the panel's own file, not the other panel's.
+  const families = await documentFontFamilies(page)
+  const keyed = families.filter((family) => family.startsWith('Antonio__'))
+  expect(keyed, 'the switch registered the panels own face').not.toHaveLength(0)
+  expect(await documentFontLoaded(page, `16px ${keyed[0]}`), 'the bundled woff2 loaded').toBe(true)
 
   const meta = await shadowComputedStyle(page, '.liebe-name', ['font-family', 'text-transform'])
-  expect(meta?.['font-family'], 'card text renders in the bundled face').toMatch(/^Antonio/)
+  // Per-instance family since change 0036 PR 7: `Antonio__<token>`, where the
+  // token is the panel mount's mirror key.
+  expect(meta?.['font-family'], 'card text renders in the bundled face').toMatch(/^Antonio__/)
   expect(meta?.['text-transform']).toBe('uppercase')
 
   // The console frame, drawn entirely on the structural hooks of the stable
   // selector contract: the screen's butterscotch rail and elbow, plus a bar per
   // `liebe-section`. There is deliberately no section TITLE bar to assert —
-  // `liebe-section-title` is stamped nowhere, because nothing in the markup
-  // means "the title of a section", so LCARS ships without the title, the
-  // concave inner fillet and the per-title code label. Recorded as outstanding
-  // in the contract and tracked as #218; the change document's acceptance
-  // scenario names the frame below rather than the one that is not built.
+  // `liebe-section-title` was removed from the contract without ever stamping
+  // (change 0036 PR 4): nothing in the markup means "the title of a section",
+  // so LCARS ships without the per-title bar, the concave inner fillet and the
+  // per-title code label. The change document's acceptance scenario names the
+  // frame below rather than the one that is not built.
   expect(await shadowComputedStyle(page, '.liebe-screen', ['background-color'], '::after')).toEqual(
     {
       'background-color': LCARS_BUTTERSCOTCH,

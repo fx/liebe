@@ -17,6 +17,7 @@
  */
 
 import type { ThemeDefinition } from './themeRegistry'
+import { LIEBE_INSTANCE_ATTRIBUTE } from './rootSelectors'
 
 /** The `data-liebe` slot marking a document-level font registration. */
 export const FONT_STYLE_SLOT = 'fonts'
@@ -56,18 +57,36 @@ function assetBaseUrl(): string {
  * when something renders in it), while removing and re-adding one on every
  * switch would drop the loaded font and fetch it again on the way back.
  *
+ * `instance` isolates the registration to one panel's mirror, alongside the
+ * other two slots (change 0036 PR 7) — and isolation here has to mean the
+ * FAMILY, not just the slot. `@font-face` registers a document-global name:
+ * two panels registering `font-family: 'Antonio'` with identical descriptors
+ * serve each other interchangeably, so keying the `<style>` element alone
+ * would leave panel A's overlays rendering panel B's file whenever B's
+ * registration won the cascade or A's asset base moved. With an instance the
+ * registered family is therefore renamed per panel
+ * (`'Antonio'` → `'Antonio__<instance>'`), and the provider keys the
+ * `--liebe-font-family` token the theme payload names to the same name — so
+ * each panel's text resolves only against its own panel's file. Omitted, the
+ * lookup and the family are the historical global shapes, which is what
+ * single-panel trees and unit tests use.
+ *
  * Returns the `<style>` element, or `null` when there is nothing to register —
  * a theme with no bundled font, or a tree that is not in a document yet.
  */
 export function registerThemeFonts(
   theme: ThemeDefinition,
-  doc: Document | null | undefined
+  doc: Document | null | undefined,
+  instance?: string
 ): HTMLStyleElement | null {
   if (!theme.fontFaces || !doc) return null
 
-  const css = theme.fontFaces.split(ASSET_BASE_PLACEHOLDER).join(assetBaseUrl())
+  const withBase = theme.fontFaces.split(ASSET_BASE_PLACEHOLDER).join(assetBaseUrl())
+  const css = instance ? keyFontFacesToInstance(withBase, instance) : withBase
   const existing = doc.head.querySelector<HTMLStyleElement>(
-    `style[data-liebe="${FONT_STYLE_SLOT}"][data-liebe-theme="${theme.id}"]`
+    instance
+      ? `style[data-liebe="${FONT_STYLE_SLOT}"][data-liebe-theme="${theme.id}"][${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+      : `style[data-liebe="${FONT_STYLE_SLOT}"][data-liebe-theme="${theme.id}"]`
   )
 
   if (existing) {
@@ -80,8 +99,25 @@ export function registerThemeFonts(
   const style = doc.createElement('style')
   style.setAttribute('data-liebe', FONT_STYLE_SLOT)
   style.setAttribute('data-liebe-theme', theme.id)
+  if (instance) style.setAttribute(LIEBE_INSTANCE_ATTRIBUTE, instance)
   style.textContent = css
   doc.head.appendChild(style)
 
   return style
+}
+
+/**
+ * Renames every `@font-face` family in a font sheet to its per-instance name.
+ *
+ * Textual on `font-family:` declarations inside `@font-face` blocks only —
+ * never on `src:`, `unicode-range:`, or comments — so descriptors and
+ * provenance notes survive untouched. Quoted and unquoted spellings both
+ * key; the quote style is preserved so the diff stays minimal.
+ */
+function keyFontFacesToInstance(css: string, instance: string): string {
+  return css.replace(
+    /(@font-face\s*\{[^}]*?font-family\s*:\s*)(['"]?)([^;'"}]+)\2(\s*;)/gs,
+    (_match, prefix: string, quote: string, family: string, suffix: string) =>
+      `${prefix}${quote}${family.trim()}__${instance}${quote}${suffix}`
+  )
 }

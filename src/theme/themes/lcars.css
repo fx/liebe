@@ -9,7 +9,8 @@
  * contract" and "Built-in theme: LCARS"). Every rule below is keyed off one of
  * `liebe-screen`, `liebe-section`, `liebe-card`, `liebe-icon`, `liebe-pill`,
  * `liebe-chip`, `liebe-slider`, `liebe-value`, or the `data-color` /
- * `data-active` attributes. Nothing here names an internal class, and if a card
+ * `data-active` / `data-icon-tile` / `data-avatar` attributes. Nothing here
+ * names an internal class, and if a card
  * refactor ever breaks this theme, that is a contract violation rather than a
  * theme bug.
  *
@@ -67,13 +68,14 @@
  *
  * WHAT IS NOT HERE, AND WHY
  * -------------------------
- * The spec's section frames call for per-section title bars — a title bar with
- * a concave inner fillet, alternating bar colours, counter-generated code
- * labels. Two of the three arrive below on `liebe-section`; the fillet and the
- * title itself need `liebe-section-title`, which is still stamped nowhere in
- * the markup (see the selector contract's "Outstanding" note). The frame this
- * theme draws is therefore the screen's — a rail and an elbow — plus a bar per
- * section, and it gains its title the day a section renders one.
+ * The spec's section frames call for per-section bars — alternating bar
+ * colours, counter-generated code labels — plus a segmented rail and elbow on
+ * the screen. All of that arrives below on `liebe-screen` and `liebe-section`.
+ * The per-title bar, concave inner fillet and per-title code label stay
+ * unbuilt: change 0036 PR 4 removed `liebe-section-title` from the contract
+ * rather than stamping it (see the selector contract's removal note), because
+ * no element in the markup means "the title of a section" and inventing one
+ * to satisfy a theme would put the contract ahead of the product.
  *
  * WHERE THE HUE COMES FROM
  * ------------------------
@@ -94,7 +96,8 @@
  * `liebe-pill-label` / `liebe-chip-label`, which are internal class names a
  * theme may not target and which were the reason the pills and chips had to
  * settle for a dark 38% block under a neutral label. The other partial, the
- * section title bar, still waits on `liebe-section-title`.
+ * section title bar stays unbuilt: `liebe-section-title` was removed from
+ * the contract rather than stamped (change 0036 PR 4).
  *
  * OFFLINE
  * -------
@@ -531,16 +534,19 @@
    * a block — LCARS is dark-only, so there is no second appearance to answer
    * for.
    *
-   * The person card is excepted, because its anchor IS a disc: the base layer
-   * keeps the initials avatar's background for exactly that reason, and this
-   * rule would clear it again from a later layer. The exception is by domain
-   * rather than by the class the base sheet uses, because a theme may name
-   * only the stable selector contract — `data-domain` is in it, an avatar
-   * class is not — so LCARS leaves every person circle on its own okudagram
-   * treatment, which is the disc the contract asks for.
-   */
-  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon,
-  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
+  * The initials disc is excepted, because its anchor IS a disc: the base layer
+  * keeps that circle's background for exactly that reason, and this rule would
+  * clear it again from a later layer. The exception names the anchor FORM
+  * (`data-avatar='initials'`) rather than the domain, because that is what the
+  * base layer's own exception turns on — a person card falling back to the
+  * glyph circle (an `icon` override, or a name yielding no initials) IS an
+  * ordinary glyph circle and takes the ordinary treatment, instead of keeping
+  * a solid disc on an already-tinted tile under a whole-domain exception
+  * (change 0036, identity-disc hook). A theme may name only the stable
+  * selector contract, and `data-avatar` is in it where an avatar class is not.
+  */
+  .liebe-card[data-icon-tile] .liebe-icon:not([data-avatar='initials']),
+  .liebe-card[data-icon-tile] .liebe-icon[data-active]:not([data-avatar='initials']) {
     background: none;
   }
 
@@ -576,15 +582,15 @@
    * is also why it is the more honest statement: the theme is declining to
    * override, not reaching for a value.
    *
-   * Note what is NOT the fix. `contrast-color()` answers the disc above, where
-   * the ground IS the hue; on this tile the ground is a 20% tint of the hue over
-   * the card, so a foreground chosen against the hue is chosen against the wrong
-   * colour — for a yellow bulb it picks black, which lands at 1.6:1 on the
-   * near-black tint. Deleting this rule is not the fix either: the theme's own
-   * disc rule above would then apply, putting `--lcars-black` on a tile that has
-   * no disc.
-   */
-  .liebe-card[data-icon-tile]:not([data-domain='person']) .liebe-icon[data-active] {
+  * Note what is NOT the fix. `contrast-color()` answers the disc above, where
+  * the ground IS the hue; on this tile the ground is a 20% tint of the hue over
+  * the card, so a foreground chosen against the hue is chosen against the wrong
+  * colour — for a yellow bulb it picks black, which lands at 1.6:1 on the
+  * near-black tint. Deleting this rule is not the fix either: the theme's own
+  * disc rule above would then apply, putting `--lcars-black` on a tile that has
+  * no disc.
+  */
+  .liebe-card[data-icon-tile] .liebe-icon[data-active]:not([data-avatar='initials']) {
     color: revert-layer;
   }
 

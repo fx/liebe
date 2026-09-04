@@ -71,7 +71,7 @@ import postcss, {
   type Rule,
 } from 'postcss'
 import { LAYER_ORDER_STATEMENT, USER_LAYER } from './cssLayers'
-import { LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from './rootSelectors'
+import { LIEBE_INSTANCE_ATTRIBUTE, LIEBE_ROOT_CLASS, PORTAL_ROOT_CLASS } from './rootSelectors'
 
 /**
  * The token namespace Liebe defines and therefore vouches for.
@@ -128,6 +128,10 @@ export interface CustomCssResult {
    * `liebe-portal-root` container — what the engine injects into the Home
    * Assistant document so overlays get the user layer too. Empty exactly when
    * `css` is. See {@link scopeToPortalRoot}.
+   *
+   * Unkeyed: it matches every panel's container, which is how the single-panel
+   * case has always worked. The engine keys it to one panel's container with
+   * {@link scopePortalCssToInstance} before injecting a document-level mirror.
    */
   portalCss: string
   /** Everything stripped or rejected, named — one sentence each. */
@@ -816,14 +820,12 @@ function isScopableRule(rule: Rule): boolean {
  * dropped from the match rather than taking the rule with it.
  */
 function scopeSelector(selector: string): string {
+  const scope = `.${PORTAL_ROOT_CLASS}`
   return list
     .comma(selector)
     .flatMap((part) => {
       const { subject, pseudoElement } = splitPseudoElement(part)
-      return [
-        `.${PORTAL_ROOT_CLASS}:is(${subject})${pseudoElement}`,
-        `.${PORTAL_ROOT_CLASS} :is(${subject})${pseudoElement}`,
-      ]
+      return [`${scope}:is(${subject})${pseudoElement}`, `${scope} :is(${subject})${pseudoElement}`]
     })
     .join(', ')
 }
@@ -945,6 +947,68 @@ function scopeToPortalRoot(root: Root): { css: string; notices: string[] } {
   })
 
   return { css: scoped.toString().trim(), notices }
+}
+
+/**
+ * Keys an already-sanitized portal sheet to one panel's container.
+ *
+ * The engine calls this on `sanitizeCustomCss`'s `portalCss` with the panel's
+ * mount token before injecting the document-level mirror, so two panels'
+ * mirrors match only their own containers. Pass-through for an empty sheet —
+ * nothing survived the scoping — and for a sheet already keyed to this
+ * instance, which keeps the function idempotent across re-injection.
+ *
+ * Parsed, not textual: the sheet is re-parsed with postcss and only SELECTORS
+ * are rewritten — declaration values (a `content: ".liebe-portal-root"` a
+ * theme-shaped sheet paints into an `::after`, a `url()`, a custom property)
+ * are never touched. Likewise the already-keyed check looks only for the
+ * exact scope prefix this function emits
+ * (`.liebe-portal-root[data-liebe-instance="…"]`), never for a bare mention
+ * of the attribute: one unrelated authored rule naming the attribute must not
+ * leave the rest of the sheet under the unkeyed scope matching both panels.
+ */
+export function scopePortalCssToInstance(portalCss: string, instance: string): string {
+  if (portalCss === '') return portalCss
+  const keyedPrefix = `.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+  const keyedGuard = `:where(.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"])`
+  const root = postcss.parse(portalCss)
+  root.walkRules((rule) => {
+    // The guard rule (`:where(.liebe-portal-root) { …: initial; }`) is a
+    // SELECTOR too: unkeyed it pins the name on every panel's container, so
+    // the first panel's guard would cover the second panel's lookups. Keyed
+    // it pins only its own panel's container, like every other rule.
+    if (rule.selector.trim() === `:where(.${PORTAL_ROOT_CLASS})`) {
+      rule.selector = keyedGuard
+      return
+    }
+    // Only the OUTER scope — the container prefix the scoping itself emitted —
+    // is keyed. The `:is(…)` subject is user-authored and may legitimately
+    // name `.liebe-portal-root` (or `.liebe-portal-root-ish`) inside it; keying
+    // there would rewrite the user's subject rather than our scope, while a
+    // part carrying the keyed prefix only inside the subject must not count
+    // as already-keyed for the outer scope. Split each comma-part on its
+    // FIRST `:is(`: everything before it is our scope, everything from it on
+    // is the subject (plus the pseudo-element tail, which never contains the
+    // bare class at depth zero outside the subject).
+    rule.selector = list
+      .comma(rule.selector)
+      .map((part) => {
+        const at = part.indexOf(':is(')
+        if (at === -1) {
+          return part.includes(keyedPrefix)
+            ? part
+            : part.split(`.${PORTAL_ROOT_CLASS}`).join(keyedPrefix)
+        }
+        const scope = part.slice(0, at)
+        const rest = part.slice(at)
+        const keyedScope = scope.includes(keyedPrefix)
+          ? scope
+          : scope.split(`.${PORTAL_ROOT_CLASS}`).join(keyedPrefix)
+        return `${keyedScope}${rest}`
+      })
+      .join(', ')
+  })
+  return root.toString()
 }
 
 /**

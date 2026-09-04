@@ -193,14 +193,17 @@ describe('PersonCard', () => {
        * presentation") — and the avatar IS the coloured disc, so bare initials
        * on the tinted tile would be the anchor half removed.
        *
-       * Both ends are asserted together, because the risk is that they drift:
-       * the class the circle renders with, and the rule in this card's own
-       * sheet that restores the background for exactly that class under
-       * exactly that marker. Either one alone passes while the avatar is gone.
+       * All three ends are asserted together, because the risk is that they
+       * drift: the contract attribute the circle renders with (what a theme
+       * selects on), the internal class (what this card's own sheet restores
+       * the background for), and the rule in that sheet that restores it for
+       * exactly that class under exactly that marker. Any one alone passes
+       * while the avatar is gone.
        */
       renderCard('home', { config: { iconOnly: true } })
 
       const circle = document.querySelector('.liebe-icon') as HTMLElement
+      expect(circle).toHaveAttribute('data-avatar', 'initials')
       expect(circle).toHaveClass('person-avatar-initials')
       expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
 

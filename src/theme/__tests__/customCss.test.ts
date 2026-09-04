@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import postcss, { list } from 'postcss'
-import { sanitizeCustomCss, scanValue, unescapeCss } from '../customCss'
+import { sanitizeCustomCss, scanValue, scopePortalCssToInstance, unescapeCss } from '../customCss'
 import { isFullyLayered, USER_LAYER } from '../cssLayers'
 
 /**
@@ -612,6 +612,73 @@ describe('sanitizeCustomCss — the document-level mirror', () => {
     // Same structural guarantee as the in-panel sheet: it is serialised from
     // the AST inside the layer block, so the rewrite cannot have let a rule out.
     expect(isFullyLayered(mirrored('body { display: none } .a { color: red }'))).toBe(true)
+  })
+
+  it("keys a portal sheet to one panel's container, and nothing else moves", () => {
+    // The second half of the two-panel keying (change 0036 PR 7): the engine
+    // keys the already-sanitized portal sheet to the panel's own container
+    // before injecting the document-level mirror, so one panel's custom CSS
+    // stops styling the other's overlays. The key narrows WHICH container —
+    // never WHAT the selectors may match, which the scoping above owns.
+    const keyed = scopePortalCssToInstance(mirrored('.liebe-root { --x: 1 }'), 'panel-a')
+
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"]:is(.liebe-root)')
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"] :is(.liebe-root)')
+    expect(keyed).not.toContain('.liebe-portal-root:is(')
+    expect(isFullyLayered(keyed)).toBe(true)
+  })
+
+  it('leaves an empty sheet and an already-keyed sheet alone', () => {
+    expect(scopePortalCssToInstance('', 'panel-a')).toBe('')
+
+    const once = scopePortalCssToInstance(mirrored('.a { color: red }'), 'panel-a')
+    expect(scopePortalCssToInstance(once, 'panel-a')).toBe(once)
+    expect(once).not.toContain('panel-b')
+  })
+
+  it('keys the rest of a mixed sheet when one rule merely mentions the attribute', () => {
+    // Same class as the early-return it replaces: the old check treated ANY
+    // authored occurrence of `[data-liebe-instance="` as already-keyed, so one
+    // unrelated rule with that literal left the REST of the sheet under the
+    // unkeyed scope — and panel A's custom CSS styled panel B's overlays
+    // again. Only the exact scope prefix this function emits counts.
+    const portal = mirrored(
+      '.a[data-liebe-instance="someone-else"] { color: red } .b { color: blue }'
+    )
+    const keyed = scopePortalCssToInstance(portal, 'panel-a')
+
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"] :is(.b)')
+    expect(keyed).not.toContain('.liebe-portal-root:is(.b)')
+    expect(keyed).toContain('color: blue')
+  })
+
+  it('never rewrites declaration values, only selectors', () => {
+    // The old global string replacement keyed VALUES too: a
+    // `content: ".liebe-portal-root"` a theme-shaped sheet paints into an
+    // `::after` came out with the attribute selector inside the displayed
+    // text. Only selectors move; custom CSS stays authored otherwise.
+    const portal = mirrored('.liebe-card::after { content: ".liebe-portal-root" }')
+    const keyed = scopePortalCssToInstance(portal, 'panel-a')
+
+    expect(keyed).toContain(
+      '.liebe-portal-root[data-liebe-instance="panel-a"]:is(.liebe-card)::after'
+    )
+    expect(keyed).toContain('content: ".liebe-portal-root"')
+    expect(keyed).not.toContain('content: ".liebe-portal-root[data-liebe-instance')
+  })
+
+  it('keys a selector with no :is( scope, and leaves its keyed twin alone', () => {
+    // The `at === -1` branch: a scopeless selector — reachable when the sheet
+    // under keying was built by hand rather than by the scoping above — keys
+    // by plain replacement, while the same selector already carrying this
+    // panel's prefix passes through untouched (idempotent re-injection).
+    const keyed = scopePortalCssToInstance(
+      '@layer liebe-user { .liebe-portal-root { color: red } }',
+      'panel-a'
+    )
+    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"]')
+
+    expect(scopePortalCssToInstance(keyed, 'panel-a')).toBe(keyed)
   })
 })
 

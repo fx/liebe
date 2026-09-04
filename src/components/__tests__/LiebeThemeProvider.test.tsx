@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
+import { createRoot } from 'react-dom/client'
 import { LiebeThemeProvider } from '../LiebeThemeProvider'
 import {
   cameraFullscreenStore,
@@ -232,6 +233,50 @@ describe('LiebeThemeProvider', () => {
     // root theme would bring Radix's `position: relative; z-index: 0` with it.
     expect(container.contains(portalRoot)).toBe(false)
     expect(portalRoot.getAttribute('data-is-root-theme')).toBe('false')
+  })
+
+  it('threads one key per panel, so two providers never share a mirror', () => {
+    // The regression the threaded key exists for: the provider cannot
+    // discover its own custom element — `document.querySelector('liebe-panel,
+    // liebe-panel-dev')` returns the FIRST host, so two mounted panels would
+    // read and share ONE attribute. Each element mints its own key instead
+    // (`src/panel.ts` `mirrorKey`, via `PanelApp`), and the provider merely
+    // carries it to the container and to every mirror write. Rendered into
+    // shadow roots so the document-level mirror path is exercised (a
+    // document-root tree injects only in place, with nothing to mirror).
+    const firstHost = document.createElement('div')
+    const secondHost = document.createElement('div')
+    document.body.append(firstHost, secondHost)
+    const firstRoot = firstHost.attachShadow({ mode: 'open' })
+    const secondRoot = secondHost.attachShadow({ mode: 'open' })
+
+    try {
+      act(() => {
+        createRoot(firstRoot).render(
+          <LiebeThemeProvider themeId="lcars" instanceKey="panel-a">
+            <span />
+          </LiebeThemeProvider>
+        )
+        createRoot(secondRoot).render(
+          <LiebeThemeProvider themeId="lcars" instanceKey="panel-b">
+            <span />
+          </LiebeThemeProvider>
+        )
+      })
+
+      const containers = [...document.querySelectorAll('.liebe-portal-root')]
+      const keys = containers.map((el) => el.getAttribute('data-liebe-instance'))
+      expect(keys).toContain('panel-a')
+      expect(keys).toContain('panel-b')
+
+      const mirrors = [...document.head.querySelectorAll(THEME_STYLE_SELECTOR)]
+      const mirrorKeys = mirrors.map((el) => el.getAttribute('data-liebe-instance'))
+      expect(mirrorKeys).toContain('panel-a')
+      expect(mirrorKeys).toContain('panel-b')
+    } finally {
+      firstHost.remove()
+      secondHost.remove()
+    }
   })
 
   it('lifts the root Theme stacking while a camera overlay is open', () => {

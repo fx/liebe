@@ -118,6 +118,41 @@ describe('PortalHost', () => {
     expect(host().getAttribute('data-appearance')).toBe('dark')
   })
 
+  it("stamps the panel's instance token, so a keyed mirror matches only its own overlays", () => {
+    // The scope half of the two-panel keying (change 0036 PR 7): the mirror
+    // slots carry `data-liebe-instance` per panel, and the container carries
+    // the same token, so one panel's keyed sheets match only its own
+    // container. Generated per mount when no explicit token is passed —
+    // stable across re-renders, unique across trees.
+    const { rerender } = renderInHost(<span />)
+
+    const token = host().getAttribute('data-liebe-instance')
+    expect(token).toBeTruthy()
+
+    // Rerender the ORIGINAL tree: a second mount would mint a second token,
+    // so only re-driving the same host proves stability rather than
+    // coincidence.
+    rerender(
+      <Theme>
+        <PortalHost themeId="default" appearance="dark">
+          <span />
+        </PortalHost>
+      </Theme>
+    )
+    expect(host().getAttribute('data-liebe-instance')).toBe(token)
+  })
+
+  it('stamps an explicit instance token when one is passed', () => {
+    render(
+      <Theme>
+        <PortalHost themeId="default" appearance="dark" instance="panel-a">
+          <span />
+        </PortalHost>
+      </Theme>
+    )
+
+    expect(host().getAttribute('data-liebe-instance')).toBe('panel-a')
+  })
   it('leaves the container empty, so React never reconciles portalled content away', () => {
     renderInHost(<span data-testid="child" />)
 
