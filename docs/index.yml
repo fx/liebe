@@ -359,7 +359,7 @@ changes:
   - id: '0045'
     name: browser-home-for-geometry-assertions
     path: changes/0045-browser-home-for-geometry-assertions.md
-    description: Enforce the five BROWSER_ONLY geometry assertions in the Playwright e2e suite against the real panel, family by family; the last migrating PR closes the tasks.md backlog item
+    description: Enforce the five BROWSER_ONLY geometry assertions in the Playwright e2e suite against the real panel, family by family; taking over the geometry-home work previously tracked in docs/tasks.md
     spec: storybook
     status: draft
     depends_on: ['0005']
