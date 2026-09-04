@@ -122,7 +122,7 @@ Actions MUST NOT fire from taps on embedded controls (sliders, pills, buttons) �
 
 ## Shared slider placement (`sliderPlacement`)
 
-_`auto`, `horizontal` and `vertical` are **implemented** by change [0034](../../../changes/0034-slider-placement.md) PR 1 — the key, its schema and its configuration row on all three cards, resolved once for every consumer. `background` is specified there and not yet implemented; until it is, a card storing it renders the tier's own placement rather than a surface, so no stored configuration changes meaning when the surface lands._
+_All four values are **implemented** by change [0034](../../../changes/0034-slider-placement.md) — `auto`, `horizontal` and `vertical` in PR 1 (the key, its schema and its configuration row on all three cards, resolved once for every consumer), `background` in PR 2 (the card-surface slider, the gesture split, cover-gate routing and `iconOnly` composition)._
 
 Not universal — this contract is defined once here so the per-card docs that adopt it cannot drift. Each participating card's doc lists the key in its own table and links here; the semantics below are identical everywhere.
 

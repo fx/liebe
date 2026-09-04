@@ -13,7 +13,12 @@ import {
   readShowColorTempControl,
   readUseLightColor,
 } from '~/store/lightOptions'
-import { readSliderOrientation, type SliderOrientation } from '~/store/sliderPlacement'
+import {
+  isBackgroundPlacement,
+  readSliderOrientation,
+  resolveBackgroundDirection,
+  type SliderOrientation,
+} from '~/store/sliderPlacement'
 import { kelvinToRgb, resolveLightHue } from './lightColor'
 import {
   readColorTempRange,
@@ -84,15 +89,21 @@ interface LightAttributes {
 function BrightnessSlider({
   isOn,
   orientation,
+  placement,
   value,
   onValueChange,
   onValueCommit,
+  onBackgroundDragStart,
+  onBackgroundCancel,
 }: {
   isOn: boolean
   orientation: SliderOrientation
+  placement?: 'inline' | 'background'
   value: number
   onValueChange: (value: number) => void
   onValueCommit: (value: number) => void
+  onBackgroundDragStart?: () => void
+  onBackgroundCancel?: () => void
 }) {
   const hue = useGridCardHue()
 
@@ -105,13 +116,14 @@ function BrightnessSlider({
       label="Brightness"
       // Resolved by the card from `sliderPlacement` and the tier: `tall` is the
       // tier that gives a control its own axis and every other one runs it along
-      // the row, unless the option forces the other way
-      // (docs/specs/entity-cards/options/common.md — "Shared slider placement").
       orientation={orientation}
+      placement={placement}
       value={value}
       readout={`${value}%`}
       onValueChange={onValueChange}
       onValueCommit={onValueCommit}
+      onBackgroundDragStart={onBackgroundDragStart}
+      onBackgroundCancel={onBackgroundCancel}
     />
   )
 }
@@ -336,6 +348,12 @@ function LightCardComponent({
     [beginDrag]
   )
 
+  // The tap half of the background split: a no-travel release claims no
+  // drag, so the optimistic value the touch-point set must be released too —
+  // otherwise the tile keeps painting the tapped value and `handleToggle`
+  // declines the tap as "a drag in flight".
+  const handleBrightnessCancel = useCallback(() => endDrag('brightness'), [endDrag])
+
   const handleBrightnessCommit = useCallback(
     async (value: number) => {
       // Only a slider dropped at 0 turns the light off; the conversion never
@@ -544,12 +562,42 @@ function LightCardComponent({
    * decides its axis.
    */
   const sliderOrientation = readSliderOrientation(config, tier)
+  // Background placement renders as the card surface itself — never as the
+  // inline control too. `readSliderOrientation` folds `background` into the
+  // tier's own axis as a fallback, so the exclusion must read the stored
+  // placement, not the resolved orientation.
   const showBrightness =
     sliderOrientation !== undefined &&
+    !isBackgroundPlacement(config) &&
     !isEditMode &&
     isOn &&
     supportsBrightness &&
     showBrightnessSlider
+  /*
+   * The card-surface slider (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"): every tier including `glance`, with no layout
+   * space consumed. Same value/commit/colour/capability gating as the inline
+   * control above — falling back to the plain tile where the slider is gated
+   * off. `CardBody`'s own arrangement is untouched; the background mounts
+   * behind it from the shell.
+   */
+  const showBackgroundSlider =
+    !isEditMode &&
+    isOn &&
+    supportsBrightness &&
+    showBrightnessSlider &&
+    isBackgroundPlacement(config)
+  const backgroundSlider = showBackgroundSlider ? (
+    <BrightnessSlider
+      isOn={isOn}
+      orientation={resolveBackgroundDirection(span)}
+      placement="background"
+      value={displayBrightness}
+      onValueChange={handleBrightnessChange}
+      onValueCommit={handleBrightnessCommit}
+      onBackgroundCancel={handleBrightnessCancel}
+    />
+  ) : undefined
 
   /*
    * Both extras are `full`-only and both require the light to be on, matching
@@ -680,6 +728,7 @@ function LightCardComponent({
         hasConfiguration={true}
         title={error || undefined}
         className="light-card"
+        backgroundSlider={backgroundSlider}
       >
         {/* The slider takes the room its tier leaves over rather than being
             sized by its content — the width the icon and the meta do not use

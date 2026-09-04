@@ -9,7 +9,11 @@ import { Pill, PillGroup, Slider } from '../anatomy'
 import { useCardItem } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import { readFanOptions } from '~/store/fanOptions'
-import { readSliderOrientation } from '~/store/sliderPlacement'
+import {
+  isBackgroundPlacement,
+  readSliderOrientation,
+  resolveBackgroundDirection,
+} from '~/store/sliderPlacement'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { FanDetailControls } from './FanDetailControls'
 import {
@@ -19,13 +23,20 @@ import {
   selectedSpeedStep,
 } from './speedSteps'
 import { fanHasPresets, readFanFeatures, readFanPresetModes, type FanAttributes } from './features'
-import type { CardTier } from '~/utils/cardTier'
+import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface FanCardProps {
   entityId: string
   tier?: CardTier
+  /**
+   * The effective grid span behind `tier`, in cells. The background fill
+   * direction derives from it (`resolveBackgroundDirection`), never from
+   * measured pixels (docs/specs/design-system/index.md — "Background slider
+   * placement").
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -73,6 +84,7 @@ const confirmNothingToSwitch = () => null
 function FanCardComponent({
   entityId,
   tier = 'row',
+  span,
   onDelete,
   isSelected = false,
   onSelect,
@@ -196,6 +208,14 @@ function FanCardComponent({
   const handleSliderChange = useCallback((value: number) => {
     setIsDragging(true)
     setLocalPercentage(value)
+  }, [])
+
+  // The tap half of the background split (see LightCard): a no-travel release
+  // claims no drag, so the optimistic value the touch-point set must be
+  // released too — otherwise the slider keeps painting the tapped value.
+  const handleSliderCancel = useCallback(() => {
+    setIsDragging(false)
+    setLocalPercentage(null)
   }, [])
 
   const handleSliderCommit = useCallback(
@@ -328,12 +348,29 @@ function FanCardComponent({
    * itself is options/common's. The resolver's `undefined` is `glance`, which
    * `controlsVisible` has already ruled out by the time this is read.
    */
+  // Background placement renders as the card surface itself — never as the
+  // inline control too. The pills branch below keys on this being undefined,
+  // so background must read as "no inline slider" here.
   const sliderOrientation =
-    options.speedControl === 'slider' ? readSliderOrientation(config, tier) : undefined
+    options.speedControl === 'slider' && !isBackgroundPlacement(config)
+      ? readSliderOrientation(config, tier)
+      : undefined
+  /*
+   * The card-surface slider (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"): every tier including `glance`, with no layout
+   * space consumed. Same value/commit/capability gating as the inline control
+   * — inert under `steps`/`none`, falling back to the plain tile where the
+   * slider is gated off.
+   */
+  const showBackgroundSlider =
+    !isEditMode &&
+    features.speed &&
+    options.speedControl === 'slider' &&
+    isOn &&
+    isBackgroundPlacement(config)
   const showPresets = isFull && !isEditMode && options.showPresets && fanHasPresets(fanAttributes)
   const showOscillate = isFull && !isEditMode && options.showOscillate && features.oscillate
   const showDirection = isFull && !isEditMode && options.showDirection && features.direction
-
   /**
    * The speed the card is showing, or `undefined` where there is none to show
    * — a fan without the capability, or one that advertises it and reports no
@@ -348,6 +385,22 @@ function FanCardComponent({
 
   const displayPercentage = reportedPercentage ?? 0
 
+  const backgroundSlider =
+    showBackgroundSlider && reportedPercentage !== undefined ? (
+      <Slider
+        domain="fan"
+        color="ok"
+        active={displayPercentage > 0}
+        label="Fan speed"
+        orientation={resolveBackgroundDirection(span)}
+        placement="background"
+        value={displayPercentage}
+        readout={`${displayPercentage}%`}
+        onValueChange={handleSliderChange}
+        onValueCommit={handleSliderCommit}
+        onBackgroundCancel={handleSliderCancel}
+      />
+    ) : undefined
   /*
    * The spin. Its duration rides on a custom property rather than on a class
    * per speed band, so the rate is genuinely proportional to the percentage;
@@ -532,6 +585,7 @@ function FanCardComponent({
       entityId={entityId}
       title={error || undefined}
       className="fan-card"
+      backgroundSlider={backgroundSlider}
     >
       <CardBody
         arrangement={DEFAULT_TIER_ARRANGEMENT[tier]}
@@ -556,6 +610,10 @@ const MemoizedFanCard = memo(FanCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.tier === nextProps.tier &&
+    // The span as well as the tier: the tier is lossy, so a same-tier resize
+    // (2×3 → 4×3) changes the background fill direction via
+    // `resolveBackgroundDirection(span)` — the LightCard pattern.
+    isSameSpan(prevProps.span, nextProps.span) &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

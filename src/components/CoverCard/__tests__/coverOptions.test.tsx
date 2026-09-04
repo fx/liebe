@@ -592,6 +592,121 @@ describe('confirmOpen', () => {
     expect(screen.getByText('Open Garage Door?')).toBeInTheDocument()
   })
 
+  it('gates a background-drag commit on a cover with no position to compare against', () => {
+    // The binary opener has no `current_position`, so the background commit
+    // (like the inline slider's) classifies by effect and resolves
+    // conservatively: unclassifiable routes confirm exactly like opening
+    // ones. Rendered at `glance`, where only the surface exists.
+    seed(garage('closed', { supported_features: 15 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    const thumb = screen.getByLabelText('Position')
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+
+    expect(hass.callService).not.toHaveBeenCalled()
+    expect(screen.getByText('Open Garage Door?')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(hass.callService).toHaveBeenCalledWith('cover', 'set_cover_position', {
+      entity_id: ENTITY_ID,
+      position: 1,
+    })
+  })
+
+  it('lets a background-drag close straight through on a positioned cover', () => {
+    seed(garage('open', { current_position: 40, supported_features: 15 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    const thumb = screen.getByLabelText('Position')
+    fireEvent.keyDown(thumb, { key: 'ArrowLeft' })
+
+    expect(screen.queryByText('Open Garage Door?')).not.toBeInTheDocument()
+    expect(hass.callService).toHaveBeenCalledWith('cover', 'set_cover_position', {
+      entity_id: ENTITY_ID,
+      position: 39,
+    })
+  })
+
+  it('releases the optimistic position when a background touch is cancelled', () => {
+    // Same cancel path as the light's tap-away case, through this card's own
+    // optimistic state: the touch-point sets a value via `onValueChange`, no
+    // commit fires, and the slider must show the entity's position again.
+    // The rect + capture stubs mirror the light suite (see `beginDrag` in
+    // `LightCard.dragGuard.test.tsx`): without them Radix never reports a
+    // value and the test passes against no gate at all.
+    seed(garage('open', { current_position: 40, supported_features: 15 }))
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    const thumb = screen.getByLabelText('Position')
+    const slider = thumb.closest('.liebe-slider') as HTMLElement
+    slider.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 20,
+        right: 200,
+        bottom: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect
+    slider.setPointerCapture = () => {}
+    slider.releasePointerCapture = () => {}
+    slider.hasPointerCapture = () => true
+
+    fireEvent.pointerDown(slider, {
+      clientX: 150,
+      clientY: 10,
+      pointerId: 1,
+      button: 0,
+      buttons: 1,
+    })
+    fireEvent.pointerCancel(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
+
+    expect(thumb.getAttribute('aria-valuenow')).toBe('40')
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('keeps the tilt slider operable with a background surface mounted', () => {
+    // The pointer-events opt-in half for `.liebe-slider` itself: an embedded
+    // INLINE slider inside the body (the tilt control at `full`) inherits
+    // the body's `pointer-events: none` while a background surface is
+    // mounted, and only the thumb (`[role="slider"]`) was opted back in —
+    // so track clicks/drags broke. The sheet now opts the slider root back
+    // in too; this pins the track half at the DOM level jsdom can see (the
+    // real drag proof is the e2e background spec).
+    seed(
+      garage('open', { current_position: 40, current_tilt_position: 40, supported_features: 255 })
+    )
+    renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, {
+      sliderPlacement: 'background',
+    })
+
+    const tiltTrack = screen
+      .getByLabelText('Tilt position')
+      .closest('.liebe-slider')!
+      .querySelector('.liebe-slider-track') as HTMLElement
+    expect(tiltTrack).not.toBeNull()
+
+    // Keyboard path proves the control is live and bound: one step commits
+    // `set_cover_tilt_position` exactly once.
+    const thumb = screen.getByLabelText('Tilt position')
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(hass.callService).toHaveBeenCalledWith('cover', 'set_cover_tilt_position', {
+      entity_id: ENTITY_ID,
+      tilt_position: 41,
+    })
+  })
+
   it('opens without asking when the option is off', () => {
     seed(garage('closed', { current_position: 0 }))
     renderCard(<CoverCard entityId={ENTITY_ID} tier="full" />, { confirmOpen: false })

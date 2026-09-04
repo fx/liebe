@@ -357,6 +357,55 @@ export const PlacementHorizontal: Story = {
   },
 }
 
+/**
+ * `background` — the tile itself is the position control, edge to edge behind
+ * the body. Shown at `glance`, where no inline placement renders, and at
+ * `full`, where the surface still consumes no layout space. The icon-only
+ * companion shows the composition the contract requires: the fill IS the
+ * state tint.
+ */
+export const PlacementBackgroundGlance: Story = {
+  args: { gridWidth: 1, gridHeight: 1 },
+  parameters: {
+    liebe: { itemConfig: { sliderPlacement: 'background' }, entities: [createCoverEntity()] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
+
+export const PlacementBackgroundFull: Story = {
+  args: FULL_CELL,
+  parameters: {
+    liebe: { itemConfig: { sliderPlacement: 'background' }, entities: [createCoverEntity()] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
+
+export const PlacementBackgroundIconOnly: Story = {
+  args: { gridWidth: 2, gridHeight: 2 },
+  parameters: {
+    liebe: {
+      itemConfig: { sliderPlacement: 'background', iconOnly: true },
+      entities: [createCoverEntity()],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-card')).toHaveAttribute(
+      'data-icon-tile',
+      'true'
+    )
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
 /** `showPositionSlider: false` drops the slider at every tier that carries one. */
 export const WithoutPositionSlider: Story = {
   args: FULL_CELL,

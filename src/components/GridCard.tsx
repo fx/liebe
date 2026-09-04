@@ -187,6 +187,17 @@ export interface GridCardProps {
    * keep the panel's own appearance.
    */
   overArtwork?: boolean
+  /**
+   * The card-surface slider, rendered behind the card's content like the media
+   * player's artwork backdrop. Supplied by the three cards that carry
+   * `sliderPlacement` when the stored config asks for `background` and the
+   * slider is capability-gated on; the card keeps owning the value, commit and
+   * colour bindings verbatim (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"). Fenced with the body's siblings under
+   * `iconOnly`, because the fill IS the state tint there rather than backdrop
+   * chrome. Inert in edit mode like every embedded control.
+   */
+  backgroundSlider?: React.ReactNode
 }
 
 /**
@@ -353,6 +364,22 @@ function isEmbeddedControl(e: React.SyntheticEvent): boolean {
   // ancestor of the whole grid would suppress every card's gestures.
   return Boolean(
     control && control !== e.currentTarget && (e.currentTarget as Element).contains(control)
+  )
+}
+
+/**
+ * Whether the gesture landed on the card-surface slider rather than on the
+ * tile. A background slider IS the tile (options/common — "Shared slider
+ * placement"): the drag/tap split is decided by whether the gesture moved the
+ * value — the anatomy stops the click that ends a drag (see `Slider.tsx`) —
+ * so the shell's press pipeline must still see the pointer for hold and
+ * double-tap, and the tap must still reach the gesture controller.
+ */
+function isBackgroundSliderTarget(e: React.SyntheticEvent): boolean {
+  const target = e.target as Element
+  const slider = target.closest('.liebe-slider[data-placement="background"]')
+  return Boolean(
+    slider && slider !== e.currentTarget && (e.currentTarget as Element).contains(slider)
   )
 }
 
@@ -552,6 +579,24 @@ function fenceToCardBody(children: React.ReactNode): React.ReactNode {
 }
 
 /**
+ * Whether a background layer is the card-surface slider rather than backdrop
+ * chrome. The `iconOnly` fence drops backdrops, overlays and badges, but the
+ * background fill IS the icon-only tile's state surface
+ * (docs/specs/entity-cards/options/common.md — "Icon-only presentation"), so
+ * the slider survives it. Identified by the placement prop the card passed,
+ * rather than by a component identity that would couple the shell to one.
+ */
+function isBackgroundSlider(node: React.ReactNode): boolean {
+  if (!React.isValidElement(node)) return false
+  // `node.props` is always an object for a valid element (React freezes it;
+  // even `createElement('div', null)` yields `{}`) — so the guard reads the
+  // placement off it directly, with no defensive `typeof` arm that no test
+  // (and no caller) can ever take. An element without the background
+  // placement prop is backdrop chrome, not the state surface.
+  return (node.props as { placement?: unknown }).placement === 'background'
+}
+
+/**
  * The background paint the caller asked for, dropped for an icon-only tile.
  *
  * The other half of the same fence, for the layer that is not an element at
@@ -689,6 +734,7 @@ export const GridCard = React.memo(
         backdrop,
         customPadding,
         overArtwork = false,
+        backgroundSlider,
       },
       ref
     ) => {
@@ -974,13 +1020,23 @@ export const GridCard = React.memo(
         // never produce the click that would consume a fired hold.
         if (e.button !== 0 || !e.isPrimary) return
 
-        if (isRealDescendant(e) && !isEmbeddedControl(e)) gestures.press()
+        // The background slider IS the tile: its pointer joins the press
+        // pipeline (hold and double-tap keep working) and the drag/tap split
+        // is decided by whether the gesture moved the value — the anatomy
+        // stops the click that ends a drag. Every other embedded control owns
+        // its gesture and stays excluded.
+        if (isRealDescendant(e) && (!isEmbeddedControl(e) || isBackgroundSliderTarget(e)))
+          gestures.press()
       }
 
       const handleClick = (e: React.MouseEvent) => {
         if (isEditMode && onSelect) {
           onSelect()
-        } else if (!isEditMode && isRealDescendant(e) && !isEmbeddedControl(e)) {
+        } else if (
+          !isEditMode &&
+          isRealDescendant(e) &&
+          (!isEmbeddedControl(e) || isBackgroundSliderTarget(e))
+        ) {
           gestures.tap()
         }
       }
@@ -1169,6 +1225,35 @@ export const GridCard = React.memo(
             data-transparent={isTransparent ? 'true' : undefined}
             style={cardStyle}
           >
+            {/*
+             * The card-surface slider, structurally behind the body but
+             * hit-testing FIRST: `CardBody` fills the tile (`block-size /
+             * inline-size: 100%`) and paints after the absolutely-positioned
+             * layer, so without routing a centre-tile drag targets the
+             * transparent body and Radix never sees a value change. The
+             * pointer-events split below forwards the stream to the slider
+             * while keeping real embedded controls (and the
+             * tap/hold/double-tap contract) intact.
+             *
+             * Fenced with the body's siblings under `iconOnly` — where the
+             * fill IS the state tint rather than backdrop chrome — and inert
+             * in edit mode like every embedded control.
+             *
+             * Cloned with the drag-start callback rather than asked of the
+             * card: the card owns value/commit/colour and nothing else, and a
+             * second gesture prop threaded through three cards is how the
+             * shared semantics drift. The callback cancels the shell's armed
+             * hold timer (`gestures.release()`), so a slow drag past
+             * HOLD_DURATION_MS adjusts the value without firing hold under
+             * the finger.
+             */}
+            {!isEditMode && backgroundSlider && (!iconOnly || isBackgroundSlider(backgroundSlider))
+              ? React.isValidElement<{ onBackgroundDragStart?: () => void }>(backgroundSlider)
+                ? React.cloneElement(backgroundSlider, {
+                    onBackgroundDragStart: gestures.release,
+                  })
+                : backgroundSlider
+              : null}
             {/* Content — fenced to the card body while `iconOnly` holds, so a
                 backdrop or an overlay a card renders beside its body does not
                 survive the suppression its body just applied. */}

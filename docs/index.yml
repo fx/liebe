@@ -284,7 +284,7 @@ changes:
     path: changes/0034-slider-placement.md
     description: Shared sliderPlacement option for light/cover/fan — force horizontal/vertical, or background placement making the whole tile the slider
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: ['0028', '0033']
   - id: '0035'
     name: light-appearance-contrast

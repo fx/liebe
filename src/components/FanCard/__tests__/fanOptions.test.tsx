@@ -526,4 +526,43 @@ describe('optimistic drag state', () => {
 
     expect(screen.getByLabelText('Fan speed')).toHaveAttribute('aria-valuetext', '20%')
   })
+
+  it('releases the optimistic speed when a background touch is cancelled', () => {
+    // Same cancel path as the light's tap-away case, through this card's own
+    // optimistic state. Rendered at `glance`, where only the surface exists.
+    seed(makeFan('on', { percentage: 50 }))
+    renderCard(<FanCard entityId={ENTITY_ID} tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    const thumb = screen.getByLabelText('Fan speed')
+    const slider = thumb.closest('.liebe-slider') as HTMLElement
+    slider.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 20,
+        right: 200,
+        bottom: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect
+    slider.setPointerCapture = () => {}
+    slider.releasePointerCapture = () => {}
+    slider.hasPointerCapture = () => true
+
+    fireEvent.pointerDown(slider, {
+      clientX: 150,
+      clientY: 10,
+      pointerId: 1,
+      button: 0,
+      buttons: 1,
+    })
+    fireEvent.pointerCancel(slider, { clientX: 150, clientY: 10, pointerId: 1, button: 0 })
+
+    expect(thumb.getAttribute('aria-valuenow')).toBe('50')
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
 })

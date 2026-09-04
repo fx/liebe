@@ -17,7 +17,11 @@ import { useCardItem } from '../cardItemContext'
 import { useDashboardStore } from '~/store'
 import { readCardDisplay } from '~/store/cardDisplay'
 import { isSecurityCover, readCoverOptions } from '~/store/coverOptions'
-import { readSliderOrientation } from '~/store/sliderPlacement'
+import {
+  isBackgroundPlacement,
+  readSliderOrientation,
+  resolveBackgroundDirection,
+} from '~/store/sliderPlacement'
 import { registerDetailControls } from '../EntityDetailDialog/detailControls'
 import { CoverDetailControls } from './CoverDetailControls'
 import {
@@ -35,12 +39,19 @@ import {
 } from './presentation'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
-import type { CardTier } from '~/utils/cardTier'
+import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface CoverCardProps {
   entityId: string
   tier?: CardTier
+  /**
+   * The effective grid span behind `tier`, in cells. The background fill
+   * direction derives from it (`resolveBackgroundDirection`), never from
+   * measured pixels (docs/specs/design-system/index.md — "Background slider
+   * placement").
+   */
+  span?: CardSpan
   onDelete?: () => void
   isSelected?: boolean
   onSelect?: (selected: boolean) => void
@@ -69,6 +80,7 @@ registerDetailControls('cover', CoverDetailControls)
 function CoverCardComponent({
   entityId,
   tier = 'row',
+  span,
   onDelete,
   isSelected = false,
   onSelect,
@@ -344,6 +356,14 @@ function CoverCardComponent({
     setLocalPosition(value)
   }, [])
 
+  // The tap half of the background split (see LightCard): a no-travel release
+  // claims no drag, so the optimistic value the touch-point set must be
+  // released too — otherwise the slider keeps painting the tapped value.
+  const handlePositionCancel = useCallback(() => {
+    setIsDraggingPosition(false)
+    setLocalPosition(null)
+  }, [])
+
   const handlePositionCommit = useCallback(
     (value: number) => {
       setIsDraggingPosition(false)
@@ -363,7 +383,14 @@ function CoverCardComponent({
       const position = toRawPosition(value, options.invertPosition)
 
       guardOpening(
-        effectivePosition !== undefined && value > effectivePosition ? 'opening' : 'not-opening',
+        classifyCoverRoute(
+          {
+            action: 'call-service',
+            service: 'cover.set_cover_position',
+            data: { position },
+          },
+          routeContext
+        ),
         async () => {
           await dispatchGuarded({
             domain: 'cover',
@@ -378,11 +405,11 @@ function CoverCardComponent({
     [
       clearError,
       dispatchGuarded,
-      effectivePosition,
       entityId,
       error,
       guardOpening,
       options.invertPosition,
+      routeContext,
     ]
   )
 
@@ -497,7 +524,42 @@ function CoverCardComponent({
    * tier that asked for it.
    */
   const sliderOrientation = readSliderOrientation(config, tier)
-  const showPositionSlider = !isEditMode && supportsSetPosition && options.showPositionSlider
+  // Background placement renders as the card surface itself — never as the
+  // inline control too (see LightCard: the resolved orientation cannot tell
+  // them apart, only the stored placement can).
+  const showPositionSlider =
+    !isBackgroundPlacement(config) &&
+    !isEditMode &&
+    supportsSetPosition &&
+    options.showPositionSlider
+  /*
+   * The card-surface slider (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"): every tier including `glance`, with no layout
+   * space consumed. Same value/commit/colour/capability gating as the inline
+   * control — the `guardOpening`/`confirmRoute` commit path below is shared
+   * verbatim, with `toRawPosition` back-conversion and top = open. Falling
+   * back to the plain tile where the slider is gated off.
+   */
+  const showBackgroundSlider =
+    !isEditMode &&
+    supportsSetPosition &&
+    options.showPositionSlider &&
+    isBackgroundPlacement(config)
+  const backgroundSlider = showBackgroundSlider ? (
+    <Slider
+      domain="cover"
+      color={stateColor}
+      active={displayPosition > 0}
+      label="Position"
+      orientation={resolveBackgroundDirection(span)}
+      placement="background"
+      value={displayPosition}
+      readout={`${displayPosition}%`}
+      onValueChange={handlePositionChange}
+      onValueCommit={handlePositionCommit}
+      onBackgroundCancel={handlePositionCancel}
+    />
+  ) : undefined
   const showButtons = isFull && !isEditMode && options.showButtons
   const showTilt = isFull && !isEditMode && supportsTilt && options.showTiltControls
 
@@ -705,6 +767,7 @@ function CoverCardComponent({
         confirmRoute={gateApplies ? confirmRoute : undefined}
         title={error || undefined}
         className="cover-card"
+        backgroundSlider={backgroundSlider}
       >
         {/* The slider takes the room its tier leaves over — the width the icon
           and the meta do not use on a row, the height they do not use in
@@ -748,6 +811,10 @@ const MemoizedCoverCard = memo(CoverCardComponent, (prevProps, nextProps) => {
   return (
     prevProps.entityId === nextProps.entityId &&
     prevProps.tier === nextProps.tier &&
+    // The span as well as the tier: the tier is lossy, so a same-tier resize
+    // (2×3 → 4×3) changes the background fill direction via
+    // `resolveBackgroundDirection(span)` — the LightCard pattern.
+    isSameSpan(prevProps.span, nextProps.span) &&
     prevProps.onDelete === nextProps.onDelete &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onSelect === nextProps.onSelect

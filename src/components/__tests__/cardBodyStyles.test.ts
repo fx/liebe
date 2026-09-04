@@ -449,6 +449,30 @@ describe('a forced slider placement gets a definite axis to run along', () => {
   })
 })
 
+describe('the background placement is edge to edge behind the content', () => {
+  /**
+   * The surface consumes no layout space — the one property that makes a 1×1
+   * dimmable tile possible — so these are declarations on the shell and
+   * anatomy sheets rather than on the body the forced-placement rules above
+   * pin. jsdom lays nothing out, so edge-to-edge is asserted here and measured
+   * in a real engine by `tests/e2e/background-slider-placement.spec.ts`.
+   */
+  it('mounts the surface absolutely at the tile inset, behind the body', () => {
+    const surface = ruleBody(shell, ".liebe-card > .liebe-slider[data-placement='background']")
+    expect(surface).toContain('position: absolute;')
+    expect(surface).toContain('inset: 0;')
+  })
+
+  it('clips the surface at the tile radius rather than rounding the track', () => {
+    // The tile already clips (`overflow: hidden`), so a second radius on the
+    // track would draw a rounded box inside the tile's own rounded box.
+    expect(ruleBody(shell, '.liebe-card')).toContain('overflow: hidden;')
+    expect(
+      ruleBody(anatomy, ".liebe-slider[data-placement='background'] .liebe-slider-track")
+    ).toContain('border-radius: 0;')
+  })
+})
+
 describe('the alignment pair inside the body', () => {
   /**
    * The refinement half of change 0032: the tile's own rules reach every card,

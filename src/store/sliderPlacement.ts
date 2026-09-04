@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { CardTier } from '~/utils/cardTier'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 
 /**
  * The shared `sliderPlacement` option — where and how a card's primary slider
@@ -84,6 +84,35 @@ export function readSliderPlacement(config: Record<string, unknown> | undefined)
 }
 
 /**
+ * Whether the stored config asks for the card-surface slider.
+ *
+ * The one check every consumer makes before deciding *where* its slider
+ * renders: `resolveSliderOrientation` below folds `background` into the tier's
+ * own placement as a fallback for consumers that never learned the surface, so
+ * a card that wants the surface must ask this first rather than reading an
+ * orientation (docs/specs/entity-cards/options/common.md — "Shared slider
+ * placement").
+ */
+export function isBackgroundPlacement(config: Record<string, unknown> | undefined): boolean {
+  return readSliderPlacement(config) === 'background'
+}
+
+/**
+ * Which way a background fill runs, from the effective span the renderer hands
+ * down — left→right when the span is wider than tall in cells, bottom→top
+ * otherwise, squares included (a bottom-up fill reads as a level).
+ *
+ * Never from measured pixels: the span is an input the card already has and is
+ * settled before first interaction, where a pixel aspect would need a
+ * measurement the size contract forbids (docs/specs/design-system/index.md —
+ * "Background slider placement"). An absent span answers `vertical`, the same
+ * way a square does.
+ */
+export function resolveBackgroundDirection(span: CardSpan | undefined): SliderOrientation {
+  return span !== undefined && span.width > span.height ? 'horizontal' : 'vertical'
+}
+
+/**
  * The orientation the tier itself gives a slider — what `auto` reproduces.
  *
  * `undefined` is `glance`, which renders no inline slider at all: the tile has
@@ -109,11 +138,11 @@ function tierOrientation(tier: CardTier): SliderOrientation | undefined {
  *    in `glance` — which is why the `glance` answer is taken first and the
  *    forced value cannot override it.
  *  - **`background`** is not an inline placement at all: it renders the slider
- *    as the card surface, in every tier including `glance`, and change 0034's
- *    second task builds it. Until then it resolves to the tier's own placement,
- *    which is `auto`'s answer — so a document already carrying the value renders
- *    a working card rather than none, and no stored config changes meaning when
- *    the surface lands.
+ *    as the card surface, in every tier including `glance`. It still resolves
+ *    to the tier's own placement here — the fallback for a consumer that never
+ *    learned the surface — so `isBackgroundPlacement` is what a card checks
+ *    before reading an orientation, and no stored config changes meaning where
+ *    the surface is not rendered.
  *
  * Deliberately free of any width or capacity input. Whether a forced orientation
  * *fits* is a geometry question answered where the layout and the shell's

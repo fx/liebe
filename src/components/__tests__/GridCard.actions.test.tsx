@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPortal } from 'react-dom'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
-import { Pill } from '../anatomy'
+import { Pill, Slider } from '../anatomy'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { dashboardActions, dashboardStore } from '~/store'
@@ -335,6 +335,36 @@ describe('GridCard actions', () => {
     expect(onMoreInfo).toHaveBeenCalledTimes(1)
   })
 
+  it('arms the hold when the press lands on the background slider', () => {
+    // The `isBackgroundSliderTarget` exception to the rule above: the surface
+    // IS the tile, so a press held on it must still open the detail dialog —
+    // the `slider &&` arm of the Boolean chain. Without this only the
+    // excluded-controls half has coverage.
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        onMoreInfo={onMoreInfo}
+        backgroundSlider={
+          <Slider
+            domain="light"
+            color="light"
+            label="Brightness"
+            value={50}
+            placement="background"
+            onValueChange={() => {}}
+          />
+        }
+      >
+        content
+      </GridCard>
+    )
+
+    pressAndRelease(screen.getByRole('slider', { name: 'Brightness' }), HOLD_DURATION_MS * 2)
+    expect(onMoreInfo).toHaveBeenCalledTimes(1)
+  })
+
   it('leaves the tile alone when the click lands on an embedded control', () => {
     // The pre-existing convention was for each control to stop its own click,
     // and several do not — the input_boolean switch among them, which is why
@@ -359,6 +389,117 @@ describe('GridCard actions', () => {
     expect(onToggle).not.toHaveBeenCalled()
   })
 
+  it('routes a centre-tile drag to the background slider while controls stay clickable', () => {
+    // The hit-testing contract for the background surface: `CardBody` fills
+    // the tile and paints after the absolutely-positioned slider, so without
+    // routing a centre-tile drag hit-tests the transparent body and Radix
+    // never sees a value change. The stylesheet half (pinned in
+    // `cardShellStyles.test.ts`) makes the body's content pointer-transparent
+    // so the real browser retargets the gesture to the slider underneath;
+    // here the pointer stream is dispatched where the browser would deliver
+    // it — on the slider — and the observable is the shell's own wiring: the
+    // drag start cancels the armed hold (advancing past HOLD_DURATION_MS
+    // fires nothing), while a real embedded control keeps its own click with
+    // no tile tap behind it.
+    const onToggle = vi.fn()
+    const onControl = vi.fn()
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        onClick={onToggle}
+        onMoreInfo={onMoreInfo}
+        backgroundSlider={
+          <Slider
+            domain="light"
+            color="light"
+            label="Brightness"
+            value={50}
+            placement="background"
+            onValueChange={() => {}}
+          />
+        }
+      >
+        <div className="liebe-card-body">
+          <span>plain body content</span>
+          <button type="button" onClick={onControl}>
+            Mode
+          </button>
+        </div>
+      </GridCard>
+    )
+
+    // A drag starting on plain body content: through the pointer-events split
+    // the body's content is transparent to the pointer, so the real browser
+    // retargets the gesture to the slider underneath (the stylesheet half,
+    // pinned in `cardShellStyles.test.ts`). In jsdom there is no hit-testing
+    // to do the retargeting, so the test dispatches the pointer stream where
+    // the browser would deliver it — on the slider — and pins what the slider
+    // does with it: travel declared, armed hold cancelled.
+    const slider = document.querySelector('.liebe-slider')!
+    fireEvent.pointerDown(slider, { isPrimary: true, button: 0, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(slider, { clientX: 130, clientY: 100 })
+    // The shell cloned the surface with `onBackgroundDragStart:
+    // gestures.release` (not the test's own callback), so the observable is
+    // the cancelled hold: advancing past HOLD_DURATION_MS fires nothing.
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS + 500)
+    })
+    expect(onMoreInfo).not.toHaveBeenCalled()
+
+    // A real control over the surface keeps its own click — and fires no tap.
+    fireEvent.click(screen.getByRole('button', { name: 'Mode' }))
+    expect(onControl).toHaveBeenCalledTimes(1)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('treats a non-slider background layer as backdrop chrome under iconOnly', () => {
+    // The `isBackgroundSlider` guard's early arms: a non-element (or an
+    // element without the background placement prop) is backdrop chrome, not
+    // the state surface, so the `iconOnly` fence drops it. Without this only
+    // the slider-survives half has coverage — the first two `return false`
+    // arms (GridCard.tsx `isBackgroundSlider`) never run.
+    const { unmount } = renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        config={{ iconOnly: true }}
+        backgroundSlider="not a slider element"
+      >
+        content
+      </GridCard>
+    )
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+    expect(screen.queryByText('not a slider element')).not.toBeInTheDocument()
+    unmount()
+
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        config={{ iconOnly: true }}
+        backgroundSlider={<div data-testid="plain-layer">plain</div>}
+      >
+        content
+      </GridCard>
+    )
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+    expect(screen.queryByTestId('plain-layer')).not.toBeInTheDocument()
+  })
+
+  it('renders a non-element background layer without cloning', () => {
+    // The mount ternary's fallback arm: a truthy non-element layer (a string
+    // from a card rendering text, say) is not cloneable, so it renders as-is.
+    // Without this only the clone arm has coverage (GridCard.tsx mount).
+    renderCard(
+      <GridCard domain="light" entityId="light.desk" backgroundSlider="surface text">
+        content
+      </GridCard>
+    )
+    expect(card().textContent).toContain('surface text')
+  })
+
   it('starts no gesture on a secondary pointer', () => {
     // A right-button press is not an activation, and it may never produce the
     // click that would consume a hold it had fired.
@@ -381,6 +522,27 @@ describe('GridCard actions', () => {
       vi.advanceTimersByTime(HOLD_DURATION_MS * 2)
     })
     expect(onMoreInfo).not.toHaveBeenCalled()
+  })
+
+  it('treats a function-component background layer as backdrop chrome under iconOnly', () => {
+    // The `typeof props !== 'object'` guard's object half: a function
+    // component's props resolve through `isValidElement` but carry no
+    // `placement` key, so `'placement' in props` is false and the layer is
+    // backdrop chrome. (React freezes element props, so the `props === null`
+    // half is defensive-only and not constructible in a test.)
+    const Plain = () => <div data-testid="plain-fn-layer">plain</div>
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        config={{ iconOnly: true }}
+        backgroundSlider={<Plain />}
+      >
+        content
+      </GridCard>
+    )
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+    expect(screen.queryByTestId('plain-fn-layer')).not.toBeInTheDocument()
   })
 
   it('sends a stored toggle on an indeterminate entity to the details instead', () => {

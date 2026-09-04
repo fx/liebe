@@ -208,9 +208,54 @@ export const PlacementHorizontal: Story = {
   args: { gridWidth: 1, gridHeight: 3, item: placedLight({ sliderPlacement: 'horizontal' }) },
 }
 
-/** A 1×1 keeps no slider under any placement — the whole tile is the control. */
-export const PlacementGlance: Story = {
-  args: { gridWidth: 1, gridHeight: 1, item: placedLight({ sliderPlacement: 'vertical' }) },
+/**
+ * `background` — the tile itself is the dimmer, edge to edge behind the body.
+ * Shown at `glance`, the tier no inline placement renders in, and at `full`,
+ * where the surface still consumes no layout space. The icon-only companion
+ * shows the composition the contract requires: the fill IS the state tint.
+ */
+export const PlacementBackgroundGlance: Story = {
+  args: { gridWidth: 1, gridHeight: 1, item: placedLight({ sliderPlacement: 'background' }) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
+
+export const PlacementBackgroundFull: Story = {
+  args: { gridWidth: 3, gridHeight: 2, item: placedLight({ sliderPlacement: 'background' }) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
+}
+
+export const PlacementBackgroundIconOnly: Story = {
+  args: {
+    gridWidth: 2,
+    gridHeight: 2,
+    item: placedLight({ sliderPlacement: 'background', iconOnly: true }),
+  },
+  parameters: {
+    // The shell reads the universal keys off the placed-item context while the
+    // card reads its own keys off the item prop — both routes carry the same
+    // config, the way GridView supplies one.
+    liebe: {
+      entities: [createLightEntity()],
+      itemConfig: { sliderPlacement: 'background', iconOnly: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('.liebe-card')).toHaveAttribute(
+      'data-icon-tile',
+      'true'
+    )
+    await expect(
+      canvasElement.querySelector('.liebe-slider[data-placement="background"]')
+    ).toBeInTheDocument()
+  },
 }
 
 /**

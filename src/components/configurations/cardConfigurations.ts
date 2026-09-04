@@ -90,21 +90,23 @@ const actionCardDefinition: ConfigDefinition = {
  * `vertical` differently from its neighbour. The per-card entries below name the
  * quantity in their own `label`, which is the only part that is theirs.
  *
- * `background` is deliberately absent from the list. The value is legal in the
- * schema — a document may already carry it — but nothing renders it until change
- * 0034's second task, and a form offering a choice that does nothing is worse
- * than one that waits.
+ * `background` is offered now that change 0034's second task builds the
+ * surface: the tile itself becomes the slider, edge to edge, in every tier
+ * including `glance` (docs/specs/entity-cards/options/common.md — "Shared
+ * slider placement"). Per-card entries below name the quantity in their own
+ * `label`, which is the only part that is theirs.
  */
 const sliderPlacementOption = {
   type: 'select',
   default: SLIDER_PLACEMENT_DEFAULT,
   label: 'Slider placement',
   description:
-    'Which way the slider runs. Automatic follows the card’s size — across on wide cards, up the tile on tall ones. 1×1 cards never show a slider; the whole tile is the control there.',
+    'Which way the slider runs. Automatic follows the card’s size — across on wide cards, up the tile on tall ones. Background turns the whole tile into the slider, in every size including 1×1.',
   options: [
     { value: 'auto', label: 'Automatic' },
     { value: 'horizontal', label: 'Across' },
     { value: 'vertical', label: 'Up the tile' },
+    { value: 'background', label: 'Background (whole tile)' },
   ],
 } satisfies ConfigOption
 
@@ -422,7 +424,7 @@ export const cardConfigurations: Record<
         default: COVER_OPTION_DEFAULTS.showPositionSlider,
         label: 'Show position slider',
         description:
-          'The slider that sets how far open the cover is. Horizontal on wide cards, vertical on tall ones; never on a 1×1 card.',
+          'The slider that sets how far open the cover is. Horizontal on wide cards, vertical on tall ones; the background placement renders in every size including 1×1.',
         requires: 'cover-position',
       },
       [SLIDER_PLACEMENT_KEY]: {

@@ -5,7 +5,7 @@
 Add the shared `sliderPlacement` option to the slider-bearing cards (light brightness, cover position, fan speed): force the slider's orientation in the tiers that render one, or render it as the card surface itself in every tier — the whole tile becomes the slider, edge to edge, with the card's content overlaid (tier interaction per the owning contract). The shared contract lives in [options/common — shared slider placement](../specs/entity-cards/options/common.md#shared-slider-placement-sliderplacement); the background placement's anatomy in [design-system — background slider placement](../specs/design-system/index.md#background-slider-placement).
 
 **Spec:** [entity-cards](../specs/entity-cards/) (options/common, options/light, options/cover, options/fan), [design-system](../specs/design-system/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0028, 0033
 
 ## Motivation
@@ -62,7 +62,7 @@ Skipping or weakening any of these rules to land the PR MUST be treated as a bug
 ## Tasks
 
 - [x] `sliderPlacement` option with forced `horizontal`/`vertical`: shared placement module, per-card config rows (light/cover/fan), tier-suite orientation tests plus the stylesheet/e2e geometry locks for forced placements, stories per value
-- [ ] `background` placement: card-surface slider anatomy, gesture split on the shared press pipeline (travel threshold; tap/hold/double-tap preserved), cover `confirmOpen` routing, `iconOnly` composition, gesture + gate tests, e2e on the real grid, stories
+- [x] `background` placement: card-surface slider anatomy, gesture split on the shared press pipeline (tap falls through, drag commits without action, hold/double-tap preserved; drag-ending-outside commits), cover `confirmOpen` routing through the route classifier (unclassifiable→confirm), `iconOnly` composition, gesture + gate tests, e2e on the real grid, stories
 
 **Sequencing with [0042](./0042-tall-tile-control-geometry.md) (landed, complete).** The forced placements land the omission path only on the axis the shell already publishes — the content width — which covers a forced `horizontal` slider at `tall`, the case with a real symptom. The two capacities this paragraph originally left unbounded are now published signals: 0042 PR 3 established the long-axis capacity alongside the content-width signal — the shared `cardContentWidth` observation feeding `GridCard` context (which exposes only `contentWidth`) plus CardBody's `useControlBandBox()` band signal — and every `tall` vertical slider already reads them. The `background` task below is therefore unblocked — its track is the tile edge to edge with no content region to overflow, so it never needed either signal in the first place.
 
