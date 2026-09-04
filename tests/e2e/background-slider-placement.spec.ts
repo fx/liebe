@@ -158,10 +158,14 @@ test('a background slider covers the tile, drags to adjust, taps to toggle', asy
   expect(row!.body.height).toBeGreaterThan(0)
 
   // A tap without travel falls through to the tap action: the light toggles
-  // off, and back on for the drag below. Scoped to the glance tile itself —
-  // both tiles render the same entity, so a name filter alone could operate
-  // the wrong tile if DOM order ever changed.
-  const glanceCard = page.locator('.grid-item:has(.liebe-card[data-tier="glance"])')
+  // off, and back on for the drag below. Scoped to the glance tile's own
+  // background surface — both tiles render the same entity, so a name filter
+  // alone could operate the wrong tile if DOM order ever changed. The
+  // orientation in the locator pins the contract the drag below depends on:
+  // the glance surface is vertical (square span fills bottom→top).
+  const glanceCard = page.locator(
+    '.grid-item:has(.liebe-card[data-tier="glance"] .liebe-slider[data-placement="background"][data-orientation="vertical"])'
+  )
   await expect(glanceCard).toHaveCount(1)
   await glanceCard.click()
   await expect.poll(() => getRestState(accessToken, DEMO_LIGHT), { timeout: 15_000 }).toBe('off')

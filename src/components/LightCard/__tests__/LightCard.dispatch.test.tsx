@@ -405,13 +405,14 @@ describe('LightCard background slider gestures', () => {
     expect(hass.callService).toHaveBeenCalledTimes(1)
   })
 
-  it('commits a background drag without firing the tap action', async () => {
+  it('commits a background keyboard step without firing the tap action', async () => {
+    // Named for what it is: a keyboard adjustment through the same commit
+    // path a pointer drag settles on — one `onValueCommit`, no tap. (The
+    // pointer-drag half is the territory the preceding Tab test's siblings
+    // and the e2e drag assertion own; this one pins that the keyboard route
+    // the commit gate explicitly lets through still dispatches.)
     backgroundCard()
 
-    // A drag is exactly the gesture that moves the value: the anatomy marks
-    // the gesture moved, stops the click that ends it, and the shell never
-    // sees a tap. The commit is the card's own brightness path — optimistic
-    // drag, single commit, at-most-once through the guard.
     const thumb = screen.getByLabelText('Brightness')
     fireEvent.keyDown(thumb, { key: 'ArrowRight' })
 

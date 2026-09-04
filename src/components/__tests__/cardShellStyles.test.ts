@@ -560,6 +560,11 @@ describe('card shell stylesheet', () => {
       ({ selector, declarations }) =>
         declarations.includes('pointer-events: auto;') && selector.includes("[role='slider']")
     )
+    expect(optIn, 'no control opt-back-in rule').toBeDefined()
+    expect(optIn!.declarations).toContain('pointer-events: auto;')
+    expect(optIn!.selector).toContain("[role='slider']")
+    expect(optIn!.selector).toContain("[role='button']")
+    expect(optIn!.selector).toContain('button')
   })
 })
 
