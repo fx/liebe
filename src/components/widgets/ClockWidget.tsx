@@ -1,15 +1,15 @@
 import { Card, Flex, Text, Heading } from '@radix-ui/themes'
-import { useNowSecond } from '~/hooks/useNow'
+import { NOW_1S_MS, useNowTimestamp } from '~/hooks/useNow'
 
 interface ClockWidgetProps {
   widget: { id: string }
 }
 
 export function ClockWidget({ widget: _widget }: ClockWidgetProps) {
-  // Shared 1s clock: every clock widget re-renders in the same commit.
-  const secondTick = useNowSecond()
-  void secondTick
-  const time = new Date()
+  // Shared 1s clock: every clock widget re-renders in the same commit. The
+  // timestamp rides the hook's mount initializer and tick callback — never
+  // constructed during render, where the purity rule forbids it.
+  const time = new Date(useNowTimestamp(NOW_1S_MS))
 
   return (
     <Card size="2">

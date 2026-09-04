@@ -83,6 +83,31 @@ describe('pipelineScheduler', () => {
     releaseSlow()
   })
 
+  it('a throwing task neither skips the rest nor escapes the interval', () => {
+    vi.useFakeTimers()
+
+    const after = vi.fn()
+    const throwing = vi.fn(() => {
+      throw new Error('history prune blew up')
+    })
+    const releaseThrowing = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, throwing)
+    const releaseAfter = schedulePipelineTask('fast', SCHEDULER_FAST_TICK_MS, after)
+
+    // Must not throw out of the shared interval callback, and the task
+    // behind the throwing one still runs.
+    expect(() => act_advance(SCHEDULER_FAST_TICK_MS)).not.toThrow()
+    expect(throwing).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledTimes(1)
+
+    // The throwing task stays registered: the next tick retries it.
+    expect(() => act_advance(SCHEDULER_FAST_TICK_MS)).not.toThrow()
+    expect(throwing).toHaveBeenCalledTimes(2)
+    expect(after).toHaveBeenCalledTimes(2)
+
+    releaseThrowing()
+    releaseAfter()
+  })
+
   it('a double release does not take another task down', () => {
     vi.useFakeTimers()
 
@@ -131,9 +156,12 @@ describe('coalesced service wheels', () => {
     await vi.advanceTimersByTimeAsync(1)
     expect(callWS).toHaveBeenCalledTimes(2)
 
-    // No per-window interval: the only new timer is the shared fast wheel.
+    // No per-window interval: exactly one real timer exists after both
+    // subscriptions — the shared fast wheel. A new per-window `setInterval`
+    // in the service would make this two; the scheduler-owned count alone
+    // cannot see that, so the global spy is the assertion.
     expect(schedulerIntervalCountForTests()).toBe(1)
-    void setIntervalSpy
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
 
     // Advancing past the TTL wakes both windows through the one wheel.
     await vi.advanceTimersByTimeAsync(6 * 60_000)

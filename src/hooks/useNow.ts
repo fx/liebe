@@ -154,6 +154,14 @@ export function useNowTimestamp(rateMs: number, enabled = true): number {
 
   useEffect(() => {
     if (!enabled) return
+    // Prime on (re-)enable: a consumer disabled for a while holds its mount
+    // reading (or pre-disable tick) and would otherwise render one stale frame
+    // before the next tick — for a 60s since-line, a text wrong by the whole
+    // disabled duration, visible up to a minute. The write runs once per
+    // enable transition, not per render, so it cannot cascade: after it, the
+    // effect's dependencies are unchanged and it does not re-fire.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot prime on the enable transition (the old per-consumer ticker's priming timeout, same purpose); the value is not derivable during render because the purity gate forbids the clock read there.
+    setNow(Date.now())
     return subscribeClockTick(rateMs, () => setNow(Date.now()))
   }, [rateMs, enabled])
 

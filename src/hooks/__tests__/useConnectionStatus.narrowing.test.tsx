@@ -84,18 +84,35 @@ describe('useConnectionStatus narrowing', () => {
     expect(renders).toBe(initialRenders)
   })
 
-  it('a details write does not wake a status-only consumer', () => {
+  it('a details-only write re-renders the details consumer', () => {
     connectionActions.setConnected()
 
     let renders = 0
+    let lastDetails: string | undefined
     function Probe() {
       renders++
-      const { status } = useConnectionDetails()
-      void status
+      const { details } = useConnectionDetails()
+      lastDetails = details
       return null
     }
     render(<Probe />)
-    expect(renders).toBeGreaterThan(0)
+    const initialRenders = renders
+    expect(lastDetails).toBe('Connected')
+
+    // `setWebSocketStatus` touches only `isWebSocketConnected` — outside the
+    // details consumer's set — so it must not wake it.
+    act(() => {
+      connectionActions.setWebSocketStatus(false)
+    })
+    expect(renders).toBe(initialRenders)
+
+    // A details write (status + details together, the only way the actions
+    // produce one) re-renders the consumer that reads `details`.
+    act(() => {
+      connectionActions.setReconnecting(1, 'Retrying…')
+    })
+    expect(renders).toBeGreaterThan(initialRenders)
+    expect(lastDetails).toBe('Retrying…')
   })
 })
 

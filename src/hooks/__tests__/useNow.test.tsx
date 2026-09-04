@@ -158,6 +158,32 @@ describe('useNow shared clocks', () => {
     expect(container.textContent).toBe(frozen)
   })
 
+  it('primes on re-enable: no stale first frame after a disabled period', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.parse('2026-07-27T12:00:00Z'))
+
+    function Probe({ enabled }: { enabled: boolean }) {
+      const now = useNowTimestamp(NOW_1S_MS, enabled)
+      return <span>{now}</span>
+    }
+    const { container, rerender } = render(<Probe enabled />)
+    const T0 = Date.parse('2026-07-27T12:00:00Z')
+    expect(container.textContent).toBe(String(T0))
+
+    // Disabled for five ticks: frozen, no wake.
+    rerender(<Probe enabled={false} />)
+    act(() => {
+      vi.advanceTimersByTime(NOW_1S_MS * 5)
+    })
+    expect(container.textContent).toBe(String(T0))
+
+    // Re-enable at T0+5s: the passive-effect prime refreshes before the next
+    // tick, so the first frame is current rather than one stale frame.
+    vi.setSystemTime(T0 + 5 * NOW_1S_MS)
+    rerender(<Probe enabled />)
+    expect(container.textContent).toBe(String(T0 + 5 * NOW_1S_MS))
+  })
+
   it('tears the interval down when the last consumer unmounts', () => {
     vi.useFakeTimers()
     const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')

@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger'
+
 /**
  * The coalesced pipeline scheduler: one wheel per rate class for history
  * window maintenance, forecast refresh, connection health and staleness
@@ -51,16 +53,31 @@ const RATE_TICK_MS: Record<ScheduleRate, number> = {
   slow: SCHEDULER_SLOW_TICK_MS,
 }
 
+/**
+ * Run every task due on this tick. Each task gets its own exception boundary:
+ * one throwing callback (a history prune, a forecast fetch kick, a health
+ * check) must not skip the tasks behind it or escape the shared interval —
+ * the independent timers this wheel replaced never shared a loop, so a fault
+ * in one never reached another. Failures surface through the logger; the
+ * task stays registered, so the next tick retries it.
+ */
+function runDueTasks(wheel: Wheel): void {
+  wheel.elapsed += 1
+  for (const task of [...wheel.tasks.values()]) {
+    if (wheel.elapsed % task.every !== 0) continue
+    try {
+      task.run()
+    } catch (error) {
+      logger.error(`pipelineScheduler: scheduled task threw (kept registered): ${String(error)}`)
+    }
+  }
+}
+
 function ensureWheel(rate: ScheduleRate): Wheel {
   const wheel = wheels[rate]
   if (wheel.interval === null) {
     wheel.elapsed = 0
-    wheel.interval = setInterval(() => {
-      wheel.elapsed += 1
-      for (const task of [...wheel.tasks.values()]) {
-        if (wheel.elapsed % task.every === 0) task.run()
-      }
-    }, RATE_TICK_MS[rate])
+    wheel.interval = setInterval(() => runDueTasks(wheel), RATE_TICK_MS[rate])
   }
   return wheel
 }
@@ -73,12 +90,7 @@ function ensureWheel(rate: ScheduleRate): Wheel {
 export function advanceSchedulerForTests(ms: number): void {
   for (const [rate, wheel] of Object.entries(wheels) as [ScheduleRate, Wheel][]) {
     const ticks = Math.floor(ms / RATE_TICK_MS[rate])
-    for (let i = 0; i < ticks; i++) {
-      wheel.elapsed += 1
-      for (const task of [...wheel.tasks.values()]) {
-        if (wheel.elapsed % task.every === 0) task.run()
-      }
-    }
+    for (let i = 0; i < ticks; i++) runDueTasks(wheel)
   }
 }
 
