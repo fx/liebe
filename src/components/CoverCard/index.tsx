@@ -770,6 +770,9 @@ function CoverCardComponent({
         failureMessage={error || undefined}
         canRetry={failedCommand?.retryable ?? false}
         retryAction={retainedRetryAction(failedCommand)}
+onRetrySettled={(result) => {
+  if (result?.success) clearError()
+}}
         onDismiss={clearError}
         className="cover-card"
         backgroundSlider={backgroundSlider}

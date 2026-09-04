@@ -52,6 +52,7 @@ describe('InputSelectCard', () => {
       loading: false,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     vi.mocked(useDashboardStore).mockImplementation(((
@@ -196,6 +197,7 @@ describe('InputSelectCard', () => {
       loading: true,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputSelectCard entityId="input_select.test_select" />)
@@ -219,6 +221,7 @@ describe('InputSelectCard', () => {
       loading: false,
       error: 'Failed to set value',
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputSelectCard entityId="input_select.test_select" />)
@@ -326,6 +329,7 @@ describe('InputSelectCard', () => {
         loading: true,
         error: null,
         clearError: vi.fn(),
+      failedCommand: null,
       })
       render(<InputSelectCard entityId="input_select.test_select" tier="row" />)
       expect(screen.getByRole('combobox')).toBeDisabled()

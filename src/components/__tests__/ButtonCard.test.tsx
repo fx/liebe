@@ -54,6 +54,7 @@ describe('ButtonCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
+      failedCommand: null,
     })
   })
 
@@ -236,6 +237,7 @@ describe('ButtonCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
+      failedCommand: null,
     })
 
     render(<ButtonCard entityId="light.living_room" />)
@@ -273,6 +275,7 @@ describe('ButtonCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
+      failedCommand: null,
     })
 
     render(<ButtonCard entityId="light.living_room" />)
@@ -309,6 +312,7 @@ describe('ButtonCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       setValue: vi.fn(),
       clearError: mockClearError,
+      failedCommand: null,
     })
 
     render(<ButtonCard entityId="light.living_room" />)

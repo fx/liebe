@@ -50,6 +50,7 @@ describe('InputBooleanCard', () => {
       loading: false,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     vi.mocked(useDashboardStore).mockImplementation(((
@@ -247,6 +248,7 @@ describe('InputBooleanCard', () => {
       loading: true,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(
@@ -270,6 +272,7 @@ describe('InputBooleanCard', () => {
       loading: false,
       error: 'Failed to toggle',
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputBooleanCard entityId="input_boolean.test_toggle" />)

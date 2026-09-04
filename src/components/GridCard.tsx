@@ -192,6 +192,13 @@ export interface GridCardProps {
    * everywhere else.
    */
   onStreamRetry?: () => void
+  /**
+   * Observes the dialog `Retry` re-dispatch reaching the transport. The card
+   * passes its own observer so a successful retry clears the card error (the
+   * tile recovers) while a failed one keeps it; forwarded to the gesture
+   * controller, which reports the guarded outcome there.
+   */
+  onRetrySettled?: (result: { success: boolean; error?: string } | null) => void
   /** Clears the presentation state; dispatches nothing. */
   onDismiss?: () => void
   onConfigure?: () => void
@@ -759,6 +766,7 @@ export const GridCard = React.memo(
         canRetry = false,
         retryAction,
         onStreamRetry,
+        onRetrySettled,
         onDismiss,
         onConfigure,
         hasConfiguration = false,
@@ -1053,6 +1061,7 @@ export const GridCard = React.memo(
         disabled: isEditMode,
         requestConfirmation: setConfirmRequest,
         confirmRoute,
+        onRetrySettled,
       })
 
       /**
@@ -1596,7 +1605,9 @@ export const GridCard = React.memo(
               canRetry={canRetry && (onStreamRetry != null || retryAction != null)}
               onRetry={
                 onStreamRetry ??
-                (retryAction ? () => gestures.dispatchAction(retryAction) : undefined)
+                (retryAction
+                  ? () => gestures.dispatchAction(retryAction, onRetrySettled)
+                  : undefined)
               }
               onDismiss={onDismiss}
             />

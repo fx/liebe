@@ -48,6 +48,7 @@ describe('ButtonCard Retry', () => {
       retryable: true as const,
     }
     const dispatchGuarded = vi.fn(async () => ({ success: false, error: 'toggle failed' }))
+    const clearError = vi.fn()
     vi.mocked(useServiceCall).mockReturnValue({
       loading: false,
       error: 'toggle failed',
@@ -58,9 +59,9 @@ describe('ButtonCard Retry', () => {
       toggle: vi.fn(),
       dispatchGuarded,
       setValue: vi.fn(),
-      clearError: vi.fn(),
+      clearError,
     } as unknown as ReturnType<typeof useServiceCall>)
-    return dispatchGuarded
+    return { dispatchGuarded, clearError }
   }
 
   function mockEntity() {
@@ -158,6 +159,34 @@ describe('ButtonCard Retry', () => {
     expect(hass.callService).toHaveBeenCalledWith('switch', 'toggle', {
       entity_id: ENTITY_ID,
     })
+  })
+
+  it('clears the card error when Retry succeeds', async () => {
+    // Suppressed finding 7 is real: the shell gesture path must report the
+    // guarded outcome back so the tile recovers instead of reading ERROR
+    // about a command that landed.
+    const { clearError } = mockServiceCallWithFailure()
+    renderCard()
+    openDialog()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(clearError).toHaveBeenCalled()
+  })
+
+  it('keeps the card error when Retry fails again', async () => {
+    const { clearError } = mockServiceCallWithFailure()
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+    renderCard()
+    openDialog()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(clearError).not.toHaveBeenCalled()
   })
 
   it('holds Retry behind the confirmation gate when the card is gated', async () => {

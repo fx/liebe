@@ -51,6 +51,7 @@ describe('InputDateTimeCard', () => {
       loading: false,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     vi.mocked(useDashboardStore).mockImplementation(((
@@ -391,6 +392,7 @@ describe('InputDateTimeCard', () => {
       loading: true,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)
@@ -411,6 +413,7 @@ describe('InputDateTimeCard', () => {
       loading: false,
       error: 'Failed to set value',
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputDateTimeCard entityId="input_datetime.test_datetime" />)

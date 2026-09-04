@@ -40,7 +40,7 @@ export interface UseServiceCallResult {
    * capability) never entered the guard and offers no repeat, so the flag
    * rides along rather than being re-derived elsewhere.
    */
-  failedCommand?: FailedServiceCall | null
+  failedCommand: FailedServiceCall | null
 }
 
 /**

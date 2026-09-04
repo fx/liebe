@@ -387,6 +387,9 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
       failureMessage={error || undefined}
       canRetry={failedCommand?.retryable ?? false}
       retryAction={retainedRetryAction(failedCommand)}
+onRetrySettled={(result) => {
+  if (result?.success) clearError()
+}}
       onDismiss={clearError}
       /*
        * The entity travels with the config for the same reason it does on the

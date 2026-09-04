@@ -248,9 +248,14 @@ export interface CardGestures {
    * the card hands back the retained command's action and the shell routes it
    * exactly as if the gesture had fired again — gated, then guarded. A
    * `call-service` action replays the retained payload verbatim rather than
-   * re-deriving it from the current entity state.
+   * re-deriving it from the current entity state. The optional report carries
+   * the guarded outcome to the card's observer: without it a successful retry
+   * would leave the tile reading ERROR about a command that landed.
    */
-  dispatchAction: (action: ResolvedCardAction) => void
+  dispatchAction: (
+    action: ResolvedCardAction,
+    report?: (result: { success: boolean; error?: string } | null) => void
+  ) => void
 }
 
 /** Screens are a tree, and a `navigate` target may be either identifier. */
@@ -296,6 +301,7 @@ export function useCardActions({
   disabled = false,
   requestConfirmation,
   confirmRoute,
+  onRetrySettled,
 }: UseCardActionsOptions): CardGestures {
   const hass = useHomeAssistantOptional()
   // `warn: false` returns `undefined` outside a `RouterProvider` instead of
@@ -319,12 +325,15 @@ export function useCardActions({
    * shell's own concern: what it owes a failed *action*.
    */
   const dispatchService = useCallback(
-    (options: {
-      domain: string
-      service: string
-      entityId?: string
-      data?: Record<string, unknown>
-    }) => {
+    (
+      options: {
+        domain: string
+        service: string
+        entityId?: string
+        data?: Record<string, unknown>
+      },
+      report?: (result: { success: boolean; error?: string } | null) => void
+    ) => {
       void guardedDispatch(options).then((result) => {
         // `null` is the guard refusing a repeat, which is not a failure.
         if (result && !result.success) {
@@ -341,6 +350,7 @@ export function useCardActions({
             resolveCommandTarget(options.entityId, options.data).watch ?? options.entityId
           )
         }
+        report?.(result)
       })
     },
     []
@@ -427,7 +437,10 @@ export function useCardActions({
   )
 
   const performDispatch = useCallback(
-    (action: ResolvedCardAction) => {
+    (
+      action: ResolvedCardAction,
+      report?: (result: { success: boolean; error?: string } | null) => void
+    ) => {
       if (hass) hassService.setHass(hass)
 
       if (action === 'none') return
@@ -443,7 +456,7 @@ export function useCardActions({
           // The generic alias, deliberately: a card with no toggle semantics of
           // its own has no gate to bypass, and `homeassistant.toggle` is what
           // the contract names as the fallback.
-          dispatchService({ domain: 'homeassistant', service: 'toggle', entityId })
+          dispatchService({ domain: 'homeassistant', service: 'toggle', entityId }, report)
         }
         return
       }
@@ -465,7 +478,7 @@ export function useCardActions({
       }
 
       const [domain, service] = action.service.split('.')
-      dispatchService({ domain, service, entityId, data: action.data })
+      dispatchService({ domain, service, entityId, data: action.data }, report)
     },
     [dispatchService, entityId, hass, onMoreInfo, onToggle, router]
   )
@@ -481,10 +494,16 @@ export function useCardActions({
    * confirming them would train the user to dismiss the dialog that matters.
    */
   const dispatch = useCallback(
-    (action: ResolvedCardAction) => {
+    (
+      action: ResolvedCardAction,
+      report?: (result: { success: boolean; error?: string } | null) => void
+    ) => {
       // Held, not queued: nothing is dispatched, and nothing about the card
       // changes, until the user says so. Cancelling drops this closure.
-      const proceed = () => performDispatch(action)
+      // The report travels into `performDispatch` so the guarded outcome —
+      // success, failure, or guard refusal — reaches the card's observer from
+      // every path, gated or not.
+      const proceed = () => performDispatch(action, report)
 
       /*
        * A card family's own rule replaces the on/off one rather than joining it.
@@ -499,7 +518,7 @@ export function useCardActions({
           return
         }
 
-        performDispatch(action)
+        performDispatch(action, report)
         return
       }
 
@@ -510,7 +529,7 @@ export function useCardActions({
         return
       }
 
-      performDispatch(action)
+      performDispatch(action, report)
     },
     [confirm, confirmRoute, entityId, performDispatch, requestConfirmation]
   )

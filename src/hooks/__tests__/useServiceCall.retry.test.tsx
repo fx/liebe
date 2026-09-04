@@ -89,4 +89,51 @@ describe('useServiceCall retained failure', () => {
     })
     await waitFor(() => expect(result.current.failedCommand).not.toBeNull())
   })
+
+  it('keeps the newer failure when an aborted request settles out of order', async () => {
+    // Two overlapping guarded commands: the older request aborts when the
+    // newer starts, then settles later. Its failure must not overwrite the
+    // newer request's retention — otherwise `Retry` would re-dispatch the
+    // older command.
+    const newer = { domain: 'light', service: 'turn_on', entityId: 'light.desk' }
+    type GateResult = { success: boolean; error?: string }
+    const deferred = () => {
+      let resolve!: (r: GateResult) => void
+      const promise = new Promise<GateResult>((res) => {
+        resolve = res
+      })
+      return { promise, resolve }
+    }
+    const gates = { cover: deferred(), light: deferred() }
+    vi.mocked(hassService.callServiceOnce).mockImplementation(
+      (options: { domain: string; service: string }) =>
+        options.domain === 'cover' ? gates.cover.promise : gates.light.promise
+    )
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    let older: Promise<unknown> | undefined
+    let latest: Promise<unknown> | undefined
+    act(() => {
+      older = result.current.dispatchGuarded(command)
+      latest = result.current.dispatchGuarded(newer)
+    })
+
+    // The newer request fails first and retains its own command.
+    await act(async () => {
+      gates.light.resolve({ success: false, error: 'Desk jammed' })
+      await latest
+    })
+    await waitFor(() =>
+      expect(result.current.failedCommand).toEqual({ command: newer, retryable: true })
+    )
+
+    // The aborted older request settles later with its own failure. It must
+    // not clobber the newer retention.
+    await act(async () => {
+      gates.cover.resolve({ success: false, error: 'Cover jammed' })
+      await older
+    })
+    expect(result.current.failedCommand).toEqual({ command: newer, retryable: true })
+    expect(result.current.error).toBe('Desk jammed')
+  })
 })

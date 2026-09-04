@@ -293,6 +293,9 @@ function ActionCardComponent({
       failureMessage={error || undefined}
       canRetry={failedCommand?.retryable ?? false}
       retryAction={retainedRetryAction(failedCommand)}
+onRetrySettled={(result) => {
+  if (result?.success) clearError()
+}}
       onDismiss={clearError}
       className="action-card"
     >

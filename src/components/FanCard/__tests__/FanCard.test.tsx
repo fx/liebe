@@ -63,6 +63,7 @@ describe('FanCard', () => {
     toggle: vi.fn(),
     setValue: vi.fn(),
     clearError: mockClearError,
+      failedCommand: null,
     ...overrides,
   })
 

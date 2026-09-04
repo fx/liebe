@@ -51,6 +51,7 @@ describe('InputTextCard', () => {
       loading: false,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     vi.mocked(useDashboardStore).mockImplementation(((
@@ -396,6 +397,7 @@ describe('InputTextCard', () => {
       loading: true,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
@@ -416,6 +418,7 @@ describe('InputTextCard', () => {
       loading: false,
       error: 'Failed to set value',
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
