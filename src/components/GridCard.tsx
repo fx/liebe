@@ -1098,6 +1098,13 @@ export const GridCard = React.memo(
         // never produce the click that would consume a fired hold.
         if (e.button !== 0 || !e.isPrimary) return
 
+        // While the tile carries a failure, no gesture may arm: a press held
+        // past the hold threshold would otherwise dispatch the hold route
+        // (and a tap pair would arm the double-tap window) behind the ERROR
+        // surface, before the click that routes to recovery ever runs. Every
+        // activation is a recovery activation, pointer included.
+        if (isError) return
+
         // The background slider IS the tile: its pointer joins the press
         // pipeline (hold and double-tap keep working) and the drag/tap split
         // is decided by whether the gesture moved the value — the anatomy
@@ -1164,68 +1171,34 @@ export const GridCard = React.memo(
         }
       }
       /*
-       * Whether the tile carries a natively focusable surface of its own. A
-       * `CardBody` `control` slot that survived omission (cross-axis-fit
-       * floors empty it genuinely) is a slider thumb, stepper field, switch,
-       * select trigger or text field the Tab order already reaches — so the
-       * tile-action control steps out of the Tab order (`tabIndex={-1}`) and
-       * stays activatable through the tile itself. Control-free tiers
-       * (`glance`, and any tier whose control was omitted) keep one Tab stop
-       * on the tile control, which is the tier that needs it most.
+       * Whether the tile carries a Tab-reachable surface of its own, read off
+       * the rendered DOM rather than the JSX props: controls hide inside
+       * function components (a lock's pills render through `PillGroup`, an
+       * alarm's through its context controls), and a props traversal stops at
+       * the component boundary — exactly where the tabbable buttons live.
+       *
+       * Applied imperatively in the tile-action control's own ref callback:
+       * after mount it queries its parent tile for any *other* tabbable
+       * control and steps itself out of the Tab order (`tabIndex = -1`) where
+       * one exists. No state, no effect, no second render — and no
+       * `set-state-in-effect` question at all. A control mounting,
+       * unmounting, or toggling `disabled` re-renders the tile through its
+       * own state; the ref callback does not re-run for that, so the tile
+       * action re-checks lazily on focus —
+       * see `refreshTileActionTabIndex`.
        */
-      const hasEmbeddedControl = React.useMemo(() => {
-        // Card bodies carrying a surviving `control` slot (sliders, steppers,
-        // switches, select triggers, text fields) and the camera's own
-        // keyboard-operable stream surface both put a Tab stop on the tile
-        // already — so the tile-action control steps out of the Tab order
-        // there. Control-free tiers keep one Tab stop on the tile control.
-        const nodes = React.Children.toArray(iconOnly ? fenceToCardBody(children) : children)
-        const bodies = nodes.filter(isCardBodyElement) as Array<{
-          props?: { control?: unknown }
-        }>
-        if (bodies.some((body) => body.props?.control !== undefined && body.props.control !== null))
-          return true
-        const isFocusableElement = (node: React.ReactNode): boolean => {
-          if (!React.isValidElement(node)) return false
-          const { type, props } = node as React.ReactElement<{
-            role?: string
-            tabIndex?: number
-            href?: string
-            children?: React.ReactNode
-          }>
-          if (typeof type === 'string') {
-            if (
-              type === 'button' ||
-              type === 'input' ||
-              type === 'textarea' ||
-              type === 'select' ||
-              (type === 'a' && props.href !== undefined)
-            )
-              return true
-            if (
-              props.role !== undefined &&
-              [
-                'button',
-                'checkbox',
-                'combobox',
-                'listbox',
-                'menuitem',
-                'option',
-                'radio',
-                'slider',
-                'spinbutton',
-                'switch',
-                'tab',
-                'textbox',
-              ].includes(props.role)
-            )
-              return true
-            if (props.tabIndex !== undefined && props.tabIndex >= 0) return true
-          }
-          return React.Children.toArray(props.children).some(isFocusableElement)
-        }
-        return nodes.some(isFocusableElement)
-      }, [children, iconOnly])
+      const refreshTileActionTabIndex = React.useCallback((control: HTMLButtonElement | null) => {
+        if (!control) return
+        const tile = control.parentElement
+        if (!tile) return
+        // The control itself must not count: it is the thing being decided
+        // about, and counting it would suppress itself everywhere.
+        const tabbable = tile.querySelectorAll(
+          'a[href], button:not(.liebe-tile-action), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        if (tabbable.length > 0) control.tabIndex = -1
+        else control.removeAttribute('tabindex')
+      }, [])
 
       const effectiveHue = resolveCardHue(hue, display, danger)
 
@@ -1464,12 +1437,15 @@ export const GridCard = React.memo(
                 type="button"
                 className="liebe-tile-action"
                 aria-label={tileActionLabel}
-                tabIndex={hasEmbeddedControl ? -1 : undefined}
-                onClick={(e) => {
-                  if (isEmbeddedControl(e) || !isRealDescendant(e)) return
+                ref={refreshTileActionTabIndex}
+                onFocus={({ currentTarget }) => refreshTileActionTabIndex(currentTarget)}
+                onClick={() => {
                   // Same recovery route as the pointer tap above: while the
                   // tile carries a failure the control opens the dialog
-                  // instead of firing the tap route.
+                  // instead of firing the tap route. (No portal/embedded
+                  // guard here: a control rendered *inside* this button would
+                  // be invalid markup, and the tile's own pointer pipeline
+                  // already filtered those before this control existed.)
                   if (isError && detailEntityId) {
                     setDetailFor(detailEntityId)
                     return

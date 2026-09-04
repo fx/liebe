@@ -7,6 +7,7 @@ import { CardBody } from '../CardBody'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { dashboardActions } from '~/store'
+import { HOLD_DURATION_MS } from '~/store/cardActions'
 import { entityStore } from '~/store/entityStore'
 import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
 
@@ -385,5 +386,66 @@ describe('GridCard tile action control', () => {
     act(() => {
       vi.runOnlyPendingTimers()
     })
+  })
+  function seedError() {
+    entityStore.setState((s) => ({
+      ...s,
+      entities: {
+        [ENTITY_ID]: {
+          entity_id: ENTITY_ID,
+          state: 'on',
+          attributes: { friendly_name: 'Desk Lamp' },
+          last_changed: '2026-07-27T10:00:00Z',
+          last_updated: '2026-07-27T10:00:00Z',
+          context: { id: 'seed', parent_id: null, user_id: null },
+        },
+      },
+    }))
+  }
+
+  function renderErrorCard(onToggle: () => void) {
+    return render(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard
+            domain="light"
+            entityId={ENTITY_ID}
+            tier="row"
+            isError
+            title="Service not found"
+            failureMessage="Service not found"
+            onDismiss={vi.fn()}
+            onClick={onToggle}
+            config={{
+              holdAction: { action: 'call-service', service: 'light.turn_on' },
+              doubleTapAction: { action: 'call-service', service: 'script.movie_mode' },
+            }}
+          >
+            content
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+  }
+
+  it('opens recovery on long-press without dispatching the hold route', () => {
+    seedError()
+    const onToggle = vi.fn()
+    renderErrorCard(onToggle)
+    const tile = document.querySelector('.liebe-card') as HTMLElement
+
+    // A press held past the hold threshold must not arm the gesture: the hold
+    // timer would otherwise dispatch the consequential hold route behind the
+    // ERROR surface before the click routes to recovery.
+    fireEvent.pointerDown(tile, { isPrimary: true, button: 0 })
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS + 100)
+    })
+    fireEvent.pointerUp(tile)
+    fireEvent.click(tile)
+
+    expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service not found')
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
   })
 })

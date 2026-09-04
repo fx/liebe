@@ -401,3 +401,35 @@ describe('a lock code on the real dispatch path', () => {
     expect(hass.callService).toHaveBeenCalledWith('lock', 'lock', { entity_id: ENTITY_ID })
   })
 })
+
+describe('the tile offers exactly one Tab stop (Codex pass 2)', () => {
+  it('suppresses the tile-action stop beside the component-wrapped pill buttons', async () => {
+    // The lock's pills render through function components (`PillGroup`), so
+    // a JSX-props traversal stops at the component boundary and never sees
+    // the tabbable buttons inside. The shell reads the rendered DOM instead:
+    // with pill buttons on the tile, the tile-action control steps out of
+    // the Tab order and the tile keeps exactly one Tab stop per control.
+    seed(makeLock('locked'))
+    const { container } = renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    await waitFor(() => expect(pill('Unlock')).toBeInTheDocument())
+
+    const tile = container.querySelector('.liebe-card') as HTMLElement
+    const tabbables = Array.from(
+      tile.querySelectorAll(
+        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => {
+      if (!(el instanceof HTMLElement)) return false
+      if (el.classList.contains('liebe-tile-action')) return el.tabIndex !== -1
+      return true
+    })
+
+    // Pill buttons present and tabbable, tile-action suppressed.
+    expect(pill('Unlock')).toBeInTheDocument()
+    const tileAction = tile.querySelector('.liebe-tile-action')
+    expect(tileAction).not.toBeNull()
+    expect((tileAction as HTMLElement).tabIndex).toBe(-1)
+    expect(tabbables).toHaveLength(2)
+  })
+})
