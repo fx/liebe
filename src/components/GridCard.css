@@ -481,6 +481,19 @@
     position: absolute;
   }
 
+  /*
+   * The card-surface slider (docs/specs/design-system/index.md — "Background
+   * slider placement"). Absolutely filled behind the content, which keeps the
+   * layout the tier gave it; the tile's own radius clips it (`overflow: hidden`
+   * above). The island above the fill is the shell's own content box, so it
+   * paints over the layer by DOM order without any z-index, and the content
+   * keeps its normal contrast on both the filled and unfilled regions with no
+   * scrim — the tint pattern at tile scale rather than content imagery.
+   */
+  .liebe-card > .liebe-slider[data-placement='background'] {
+    inset: 0;
+    position: absolute;
+  }
   /* The row a card puts its primary embedded control in. */
   .liebe-card-controls {
     align-items: center;

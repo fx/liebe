@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactElement } from 'react'
 import { Theme } from '@radix-ui/themes'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { entityStore } from '~/store/entityStore'
@@ -137,6 +137,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks()
+  cleanup()
 })
 
 describe('the light card’s brightness placement', () => {
@@ -187,40 +188,12 @@ describe('the light card’s brightness placement', () => {
     expect(stampedControlOrientation()).toBe('horizontal')
   })
 
-  it('renders the thumb inside the unclassed wrapper the narrow-row rules select', () => {
-    /*
-     * Not a claim about Liebe — a claim about Radix, and the one the
-     * cross-axis-fit rules in `CardBody.css` are written against. The thumb
-     * sits inside an unclassed, absolutely positioned `<span>` of Radix's own,
-     * so the stylesheet has to size that wrapper before sizing the thumb: an
-     * absolutely positioned box shrink-wraps its content, and a thumb sized
-     * against a wrapper measured from the thumb resolves to nothing at all.
-     *
-     * Pinned here because the consequence of Radix classing that wrapper — or
-     * dropping it — is silent: the selector simply stops matching, the thumb
-     * goes back to a fixed 42px inside a narrowed track, and the overhang the
-     * rules exist to remove returns with every other assertion still green
-     * (`cardBodyStyles.test.ts` reads the sheet, not the DOM).
-     */
-    renderCard(
-      <LightCard
-        entityId="light.living_room"
-        tier="row"
-        item={placedLight({ sliderPlacement: 'vertical' })}
-      />
-    )
-
-    const slider = document.querySelector('.liebe-slider')!
-    expect(slider.querySelector(':scope > span:not([class]) > .liebe-slider-thumb')).not.toBeNull()
-    // And the thumb is NOT a direct child, which is the reading that would have
-    // looked right and matched nothing.
-    expect(slider.querySelector(':scope > .liebe-slider-thumb')).toBeNull()
-  })
-
-  it('still renders no slider at glance, whatever the placement asks for', () => {
+  it('still renders no inline slider at glance, whatever the forced axis asks for', () => {
     // "the tier keeps deciding *whether* the slider renders (still never in
     // `glance` under these two values)". A 1×1 tile is operated by its tap and
     // its hold, and forcing an axis does not conjure room for a control.
+    // (`background` is the exception, asserted next: the surface consumes no
+    // layout space.)
     renderCard(
       <LightCard
         entityId="light.living_room"
@@ -232,6 +205,27 @@ describe('the light card’s brightness placement', () => {
     expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
     // The body is there and carries no orientation — not "there is no body",
     // which would satisfy the same assertion for a card that failed to render.
+    expect(cardBody()).not.toBeNull()
+    expect(stampedControlOrientation()).toBeNull()
+  })
+
+  it('renders the surface at glance under `background`, whatever the tier keeps', () => {
+    // The one placement the tier does not gate: the surface consumes no layout
+    // space, which is what makes a 1×1 dimmable tile possible. The body keeps
+    // no inline orientation — there is no inline control to size for.
+    renderCard(
+      <LightCard
+        entityId="light.living_room"
+        tier="glance"
+        span={{ width: 1, height: 1 }}
+        item={placedLight({ sliderPlacement: 'background' })}
+      />
+    )
+
+    expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Brightness').closest('.liebe-slider')
+    ).toHaveAttribute('data-placement', 'background')
     expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
   })
@@ -250,7 +244,7 @@ describe('the light card’s brightness placement', () => {
     expect(sliderOrientation('Brightness')).toBe('vertical')
   })
 
-  it('is inert under `iconOnly`, which removes the control slot entirely', () => {
+  it('is inert under `iconOnly` for an inline placement, which removes the control slot entirely', () => {
     /*
      * The composition change 0033 introduced: an icon-only tile keeps its lead
      * and nothing else, so there is no slider for a placement to place. PR 2's
@@ -269,6 +263,29 @@ describe('the light card’s brightness placement', () => {
     expect(screen.queryByLabelText('Brightness')).not.toBeInTheDocument()
     expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
+  })
+
+  it('composes with `iconOnly` under `background`: the fill IS the state tint', () => {
+    // options/common — "Icon-only presentation": the surface survives the
+   // fence that drops backdrops, because it is the tile's state surface
+    // rather than chrome. The tile keeps its accessible name and the danger
+    // floor is untouched — this asserts the composition, not the floor.
+    const config = { sliderPlacement: 'background', iconOnly: true }
+    withConfig(
+      <LightCard
+        entityId="light.living_room"
+        tier="row"
+        span={{ width: 2, height: 1 }}
+        item={placedLight(config)}
+      />,
+      config
+    )
+
+    expect(document.querySelector('.liebe-card')).toHaveAttribute('data-icon-tile', 'true')
+    expect(screen.getByLabelText('Brightness')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Brightness').closest('.liebe-slider')
+    ).toHaveAttribute('data-placement', 'background')
   })
 })
 
@@ -297,11 +314,57 @@ describe('the cover card’s position placement', () => {
   })
 
   it('renders no slider at glance under a forced placement', () => {
-    withConfig(<CoverCard entityId="cover.living_room" tier="glance" />, {
+    const { unmount } = withConfig(<CoverCard entityId="cover.living_room" tier="glance" />, {
       sliderPlacement: 'vertical',
     })
 
     expect(screen.queryByLabelText('Position')).not.toBeInTheDocument()
+    unmount()
+  })
+
+  it('renders the surface at glance under `background`, running from the span', () => {
+    // The direction comes from the effective span, not the tier: a 3×1 tile
+    // fills left→right, a 1×3 tile bottom→top, squares included as vertical.
+    // Rendered one at a time and unmounted between: at `row` the card also
+    // renders its tilt slider, so two controls answer one name.
+    const first = withConfig(
+      <CoverCard entityId="cover.living_room" tier="glance" span={{ width: 1, height: 1 }} />,
+      { sliderPlacement: 'background' }
+    )
+    expect(
+      screen.getByLabelText('Position').closest('.liebe-slider[data-placement="background"]')
+    ).toHaveAttribute('data-orientation', 'vertical')
+    first.unmount()
+
+    // `glance` carries no secondary content, so one name answers once; the
+    // span still decides the direction (a 3×1 tile fills left→right).
+    withConfig(
+      <CoverCard entityId="cover.living_room" tier="glance" span={{ width: 3, height: 1 }} />,
+      {
+        sliderPlacement: 'background',
+      }
+    )
+    expect(
+      screen.getByLabelText('Position').closest('.liebe-slider[data-placement="background"]')
+    ).toHaveAttribute('data-orientation', 'horizontal')
+  })
+
+  it('falls back to the plain tile under `background` where the slider is gated off', () => {
+    // Convention 3, same as the forced axis above: no set-position bit means
+    // no surface either.
+    seed(
+      makeEntity('cover.simple', 'open', {
+        friendly_name: 'Shutter',
+        supported_features: 11,
+      })
+    )
+
+    withConfig(<CoverCard entityId="cover.simple" tier="glance" />, {
+      sliderPlacement: 'background',
+    })
+
+    expect(screen.queryByLabelText('Position')).not.toBeInTheDocument()
+    expect(cardBody()).not.toBeNull()
   })
 
   it('is still gated by the entity’s own capability', () => {
@@ -366,5 +429,27 @@ describe('the fan card’s speed placement', () => {
     )
     expect(cardBody()).not.toBeNull()
     expect(stampedControlOrientation()).toBeNull()
+  })
+  it('renders the surface at glance under `background`, inert under steps', () => {
+    const { unmount } = withConfig(
+      <FanCard entityId="fan.living_room" tier="glance" span={{ width: 1, height: 1 }} />,
+      { sliderPlacement: 'background' }
+    )
+
+    expect(screen.getByLabelText('Fan speed').closest('.liebe-slider')).toHaveAttribute(
+      'data-placement',
+      'background'
+    )
+    unmount()
+
+    // `speedControl: steps` renders no slider in any placement — background
+    // included — so at `glance` (where steps render nothing either) the tile
+    // falls back to plain.
+    withConfig(<FanCard entityId="fan.living_room" tier="glance" />, {
+      speedControl: 'steps',
+      sliderPlacement: 'background',
+    })
+    expect(screen.queryByLabelText('Fan speed')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fan speed' })).not.toBeInTheDocument()
   })
 })

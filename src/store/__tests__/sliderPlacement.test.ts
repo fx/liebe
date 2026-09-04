@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import type { CardTier } from '~/utils/cardTier'
+import type { CardSpan, CardTier } from '~/utils/cardTier'
 import {
   SLIDER_PLACEMENTS,
   SLIDER_PLACEMENT_DEFAULT,
   SLIDER_PLACEMENT_KEY,
+  isBackgroundPlacement,
   readSliderOrientation,
   readSliderPlacement,
+  resolveBackgroundDirection,
   resolveSliderOrientation,
   sliderPlacementConfigSchema,
   type SliderPlacement,
@@ -88,7 +90,8 @@ describe('resolveSliderOrientation', () => {
      * "The tier keeps deciding *whether* the slider renders (still never in
      * `glance` under these two values)". `background` is in this loop too: it
      * renders in every tier including `glance`, but as the card surface rather
-     * than as an inline control, and PR 2 is what builds that surface.
+     * than as an inline control, so this resolver — the inline answer — still
+     * reports none.
      */
     for (const placement of SLIDER_PLACEMENTS) {
       expect(resolveSliderOrientation(placement, 'glance')).toBeUndefined()
@@ -117,14 +120,14 @@ describe('resolveSliderOrientation', () => {
     expect(resolveSliderOrientation('horizontal', 'full')).toBe('horizontal')
     expect(resolveSliderOrientation('horizontal', 'tall')).toBe('horizontal')
   })
-
-  it('leaves `background` rendering the tier’s own placement until PR 2 builds the surface', () => {
+  it('leaves `background` resolving to the tier’s own placement as the inline fallback', () => {
     /*
-     * The one value this task does not implement. It resolves to what `auto`
-     * gives rather than to nothing, so a document carrying it — written by a
-     * later build, or by hand from the option doc — renders a working card
-     * rather than a card with no control. What it must NOT do is behave like a
-     * forced orientation, which is what the comparison with `auto` pins.
+     * `background` is not an inline placement: the surface is what a card
+     * checks with `isBackgroundPlacement` before reading an orientation. This
+     * resolver keeps answering the tier's own placement, so a consumer that
+     * never learned the surface renders a working card rather than none.
+     * What it must NOT do is behave like a forced orientation, which is what
+     * the comparison with `auto` pins.
      */
     for (const tier of TIERS) {
       expect(resolveSliderOrientation('background', tier)).toBe(
@@ -171,5 +174,34 @@ describe('readSliderOrientation', () => {
     // is the same request as an unconfigured card's: follow the tier.
     expect(readSliderOrientation(undefined, 'row')).toBe('horizontal')
     expect(readSliderOrientation({}, 'tall')).toBe('vertical')
+  })
+})
+
+describe('isBackgroundPlacement', () => {
+  it('answers true only for the background value', () => {
+    expect(isBackgroundPlacement({ [SLIDER_PLACEMENT_KEY]: 'background' })).toBe(true)
+    for (const placement of ['auto', 'horizontal', 'vertical'] as const) {
+      expect(isBackgroundPlacement({ [SLIDER_PLACEMENT_KEY]: placement })).toBe(false)
+    }
+    expect(isBackgroundPlacement({})).toBe(false)
+    expect(isBackgroundPlacement(undefined)).toBe(false)
+    expect(isBackgroundPlacement({ [SLIDER_PLACEMENT_KEY]: 'sideways' })).toBe(false)
+  })
+})
+
+describe('resolveBackgroundDirection', () => {
+  it('runs left-to-right only when the span is wider than tall in cells', () => {
+    // The design-system rule: never from measured pixels, squares included as
+    // vertical (a bottom-up fill reads as a level).
+    const cases: { span: CardSpan | undefined; direction: 'horizontal' | 'vertical' }[] = [
+      { span: { width: 3, height: 1 }, direction: 'horizontal' },
+      { span: { width: 2, height: 2 }, direction: 'vertical' },
+      { span: { width: 1, height: 1 }, direction: 'vertical' },
+      { span: { width: 1, height: 3 }, direction: 'vertical' },
+      { span: undefined, direction: 'vertical' },
+    ]
+    for (const { span, direction } of cases) {
+      expect(resolveBackgroundDirection(span)).toBe(direction)
+    }
   })
 })

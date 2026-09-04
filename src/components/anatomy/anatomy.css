@@ -557,6 +557,26 @@
   }
 
   /*
+   * The background placement (docs/specs/design-system/index.md — "Background
+   * slider placement"): the track is the whole tile, edge to edge, behind the
+   * card's content. The tile's own radius clips it (`GridCard` already sets
+   * `overflow: hidden`); the track drops its own radius and padding so the fill
+   * reaches the edge, and the fill keeps the standard translucent domain tint
+   * over the standard track neutral with the 3px saturated leading edge. The
+   * readout is omitted by the component on this surface (see `Slider.tsx`), so
+   * no rule positions one here.
+   */
+  .liebe-slider[data-placement='background'] {
+    block-size: 100%;
+    inline-size: 100%;
+    inset: 0;
+    position: absolute;
+  }
+
+  .liebe-slider[data-placement='background'] .liebe-slider-track {
+    border-radius: 0;
+  }
+  /*
    * The readout is text on the tinted fill, so it takes the neutral foreground
    * for the same reason chip and pill labels do — the hue is carried by the
    * fill and the leading edge. It never takes the pointer: every pixel of the

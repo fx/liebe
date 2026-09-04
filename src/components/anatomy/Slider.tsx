@@ -1,7 +1,6 @@
-import type { Ref } from 'react'
+import { useRef, type Ref } from 'react'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import { anatomyPart, type AnatomyPartProps } from './anatomyPart'
-import './anatomy.css'
 
 export interface SliderProps extends AnatomyPartProps {
   /**
@@ -29,9 +28,18 @@ export interface SliderProps extends AnatomyPartProps {
   /**
    * `horizontal` fills a `row`-tier card left to right; `vertical` fills a
    * `tall`-tier card bottom to top. The track is `--liebe-control-height` on
-   * its short axis either way.
+   * its short axis either way. A background slider takes its orientation from
+   * the effective span (`resolveBackgroundDirection`), not from the tier.
    */
   orientation?: 'horizontal' | 'vertical'
+  /**
+   * Where the slider renders. `inline` is the tier's control slot; `background`
+   * is the card surface itself, edge to edge behind the card's content
+   * (docs/specs/design-system/index.md — "Background slider placement").
+   * Stamped as `data-placement` for the sheet; a background slider joins the
+   * tile's gesture split instead of consuming its own events (see below).
+   */
+  placement?: 'inline' | 'background'
   /**
    * Renders and behaves as a Radix-disabled slider: no drag, no keys, out of
    * the tab order — how a card holds back a control for an unavailable entity
@@ -89,6 +97,7 @@ export function Slider({
   max = 100,
   step = 1,
   orientation = 'horizontal',
+  placement = 'inline',
   disabled = false,
   readout,
   onValueChange,
@@ -96,31 +105,55 @@ export function Slider({
   thumbRef,
   ...part
 }: SliderProps) {
+  const { className, ...partAttributes } = anatomyPart('liebe-slider', part)
+  // Whether this gesture moved the value. A background slider IS the tile, so
+  // a tap (press and release without travel) must fall through to the tile's
+  // action while a drag must not: the drag is exactly the gesture that changed
+  // the value, so the click that ends one is stopped and the click that ends
+  // the other bubbles to the shell. Reset on every pointer down, set on every
+  // value the drag passes through.
+  const backgroundMovedRef = useRef(false)
+  const isBackground = placement === 'background'
   return (
     <SliderPrimitive.Root
-      {...anatomyPart('liebe-slider', part)}
+      {...partAttributes}
+      className={className}
+      {...(placement === 'background' ? { 'data-placement': placement } : {})}
       value={[value]}
       min={min}
       max={max}
       step={step}
       orientation={orientation}
       disabled={disabled}
-      onValueChange={([next]) => onValueChange(next)}
+      onValueChange={([next]) => {
+        if (isBackground) backgroundMovedRef.current = true
+        onValueChange(next)
+      }}
       onValueCommit={([next]) => onValueCommit?.(next)}
-      // The card's whole tile is its primary action and its handler accepts any
-      // descendant target, so without this, dragging brightness would also
-      // toggle the light it was dimming. Radix composes its own pointer handler
-      // after this one and only skips it on `preventDefault`, so the drag still
-      // starts.
-      onPointerDown={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
+      // An inline slider owns its gesture, so it stops the tile's action
+      // pipeline from seeing it (below): dragging brightness must not also
+      // toggle the light it is dimming. A background slider IS the tile — the
+      // drag/tap split above is what separates the two, so the pointer down is
+      // NOT stopped here and the shell's press pipeline sees it (hold and
+      // double-tap keep working). Radix composes its own pointer handler after
+      // this one and only skips it on `preventDefault`, so the drag still
+      // starts either way.
+      onPointerDown={(event) => {
+        if (isBackground) backgroundMovedRef.current = false
+        else event.stopPropagation()
+      }}
+      onClick={(event) => {
+        if (!isBackground || backgroundMovedRef.current) event.stopPropagation()
+      }}
     >
       <SliderPrimitive.Track className="liebe-slider-track">
         <SliderPrimitive.Range className="liebe-slider-fill" />
       </SliderPrimitive.Track>
-      {readout ? (
+      {readout && !isBackground ? (
         // Decorative: the thumb already carries the same text as
-        // `aria-valuetext`, so announcing it twice is noise.
+        // `aria-valuetext`, so announcing it twice is noise. Omitted on the
+        // background surface, where text over the fill keeps the meta lines'
+        // own contrast instead.
         <span className="liebe-slider-readout" aria-hidden="true">
           {readout}
         </span>
@@ -130,6 +163,7 @@ export function Slider({
         className="liebe-slider-thumb"
         aria-label={label}
         aria-valuetext={readout}
+        tabIndex={isBackground ? -1 : undefined}
       />
     </SliderPrimitive.Root>
   )

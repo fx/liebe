@@ -13,7 +13,7 @@ import {
   readShowColorTempControl,
   readUseLightColor,
 } from '~/store/lightOptions'
-import { readSliderOrientation, type SliderOrientation } from '~/store/sliderPlacement'
+import { isBackgroundPlacement, readSliderOrientation, resolveBackgroundDirection, type SliderOrientation } from '~/store/sliderPlacement'
 import { kelvinToRgb, resolveLightHue } from './lightColor'
 import {
   readColorTempRange,
@@ -84,12 +84,14 @@ interface LightAttributes {
 function BrightnessSlider({
   isOn,
   orientation,
+  placement,
   value,
   onValueChange,
   onValueCommit,
 }: {
   isOn: boolean
   orientation: SliderOrientation
+  placement?: 'inline' | 'background'
   value: number
   onValueChange: (value: number) => void
   onValueCommit: (value: number) => void
@@ -108,6 +110,7 @@ function BrightnessSlider({
       // the row, unless the option forces the other way
       // (docs/specs/entity-cards/options/common.md — "Shared slider placement").
       orientation={orientation}
+      placement={placement}
       value={value}
       readout={`${value}%`}
       onValueChange={onValueChange}
@@ -550,6 +553,26 @@ function LightCardComponent({
     isOn &&
     supportsBrightness &&
     showBrightnessSlider
+  /*
+   * The card-surface slider (docs/specs/entity-cards/options/common.md —
+   * "Shared slider placement"): every tier including `glance`, with no layout
+   * space consumed. Same value/commit/colour/capability gating as the inline
+   * control above — falling back to the plain tile where the slider is gated
+   * off. `CardBody`'s own arrangement is untouched; the background mounts
+   * behind it from the shell.
+   */
+  const showBackgroundSlider =
+    !isEditMode && isOn && supportsBrightness && showBrightnessSlider && isBackgroundPlacement(config)
+  const backgroundSlider = showBackgroundSlider ? (
+    <BrightnessSlider
+      isOn={isOn}
+      orientation={resolveBackgroundDirection(span)}
+      placement="background"
+      value={displayBrightness}
+      onValueChange={handleBrightnessChange}
+      onValueCommit={handleBrightnessCommit}
+    />
+  ) : undefined
 
   /*
    * Both extras are `full`-only and both require the light to be on, matching
@@ -680,6 +703,7 @@ function LightCardComponent({
         hasConfiguration={true}
         title={error || undefined}
         className="light-card"
+        backgroundSlider={backgroundSlider}
       >
         {/* The slider takes the room its tier leaves over rather than being
             sized by its content — the width the icon and the meta do not use
