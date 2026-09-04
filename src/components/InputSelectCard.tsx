@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useRef, useState, type Ref } from 'react'
 import { Box, Flex, Text } from '@radix-ui/themes'
 import { Select } from '~/components/ui/portals'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
@@ -56,9 +56,9 @@ interface SelectHelperControlProps {
   /** Select one of the helper's own options. */
   onCommit: (option: string) => void
   /** Reaches the dropdown trigger, so the card's tile tap can focus it. */
-  triggerRef?: React.Ref<HTMLButtonElement>
+  triggerRef?: Ref<HTMLButtonElement>
   /** Reaches the pill group, so the tile tap can focus its first live pill. */
-  pillGroupRef?: React.Ref<HTMLDivElement>
+  pillGroupRef?: Ref<HTMLDivElement>
   /**
    * Whether the dropdown is open. Owned by the caller, so a tap on the tile
    * can open the menu the same way the trigger does. Absent — `undefined` —
