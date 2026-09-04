@@ -17,6 +17,7 @@ import { useDashboardStore } from '~/store'
 import { readVacuumOptions } from '~/store/vacuumOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { retainedRetryAction } from '~/store/cardActions'
 import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
@@ -88,7 +89,7 @@ function VacuumCardComponent({
    * docs/changes/0025). The body tap issues the *same* services as the buttons,
    * so both go through one dispatcher and share one guard.
    */
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const hass = useHomeAssistantOptional()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
@@ -400,6 +401,10 @@ function VacuumCardComponent({
       onClick={primaryCommand ? () => dispatch(VACUUM_COMMAND_SERVICE[primaryCommand]) : undefined}
       defaultAction={defaultAction}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onDismiss={clearError}
       className="vacuum-card"
     >
       <CardBody

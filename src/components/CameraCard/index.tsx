@@ -528,8 +528,9 @@ function CameraCardComponent({
          */
         defaultAction="none"
         onConfigure={() => setConfigOpen(true)}
-        hasConfiguration={true}
         title={streamError || undefined}
+        failureMessage={streamError || undefined}
+        canRetry={false}
         className="camera-card"
         customPadding={mattingPadding}
         style={{

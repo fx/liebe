@@ -30,6 +30,7 @@ import {
 } from './presentation'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { retainedRetryAction } from '~/store/cardActions'
 import type { CardTier } from '~/utils/cardTier'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 
@@ -69,7 +70,7 @@ function LockCardComponent({
    * case the rule exists for: a retried `lock.unlock` is a door opened twice,
    * and the change doc forbids the retrying wrapper for this family outright.
    */
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
@@ -435,6 +436,10 @@ function LockCardComponent({
         defaultAction="more-info"
         confirmRoute={confirmRoute}
         title={error || undefined}
+        failureMessage={error || undefined}
+        canRetry={failedCommand?.retryable ?? false}
+        retryAction={retainedRetryAction(failedCommand)}
+        onDismiss={clearError}
         className="lock-card"
       >
         <CardBody

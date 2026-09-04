@@ -1,4 +1,5 @@
 import { Check, Plug, Power, Sun, Zap } from 'lucide-react'
+import { retainedRetryAction } from '~/store/cardActions'
 import { memo, useState } from 'react'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore, dashboardActions } from '~/store'
@@ -60,7 +61,7 @@ function ButtonCardComponent({
     isMissing,
     isLoading: isEntityLoading,
   } = useEntity(entityId)
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const screens = useDashboardStore((state) => state.screens)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const [configOpen, setConfigOpen] = useState(false)
@@ -151,6 +152,10 @@ function ButtonCardComponent({
         onConfigure={() => setConfigOpen(true)}
         hasConfiguration={true}
         title={error || undefined}
+        failureMessage={error || undefined}
+        canRetry={failedCommand?.retryable ?? false}
+        retryAction={retainedRetryAction(failedCommand)}
+        onDismiss={clearError}
       >
         {/*
          * The switch card (and the generic fallback it doubles as) embeds no

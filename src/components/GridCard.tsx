@@ -176,7 +176,15 @@ export interface GridCardProps {
    */
   failureMessage?: string | null
   canRetry?: boolean
-  onRetry?: () => void | Promise<void>
+  /**
+   * The retained action to re-dispatch, in the same resolved form the gestures
+   * resolve to. `Retry` routes it through `dispatchAction` — the confirmation
+   * gate, then the guard — exactly as if the gesture had fired again, rather
+   * than dispatching around either. Absent (or `canRetry` false) where there
+   * is nothing to repeat: a pre-dispatch refusal, a stream that would not
+   * start.
+   */
+  retryAction?: ResolvedCardAction | null
   onDismiss?: () => void
   onConfigure?: () => void
   hasConfiguration?: boolean
@@ -741,7 +749,7 @@ export const GridCard = React.memo(
         confirmRoute,
         failureMessage,
         canRetry = false,
-        onRetry,
+        retryAction,
         onDismiss,
         onConfigure,
         hasConfiguration = false,
@@ -1447,6 +1455,15 @@ export const GridCard = React.memo(
            * it renders inside this card's React tree, so a press within it
            * would otherwise arm the hold timer of the card behind it.
            */}
+          {/*
+           * `!isEditMode` as well as the state. The reset above now runs during
+           * render, so nothing stale reaches a commit and this guard cannot be
+           * the thing that hides it — which is the point of keeping it. It is a
+           * belt to the reset's braces, and cheap: a dialog that can only be
+           * opened in view mode should also only be *rendered* in view mode, so
+           * a future path that sets `detailFor` without going through the reset
+           * still cannot leave one standing over a draggable card.
+           */}
           {!isEditMode && detailFor && (
             <EntityDetailDialog
               entityId={detailFor}
@@ -1462,10 +1479,12 @@ export const GridCard = React.memo(
               // The failure the tile carries while `isError` holds, with its
               // recovery actions. `isError` without a message is a tile whose
               // card reports the state but names nothing to recover from —
-              // the dialog stays the plain one.
+              // the dialog stays the plain one. `Retry` re-enters through
+              // `dispatchAction` — the confirmation gate, then the guard —
+              // exactly as if the gesture had fired again.
               failureMessage={isError ? (failureMessage ?? title ?? null) : null}
-              canRetry={canRetry}
-              onRetry={onRetry}
+              canRetry={canRetry && retryAction != null}
+              onRetry={retryAction ? () => gestures.dispatchAction(retryAction) : undefined}
               onDismiss={onDismiss}
             />
           )}

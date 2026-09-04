@@ -144,3 +144,27 @@ export function isParameterizedCardAction(
 ): action is NavigateCardAction | CallServiceCardAction {
   return typeof action === 'object'
 }
+
+/**
+ * The retained command as the resolved action `Retry` re-dispatches.
+ *
+ * A `call-service` action replaying the retained payload verbatim — never
+ * re-derived from the current entity state, so a toggle that failed as
+ * `turn_off` retries as `turn_off` even if the state has since moved. The
+ * shell routes it through `dispatchAction`: the confirmation gate classifies
+ * it by effect on the entity (the generic `homeassistant.*` aliases and the
+ * domain services alike), then the at-most-once guard refuses it while the
+ * failed command's window is still open. Absent where there is nothing to
+ * repeat — a pre-dispatch refusal, a stream that would not start.
+ */
+export function retainedRetryAction(
+  failed: { command: { domain: string; service: string; data?: Record<string, unknown> }; retryable: boolean } | null | undefined
+): ResolvedCardAction | undefined {
+  if (!failed?.retryable) return undefined
+  const { domain, service, data } = failed.command
+  return {
+    action: 'call-service',
+    service: `${domain}.${service}`,
+    ...(data !== undefined ? { data } : {}),
+  }
+}

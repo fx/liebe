@@ -1,4 +1,5 @@
 import { memo, useCallback, useRef, useState, type Ref } from 'react'
+import { retainedRetryAction } from '~/store/cardActions'
 import { Box, Flex, Text } from '@radix-ui/themes'
 import { Select } from '~/components/ui/portals'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
@@ -204,7 +205,7 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
   config,
 }: InputSelectCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { setValue, loading, error } = useServiceCall()
+  const { setValue, loading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const publishedItem = useCardItem()
 
   const isGlance = tier === 'glance'
@@ -383,6 +384,10 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
        */
       defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onDismiss={clearError}
       /*
        * The entity travels with the config for the same reason it does on the
        * number card: the shell builds the detail dialog's target out of the

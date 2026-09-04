@@ -193,4 +193,36 @@ describe('the lifecycle tile a registered card renders instead of itself', () =>
       })
     ).toBeInTheDocument()
   })
+
+  it.each(cases)('$name stamps the stand-in tile with the tier and the theme handle', (testCase) => {
+    // Change 0043 PR 6: lifecycle tiles are tiles like any other and MUST take
+    // the tier of the card they stand in for — and the `liebe-card` handle a
+    // theme reshapes the tile through. `SkeletonCard` is the compliant
+    // reference; the stand-in tiles stamp the same two attributes.
+    for (const tier of ['glance', 'row', 'tall', 'full'] as const) {
+      state = { ...state, ...MISSING }
+      const { container, unmount } = renderCard(testCase, tier)
+      const tile = container.querySelector('.liebe-card')
+      expect(tile).not.toBeNull()
+      expect(tile).toHaveAttribute('data-tier', tier)
+      unmount()
+
+      state = { ...state, ...DOWN }
+      const down = renderCard(testCase, tier)
+      const downTile = down.container.querySelector('.liebe-card')
+      expect(downTile).not.toBeNull()
+      expect(downTile).toHaveAttribute('data-tier', tier)
+      down.unmount()
+    }
+  })
+
+  it.each(cases)('$name offers the reload Retry on the disconnected tile', (testCase) => {
+    // The rendered tile actually offers the recovery action rather than merely
+    // being capable of rendering it: disconnected offers the reload `Retry`,
+    // not-found offers no action because no action exists.
+    state = { ...state, ...DOWN }
+    renderCard(testCase)
+
+    expect(screen.getByRole('button', { name: /Retry/ })).toBeInTheDocument()
+  })
 })

@@ -235,6 +235,14 @@ export interface CardGestures {
    * the tile control. Same inertness rule as the hold route.
    */
   activateDoubleTap: () => void
+  /**
+   * Re-dispatch a resolved action through the confirmation gate, for `Retry`:
+   * the card hands back the retained command's action and the shell routes it
+   * exactly as if the gesture had fired again — gated, then guarded. A
+   * `call-service` action replays the retained payload verbatim rather than
+   * re-deriving it from the current entity state.
+   */
+  dispatchAction: (action: ResolvedCardAction) => void
 }
 
 /** Screens are a tree, and a `navigate` target may be either identifier. */
@@ -606,6 +614,19 @@ export function useCardActions({
     dispatch(actions.doubleTap)
   }, [actions.doubleTap, disabled, dispatch, isActionable])
 
+  /*
+   * Suppression has to reach the gestures already in flight, not only the ones
+   * that start afterwards: a tap waiting out the double-tap window when the user
+   * switches to edit mode would otherwise still dispatch a quarter of a second
+   * into a mode where nothing may.
+   */
+  useEffect(() => {
+    if (!disabled) return
+
+    release()
+    clearTapTimer()
+    holdFiredRef.current = false
+  }, [clearTapTimer, disabled, release])
   useEffect(() => {
     return () => {
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
@@ -620,5 +641,6 @@ export function useCardActions({
     release,
     activateHold,
     activateDoubleTap,
+    dispatchAction: dispatch,
   }
 }

@@ -74,6 +74,22 @@ export interface CardLifecycleProps {
  * not-found tile would be a button whose only possible outcome is the same
  * tile. There is no Dismiss on any of them either — a card has nowhere to
  * dismiss to, since the state it would dismiss is the state it is in.
+ *
+ * Why these tiles stand outside `GridCard` rather than rendering through it
+ * (change 0043 PR 6): a tile that stands in for a card is not a card tile.
+ * The shell's tile is the primary action of an entity the card can see; these
+ * tiles render exactly where there is no card — no entity, no gestures, no
+ * confirmation gate, nothing to dispatch and nothing to dismiss. Folding them
+ * into the shell would give them a `liebe-tile-action` control with no action
+ * behind it and a dialog opener with no dialog target, which the shell
+ * correctly refuses to render. What they do take from the shell's contract is
+ * the tile surface itself: `liebe-card` and `data-tier`, stamped here the way
+ * `SkeletonCard` stamps them, so the rendered tile takes its tier and its
+ * theme with the loaded one. `ErrorDisplay variant="card"` keeps rendering
+ * that surface (with its own glance button + dialog, which genuinely carry
+ * the message and whatever action the callsite supplies), and the callsites
+ * supply what each state is owed: disconnected offers the reload `Retry`,
+ * not-found offers no action because no action exists.
  */
 export function renderCardLifecycle({
   entityId,

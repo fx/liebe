@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useState } from 'react'
+import { retainedRetryAction } from '~/store/cardActions'
 import { Box, Flex, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Calendar, Check, Clock, Edit2, X } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -279,7 +280,7 @@ const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
   onSelect,
 }: InputDateTimeCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { setValue, loading, error } = useServiceCall()
+  const { setValue, loading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
 
   const [isEditing, setIsEditing] = useState(false)
 
@@ -412,6 +413,10 @@ const MemoizedInputDateTimeCard = memo(function InputDateTimeCardContent({
        */
       defaultAction={controlOmitted ? 'more-info' : undefined}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onDismiss={clearError}
     >
       {/*
        * `glance` reads the formatted value out as the tile's state line — or

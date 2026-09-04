@@ -4,6 +4,7 @@ import { useEntity, useServiceCall } from '~/hooks'
 import { readActionOptions } from '~/store/actionOptions'
 import { readCardDisplay, resolveCardColor } from '~/store/cardDisplay'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { retainedRetryAction } from '~/store/cardActions'
 import type { CardConfirmPrompt } from '~/hooks/useCardActions'
 import type { GridItem } from '~/store/types'
 import type { DomainColorName } from '~/theme/tokens'
@@ -102,7 +103,7 @@ function ActionCardComponent({
     isMissing,
     isLoading: isEntityLoading,
   } = useEntity(entityId)
-  const { error, dispatchGuarded, clearError } = useServiceCall()
+  const { error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const feedback = useActivationFeedback()
 
   /*
@@ -289,6 +290,10 @@ function ActionCardComponent({
       // family pays nothing for a gate it does not have.
       confirmRoute={options.confirm ? confirmRoute : undefined}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onDismiss={clearError}
       className="action-card"
     >
       {/*
