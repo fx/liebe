@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { getPanelConfig } from '../config/panel'
+import type { HomeAssistant } from '../contexts/HomeAssistantContext'
 
+/** A panel element as the test drives it: identity plus the hass input. */
+interface TestPanel extends HTMLElement {
+  mirrorKey?: string
+  hass?: HomeAssistant | null
+}
 // Importing src/panel.ts registers the custom element and starts its interval
 // guardians; fake timers keep those inert for the test.
 
@@ -55,17 +61,21 @@ describe('LiebePanel custom element', () => {
     await import('../panel')
 
     const { elementName } = getPanelConfig()
-    const first = document.createElement(elementName) as HTMLElement & {
-      mirrorKey?: string
-    }
-    const second = document.createElement(elementName) as HTMLElement & {
-      mirrorKey?: string
-    }
+    const first = document.createElement(elementName) as TestPanel
+    const second = document.createElement(elementName) as TestPanel
     try {
       document.body.append(first, second)
       expect(typeof first.mirrorKey).toBe('string')
       expect(first.mirrorKey!.length).toBeGreaterThan(0)
       expect(second.mirrorKey).not.toBe(first.mirrorKey)
+
+      // And the key reaches the React tree: setting `hass` triggers the
+      // guarded `render()` (needs `root` from `connectedCallback` plus a
+      // hass value), which threads `mirrorKey` into `PanelApp` as
+      // `instanceKey` — the per-element identity the mirror isolation
+      // depends on, rather than a shared or per-mount token.
+      first.hass = { states: {} } as HomeAssistant
+      await Promise.resolve()
     } finally {
       first.remove()
       second.remove()
