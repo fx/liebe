@@ -174,6 +174,19 @@ export interface GridCardProps {
   transparent?: boolean
   backdrop?: boolean | string
   customPadding?: string
+  /**
+   * Whether the tile paints content imagery behind its content — a weather
+   * condition photograph, media background artwork. The shell cannot read it
+   * off the tile: the artwork arrives as caller-supplied paint layers (a
+   * `background-image` the themable-properties fence deliberately lets
+   * through, a backdrop element beside the body), which no DOM query in the
+   * shell could name without reaching into card internals. A card that paints
+   * artwork passes `true`; everything else leaves the default, and the
+   * scrimmed-ground rule's Radix half (the nested dark `Theme` around the
+   * edit-mode affordances) applies only there — everywhere else the controls
+   * keep the panel's own appearance.
+   */
+  overArtwork?: boolean
 }
 
 /**
@@ -565,6 +578,54 @@ function withoutBackgroundPaint(style: React.CSSProperties): React.CSSProperties
   ) as React.CSSProperties
 }
 
+/*
+ * The edit-mode configure/delete buttons, shared by the artwork and
+ * non-artwork branches below. One component so the two cannot drift: the only
+ * difference between the branches is the dark-appearance scope around it.
+ */
+function EditAffordances({
+  canConfigure,
+  configure,
+  onDelete,
+}: {
+  canConfigure: boolean
+  configure?: () => void
+  onDelete?: () => void
+}) {
+  return (
+    <div className="liebe-card-actions">
+      {canConfigure && (
+        <IconButton
+          size="1"
+          variant="ghost"
+          color="gray"
+          onClick={(e) => {
+            e.stopPropagation()
+            configure?.()
+          }}
+          aria-label="Configure card"
+        >
+          <Settings size={14} />
+        </IconButton>
+      )}
+      {onDelete && (
+        <IconButton
+          size="1"
+          variant="ghost"
+          color="red"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          aria-label="Delete entity"
+        >
+          <X size={14} />
+        </IconButton>
+      )}
+    </div>
+  )
+}
+
 // Context for compound components
 const GridCardContext = React.createContext<GridCardContextValue>({
   tier: 'row',
@@ -627,6 +688,7 @@ export const GridCard = React.memo(
         fullscreenContent,
         backdrop,
         customPadding,
+        overArtwork = false,
       },
       ref
     ) => {
@@ -1121,58 +1183,39 @@ export const GridCard = React.memo(
              * order rather than by a z-index keeps the project's
              * no-arbitrary-z-index rule intact.
              */}
-            {isEditMode && (canConfigure || onDelete) && !isFullscreen && (
-              /*
-               * The scrimmed-ground rule's Radix half
-               * (docs/specs/design-system — "Card anatomy"): a Radix control
-               * colours itself from a Radix scale keyed off the ancestor
-               * `Theme`'s appearance and reads none of the `--liebe-*`
-               * foreground tokens the artwork scopes pin white — so over the
-               * now-reliably-dark scrim a light-appearance control renders
-               * dark-on-dark (the delete glyph measured 3.19 → 1.18:1). The
-               * nested dark `Theme` re-resolves the controls to their dark
-               * scale while the artwork scope's tokens pass through untouched.
-               * Rendered after the content like the scrimmed layers it can sit
-               * over, for the same DOM-order reason; `hasBackground={false}`
-               * so the scope paints no surface of its own, exactly as the
-               * portal host does.
-               */
-              <Theme appearance="dark" hasBackground={false}>
-                <div className="liebe-card-actions">
-                  {/* Configuration Button */}
-                  {canConfigure && (
-                    <IconButton
-                      size="1"
-                      variant="ghost"
-                      color="gray"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        configure?.()
-                      }}
-                      aria-label="Configure card"
-                    >
-                      <Settings size={14} />
-                    </IconButton>
-                  )}
-
-                  {/* Delete Button */}
-                  {onDelete && (
-                    <IconButton
-                      size="1"
-                      variant="ghost"
-                      color="red"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDelete()
-                      }}
-                      aria-label="Delete entity"
-                    >
-                      <X size={14} />
-                    </IconButton>
-                  )}
-                </div>
-              </Theme>
-            )}
+            {isEditMode && (canConfigure || onDelete) && !isFullscreen &&
+              (overArtwork ? (
+                /*
+                 * The scrimmed-ground rule's Radix half
+                 * (docs/specs/design-system — "Card anatomy"): a Radix control
+                 * colours itself from a Radix scale keyed off the ancestor
+                 * `Theme`'s appearance and reads none of the `--liebe-*`
+                 * foreground tokens the artwork scopes pin white — so over the
+                 * now-reliably-dark scrim a light-appearance control renders
+                 * dark-on-dark (the delete glyph measured 3.19 → 1.18:1). The
+                 * nested dark `Theme` re-resolves the controls to their dark
+                 * scale while the artwork scope's tokens pass through
+                 * untouched. Artwork tiles only: on the flat themed surface
+                 * the controls keep the panel's own appearance. Rendered after
+                 * the content like the scrimmed layers it can sit over, for
+                 * the same DOM-order reason; `hasBackground={false}` so the
+                 * scope paints no surface of its own, exactly as the portal
+                 * host does.
+                 */
+                <Theme appearance="dark" hasBackground={false}>
+                  <EditAffordances
+                    canConfigure={canConfigure}
+                    configure={configure}
+                    onDelete={onDelete}
+                  />
+                </Theme>
+              ) : (
+                <EditAffordances
+                  canConfigure={canConfigure}
+                  configure={configure}
+                  onDelete={onDelete}
+                />
+              ))}
           </div>
 
           {/* Portal-based fullscreen overlay that escapes shadow DOM */}

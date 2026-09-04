@@ -187,6 +187,27 @@ describe('showConditionBackground', () => {
       expect(scope.classList.contains('dark')).toBe(true)
       expect(scope.getAttribute('data-has-background')).toBe('false')
       unmount()
+
+      // `showConditionBackground: false` puts the card back on the flat
+      // themed surface: the same affordances, no scrimmed photograph behind
+      // them, so no nested appearance — `closest` must walk past the actions
+      // to the panel's own root `Theme` rather than stopping at a dark scope.
+      const { unmount: unmountPlain } = renderCard(
+        <WeatherCard
+          entityId={ENTITY}
+          tier="full"
+          config={{ variant: 'default', showConditionBackground: false }}
+          onDelete={() => {}}
+        />
+      )
+
+      expect(hasArtworkTreatment()).toBe(false)
+      const plainActions = card().querySelector('.liebe-card-actions') as HTMLElement
+      expect(plainActions).not.toBeNull()
+      const plainScope = plainActions.closest('.radix-themes') as HTMLElement
+      expect(plainScope.getAttribute('data-is-root-theme')).toBe('true')
+      expect(plainScope.classList.contains('dark')).toBe(false)
+      unmountPlain()
     } finally {
       dashboardActions.setMode('view')
     }

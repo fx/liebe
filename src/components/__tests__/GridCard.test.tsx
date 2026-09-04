@@ -551,16 +551,25 @@ describe('GridCard shell', () => {
     expect(screen.getByRole('button', { name: 'Delete entity' })).toBeInTheDocument()
   })
 
-  it('scopes the edit affordances to the dark appearance, so Radix glyphs hold their floors over scrimmed artwork', () => {
+  it('scopes the edit affordances to the dark appearance over artwork, and leaves them on the panel appearance elsewhere', () => {
     // The scrimmed-ground rule's Radix half (docs/specs/design-system —
     // "Card anatomy"): a Radix `IconButton` resolves its glyph from a Radix
     // scale keyed off the nearest ancestor `Theme`, reading none of the
     // foreground tokens the artwork scopes pin — so over the reliably dark
     // scrim a light-appearance control renders dark-on-dark. The nested dark
     // `Theme` re-resolves the controls while the scope's tokens pass through.
+    // Artwork tiles only: on the flat themed surface the controls keep the
+    // panel's own appearance, which is what forcing the scope there would
+    // take away.
     setMode('edit')
-    render(
-      <GridCard domain="weather" hasConfiguration onConfigure={() => {}} onDelete={() => {}}>
+    const { unmount } = render(
+      <GridCard
+        domain="weather"
+        hasConfiguration
+        onConfigure={() => {}}
+        onDelete={() => {}}
+        overArtwork
+      >
         content
       </GridCard>
     )
@@ -572,5 +581,19 @@ describe('GridCard shell', () => {
     // A scope, not a surface: it re-themes the controls without painting over
     // the artwork behind them.
     expect(scope.getAttribute('data-has-background')).toBe('false')
+    unmount()
+
+    // Off artwork the affordances keep the panel's own appearance: `closest`
+    // must walk past the actions to the root `Theme` rather than stopping at
+    // a nested dark scope. (GridCard tests render no `Theme` at all, so there
+    // the absence is literal — no `.radix-themes` ancestor.)
+    render(
+      <GridCard domain="light" hasConfiguration onConfigure={() => {}} onDelete={() => {}}>
+        content
+      </GridCard>
+    )
+
+    const plainActions = document.querySelector('.liebe-card-actions') as HTMLElement
+    expect(plainActions.closest('.radix-themes')).toBeNull()
   })
 })
