@@ -361,5 +361,5 @@ changes:
     path: changes/0045-browser-home-for-geometry-assertions.md
     description: Enforce the five BROWSER_ONLY geometry assertions in the Playwright e2e suite against the real panel, family by family; taking over the geometry-home work previously tracked in docs/tasks.md
     spec: storybook
-    status: draft
+    status: complete
     depends_on: ['0005']

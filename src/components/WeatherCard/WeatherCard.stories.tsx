@@ -737,15 +737,11 @@ export const ForecastsMaxCount: Story = {
   args: { gridWidth: 8, gridHeight: 3, config: { forecastHours: 12, forecastDays: 7 } },
   parameters: { liebe: { entities: [createWeatherEntity()], forecasts: seededForecasts } },
   play: async ({ canvasElement }) => {
+    // The count is the jsdom-evaluable half: twelve configured, twelve drawn
+    // on a tile wide enough for them. The geometry half — equal rhythm, the
+    // 44px floor — is enforced in the browser, in
+    // tests/e2e/forecast-capacity-geometry.spec.ts (change 0045).
     await expect(forecastColumnCount(canvasElement, 'hourly')).toBe(12)
-
-    const widths = forecastColumnWidths(canvasElement, 'hourly')
-    // Equal-width columns: the widest and the narrowest agree to within a
-    // sub-pixel, because the width comes from the grid's tracks rather than
-    // from each column's own text.
-    await expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1)
-    // And none of them is under the legible floor the capacity rule promises.
-    await expect(Math.min(...widths)).toBeGreaterThanOrEqual(44)
   },
 }
 

@@ -1,0 +1,181 @@
+import { test, expect, type Page } from '@playwright/test'
+import { buildSeedConfig, callService, DEMO_LIGHT, getRestState, openPanel } from './helpers'
+
+/**
+ * Slider drag to maximum with a real pointer — the browser home of the
+ * `Slider/DragToMaximum` story assertion (change 0045 PR 3, dual enforcement:
+ * the entry stays).
+ *
+ * A play function can only dispatch a *synthetic* pointer sequence, and Radix
+ * gates `pointermove`/`pointerup` on `hasPointerCapture()`, which a synthetic
+ * sequence cannot establish in jsdom — the story's coordinates are all 0,
+ * so the drag lands nowhere and the value assertion fails there. Here the
+ * pointer is real (Playwright's trusted mouse), the coordinates come off the
+ * track's own measured box, and nothing is stubbed.
+ *
+ * The claim is the whole point of separating change from commit: dragging
+ * past the track's edge drives the value to its maximum and dispatches
+ * exactly one service call, not one per pixel of travel. The value is read
+ * off the thumb's `aria-valuenow`; the single commit is read off the entity
+ * itself — brightness 255 on the demo light after one `light.turn_on` — via
+ * REST, which is what a second commit would also have to move through.
+ *
+ * The minimum sibling rides along: the same gesture the other way parks the
+ * value at zero, through `light.turn_off`.
+ */
+
+function seedSliderDragConfig() {
+  return buildSeedConfig({
+    id: 'e2e-slider-drag-screen',
+    name: 'E2E Slider Drag',
+    slug: 'e2e-slider-drag',
+    items: [
+      // 3×1 — `row`, the tier that runs the brightness slider horizontally.
+      {
+        id: 'item-drag-light',
+        type: 'entity',
+        entityId: DEMO_LIGHT,
+        x: 0,
+        y: 0,
+        width: 3,
+        height: 1,
+      },
+    ],
+  })
+}
+
+interface DragPanelHandle {
+  shadowRoot?: ShadowRoot | null
+  _hass?: { states?: Record<string, { attributes?: { friendly_name?: string } }> }
+}
+
+interface TrackBox {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/** The friendly name the panel currently knows for an entity. */
+async function entityName(page: Page, entityId: string): Promise<string> {
+  const name = await page.evaluate((id) => {
+    const panel = (window as unknown as { __liebePanel?: DragPanelHandle }).__liebePanel
+    return panel?._hass?.states?.[id]?.attributes?.friendly_name ?? null
+  }, entityId)
+  expect(name, `the panel should know ${entityId}`).not.toBeNull()
+  return name as string
+}
+
+/** The value that card's slider currently reports, off the thumb. */
+async function sliderValueNow(page: Page, name: string): Promise<string | null> {
+  return page.evaluate((cardName) => {
+    const panel = (window as unknown as { __liebePanel?: DragPanelHandle }).__liebePanel
+    const cards = [...(panel?.shadowRoot?.querySelectorAll('.grid-item .liebe-card') ?? [])]
+    const card = cards.find(
+      (candidate) => candidate.querySelector('.liebe-name')?.textContent?.trim() === cardName
+    )
+    return card?.querySelector('[role="slider"]')?.getAttribute('aria-valuenow') ?? null
+  }, name)
+}
+
+/**
+ * The track's box in viewport coordinates, measured in the page — the numbers
+ * the drag below is computed from, so the gesture lands on the rendered
+ * control rather than on a guess about it.
+ */
+async function sliderTrackBox(page: Page, name: string): Promise<TrackBox> {
+  const box = await page.evaluate((cardName) => {
+    const panel = (window as unknown as { __liebePanel?: DragPanelHandle }).__liebePanel
+    const cards = [...(panel?.shadowRoot?.querySelectorAll('.grid-item .liebe-card') ?? [])]
+    const card = cards.find(
+      (candidate) => candidate.querySelector('.liebe-name')?.textContent?.trim() === cardName
+    )
+    const track = card?.querySelector('.liebe-slider-track')
+    if (!track) return null
+    const { left, top, width, height } = track.getBoundingClientRect()
+    return { left, top, width, height }
+  }, name)
+  expect(box, 'the card should render a slider track').not.toBeNull()
+  return box as TrackBox
+}
+
+/**
+ * A real-pointer drag across the track, in the `dragResizeHandle` idiom: move
+ * to the origin first, press, then travel in steps so the drag is a drag
+ * rather than a jump the control could swallow as its start event.
+ */
+async function dragPointer(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number }
+) {
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 5 })
+  await page.mouse.move(to.x, to.y, { steps: 10 })
+  await page.mouse.up()
+}
+
+test('dragging past the track edge drives the value to maximum with a single commit', async ({
+  page,
+}) => {
+  const { accessToken } = await openPanel(page, seedSliderDragConfig())
+
+  // Mid-travel, not off and not full: the slider only renders for a light
+  // that is on, and starting at an extreme would leave the drag nothing to
+  // prove. 128 of 255 is the 50 the card announces, so waiting on the value
+  // is waiting on the state having reached the panel.
+  await callService(accessToken, 'light', 'turn_on', { entity_id: DEMO_LIGHT, brightness: 128 })
+  const light = await entityName(page, DEMO_LIGHT)
+  await expect.poll(() => sliderValueNow(page, light)).toBe('50')
+
+  const track = await sliderTrackBox(page, light)
+  expect(track.width, 'the track should have a box to drag across').toBeGreaterThan(0)
+
+  // Press on the track's centre, drag well past its right edge so the value
+  // clamps to the maximum rather than landing on whatever fraction a pixel
+  // offset works out to.
+  const middleY = track.top + track.height / 2
+  await dragPointer(
+    page,
+    { x: track.left + track.width / 2, y: middleY },
+    { x: track.left + track.width + 100, y: middleY }
+  )
+
+  // The thumb announces the maximum — the story's own assertion, evaluated
+  // where the coordinates are real.
+  await expect.poll(() => sliderValueNow(page, light)).toBe('100')
+
+  // And the drag committed exactly once: one `light.turn_on` carrying full
+  // brightness, read off HA state rather than off a counter the page owns.
+  await expect.poll(() => getRestState(accessToken, DEMO_LIGHT), { timeout: 15_000 }).toBe('on')
+  const attributes = await page.evaluate(() => {
+    const panel = (window as unknown as { __liebePanel?: DragPanelHandle }).__liebePanel
+    return (
+      (panel?._hass?.states?.[DEMO_LIGHT] as { attributes?: { brightness?: number } } | undefined)
+        ?.attributes ?? null
+    )
+  })
+  expect(attributes?.brightness, 'the single commit should carry full brightness').toBe(255)
+})
+
+test('dragging past the leading edge parks the value at zero', async ({ page }) => {
+  const { accessToken } = await openPanel(page, seedSliderDragConfig())
+
+  await callService(accessToken, 'light', 'turn_on', { entity_id: DEMO_LIGHT, brightness: 128 })
+  const light = await entityName(page, DEMO_LIGHT)
+  await expect.poll(() => sliderValueNow(page, light)).toBe('50')
+
+  const track = await sliderTrackBox(page, light)
+  expect(track.width, 'the track should have a box to drag across').toBeGreaterThan(0)
+
+  const middleY = track.top + track.height / 2
+  await dragPointer(
+    page,
+    { x: track.left + track.width / 2, y: middleY },
+    { x: track.left - 100, y: middleY }
+  )
+
+  await expect.poll(() => sliderValueNow(page, light)).toBe('0')
+  await expect.poll(() => getRestState(accessToken, DEMO_LIGHT), { timeout: 15_000 }).toBe('off')
+})

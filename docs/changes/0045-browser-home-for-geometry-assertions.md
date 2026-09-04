@@ -5,7 +5,7 @@
 Give the five `BROWSER_ONLY` geometry assertions in `src/__tests__/stories.test.tsx` a home that can actually evaluate them: Playwright specs against the real panel in the dockerized HA instance, one per assertion family. The story `play` functions stay as documentation; the e2e suite becomes where they are enforced. This change takes over the geometry-home work previously tracked as the `docs/tasks.md` backlog item (entry removed in this PR; enforcement lands with 0045's family PRs).
 
 **Spec:** [storybook](../specs/storybook/index.md) → [Story assertions are gate-grade](../specs/storybook/index.md#story-assertions-are-gate-grade)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0005
 
 ## Motivation
@@ -62,9 +62,9 @@ Family by family, each PR seeds a screen, measures what the story `play` measure
 
 ## Tasks
 
-- [ ] **PR 1 — Forecast capacity in e2e (split one, keep one)**: seed a max-count screen and a minimum-width tile; assert the 44px floor, column rhythm, omit-not-overflow and no-widen rules; settle the weather/forecast data path in the e2e instance; split `ForecastsMaxCount` (count stays in the `play`, geometry moves to e2e) and remove its entry; keep the `ForecastsMaxCountOnMinimumWidthTile` entry (dual enforcement)
-- [ ] **PR 2 — Full-tier graph fill in e2e (dual, both entries stay)**: seed small and large `full` sensor tiles with history; assert the graph-fills-leftover invariant at both sizes; the two `SensorCard` entries stay as the jsdom gate
-- [ ] **PR 3 — Slider drag in e2e (dual, entry stays)**: real-pointer drag past the track edge asserting max value + single commit (and the minimum sibling if cheap); the `Slider` entry stays as the jsdom gate; confirm `docs/tasks.md` needs no item (migrated here) and update the storybook spec's open question to point at the three enforcing specs
+- [x] **PR 1 — Forecast capacity in e2e (split one, keep one)**: seed a max-count screen and a minimum-width tile; assert the 44px floor, column rhythm, omit-not-overflow and no-widen rules; settle the weather/forecast data path in the e2e instance; split `ForecastsMaxCount` (count stays in the `play`, geometry moves to e2e) and remove its entry; keep the `ForecastsMaxCountOnMinimumWidthTile` entry (dual enforcement)
+- [x] **PR 2 — Full-tier graph fill in e2e (dual, both entries stay)**: seed small and large `full` sensor tiles with history; assert the graph-fills-leftover invariant at both sizes; the two `SensorCard` entries stay as the jsdom gate
+- [x] **PR 3 — Slider drag in e2e (dual, entry stays)**: real-pointer drag past the track edge asserting max value + single commit (and the minimum sibling if cheap); the `Slider` entry stays as the jsdom gate; confirm `docs/tasks.md` needs no item (migrated here) and update the storybook spec's open question to point at the three enforcing specs
 
 ## Open Questions
 

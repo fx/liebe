@@ -157,10 +157,6 @@ installStaticFileImageLoader()
  * the whole story.
  */
 const BROWSER_ONLY: Record<string, { reason: string; throws: RegExp }> = {
-  'WeatherCard/ForecastsMaxCount': {
-    reason: 'asserts a rendered forecast column is at least 44px wide; jsdom lays out nothing',
-    throws: /greater than or equal to 44/,
-  },
   'WeatherCard/ForecastsMaxCountOnMinimumWidthTile': {
     reason: 'asserts capacity omits columns rather than overflowing, from measured widths',
     throws: /expected 12 to be less than 12/,
