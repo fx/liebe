@@ -671,6 +671,8 @@ export function useCardActions({
     release,
     activateHold,
     activateDoubleTap,
-    dispatchAction: dispatch,
+    // The shell passes `onRetrySettled` through as the report, so the retry
+    // observer is the default report for every re-dispatch through here.
+    dispatchAction: (action, report = onRetrySettled) => dispatch(action, report),
   }
 }
