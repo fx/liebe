@@ -314,7 +314,13 @@ describe('InputSelectCard', () => {
     })
 
     it('focuses the first live pill on tap where the pills render', () => {
-      render(<InputSelectCard entityId="input_select.test_select" tier="full" config={{ controlStyle: 'pills' }} />)
+      render(
+        <InputSelectCard
+          entityId="input_select.test_select"
+          tier="full"
+          config={{ controlStyle: 'pills' }}
+        />
+      )
       // Three options at `full`: the resolved presentation is the pills.
       expect(screen.getByRole('button', { name: 'Option 2' })).toBeInTheDocument()
 
@@ -331,7 +337,13 @@ describe('InputSelectCard', () => {
       // Consults the resolved presentation rather than the stored style: a
       // stored `pills` degrades to the dropdown outside `full`, and the tap
       // must open what is there rather than what is stored.
-      render(<InputSelectCard entityId="input_select.test_select" tier="row" config={{ controlStyle: 'pills' }} />)
+      render(
+        <InputSelectCard
+          entityId="input_select.test_select"
+          tier="row"
+          config={{ controlStyle: 'pills' }}
+        />
+      )
       expect(screen.getByRole('combobox')).toBeInTheDocument()
 
       fireEvent.click(document.querySelector('.liebe-card')!)
@@ -342,7 +354,34 @@ describe('InputSelectCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
-    it("routes a stored toggle to the dialog at glance, where there is nothing to focus", () => {
+    it('opens the detail dialog on tap when the helper has no options', () => {
+      // An empty option list renders a disabled dropdown: focusing its trigger
+      // would neither open a control nor operate the helper, so the tap
+      // bypasses the trigger and resolves to `more-info` instead.
+      vi.mocked(useEntity).mockReturnValue({
+        entity: {
+          ...defaultEntity,
+          attributes: { ...defaultEntity.attributes, options: [] },
+        },
+        isConnected: true,
+        isLoading: false,
+        isMissing: false,
+        isStale: false,
+      })
+      render(
+        <CardItemProvider entityId="input_select.test_select">
+          <InputSelectCard entityId="input_select.test_select" tier="row" />
+        </CardItemProvider>
+      )
+      expect(screen.getByRole('combobox')).toBeDisabled()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Select' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('routes a stored toggle to the dialog at glance, where there is nothing to focus', () => {
       // A configured `tapAction: toggle` resolves to the card's own handler
       // whatever the tier, so the `more-info` default alone is not enough —
       // the handler must return the resolution itself (the text card's shape).

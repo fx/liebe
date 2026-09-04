@@ -280,15 +280,19 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
     }
     // Focus first for the keyboard path, then open: opening moves focus into
     // the menu itself, and a trigger that never takes focus leaves a
-    // keyboard opener with no visible anchor when the menu closes. Held shut
-    // while the menu cannot open — a dispatch in flight or no options at all
-    // — so a tap cannot arm an open that fires late, after the load lands.
-    // Absent trigger, same fallback as above: the control slot was suppressed
+    // keyboard opener with no visible anchor when the menu closes. A helper
+    // with no options renders a disabled dropdown — focusing it would neither
+    // open a control nor reach `more-info`, so the tap bypasses the trigger
+    // and resolves to the dialog instead, which renders the disabled control
+    // and says it is disabled. Held shut while a dispatch is in flight too,
+    // so a tap cannot arm an open that fires late, after the load lands.
+    // Absent trigger, same fallback: the control slot was suppressed
     // (`iconOnly`) or omitted (cross-axis-fit floors), so there is nothing to
     // open and the tap resolves to `more-info`.
     if (!triggerRef.current) return 'more-info'
+    if (readSelectOptions(attributesForPresentation).length === 0) return 'more-info'
     triggerRef.current.focus()
-    if (!loading && readSelectOptions(attributesForPresentation).length > 0) setIsOpen(true)
+    if (!loading) setIsOpen(true)
     return undefined
   }
 
@@ -379,6 +383,14 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
        */
       defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
+      /*
+       * The entity travels with the config for the same reason it does on the
+       * number card: the shell builds the detail dialog's target out of the
+       * placed item, so a card that hands over neither suppresses the
+       * `more-info` fallback to an action with nothing behind it.
+       */
+      entityId={entityId}
+      config={config ?? publishedItem.config}
     >
       {/*
        * `glance` reads the current option out as the tile's state line and

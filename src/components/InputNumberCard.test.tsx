@@ -407,7 +407,13 @@ describe('InputNumberCard', () => {
       // Consults the resolved presentation rather than the stored style: at
       // `tall` a stored `stepper` renders the vertical slider, and the tap
       // must focus what is there rather than what is stored.
-      render(<InputNumberCard entityId="input_number.test_number" tier="tall" config={{ controlStyle: 'stepper' }} />)
+      render(
+        <InputNumberCard
+          entityId="input_number.test_number"
+          tier="tall"
+          config={{ controlStyle: 'stepper' }}
+        />
+      )
       expect(document.querySelector('.liebe-slider-thumb')).not.toBeNull()
 
       fireEvent.click(document.querySelector('.liebe-card')!)
@@ -417,7 +423,7 @@ describe('InputNumberCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
-    it("routes a stored toggle to the dialog at glance, where there is nothing to focus", () => {
+    it('routes a stored toggle to the dialog at glance, where there is nothing to focus', () => {
       // A configured `tapAction: toggle` resolves to the card's own handler
       // whatever the tier, so the `more-info` default alone is not enough —
       // the handler must return the resolution itself (the text card's shape).
