@@ -100,7 +100,5 @@ const BOUNDED_PATTERNS = [
  * much as the predicate under it.
  */
 export function unboundedSelectors(selectors: string[]): string[] {
-  return selectors.filter(
-    (selector) => !BOUNDED_PATTERNS.some((pattern) => pattern.test(selector))
-  )
+  return selectors.filter((selector) => !BOUNDED_PATTERNS.some((pattern) => pattern.test(selector)))
 }

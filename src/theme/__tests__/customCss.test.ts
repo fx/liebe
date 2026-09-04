@@ -660,7 +660,9 @@ describe('sanitizeCustomCss — the document-level mirror', () => {
     const portal = mirrored('.liebe-card::after { content: ".liebe-portal-root" }')
     const keyed = scopePortalCssToInstance(portal, 'panel-a')
 
-    expect(keyed).toContain('.liebe-portal-root[data-liebe-instance="panel-a"]:is(.liebe-card)::after')
+    expect(keyed).toContain(
+      '.liebe-portal-root[data-liebe-instance="panel-a"]:is(.liebe-card)::after'
+    )
     expect(keyed).toContain('content: ".liebe-portal-root"')
     expect(keyed).not.toContain('content: ".liebe-portal-root[data-liebe-instance')
   })

@@ -159,7 +159,7 @@ test('LCARS applies live, forces dark, and paints its console frame', async ({ p
   // face the overlay resolves are the panel's own file, not the other panel's.
   const families = await documentFontFamilies(page)
   const keyed = families.filter((family) => family.startsWith('Antonio__'))
-  expect(keyed, "the switch registered the panels own face").not.toHaveLength(0)
+  expect(keyed, 'the switch registered the panels own face').not.toHaveLength(0)
   expect(await documentFontLoaded(page, `16px ${keyed[0]}`), 'the bundled woff2 loaded').toBe(true)
 
   const meta = await shadowComputedStyle(page, '.liebe-name', ['font-family', 'text-transform'])
