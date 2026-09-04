@@ -77,7 +77,7 @@ describe('prod-bundle diet', () => {
     expect(bundle).not.toContain('Add Grid Item')
   })
 
-  it('keeps the dev route paths registered (render-gated, not deleted)', () => {
+  it('keeps the dev route paths registered (stubbed, not deleted)', () => {
     const bundle = panel()
     if (bundle === null) return
 
@@ -108,10 +108,18 @@ describe('prod-bundle diet', () => {
     }
   })
 
-  it('keeps the dev-only route modules render-gated in source', () => {
-    for (const route of ['src/routes/test-store.tsx', 'src/routes/__root.test.performance.tsx']) {
+  it('keeps the dev route modules referencing the real pages (prod exclusion is build-time)', () => {
+    // No runtime DEV branch: the prod-only stub plugin owns exclusion, so the
+    // route modules unconditionally reference their pages. The artifact tests
+    // above prove the prod effect; this pins the mechanism division.
+    const expectations: Record<string, string> = {
+      'src/routes/test-store.tsx': 'StoreTestPage',
+      'src/routes/__root.test.performance.tsx': 'EntityBrowserPerformanceTest',
+    }
+    for (const [route, page] of Object.entries(expectations)) {
       const source = readFileSync(join(repoRoot, route), 'utf8')
-      expect(source).toContain('import.meta.env.DEV')
+      expect(source).toContain(page)
+      expect(source).not.toContain('import.meta.env.DEV')
     }
   })
 })

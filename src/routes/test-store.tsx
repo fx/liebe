@@ -1,18 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Button, Flex, Card, Text, Badge, Separator } from '@radix-ui/themes'
 import { useDashboardStore, dashboardActions, useDashboardPersistence } from '../store'
-import { NotFound } from '~/components/NotFound'
-import { resolveDevRouteComponent } from './devRoute'
-
-function DevOnlyNotFound() {
-  return <NotFound />
-}
-
-// Dev-only route: the production bundle serves NotFound here so the store
-// workshop never ships in the panel artifact. The route module stays (and its
-// route test keeps passing) — only what it renders changes by build mode.
+// Dev-only route: this module always references the workshop page. Production
+// exclusion happens at build time — devRouteStubPlugin (vite.config.ha.ts,
+// production only) resolves this file to a `NotFound` stub when routeTree.gen
+// imports it, so the harness never enters the panel bundle. Development serves
+// this file as-is.
 export const Route = createFileRoute('/test-store')({
-  component: resolveDevRouteComponent(import.meta.env.DEV, StoreTestPage, DevOnlyNotFound),
+  component: StoreTestPage,
 })
 
 function StoreTestPage() {
