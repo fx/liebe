@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { IconButton, Spinner } from '@radix-ui/themes'
+import { IconButton, Spinner, Theme } from '@radix-ui/themes'
 import { X, Settings } from 'lucide-react'
 import { useStore } from '@tanstack/react-store'
 import { useDashboardStore } from '~/store'
@@ -1122,39 +1122,56 @@ export const GridCard = React.memo(
              * no-arbitrary-z-index rule intact.
              */}
             {isEditMode && (canConfigure || onDelete) && !isFullscreen && (
-              <div className="liebe-card-actions">
-                {/* Configuration Button */}
-                {canConfigure && (
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="gray"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      configure?.()
-                    }}
-                    aria-label="Configure card"
-                  >
-                    <Settings size={14} />
-                  </IconButton>
-                )}
+              /*
+               * The scrimmed-ground rule's Radix half
+               * (docs/specs/design-system — "Card anatomy"): a Radix control
+               * colours itself from a Radix scale keyed off the ancestor
+               * `Theme`'s appearance and reads none of the `--liebe-*`
+               * foreground tokens the artwork scopes pin white — so over the
+               * now-reliably-dark scrim a light-appearance control renders
+               * dark-on-dark (the delete glyph measured 3.19 → 1.18:1). The
+               * nested dark `Theme` re-resolves the controls to their dark
+               * scale while the artwork scope's tokens pass through untouched.
+               * Rendered after the content like the scrimmed layers it can sit
+               * over, for the same DOM-order reason; `hasBackground={false}`
+               * so the scope paints no surface of its own, exactly as the
+               * portal host does.
+               */
+              <Theme appearance="dark" hasBackground={false}>
+                <div className="liebe-card-actions">
+                  {/* Configuration Button */}
+                  {canConfigure && (
+                    <IconButton
+                      size="1"
+                      variant="ghost"
+                      color="gray"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        configure?.()
+                      }}
+                      aria-label="Configure card"
+                    >
+                      <Settings size={14} />
+                    </IconButton>
+                  )}
 
-                {/* Delete Button */}
-                {onDelete && (
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="red"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDelete()
-                    }}
-                    aria-label="Delete entity"
-                  >
-                    <X size={14} />
-                  </IconButton>
-                )}
-              </div>
+                  {/* Delete Button */}
+                  {onDelete && (
+                    <IconButton
+                      size="1"
+                      variant="ghost"
+                      color="red"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete()
+                      }}
+                      aria-label="Delete entity"
+                    >
+                      <X size={14} />
+                    </IconButton>
+                  )}
+                </div>
+              </Theme>
             )}
           </div>
 

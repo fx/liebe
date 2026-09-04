@@ -161,6 +161,37 @@ describe('showConditionBackground', () => {
     }
   })
 
+  it('scopes the shell edit affordances to the dark appearance over artwork', () => {
+    // The artwork is the shell's tile, and the shell appends its edit-mode
+    // affordances after the card content — so over a weather tile the
+    // configure/delete `IconButton`s stand on the scrimmed photograph, and
+    // take the scrimmed-ground rule's Radix half with them
+    // (docs/specs/design-system — "Card anatomy"). Edit mode is the
+    // dashboard store's, so it is set and reset around the render.
+    dashboardActions.setMode('edit')
+    try {
+      const { unmount } = renderCard(
+        <WeatherCard
+          entityId={ENTITY}
+          tier="full"
+          config={{ variant: 'default' }}
+          onDelete={() => {}}
+        />
+      )
+
+      expect(hasArtworkTreatment()).toBe(true)
+      const actions = card().querySelector('.liebe-card-actions') as HTMLElement
+      expect(actions).not.toBeNull()
+      const scope = actions.closest('.radix-themes') as HTMLElement
+      expect(scope).not.toBeNull()
+      expect(scope.classList.contains('dark')).toBe(true)
+      expect(scope.getAttribute('data-has-background')).toBe('false')
+      unmount()
+    } finally {
+      dashboardActions.setMode('view')
+    }
+  })
+
   it('paints none of it on an icon-only tile, treatment included', () => {
     // `iconOnly` reduces the card to its glyph, and the shell drops the paint
     // layers from the tile — so a variant that kept resolving an image would

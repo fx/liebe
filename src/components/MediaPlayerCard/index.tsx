@@ -1,4 +1,4 @@
-import { Box, Flex } from '@radix-ui/themes'
+import { Box, Flex, Theme } from '@radix-ui/themes'
 import { Select } from '~/components/ui/portals'
 import {
   IconDeviceSpeaker,
@@ -756,28 +756,45 @@ function MediaPlayerCardComponent({
    * opens a portal: the click that chooses an item lands outside the tile, but
    * the click that opens the trigger does not, and without this it would also
    * be a tap on the card.
+   *
+   * The nested dark `Theme` is the scrimmed-ground rule's Radix half
+   * (docs/specs/design-system — "Card anatomy"): the `Select.Trigger` is a
+   * Radix control, so it colours itself from a Radix scale keyed off the
+   * ancestor `Theme`'s appearance and reads none of the foreground tokens the
+   * backdrop scope pins white. In background mode the ground under it is the
+   * scrimmed photograph — reliably dark — so a light-appearance trigger
+   * renders dark-on-dark (label 1.02 → 1.23:1, never compliant in either
+   * appearance). The scope re-resolves the trigger to its dark scale; the
+   * backdrop scope's own tokens pass through untouched, and on the flat
+   * themed surface there is no artwork behind the trigger for a nested
+   * appearance to disagree with. `hasBackground={false}` so the scope paints
+   * no surface of its own, exactly as the portal host does. The `Content` is
+   * inside the same scope because Radix wraps portalled content in its own
+   * nested `Theme`, which inherits this appearance rather than the panel's.
    */
   const sourcePicker = (
     <Box onClick={(e) => e.stopPropagation()} width="100%">
-      <Select.Root
-        value={readCurrentSource(attributes)}
-        onValueChange={handleSelectSource}
-        disabled={isLoading}
-      >
-        <Select.Trigger
-          variant="soft"
-          style={{ width: '100%' }}
-          aria-label="Source"
-          placeholder="Select source"
-        />
-        <Select.Content>
-          {sourceList.map((source) => (
-            <Select.Item key={source} value={source}>
-              {source}
-            </Select.Item>
-          ))}
-        </Select.Content>
-      </Select.Root>
+      <Theme appearance="dark" hasBackground={false}>
+        <Select.Root
+          value={readCurrentSource(attributes)}
+          onValueChange={handleSelectSource}
+          disabled={isLoading}
+        >
+          <Select.Trigger
+            variant="soft"
+            style={{ width: '100%' }}
+            aria-label="Source"
+            placeholder="Select source"
+          />
+          <Select.Content>
+            {sourceList.map((source) => (
+              <Select.Item key={source} value={source}>
+                {source}
+              </Select.Item>
+            ))}
+          </Select.Content>
+        </Select.Root>
+      </Theme>
     </Box>
   )
 

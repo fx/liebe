@@ -550,4 +550,27 @@ describe('GridCard shell', () => {
     expect(screen.getByRole('button', { name: 'Configure card' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete entity' })).toBeInTheDocument()
   })
+
+  it('scopes the edit affordances to the dark appearance, so Radix glyphs hold their floors over scrimmed artwork', () => {
+    // The scrimmed-ground rule's Radix half (docs/specs/design-system —
+    // "Card anatomy"): a Radix `IconButton` resolves its glyph from a Radix
+    // scale keyed off the nearest ancestor `Theme`, reading none of the
+    // foreground tokens the artwork scopes pin — so over the reliably dark
+    // scrim a light-appearance control renders dark-on-dark. The nested dark
+    // `Theme` re-resolves the controls while the scope's tokens pass through.
+    setMode('edit')
+    render(
+      <GridCard domain="weather" hasConfiguration onConfigure={() => {}} onDelete={() => {}}>
+        content
+      </GridCard>
+    )
+
+    const actions = document.querySelector('.liebe-card-actions') as HTMLElement
+    const scope = actions.closest('.radix-themes') as HTMLElement
+    expect(scope).not.toBeNull()
+    expect(scope.classList.contains('dark')).toBe(true)
+    // A scope, not a surface: it re-themes the controls without painting over
+    // the artwork behind them.
+    expect(scope.getAttribute('data-has-background')).toBe('false')
+  })
 })

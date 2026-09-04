@@ -256,7 +256,7 @@ changes:
     path: changes/0030-weather-forecast-legibility.md
     description: 'Weather forecast visual pass — labelled distinguishable hourly/daily sections, column rhythm, high–low emphasis, degree-only cells, one icon language — plus the artwork scrim closing #215'
     spec: entity-cards
-    status: draft
+    status: complete
     depends_on: []
   - id: '0031'
     name: sensor-graph-fill

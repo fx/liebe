@@ -1414,6 +1414,24 @@ describe('MediaPlayerCard source picker', () => {
 
     expect(screen.queryByLabelText('Source')).not.toBeInTheDocument()
   })
+
+  it('scopes the picker to the dark appearance, so the Radix trigger holds its floors over the backdrop', () => {
+    // The scrimmed-ground rule's Radix half (docs/specs/design-system —
+    // "Card anatomy"): the `Select.Trigger` resolves its label from a Radix
+    // scale keyed off the nearest ancestor `Theme`, reading none of the
+    // foreground tokens the backdrop scope pins — so over the reliably dark
+    // scrim a light-appearance trigger renders dark-on-dark. The nested dark
+    // `Theme` re-resolves the trigger while the scope's tokens pass through.
+    sourced({ showSourcePicker: true })
+
+    const trigger = screen.getByLabelText('Source')
+    const scope = trigger.closest('.radix-themes') as HTMLElement
+    expect(scope).not.toBeNull()
+    expect(scope.classList.contains('dark')).toBe(true)
+    // A scope, not a surface: it re-themes the trigger without painting over
+    // the artwork behind it.
+    expect(scope.getAttribute('data-has-background')).toBe('false')
+  })
 })
 
 describe('MediaPlayerCard progress', () => {
