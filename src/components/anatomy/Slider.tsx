@@ -1,6 +1,7 @@
 import { useRef, type Ref } from 'react'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import { anatomyPart, type AnatomyPartProps } from './anatomyPart'
+import './anatomy.css'
 
 export interface SliderProps extends AnatomyPartProps {
   /**
@@ -126,22 +127,21 @@ export function Slider({
   const { className, ...partAttributes } = anatomyPart('liebe-slider', part)
   // The tap/drag split for a background slider, which IS the tile: a tap
   // (press and release without meaningful travel) must fall through to the
-  // tile's action while a drag must not. Two halves, on two different events:
-  // - The pointer half tracks travel in CSS pixels from the pointer-down
-  //   point. A tap that lands away from the thumb still *sets* a value — the
-  //   track jumps to the touch point — with zero travel, so "the value
-  //   changed" alone would wrongly kill the tap action. Only travel past
-  //   BACKGROUND_TRAVEL_PX counts as a drag; anything less stays a tap.
-  // - The value half marks the gesture moved, so the click that ends a real
-  //   drag is stopped and never reaches the shell's tap. It is set only once
-  //   the pointer half has already declared a drag, for the same reason.
+  // tile's action while a drag must not. The pointer half tracks travel in
+  // CSS pixels from the pointer-down point; only travel past
+  // BACKGROUND_TRAVEL_PX counts as a drag, anything less stays a tap. A tap
+  // that lands away from the thumb still *sets* a value — the track jumps to
+  // the touch point — with zero travel, so neither "the value changed" nor a
+  // separate moved flag may decide the split (an earlier revision carried
+  // one; it is gone — the drag flag alone gates the
+  // ending click and the commit. The commit gate additionally lets keyboard
+  // commits through (see below).
   //
-  // Both reset on every pointer down. A drag also cancels the shell's armed
-  // hold timer (via the `onBackgroundDragStart` callback the shell wires to
-  // `gestures.release()`): press-and-hold arms on pointer down, so without
-  // this a slow drag past HOLD_DURATION_MS would fire hold under the finger
-  // still adjusting the value.
-  const backgroundMovedRef = useRef(false)
+  // A drag also cancels the shell's armed hold timer (via the
+  // `onBackgroundDragStart` callback the shell wires to `gestures.release()`):
+  // press-and-hold arms on pointer down, so without this a slow drag past
+  // HOLD_DURATION_MS would fire hold under the finger still adjusting the
+  // value.
   const backgroundDraggedRef = useRef(false)
   const backgroundDownRef = useRef<{ x: number; y: number } | null>(null)
   // Keyboard adjustments are always deliberate: each key press is a real
@@ -161,13 +161,15 @@ export function Slider({
       step={step}
       orientation={orientation}
       disabled={disabled}
-      onValueChange={([next]) => {
-        if (isBackground && backgroundDraggedRef.current) backgroundMovedRef.current = true
-        onValueChange(next)
-      }}
+      onValueChange={([next]) => onValueChange(next)}
       // A zero-travel tap on the track away from the thumb still *sets* a
       // value — Radix jumps the track to the touch point on pointer down —
-      // and then commits it on pointer up. Gating the commit on the same
+      // and then commits it on pointer up. Gating the commit on the drag flag
+      // (plus the keyboard flag below) means a no-travel tap adjusts nothing:
+      // no brightness call, no cover confirmation, just the tap action
+      // (options/common — "Gestures in `background` placement": a tap is the
+      // tap action only; only a drag adjusts the slider). Inline sliders
+      // commit whatever Radix reports — they own their gesture outright.
       onValueCommit={([next]) => {
         if (!isBackground || backgroundDraggedRef.current || backgroundKeyboardRef.current)
           onValueCommit?.(next)
@@ -175,6 +177,9 @@ export function Slider({
       onKeyDownCapture={() => {
         if (isBackground) backgroundKeyboardRef.current = true
       }}
+      // An inline slider owns its gesture, so it stops the tile's action
+      // pipeline from seeing it (below): dragging brightness must not also
+      // toggle the light it is dimming. A background slider IS the tile — the
       // drag/tap split above is what separates the two, so the pointer down is
       // NOT stopped here and the shell's press pipeline sees it (hold and
       // double-tap keep working). Radix composes its own pointer handler after
@@ -182,12 +187,12 @@ export function Slider({
       // starts either way.
       onPointerDown={(event) => {
         if (isBackground) {
-          backgroundMovedRef.current = false
           backgroundDraggedRef.current = false
           backgroundKeyboardRef.current = false
           backgroundDownRef.current = { x: event.clientX, y: event.clientY }
         } else event.stopPropagation()
       }}
+      // Capture phase: the move target is the track (or the thumb inside
       // it) — capture runs Root-first, so the threshold is seen no matter
       // which descendant the finger is over. (Relying on bubble phase misses
       // synthetic moves dispatched at the track: the Root's own React
@@ -206,10 +211,8 @@ export function Slider({
       onClickCapture={(event) => {
         // Capture, not bubble alone: the click that ends a drag must die
         // before it reaches the shell's tile handler regardless of which
-        // descendant it lands on. The drag flag alone decides — NOT the
-        // moved flag, which also requires a value change that a synthetic
-        // pointer sequence never produces. Only a drag stops it; a tap's
-        // click bubbles to the shell and becomes the tap action.
+        // descendant it lands on. The drag flag alone decides; a tap's click
+        // bubbles to the shell and becomes the tap action.
         if (isBackground && backgroundDraggedRef.current) event.stopPropagation()
       }}
       onClick={(event) => {
