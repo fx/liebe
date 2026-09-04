@@ -818,16 +818,9 @@ function isScopableRule(rule: Rule): boolean {
  * `:is()` is also forgiving, which is the safe direction here: a selector the
  * document cannot parse — `:host` out of a shadow root, most obviously — is
  * dropped from the match rather than taking the rule with it.
- *
- * With an instance token the scope carries it on both prefixes, so a keyed
- * sheet matches one panel's container and its descendants and nothing else —
- * including not the other panel's container. Without one the scope is the bare
- * container class, the historical shape matching every panel's container.
  */
-function scopeSelector(selector: string, instance?: string): string {
-  const scope = instance
-    ? `.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
-    : `.${PORTAL_ROOT_CLASS}`
+function scopeSelector(selector: string): string {
+  const scope = `.${PORTAL_ROOT_CLASS}`
   return list
     .comma(selector)
     .flatMap((part) => {
@@ -934,7 +927,7 @@ function startsLegacyPseudoElement(rest: string): boolean {
  * dialog, with nothing said. The spec's rule that everything stripped is named
  * covers it.
  */
-function scopeToPortalRoot(root: Root, instance?: string): { css: string; notices: string[] } {
+function scopeToPortalRoot(root: Root): { css: string; notices: string[] } {
   const scoped = root.clone()
   const notices: string[] = []
 
@@ -950,7 +943,7 @@ function scopeToPortalRoot(root: Root, instance?: string): { css: string; notice
   }
 
   scoped.walkRules((rule) => {
-    if (isScopableRule(rule)) rule.selector = scopeSelector(rule.selector, instance)
+    if (isScopableRule(rule)) rule.selector = scopeSelector(rule.selector)
   })
 
   return { css: scoped.toString().trim(), notices }
