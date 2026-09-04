@@ -2,7 +2,7 @@
 
 ## Summary
 
-Finish the render-churn work [0001](./0001-per-entity-store-selectors.md) started — narrow the remaining whole-store subscriptions, share one clock per tick rate instead of one interval per consumer, and coalesce the history/forecast/health timers — then put the shipped bundle on a diet (dev routes out of prod, Radix weight audited) and delete the dead code the reviews have already named. A tech-debt bundle in the shape of [0002](./0002-repo-hygiene.md): no behavior changes, only fewer renders, fewer timers, fewer bytes.
+Finish the render-churn work [0001](./0001-per-entity-store-selectors.md) started — narrow the remaining whole-store subscriptions, share one clock per tick rate instead of one interval per consumer, and coalesce the history/forecast/health timers — then put the shipped bundle on a diet (dev routes out of prod, Radix weight audited) and delete the dead code the reviews have already named. A tech-debt bundle in the shape of [0002](./0002-repo-hygiene.md): no intentional dashboard interaction changes — fewer renders, fewer timers, fewer bytes — with two named exceptions: the dev routes render `NotFound` in production builds (dev only), and six unreferenced icon-map entries no longer resolve (persisted overrides naming one fall back to the card glyph).
 
 **Spec:** [entity-state](../specs/entity-state/index.md) → [Entity Store](../specs/entity-state/index.md#entity-store) and [Consumer Hooks](../specs/entity-state/index.md#consumer-hooks); bundle items reference [architecture](../specs/architecture/index.md) (build/bundle)
 **Status:** complete
