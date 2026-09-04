@@ -733,6 +733,7 @@ export const GridCard = React.memo(
         overArtwork = false,
         backgroundSlider,
       },
+      ref
     ) => {
       const { mode } = useDashboardStore()
       const isEditMode = mode === 'edit'
