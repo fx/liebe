@@ -126,47 +126,6 @@ export function applyUserCss(
 }
 
 /**
- * Applies a layer to whichever root `node` is mounted in — the caller's way in
- * from React, where the only handle on the root is an element inside it.
- *
- * A node that is in no document and no shadow root (a tree mid-mount, or one
- * rendered into a detached container) has nowhere to hold a stylesheet;
- * returning `null` rather than throwing keeps that a non-event, and the next
- * render in a real root injects.
- *
- * From a shadow root the layer is mirrored into the owning document as well,
- * because Radix dialogs and dropdowns portal out of the shadow root — into the
- * `liebe-portal-root` container (`src/components/ui/portals.tsx`), which is a
- * child of `document.body` and so outside every layer injected here. What gets
- * mirrored through THIS function is the *theme* layer, and only that:
- * `applyThemeCssToRootOf` is the sole caller. It is safe to copy as authored
- * because theme CSS is first-party — but only once keyed: every rule in it
- * matches on `.liebe-root`, which both panels' containers carry, so an
- * unkeyed mirror would style the other panel's overlays too. The keying
- * happens in `applyThemeCssToRootOf`, which scopes the mirrored copy to this
- * panel's own container before it leaves the shadow root.
- *
- * The user layer is mirrored too, and it is the one that could NOT be copied as
- * authored: its selectors are the user's, nothing scopes them to Liebe, and a
- * `body { display: none }` out of an imported configuration would restyle the
- * frontend around the panel. `applyUserCssToRootOf` therefore takes the two
- * sheets `sanitizeCustomCss` returns and sends the rewritten one outward, rather
- * than being rewired through this function — passing one sheet to both roots is
- * exactly the mistake that signature exists to make impossible. "The mirror
- * boundary" in `styleInjection.test.ts` pins the asymmetry.
- */
-function applyLayerToRootOf(
-  node: Node | null | undefined,
-  css: string,
-  apply: (root: StyleRoot, css: string) => HTMLStyleElement
-): HTMLStyleElement | null {
-  const root = node?.getRootNode()
-  if (!isStyleRoot(root)) return null
-
-  if (root instanceof ShadowRoot) apply(root.ownerDocument, css)
-  return apply(root, css)
-}
-/**
  * Keys a theme sheet's mirrored copy to one panel's container.
  *
  * Every first-party theme rule is scoped to `.liebe-root` (and LCARS adds
