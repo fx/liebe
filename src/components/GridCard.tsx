@@ -1187,10 +1187,20 @@ export const GridCard = React.memo(
        * action re-checks lazily on focus —
        * see `refreshTileActionTabIndex`.
        */
-      const refreshTileActionTabIndex = React.useCallback((control: HTMLButtonElement | null) => {
-        if (!control) return
-        const tile = control.parentElement
-        if (!tile) return
+      // One observer per mounted tile-action control, owned explicitly. React
+      // calls a callback ref with the node on mount and with `null` on
+      // unmount, which is the matching teardown — a returned cleanup function
+      // would be ignored (React 19 reserves those for object refs), leaking
+      // the observer, and re-invoking the callback from `onFocus` would
+      // attach a second observer per focus. So the observer lives in a ref
+      // alongside the control, `null` disconnects it, and focus only
+      // re-runs the decision logic, never the attach.
+      const tileActionControlRef = React.useRef<HTMLButtonElement | null>(null)
+      const tileActionObserverRef = React.useRef<MutationObserver | null>(null)
+      const decideTileActionTabIndex = React.useCallback(() => {
+        const control = tileActionControlRef.current
+        const tile = control?.parentElement
+        if (!control || !tile) return
         // Decided on rendered tabbability, not mere presence: a `button`
         // that is `disabled`, or any element parked at `tabindex="-1"`, is
         // not a Tab stop, and suppressing the tile action beside one would
@@ -1198,59 +1208,68 @@ export const GridCard = React.memo(
         // (the IDL-resolved value, `-1` for the untabbable) is what answers
         // that — the attribute alone cannot, since a natively tabbable
         // `button` carries no `tabindex` attribute yet reports `0`.
-        const decide = () => {
-          // Queried fresh on every run: the set changes exactly when the
-          // committed DOM does, and a cached NodeList would answer for the
-          // tile as it was when the control mounted.
-          const others = tile.querySelectorAll(
-            'a[href], button, input, textarea, select, [tabindex]'
-          )
-          // Rendered tabbability, not mere presence. `tabIndex` alone is not
-          // enough: jsdom reports `0` for a disabled button, and a parked
-          // `tabindex="-1"` is never a Tab stop anywhere — either would
-          // suppress the tile action and leave the tile with no keyboard
-          // surface at all.
-          const isTabStop = (el: Element): boolean => {
-            if (el.classList.contains('liebe-tile-action')) return false
-            if (!(el instanceof HTMLElement)) return false
-            if ('disabled' in el && (el as unknown as { disabled: boolean }).disabled) return false
-            return el.tabIndex >= 0
-          }
-          if (Array.from(others).some(isTabStop)) control.tabIndex = -1
-          else control.removeAttribute('tabindex')
+        // Queried fresh on every run: the set changes exactly when the
+        // committed DOM does, and a cached NodeList would answer for the
+        // tile as it was when the control mounted. Rendered tabbability,
+        // not mere presence: jsdom reports `0` for a disabled button, so
+        // the explicit `disabled` check below is what keeps a busy tile
+        // keyboard-reachable.
+        const others = tile.querySelectorAll('a[href], button, input, textarea, select, [tabindex]')
+        const isTabStop = (el: Element): boolean => {
+          if (el.classList.contains('liebe-tile-action')) return false
+          if (!(el instanceof HTMLElement)) return false
+          if ('disabled' in el && (el as unknown as { disabled: boolean }).disabled) return false
+          return el.tabIndex >= 0
         }
-        decide()
-        // A control mounting, unmounting, or toggling `disabled` re-renders
-        // the tile through its own state, but this ref callback does not
-        // re-run for that — and a `tabIndex = -1` control cannot take focus
-        // to re-check itself. So watch the tile for exactly those changes
-        // and re-decide with them; disconnected when the control detaches.
-        // `decide` writes `control.tabIndex`, which is itself a `tabindex`
-        // mutation the observer watches: without the guard below, deciding
-        // `-1` re-triggers the observer, which re-decides `-1` forever.
-        let settling = false
-        const observer = new MutationObserver(() => {
-          if (settling) return
-          settling = true
-          try {
-            decide()
-          } finally {
-            // Release asynchronously: the `tabindex` write above notifies
-            // synchronously on `setAttribute`, so releasing inline would
-            // still observe our own write.
-            queueMicrotask(() => {
-              settling = false
-            })
-          }
-        })
-        observer.observe(tile, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['disabled', 'tabindex'],
-        })
-        return () => observer.disconnect()
+        if (Array.from(others).some(isTabStop)) control.tabIndex = -1
+        else control.removeAttribute('tabindex')
       }, [])
+      const attachTileActionControl = React.useCallback(
+        (control: HTMLButtonElement | null) => {
+          // Teardown first: React calls the *previous* callback with `null`
+          // before the new one attaches, and unmount calls it with `null`
+          // too — either way the owned observer disconnects here, so neither
+          // the observer nor the detached tile leaks.
+          tileActionObserverRef.current?.disconnect()
+          tileActionObserverRef.current = null
+          tileActionControlRef.current = control
+          if (!control) return
+          const tile = control.parentElement
+          if (!tile) return
+          decideTileActionTabIndex()
+          // A control mounting, unmounting, or toggling `disabled`
+          // re-renders the tile through its own state, but this ref callback
+          // does not re-run for that — and a `tabIndex = -1` control cannot
+          // take focus to re-check itself. So watch the tile for exactly
+          // those changes and re-decide with them. `decide` writes
+          // `control.tabIndex`, which is itself a `tabindex` mutation the
+          // observer watches: without the guard below, deciding `-1`
+          // re-triggers the observer, which re-decides `-1` forever.
+          let settling = false
+          const observer = new MutationObserver(() => {
+            if (settling) return
+            settling = true
+            try {
+              decideTileActionTabIndex()
+            } finally {
+              // Release asynchronously: the `tabindex` write above notifies
+              // synchronously on `setAttribute`, so releasing inline would
+              // still observe our own write.
+              queueMicrotask(() => {
+                settling = false
+              })
+            }
+          })
+          observer.observe(tile, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['disabled', 'tabindex'],
+          })
+          tileActionObserverRef.current = observer
+        },
+        [decideTileActionTabIndex]
+      )
 
       const effectiveHue = resolveCardHue(hue, display, danger)
 
@@ -1489,8 +1508,8 @@ export const GridCard = React.memo(
                 type="button"
                 className="liebe-tile-action"
                 aria-label={tileActionLabel}
-                ref={refreshTileActionTabIndex}
-                onFocus={({ currentTarget }) => refreshTileActionTabIndex(currentTarget)}
+                ref={attachTileActionControl}
+                onFocus={decideTileActionTabIndex}
                 onClick={() => {
                   // Same recovery route as the pointer tap above: while the
                   // tile carries a failure the control opens the dialog

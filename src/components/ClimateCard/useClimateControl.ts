@@ -64,9 +64,12 @@ export function useClimateControl(entityId: string): ClimateControl {
     const retained = failedCommand?.retryable ? failedCommand.command : undefined
     if (!retained) return
     if (isLoading) return
-    if (error) clearError()
+    // No pre-clear: `runCall` already resets error/retention on entry for an
+    // admitted dispatch, and a guard-refused retry dispatches nothing — so a
+    // pre-clear would wipe the error while leaving the tile failed, reading
+    // recovered while the command never re-sent.
     await dispatchGuarded(retained)
-  }, [failedCommand, isLoading, error, clearError, dispatchGuarded])
+  }, [failedCommand, isLoading, dispatchGuarded])
 
   /**
    * The three mode services differ only in which key they carry, so they share
