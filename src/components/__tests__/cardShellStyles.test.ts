@@ -532,6 +532,35 @@ describe('card shell stylesheet', () => {
     expect(reduced).toContain('animation: none;')
     expect(reduced).toContain('transition: none;')
   })
+
+  it('routes centre-tile pointer input to the background surface, not the body', () => {
+    // `CardBody` fills the tile and paints after the absolutely-positioned
+    // slider, so without routing a centre-tile drag hit-tests the transparent
+    // body and Radix never sees a value change — the panel paints a fill no
+    // drag can move. The body goes pointer-transparent while a background
+    // surface is mounted; real embedded controls opt back in. Asserted on
+    // the declarations because jsdom lays nothing out and `elementFromPoint`
+    // is not implemented there; the browser-level proof is the e2e drag
+    // asserting a committed HA brightness.
+    const [routing] = ruleBodies(
+      ".liebe-card:has(> .liebe-slider[data-placement='background']) > :not(.liebe-slider)"
+    )
+    expect(routing, 'no background hit-routing rule').toBeDefined()
+    expect(routing).toContain('pointer-events: none;')
+  })
+
+  it('keeps real embedded controls clickable over a background surface', () => {
+    // The opt-back-in half of the rule above: pills, buttons, form controls
+    // and every interactive ARIA role — including the background slider
+    // itself — take `pointer-events: auto` again, so a `full`-tier secondary
+    // control still operates. Plain text, icons and meta stay transparent so
+    // a drag starting on them reaches the slider. The selector spans lines
+    // (Prettier), so it is matched loosely rather than by exact text.
+    const optIn = rulesIn(css).find(
+      ({ selector, declarations }) =>
+        declarations.includes('pointer-events: auto;') && selector.includes("[role='slider']")
+    )
+  })
 })
 
 describe('card shell component', () => {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPortal } from 'react-dom'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { GridCardWithComponents as GridCard } from '../GridCard'
-import { Pill } from '../anatomy'
+import { Pill, Slider } from '../anatomy'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { dashboardActions, dashboardStore } from '~/store'
@@ -355,6 +355,71 @@ describe('GridCard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Flip' }))
 
+    expect(onControl).toHaveBeenCalledTimes(1)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('routes a centre-tile drag to the background slider while controls stay clickable', () => {
+    // The hit-testing contract for the background surface: `CardBody` fills
+    // the tile and paints after the absolutely-positioned slider, so without
+    // routing a centre-tile drag hit-tests the transparent body and Radix
+    // never sees a value change. The stylesheet half (pinned in
+    // `cardShellStyles.test.ts`) makes the body's content pointer-transparent
+    // so the real browser retargets the gesture to the slider underneath;
+    // here the pointer stream is dispatched where the browser would deliver
+    // it — on the slider — and the observable is the shell's own wiring: the
+    // drag start cancels the armed hold (advancing past HOLD_DURATION_MS
+    // fires nothing), while a real embedded control keeps its own click with
+    // no tile tap behind it.
+    const onToggle = vi.fn()
+    const onControl = vi.fn()
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId="light.desk"
+        onClick={onToggle}
+        onMoreInfo={onMoreInfo}
+        backgroundSlider={
+          <Slider
+            domain="light"
+            color="light"
+            label="Brightness"
+            value={50}
+            placement="background"
+            onValueChange={() => {}}
+          />
+        }
+      >
+        <div className="liebe-card-body">
+          <span>plain body content</span>
+          <button type="button" onClick={onControl}>
+            Mode
+          </button>
+        </div>
+      </GridCard>
+    )
+
+    // A drag starting on plain body content: through the pointer-events split
+    // the body's content is transparent to the pointer, so the real browser
+    // retargets the gesture to the slider underneath (the stylesheet half,
+    // pinned in `cardShellStyles.test.ts`). In jsdom there is no hit-testing
+    // to do the retargeting, so the test dispatches the pointer stream where
+    // the browser would deliver it — on the slider — and pins what the slider
+    // does with it: travel declared, armed hold cancelled.
+    const slider = document.querySelector('.liebe-slider')!
+    fireEvent.pointerDown(slider, { isPrimary: true, button: 0, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(slider, { clientX: 130, clientY: 100 })
+    // The shell cloned the surface with `onBackgroundDragStart:
+    // gestures.release` (not the test's own callback), so the observable is
+    // the cancelled hold: advancing past HOLD_DURATION_MS fires nothing.
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS + 500)
+    })
+    expect(onMoreInfo).not.toHaveBeenCalled()
+
+    // A real control over the surface keeps its own click — and fires no tap.
+    fireEvent.click(screen.getByRole('button', { name: 'Mode' }))
     expect(onControl).toHaveBeenCalledTimes(1)
     expect(onToggle).not.toHaveBeenCalled()
   })

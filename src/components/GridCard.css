@@ -494,6 +494,54 @@
     inset: 0;
     position: absolute;
   }
+
+  /*
+   * Hit-testing for the surface above. `CardBody` fills the tile
+   * (`block-size / inline-size: 100%`) and paints after the
+   * absolutely-positioned slider, so without routing a centre-tile drag
+   * targets the transparent body and Radix never sees a value change —
+   * the panel would paint the fill but no drag could move it, violating
+   * the whole-tile drag contract (options/common — "Gestures in
+   * `background` placement"). The body goes transparent to the pointer
+   * while a background surface is mounted, and real embedded controls
+   * opt back in: pills, buttons, inputs, links, selects, textareas,
+   * labels, editable text, and everything carrying an interactive ARIA
+   * role (including the background slider itself, whose thumb carries
+   * `role="slider"`). Plain text, icons and the meta lines stay
+   * transparent, so a drag starting on them reaches the slider; the
+   * tile's own tap/hold/double-tap contract is untouched, because those
+   * are React synthetic handlers on the tile and never depended on the
+   * hit target.
+   */
+  .liebe-card:has(> .liebe-slider[data-placement='background']) > :not(.liebe-slider) {
+    pointer-events: none;
+  }
+
+  .liebe-card:has(> .liebe-slider[data-placement='background'])
+    > :not(.liebe-slider)
+    :is(
+      a[href],
+      button,
+      input,
+      textarea,
+      select,
+      label,
+      [contenteditable='true'],
+      [role='button'],
+      [role='checkbox'],
+      [role='combobox'],
+      [role='listbox'],
+      [role='menuitem'],
+      [role='option'],
+      [role='radio'],
+      [role='slider'],
+      [role='spinbutton'],
+      [role='switch'],
+      [role='tab'],
+      [role='textbox']
+    ) {
+    pointer-events: auto;
+  }
   /* The row a card puts its primary embedded control in. */
   .liebe-card-controls {
     align-items: center;

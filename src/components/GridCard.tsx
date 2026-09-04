@@ -1222,13 +1222,18 @@ export const GridCard = React.memo(
             style={cardStyle}
           >
             {/*
-             * The card-surface slider, behind the body the way the media
-             * player's artwork backdrop mounts behind its body. First in the DOM
-             * so the content paints over it without any z-index; absolutely
-             * positioned by the sheet, so it takes no layout space. Fenced with
-             * the body's siblings under `iconOnly` — where the fill IS the
-             * state tint rather than backdrop chrome — and inert in edit mode
-             * like every embedded control.
+             * The card-surface slider, structurally behind the body but
+             * hit-testing FIRST: `CardBody` fills the tile (`block-size /
+             * inline-size: 100%`) and paints after the absolutely-positioned
+             * layer, so without routing a centre-tile drag targets the
+             * transparent body and Radix never sees a value change. The
+             * pointer-events split below forwards the stream to the slider
+             * while keeping real embedded controls (and the
+             * tap/hold/double-tap contract) intact.
+             *
+             * Fenced with the body's siblings under `iconOnly` — where the
+             * fill IS the state tint rather than backdrop chrome — and inert
+             * in edit mode like every embedded control.
              *
              * Cloned with the drag-start callback rather than asked of the
              * card: the card owns value/commit/colour and nothing else, and a

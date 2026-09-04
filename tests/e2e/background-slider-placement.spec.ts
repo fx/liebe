@@ -195,8 +195,10 @@ test('a background slider covers the tile, drags to adjust, taps to toggle', asy
   // …and Home Assistant agrees: the brightness attribute landed near
   // maximum, read back over REST rather than off the panel's optimistic
   // value. `getRestState` returns only the state string, so the attribute
-  // is fetched inline.
-  const brightness = await expect
+  // is fetched inline. A drag ending at no-change (e.g. a gesture the body
+  // swallowed) commits nothing and leaves the 128 the setup sent — which is
+  // exactly what this range rejects.
+  await expect
     .poll(
       async () => {
         const res = await fetch(`${HASS_URL}/api/states/${DEMO_LIGHT}`, {
@@ -211,5 +213,4 @@ test('a background slider covers the tile, drags to adjust, taps to toggle', asy
       { timeout: 15_000 }
     )
     .toBeGreaterThanOrEqual(250)
-  expect(brightness).toBeGreaterThanOrEqual(250)
 })
