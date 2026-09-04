@@ -13,6 +13,16 @@ import type { Plugin } from 'vite'
  * workshop and its route tests keep working.
  */
 /**
+ * Whether an importer id is the route tree whose dev routes get stubbed.
+ * Exported for tests: Vite ids can carry Windows separators or `?` query
+ * suffixes, and the raw suffix check misses both.
+ */
+export function isRouteTreeImporter(importer: string): boolean {
+  const normalized = importer.split('?')[0].replace(/\\/g, '/')
+  return normalized.endsWith('/src/routeTree.gen.ts')
+}
+
+/**
  * Strip a trailing extension so './routes/x' and './routes/x.tsx' map
  * identically; anything else passes through unchanged (and misses the map).
  */

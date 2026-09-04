@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeRouteSource, stubRoutePath } from './devRouteStubPlugin'
+import { isRouteTreeImporter, normalizeRouteSource, stubRoutePath } from './devRouteStubPlugin'
+
+describe('isRouteTreeImporter', () => {
+  it('matches posix ids', () => {
+    expect(isRouteTreeImporter('/work/src/routeTree.gen.ts')).toBe(true)
+    expect(isRouteTreeImporter('/other/src/router.tsx')).toBe(false)
+  })
+
+  it('matches windows-style separators', () => {
+    expect(isRouteTreeImporter('C:\\work\\src\\routeTree.gen.ts')).toBe(true)
+  })
+
+  it('strips query suffixes before matching', () => {
+    expect(isRouteTreeImporter('/work/src/routeTree.gen.ts?v=123')).toBe(true)
+    expect(isRouteTreeImporter('/work/src/routeTree.gen.ts?t=1&v=2')).toBe(true)
+  })
+})
 
 // The prod stub's route-path logic, directly: extension-normalized exact map,
 // unknown sources fall through (never mis-stubbed as the wrong route), and the

@@ -3,18 +3,6 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/** The missing-artifact branch, pointed at a path that cannot exist. */
-function panelMissingForTests(): string | null {
-  const missing = join(repoRoot, 'dist', 'no-such-panel.js')
-  if (!existsSync(missing)) {
-    if (process.env.LIEBE_REQUIRE_PANEL_ARTIFACT === '1') {
-      throw new Error(`prod-bundle diet gate: ${missing} is missing`)
-    }
-    return null
-  }
-  return readFileSync(missing, 'utf8')
-}
-
 /**
  * PR 3 artifact assertion: the production panel bundle MUST NOT contain the
  * dev routes' content.
@@ -50,8 +38,8 @@ const ARTIFACT = join(repoRoot, 'dist', 'panel.js')
 let panelCache: string | null | undefined
 /**
  * The built artifact, read once: the tests share one ~1.3MB read, miss cached
- * too. Safe to cache: the flag test reads a different path
- * (`panelMissingForTests`), so a cached hit/miss here never masks it.
+ * too. Safe to cache: the flag tests call `readPanelAt` with a nonexistent
+ * path directly, so a cached hit/miss here never masks them.
  */
 function panel(): string | null {
   if (panelCache !== undefined) return panelCache
