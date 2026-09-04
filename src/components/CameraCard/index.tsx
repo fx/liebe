@@ -529,6 +529,7 @@ function CameraCardComponent({
          */
         defaultAction="none"
         onConfigure={() => setConfigOpen(true)}
+        hasConfiguration={true}
         title={streamError || undefined}
         failureMessage={streamError || undefined}
         // A stream that would not start offers its remount retry (the

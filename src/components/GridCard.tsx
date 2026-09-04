@@ -1017,24 +1017,24 @@ export const GridCard = React.memo(
       const [prevIsEditMode, setPrevIsEditMode] = React.useState(isEditMode)
       const [prevDetailEntityId, setPrevDetailEntityId] = React.useState(detailEntityId)
       const [prevIsUnavailable, setPrevIsUnavailable] = React.useState(isUnavailable)
+      // `prevIsUnavailable` syncs on BOTH edges but only drops the dialogs on
+      // the rising one: syncing only inside the drop would leave it stuck
+      // `true` after an unavailable→available transition, so a later
+      // available→unavailable edge would not be detected and a stale
+      // confirmation could survive becoming unavailable.
+      const wentUnavailable = isUnavailable && !prevIsUnavailable
       if (
         isEditMode !== prevIsEditMode ||
         detailEntityId !== prevDetailEntityId ||
-        // An open confirmation holds a `proceed` closure over the action
-        // resolved while available; answering it after the entity goes quiet
-        // would dispatch a stale `toggle` at an indeterminate device. The
-        // deferred timers re-resolve at execution time (the hook's
-        // `latestActionsRef`), but a closure already handed to the dialog has
-        // no execution-time seam — so the request is dropped with the dialog
-        // it belongs to (design-system — "Size-adaptive layouts", the staleness
-        // rule), and answering it afterwards dispatches nothing.
-        (isUnavailable && !prevIsUnavailable)
+        wentUnavailable
       ) {
         setPrevIsEditMode(isEditMode)
         setPrevDetailEntityId(detailEntityId)
         setPrevIsUnavailable(isUnavailable)
         setDetailFor(null)
         setConfirmRequest(null)
+      } else if (isUnavailable !== prevIsUnavailable) {
+        setPrevIsUnavailable(isUnavailable)
       }
 
       /*

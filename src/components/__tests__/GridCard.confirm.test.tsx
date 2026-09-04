@@ -377,4 +377,55 @@ describe('GridCard confirm gate', () => {
     expect(onToggle).not.toHaveBeenCalled()
     expect(hass.callService).not.toHaveBeenCalled()
   })
+
+  it('re-arms confirmation after an unavailable→available→unavailable cycle', () => {
+    // The `prevIsUnavailable` mirror must sync on both edges: stuck `true`
+    // after a recovery would blind the next rising edge and let a stale
+    // confirmation survive becoming unavailable.
+    const onToggle = vi.fn()
+    const { rerender } = renderCard({ confirm: true }, onToggle)
+
+    const quietProps = {
+      domain: 'switch',
+      entityId: ENTITY_ID,
+      isOn: true,
+      isUnavailable: true,
+      config: { confirm: true },
+      onClick: onToggle,
+    } as const
+    const backProps = { ...quietProps, isUnavailable: false } as const
+
+    // First cycle arms and drops.
+    fireEvent.click(card())
+    expect(screen.getByText('Turn off Well Pump?')).toBeInTheDocument()
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard {...quietProps}>content</GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+
+    // Recover, gate again, go quiet again: the second drop must also fire.
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard {...backProps}>content</GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    fireEvent.click(card())
+    expect(screen.getByText('Turn off Well Pump?')).toBeInTheDocument()
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard {...quietProps}>content</GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
 })
