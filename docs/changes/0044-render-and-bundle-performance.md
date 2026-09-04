@@ -62,7 +62,7 @@ Three render PRs then one bundle PR, each independently landable and each with t
 - **Bundle groups with 0002's precedent, not a new spec.** Like repo-hygiene, this is project-level quality work spanning specs; entity-state owns the render requirements, architecture owns the build ones, and the change document is the single home rather than a spec edit in either.
 - **Clocks and schedulers share one PR (PR 2).** Both replace N private intervals with shared ticks; reviewing them apart would re-litigate the same "who owns the wheel" question twice.
 - **Bundle diet and dead code share one PR (PR 3).** Both change what ships rather than how it renders; the artifact assertion covers both.
-- **No new spec sections.** Nothing here changes observable behavior — a dashboard that renders identically with fewer wakes needs no contract update. If a PR discovers a behavior the spec misstates, that finding goes to the spec first.
+- **No new spec sections.** Nothing here changes dashboard interaction behavior — a dashboard that renders identically with fewer wakes needs no contract update (the two exceptions are the production dev-route gate and the six retired icon names, both named in the Summary). If a PR discovers a behavior the spec misstates, that finding goes to the spec first.
 
 ### Non-Goals
 

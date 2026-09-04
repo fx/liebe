@@ -36,6 +36,18 @@ const stableStores = new Map<number, { subscribe: (notify: () => void) => () => 
 /** The subscription a disabled consumer holds: never notifies, reads zero. */
 const EMPTY_STORE = { subscribe: () => () => {} }
 
+/**
+ * Fail-fast rate validation: a zero, negative or non-finite rate would hand
+ * `setInterval` a 0ms delay — a tight loop waking the whole panel as fast as
+ * the event loop allows. `useNow` is exported, so junk arrives from callers,
+ * not config; throwing names the culprit instead of hanging the tab.
+ */
+function assertValidRate(rateMs: number): void {
+  if (!Number.isFinite(rateMs) || rateMs <= 0) {
+    throw new RangeError(`useNow: rateMs must be a positive finite number, got ${String(rateMs)}`)
+  }
+}
+
 function ensureEntry(rateMs: number): Set<() => void> {
   let set = listeners.get(rateMs)
   if (!set) {
@@ -73,6 +85,7 @@ function maybeTeardown(rateMs: number): void {
  * leaves. Double release is safe and releases nothing further.
  */
 export function subscribeClockTick(rateMs: number, notify: () => void): () => void {
+  assertValidRate(rateMs)
   const set = ensureEntry(rateMs)
   set.add(notify)
   ensureInterval(rateMs)
@@ -150,6 +163,7 @@ export function clockIntervalCountForTests(rateMs: number): number {
  * rate gets its own clock (correct, but a new wheel rather than a shared one).
  */
 export function useNow(rateMs: number, enabled = true): number {
+  assertValidRate(rateMs)
   const store = enabled ? clockStore(rateMs) : EMPTY_STORE
   const version = useSyncExternalStore(
     store.subscribe,

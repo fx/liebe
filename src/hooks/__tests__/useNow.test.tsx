@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import {
+  subscribeClockTick,
   subscribeSecondTick,
   useNow,
   useNowMinute,
@@ -276,6 +277,19 @@ describe('useNow shared clocks', () => {
       vi.advanceTimersByTime(NOW_1S_MS)
     })
     expect(container.textContent).toBe('1:0')
+  })
+
+  it('rejects a junk rate instead of scheduling a tight loop', () => {
+    vi.useFakeTimers()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+
+    for (const rate of [0, -1000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => useNow(rate)).toThrow(RangeError)
+      expect(() => subscribeClockTick(rate, () => {})).toThrow(RangeError)
+    }
+    // Nothing was scheduled for any of them.
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+    expect(clockIntervalCountForTests(NOW_1S_MS)).toBe(0)
   })
 
   it('tears the interval down when the last consumer unmounts', () => {

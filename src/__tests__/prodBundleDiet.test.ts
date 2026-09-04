@@ -47,7 +47,19 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const ARTIFACT = join(repoRoot, 'dist', 'panel.js')
 
+let panelCache: string | null | undefined
+/**
+ * The built artifact, read once: the tests share one ~1.3MB read, miss cached
+ * too. Safe to cache: the flag test reads a different path
+ * (`panelMissingForTests`), so a cached hit/miss here never masks it.
+ */
 function panel(): string | null {
+  if (panelCache !== undefined) return panelCache
+  panelCache = readPanel()
+  return panelCache
+}
+
+function readPanel(): string | null {
   if (!existsSync(ARTIFACT)) {
     // Fail-closed when the flag says the artifact must exist, skip locally:
     // the CI step builds `dist/` before testing, so a missing artifact there
