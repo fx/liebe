@@ -2,7 +2,7 @@
 
 ## Summary
 
-Give the five `BROWSER_ONLY` geometry assertions in `src/__tests__/stories.test.tsx` a home that can actually evaluate them: Playwright specs against the real panel in the dockerized HA instance, one per assertion family. The story `play` functions stay as documentation; the e2e suite becomes where they are enforced. Closes the `docs/tasks.md` backlog item that has tracked this since the runner learned to name what it cannot prove.
+Give the five `BROWSER_ONLY` geometry assertions in `src/__tests__/stories.test.tsx` a home that can actually evaluate them: Playwright specs against the real panel in the dockerized HA instance, one per assertion family. The story `play` functions stay as documentation; the e2e suite becomes where they are enforced. This change plans the work that will close the `docs/tasks.md` backlog item that has tracked this since the runner learned to name what it cannot prove.
 
 **Spec:** [storybook](../specs/storybook/index.md) → [Story assertions are gate-grade](../specs/storybook/index.md#story-assertions-are-gate-grade)
 **Status:** draft
