@@ -24,11 +24,10 @@ Give the five `BROWSER_ONLY` geometry assertions in `src/__tests__/stories.test.
 
 This change MUST satisfy the project's standing testing rules (see [architecture — Testing & Quality Conventions](../specs/architecture/index.md#testing--quality-conventions)). CI enforces these as merge gates:
 
-- `npm test`, `npm run lint`, `npm run typecheck` MUST pass; `codecov/patch` 100%; `codecov/project` no regress.
 - **Every migrated assertion MUST read real layout.** `getBoundingClientRect` (or scroll/clientWidth pairs for the overflow halves), never screenshots, never computed-style declarations — the declaration locks already exist and this suite is the measurement side.
 - **Each e2e spec MUST seed directly to the geometry it needs**, per the `slider-fill-geometry` precedent: the tier is derived from the span the grid lays out, so no edit-mode drags to reach a shape a seeded item already has.
-- **A `BROWSER_ONLY` entry MUST be removed only in the PR that enforces its claim.** An entry removed without an enforcing spec re-opens the hole the map exists to name; the self-verifying runner enforces the pairing mechanically (a stale entry fails, a missing enforcement is review-visible).
-- **The story `play` functions MUST NOT be weakened when the e2e home lands.** They remain the documented claim and the workshop-visible behavior; what moves is where the claim is enforced, never whether the story renders.
+- **A `BROWSER_ONLY` entry MUST be removed only in the PR that enforces its claim _and_ keeps `npm test` green without it.** Each family PR takes exactly one of two routes: (a) _dual enforcement_ — keep the entry and add the e2e spec, so the runner still gates the story in jsdom while the browser enforces the geometry; or (b) _split_ — rewrite the story `play` to assert only what jsdom can evaluate and move the geometry half to the e2e spec in the same PR as the entry removal. An entry removed with neither (no enforcing spec, or a `play` that still fails in jsdom) re-opens the hole the map exists to name; the self-verifying runner enforces the pairing mechanically (a stale entry fails, a missing enforcement is review-visible).
+- **The story `play` functions MUST NOT be weakened beyond the split.** Route (a) leaves them byte-identical. Route (b) keeps every jsdom-evaluable assertion (counts, regions, presence) in the story and moves only the measured-box / pointer-geometry assertions to e2e — the story still renders the same tile; what moves is where the geometry half is enforced, never whether the story renders.
 
 Skipping or weakening any of these rules to land the PR is a bug in the PR.
 
@@ -39,19 +38,20 @@ Skipping or weakening any of these rules to land the PR is a bug in the PR.
 - **All five claims MUST be enforced in the e2e suite, grouped by family** (forecast capacity, full-tier graph fill, slider drag) — whether that is one spec file or three is the implementer's, but each family seeds only what it measures.
 - **The forecast pair needs a weather entity with seeded forecasts in the e2e instance.** The stories use `createWeatherEntity()` plus `seededForecasts` fixtures; the e2e equivalent (demo weather entity, REST-seeded state, or a helper entity from `configuration.yaml`) MUST be settled per family, not assumed — if the dockerized instance cannot serve a forecast, that is a setup task in the implementing PR, not a reason to leave the pair unmigrated.
 - **The sensor pair needs seeded history in the e2e instance.** `entity-history.spec.ts` is the precedent for getting samples into the recorder-backed pipeline from a test; the graph-fill specs reuse that path rather than inventing one.
-- **The slider drag MUST use real pointer input** (Playwright mouse), asserting `aria-valuenow`, `aria-valuetext` and the single-commit count — the jsdom failure message (`aria-valuenow`) is the pinned behavior, not the mechanism.
-- **The `docs/tasks.md` backlog item MUST be closed by the last migrating PR**, and the storybook spec's open question ("A browser home for the five geometry assertions") MUST be updated to point at the enforcing specs.
+- **Removal route per family — `npm test` stays green in every family PR.** An entry comes out only in the PR that both enforces its claim in e2e and leaves a `play` that passes in jsdom; otherwise the entry stays and e2e becomes the second enforcement site (consistent with the spec's self-verifying rule — a kept entry still gates non-geometry regressions in jsdom):
+  - **Forecast — split one, keep one.** `ForecastsMaxCount` splits: the column-count assertion stays in the `play` (it passes in jsdom today — the pinned throw is the 44px floor, which proves the count already passed), the width-floor/rhythm assertions move to the e2e spec, and its entry is removed in PR 1. `ForecastsMaxCountOnMinimumWidthTile` stays dual: even the omit-count needs layout (the pinned throw _is_ the count), so no jsdom-evaluable assertion survives a split and its entry stays while e2e enforces count, floor and no-overflow.
+  - **Sensor pair — dual, both entries stay.** Every assertion but the large tile's `data-region` pin is measured-box; a split would leave plays that render without asserting. E2e enforces the fill-leftover invariant at both sizes.
+  - **Slider — dual, the entry stays.** The drag-to-maximum claim is pointer geometry end to end; nothing jsdom-evaluable survives a split. E2e with a real pointer enforces max value plus the single-commit count.
 
 ## Design
 
 ### Approach
 
-Family by family, each PR seeds a screen, measures what the story `play` measures, and deletes the corresponding `BROWSER_ONLY` entries. Forecast capacity first (it carries the setup risk — weather data in the e2e instance), then the sensor pair (history seeding precedent exists), then the slider drag (pure pointer mechanics, no data setup).
+Family by family, each PR seeds a screen, measures what the story `play` measures, and — per the removal-route bullet above — either splits the `play` and deletes the entry (only `ForecastsMaxCount`) or keeps the entry and adds e2e as the second enforcement site. Forecast capacity first (it carries the setup risk — weather data in the e2e instance), then the sensor pair (history seeding precedent exists), then the slider drag (pure pointer mechanics, no data setup).
 
 ### Decisions
 
-- **Enforce against the panel, not the workshop.** The claims are about tiles the grid lays out at real breakpoints under real themes — the minimum-width forecast story says so explicitly ("the exact count depends on the cell arithmetic and the theme's padding"). Measuring them in Storybook's grid-cell decorator would re-prove the decorator's fidelity (change 0029's subject), not the panel. The panel is the surface users see; the panel is where they are measured.
-- **Stories keep their `play` functions.** Per the spec, the story assertion is documentation of intent that the workshop still executes (and the runner still gates for non-geometry regressions). E2e enforcement adds a second evaluation site for the geometry half only.
+- **Stories keep their `play` functions except the one split.** `ForecastsMaxCount` is the exception: its width-floor/rhythm assertions move to e2e and its `play` keeps the column count. Every other story's `play` stays byte-identical — per the spec, the story assertion is documentation of intent that the workshop still executes (and the runner still gates for non-geometry regressions). E2e enforcement adds a second evaluation site for the geometry half.
 - **Sequencing by setup risk, not by file order.** The forecast pair goes first because it may need instance work (weather/forecast availability); discovering that in the third PR would stall the other two.
 
 ### Non-Goals
@@ -62,9 +62,9 @@ Family by family, each PR seeds a screen, measures what the story `play` measure
 
 ## Tasks
 
-- [ ] **PR 1 — Forecast capacity in e2e**: seed a max-count screen and a minimum-width tile; assert the 44px floor, column rhythm, omit-not-overflow and no-widen rules; settle the weather/forecast data path in the e2e instance; remove the two `WeatherCard` entries from `BROWSER_ONLY`
-- [ ] **PR 2 — Full-tier graph fill in e2e**: seed small and large `full` sensor tiles with history; assert the graph-fills-leftover invariant at both sizes; remove the two `SensorCard` entries from `BROWSER_ONLY`
-- [ ] **PR 3 — Slider drag in e2e**: real-pointer drag past the track edge asserting max value + single commit (and the minimum sibling if cheap); remove the `Slider` entry; close the `docs/tasks.md` item and update the storybook spec's open question to point at the three enforcing specs
+- [ ] **PR 1 — Forecast capacity in e2e (split one, keep one)**: seed a max-count screen and a minimum-width tile; assert the 44px floor, column rhythm, omit-not-overflow and no-widen rules; settle the weather/forecast data path in the e2e instance; split `ForecastsMaxCount` (count stays in the `play`, geometry moves to e2e) and remove its entry; keep the `ForecastsMaxCountOnMinimumWidthTile` entry (dual enforcement)
+- [ ] **PR 2 — Full-tier graph fill in e2e (dual, both entries stay)**: seed small and large `full` sensor tiles with history; assert the graph-fills-leftover invariant at both sizes; the two `SensorCard` entries stay as the jsdom gate
+- [ ] **PR 3 — Slider drag in e2e (dual, entry stays)**: real-pointer drag past the track edge asserting max value + single commit (and the minimum sibling if cheap); the `Slider` entry stays as the jsdom gate; close the `docs/tasks.md` item and update the storybook spec's open question to point at the three enforcing specs
 
 ## Open Questions
 
