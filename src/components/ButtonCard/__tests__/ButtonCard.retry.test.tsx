@@ -136,14 +136,10 @@ describe('ButtonCard Retry', () => {
     )
   }
 
-  /** Open the detail dialog through the hold gesture. */
+  /** Open the detail dialog through the recovery route (press is suppressed on error tiles). */
   function openDialog() {
     const tile = document.querySelector('.liebe-card') as HTMLElement
-    fireEvent.pointerDown(tile, { isPrimary: true, button: 0 })
-    act(() => {
-      vi.advanceTimersByTime(HOLD_DURATION_MS + 50)
-    })
-    fireEvent.pointerUp(tile)
+    fireEvent.click(tile)
   }
 
   it('re-dispatches the identical command on Retry', async () => {
