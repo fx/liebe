@@ -187,21 +187,22 @@ function keyThemeCssToInstance(css: string, instance: string): string {
   // keys: the bare replacement would otherwise run again inside the rewritten
   // `:where(.liebe-root[…])` and stack a second attribute
   // (`:where(.liebe-root[…][…])`). Re-keying an already-keyed sheet is a
-  // no-op, because every emitted prefix carries the key — a second pass finds
-  // no unkeyed subject left to bind.
+  // no-op twice over: the sentinel restores the parked form untouched, and
+  // the bare passes only match subjects NOT already carrying the key, so a
+  // second pass finds no unkeyed subject left to bind.
   const keyedWhere = `:where(.liebe-root${key})`
   const keyedPortal = `.liebe-portal-root${key}`
   const keyedRoot = `.liebe-root${key}`
   const SENTINEL = 'LIEBEKEYEDWHERE'
+  const UNKEYED_PORTAL = /\.liebe-portal-root(?!\[[^\]]*data-liebe-instance)/g
+  const UNKEYED_ROOT = /\.liebe-root(?!\[[^\]]*data-liebe-instance)/g
   const keyed = css
     .split(':where(.liebe-root)')
     .join(keyedWhere)
     .split(keyedWhere)
     .join(SENTINEL)
-    .split('.liebe-portal-root')
-    .join(keyedPortal)
-    .split('.liebe-root')
-    .join(keyedRoot)
+    .replace(UNKEYED_PORTAL, keyedPortal)
+    .replace(UNKEYED_ROOT, keyedRoot)
     .split(SENTINEL)
     .join(keyedWhere)
   // The font token rides the same mirror: each panel's `@font-face` registers

@@ -66,14 +66,25 @@ function endOfString(text: string, start: number): number {
 }
 
 /**
- * The two shapes the rewrite emits: the container as the subject, and a
+ * The shapes the rewrite emits: the container as the subject, and a
  * descendant of it as the subject. Anything after the closing parenthesis is
- * the pseudo-element tail, which does not move the subject.
+ * the pseudo-element tail, which does not move the subject. The keyed forms
+ * carry the panel's `data-liebe-instance` token on the container; the token
+ * is matched structurally (any quoted value) and the `:is(` / ` :is(`
+ * shape after it is still required — a sibling combinator or a longer class
+ * name after the attribute is a genuine escape, exactly as unkeyed.
  */
-const BOUNDED_PREFIXES = [
-  '.liebe-portal-root:is(',
-  '.liebe-portal-root :is(',
-  '.liebe-portal-root[data-liebe-instance=',
+const BOUNDED_PATTERNS = [
+  /^\.liebe-portal-root:is\(/,
+  /^\.liebe-portal-root :is\(/,
+  /^\.liebe-portal-root\[data-liebe-instance="[^"]*"\]:is\(/,
+  /^\.liebe-portal-root\[data-liebe-instance="[^"]*"\] :is\(/,
+  // The `:initial` guard rule, unkeyed and keyed: a subject-less pin on the
+  // container itself. Held to the same exactness — nothing may follow the
+  // selector but a pseudo-element tail, which the caller strips before
+  // matching (selectors here arrive whole; keep the pattern bare).
+  /^:where\(\.liebe-portal-root\)$/,
+  /^:where\(\.liebe-portal-root\[data-liebe-instance="[^"]*"\]\)$/,
 ]
 
 /**
@@ -84,10 +95,12 @@ const BOUNDED_PREFIXES = [
  * "starts with `.liebe-portal-root`", because that looser reading passes things
  * that genuinely escape: `.liebe-portal-root ~ .x` selects a SIBLING of the
  * container, and `.liebe-portal-root-ish` is a different class entirely. The
- * assertion is worth only as much as the predicate under it.
+ * keyed forms are held to the same bar: `.liebe-portal-root[…instance…] ~ .x`
+ * escapes just as the unkeyed sibling does. The assertion is worth only as
+ * much as the predicate under it.
  */
 export function unboundedSelectors(selectors: string[]): string[] {
   return selectors.filter(
-    (selector) => !BOUNDED_PREFIXES.some((prefix) => selector.startsWith(prefix))
+    (selector) => !BOUNDED_PATTERNS.some((pattern) => pattern.test(selector))
   )
 }

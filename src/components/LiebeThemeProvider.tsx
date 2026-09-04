@@ -1,13 +1,41 @@
 import { Theme } from '@radix-ui/themes'
-import { useId, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PortalHost } from '~/components/ui/portals'
 import { useCameraFullscreenActive, CAMERA_FULLSCREEN_Z_INDEX } from '~/store/cameraFullscreenStore'
 import { sanitizeCustomCss } from '~/theme/customCss'
 import { registerThemeFonts } from '~/theme/fontRegistration'
-import { LIEBE_ROOT_CLASS } from '~/theme/rootSelectors'
+import { LIEBE_INSTANCE_ATTRIBUTE, LIEBE_ROOT_CLASS } from '~/theme/rootSelectors'
 import { applyThemeCssToRootOf, applyUserCssToRootOf } from '~/theme/styleInjection'
 import { DEFAULT_THEME_ID, getThemeOrDefault, type ThemeAppearance } from '~/theme/themeRegistry'
 
+/**
+ * The panel mount's document-mirror key, stable for the lifetime of the host
+ * element rather than of one React mount.
+ *
+ * Read once from the host (`<liebe-panel>` / `<liebe-panel-dev>`, or whatever
+ * root the tree is mounted in) and minted once: the host outlives every React
+ * remount — reconnects, StrictMode's mount/unmount/mount — while the mirror
+ * `<style>`s and font registrations deliberately outlive unmount too, so a
+ * per-mount token would orphan a stale keyed set per cycle. A tree with no
+ * host element (unit tests, the workshop document root) falls back to a
+ * per-component token, which is unique per tree like before.
+ */
+function usePanelInstanceKey(): string {
+  const [key] = useState(() => {
+    if (typeof document !== 'undefined') {
+      const host = document.querySelector('liebe-panel, liebe-panel-dev')
+      if (host) {
+        const existing = host.getAttribute(LIEBE_INSTANCE_ATTRIBUTE)
+        if (existing) return existing
+        const minted = `p${Math.random().toString(36).slice(2, 10)}`
+        host.setAttribute(LIEBE_INSTANCE_ATTRIBUTE, minted)
+        return minted
+      }
+    }
+    return `p${Math.random().toString(36).slice(2, 10)}`
+  })
+  return key
+}
 export interface LiebeThemeProviderProps {
   children: ReactNode
   /**
@@ -78,16 +106,21 @@ export function LiebeThemeProvider({
   const cameraFullscreenActive = useCameraFullscreenActive()
 
   const themeRoot = useRef<HTMLDivElement>(null)
-  // The document-level mirror's instance key: stable per mount, unique per
-  // panel tree, so two panels in one Home Assistant document key their mirrors
-  // — and their portal containers — to different tokens (change 0036 PR 7).
-  // `useId` is stable across re-renders and unique across trees; the colons it
-  // emits are stripped so the value reads cleanly in the selectors it is
-  // keyed into. The SAME token goes to the container below and to both mirror
-  // writes, which is what makes one panel's sheets match only its own
-  // container — the slot alone leaves both sheets matching both containers,
-  // and the scope alone leaves them overwriting one element.
-  const instance = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  // The document-level mirror's instance key: unique per panel tree, so two
+  // panels in one Home Assistant document key their mirrors — and their
+  // portal containers — to different tokens (change 0036 PR 7). It MUST be
+  // stable for the lifetime of the custom element, not just of one React
+  // mount: `useId` changes across any remount (including StrictMode's
+  // mount/unmount/mount), while the mirror styles and font registrations are
+  // deliberately left in place on unmount — so a remount with a fresh token
+  // would orphan the old keyed elements and accumulate a stale set per cycle.
+  // The token therefore lives on the host element itself
+  // (`<liebe-panel>` / `<liebe-panel-dev>`), read once and minted once: the
+  // SAME token goes to the container below and to every mirror write, which
+  // is what makes one panel's sheets match only its own container — the slot
+  // alone leaves both sheets matching both containers, and the scope alone
+  // leaves them overwriting one element.
+  const instance = usePanelInstanceKey()
   // Stamped from the theme that is actually rendered, not from what was asked
   // for: an unregistered id falls back to Default, and a stamp naming the
   // missing theme would leave that theme's scoped rules addressing a palette

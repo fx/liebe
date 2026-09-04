@@ -977,8 +977,17 @@ function scopeToPortalRoot(root: Root, instance?: string): { css: string; notice
 export function scopePortalCssToInstance(portalCss: string, instance: string): string {
   if (portalCss === '') return portalCss
   const keyedPrefix = `.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"]`
+  const keyedGuard = `:where(.${PORTAL_ROOT_CLASS}[${LIEBE_INSTANCE_ATTRIBUTE}="${instance}"])`
   const root = postcss.parse(portalCss)
   root.walkRules((rule) => {
+    // The guard rule (`:where(.liebe-portal-root) { …: initial; }`) is a
+    // SELECTOR too: unkeyed it pins the name on every panel's container, so
+    // the first panel's guard would cover the second panel's lookups. Keyed
+    // it pins only its own panel's container, like every other rule.
+    if (rule.selector.trim() === `:where(.${PORTAL_ROOT_CLASS})`) {
+      rule.selector = keyedGuard
+      return
+    }
     rule.selector = list
       .comma(rule.selector)
       .map((part) =>

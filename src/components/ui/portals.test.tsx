@@ -124,12 +124,14 @@ describe('PortalHost', () => {
     // the same token, so one panel's keyed sheets match only its own
     // container. Generated per mount when no explicit token is passed —
     // stable across re-renders, unique across trees.
-    renderInHost(<span />)
+    const { rerender } = renderInHost(<span />)
 
     const token = host().getAttribute('data-liebe-instance')
     expect(token).toBeTruthy()
 
-    const { rerender } = renderInHost(<span />)
+    // Rerender the ORIGINAL tree: a second mount would mint a second token,
+    // so only re-driving the same host proves stability rather than
+    // coincidence.
     rerender(
       <Theme>
         <PortalHost themeId="default" appearance="dark">
