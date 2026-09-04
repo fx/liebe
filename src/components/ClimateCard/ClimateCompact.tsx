@@ -86,7 +86,7 @@ export function ClimateCompactContent({
    * shell read another would apply half of one.
    */
   const config = configProp ?? publishedConfig
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
   const fallback = climateCardFallback({ model, tier, isSelected, onSelect, onDelete })

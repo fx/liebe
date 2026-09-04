@@ -738,7 +738,7 @@ export const GridCard = React.memo(
       },
       ref
     ) => {
-      const { mode } = useDashboardStore()
+      const mode = useDashboardStore((state) => state.mode)
       const isEditMode = mode === 'edit'
       // What the grid published about the item this card is rendering. Explicit
       // props still win, so a card (or a story) can override either.

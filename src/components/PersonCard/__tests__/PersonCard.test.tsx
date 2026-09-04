@@ -69,7 +69,10 @@ describe('PersonCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
+    ;(
+      useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+    ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+      selector({ mode: 'view' })) as never)
   })
 
   describe('presence', () => {
@@ -380,7 +383,10 @@ describe('PersonCard', () => {
   describe('the shell', () => {
     it('selects the card instead of acting on it, in edit mode', () => {
       const onSelect = vi.fn()
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
       mockEntities({ [ENTITY_ID]: personEntity('home') })
 
       render(

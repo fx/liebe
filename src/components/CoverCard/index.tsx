@@ -101,7 +101,7 @@ function CoverCardComponent({
    * is travelling too far — is a different command and is never held back.
    */
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
   /*

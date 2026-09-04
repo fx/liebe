@@ -53,9 +53,9 @@ describe('InputTextCard', () => {
       clearError: vi.fn(),
     })
 
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'view',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'view' } as DashboardState)) as typeof useDashboardStore)
   })
 
   it('renders input text with friendly name and value', () => {
@@ -365,9 +365,9 @@ describe('InputTextCard', () => {
   })
 
   it('selects card in edit mode', async () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
 
     render(
       <InputTextCard entityId="input_text.test_text" onSelect={mockOnSelect} isSelected={false} />

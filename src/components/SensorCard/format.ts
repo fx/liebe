@@ -168,6 +168,20 @@ export function formatSensorState(
   return formatSensorNumber(value, context, options).text
 }
 
+/**
+ * One number at a fixed decimal count, or `—` when the state carries no
+ * reading. The number-helper card's value formatter: its step decides the
+ * decimals, and an unrestored helper (`unknown`, `unavailable`) renders the
+ * em-dash rather than a `NaN` literal or a scaled value. Split out from the
+ * sensor pipeline on purpose — `formatSensorNumber` scales energy/power and
+ * upper-cases non-numeric states, neither of which a helper value wants.
+ */
+export function formatFixedNumber(state: string, decimals: number): string {
+  if (state.trim() === '') return '—'
+  const value = Number(state)
+  return Number.isFinite(value) ? value.toFixed(decimals) : '—'
+}
+
 /** Which way a trend arrow points. */
 export type SensorTrendDirection = 'up' | 'down' | 'flat'
 

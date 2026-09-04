@@ -1,6 +1,7 @@
 import type { HomeAssistant } from '../contexts/HomeAssistantContext'
 import { entityStore } from '../store/entityStore'
 import type { HassEntity } from '../store/entityTypes'
+import { schedulePipelineTask } from './pipelineScheduler'
 import {
   historyCacheKey,
   historyStore,
@@ -10,7 +11,6 @@ import {
 import {
   buildHistoryRequest,
   downsampleHistory,
-  DEFAULT_HISTORY_POINTS,
   historyWindowMs,
   isNonNumericState,
   parseHistoryResponse,
@@ -67,7 +67,12 @@ export class EntityHistoryService {
   /** Window keys that have had no subscriber since their last append. */
   private idle = new Set<string>()
   private inflight = new Map<string, Promise<void>>()
-  private maintenanceTimers = new Map<string, ReturnType<typeof setInterval>>()
+  /**
+   * Scheduler unsubscribes per watched window. Replaces the per-window
+   * `setInterval` map: subscribing the fiftieth entity adds a map entry, not
+   * a timer.
+   */
+  private maintenanceTasks = new Map<string, () => void>()
   private projections = new Map<string, CachedProjection>()
   /**
    * Bumped by `reset()`. A fetch that was already in flight resolves into a
@@ -205,8 +210,8 @@ export class EntityHistoryService {
   /** Drop all state. Test-only seam — the singleton is module-global. */
   reset(): void {
     this.generation += 1
-    for (const timer of this.maintenanceTimers.values()) clearInterval(timer)
-    this.maintenanceTimers.clear()
+    for (const release of this.maintenanceTasks.values()) release()
+    this.maintenanceTasks.clear()
     this.subscribers.clear()
     this.keysByEntity.clear()
     this.idle.clear()
@@ -251,21 +256,28 @@ export class EntityHistoryService {
   private startMaintenance(entityId: string, hours: number): void {
     const key = historyCacheKey(entityId, hours)
     this.stopMaintenance(key)
-    const interval = Math.max(
-      MIN_MAINTENANCE_INTERVAL_MS,
-      historyWindowMs(hours) / DEFAULT_HISTORY_POINTS
-    )
-    this.maintenanceTimers.set(
+    // A freshness decision, not a cadence: the fast wheel wakes the window
+    // every 60s (MIN_MAINTENANCE_INTERVAL_MS, i.e. every 2nd 30s tick), and
+    // `maintain` refetches only when the entry is stale (TTL) or went
+    // unwatched — the entry, not the timer, decides. Deliberate retune of one
+    // edge: the old per-window interval was max(60s, window/100), so a 24h
+    // window woke every ~15min; now every window checks every 60s. More
+    // wakeups, but each is a cheap store read that refetches only when stale,
+    // and no wheel grows with dashboard size — the tradeoff the coalescing
+    // requires.
+    this.maintenanceTasks.set(
       key,
-      setInterval(() => this.maintain(entityId, hours), interval)
+      schedulePipelineTask('fast', MIN_MAINTENANCE_INTERVAL_MS, () =>
+        this.maintain(entityId, hours)
+      )
     )
   }
 
   private stopMaintenance(key: string): void {
-    const timer = this.maintenanceTimers.get(key)
-    if (!timer) return
-    clearInterval(timer)
-    this.maintenanceTimers.delete(key)
+    const release = this.maintenanceTasks.get(key)
+    if (!release) return
+    release()
+    this.maintenanceTasks.delete(key)
   }
 
   /** Deduped fetch: concurrent requests for one window share a single call. */

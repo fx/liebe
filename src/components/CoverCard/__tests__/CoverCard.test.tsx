@@ -49,7 +49,10 @@ describe('CoverCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       clearError: mockClearError,
     })
-    ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
+    ;(
+      useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+    ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+      selector({ mode: 'view' })) as never)
   })
 
   describe('Basic Rendering', () => {
@@ -462,7 +465,10 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       render(<CoverCard entityId="cover.test_cover" tier="full" />)
 
@@ -584,7 +590,10 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       render(
         <CoverCard
@@ -607,7 +616,10 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       render(
         <CoverCard
@@ -634,7 +646,10 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       render(
         <CoverCard
@@ -658,7 +673,10 @@ describe('CoverCard', () => {
         isConnected: true,
         isStale: false,
       })
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       render(<CoverCard entityId="cover.test_cover" tier="full" onDelete={mockOnDelete} />)
 

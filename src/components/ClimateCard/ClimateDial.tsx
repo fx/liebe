@@ -163,7 +163,7 @@ function ClimateDialFull({
   // Prop over published item, and the same resolution to the shell below — see
   // `ClimateCompactContent`, which resolves it the same way for the same reason.
   const config = configProp ?? publishedConfig
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
   const [drag, setDrag] = useState<DialDrag | null>(null)

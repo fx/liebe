@@ -2,10 +2,10 @@
 
 ## Summary
 
-Finish the render-churn work [0001](./0001-per-entity-store-selectors.md) started — narrow the remaining whole-store subscriptions, share one clock per tick rate instead of one interval per consumer, and coalesce the history/forecast/health timers — then put the shipped bundle on a diet (dev routes out of prod, Radix weight audited) and delete the dead code the reviews have already named. A tech-debt bundle in the shape of [0002](./0002-repo-hygiene.md): no behavior changes, only fewer renders, fewer timers, fewer bytes.
+Finish the render-churn work [0001](./0001-per-entity-store-selectors.md) started — narrow the remaining whole-store subscriptions, share one clock per tick rate instead of one interval per consumer, and coalesce the history/forecast/health timers — then put the shipped bundle on a diet (dev routes out of prod, Radix weight audited) and delete the dead code the reviews have already named. A tech-debt bundle in the shape of [0002](./0002-repo-hygiene.md): no intentional dashboard interaction changes — fewer renders, fewer timers, fewer bytes — with two named exceptions: the dev routes render `NotFound` in production builds (dev only), and six unreferenced icon-map entries no longer resolve (persisted overrides naming one fall back to the card glyph).
 
 **Spec:** [entity-state](../specs/entity-state/index.md) → [Entity Store](../specs/entity-state/index.md#entity-store) and [Consumer Hooks](../specs/entity-state/index.md#consumer-hooks); bundle items reference [architecture](../specs/architecture/index.md) (build/bundle)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0001
 
 ## Motivation
@@ -62,7 +62,7 @@ Three render PRs then one bundle PR, each independently landable and each with t
 - **Bundle groups with 0002's precedent, not a new spec.** Like repo-hygiene, this is project-level quality work spanning specs; entity-state owns the render requirements, architecture owns the build ones, and the change document is the single home rather than a spec edit in either.
 - **Clocks and schedulers share one PR (PR 2).** Both replace N private intervals with shared ticks; reviewing them apart would re-litigate the same "who owns the wheel" question twice.
 - **Bundle diet and dead code share one PR (PR 3).** Both change what ships rather than how it renders; the artifact assertion covers both.
-- **No new spec sections.** Nothing here changes observable behavior — a dashboard that renders identically with fewer wakes needs no contract update. If a PR discovers a behavior the spec misstates, that finding goes to the spec first.
+- **No new spec sections.** Nothing here changes dashboard interaction behavior — a dashboard that renders identically with fewer wakes needs no contract update (the two exceptions are the production dev-route gate and the six retired icon names, both named in the Summary). If a PR discovers a behavior the spec misstates, that finding goes to the spec first.
 
 ### Non-Goals
 
@@ -73,13 +73,13 @@ Three render PRs then one bundle PR, each independently landable and each with t
 
 ## Tasks
 
-- [ ] **PR 1 — Narrow the whole-store subscriptions**: slice `useConnectionStatus` and fix the dashboard default selector; render-count probes per path showing unrelated writes no longer wake consumers
-- [ ] **PR 2 — Shared clocks + coalesced scheduler**: `useNow`-style shared hooks adopted by every per-second/per-minute consumer; history/forecast/health/staleness wheels coalesced with per-entity timer maps removed; single-wake and call-count assertions under fake timers
-- [ ] **PR 3 — Prod-bundle diet + dead-code removal**: dev routes out of the production artifact with an artifact-level assertion; Radix weight audited with findings recorded; `getTablerIcon` alias, format-helper duplication and dead icon-map entries deleted with all callsites migrated
+- [x] **PR 1 — Narrow the whole-store subscriptions**: `useConnectionStatus` subscribes its seven read fields individually; the dashboard default selector is removed (selector required, whole-state opt-in explicit); every no-arg callsite names its slice; render-count probes (`useConnectionStatus.narrowing.test.tsx`) show unrelated writes no longer wake consumers
+- [x] **PR 2 — Shared clocks + coalesced scheduler**: `useNow`/`useNowSecond`/`useNowMinute` (+`subscribeSecondTick`) adopted by media progress, CameraStats, ClockWidget, since/last-activated lines; history/forecast/health/staleness ride the two-wheel `pipelineScheduler` with per-entity timer maps deleted; single-wake and call-count assertions (`useNow.test.tsx`, `pipelineScheduler.test.ts`) under fake timers
+- [x] **PR 3 — Prod-bundle diet + dead-code removal**: dev routes excluded from the prod artifact — a prod-only vite plugin (`vite/devRouteStubPlugin.ts`, `enforce:pre`, ha config only) resolves both file routes to a virtual `NotFound` stub when `routeTree.gen` imports them, so the harness modules never enter the bundle graph while development serves the real files — per [navigation](../specs/navigation/index.md#route-tree) with artifact assertion (`prodBundleDiet.test.ts`: harness content absent, paths still registered); Radix audit dropped 5 unreferenced packages (dialog/dropdown-menu/switch/tabs/tooltip; slider+icons+themes stay); `getTablerIcon` module + BinarySensorCard comment, `formatHelperNumber` duplication (into `formatFixedNumber`), and 6 dead icon-map entries deleted with all callsites migrated
 
 ## Open Questions
 
-- Do the forecast refresh rates (30min hourly, 2h daily) share a wheel with 30s health, or is PR 2 two wheels (fast/slow)? Implementer's call; the requirement is only that no wheel grows with dashboard size.
+- None open: the wheel split is decided — PR 2 runs two wheels, 30s fast (health, staleness, history maintenance every 2nd tick) and 5min slow (forecast refresh; 30min hourly and 2h daily both divide it evenly). The requirement stands: no wheel grows with dashboard size.
 
 ## References
 

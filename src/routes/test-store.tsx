@@ -1,7 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Button, Flex, Card, Text, Badge, Separator } from '@radix-ui/themes'
 import { useDashboardStore, dashboardActions, useDashboardPersistence } from '../store'
-
+// Dev-only route: this module always references the workshop page. Production
+// exclusion happens at build time — devRouteStubPlugin (vite.config.ha.ts,
+// production only) resolves this file to a `NotFound` stub when routeTree.gen
+// imports it, so the harness never enters the panel bundle. Development serves
+// this file as-is.
 export const Route = createFileRoute('/test-store')({
   component: StoreTestPage,
 })

@@ -6,6 +6,7 @@ import { entityDebouncer } from '../store/entityDebouncer'
 import { entityUpdateBatcher } from '../store/entityBatcher'
 import { connectionActions } from '../store/connectionStore'
 import { entityHistoryService } from './entityHistory'
+import { schedulePipelineTask } from './pipelineScheduler'
 
 export interface StateChangedEvent {
   event_type: 'state_changed'
@@ -25,7 +26,11 @@ export class HassConnectionManager {
   private readonly RECONNECT_DELAY_BASE = 1000 // 1 second
   private isReconnecting = false
   private lastReconnectTime = 0
-  private connectionHealthInterval: NodeJS.Timeout | null = null
+  /**
+   * Scheduler unsubscribe for the 30s health check. Replaces the private
+   * `setInterval`: one entry on the shared fast wheel, not a timer of its own.
+   */
+  private connectionHealthRelease: (() => void) | null = null
 
   constructor() {
     this.handleStateChanged = this.handleStateChanged.bind(this)
@@ -312,17 +317,18 @@ export class HassConnectionManager {
   private startConnectionHealthMonitoring(): void {
     this.stopConnectionHealthMonitoring()
 
-    // Monitor WebSocket connection health every 30 seconds
-    this.connectionHealthInterval = setInterval(() => {
+    // Monitor WebSocket connection health every 30 seconds — one entry on the
+    // shared fast wheel, whose tick IS 30s, so the cadence is unchanged.
+    this.connectionHealthRelease = schedulePipelineTask('fast', 30000, () =>
       this.checkConnectionHealth()
-    }, 30000)
+    )
   }
 
   // Stop connection health monitoring
   private stopConnectionHealthMonitoring(): void {
-    if (this.connectionHealthInterval) {
-      clearInterval(this.connectionHealthInterval)
-      this.connectionHealthInterval = null
+    if (this.connectionHealthRelease) {
+      this.connectionHealthRelease()
+      this.connectionHealthRelease = null
     }
   }
 

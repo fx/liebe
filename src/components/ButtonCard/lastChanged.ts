@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { NOW_60S_MS, useNowTimestamp } from '~/hooks/useNow'
 
 /**
  * The `showLastChanged` secondary text: how long the entity has held its
@@ -40,14 +40,15 @@ export function formatSince(lastChanged: string | undefined, now: number): strin
  * not render.
  */
 export function useRelativeSince(lastChanged: string | undefined, enabled: boolean): string | null {
-  const [now, setNow] = useState(() => Date.now())
-
-  useEffect(() => {
-    if (!enabled) return
-
-    const timer = setInterval(() => setNow(Date.now()), SINCE_REFRESH_MS)
-    return () => clearInterval(timer)
-  }, [enabled])
+  // Shared 60s clock: N mounted since-lines re-render once per minute in the
+  // same commit instead of each owning a 60s interval at its own phase. The
+  // text is derived from the wall time at render, so the shared tick only
+  // decides WHEN it recomputes, never what it says.
+  // The wall time rides the shared 60s clock: the tick decides WHEN the
+  // text recomputes, and every since-line on the dashboard recomputes in the
+  // same commit. `Date.now()` runs in the hook's mount initializer and tick
+  // callback — never during render, where the purity rule forbids it.
+  const now = useNowTimestamp(NOW_60S_MS, enabled)
 
   if (!enabled) return null
   return formatSince(lastChanged, now)

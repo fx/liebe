@@ -104,7 +104,7 @@ function FanCardComponent({
    * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
    */
   const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
-  const { mode } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
   const { config } = useCardItem()

@@ -24,6 +24,7 @@ import { useCardItem } from './cardItemContext'
 import type { HassEntity } from '~/store/entityTypes'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import { withCardErrorBoundary } from './cardErrorBoundary'
+import { formatFixedNumber } from './SensorCard/format'
 
 interface InputNumberCardProps {
   entityId: string
@@ -59,11 +60,11 @@ interface InputNumberAttributes {
  * is `NaN`, which `toFixed` spells out as the literal string "NaN". That was
  * survivable while the value sat inside a button among other controls; `glance`
  * now anchors the whole tile on it, so it is the one thing a 1×1 number helper
- * has to show.
+ * has to show. Shared with the sensor pipeline (`formatFixedNumber`) rather
+ * than local: one formatter for the "a number at fixed decimals" job.
  */
 function formatHelperNumber(state: string, attributes: InputNumberAttributes): string {
-  const value = Number.parseFloat(state)
-  return Number.isFinite(value) ? value.toFixed(decimalsFor(attributes.step)) : '—'
+  return formatFixedNumber(state, decimalsFor(attributes.step))
 }
 
 interface NumberHelperControlProps {

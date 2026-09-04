@@ -52,9 +52,9 @@ describe('InputBooleanCard', () => {
       clearError: vi.fn(),
     })
 
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'view',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'view' } as DashboardState)) as typeof useDashboardStore)
   })
 
   it('renders input boolean with friendly name', () => {
@@ -183,9 +183,9 @@ describe('InputBooleanCard', () => {
   })
 
   it('selects card in edit mode', async () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
 
     render(
       <InputBooleanCard
@@ -209,9 +209,9 @@ describe('InputBooleanCard', () => {
   })
 
   it('shows selected state styling', () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
 
     const { container } = render(
       <InputBooleanCard entityId="input_boolean.test_toggle" isSelected={true} />
@@ -224,9 +224,9 @@ describe('InputBooleanCard', () => {
   })
 
   it('shows delete button in edit mode', () => {
-    vi.mocked(useDashboardStore).mockReturnValue({
-      mode: 'edit',
-    } as Partial<DashboardState> as DashboardState)
+    vi.mocked(useDashboardStore).mockImplementation(((
+      selector: (state: DashboardState) => unknown
+    ) => selector({ mode: 'edit' } as DashboardState)) as typeof useDashboardStore)
 
     render(<InputBooleanCard entityId="input_boolean.test_toggle" onDelete={mockOnDelete} />)
 

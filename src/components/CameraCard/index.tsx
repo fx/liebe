@@ -131,7 +131,8 @@ function CameraCardComponent({
     isMissing,
     isLoading: isEntityLoading,
   } = useEntity(entityId)
-  const { mode, currentScreenId } = useDashboardStore()
+  const mode = useDashboardStore((state) => state.mode)
+  const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const isEditMode = mode === 'edit'
   const isReconnecting = useIsConnecting()
   const hass = useHomeAssistantOptional()

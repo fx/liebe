@@ -84,7 +84,7 @@ describe('GridCard dialog reset', () => {
    * causes, and its layout effect would not run for it.
    */
   function CommitProbe({ seen }: { seen: string[][] }) {
-    useDashboardStore()
+    useDashboardStore((state) => state.mode)
     useLayoutEffect(() => {
       seen.push(
         Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).map((node) =>

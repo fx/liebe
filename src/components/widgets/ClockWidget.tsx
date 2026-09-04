@@ -1,17 +1,16 @@
-import { useState, useEffect } from 'react'
 import { Card, Flex, Text, Heading } from '@radix-ui/themes'
+import { NOW_1S_MS, useNowTimestamp } from '~/hooks/useNow'
 
 interface ClockWidgetProps {
   widget: { id: string }
 }
 
 export function ClockWidget({ widget: _widget }: ClockWidgetProps) {
-  const [time, setTime] = useState(new Date())
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+  // Shared 1s clock: every clock widget re-renders in the same commit. The
+  // clock is read in the hook's mount initializer and tick callback — never
+  // during render, where the purity rule forbids it; wrapping that timestamp
+  // in a `Date` here is a pure construction from hook state.
+  const time = new Date(useNowTimestamp(NOW_1S_MS))
 
   return (
     <Card size="2">

@@ -84,7 +84,10 @@ describe('AlarmCard', () => {
       dispatchGuarded: mockDispatchGuarded,
       clearError: mockClearError,
     })
-    ;(useDashboardStore as any).mockReturnValue({ mode: 'view' })
+    ;(
+      useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+    ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+      selector({ mode: 'view' })) as never)
   })
 
   describe('rendering', () => {
@@ -790,7 +793,10 @@ describe('AlarmCard', () => {
     })
 
     it('renders no controls in edit mode', () => {
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
       renderCard('disarmed')
 
       expect(screen.queryByRole('button', { name: 'Arm away' })).not.toBeInTheDocument()
@@ -885,7 +891,10 @@ describe('AlarmCard', () => {
         isLoading: false,
         isMissing: false,
       })
-      ;(useDashboardStore as any).mockReturnValue({ mode: 'edit' })
+      ;(
+        useDashboardStore as unknown as { mockImplementation: (fn: unknown) => void }
+      ).mockImplementation(((selector: (state: { mode: string }) => unknown) =>
+        selector({ mode: 'edit' })) as never)
 
       const { container } = render(
         <CardItemProvider entityId={ENTITY_ID}>
