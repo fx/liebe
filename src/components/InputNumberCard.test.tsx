@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '../test/utils'
 import { InputNumberCard } from './InputNumberCard'
+import { CardItemProvider } from './cardItemContext'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
@@ -363,6 +364,141 @@ describe('InputNumberCard', () => {
     // A single place would render "50.3" — a value this helper would round off
     // its own 0.01 grid, so the readout would disagree with what can be set.
     expect(screen.getByText('50.25 %')).toBeInTheDocument()
+  })
+
+  describe('tile tap (tapAction: default)', () => {
+    // The option doc's "Primary action": a tap focuses the value control —
+    // entering edit state where the stepper renders, focusing the thumb where
+    // the slider does — and fires no service call of its own.
+
+    it('enters edit state on tap where the stepper renders', () => {
+      render(<InputNumberCard entityId="input_number.test_number" tier="row" />)
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('textbox')).toBeInTheDocument()
+      expect(screen.getByRole('textbox')).toHaveValue('50')
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('opens the detail dialog on tap when iconOnly suppresses the stepper', () => {
+      // `iconOnly` drops every body slot but the lead, so the value button
+      // never mounts: the tap must resolve to `more-info` rather than flip
+      // invisible edit state with no control to show it.
+      render(
+        <CardItemProvider entityId="input_number.test_number" config={{ iconOnly: true }}>
+          <InputNumberCard entityId="input_number.test_number" tier="row" />
+        </CardItemProvider>
+      )
+      expect(screen.queryByRole('button', { name: /Set value/ })).not.toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Number' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('focuses the slider thumb on tap where the slider renders', () => {
+      vi.mocked(useEntity).mockReturnValue({
+        entity: {
+          ...defaultEntity,
+          attributes: { ...defaultEntity.attributes, mode: 'slider' },
+        },
+        isConnected: true,
+        isLoading: false,
+        isMissing: false,
+        isStale: false,
+      })
+
+      render(<InputNumberCard entityId="input_number.test_number" tier="row" />)
+      expect(screen.getByRole('slider')).toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(document.activeElement).toBe(document.querySelector('.liebe-slider-thumb'))
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('focuses the substituted slider at tall, not the stored stepper', () => {
+      // Consults the resolved presentation rather than the stored style: at
+      // `tall` a stored `stepper` renders the vertical slider, and the tap
+      // must focus what is there rather than what is stored.
+      render(
+        <InputNumberCard
+          entityId="input_number.test_number"
+          tier="tall"
+          config={{ controlStyle: 'stepper' }}
+        />
+      )
+      expect(document.querySelector('.liebe-slider-thumb')).not.toBeNull()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(document.activeElement).toBe(document.querySelector('.liebe-slider-thumb'))
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('routes a stored toggle to the dialog at glance, where there is nothing to focus', () => {
+      // A configured `tapAction: toggle` resolves to the card's own handler
+      // whatever the tier, so the `more-info` default alone is not enough —
+      // the handler must return the resolution itself (the text card's shape).
+      render(
+        <CardItemProvider entityId="input_number.test_number" config={{ tapAction: 'toggle' }}>
+          <InputNumberCard entityId="input_number.test_number" tier="glance" />
+        </CardItemProvider>
+      )
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Number' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('opens the detail dialog on tap when iconOnly suppresses the slider', () => {
+      // `iconOnly` drops every body slot but the lead, so the thumb never
+      // mounts and its ref stays null: the tap must resolve to `more-info`
+      // rather than no-op on a missing control.
+      vi.mocked(useEntity).mockReturnValue({
+        entity: {
+          ...defaultEntity,
+          attributes: { ...defaultEntity.attributes, mode: 'slider' },
+        },
+        isConnected: true,
+        isLoading: false,
+        isMissing: false,
+        isStale: false,
+      })
+      render(
+        <CardItemProvider entityId="input_number.test_number" config={{ iconOnly: true }}>
+          <InputNumberCard entityId="input_number.test_number" tier="row" />
+        </CardItemProvider>
+      )
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      expect(screen.getByRole('heading', { name: 'Test Number' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
+
+    it('opens the detail dialog on tap at glance, and dispatches nothing', () => {
+      // Through the grid's item provider, as on a dashboard: the shell reads
+      // the dialog's entity from the placed item, and without it `more-info`
+      // is not actionable (cardTierLayouts.test.tsx renders the same way).
+      render(
+        <CardItemProvider entityId="input_number.test_number">
+          <InputNumberCard entityId="input_number.test_number" tier="glance" />
+        </CardItemProvider>
+      )
+
+      fireEvent.click(document.querySelector('.liebe-card')!)
+
+      // The `more-info` fallback: the dialog names the entity it opened for.
+      expect(screen.getByRole('heading', { name: 'Test Number' })).toBeInTheDocument()
+      expect(mockSetValue).not.toHaveBeenCalled()
+    })
   })
 
   describe('shell metadata', () => {
