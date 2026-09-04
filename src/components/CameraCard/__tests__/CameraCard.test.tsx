@@ -11,6 +11,7 @@ import { useDashboardStore, dashboardActions } from '~/store'
 // increments it while its overlay is open (PanelApp reads it to lift the root
 // Theme's stacking). Reset it per test so the counter never leaks across tests.
 import { cameraFullscreenStore } from '~/store/cameraFullscreenStore'
+import { entityStore } from '~/store/entityStore'
 import { HomeAssistantProvider } from '../../../contexts/HomeAssistantContext'
 import { CardItemProvider } from '../../cardItemContext'
 import { hassService } from '~/services/hassService'
@@ -252,8 +253,10 @@ describe('CameraCard', () => {
     if (Object.getOwnPropertyDescriptor(document, 'exitFullscreen')) {
       delete (document as { exitFullscreen?: unknown }).exitFullscreen
     }
+    // The dialog-retry test seeds the entity store so the shell can name the
+    // tile; the card itself reads the mocked hook, so nothing else needs it.
+    entityStore.setState((state) => ({ ...state, entities: {} }))
   })
-
   describe('loading and connection states', () => {
     it('reports the disconnection while loading against a socket that is down', () => {
       // This used to expect a skeleton, which pinned the defect: `isLoading`
@@ -589,6 +592,25 @@ describe('CameraCard', () => {
       expect(card).toHaveAttribute('data-error', 'true')
 
       fireEvent.click(screen.getByText('Retry'))
+      expect(mockRetry).toHaveBeenCalledTimes(1)
+    })
+
+    it('offers the remount retry from the detail dialog, which clears the error', () => {
+      // The stream-error contract: the dialog carries the failure and the
+      // remount `Retry` even where the tier keeps the inline retry. Pressing
+      // the error tile opens the dialog instead of dispatching or no-op.
+      statusMock.error = 'Stream stalled'
+      entityStore.setState((state) => ({
+        ...state,
+        entities: { 'camera.front_door': makeEntity() },
+      }))
+      renderCard()
+
+      const tile = screen.getByRole('button', { name: /^Front Door, Stream stalled$/ })
+      fireEvent.click(tile)
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('Stream stalled')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
       expect(mockRetry).toHaveBeenCalledTimes(1)
     })
 

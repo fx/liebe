@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { EntityDetailDialog } from '../index'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
@@ -66,6 +66,24 @@ describe('EntityDetailDialog failure', () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
     // The dialog action itself dispatches nothing; the card's handler does.
     expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('observes a rejected Retry rather than leaking an unhandled rejection', async () => {
+    // `onRetry` may reject — a gated re-dispatch that fails again. The dialog
+    // observes the outcome (`.catch(() => {})`) instead of letting it escape
+    // as an unhandled rejection.
+    const onRetry = vi.fn().mockRejectedValue(new Error('still jammed'))
+    renderDialog({
+      failureMessage: 'Service not found',
+      canRetry: true,
+      onRetry,
+      onDismiss: vi.fn(),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
   it('offers Dismiss without Retry for a refusal with nothing to repeat', () => {

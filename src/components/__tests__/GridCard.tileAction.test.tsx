@@ -179,6 +179,7 @@ describe('GridCard tile action control', () => {
         entityId={ENTITY_ID}
         isError
         title="Service not found"
+        failureMessage="Service not found"
         onClick={vi.fn()}
       >
         content
@@ -188,8 +189,27 @@ describe('GridCard tile action control', () => {
     expect(tileAction(/^Desk Lamp, Service not found$/)).toBeInTheDocument()
   })
 
+  it('announces a lone failureMessage with no duplicated title', () => {
+    // `title` is hover-only: a failure carried only by `failureMessage` must
+    // still announce per the message-becomes-name contract.
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId={ENTITY_ID}
+        isError
+        failureMessage="Valve jammed"
+        onClick={vi.fn()}
+      >
+        content
+      </GridCard>
+    )
+
+    expect(tileAction(/^Desk Lamp, Valve jammed$/)).toBeInTheDocument()
+  })
+
   it('opens the detail dialog carrying the failure from the error tile at every tier', () => {
     for (const tier of ['glance', 'row', 'tall', 'full'] as const) {
+      const onToggle = vi.fn()
       const { unmount } = renderCard(
         <GridCard
           domain="light"
@@ -199,20 +219,51 @@ describe('GridCard tile action control', () => {
           title="Service not found"
           failureMessage="Service not found"
           onDismiss={vi.fn()}
-          onClick={vi.fn()}
+          onClick={onToggle}
         >
           content
         </GridCard>
       )
 
-      // The hold route is the dialog route; the error state keeps it armed.
+      // Pointer tap AND keyboard activation both route to recovery: the
+      // actionable card must not toggle behind its own ERROR.
+      fireEvent.click(tileAction(/^Desk Lamp, Service not found$/))
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service not found')
+      expect(onToggle).not.toHaveBeenCalled()
+      expect(hass.callService).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
       fireEvent.keyDown(tileAction(/^Desk Lamp, Service not found$/), {
         key: 'Enter',
         shiftKey: true,
       })
       expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service not found')
+      expect(onToggle).not.toHaveBeenCalled()
       unmount()
     }
+  })
+
+  it('opens the dialog from a tap=none error tile instead of no-op', () => {
+    // The camera resolves its tap to `none`; in the error state the press
+    // still has to reach the recovery dialog rather than doing nothing.
+    renderCard(
+      <GridCard
+        domain="camera"
+        entityId={ENTITY_ID}
+        tier="glance"
+        isError
+        title="Stream stalled"
+        failureMessage="Stream stalled"
+        onDismiss={vi.fn()}
+        defaultAction="none"
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.click(tileAction(/^Desk Lamp, Stream stalled$/))
+    expect(screen.getByTestId('detail-failure')).toHaveTextContent('Stream stalled')
+    expect(hass.callService).not.toHaveBeenCalled()
   })
 
   it('presses the icon-only error tile to the same dialog', () => {

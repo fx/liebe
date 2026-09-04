@@ -185,6 +185,14 @@ export interface GridCardProps {
    * start.
    */
   retryAction?: ResolvedCardAction | null
+  /**
+   * A non-service recovery the dialog's `Retry` invokes directly — the camera
+   * stream remount, which has no service command to re-dispatch through the
+   * gate. Takes precedence over `retryAction` where both are present; absent
+   * everywhere else.
+   */
+  onStreamRetry?: () => void
+  /** Clears the presentation state; dispatches nothing. */
   onDismiss?: () => void
   onConfigure?: () => void
   hasConfiguration?: boolean
@@ -750,6 +758,7 @@ export const GridCard = React.memo(
         failureMessage,
         canRetry = false,
         retryAction,
+        onStreamRetry,
         onDismiss,
         onConfigure,
         hasConfiguration = false,
@@ -910,23 +919,25 @@ export const GridCard = React.memo(
         const resolved = display.name || entity?.attributes?.friendly_name || detailEntityId
         if (!resolved) return undefined
 
-        const reported = (isError && title) || entity?.state
+        // The dialog is the carrier, so the name follows it: the failure
+        // message while `isError` holds, else the entity's state. `title` is
+        // hover-only and never the source — a lone `failureMessage` with no
+        // duplicated `title` still announces the failure.
+        const reported = (isError && (failureMessage ?? title)) || entity?.state
         return reported ? `${resolved}, ${reported}` : resolved
       })
       /*
        * The tile control's accessible name: the tile's resolved name (the
        * universal `name` override, else the entity's friendly name, else the
        * entity id) plus the state the tile is in — the entity's state, or the
-       * failure message while `isError` holds. The `title` tooltip MAY remain
-       * as a sighted-hover convenience; it is never the carrier. Read from the
-       * same store subscription shape as the icon-only label, so a live
-       * message and state cannot disagree about the name they give one tile.
+       * failure message while `isError` holds. Same carrier rule as above:
+       * `failureMessage ?? title`, never `title` alone.
        */
       const tileActionLabel = useStore(entityStore, (state) => {
         const entity = detailEntityId ? state.entities[detailEntityId] : undefined
         const name = display.name || entity?.attributes?.friendly_name || detailEntityId
         if (!name) return undefined
-        const reported = (isError && title) || entity?.state
+        const reported = (isError && (failureMessage ?? title)) || entity?.state
         return reported ? `${name}, ${reported}` : name
       })
       // The entity the dialog is open for, rather than a boolean: it is the
@@ -1005,9 +1016,23 @@ export const GridCard = React.memo(
        */
       const [prevIsEditMode, setPrevIsEditMode] = React.useState(isEditMode)
       const [prevDetailEntityId, setPrevDetailEntityId] = React.useState(detailEntityId)
-      if (isEditMode !== prevIsEditMode || detailEntityId !== prevDetailEntityId) {
+      const [prevIsUnavailable, setPrevIsUnavailable] = React.useState(isUnavailable)
+      if (
+        isEditMode !== prevIsEditMode ||
+        detailEntityId !== prevDetailEntityId ||
+        // An open confirmation holds a `proceed` closure over the action
+        // resolved while available; answering it after the entity goes quiet
+        // would dispatch a stale `toggle` at an indeterminate device. The
+        // deferred timers re-resolve at execution time (the hook's
+        // `latestActionsRef`), but a closure already handed to the dialog has
+        // no execution-time seam — so the request is dropped with the dialog
+        // it belongs to (design-system — "Size-adaptive layouts", the staleness
+        // rule), and answering it afterwards dispatches nothing.
+        (isUnavailable && !prevIsUnavailable)
+      ) {
         setPrevIsEditMode(isEditMode)
         setPrevDetailEntityId(detailEntityId)
+        setPrevIsUnavailable(isUnavailable)
         setDetailFor(null)
         setConfirmRequest(null)
       }
@@ -1081,6 +1106,18 @@ export const GridCard = React.memo(
           isRealDescendant(e) &&
           (!isEmbeddedControl(e) || isBackgroundSliderTarget(e))
         ) {
+          // While the tile carries a failure, every activation is a recovery
+          // activation: the tap route opens the dialog carrying the message
+          // and the recovery actions instead of dispatching. An actionable
+          // card must not toggle behind its own ERROR, and a tap=none card
+          // (the camera) must not swallow the press entirely — either way the
+          // failure is the thing the user has to act on
+          // (design-system — "Size-adaptive layouts", the every-tier
+          // error-tile contract).
+          if (isError && detailEntityId) {
+            setDetailFor(detailEntityId)
+            return
+          }
           gestures.tap()
         }
       }
@@ -1345,6 +1382,13 @@ export const GridCard = React.memo(
                 aria-label={tileActionLabel}
                 onClick={(e) => {
                   if (isEmbeddedControl(e) || !isRealDescendant(e)) return
+                  // Same recovery route as the pointer tap above: while the
+                  // tile carries a failure the control opens the dialog
+                  // instead of firing the tap route.
+                  if (isError && detailEntityId) {
+                    setDetailFor(detailEntityId)
+                    return
+                  }
                   gestures.tap()
                 }}
                 onKeyDown={handleTileActionKeyDown}
@@ -1481,10 +1525,14 @@ export const GridCard = React.memo(
               // card reports the state but names nothing to recover from —
               // the dialog stays the plain one. `Retry` re-enters through
               // `dispatchAction` — the confirmation gate, then the guard —
-              // exactly as if the gesture had fired again.
+              // exactly as if the gesture had fired again; a non-service
+              // recovery (the camera remount) invokes its handler directly.
               failureMessage={isError ? (failureMessage ?? title ?? null) : null}
-              canRetry={canRetry && retryAction != null}
-              onRetry={retryAction ? () => gestures.dispatchAction(retryAction) : undefined}
+              canRetry={canRetry && (onStreamRetry != null || retryAction != null)}
+              onRetry={
+                onStreamRetry ??
+                (retryAction ? () => gestures.dispatchAction(retryAction) : undefined)
+              }
               onDismiss={onDismiss}
             />
           )}

@@ -88,7 +88,12 @@ export function EntityDetailDialog({
                 label: 'Retry',
                 variant: 'soft',
                 color: 'red',
-                onClick: () => void onRetry(),
+                // Observed, not fire-and-forget: `onRetry` may reject (a
+                // gated re-dispatch that fails again), and an unobserved
+                // rejection surfaces as an unhandled rejection rather than as
+                // the tile's error state. Wrapped in `Promise.resolve` so a
+                // synchronous throw is caught too.
+                onClick: () => void Promise.resolve(onRetry()).catch(() => {}),
               }
             : undefined,
         secondary:
