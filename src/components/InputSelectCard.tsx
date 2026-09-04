@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import { Box, Flex, Text } from '@radix-ui/themes'
 import { Select } from '~/components/ui/portals'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from './CardBody'
@@ -59,6 +59,13 @@ interface SelectHelperControlProps {
   triggerRef?: React.Ref<HTMLButtonElement>
   /** Reaches the pill group, so the tile tap can focus its first live pill. */
   pillGroupRef?: React.Ref<HTMLDivElement>
+  /**
+   * Whether the dropdown is open. Owned by the caller, so a tap on the tile
+   * can open the menu the same way the trigger does. Absent — `undefined` —
+   * the menu owns it as before, which is what the detail dialog relies on.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -76,6 +83,8 @@ export function SelectHelperControl({
   onCommit,
   triggerRef,
   pillGroupRef,
+  open: openProp,
+  onOpenChange,
 }: SelectHelperControlProps) {
   const attributes = entity.attributes as InputSelectAttributes
   /*
@@ -85,6 +94,11 @@ export function SelectHelperControl({
   const options = readSelectOptions(attributes)
   const currentValue = entity.state
   const helperName = attributes.friendly_name || entity.entity_id.split('.')[1]
+  // A controlled caller (the card, driving the tile tap) owns the open state;
+  // the dialog mounts the control bare and the menu owns it itself.
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = openProp ?? uncontrolledOpen
+  const handleOpenChange = onOpenChange ?? setUncontrolledOpen
 
   if (presentation === 'pills') {
     return (
@@ -113,6 +127,8 @@ export function SelectHelperControl({
         value={currentValue}
         onValueChange={onCommit}
         disabled={loading || options.length === 0}
+        open={open}
+        onOpenChange={handleOpenChange}
       >
         {/*
          * `role="combobox"` takes no name from its contents, so the current
@@ -196,6 +212,10 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
   // imperative and renders nothing.
   const triggerRef = useRef<HTMLButtonElement>(null)
   const pillGroupRef = useRef<HTMLDivElement>(null)
+  // The dropdown's open state, owned here so the tile tap can open the menu —
+  // the option doc's "open the control". The dialog mounts the control bare
+  // and the menu owns it itself.
+  const [isOpen, setIsOpen] = useState(false)
   // The presentation the tap routes on, resolved before the entity guards so
   // no hook sits below an early return. The stored style needs the option
   // count, which is unknown until the entity loads, so this reads it
@@ -209,29 +229,23 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
     tier,
     readSelectOptions(attributesForPresentation).length
   )
-  const presentationRef = useRef<SelectControlStyle>('dropdown')
-  // An effect rather than a render-phase write — refs must not be assigned
-  // during render — and current whenever a tap can happen, because a tap
-  // needs a committed tile and effects flush before the next event.
-  useEffect(() => {
-    presentationRef.current = earlyPresentation
-  }, [earlyPresentation])
 
   /*
-   * The tile tap is the card's primary action: it opens the control — focusing
-   * the dropdown trigger where the dropdown renders, the first live pill where
-   * the pills do (the option doc's "Primary action"). At `glance` there is no
-   * control to focus, so the tap resolves to `more-info` instead and this
-   * declines — it is still passed, because an absent handler would tell the
-   * shell the card has no toggle of its own and route a configured `toggle`
-   * to `homeassistant.toggle` on an `input_select`.
+   * The tile tap is the card's primary action: it opens the control — opening
+   * the dropdown menu where the dropdown renders, focusing the first live
+   * pill where the pills do (the option doc's "Primary action"). At `glance`
+   * there is no control to open, so the tap resolves to `more-info` instead
+   * and this declines — it is still passed, because an absent handler would
+   * tell the shell the card has no toggle of its own and route a configured
+   * `toggle` to `homeassistant.toggle` on an `input_select`.
    *
-   * A plain function rather than a `useCallback`: it closes over nothing that
-   * changes — the refs are stable, `isGlance` is fixed per mount — so there is
-   * no identity to preserve. The routing consults the resolved presentation
-   * via the ref above, never the stored `controlStyle`: a stored `pills`
-   * degrades to the dropdown outside `full` or past five options, and the tap
-   * must focus what is there rather than what is stored.
+   * A plain function rather than a `useCallback`: it closes over state
+   * setters and stable refs plus `isGlance` and the pre-return presentation,
+   * and the shell calls it without memoizing — so there is no identity to
+   * preserve. The routing consults the resolved presentation, never the
+   * stored `controlStyle`: a stored `pills` degrades to the dropdown outside
+   * `full` or past five options, and the tap must open what is there rather
+   * than what is stored.
    */
   const handleClick = () => {
     if (isGlance) {
@@ -239,14 +253,14 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
        * A configured `tapAction: toggle` resolves to this handler whatever the
        * tier, so declaring `more-info` as the card's DEFAULT is not enough on
        * its own — a tile with an explicit toggle would call this, find no
-       * control to focus, and do nothing at all. Returning `'more-info'`
+       * control to open, and do nothing at all. Returning `'more-info'`
        * routes the gesture to the detail dialog instead, which is the escape
        * hatch `GridCard`'s `onClick` contract exists for and that the text card
        * already uses for its own control-free tiers.
        */
       return 'more-info'
     }
-    if (presentationRef.current === 'pills') {
+    if (earlyPresentation === 'pills') {
       // The current option's pill is disabled by design — pressing it would
       // send a `select_option` that changes nothing — so focus skips it for
       // the first pill that can actually be chosen.
@@ -255,7 +269,11 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
       firstLive?.focus()
       return undefined
     }
+    // Focus first for the keyboard path, then open: opening moves focus into
+    // the menu itself, and a trigger that never takes focus leaves a
+    // keyboard opener with no visible anchor when the menu closes.
     triggerRef.current?.focus()
+    setIsOpen(true)
     return undefined
   }
 
@@ -387,6 +405,8 @@ const MemoizedInputSelectCard = memo(function InputSelectCardContent({
                 onCommit={handleValueChange}
                 triggerRef={triggerRef}
                 pillGroupRef={pillGroupRef}
+                open={isOpen}
+                onOpenChange={setIsOpen}
               />
             </GridCard.Controls>
           )

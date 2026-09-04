@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
+import React, { memo, useCallback, useRef, useState } from 'react'
 import { Button, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Hash, Minus, Plus } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -379,35 +379,27 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
   // same shape as `InputTextCard`'s `isEditing` and for the same reason: the
   // tap is the card's primary action, and it focuses the value control.
   const [isEditing, setIsEditing] = useState(false)
-  // The slider thumb and the resolved presentation, so the tap can focus
-  // what renders. Refs rather than state: focusing is imperative and renders
-  // nothing, and the presentation is resolved below from the entity — the
-  // handler reads it where the render keeps it rather than closing over it.
+  // The slider thumb, so the tap can focus it where the slider renders. A ref
+  // rather than state: focusing is imperative and renders nothing.
   const sliderThumbRef = useRef<HTMLSpanElement>(null)
-  const presentationRef = useRef<'stepper' | 'slider'>('stepper')
 
   const isGlance = tier === 'glance'
 
   /*
    * The presentation the tap routes on, resolved before the entity guards so
-   * every hook below sits above every early return. The stored style needs
-   * the helper's mode, which is unknown until the entity loads, so this reads
-   * it defensively — an absent entity resolves as a stored `stepper`, which
-   * is exactly what `readNumberControlStyle` defaults an unknown mode to.
-   * The render below resolves the same value from the loaded entity; the two
-   * agree wherever a tap can happen, because a tap needs a rendered tile.
+   * the handler below closes over a value rather than a ref no effect keeps
+   * current. The stored style needs the helper's mode, which is unknown until
+   * the entity loads, so this reads it defensively — an absent entity
+   * resolves as a stored `stepper`, which is exactly what
+   * `readNumberControlStyle` defaults an unknown mode to. The render below
+   * resolves the same value from the loaded entity; the two agree wherever a
+   * tap can happen, because a tap needs a rendered tile.
    */
   const attributesForPresentation = entity?.attributes as InputNumberAttributes | undefined
-  const earlyPresentation = resolveNumberPresentation(
+  const tapPresentation = resolveNumberPresentation(
     readNumberControlStyle(config, attributesForPresentation?.mode),
     tier
   )
-  // An effect rather than a render-phase write — refs must not be assigned
-  // during render — and current whenever a tap can happen, because a tap
-  // needs a committed tile and effects flush before the next event.
-  useEffect(() => {
-    presentationRef.current = earlyPresentation
-  }, [earlyPresentation])
 
   // Keyed on the prop rather than on the resolved entity: the control that
   // calls this only renders past the early returns below, so the entity exists
@@ -427,14 +419,10 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
    * shell the card has no toggle of its own and route a configured `toggle`
    * to `homeassistant.toggle` on an `input_number`.
    *
-   * A plain function rather than a `useCallback`: it closes over nothing that
-   * changes — the refs are stable, `isGlance` is fixed per mount — so there is
-   * no identity to preserve, and a hook here would sit above the entity
-   * guards below while the routing it performs needs the entity. The routing
-   * consults the resolved presentation via the ref the render below keeps
-   * current, never the stored `controlStyle`: at `tall` a stored `stepper`
-   * renders the vertical slider, and the tap must focus what is there rather
-   * than what is stored.
+   * A plain function closing over the pre-return `tapPresentation`: the
+   * routing consults the resolved presentation, never the stored
+   * `controlStyle` — at `tall` a stored `stepper` renders the vertical
+   * slider, and the tap must focus what is there rather than what is stored.
    */
   const handleClick = () => {
     if (isGlance) {
@@ -449,7 +437,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        */
       return 'more-info'
     }
-    if (presentationRef.current === 'slider') {
+    if (tapPresentation === 'slider') {
       sliderThumbRef.current?.focus()
       return undefined
     }

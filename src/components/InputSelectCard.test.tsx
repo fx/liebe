@@ -296,15 +296,20 @@ describe('InputSelectCard', () => {
   })
 
   describe('tile tap (tapAction: default)', () => {
-    // The option doc's "Primary action": a tap opens the control — focusing
-    // the dropdown trigger where the dropdown renders, the first live pill
-    // where the pills do — and selects no option of its own.
-    it('focuses the dropdown trigger on tap where the dropdown renders', () => {
+    // The option doc's "Primary action": a tap opens the control — opening
+    // the dropdown menu where the dropdown renders, focusing the first live
+    // pill where the pills do — and selects no option of its own.
+    it('opens the dropdown menu on tap where the dropdown renders', async () => {
       render(<InputSelectCard entityId="input_select.test_select" tier="row" />)
 
       fireEvent.click(document.querySelector('.liebe-card')!)
 
-      expect(document.activeElement).toBe(screen.getByRole('combobox'))
+      // The menu is open: the non-current options render as options, and the
+      // tap itself selects nothing.
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'Option 2' })).toBeInTheDocument()
+      })
+      expect(screen.getByRole('option', { name: 'Option 3' })).toBeInTheDocument()
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
@@ -322,16 +327,18 @@ describe('InputSelectCard', () => {
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
-    it('focuses the degraded dropdown at row, not the stored pills', () => {
+    it('opens the degraded dropdown at row, not the stored pills', async () => {
       // Consults the resolved presentation rather than the stored style: a
       // stored `pills` degrades to the dropdown outside `full`, and the tap
-      // must focus what is there rather than what is stored.
+      // must open what is there rather than what is stored.
       render(<InputSelectCard entityId="input_select.test_select" tier="row" config={{ controlStyle: 'pills' }} />)
       expect(screen.getByRole('combobox')).toBeInTheDocument()
 
       fireEvent.click(document.querySelector('.liebe-card')!)
 
-      expect(document.activeElement).toBe(screen.getByRole('combobox'))
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'Option 2' })).toBeInTheDocument()
+      })
       expect(mockSetValue).not.toHaveBeenCalled()
     })
 
