@@ -415,9 +415,11 @@ describe('the tile offers exactly one Tab stop (Codex pass 2)', () => {
     await waitFor(() => expect(pill('Unlock')).toBeInTheDocument())
 
     const tile = container.querySelector('.liebe-card') as HTMLElement
+    // Tabbability, not presence: a `disabled` pill is no Tab stop, so it is
+    // excluded up front rather than counted and excused.
     const tabbables = Array.from(
       tile.querySelectorAll(
-        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       )
     ).filter((el) => {
       if (!(el instanceof HTMLElement)) return false
@@ -425,12 +427,15 @@ describe('the tile offers exactly one Tab stop (Codex pass 2)', () => {
       return true
     })
 
-    // Pill buttons present and tabbable, tile-action suppressed.
+    // Pill buttons present and tabbable, tile-action suppressed: one Tab stop
+    // per control — the locked tile's Lock pill is disabled (nothing to lock),
+    // so only Unlock remains beside the suppressed tile action.
     expect(pill('Unlock')).toBeInTheDocument()
+    expect((pill('Lock') as HTMLButtonElement).disabled).toBe(true)
     const tileAction = tile.querySelector('.liebe-tile-action')
     expect(tileAction).not.toBeNull()
     expect((tileAction as HTMLElement).tabIndex).toBe(-1)
-    expect(tabbables).toHaveLength(2)
+    expect(tabbables).toHaveLength(1)
   })
 
   it('keeps the tile-action stop when the pill buttons are all disabled', async () => {

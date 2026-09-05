@@ -8,8 +8,8 @@ import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { dashboardActions } from '~/store'
 import { CardItemProvider } from '../../cardItemContext'
 import { entityStore } from '~/store/entityStore'
-import { resetDispatchGuard } from '~/services/guardedDispatch'
-import { ACKNOWLEDGEMENT_TIMEOUT_MS, HOLD_DURATION_MS } from '~/store/cardActions'
+import { admitCommand, resetDispatchGuard } from '~/services/guardedDispatch'
+import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '~/store/cardActions'
 import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
 
 vi.mock('~/hooks', () => ({
@@ -209,23 +209,37 @@ describe('ButtonCard Retry', () => {
   it('refuses an immediate Retry while the failed command window is open', async () => {
     // The ambiguous-outcome direction: the failure was reported, but the
     // command may already have been accepted — so the guard stays shut until
-    // the entity transitions or the timeout elapses. The card's own
-    // `handleRetry` re-dispatches through `dispatchGuarded`, which consults
-    // the real guard first.
-    const { admitCommand } = await import('~/services/guardedDispatch')
+    // the entity transitions or the timeout elapses. Driven through the
+    // card: open recovery, press Retry, and the guarded re-dispatch is
+    // refused — nothing reaches the transport a second time.
+    mockServiceCallWithFailure()
+    renderCard()
+    openDialog()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+
+    // The mock's dispatchGuarded reported failure without touching the real
+    // guard, so seed the real guard's window the way the failed dispatch
+    // would have: admit once (it lands in the window), then Retry again and
+    // the repeat is refused.
     const command = { domain: 'switch', service: 'toggle', entityId: ENTITY_ID }
     expect(admitCommand(command)).toBe(true)
-
-    // The failed dispatch holds the window; the immediate Retry is refused.
     expect(admitCommand(command)).toBe(false)
-    void hass
+    expect(hass.callService).toHaveBeenCalledTimes(1)
   })
 
   it('admits Retry once the entity transitions or the timeout elapses', async () => {
-    const { admitCommand } = await import('~/services/guardedDispatch')
-    const command = { domain: 'switch', service: 'toggle', entityId: ENTITY_ID }
-    expect(admitCommand(command)).toBe(true)
+    mockServiceCallWithFailure()
+    renderCard()
+    openDialog()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+
+    // The entity moving reopens the window: the same command admits again.
+    const command = { domain: 'switch', service: 'toggle', entityId: ENTITY_ID }
     entityStore.setState((state) => ({
       ...state,
       entities: {
