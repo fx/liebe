@@ -224,3 +224,39 @@ describe('retainedRetryAction', () => {
     ).toBeUndefined()
   })
 })
+
+describe('retainedRetryAction targetless shapes', () => {
+  it('omits data entirely for a targetless command with no payload', () => {
+    // Scene/notification-style commands aim at nothing observable; the retry
+    // replays them bare rather than inventing a target.
+    expect(
+      retainedRetryAction({ command: { domain: 'notify', service: 'persistent' }, retryable: true })
+    ).toEqual({ action: 'call-service', service: 'notify.persistent' })
+  })
+
+  it('carries a dataless target as entity_id alone', () => {
+    expect(
+      retainedRetryAction({
+        command: { domain: 'homeassistant', service: 'toggle', entityId: 'light.desk' },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'homeassistant.toggle',
+      data: { entity_id: 'light.desk' },
+    })
+  })
+
+  it('keeps data without a target untouched', () => {
+    expect(
+      retainedRetryAction({
+        command: { domain: 'script', service: 'turn_on', data: { variables: { x: 1 } } },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'script.turn_on',
+      data: { variables: { x: 1 } },
+    })
+  })
+})

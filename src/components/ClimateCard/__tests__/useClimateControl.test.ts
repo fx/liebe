@@ -21,10 +21,17 @@ describe('useClimateControl', () => {
   const dispatchGuarded = vi.fn()
   const clearError = vi.fn()
 
-  const setup = (state: { loading?: boolean; error?: string | null } = {}) => {
+  const setup = (
+    state: {
+      loading?: boolean
+      error?: string | null
+      failedCommand?: { command: Record<string, unknown>; retryable: boolean } | null
+    } = {}
+  ) => {
     ;(useServiceCall as any).mockReturnValue({
       loading: state.loading ?? false,
       error: state.error ?? null,
+      failedCommand: state.failedCommand ?? null,
       dispatchGuarded,
       clearError,
     })
@@ -105,5 +112,45 @@ describe('useClimateControl', () => {
 
     await act(() => result.current.setRange({ low: 20, high: 24, ...bounds }))
     expect(clearError).toHaveBeenCalledTimes(3)
+  })
+  const retained = {
+    command: {
+      domain: 'climate',
+      service: 'set_temperature',
+      entityId: 'climate.hallway',
+      data: { temperature: 21 },
+    },
+    retryable: true,
+  }
+
+  it('re-dispatches the retained command', async () => {
+    const result = setup({ failedCommand: retained as never })
+
+    await act(() => result.current.retryFailed())
+
+    expect(dispatchGuarded).toHaveBeenCalledWith(retained.command)
+  })
+
+  it('does nothing without a retryable failure', async () => {
+    for (const failedCommand of [
+      null,
+      undefined,
+      { command: retained.command, retryable: false },
+    ]) {
+      vi.clearAllMocks()
+      const result = setup({ failedCommand: failedCommand as never })
+
+      await act(() => result.current.retryFailed())
+
+      expect(dispatchGuarded).not.toHaveBeenCalled()
+    }
+  })
+
+  it('declines while a command is already in flight', async () => {
+    const result = setup({ loading: true, failedCommand: retained as never })
+
+    await act(() => result.current.retryFailed())
+
+    expect(dispatchGuarded).not.toHaveBeenCalled()
   })
 })
