@@ -342,8 +342,12 @@ export function useCardActions({
       report?: (result: { success: boolean; error?: string } | null) => void
     ) => {
       void guardedDispatch(options).then((result) => {
-        // `null` is the guard refusing a repeat, which is not a failure.
-        if (result && !result.success) {
+        // `null` is the guard refusing a repeat: not a failure, and per the
+        // `onRetrySettled` contract it reports nothing — every card closure
+        // reads `result?.success`, so skipping the call entirely is
+        // behavior-preserving for every caller.
+        if (result === null) return
+        if (!result.success) {
           // The card's own error surface belongs to whatever issued the command
           // — a control knows it is loading, the shell does not. What the shell
           // owes a failed *action* is that it not vanish silently.
@@ -508,8 +512,9 @@ export function useCardActions({
       // Held, not queued: nothing is dispatched, and nothing about the card
       // changes, until the user says so. Cancelling drops this closure.
       // The report travels into `performDispatch` so the guarded outcome —
-      // success, failure, or guard refusal — reaches the card's observer from
-      // every path, gated or not.
+      // success or failure — reaches the card's observer from every path,
+      // gated or not. A guard refusal reports nothing, per the
+      // `onRetrySettled` contract.
       const proceed = () => performDispatch(action, report)
 
       /*
