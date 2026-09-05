@@ -20,6 +20,7 @@ import { readCardDisplay } from '~/store/cardDisplay'
 import { readMediaPlayerOptions } from '~/store/mediaPlayerOptions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { retainedRetryAction } from '~/store/cardActions'
 import { renderCardLifecycle } from '../ui'
 import { GridCardWithComponents as GridCard } from '../GridCard'
 import { CardBody, DEFAULT_TIER_ARRANGEMENT } from '../CardBody'
@@ -120,7 +121,7 @@ function MediaPlayerCardComponent({
    * `callService` (docs/specs/entity-cards/options/common.md — "Dispatch
    * guarantees"; docs/changes/0023).
    */
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
@@ -859,6 +860,13 @@ function MediaPlayerCardComponent({
       onClick={handlePrimary}
       defaultAction={defaultAction}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
+      onDismiss={clearError}
       className={
         showBackgroundArtwork ? 'media-player-card media-player-card-backdrop' : 'media-player-card'
       }

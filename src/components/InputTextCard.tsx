@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useState } from 'react'
+import { retainedRetryAction } from '~/store/cardActions'
 import { Box, Flex, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Check, Edit2, Type, X } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -291,7 +292,7 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
   onSelect,
 }: InputTextCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { setValue, loading, error } = useServiceCall()
+  const { setValue, loading, error, failedCommand, clearError } = useServiceCall()
 
   const [isEditing, setIsEditing] = useState(false)
 
@@ -424,6 +425,13 @@ const MemoizedInputTextCard = memo(function InputTextCardContent({
        */
       defaultAction={controlOmitted ? 'more-info' : undefined}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
+      onDismiss={clearError}
     >
       {/*
        * `glance` reads the value out as the tile's state line — masked when the

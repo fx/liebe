@@ -234,6 +234,7 @@ function CameraCardComponent({
     remountKey,
     onStreamEvent,
     retry: retryStream,
+    dismiss: dismissStream,
   } = useCameraStreamStatus({
     getInnerVideo,
     getMjpegImg,
@@ -510,6 +511,7 @@ function CameraCardComponent({
          * so the two readings cannot come from different places and disagree.
          */
         config={item?.config}
+        entityId={entityId}
         isLoading={false}
         isError={!!streamError}
         isStale={isStale}
@@ -530,6 +532,15 @@ function CameraCardComponent({
         onConfigure={() => setConfigOpen(true)}
         hasConfiguration={true}
         title={streamError || undefined}
+        failureMessage={streamError || undefined}
+        // A stream that would not start offers its remount retry (the
+        // stream-error contract): `retryStream` clears the surfaced error and
+        // remounts, which is the repeatable recovery. `retryAction` stays
+        // absent — there is no service command to re-dispatch — so the dialog
+        // reaches the remount through `onStreamRetry` instead of the gate.
+        canRetry={streamError != null}
+        onStreamRetry={streamError ? retryStream : undefined}
+        onDismiss={streamError ? dismissStream : undefined}
         className="camera-card"
         customPadding={mattingPadding}
         style={{

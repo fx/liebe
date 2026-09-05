@@ -136,20 +136,26 @@ export const ErrorDisplay = memo(function ErrorDisplay({
 
     if (!isGlance) {
       return (
-        <Card variant="classic" style={{ borderColor: 'var(--red-6)' }}>
-          {surface}
-        </Card>
+        // `liebe-card` and `data-tier` are the shell tile's own handles: a
+        // lifecycle tile is a tile like any other and MUST take the tier of
+        // the card it stands in for (design-system — "Size-adaptive layouts"),
+        // and a theme reshapes the tile through `liebe-card`. `SkeletonCard`
+        // is the compliant reference — it stamps the same two attributes
+        // directly and deliberately rather than going through `GridCard`.
+        <div className="liebe-card" data-tier={tier}>
+          <Card variant="classic" style={{ borderColor: 'var(--red-6)' }}>
+            {surface}
+          </Card>
+        </div>
       )
     }
 
     return (
-      <>
-        {/*
-         * `asChild` rather than a click handler on the div: a real button is
-         * what makes the tile focusable, operable from a keyboard, and named —
-         * and Radix's card reset already styles a button as the card surface,
-         * focus ring included.
-         */}
+      // Same two attributes as the non-glance arm above and as `SkeletonCard`:
+      // the glance tile is the same tile at a smaller size, not a different
+      // surface. The `Card asChild` button keeps owning focus, activation and
+      // the accessible name inside it.
+      <div className="liebe-card" data-tier={tier}>
         <Card asChild variant="classic" style={{ borderColor: 'var(--red-6)' }}>
           <button
             type="button"
@@ -200,7 +206,7 @@ export const ErrorDisplay = memo(function ErrorDisplay({
         >
           <Text size="2">{errorMessage}</Text>
         </Modal>
-      </>
+      </div>
     )
   }
 

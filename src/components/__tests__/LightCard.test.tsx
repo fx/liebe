@@ -46,6 +46,7 @@ describe('LightCard', () => {
     dispatchGuarded: vi.fn(),
     setValue: vi.fn(),
     clearError: vi.fn(),
+    failedCommand: null,
   }
 
   beforeEach(() => {

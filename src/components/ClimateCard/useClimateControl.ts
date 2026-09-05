@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useServiceCall } from '~/hooks'
+import type { FailedServiceCall } from '~/hooks/useServiceCall'
 import { clampTemperature } from './climateModel'
 
 /**
@@ -40,10 +41,35 @@ export interface ClimateControl {
   setFanMode: (fanMode: string) => Promise<void>
   setTemperature: (temperature: number, bounds: TemperatureBounds) => Promise<void>
   setRange: (setpoints: RangeSetpoints) => Promise<void>
+  /**
+   * The failed dispatch the shell can offer to repeat, and the repeat itself:
+   * re-dispatches the retained command through the gate and the guard rather
+   * than around either (see ButtonCard for the contract note).
+   */
+  failedCommand?: FailedServiceCall | null
+  retryFailed: () => Promise<void>
+  clearError: () => void
 }
 
 export function useClimateControl(entityId: string): ClimateControl {
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
+
+  /*
+   * `Retry` re-dispatches the retained command as a new user gesture — through
+   * the shell's confirmation gate and the at-most-once guard rather than
+   * around either (see ButtonCard for the contract note). Clearing first so
+   * the retry starts from a clean surface.
+   */
+  const retryFailed = useCallback(async () => {
+    const retained = failedCommand?.retryable ? failedCommand.command : undefined
+    if (!retained) return
+    if (isLoading) return
+    // No pre-clear: `runCall` already resets error/retention on entry for an
+    // admitted dispatch, and a guard-refused retry dispatches nothing — so a
+    // pre-clear would wipe the error while leaving the tile failed, reading
+    // recovered while the command never re-sent.
+    await dispatchGuarded(retained)
+  }, [failedCommand, isLoading, dispatchGuarded])
 
   /**
    * The three mode services differ only in which key they carry, so they share
@@ -127,5 +153,16 @@ export function useClimateControl(entityId: string): ClimateControl {
     [entityId, dispatchGuarded, isLoading, error, clearError]
   )
 
-  return { isLoading, error, setHvacMode, setPresetMode, setFanMode, setTemperature, setRange }
+  return {
+    isLoading,
+    error,
+    setHvacMode,
+    setPresetMode,
+    setFanMode,
+    setTemperature,
+    setRange,
+    failedCommand,
+    retryFailed,
+    clearError,
+  }
 }

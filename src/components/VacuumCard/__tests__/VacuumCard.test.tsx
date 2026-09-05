@@ -457,6 +457,30 @@ describe('VacuumCard dispatch guarantees', () => {
     fireEvent.click(pill('Return to dock')!)
     await waitFor(() => expect(stateLine()).not.toContain('ERROR'))
   })
+
+  it('clears the error when the dialog Retry lands, and keeps it when Retry fails again', async () => {
+    // Both arms of `onRetrySettled`: a failed Retry keeps the tile error, a
+    // successful one clears it.
+    callService.mockRejectedValueOnce(new Error('nope'))
+    mount({ state: 'cleaning' })
+
+    fireEvent.click(pill('Pause')!)
+    await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
+
+    // Retry fails again: the error stands. The retap opens the recovery
+    // dialog; the guard reset lets the re-dispatch reach the transport.
+    callService.mockRejectedValueOnce(new Error('still jammed'))
+    resetDispatchGuard()
+    fireEvent.click(tile())
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(callService).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
+
+    // Retry lands: the observer clears the card error and the tile recovers.
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(tile()).not.toHaveAttribute('data-error'))
+  })
 })
 
 describe('VacuumCard lifecycle states', () => {

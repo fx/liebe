@@ -1,10 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CoverCard } from '..'
 import { useEntity, useServiceCall } from '~/hooks'
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { useDashboardStore } from '~/store'
+
+vi.mock('~/contexts/HomeAssistantContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~/contexts/HomeAssistantContext')>()
+  return { ...actual, useHomeAssistantOptional: vi.fn() }
+})
 
 // Mock the hooks
 vi.mock('~/hooks', () => ({
@@ -745,13 +753,17 @@ describe('CoverCard', () => {
       }
     })
 
-    it('clears a standing error when the tile’s own toggle fires', async () => {
+    it('opens recovery instead of dispatching when the error tile itself is pressed', async () => {
+      // The tile press while the error stands is a recovery activation: it
+      // opens the detail dialog carrying the failure rather than clearing
+      // the error and re-dispatching behind it. Clearing now belongs to
+      // Dismiss — and re-dispatch to Retry — inside that dialog.
       const entity = createMockCoverEntity({
         state: 'open',
         attributes: { current_position: 40, supported_features: 3 },
       })
-      ;(useEntity as any).mockReturnValue({ entity, isConnected: true, isStale: false })
-      ;(useServiceCall as any).mockReturnValue({
+      ;(useEntity as Mock).mockReturnValue({ entity, isConnected: true, isStale: false })
+      ;(useServiceCall as Mock).mockReturnValue({
         loading: false,
         error: 'Service call failed',
         callService: vi.fn(),
@@ -763,12 +775,13 @@ describe('CoverCard', () => {
 
       await userEvent.click(document.querySelector('.liebe-card')!)
 
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service call failed')
+      expect(mockClearError).not.toHaveBeenCalled()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
       expect(mockClearError).toHaveBeenCalled()
-      expect(mockDispatchGuarded).toHaveBeenCalledWith({
-        domain: 'cover',
-        service: 'toggle',
-        entityId: 'cover.test_cover',
-      })
     })
 
     it('shows loading state during service calls', () => {
@@ -808,6 +821,52 @@ describe('CoverCard', () => {
       expect(card).not.toHaveStyle({
         borderStyle: 'dashed',
       })
+    })
+
+    it('keeps the error when dialog Retry fails again, clears it when Retry lands', async () => {
+      // Both arms of `onRetrySettled`: a failed Retry keeps the tile error, a
+      // landed Retry clears it.
+      const entity = createMockCoverEntity({
+        state: 'open',
+        attributes: { current_position: 40, supported_features: 3 },
+      })
+      ;(useEntity as Mock).mockReturnValue({ entity, isConnected: true, isStale: false })
+      const failedCommand = {
+        command: { domain: 'cover', service: 'open_cover', entityId: 'cover.test_cover' },
+        retryable: true as const,
+      }
+      const dispatchGuarded = vi.fn(async () => ({ success: false, error: 'open_cover failed' }))
+      const hass = createMockHomeAssistant({
+        callService: vi.fn().mockResolvedValue(undefined),
+      })
+      vi.mocked(useHomeAssistantOptional).mockReturnValue(hass)
+      const clearError = vi.fn()
+      ;(useServiceCall as Mock).mockReturnValue({
+        loading: false,
+        error: 'open_cover failed',
+        failedCommand,
+        callService: vi.fn(),
+        dispatchGuarded,
+        clearError,
+      })
+
+      render(<CoverCard entityId="cover.test_cover" tier="row" />)
+      fireEvent.click(document.querySelector('.liebe-card') as HTMLElement)
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('open_cover failed')
+
+      // Retry fails again: the error stands (the failure arm of the observer).
+      vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await act(async () => {})
+      expect(hass.callService).toHaveBeenCalledTimes(1)
+      expect(clearError).not.toHaveBeenCalled()
+
+      // Retry lands: the observer clears the card error and the tile recovers.
+      resetDispatchGuard()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await act(async () => {})
+      expect(hass.callService).toHaveBeenCalledTimes(2)
+      expect(clearError).toHaveBeenCalledTimes(1)
     })
   })
 })

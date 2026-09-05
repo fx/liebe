@@ -6,6 +6,7 @@ import {
   isParameterizedCardAction,
   readCardAction,
   resolveCardAction,
+  retainedRetryAction,
 } from '../cardActions'
 
 /**
@@ -154,5 +155,125 @@ describe('isParameterizedCardAction', () => {
     expect(isParameterizedCardAction({ action: 'call-service', service: 'light.turn_on' })).toBe(
       true
     )
+  })
+})
+
+describe('retainedRetryAction', () => {
+  it('replays the retained target inside the payload, never the current entity', () => {
+    // The retry must repeat what was dispatched: the failed command's own
+    // `entityId` travels as `data.entity_id`, so the shell's current entity
+    // cannot hijack it after an A→B recycle.
+    expect(
+      retainedRetryAction({
+        command: { domain: 'switch', service: 'toggle', entityId: 'switch.a' },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'switch.toggle',
+      data: { entity_id: 'switch.a' },
+    })
+  })
+
+  it('lets an explicit data.entity_id win over the implicit one', () => {
+    // Mirrors `HassService.buildServiceData`: explicit data spreads over the
+    // implicit target.
+    expect(
+      retainedRetryAction({
+        command: {
+          domain: 'button',
+          service: 'press',
+          entityId: 'button.a',
+          data: { entity_id: 'button.b' },
+        },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'button.press',
+      data: { entity_id: 'button.b' },
+    })
+  })
+
+  it('carries extra payload keys alongside the target', () => {
+    expect(
+      retainedRetryAction({
+        command: {
+          domain: 'light',
+          service: 'turn_on',
+          entityId: 'light.desk',
+          data: { brightness: 130 },
+        },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'light.turn_on',
+      data: { entity_id: 'light.desk', brightness: 130 },
+    })
+  })
+
+  it('returns nothing without a retryable failure', () => {
+    expect(retainedRetryAction(null)).toBeUndefined()
+    expect(retainedRetryAction(undefined)).toBeUndefined()
+    expect(
+      retainedRetryAction({
+        command: { domain: 'switch', service: 'toggle', entityId: 'switch.a' },
+        retryable: false,
+      })
+    ).toBeUndefined()
+  })
+
+  it('withholds a code-bearing command even when marked retryable', () => {
+    // CodeRabbit Major on cardActions.ts:183 — defense in depth beside the
+    // hook's non-retryable retention: a stale retryable flag must not route a
+    // keypad credential through generic Retry after the keypad closes.
+    expect(
+      retainedRetryAction({
+        command: {
+          domain: 'alarm_control_panel',
+          service: 'alarm_disarm',
+          entityId: 'alarm_control_panel.house',
+          data: { code: '1234' },
+        },
+        retryable: true,
+      })
+    ).toBeUndefined()
+  })
+})
+
+describe('retainedRetryAction targetless shapes', () => {
+  it('omits data entirely for a targetless command with no payload', () => {
+    // Scene/notification-style commands aim at nothing observable; the retry
+    // replays them bare rather than inventing a target.
+    expect(
+      retainedRetryAction({ command: { domain: 'notify', service: 'persistent' }, retryable: true })
+    ).toEqual({ action: 'call-service', service: 'notify.persistent' })
+  })
+
+  it('carries a dataless target as entity_id alone', () => {
+    expect(
+      retainedRetryAction({
+        command: { domain: 'homeassistant', service: 'toggle', entityId: 'light.desk' },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'homeassistant.toggle',
+      data: { entity_id: 'light.desk' },
+    })
+  })
+
+  it('keeps data without a target untouched', () => {
+    expect(
+      retainedRetryAction({
+        command: { domain: 'script', service: 'turn_on', data: { variables: { x: 1 } } },
+        retryable: true,
+      })
+    ).toEqual({
+      action: 'call-service',
+      service: 'script.turn_on',
+      data: { variables: { x: 1 } },
+    })
   })
 })

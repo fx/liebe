@@ -1,4 +1,5 @@
 import React, { memo, useCallback } from 'react'
+import { retainedRetryAction } from '~/store/cardActions'
 import { Switch } from '@radix-ui/themes'
 import { Archive, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -83,7 +84,7 @@ function InputBooleanCardComponent({
   config,
 }: InputBooleanCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { toggle, loading, error } = useServiceCall()
+  const { toggle, loading, error, failedCommand, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   // The same stored options the shell reads, from the same place the grid
@@ -170,6 +171,13 @@ function InputBooleanCardComponent({
       onDelete={onDelete}
       onClick={handleClick}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
+      onDismiss={clearError}
     >
       {/*
        * Whether a discrete switch renders at all is `controlStyle`

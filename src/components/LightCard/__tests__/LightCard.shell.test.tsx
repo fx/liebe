@@ -162,11 +162,11 @@ describe('the card title', () => {
 })
 
 describe('the toggle', () => {
-  it('clears a previous error before dispatching again', async () => {
+  it('opens recovery on retap while the error stands instead of dispatching again', async () => {
     /*
-     * The error belongs to the last attempt. Leaving it up while a new command
-     * is in flight would show a failure that is no longer the card's state, and
-     * the user has just asked for something different.
+     * The error tile routes every activation to recovery: the retap opens
+     * the detail dialog carrying the failure instead of clearing the error
+     * and re-dispatching behind it. Dismiss clears it from there.
      */
     const callService = vi
       .fn()
@@ -179,11 +179,42 @@ describe('the toggle', () => {
     fireEvent.click(tile())
     await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
 
-    // A different command, so the guard does not hold it back.
-    seed(light({ state: 'off' }))
+    // A different command, so the retap would dispatch if the shell let it
+    // through — proving the dialog, not the guard, is what holds it back.
+    seed(light({ state: 'off', last_updated: '2024-01-01T00:01:00Z' }))
     fireEvent.click(tile())
 
+    expect(screen.getByTestId('detail-failure')).toHaveTextContent('nope')
+    expect(callService).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
     await waitFor(() => expect(tile()).not.toHaveAttribute('data-error', 'true'))
+    expect(callService).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the error when dialog Retry fails again, clears it when Retry lands', async () => {
+    // Both arms of `onRetrySettled`: a failed Retry keeps the tile error, a
+    // landed Retry clears it.
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('nope'))
+    renderCard()
+
+    fireEvent.click(tile())
+    await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
+
+    // Retry fails again: the error stands. The retap opens the recovery
+    // dialog; the guard reset lets the re-dispatch reach the transport.
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+    resetDispatchGuard()
+    fireEvent.click(tile())
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
+
+    // Retry lands: the observer clears the card error and the tile recovers.
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(tile()).not.toHaveAttribute('data-error'))
   })
 
   /*

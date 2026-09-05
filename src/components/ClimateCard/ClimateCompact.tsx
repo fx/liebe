@@ -14,6 +14,7 @@ import { climateCardFallback } from './ClimateCardStates'
 import { useClimateModel } from './climateModel'
 import { temperatureDisplay } from './temperatureDisplay'
 import { useClimateControl } from './useClimateControl'
+import { retainedRetryAction } from '~/store/cardActions'
 import './ClimateCard.css'
 
 /*
@@ -146,6 +147,13 @@ export function ClimateCompactContent({
       // `glance` that dialog is the whole of the tile's operability.
       defaultAction="more-info"
       title={control.error || undefined}
+      failureMessage={control.error || undefined}
+      canRetry={control.failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(control.failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) control.clearError()
+      }}
+      onDismiss={control.clearError}
       className="climate-card"
       // The entity travels with the config: the shell resolves the universal
       // options off one and builds an icon-only tile's accessible name out of

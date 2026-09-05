@@ -25,6 +25,7 @@ import {
 import { fanHasPresets, readFanFeatures, readFanPresetModes, type FanAttributes } from './features'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { retainedRetryAction } from '~/store/cardActions'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 
 interface FanCardProps {
@@ -103,7 +104,7 @@ function FanCardComponent({
    * contract is normative for every embedded control on every card
    * (docs/specs/entity-cards/options/common.md — "Dispatch guarantees").
    */
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
@@ -584,6 +585,13 @@ function FanCardComponent({
        */
       entityId={entityId}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
+      onDismiss={clearError}
       className="fan-card"
       backgroundSlider={backgroundSlider}
     >

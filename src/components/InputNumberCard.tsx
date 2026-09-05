@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useRef, useState } from 'react'
+import { retainedRetryAction } from '~/store/cardActions'
 import { Button, IconButton, Text, TextField } from '@radix-ui/themes'
 import { Archive, Hash, Minus, Plus } from 'lucide-react'
 import { useEntity } from '../hooks/useEntity'
@@ -387,7 +388,7 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
   config: configProp,
 }: InputNumberCardProps) {
   const { entity, isConnected, isMissing, isLoading: isEntityLoading } = useEntity(entityId)
-  const { setValue, loading, error } = useServiceCall()
+  const { setValue, loading, error, failedCommand, clearError } = useServiceCall()
   const publishedItem = useCardItem()
   /*
    * The renderer's config when it passed one, the published item's otherwise —
@@ -591,6 +592,13 @@ const MemoizedInputNumberCard = memo(function InputNumberCardContent({
        */
       defaultAction={isGlance ? 'more-info' : undefined}
       title={error || undefined}
+      failureMessage={error || undefined}
+      canRetry={failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) clearError()
+      }}
+      onDismiss={clearError}
       /*
        * The entity travels with the config for the same reason it does on the
        * weather variant: the shell builds the icon-only tile's accessible name

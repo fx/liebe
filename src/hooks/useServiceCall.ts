@@ -28,6 +28,30 @@ export interface UseServiceCallResult {
   toggle: (entityId: string, data?: Record<string, unknown>) => Promise<ServiceCallResult>
   setValue: (entityId: string, value: unknown) => Promise<ServiceCallResult>
   clearError: () => void
+  /**
+   * The failed dispatch the shell can offer to repeat, or null. Retained, not
+   * reconstructed: `Retry` re-dispatches the identical command through the
+   * confirmation gate and the at-most-once guard, exactly as the original
+   * gesture did. A `callServiceOnce` failure that already entered the guard
+   * keeps its window — a transport rejection after Home Assistant accepted the
+   * command is indistinguishable from one before it, so an immediate `Retry`
+   * stays refused there until the watched entity transitions or the
+   * acknowledgement timeout elapses. A pre-dispatch refusal (validation,
+   * capability) never entered the guard and offers no repeat, so the flag
+   * rides along rather than being re-derived elsewhere.
+   */
+  failedCommand: FailedServiceCall | null
+}
+
+/**
+ * A failed service call, with what repeating it takes: the command itself, and
+ * whether re-sending it is meaningful.
+ */
+export interface FailedServiceCall {
+  /** The exact command that failed, to re-dispatch rather than reconstruct. */
+  command: ServiceCallOptions
+  /** False for a pre-dispatch refusal, where there is nothing to repeat. */
+  retryable: boolean
 }
 
 const MINIMUM_LOADING_TIME = process.env.NODE_ENV === 'test' ? 0 : 400 // milliseconds
@@ -35,8 +59,16 @@ const MINIMUM_LOADING_TIME = process.env.NODE_ENV === 'test' ? 0 : 400 // millis
 export function useServiceCall(): UseServiceCallResult {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [failedCommand, setFailedCommand] = useState<FailedServiceCall | null>(null)
   const activeCallRef = useRef<AbortController | null>(null)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Monotonic id of the most recently started request. `runCall` aborts the
+  // previous controller on entry, so an older request settling later is
+  // always stale — its failure retention must not overwrite the newer
+  // request's state. An id rather than the options identity: a retained
+  // command re-dispatched for `Retry` reuses the same options object, and
+  // reference equality would wrongly call the older call current.
+  const latestDispatchIdRef = useRef(0)
   const hass = useHomeAssistantOptional()
 
   // Update hassService with current hass instance
@@ -63,7 +95,7 @@ export function useServiceCall(): UseServiceCallResult {
     async (
       options: ServiceCallOptions,
       dispatch: (options: ServiceCallOptions) => Promise<ServiceCallResult>
-    ): Promise<ServiceCallResult> => {
+    ): Promise<{ result: ServiceCallResult; dispatchId: number }> => {
       // Cancel any existing call
       if (activeCallRef.current) {
         activeCallRef.current.abort()
@@ -77,10 +109,13 @@ export function useServiceCall(): UseServiceCallResult {
       // Create new abort controller
       const abortController = new AbortController()
       activeCallRef.current = abortController
+      latestDispatchIdRef.current += 1
+      const dispatchId = latestDispatchIdRef.current
 
       const startTime = Date.now()
       setLoading(true)
       setError(null)
+      setFailedCommand(null)
 
       try {
         const result = await dispatch(options)
@@ -105,7 +140,7 @@ export function useServiceCall(): UseServiceCallResult {
           }
         }
 
-        return result
+        return { result, dispatchId }
       } catch (error) {
         // Only update state if this call wasn't aborted
         if (!abortController.signal.aborted) {
@@ -124,7 +159,13 @@ export function useServiceCall(): UseServiceCallResult {
           }
         }
 
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+        return {
+          result: {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
+          dispatchId,
+        }
       } finally {
         // Clear the ref if this was the active call
         if (activeCallRef.current === abortController) {
@@ -136,7 +177,8 @@ export function useServiceCall(): UseServiceCallResult {
   )
 
   const callService = useCallback(
-    (options: ServiceCallOptions) => runCall(options, hassService.callService.bind(hassService)),
+    async (options: ServiceCallOptions) =>
+      (await runCall(options, hassService.callService.bind(hassService))).result,
     [runCall]
   )
 
@@ -161,7 +203,30 @@ export function useServiceCall(): UseServiceCallResult {
        * the failure it was about to report while the repeat returned success.
        */
       if (!admitCommand(options)) return { success: true }
-      return runCall(options, hassService.callServiceOnce.bind(hassService))
+      const { result, dispatchId } = await runCall(
+        options,
+        hassService.callServiceOnce.bind(hassService)
+      )
+      if (!result.success) {
+        // Retained, not reconstructed: `Retry` re-dispatches the identical
+        // command through the gate and the guard, and nothing here releases the
+        // guard's window — the ambiguous-outcome case stays refused there.
+        // Guarded on currency by dispatch id (not the options identity, which
+        // a `Retry` re-dispatch reuses): an aborted request lost the race to a
+        // newer one, and its failure must not overwrite the newer request's
+        // state — otherwise `Retry` would re-dispatch the older command.
+        //
+        // Code-bearing commands are never retryable: the code is a credential
+        // collected for one submission, and a generic `Retry` would re-submit
+        // it after the keypad closed — silently, and against an attempt-counting
+        // panel or lock. The error still surfaces; the user re-enters the code
+        // through a fresh keypad for a new command.
+        if (latestDispatchIdRef.current === dispatchId) {
+          const carriesCode = options.data !== undefined && Object.hasOwn(options.data, 'code')
+          setFailedCommand({ command: options, retryable: !carriesCode })
+        }
+      }
+      return result
     },
     [runCall]
   )
@@ -236,6 +301,10 @@ export function useServiceCall(): UseServiceCallResult {
           // wants and the format that would satisfy it.
           const message = describeInputDatetimeShape(entityId, attributes)
           setError(message)
+          setFailedCommand({
+            command: { domain, service: 'set_datetime', entityId },
+            retryable: false,
+          })
           return { success: false, error: message }
         }
 
@@ -253,20 +322,21 @@ export function useServiceCall(): UseServiceCallResult {
           data: { brightness: value },
         })
       }
-
       setError(`setValue not supported for domain: ${domain}`)
+      setFailedCommand({ command: { domain, service: 'set_value', entityId }, retryable: false })
       return { success: false, error: `setValue not supported for domain: ${domain}` }
     },
     [dispatchGuarded]
   )
-
   const clearError = useCallback(() => {
     setError(null)
+    setFailedCommand(null)
   }, [])
 
   return {
     loading,
     error,
+    failedCommand,
     callService,
     dispatchGuarded,
     turnOn,

@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '../test/utils'
 import { InputTextCard } from './InputTextCard'
+import { CardItemProvider } from './cardItemContext'
 import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
+import { HomeAssistantProvider } from '../contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '../testUtils/mockHomeAssistant'
+import { resetDispatchGuard } from '../services/guardedDispatch'
 import type { DashboardState } from '../store/types'
 
 // Mock the hooks
@@ -51,6 +55,7 @@ describe('InputTextCard', () => {
       loading: false,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     vi.mocked(useDashboardStore).mockImplementation(((
@@ -396,6 +401,7 @@ describe('InputTextCard', () => {
       loading: true,
       error: null,
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
@@ -416,6 +422,7 @@ describe('InputTextCard', () => {
       loading: false,
       error: 'Failed to set value',
       clearError: vi.fn(),
+      failedCommand: null,
     })
 
     const { container } = render(<InputTextCard entityId="input_text.test_text" />)
@@ -427,6 +434,59 @@ describe('InputTextCard', () => {
     // layer, so a theme could never have restyled them.
     expect(card).toHaveAttribute('data-error', 'true')
     expect(card).toHaveAttribute('title', 'Failed to set value')
+  })
+  it('keeps the error when Retry fails again, clears it when Retry lands', async () => {
+    // The card's `onRetrySettled` closure, both arms: a failed Retry keeps the
+    // presentation state (the tile still reads error), a landed one clears it.
+    // Mocked-hook harness, so the failed command is seeded and the clicks go
+    // through the real shell gate/guard onto the hass transport.
+    const hass = createMockHomeAssistant({
+      callService: vi.fn().mockRejectedValueOnce(new Error('still jammed')),
+    })
+    const clearError = vi.fn()
+    const command = {
+      domain: 'input_text',
+      service: 'set_value',
+      entityId: 'input_text.test_text',
+      data: { value: 'New Value' },
+    }
+    vi.mocked(useServiceCall).mockReturnValue({
+      callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
+      turnOn: vi.fn(),
+      turnOff: vi.fn(),
+      toggle: vi.fn(),
+      setValue: mockSetValue,
+      loading: false,
+      error: 'Failed to set value',
+      clearError,
+      failedCommand: { command, retryable: true },
+    })
+    resetDispatchGuard()
+    // `render` already wraps in `Theme`; only the hass and card-item providers
+    // are added here so the shell gate/guard reach the mock transport.
+    render(
+      <HomeAssistantProvider hass={hass}>
+        <CardItemProvider entityId="input_text.test_text">
+          <InputTextCard entityId="input_text.test_text" />
+        </CardItemProvider>
+      </HomeAssistantProvider>
+    )
+    const errorTile = () => document.querySelector('.liebe-card') as HTMLElement
+    expect(errorTile()).toHaveAttribute('data-error', 'true')
+    // Retap into the recovery dialog: the error tile routes there, not back to
+    // the inline editor.
+    fireEvent.click(errorTile())
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(errorTile()).toHaveAttribute('data-error', 'true'))
+    expect(clearError).not.toHaveBeenCalled()
+    // Retry lands: the observer clears the card error and the tile recovers.
+    vi.mocked(hass.callService).mockResolvedValueOnce(undefined)
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(clearError).toHaveBeenCalledTimes(1))
   })
 
   describe('shell metadata', () => {

@@ -347,7 +347,7 @@ changes:
     path: changes/0043-card-tile-control-semantics.md
     description: Make the card shell's role-less div a control with keyboard and assistive-technology semantics, and implement the error tile's unimplemented contract — the detail dialog carrying the message, Retry and Dismiss
     spec: design-system
-    status: draft
+    status: complete
     depends_on: []
   - id: '0044'
     name: render-and-bundle-performance

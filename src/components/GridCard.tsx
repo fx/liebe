@@ -163,8 +163,48 @@ export interface GridCardProps {
    * its *embedded* controls itself: the shell gates what the shell dispatches.
    */
   confirmRoute?: (action: ResolvedCardAction) => CardConfirmPrompt | null
+  /**
+   * The failure the tile carries while `isError` holds, and what recovers it.
+   * The shell owns the tile, the gestures, the detail dialog and the
+   * confirmation gate already, so it owns these too — a contract that needed
+   * an edit in twenty-five card files would be in the wrong place. Cards keep
+   * passing `title` for the hover convenience; the dialog is the carrier.
+   * `onRetry` re-dispatches the retained command through the gate and the
+   * guard, or remounts a stream through `onStreamRetry`; `onDismiss` clears
+   * the presentation state and dispatches nothing. `canRetry` is false (no
+   * Retry, Dismiss-only) for pre-dispatch refusals where nothing was sent.
+   */
+  failureMessage?: string | null
+  canRetry?: boolean
+  /**
+   * The retained action to re-dispatch, in the same resolved form the gestures
+   * resolve to. Service-call retry routes it through `dispatchAction` — the
+   * confirmation gate, then the guard — exactly as if the gesture had fired
+   * again, rather than dispatching around either; stream retry invokes
+   * `onStreamRetry` instead, which has no service command to re-dispatch.
+   * Absent (or `canRetry` false) where there is nothing to repeat: a
+   * pre-dispatch refusal, where nothing was sent.
+   */
+  retryAction?: ResolvedCardAction | null
+  /**
+   * A non-service recovery the dialog's `Retry` invokes directly — the camera
+   * stream remount, which has no service command to re-dispatch through the
+   * gate. Takes precedence over `retryAction` where both are present; absent
+   * everywhere else.
+   */
+  onStreamRetry?: () => void
+  /**
+   * Observes the dialog `Retry` re-dispatch reaching the transport. The card
+   * passes its own observer so a successful retry clears the card error (the
+   * tile recovers) while a failed one keeps it; forwarded to the gesture
+   * controller, which reports the guarded outcome there.
+   */
+  onRetrySettled?: (result: { success: boolean; error?: string } | null) => void
+  /** Clears the presentation state; dispatches nothing. */
+  onDismiss?: () => void
   onConfigure?: () => void
   hasConfiguration?: boolean
+  /** Sighted-hover convenience only; never the failure carrier. */
   title?: string
   className?: string
   style?: React.CSSProperties
@@ -367,6 +407,24 @@ function isEmbeddedControl(e: React.SyntheticEvent): boolean {
   )
 }
 
+/**
+ * Which recovery the detail dialog's `Retry` invokes. The camera's
+ * non-service remount takes precedence where present; a retained service
+ * action re-enters through the caller's re-dispatch (the confirmation gate,
+ * then the guard); with neither recovery there is no `Retry` to offer and
+ * the dialog stays Dismiss-only.
+ */
+export function resolveDialogRetry(
+  canRetry: boolean | undefined,
+  onStreamRetry: (() => void) | undefined,
+  retryAction: ResolvedCardAction | null | undefined,
+  redispatch: (action: ResolvedCardAction) => void
+): (() => void) | undefined {
+  if (!canRetry) return undefined
+  if (onStreamRetry) return onStreamRetry
+  if (retryAction) return () => redispatch(retryAction)
+  return undefined
+}
 /**
  * Whether the gesture landed on the card-surface slider rather than on the
  * tile. A background slider IS the tile (options/common — "Shared slider
@@ -723,6 +781,12 @@ export const GridCard = React.memo(
         defaultAction,
         onMoreInfo,
         confirmRoute,
+        failureMessage,
+        canRetry = false,
+        retryAction,
+        onStreamRetry,
+        onRetrySettled,
+        onDismiss,
         onConfigure,
         hasConfiguration = false,
         title,
@@ -882,8 +946,26 @@ export const GridCard = React.memo(
         const resolved = display.name || entity?.attributes?.friendly_name || detailEntityId
         if (!resolved) return undefined
 
-        const reported = (isError && title) || entity?.state
+        // The dialog is the carrier, so the name follows it: the failure
+        // message while `isError` holds, else the entity's state. `title` is
+        // hover-only and never the source — a lone `failureMessage` with no
+        // duplicated `title` still announces the failure.
+        const reported = (isError && (failureMessage ?? title)) || entity?.state
         return reported ? `${resolved}, ${reported}` : resolved
+      })
+      /*
+       * The tile control's accessible name: the tile's resolved name (the
+       * universal `name` override, else the entity's friendly name, else the
+       * entity id) plus the state the tile is in — the entity's state, or the
+       * failure message while `isError` holds. Same carrier rule as above:
+       * `failureMessage ?? title`, never `title` alone.
+       */
+      const tileActionLabel = useStore(entityStore, (state) => {
+        const entity = detailEntityId ? state.entities[detailEntityId] : undefined
+        const name = display.name || entity?.attributes?.friendly_name || detailEntityId
+        if (!name) return undefined
+        const reported = (isError && (failureMessage ?? title)) || entity?.state
+        return reported ? `${name}, ${reported}` : name
       })
       // The entity the dialog is open for, rather than a boolean: it is the
       // same state, and holding the id means the render below needs no second
@@ -961,11 +1043,25 @@ export const GridCard = React.memo(
        */
       const [prevIsEditMode, setPrevIsEditMode] = React.useState(isEditMode)
       const [prevDetailEntityId, setPrevDetailEntityId] = React.useState(detailEntityId)
-      if (isEditMode !== prevIsEditMode || detailEntityId !== prevDetailEntityId) {
+      const [prevIsUnavailable, setPrevIsUnavailable] = React.useState(isUnavailable)
+      // `prevIsUnavailable` syncs on BOTH edges but only drops the dialogs on
+      // the rising one: syncing only inside the drop would leave it stuck
+      // `true` after an unavailable→available transition, so a later
+      // available→unavailable edge would not be detected and a stale
+      // confirmation could survive becoming unavailable.
+      const wentUnavailable = isUnavailable && !prevIsUnavailable
+      if (
+        isEditMode !== prevIsEditMode ||
+        detailEntityId !== prevDetailEntityId ||
+        wentUnavailable
+      ) {
         setPrevIsEditMode(isEditMode)
         setPrevDetailEntityId(detailEntityId)
+        setPrevIsUnavailable(isUnavailable)
         setDetailFor(null)
         setConfirmRequest(null)
+      } else if (isUnavailable !== prevIsUnavailable) {
+        setPrevIsUnavailable(isUnavailable)
       }
 
       /*
@@ -984,6 +1080,7 @@ export const GridCard = React.memo(
         disabled: isEditMode,
         requestConfirmation: setConfirmRequest,
         confirmRoute,
+        onRetrySettled,
       })
 
       /**
@@ -1020,6 +1117,19 @@ export const GridCard = React.memo(
         // never produce the click that would consume a fired hold.
         if (e.button !== 0 || !e.isPrimary) return
 
+        // While the tile carries a failure, a held press must not dispatch
+        // the hold route behind the ERROR surface — but the tap still needs
+        // its press: the click consumes the tap into the recovery dialog
+        // instead of dispatching, which is also what clears the card error
+        // through the card's own toggle path. So the press arms the tap
+        // half only: it releases any armed hold timer without starting a
+        // new one, then records a tap-pending press the click will consume.
+        if (isError) {
+          gestures.release()
+          gestures.pressTapOnly()
+          return
+        }
+
         // The background slider IS the tile: its pointer joins the press
         // pipeline (hold and double-tap keep working) and the drag/tap split
         // is decided by whether the gesture moved the value — the anatomy
@@ -1037,9 +1147,164 @@ export const GridCard = React.memo(
           isRealDescendant(e) &&
           (!isEmbeddedControl(e) || isBackgroundSliderTarget(e))
         ) {
+          // While the tile carries a failure, every activation is a recovery
+          // activation: the tap route opens the dialog carrying the message
+          // and the recovery actions instead of dispatching. An actionable
+          // card must not toggle behind its own ERROR, and a tap=none card
+          // (the camera) must not swallow the press entirely — either way the
+          // failure is the thing the user has to act on
+          // (design-system — "Size-adaptive layouts", the every-tier
+          // error-tile contract).
+          if (isError && detailEntityId) {
+            setDetailFor(detailEntityId)
+            return
+          }
           gestures.tap()
         }
       }
+      /*
+       * The keyboard routes to the tile's secondary gestures. `Enter`/`Space`
+       * fire the tap through the control's native activation; the modifiers
+       * reach the hold and double-tap routes the pointer discriminates by
+       * timing — 500ms and a 250ms window — which a keyboard has neither.
+       * Native activation is suppressed for every key handled here, so the
+       * tap and the secondary route cannot both fire; `repeat` is ignored so
+       * a held key does not re-dispatch. Edit mode renders no control, so
+       * there is nothing to route.
+       */
+      const handleTileActionKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        if (e.repeat) return
+        // While the tile carries a failure, EVERY activation is a recovery
+        // activation — the modifier routes included. A configured
+        // consequential hold/double-tap must not dispatch behind the ERROR
+        // surface; the failure is the thing the user has to act on, so the
+        // dialog opens instead (same rule as the pointer tap above).
+        if (isError && detailEntityId && (e.shiftKey || e.altKey)) {
+          if (!e.ctrlKey && !e.metaKey && e.shiftKey !== e.altKey) {
+            e.preventDefault()
+            setDetailFor(detailEntityId)
+          }
+          return
+        }
+        if (e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault()
+          gestures.activateHold()
+        } else if (e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault()
+          gestures.activateDoubleTap()
+        }
+      }
+      /*
+       * Whether the tile carries a Tab-reachable surface of its own, read off
+       * the rendered DOM rather than the JSX props: controls hide inside
+       * function components (a lock's pills render through `PillGroup`, an
+       * alarm's through its context controls), and a props traversal stops at
+       * the component boundary — exactly where the tabbable buttons live.
+       *
+       * Applied imperatively in the tile-action control's own ref callback:
+       * after mount it queries its parent tile for any *other* tabbable
+       * control and steps itself out of the Tab order (`tabIndex = -1`) where
+       * one exists. No state, no effect, no second render — and no
+       * `set-state-in-effect` question at all. A control mounting,
+       * unmounting, or toggling `disabled` re-renders the tile through its
+       * own state; the ref callback does not re-run for that, so the tile
+       * action re-checks lazily on focus —
+       * see `refreshTileActionTabIndex`.
+       */
+      // One observer per mounted tile-action control, owned explicitly. React
+      // calls a callback ref with the node on mount and with `null` on
+      // unmount, which is the matching teardown — a returned cleanup function
+      // would be ignored (React 19 reserves those for object refs), leaking
+      // the observer, and re-invoking the callback from `onFocus` would
+      // attach a second observer per focus. So the observer lives in a ref
+      // alongside the control, `null` disconnects it, and focus only
+      // re-runs the decision logic, never the attach.
+      const tileActionControlRef = React.useRef<HTMLButtonElement | null>(null)
+      const tileActionObserverRef = React.useRef<MutationObserver | null>(null)
+      const decideTileActionTabIndex = React.useCallback(() => {
+        // Read off the live control, not the ref object: the ref callback
+        // below clears the ref on unmount before disconnecting, so a queued
+        // observer notification landing after teardown sees `null` here and
+        // returns — deciding against a detached tile would write `tabindex`
+        // onto a control React has already released. One arm: `tile` is read
+        // off `control` with no yield between, so tile-non-null already
+        // implies control-non-null — a second arm is unreachable by
+        // construction, and branch coverage proved it unhittable.
+        const control = tileActionControlRef.current
+        const tile = control?.parentElement
+        if (tile == null || control == null) return
+        // Decided on rendered tabbability, not mere presence: a `button`
+        // that is `disabled`, or any element parked at `tabindex="-1"`, is
+        // not a Tab stop, and suppressing the tile action beside one would
+        // leave the tile with no keyboard surface at all. `tabIndex`
+        // (the IDL-resolved value, `-1` for the untabbable) is what answers
+        // that — the attribute alone cannot, since a natively tabbable
+        // `button` carries no `tabindex` attribute yet reports `0`.
+        // Queried fresh on every run: the set changes exactly when the
+        // committed DOM does, and a cached NodeList would answer for the
+        // tile as it was when the control mounted. Rendered tabbability,
+        // not mere presence: jsdom reports `0` for a disabled button, so
+        // the explicit `disabled` check below is what keeps a busy tile
+        // keyboard-reachable.
+        const others = tile.querySelectorAll('a[href], button, input, textarea, select, [tabindex]')
+        const isTabStop = (el: Element): boolean => {
+          if (el.classList.contains('liebe-tile-action')) return false
+          if (!(el instanceof HTMLElement)) return false
+          if ('disabled' in el && (el as unknown as { disabled: boolean }).disabled) return false
+          return el.tabIndex >= 0
+        }
+        if (Array.from(others).some(isTabStop)) control.tabIndex = -1
+        else control.removeAttribute('tabindex')
+      }, [])
+      const attachTileActionControl = React.useCallback(
+        (control: HTMLButtonElement | null) => {
+          // Teardown first: React calls the *previous* callback with `null`
+          // before the new one attaches, and unmount calls it with `null`
+          // too — either way the owned observer disconnects here, so neither
+          // the observer nor the detached tile leaks.
+          tileActionObserverRef.current?.disconnect()
+          tileActionObserverRef.current = null
+          tileActionControlRef.current = control
+          if (!control) return
+          // Unreachable by construction, so no arm: React attaches callback
+          // refs post-insertion, hence `parentElement` is non-null here —
+          // branch coverage proved the `!tile` return unhittable.
+          const tile = control.parentElement as HTMLElement
+          decideTileActionTabIndex()
+          // A control mounting, unmounting, or toggling `disabled`
+          // re-renders the tile through its own state, but this ref callback
+          // does not re-run for that — and a `tabIndex = -1` control cannot
+          // take focus to re-check itself. So watch the tile for exactly
+          // those changes and re-decide with them. `decide` writes
+          // `control.tabIndex`, which is itself a `tabindex` mutation the
+          // observer watches: without the guard below, deciding `-1`
+          // re-triggers the observer, which re-decides `-1` forever.
+          let settling = false
+          const observer = new MutationObserver(() => {
+            if (settling) return
+            settling = true
+            try {
+              decideTileActionTabIndex()
+            } finally {
+              // Release asynchronously: the `tabindex` write above notifies
+              // synchronously on `setAttribute`, so releasing inline would
+              // still observe our own write.
+              queueMicrotask(() => {
+                settling = false
+              })
+            }
+          })
+          observer.observe(tile, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['disabled', 'tabindex'],
+          })
+          tileActionObserverRef.current = observer
+        },
+        [decideTileActionTabIndex]
+      )
 
       const effectiveHue = resolveCardHue(hue, display, danger)
 
@@ -1254,6 +1519,49 @@ export const GridCard = React.memo(
                   })
                 : backgroundSlider
               : null}
+            {/*
+             * The tile action control (route D). A real `<button>`, not the
+             * tile itself: tiers embed sliders, steppers, switches, select
+             * triggers and text fields, and interactive content inside a
+             * `<button>` is invalid markup whose focus and announcement
+             * behaviour is defined by nothing. As a sibling of the embedded
+             * controls rather than their ancestor it sidesteps nesting
+             * entirely — one Tab stop per tile, in DOM order, carrying the
+             * tile's resolved name as its accessible name. Rendered only in
+             * view mode: edit mode's tile is the grid's drag target and
+             * selection semantics own it there. `Shift` reaches the hold
+             * route, `Alt` the double-tap route; a route with nothing behind
+             * it stays inert and never falls back to the tap.
+             * Absolutely positioned over the tile and visually nothing — the
+             * ring on `:focus-visible` is its only paint — so it changes no
+             * layout at any tier and every theme inherits it. Pointer events
+             * are off: the pointer pipeline on the tile stays exactly what it
+             * was, and the existing gesture suite passes unmodified.
+             */}
+            {!isEditMode && tileActionLabel && (
+              <button
+                type="button"
+                className="liebe-tile-action"
+                aria-label={tileActionLabel}
+                ref={attachTileActionControl}
+                onFocus={decideTileActionTabIndex}
+                onClick={() => {
+                  // Same recovery route as the pointer tap above: while the
+                  // tile carries a failure the control opens the dialog
+                  // instead of firing the tap route. (No portal/embedded
+                  // guard here: a control rendered *inside* this button would
+                  // be invalid markup, and the tile's own pointer pipeline
+                  // already filtered those before this control existed.)
+                  if (isError && detailEntityId) {
+                    setDetailFor(detailEntityId)
+                    return
+                  }
+                  gestures.tap()
+                }}
+                onKeyDown={handleTileActionKeyDown}
+                data-testid="tile-action"
+              />
+            )}
             {/* Content — fenced to the card body while `iconOnly` holds, so a
                 backdrop or an overlay a card renders beside its body does not
                 survive the suppression its body just applied. */}
@@ -1379,6 +1687,19 @@ export const GridCard = React.memo(
               onOpenChange={(open) => {
                 if (!open) setDetailFor(null)
               }}
+              // The failure the tile carries while `isError` holds, with its
+              // recovery actions. `isError` without a message is a tile whose
+              // card reports the state but names nothing to recover from —
+              // the dialog stays the plain one. `Retry` re-enters through
+              // `dispatchAction` — the confirmation gate, then the guard —
+              // exactly as if the gesture had fired again; a non-service
+              // recovery (the camera remount) invokes its handler directly.
+              failureMessage={isError ? (failureMessage ?? title ?? null) : null}
+              canRetry={canRetry && (onStreamRetry != null || retryAction != null)}
+              onRetry={resolveDialogRetry(canRetry, onStreamRetry, retryAction, (action) =>
+                gestures.dispatchAction(action, onRetrySettled)
+              )}
+              onDismiss={onDismiss}
             />
           )}
           {/*

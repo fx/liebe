@@ -144,3 +144,53 @@ export function isParameterizedCardAction(
 ): action is NavigateCardAction | CallServiceCardAction {
   return typeof action === 'object'
 }
+
+/**
+ * The retained command as the resolved action `Retry` re-dispatches.
+ *
+ * A `call-service` action replaying the retained payload verbatim — never
+ * re-derived from the current entity state, so a toggle that failed as
+ * `turn_off` retries as `turn_off` even if the state has since moved. The
+ * shell routes it through `dispatchAction`: the confirmation gate classifies
+ * it by effect on the entity (the generic `homeassistant.*` aliases and the
+ * domain services alike), then the at-most-once guard refuses it while the
+ * failed command's window is still open. Absent where there is nothing to
+ * repeat — a pre-dispatch refusal, a stream that would not start — and absent
+ * for a code-bearing command even when marked retryable: the code is a
+ * credential collected for one submission, and a generic `Retry` must never
+ * re-submit it after the keypad closed. The error still surfaces; the user
+ * re-enters the code through a fresh keypad for a new command.
+ */
+export function retainedRetryAction(
+  failed:
+    | {
+        command: {
+          domain: string
+          service: string
+          entityId?: string
+          data?: Record<string, unknown>
+        }
+        retryable: boolean
+      }
+    | null
+    | undefined
+): ResolvedCardAction | undefined {
+  if (!failed?.retryable) return undefined
+  const { domain, service, entityId, data } = failed.command
+  // Defense in depth beside the hook's non-retryable retention: even a caller
+  // holding a stale retryable flag cannot route a credential through Retry.
+  if (data !== undefined && Object.hasOwn(data, 'code')) return undefined
+  // Built the way `HassService.buildServiceData` builds it: the command's own
+  // target travels inside the payload, so the retry replays what was actually
+  // dispatched — never the shell's current entity. An explicit `data.entity_id`
+  // wins over the implicit one, exactly as at dispatch.
+  const payload =
+    entityId === undefined && data === undefined
+      ? undefined
+      : { ...(entityId !== undefined ? { entity_id: entityId } : {}), ...data }
+  return {
+    action: 'call-service',
+    service: `${domain}.${service}`,
+    ...(payload !== undefined ? { data: payload } : {}),
+  }
+}

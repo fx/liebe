@@ -349,6 +349,28 @@ describe('a lock code on the real dispatch path', () => {
     expect(hass.callService).toHaveBeenCalledTimes(1)
   })
 
+  it('withholds Retry after a coded failure so the code cannot be replayed', async () => {
+    // CodeRabbit Major on cardActions.ts:183 — the user-visible half of the
+    // `useServiceCall` credential rule: the refusal stays beside the keypad
+    // that produced it, and no generic Retry re-submits the code after the
+    // keypad closes. A fresh keypad entry makes a new command.
+    seed(codedLock('locked'))
+    ;(hass.callService as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Invalid code'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    fireEvent.click(pill('Unlock'))
+    await waitFor(() => expect(screen.getByTestId('code-keypad')).toBeInTheDocument())
+    enter(CODE)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unlock' }).at(-1)!)
+
+    // The keypad stays up with the redacted refusal — and the hook retains
+    // the coded command as non-retryable, so even once the tile carries the
+    // failure there is nothing generic Retry could re-submit.
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Invalid code'))
+    expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+
   it('never writes the code into the dashboard configuration or its YAML export', async () => {
     /*
      * The security property, asserted where it can actually be observed: this
@@ -399,5 +421,63 @@ describe('a lock code on the real dispatch path', () => {
 
     await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
     expect(hass.callService).toHaveBeenCalledWith('lock', 'lock', { entity_id: ENTITY_ID })
+  })
+})
+
+describe('the tile offers exactly one Tab stop (Codex pass 2)', () => {
+  it('suppresses the tile-action stop beside the component-wrapped pill buttons', async () => {
+    // The lock's pills render through function components (`PillGroup`), so
+    // a JSX-props traversal stops at the component boundary and never sees
+    // the tabbable buttons inside. The shell reads the rendered DOM instead:
+    // with pill buttons on the tile, the tile-action control steps out of
+    // the Tab order and the tile keeps exactly one Tab stop per control.
+    seed(makeLock('locked'))
+    const { container } = renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    await waitFor(() => expect(pill('Unlock')).toBeInTheDocument())
+
+    const tile = container.querySelector('.liebe-card') as HTMLElement
+    // Tabbability, not presence: a `disabled` pill is no Tab stop, so it is
+    // excluded up front rather than counted and excused.
+    const tabbables = Array.from(
+      tile.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => {
+      if (!(el instanceof HTMLElement)) return false
+      if (el.classList.contains('liebe-tile-action')) return el.tabIndex !== -1
+      return true
+    })
+
+    // Pill buttons present and tabbable, tile-action suppressed: one Tab stop
+    // per control — the locked tile's Lock pill is disabled (nothing to lock),
+    // so only Unlock remains beside the suppressed tile action.
+    expect(pill('Unlock')).toBeInTheDocument()
+    expect((pill('Lock') as HTMLButtonElement).disabled).toBe(true)
+    const tileAction = tile.querySelector('.liebe-tile-action')
+    expect(tileAction).not.toBeNull()
+    expect((tileAction as HTMLElement).tabIndex).toBe(-1)
+    expect(tabbables).toHaveLength(1)
+  })
+
+  it('keeps the tile-action stop when the pill buttons are all disabled', async () => {
+    // Presence is not tabbability: a `disabled` pill is no Tab stop, so
+    // suppressing the tile action beside one would leave the tile with no
+    // keyboard surface at all. Driven through the DOM: disable the rendered
+    // pills, re-fire the refresh through focus, and the tile action returns
+    // to the Tab order.
+    seed(makeLock('locked'))
+    const { container } = renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    await waitFor(() => expect(pill('Unlock')).toBeInTheDocument())
+
+    const tile = container.querySelector('.liebe-card') as HTMLElement
+    for (const one of Array.from(tile.querySelectorAll('button.liebe-pill'))) {
+      ;(one as HTMLButtonElement).disabled = true
+    }
+    const tileAction = tile.querySelector('.liebe-tile-action') as HTMLElement
+    // The observer watches `disabled` and re-decides asynchronously; the
+    // focus re-check is belt-and-braces for runtimes where it has not run.
+    await waitFor(() => expect(tileAction.tabIndex).toBe(0))
   })
 })

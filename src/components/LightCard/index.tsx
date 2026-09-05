@@ -1,4 +1,5 @@
 import { SunIcon } from '@radix-ui/react-icons'
+import { retainedRetryAction } from '~/store/cardActions'
 import { useEntity, useServiceCall } from '~/hooks'
 import { memo, useState, useCallback, useMemo } from 'react'
 import { renderCardLifecycle } from '../ui'
@@ -293,7 +294,7 @@ function LightCardComponent({
     isMissing,
     isLoading: isEntityLoading,
   } = useEntity(entityId)
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
   const isEditMode = mode === 'edit'
@@ -728,6 +729,13 @@ function LightCardComponent({
         onConfigure={() => setConfigOpen(true)}
         hasConfiguration={true}
         title={error || undefined}
+        failureMessage={error || undefined}
+        canRetry={failedCommand?.retryable ?? false}
+        retryAction={retainedRetryAction(failedCommand)}
+        onRetrySettled={(result) => {
+          if (result?.success) clearError()
+        }}
+        onDismiss={clearError}
         className="light-card"
         backgroundSlider={backgroundSlider}
       >

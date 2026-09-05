@@ -11,6 +11,26 @@ export interface EntityDetailDialogProps {
   entityId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * The failure the tile carries while `isError` holds, or null. Rendered as
+   * the dialog's failure section carrying the full message and the recovery
+   * actions — the carrier the `title` tooltip never was.
+   */
+  failureMessage?: string | null
+  /**
+   * Whether the dialog offers a Retry action — a dispatched service call the
+   * shell can replay, or a camera stream remount invoked through
+   * `onStreamRetry`. False (no Retry, Dismiss-only) for pre-dispatch refusals
+   * where nothing was sent.
+   */
+  canRetry?: boolean
+  /**
+   * The Retry action: re-dispatches the retained service command (gated,
+   * guarded, never retried) or remounts the stream via `onStreamRetry`.
+   */
+  onRetry?: () => void | Promise<void>
+  /** Clears the presentation state; dispatches nothing. */
+  onDismiss?: () => void
 }
 
 /**
@@ -32,7 +52,15 @@ export interface EntityDetailDialogProps {
  * the same reason the dialog offers no copy-to-clipboard or raw-JSON affordance:
  * either one would hand out the value the display just masked.
  */
-export function EntityDetailDialog({ entityId, open, onOpenChange }: EntityDetailDialogProps) {
+export function EntityDetailDialog({
+  entityId,
+  open,
+  onOpenChange,
+  failureMessage,
+  canRetry = false,
+  onRetry,
+  onDismiss,
+}: EntityDetailDialogProps) {
   const { entity, isLoading } = useEntity(entityId)
 
   const domain = entityId.split('.')[0]
@@ -56,8 +84,42 @@ export function EntityDetailDialog({ entityId, open, onOpenChange }: EntityDetai
       // detail a user opens this dialog to look up.
       description={entityId}
       size="medium"
-      actions={{ cancelLabel: 'Close' }}
+      actions={{
+        cancelLabel: 'Close',
+        primary:
+          failureMessage && canRetry && onRetry
+            ? {
+                label: 'Retry',
+                variant: 'soft',
+                color: 'red',
+                // Observed, not fire-and-forget: `onRetry` may reject (a
+                // gated re-dispatch that fails again), and an unobserved
+                // rejection surfaces as an unhandled rejection rather than as
+                // the tile's error state. Wrapped in `Promise.resolve` so a
+                // synchronous throw is caught too.
+                onClick: () => void Promise.resolve(onRetry()).catch(() => {}),
+              }
+            : undefined,
+        secondary:
+          failureMessage && onDismiss ? { label: 'Dismiss', onClick: onDismiss } : undefined,
+      }}
     >
+      {/*
+       * The failure the tile carries, with its recovery actions. First in the
+       * dialog so a keyboard or screen-reader user meets the reason the tile
+       * reads ERROR before the state it failed to leave. `role="alert"` is
+       * read out when it appears, matching the detail controls' own error
+       * line. `Dismiss` clears the presentation state and dispatches nothing;
+       * `Retry` re-dispatches the retained command through the confirmation
+       * gate and the at-most-once guard rather than around either.
+       */}
+      {failureMessage ? (
+        <Box mb="4" data-testid="detail-failure">
+          <Text size="2" color="red" role="alert">
+            {failureMessage}
+          </Text>
+        </Box>
+      ) : null}
       {isLoading && !entity ? (
         <Flex align="center" gap="2" data-testid="detail-loading">
           <Spinner size="2" />

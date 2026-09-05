@@ -31,6 +31,7 @@ import {
 } from './presentation'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { retainedRetryAction } from '~/store/cardActions'
 import type { CardSpan, CardTier } from '~/utils/cardTier'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 import './AlarmCard.css'
@@ -96,7 +97,7 @@ function AlarmCardComponent({
    * the laggy-panel case: Home Assistant acknowledges before a slow integration
    * updates state.
    */
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
@@ -390,6 +391,13 @@ function AlarmCardComponent({
         defaultAction="more-info"
         confirmRoute={confirmRoute}
         title={error || undefined}
+        failureMessage={error || undefined}
+        canRetry={failedCommand?.retryable ?? false}
+        retryAction={retainedRetryAction(failedCommand)}
+        onRetrySettled={(result) => {
+          if (result?.success) clearError()
+        }}
+        onDismiss={clearError}
         /*
          * Carried on `className` rather than as `data-*` attributes: the shell
          * declares its props explicitly and forwards no rest, so a `data-flash`

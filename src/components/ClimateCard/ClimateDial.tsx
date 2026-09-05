@@ -14,6 +14,7 @@ import { useCardItem } from '../cardItemContext'
 import { temperatureDisplay } from './temperatureDisplay'
 import { FALLBACK_SETPOINT, useClimateModel } from './climateModel'
 import { useClimateControl } from './useClimateControl'
+import { retainedRetryAction } from '~/store/cardActions'
 import './ClimateCard.css'
 
 /**
@@ -424,6 +425,13 @@ function ClimateDialFull({
       // (docs/specs/entity-cards/options/climate.md — "Primary action").
       defaultAction="more-info"
       title={control.error || undefined}
+      failureMessage={control.error || undefined}
+      canRetry={control.failedCommand?.retryable ?? false}
+      retryAction={retainedRetryAction(control.failedCommand)}
+      onRetrySettled={(result) => {
+        if (result?.success) control.clearError()
+      }}
+      onDismiss={control.clearError}
       className="climate-card"
       entityId={entityId}
       config={config}

@@ -39,6 +39,7 @@ import {
 } from './presentation'
 import type { CardConfirmRequest } from '~/hooks/useCardActions'
 import type { ResolvedCardAction } from '~/store/cardActions'
+import { retainedRetryAction } from '~/store/cardActions'
 import { isSameSpan, type CardSpan, type CardTier } from '~/utils/cardTier'
 import { withCardErrorBoundary } from '../cardErrorBoundary'
 
@@ -100,7 +101,7 @@ function CoverCardComponent({
    * guard keys on the payload, so the inverse command — stopping a cover that
    * is travelling too far — is a different command and is never held back.
    */
-  const { loading: isLoading, error, dispatchGuarded, clearError } = useServiceCall()
+  const { loading: isLoading, error, failedCommand, dispatchGuarded, clearError } = useServiceCall()
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
 
@@ -766,6 +767,13 @@ function CoverCardComponent({
         // nothing for a gate it does not have.
         confirmRoute={gateApplies ? confirmRoute : undefined}
         title={error || undefined}
+        failureMessage={error || undefined}
+        canRetry={failedCommand?.retryable ?? false}
+        retryAction={retainedRetryAction(failedCommand)}
+        onRetrySettled={(result) => {
+          if (result?.success) clearError()
+        }}
+        onDismiss={clearError}
         className="cover-card"
         backgroundSlider={backgroundSlider}
       >

@@ -27,6 +27,14 @@ export interface UseCardActionsOptions {
    */
   config?: Record<string, unknown>
   /**
+   * Observes a Retry re-dispatch reaching the transport, with the settle
+   * result. Lets the card clear its error on success and re-surface the
+   * failure on failure; without it the shell gesture path would leave
+   * isError true after a successful retry. Null (guard-refused) reports
+   * nothing, since a refusal is not a failure.
+   */
+  onRetrySettled?: (result: { success: boolean; error?: string } | null) => void
+  /**
    * What the literal `default` resolves to for this card — the one thing a card
    * declares about actions. Interactive cards leave it at `toggle`; read-only
    * ones (sensor, weather, person) declare `more-info`.
@@ -221,8 +229,40 @@ export interface CardGestures {
   tap: () => void
   /** Pointer down on the card body — arms hold detection. */
   press: () => void
+  /**
+   * Pointer down that arms the tap half only: releases any armed hold timer
+   * without starting a new one, so a held press can never dispatch the hold
+   * route. The shell uses this on an error tile, where every activation is
+   * recovery and the click consumes the tap into the dialog.
+   */
+  pressTapOnly: () => void
   /** Pointer up, cancel, or leave — disarms hold detection. */
   release: () => void
+  /**
+   * The hold route as a keyboard activation: `Shift+Enter`/`Shift+Space` on the
+   * tile control. Resolves off the same stored `holdAction` as the gesture, so
+   * a card whose hold is `none` — or whose hold has nothing behind it — stays
+   * inert, and a modifier activation never falls back to the tap.
+   */
+  activateHold: () => void
+  /**
+   * The double-tap route as a keyboard activation: `Alt+Enter`/`Alt+Space` on
+   * the tile control. Same inertness rule as the hold route.
+   */
+  activateDoubleTap: () => void
+  /**
+   * Re-dispatch a resolved action through the confirmation gate, for `Retry`:
+   * the card hands back the retained command's action and the shell routes it
+   * exactly as if the gesture had fired again — gated, then guarded. A
+   * `call-service` action replays the retained payload verbatim rather than
+   * re-deriving it from the current entity state. The optional report carries
+   * the guarded outcome to the card's observer: without it a successful retry
+   * would leave the tile reading ERROR about a command that landed.
+   */
+  dispatchAction: (
+    action: ResolvedCardAction,
+    report?: (result: { success: boolean; error?: string } | null) => void
+  ) => void
 }
 
 /** Screens are a tree, and a `navigate` target may be either identifier. */
@@ -268,6 +308,7 @@ export function useCardActions({
   disabled = false,
   requestConfirmation,
   confirmRoute,
+  onRetrySettled,
 }: UseCardActionsOptions): CardGestures {
   const hass = useHomeAssistantOptional()
   // `warn: false` returns `undefined` outside a `RouterProvider` instead of
@@ -291,15 +332,22 @@ export function useCardActions({
    * shell's own concern: what it owes a failed *action*.
    */
   const dispatchService = useCallback(
-    (options: {
-      domain: string
-      service: string
-      entityId?: string
-      data?: Record<string, unknown>
-    }) => {
+    (
+      options: {
+        domain: string
+        service: string
+        entityId?: string
+        data?: Record<string, unknown>
+      },
+      report?: (result: { success: boolean; error?: string } | null) => void
+    ) => {
       void guardedDispatch(options).then((result) => {
-        // `null` is the guard refusing a repeat, which is not a failure.
-        if (result && !result.success) {
+        // `null` is the guard refusing a repeat: not a failure, and per the
+        // `onRetrySettled` contract it reports nothing — every card closure
+        // reads `result?.success`, so skipping the call entirely is
+        // behavior-preserving for every caller.
+        if (result === null) return
+        if (!result.success) {
           // The card's own error surface belongs to whatever issued the command
           // — a control knows it is loading, the shell does not. What the shell
           // owes a failed *action* is that it not vanish silently.
@@ -313,6 +361,7 @@ export function useCardActions({
             resolveCommandTarget(options.entityId, options.data).watch ?? options.entityId
           )
         }
+        report?.(result)
       })
     },
     []
@@ -399,7 +448,10 @@ export function useCardActions({
   )
 
   const performDispatch = useCallback(
-    (action: ResolvedCardAction) => {
+    (
+      action: ResolvedCardAction,
+      report?: (result: { success: boolean; error?: string } | null) => void
+    ) => {
       if (hass) hassService.setHass(hass)
 
       if (action === 'none') return
@@ -415,7 +467,7 @@ export function useCardActions({
           // The generic alias, deliberately: a card with no toggle semantics of
           // its own has no gate to bypass, and `homeassistant.toggle` is what
           // the contract names as the fallback.
-          dispatchService({ domain: 'homeassistant', service: 'toggle', entityId })
+          dispatchService({ domain: 'homeassistant', service: 'toggle', entityId }, report)
         }
         return
       }
@@ -437,7 +489,7 @@ export function useCardActions({
       }
 
       const [domain, service] = action.service.split('.')
-      dispatchService({ domain, service, entityId, data: action.data })
+      dispatchService({ domain, service, entityId, data: action.data }, report)
     },
     [dispatchService, entityId, hass, onMoreInfo, onToggle, router]
   )
@@ -453,10 +505,17 @@ export function useCardActions({
    * confirming them would train the user to dismiss the dialog that matters.
    */
   const dispatch = useCallback(
-    (action: ResolvedCardAction) => {
+    (
+      action: ResolvedCardAction,
+      report?: (result: { success: boolean; error?: string } | null) => void
+    ) => {
       // Held, not queued: nothing is dispatched, and nothing about the card
       // changes, until the user says so. Cancelling drops this closure.
-      const proceed = () => performDispatch(action)
+      // The report travels into `performDispatch` so the guarded outcome —
+      // success or failure — reaches the card's observer from every path,
+      // gated or not. A guard refusal reports nothing, per the
+      // `onRetrySettled` contract.
+      const proceed = () => performDispatch(action, report)
 
       /*
        * A card family's own rule replaces the on/off one rather than joining it.
@@ -471,7 +530,7 @@ export function useCardActions({
           return
         }
 
-        performDispatch(action)
+        performDispatch(action, report)
         return
       }
 
@@ -482,7 +541,7 @@ export function useCardActions({
         return
       }
 
-      performDispatch(action)
+      performDispatch(action, report)
     },
     [confirm, confirmRoute, entityId, performDispatch, requestConfirmation]
   )
@@ -501,6 +560,24 @@ export function useCardActions({
     }
   }, [])
 
+  /*
+   * What the deferred work re-reads at execution time. The timers below close
+   * over the resolution made when the gesture started; an entity that goes
+   * quiet inside the window must not still receive the `toggle` armed while it
+   * was available — the gesture re-resolves from the latest render instead.
+   * Plain refs rather than state, because they are read from inside timer
+   * callbacks rather than rendered; synced in an effect, since writing a ref
+   * during render is what `react-hooks/refs` forbids.
+   */
+  const latestActionsRef = useRef(actions)
+  const latestIsActionableRef = useRef(isActionable)
+  const latestDispatchRef = useRef(dispatch)
+  useEffect(() => {
+    latestActionsRef.current = actions
+    latestIsActionableRef.current = isActionable
+    latestDispatchRef.current = dispatch
+  }, [actions, isActionable, dispatch])
+
   const press = useCallback(() => {
     if (disabled) return
 
@@ -515,9 +592,28 @@ export function useCardActions({
       // A hold ends whatever the previous click started: if this press was the
       // second half of a would-be double tap, the pending single tap is gone.
       clearTapTimer()
-      dispatch(actions.hold)
+      // Re-read at execution time: the `toggle` armed while available becomes
+      // `more-info` if the entity went quiet inside the window, and a route
+      // that lost its handler while armed stays inert rather than dispatching
+      // stale.
+      const action = latestActionsRef.current.hold
+      if (!latestIsActionableRef.current(action)) return
+      latestDispatchRef.current(action)
     }, HOLD_DURATION_MS)
   }, [actions.hold, clearTapTimer, disabled, dispatch, isActionable, release])
+
+  /*
+   * The tap half of a press without the hold half: clears the fired flag and
+   * releases any armed hold timer, and arms nothing new. Factored out of
+   * `press` rather than reimplemented so the two cannot drift: this is
+   * exactly what a press does before arming the hold timer.
+   */
+  const pressTapOnly = useCallback(() => {
+    if (disabled) return
+
+    holdFiredRef.current = false
+    release()
+  }, [disabled, release])
 
   const tap = useCallback(() => {
     if (disabled) return
@@ -529,22 +625,51 @@ export function useCardActions({
       return
     }
 
-    if (isActionable(actions.doubleTap)) {
+    if (latestIsActionableRef.current(latestActionsRef.current.doubleTap)) {
       if (tapTimerRef.current) {
         clearTapTimer()
-        dispatch(actions.doubleTap)
+        // The second tap completes the gesture now, so this half executes
+        // against the current resolution rather than waiting out a window.
+        // No execution-time re-read here: both reads happen synchronously in
+        // this handler off the same refs, so a second read could never
+        // disagree with the gate above — unlike the hold and the deferred
+        // single tap, no window elapses between arming and execution.
+        latestDispatchRef.current(latestActionsRef.current.doubleTap)
         return
       }
 
       tapTimerRef.current = setTimeout(() => {
         tapTimerRef.current = null
-        dispatch(actions.tap)
+        // Re-read at execution time, like the hold above: the window outlives
+        // the availability it was armed under.
+        const action = latestActionsRef.current.tap
+        if (!latestIsActionableRef.current(action)) return
+        latestDispatchRef.current(action)
       }, DOUBLE_TAP_WINDOW_MS)
       return
     }
-
     dispatch(actions.tap)
   }, [actions, clearTapTimer, disabled, dispatch, isActionable])
+
+  /*
+   * The keyboard routes to the two secondary gestures. Synchronous by
+   * construction: a key press has no hold duration and no second tap to wait
+   * for, so there is no window for availability to change inside — the current
+   * resolution is the execution-time one. Inert under the same rule as the
+   * gestures: a route with nothing behind it, including a `none` hold, does
+   * nothing rather than falling back to the tap.
+   */
+  const activateHold = useCallback(() => {
+    if (disabled) return
+    if (!isActionable(actions.hold)) return
+    dispatch(actions.hold)
+  }, [actions.hold, disabled, dispatch, isActionable])
+
+  const activateDoubleTap = useCallback(() => {
+    if (disabled) return
+    if (!isActionable(actions.doubleTap)) return
+    dispatch(actions.doubleTap)
+  }, [actions.doubleTap, disabled, dispatch, isActionable])
 
   /*
    * Suppression has to reach the gestures already in flight, not only the ones
@@ -559,7 +684,6 @@ export function useCardActions({
     clearTapTimer()
     holdFiredRef.current = false
   }, [clearTapTimer, disabled, release])
-
   useEffect(() => {
     return () => {
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
@@ -571,6 +695,12 @@ export function useCardActions({
     hasTapAction: !disabled && isActionable(actions.tap),
     tap,
     press,
+    pressTapOnly,
     release,
+    activateHold,
+    activateDoubleTap,
+    // The shell passes `onRetrySettled` through as the report, so the retry
+    // observer is the default report for every re-dispatch through here.
+    dispatchAction: (action, report = onRetrySettled) => dispatch(action, report),
   }
 }
