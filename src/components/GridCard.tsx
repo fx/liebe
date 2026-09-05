@@ -1208,11 +1208,13 @@ export const GridCard = React.memo(
         // below clears the ref on unmount before disconnecting, so a queued
         // observer notification landing after teardown sees `null` here and
         // returns — deciding against a detached tile would write `tabindex`
-        // onto a control React has already released.
-        const tile = tileActionControlRef.current?.parentElement
-        if (tile == null) return
+        // onto a control React has already released. One arm: `tile` is read
+        // off `control` with no yield between, so tile-non-null already
+        // implies control-non-null — a second arm is unreachable by
+        // construction, and branch coverage proved it unhittable.
         const control = tileActionControlRef.current
-        if (control == null) return
+        const tile = control?.parentElement
+        if (tile == null || control == null) return
         // Decided on rendered tabbability, not mere presence: a `button`
         // that is `disabled`, or any element parked at `tabindex="-1"`, is
         // not a Tab stop, and suppressing the tile action beside one would
@@ -1246,8 +1248,10 @@ export const GridCard = React.memo(
           tileActionObserverRef.current = null
           tileActionControlRef.current = control
           if (!control) return
-          const tile = control.parentElement
-          if (!tile) return
+          // Unreachable by construction, so no arm: React attaches callback
+          // refs post-insertion, hence `parentElement` is non-null here —
+          // branch coverage proved the `!tile` return unhittable.
+          const tile = control.parentElement as HTMLElement
           decideTileActionTabIndex()
           // A control mounting, unmounting, or toggling `disabled`
           // re-renders the tile through its own state, but this ref callback

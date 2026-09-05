@@ -276,6 +276,18 @@ describe('GridCard tile action control', () => {
 
     expect(tileAction(/^Desk Lamp, Valve jammed$/)).toBeInTheDocument()
   })
+  it('falls back to the title where the failure carries no message of its own', () => {
+    // The second `??` arm: an `isError` tile with no `failureMessage`
+    // announces the `title` instead — hover-only elsewhere, the carrier
+    // here — so the tile-action name never goes message-less.
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} isError title="Stream stalled" onClick={vi.fn()}>
+        content
+      </GridCard>
+    )
+
+    expect(tileAction(/^Desk Lamp, Stream stalled$/)).toBeInTheDocument()
+  })
 
   it('opens the detail dialog carrying the failure from the error tile at every tier', () => {
     for (const tier of ['glance', 'row', 'tall', 'full'] as const) {
@@ -569,18 +581,31 @@ describe('GridCard tile action control', () => {
 
     expect(tileAction(/^Desk Lamp/)).not.toHaveAttribute('tabindex', '-1')
   })
+  it('ignores a non-HTMLElement node when deciding Tab reachability', () => {
+    // The `instanceof HTMLElement` arm: an SVG element matches the
+    // selector set but is not an `HTMLElement`, so the detector skips it
+    // and the tile action stays reachable beside it.
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+        <svg tabIndex={0} data-testid="decorative" />
+      </GridCard>
+    )
+
+    expect(tileAction(/^Desk Lamp/)).not.toHaveAttribute('tabindex', '-1')
+  })
 
   it('withholds Retry in the dialog where the card names nothing to repeat', () => {
-    // Line 1669: `canRetry` alone is not enough — the dialog offers Retry
-    // only where a recovery action exists. A pre-dispatch refusal carries
-    // the flag with no action, so the dialog stays Dismiss-only.
+    // The second `??` arm: `canRetry` alone is not enough — the dialog
+    // offers Retry only where a recovery action exists. A pre-dispatch
+    // refusal carries the flag with no action, so the dialog stays
+    // Dismiss-only even where `failureMessage` itself is absent and the
+    // title carries the failure.
     renderCard(
       <GridCard
         domain="light"
         entityId={ENTITY_ID}
         isError
         title="Value refused"
-        failureMessage="Value refused"
         canRetry
         onDismiss={vi.fn()}
         onClick={vi.fn()}
@@ -683,5 +708,92 @@ describe('GridCard tile action control', () => {
     fireEvent.focus(tileAction(/^Desk Lamp/))
 
     expect(tileAction(/^Desk Lamp/)).not.toHaveAttribute('tabindex', '-1')
+  })
+  it('returns from the tab-index decision when the tile is gone', () => {
+    // The `tile == null` guard: an observer notification landing after
+    // teardown must see the cleared ref and return instead of writing
+    // `tabindex` onto a released control. Capture the observer callback,
+    // unmount (the ref callback clears the ref, then disconnects), then
+    // deliver the stale notification — the decision must no-op, not throw.
+    const callbacks: MutationCallback[] = []
+    class FakeObserver {
+      constructor(cb: MutationCallback) {
+        callbacks.push(cb)
+      }
+      disconnect(): void {}
+      observe(): void {}
+      takeRecords(): MutationRecord[] {
+        return []
+      }
+    }
+    vi.stubGlobal('MutationObserver', FakeObserver)
+    try {
+      const { unmount } = renderCard(
+        <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+          content
+        </GridCard>
+      )
+      expect(callbacks).toHaveLength(1)
+      unmount()
+      const pending = [...callbacks]
+      for (const cb of pending) {
+        expect(() => cb([], new FakeObserver(() => {}) as unknown as MutationObserver)).not.toThrow()
+      }
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('routes dialog Retry through the camera stream remount', () => {
+    // The `onStreamRetry ?? ...` arm: the camera's non-service recovery
+    // takes precedence — Retry invokes the remount directly and dispatches
+    // no service call.
+    const onStreamRetry = vi.fn()
+    renderCard(
+      <GridCard
+        domain="camera"
+        entityId={ENTITY_ID}
+        isError
+        title="Stream stalled"
+        failureMessage="Stream stalled"
+        canRetry
+        onStreamRetry={onStreamRetry}
+        retryAction={{ action: 'call-service', service: 'homeassistant.toggle' }}
+        onDismiss={vi.fn()}
+        onClick={vi.fn()}
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.click(tileAction(/^Desk Lamp, Stream stalled$/))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(onStreamRetry).toHaveBeenCalledTimes(1)
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('leaves Retry off where the stream recovered but the flag stayed set', () => {
+    // The `||` arm: `canRetry` with neither recovery — a stream that
+    // recovered (`onStreamRetry` back to `undefined`) and no retained
+    // action — offers no Retry, only Dismiss.
+    renderCard(
+      <GridCard
+        domain="camera"
+        entityId={ENTITY_ID}
+        isError
+        title="Stream stalled"
+        failureMessage="Stream stalled"
+        canRetry
+        onDismiss={vi.fn()}
+        onClick={vi.fn()}
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.click(tileAction(/^Desk Lamp, Stream stalled$/))
+    expect(screen.getByTestId('detail-failure')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
   })
 })
