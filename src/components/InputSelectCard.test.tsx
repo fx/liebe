@@ -329,7 +329,7 @@ describe('InputSelectCard', () => {
         loading: true,
         error: null,
         clearError: vi.fn(),
-      failedCommand: null,
+        failedCommand: null,
       })
       render(<InputSelectCard entityId="input_select.test_select" tier="row" />)
       expect(screen.getByRole('combobox')).toBeDisabled()

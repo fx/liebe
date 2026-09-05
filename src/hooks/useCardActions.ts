@@ -229,6 +229,13 @@ export interface CardGestures {
   tap: () => void
   /** Pointer down on the card body — arms hold detection. */
   press: () => void
+  /**
+   * Pointer down that arms the tap half only: releases any armed hold timer
+   * without starting a new one, so a held press can never dispatch the hold
+   * route. The shell uses this on an error tile, where every activation is
+   * recovery and the click consumes the tap into the dialog.
+   */
+  pressTapOnly: () => void
   /** Pointer up, cancel, or leave — disarms hold detection. */
   release: () => void
   /**
@@ -590,6 +597,19 @@ export function useCardActions({
     }, HOLD_DURATION_MS)
   }, [actions.hold, clearTapTimer, disabled, dispatch, isActionable, release])
 
+  /*
+   * The tap half of a press without the hold half: clears the fired flag and
+   * releases any armed hold timer, and arms nothing new. Factored out of
+   * `press` rather than reimplemented so the two cannot drift: this is
+   * exactly what a press does before arming the hold timer.
+   */
+  const pressTapOnly = useCallback(() => {
+    if (disabled) return
+
+    holdFiredRef.current = false
+    release()
+  }, [disabled, release])
+
   const tap = useCallback(() => {
     if (disabled) return
 
@@ -668,6 +688,7 @@ export function useCardActions({
     hasTapAction: !disabled && isActionable(actions.tap),
     tap,
     press,
+    pressTapOnly,
     release,
     activateHold,
     activateDoubleTap,

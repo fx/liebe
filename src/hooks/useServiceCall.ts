@@ -160,7 +160,10 @@ export function useServiceCall(): UseServiceCallResult {
         }
 
         return {
-          result: { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+          result: {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
           dispatchId,
         }
       } finally {
@@ -174,9 +177,8 @@ export function useServiceCall(): UseServiceCallResult {
   )
 
   const callService = useCallback(
-    async (options: ServiceCallOptions) => (
-      await runCall(options, hassService.callService.bind(hassService))
-    ).result,
+    async (options: ServiceCallOptions) =>
+      (await runCall(options, hassService.callService.bind(hassService))).result,
     [runCall]
   )
 

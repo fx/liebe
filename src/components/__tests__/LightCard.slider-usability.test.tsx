@@ -45,7 +45,7 @@ describe('LightCard Slider Usability', () => {
     dispatchGuarded: vi.fn(),
     setValue: vi.fn(),
     clearError: vi.fn(),
-      failedCommand: null,
+    failedCommand: null,
   }
 
   beforeEach(() => {

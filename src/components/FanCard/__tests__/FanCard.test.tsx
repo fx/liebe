@@ -63,7 +63,7 @@ describe('FanCard', () => {
     toggle: vi.fn(),
     setValue: vi.fn(),
     clearError: mockClearError,
-      failedCommand: null,
+    failedCommand: null,
     ...overrides,
   })
 
@@ -255,11 +255,21 @@ describe('FanCard', () => {
       expect(mockDispatchGuarded).not.toHaveBeenCalled()
     })
 
-    it('clears a standing error before dispatching', async () => {
+    it('opens recovery instead of dispatching when the error tile is pressed', async () => {
+      // The tile press while the error stands is a recovery activation: it
+      // opens the detail dialog carrying the failure rather than clearing
+      // the error and dispatching behind it. Dismiss clears it from there.
       vi.mocked(useServiceCall).mockReturnValue(serviceCall({ error: 'Service call failed' }))
       renderCard()
 
       await clickTile()
+
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service call failed')
+      expect(mockClearError).not.toHaveBeenCalled()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
 
       expect(mockClearError).toHaveBeenCalled()
     })

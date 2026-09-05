@@ -1098,12 +1098,18 @@ export const GridCard = React.memo(
         // never produce the click that would consume a fired hold.
         if (e.button !== 0 || !e.isPrimary) return
 
-        // While the tile carries a failure, no gesture may arm: a press held
-        // past the hold threshold would otherwise dispatch the hold route
-        // (and a tap pair would arm the double-tap window) behind the ERROR
-        // surface, before the click that routes to recovery ever runs. Every
-        // activation is a recovery activation, pointer included.
-        if (isError) return
+        // While the tile carries a failure, a held press must not dispatch
+        // the hold route behind the ERROR surface — but the tap still needs
+        // its press: the click consumes the tap into the recovery dialog
+        // instead of dispatching, which is also what clears the card error
+        // through the card's own toggle path. So the press arms the tap
+        // half only: it releases any armed hold timer without starting a
+        // new one, then records a tap-pending press the click will consume.
+        if (isError) {
+          gestures.release()
+          gestures.pressTapOnly()
+          return
+        }
 
         // The background slider IS the tile: its pointer joins the press
         // pipeline (hold and double-tap keep working) and the drag/tap split

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CoverCard } from '..'
@@ -745,13 +745,17 @@ describe('CoverCard', () => {
       }
     })
 
-    it('clears a standing error when the tile’s own toggle fires', async () => {
+    it('opens recovery instead of dispatching when the error tile itself is pressed', async () => {
+      // The tile press while the error stands is a recovery activation: it
+      // opens the detail dialog carrying the failure rather than clearing
+      // the error and re-dispatching behind it. Clearing now belongs to
+      // Dismiss — and re-dispatch to Retry — inside that dialog.
       const entity = createMockCoverEntity({
         state: 'open',
         attributes: { current_position: 40, supported_features: 3 },
       })
-      ;(useEntity as any).mockReturnValue({ entity, isConnected: true, isStale: false })
-      ;(useServiceCall as any).mockReturnValue({
+      ;(useEntity as Mock).mockReturnValue({ entity, isConnected: true, isStale: false })
+      ;(useServiceCall as Mock).mockReturnValue({
         loading: false,
         error: 'Service call failed',
         callService: vi.fn(),
@@ -763,12 +767,13 @@ describe('CoverCard', () => {
 
       await userEvent.click(document.querySelector('.liebe-card')!)
 
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service call failed')
+      expect(mockClearError).not.toHaveBeenCalled()
+      expect(mockDispatchGuarded).not.toHaveBeenCalled()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
       expect(mockClearError).toHaveBeenCalled()
-      expect(mockDispatchGuarded).toHaveBeenCalledWith({
-        domain: 'cover',
-        service: 'toggle',
-        entityId: 'cover.test_cover',
-      })
     })
 
     it('shows loading state during service calls', () => {

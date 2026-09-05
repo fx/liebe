@@ -312,7 +312,7 @@ describe('activation feedback', () => {
     expect(tile()).toHaveAttribute('title', 'Service not found')
   })
 
-  it('clears the previous error when the card is tapped again', async () => {
+  it('opens recovery on retap while the error stands instead of dispatching again', async () => {
     callService.mockRejectedValueOnce(new Error('Service not found'))
     seed(createButtonEntity())
     renderCard(<ActionCard entityId="button.restart_bridge" />)
@@ -320,13 +320,22 @@ describe('activation feedback', () => {
     fireEvent.click(tile())
     await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
 
-    // A retry starts from a clean surface rather than showing the previous
-    // error under a fresh spinner.
+    // A retap while the error stands is a recovery activation, not a new
+    // dispatch: the shell routes the tap to the detail dialog carrying the
+    // failure instead of clearing the error and re-dispatching behind it.
     resetDispatchGuard()
     fireEvent.click(tile())
 
+    expect(screen.getByTestId('detail-failure')).toHaveTextContent('Service not found')
+    expect(calls()).toHaveLength(1)
+
+    // Dismiss clears the presentation state and dispatches nothing; Retry
+    // re-dispatches the retained command (covered in ButtonCard.retry.test).
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
     await waitFor(() => expect(tile()).not.toHaveAttribute('data-error'))
     expect(stateLine()).toBeNull()
+    expect(calls()).toHaveLength(1)
   })
 
   it('lets a later tap through once the window has closed', async () => {
