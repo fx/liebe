@@ -55,6 +55,18 @@ lerna-debug.log*
 
 # Claude settings
 .claude/settings.local.json
+# Agent runtime scratch. Ignored here rather than in each tool's own ignore
+# file so that everything honouring .gitignore -- prettier included -- picks it
+# up from one place, and so that anything the project chooses to TRACK under
+# .claude/ (settings, agents, skills) is still linted and formatted like the
+# rest of the repo. Previously carried in .git/info/exclude, which is per-clone.
+#
+# worktrees/ are whole other checkouts of this project: left visible, they let
+# `eslint .`, `prettier --check .` and vitest's globs walk another branch's
+# source as if it were this one.
+.claude/worktrees/
+# team/ is the fx-dev team workflow's state and wait logs.
+.claude/team/
 
 # Temporary files
 tmp/

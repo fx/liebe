@@ -48,7 +48,19 @@ export default defineConfig({
     css: { include: [/src\/theme\/themes\//] },
     // Playwright e2e specs live in tests/e2e and must not be picked up by the
     // vitest unit runner (they import @playwright/test).
-    exclude: [...configDefaults.exclude, 'tests/e2e/**'],
+    //
+    // `.claude/worktrees/**` covers agent worktrees checked out INSIDE the repo.
+    // `configDefaults.exclude` does not cover them, so without this a bare
+    // `npm test` globs every worktree's specs alongside this checkout's own,
+    // running another branch's tests against this branch's `node_modules`.
+    //
+    // The failure does not read as a path problem: stale worktrees predating
+    // change 0044 produced 10837 failures and 44282 lint errors here, all
+    // `selector is not a function` from an old `useDashboardStore()` call that
+    // the narrowed store subscriptions made mandatory. CI clones fresh and
+    // never sees it, so local gates go red while CI stays green with no shared
+    // cause to find.
+    exclude: [...configDefaults.exclude, 'tests/e2e/**', '.claude/worktrees/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
