@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
-import { GridCardWithComponents as GridCard } from '../GridCard'
+import { GridCardWithComponents as GridCard, resolveDialogRetry } from '../GridCard'
 import { Pill } from '../anatomy'
 import { CardBody } from '../CardBody'
 import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
@@ -795,5 +795,31 @@ describe('GridCard tile action control', () => {
     fireEvent.click(tileAction(/^Desk Lamp, Stream stalled$/))
     expect(screen.getByTestId('detail-failure')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
+
+  describe('resolveDialogRetry', () => {
+    const action = { action: 'call-service', service: 'homeassistant.toggle' } as const
+
+    it('returns no recovery where the flag is off', () => {
+      expect(resolveDialogRetry(false, undefined, action, vi.fn())).toBeUndefined()
+    })
+
+    it('prefers the stream remount over the retained action', () => {
+      const remount = vi.fn()
+      const redispatch = vi.fn()
+      expect(resolveDialogRetry(true, remount, action, redispatch)).toBe(remount)
+    })
+
+    it('re-dispatches the retained action through the caller', () => {
+      const redispatch = vi.fn()
+      const retry = resolveDialogRetry(true, undefined, action, redispatch)
+      retry?.()
+      expect(redispatch).toHaveBeenCalledWith(action)
+    })
+
+    it('returns no recovery where neither exists', () => {
+      expect(resolveDialogRetry(true, undefined, undefined, vi.fn())).toBeUndefined()
+      expect(resolveDialogRetry(true, undefined, null, vi.fn())).toBeUndefined()
+    })
   })
 })

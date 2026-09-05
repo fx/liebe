@@ -407,6 +407,24 @@ function isEmbeddedControl(e: React.SyntheticEvent): boolean {
 }
 
 /**
+ * Which recovery the detail dialog's `Retry` invokes. The camera's
+ * non-service remount takes precedence where present; a retained service
+ * action re-enters through the caller's re-dispatch (the confirmation gate,
+ * then the guard); with neither recovery there is no `Retry` to offer and
+ * the dialog stays Dismiss-only.
+ */
+export function resolveDialogRetry(
+  canRetry: boolean | undefined,
+  onStreamRetry: (() => void) | undefined,
+  retryAction: ResolvedCardAction | null | undefined,
+  redispatch: (action: ResolvedCardAction) => void
+): (() => void) | undefined {
+  if (!canRetry) return undefined
+  if (onStreamRetry) return onStreamRetry
+  if (retryAction) return () => redispatch(retryAction)
+  return undefined
+}
+/**
  * Whether the gesture landed on the card-surface slider rather than on the
  * tile. A background slider IS the tile (options/common — "Shared slider
  * placement"): the drag/tap split is decided by whether the gesture moved the
@@ -1677,12 +1695,9 @@ export const GridCard = React.memo(
               // recovery (the camera remount) invokes its handler directly.
               failureMessage={isError ? (failureMessage ?? title ?? null) : null}
               canRetry={canRetry && (onStreamRetry != null || retryAction != null)}
-              onRetry={
-                onStreamRetry ??
-                (retryAction
-                  ? () => gestures.dispatchAction(retryAction, onRetrySettled)
-                  : undefined)
-              }
+              onRetry={resolveDialogRetry(canRetry, onStreamRetry, retryAction, (action) =>
+                gestures.dispatchAction(action, onRetrySettled)
+              )}
               onDismiss={onDismiss}
             />
           )}
