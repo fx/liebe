@@ -227,6 +227,18 @@ export default [
       '.tailscale/',
       'storybook-static/',
       /*
+       * Agent worktrees checked out inside the repo. They are whole other
+       * checkouts of this project, so `eslint .` walks each one and reports
+       * another branch's source as if it were this diff — 44282 errors from six
+       * stale worktrees, none of them in anybody's changes. Same hole as the
+       * vitest `exclude`; see the note there.
+       *
+       * Scoped to `worktrees/` rather than all of `.claude/` so that anything
+       * the project chooses to track there later (settings, agents, skills) is
+       * still linted like the rest of the repo.
+       */
+      '.claude/worktrees/',
+      /*
        * Fixtures written by `src/__tests__/effectHookLintGate.test.ts`. They
        * contain the banned spellings on purpose, and the spec deletes them —
        * but a run killed between the write and the cleanup would otherwise

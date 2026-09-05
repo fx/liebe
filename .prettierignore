@@ -17,3 +17,7 @@ mockups/
 # Ignored so a run killed mid-flight cannot leave the format gate failing on
 # files nobody wrote by hand.
 src/__lint-fixture__/
+
+# Agent worktrees checked out inside the repo (see .gitignore). Scoped to
+# worktrees/ so tracked .claude/ files stay formatted like the rest of the repo.
+.claude/worktrees/
