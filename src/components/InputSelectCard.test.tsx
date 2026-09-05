@@ -6,6 +6,9 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
 import type { DashboardState } from '../store/types'
+import { resetDispatchGuard } from '../services/guardedDispatch'
+import { HomeAssistantProvider } from '../contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '../testUtils/mockHomeAssistant'
 
 // Mock the hooks
 vi.mock('../hooks/useEntity')
@@ -233,6 +236,60 @@ describe('InputSelectCard', () => {
     // layer, so a theme could never have restyled them.
     expect(card).toHaveAttribute('data-error', 'true')
     expect(card).toHaveAttribute('title', 'Failed to set value')
+  })
+
+  it('keeps the error when Retry fails again, clears it when Retry lands', async () => {
+    // Both arms of `onRetrySettled`: a failed Retry keeps the tile error, a
+    // successful one clears it. The shell reports the guarded re-dispatch
+    // outcome into the card's observer; `clearError` fires on success only.
+    const clearError = vi.fn()
+    const hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
+    vi.mocked(useServiceCall).mockReturnValue({
+      callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
+      turnOn: vi.fn(),
+      turnOff: vi.fn(),
+      toggle: vi.fn(),
+      setValue: mockSetValue,
+      loading: false,
+      error: 'Failed to set value',
+      clearError,
+      failedCommand: {
+        command: {
+          domain: 'input_select',
+          service: 'select_option',
+          entityId: 'input_select.test_select',
+          data: { option: 'Option 2' },
+        },
+        retryable: true,
+      },
+    })
+
+    render(
+      <HomeAssistantProvider hass={hass}>
+        <CardItemProvider entityId="input_select.test_select">
+          <InputSelectCard entityId="input_select.test_select" tier="glance" />
+        </CardItemProvider>
+      </HomeAssistantProvider>
+    )
+    fireEvent.click(document.querySelector('.liebe-card')!)
+
+    // Retry fails again: the guarded re-dispatch rejects, so the observer
+    // keeps the error standing.
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-error', 'true')
+    )
+    expect(clearError).not.toHaveBeenCalled()
+
+    // Retry lands: the observer clears the card error and the tile recovers.
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(clearError).toHaveBeenCalledTimes(1))
   })
 
   it('does not show stale data indicator (stale display removed)', () => {

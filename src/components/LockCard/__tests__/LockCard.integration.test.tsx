@@ -349,6 +349,28 @@ describe('a lock code on the real dispatch path', () => {
     expect(hass.callService).toHaveBeenCalledTimes(1)
   })
 
+  it('withholds Retry after a coded failure so the code cannot be replayed', async () => {
+    // CodeRabbit Major on cardActions.ts:183 — the user-visible half of the
+    // `useServiceCall` credential rule: the refusal stays beside the keypad
+    // that produced it, and no generic Retry re-submits the code after the
+    // keypad closes. A fresh keypad entry makes a new command.
+    seed(codedLock('locked'))
+    ;(hass.callService as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Invalid code'))
+    renderCard(<LockCard entityId={ENTITY_ID} tier="row" />)
+
+    fireEvent.click(pill('Unlock'))
+    await waitFor(() => expect(screen.getByTestId('code-keypad')).toBeInTheDocument())
+    enter(CODE)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unlock' }).at(-1)!)
+
+    // The keypad stays up with the redacted refusal — and the hook retains
+    // the coded command as non-retryable, so even once the tile carries the
+    // failure there is nothing generic Retry could re-submit.
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Invalid code'))
+    expect(screen.getByTestId('code-keypad')).toBeInTheDocument()
+    expect(hass.callService).toHaveBeenCalledTimes(1)
+  })
+
   it('never writes the code into the dashboard configuration or its YAML export', async () => {
     /*
      * The security property, asserted where it can actually be observed: this

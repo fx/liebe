@@ -164,4 +164,57 @@ describe('ClimateCard dispatch', () => {
 
     await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
   })
+  // The `onRetrySettled` closure in both variants: a failed Retry keeps the
+  // error standing, a landed Retry clears it (control.clearError).
+  it('keeps the error when dialog Retry fails again, clears it when Retry lands (compact)', async () => {
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('Service not found'))
+    renderCard(<ClimateCard entityId={THERMOSTAT} tier="row" span={{ width: 2, height: 1 }} />)
+
+    fireEvent.click(screen.getByLabelText('Increase temperature'))
+    await waitFor(() =>
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-error', 'true')
+    )
+
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+    resetDispatchGuard()
+    fireEvent.click(document.querySelector('.liebe-card') as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-error', 'true')
+    )
+
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() =>
+      expect(document.querySelector('.liebe-card')).not.toHaveAttribute('data-error')
+    )
+  })
+
+  // Same closure through the dial presentation (full tier renders the arc).
+  it('keeps the error when dialog Retry fails again, clears it when Retry lands (dial)', async () => {
+    const DialCard = ClimateCard.variants.dial
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('Service not found'))
+    renderCard(<DialCard entityId={THERMOSTAT} tier="full" />)
+
+    fireEvent.click(screen.getByLabelText('Increase temperature'))
+    await waitFor(() =>
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-error', 'true')
+    )
+
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+    resetDispatchGuard()
+    fireEvent.click(document.querySelector('.liebe-card') as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(document.querySelector('.liebe-card')).toHaveAttribute('data-error', 'true')
+    )
+
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() =>
+      expect(document.querySelector('.liebe-card')).not.toHaveAttribute('data-error')
+    )
+  })
 })

@@ -6,6 +6,9 @@ import { CardItemProvider } from '../../cardItemContext'
 import { useEntity, useServiceCall } from '~/hooks'
 import { useDashboardStore } from '~/store'
 import { entityStoreActions } from '~/store/entityStore'
+import { HomeAssistantProvider } from '~/contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import type { HassEntity } from '~/store/entityTypes'
 
 vi.mock('~/hooks', () => ({
@@ -853,6 +856,51 @@ describe('LockCard', () => {
       fireEvent.click(pill('Lock'))
 
       expect(mockClearError).toHaveBeenCalled()
+    })
+    it('keeps the error when Retry fails again, clears it when Retry lands', async () => {
+      // The card's `onRetrySettled` closure, both arms, on a CODELESS lock (no
+      // `code_format`, so no keypad): a failed Retry keeps the presentation
+      // state, a landed one clears it. Mocked-hook harness, so the failed
+      // command is seeded and the clicks go through the real shell gate/guard
+      // onto the hass transport. `confirmUnlock: false` keeps the ungated
+      // `lock.lock` retry out from behind the confirmation gate.
+      const hass = createMockHomeAssistant({
+        callService: vi.fn().mockRejectedValueOnce(new Error('still jammed')),
+      })
+      const clearError = vi.fn()
+      const command = { domain: 'lock', service: 'lock', entityId: ENTITY_ID }
+      ;(useServiceCall as any).mockReturnValue({
+        loading: false,
+        error: 'Service call failed',
+        callService: vi.fn(),
+        dispatchGuarded: mockDispatchGuarded,
+        clearError,
+        failedCommand: { command, retryable: true },
+      })
+      resetDispatchGuard()
+      mockEntities({ [ENTITY_ID]: lockEntity('unlocked') })
+      render(
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId={ENTITY_ID} config={{ confirmUnlock: false }}>
+            <LockCard entityId={ENTITY_ID} tier="row" />
+          </CardItemProvider>
+        </HomeAssistantProvider>
+      )
+      const failedTile = () => document.querySelector('.liebe-card') as HTMLElement
+      expect(failedTile()).toHaveAttribute('data-error', 'true')
+      // Retap into the recovery dialog: the error tile routes there, not back
+      // to the pills.
+      fireEvent.click(failedTile())
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(failedTile()).toHaveAttribute('data-error', 'true'))
+      expect(clearError).not.toHaveBeenCalled()
+      // Retry lands: the observer clears the card error and the tile recovers.
+      vi.mocked(hass.callService).mockResolvedValueOnce(undefined)
+      resetDispatchGuard()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(clearError).toHaveBeenCalledTimes(1))
     })
   })
 

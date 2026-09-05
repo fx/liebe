@@ -5,6 +5,10 @@ import { useEntity } from '../hooks/useEntity'
 import { useServiceCall } from '../hooks/useServiceCall'
 import { useDashboardStore } from '../store'
 import type { DashboardState } from '../store/types'
+import { HomeAssistantProvider } from '../contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '../testUtils/mockHomeAssistant'
+import { CardItemProvider } from './cardItemContext'
+import { resetDispatchGuard } from '../services/guardedDispatch'
 
 // Mock the hooks
 vi.mock('../hooks/useEntity')
@@ -384,5 +388,58 @@ describe('InputBooleanCard', () => {
     // Should show skeleton card
     const skeleton = container.querySelector('.rt-Skeleton')
     expect(skeleton).toBeInTheDocument()
+  })
+
+  it('keeps the error when Retry fails again, clears it when Retry lands', async () => {
+    // The card's `onRetrySettled` closure, both arms: a failed Retry keeps the
+    // presentation state (the tile still reads error), a landed one clears it.
+    // Mocked-hook harness, so the failed command is seeded and the clicks go
+    // through the real shell gate/guard onto the hass transport.
+    const hass = createMockHomeAssistant({
+      callService: vi.fn().mockRejectedValueOnce(new Error('still jammed')),
+    })
+    const clearError = vi.fn()
+    const command = {
+      domain: 'input_boolean',
+      service: 'toggle',
+      entityId: 'input_boolean.test_toggle',
+    }
+    vi.mocked(useServiceCall).mockReturnValue({
+      callService: vi.fn(),
+      dispatchGuarded: vi.fn(),
+      turnOn: vi.fn(),
+      turnOff: vi.fn(),
+      toggle: mockToggle,
+      setValue: vi.fn(),
+      loading: false,
+      error: 'Failed to toggle',
+      clearError,
+      failedCommand: { command, retryable: true },
+    })
+    resetDispatchGuard()
+    // `render` already wraps in `Theme`; only the hass and card-item providers
+    // are added here so the shell gate/guard reach the mock transport.
+    render(
+      <HomeAssistantProvider hass={hass}>
+        <CardItemProvider entityId="input_boolean.test_toggle">
+          <InputBooleanCard entityId="input_boolean.test_toggle" />
+        </CardItemProvider>
+      </HomeAssistantProvider>
+    )
+    const errorTile = () => document.querySelector('.liebe-card') as HTMLElement
+    expect(errorTile()).toHaveAttribute('data-error', 'true')
+    // Retap into the recovery dialog: the error tile routes there, not back to
+    // the toggle.
+    fireEvent.click(errorTile())
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(errorTile()).toHaveAttribute('data-error', 'true'))
+    expect(clearError).not.toHaveBeenCalled()
+    // Retry lands: the observer clears the card error and the tile recovers.
+    vi.mocked(hass.callService).mockResolvedValueOnce(undefined)
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(clearError).toHaveBeenCalledTimes(1))
   })
 })

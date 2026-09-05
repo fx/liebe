@@ -625,9 +625,11 @@ export function useCardActions({
         clearTapTimer()
         // The second tap completes the gesture now, so this half executes
         // against the current resolution rather than waiting out a window.
-        const action = latestActionsRef.current.doubleTap
-        if (!latestIsActionableRef.current(action)) return
-        latestDispatchRef.current(action)
+        // No execution-time re-read here: both reads happen synchronously in
+        // this handler off the same refs, so a second read could never
+        // disagree with the gate above — unlike the hold and the deferred
+        // single tap, no window elapses between arming and execution.
+        latestDispatchRef.current(latestActionsRef.current.doubleTap)
         return
       }
 

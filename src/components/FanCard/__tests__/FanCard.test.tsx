@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FanCard } from '..'
 import { CardItemProvider } from '../../cardItemContext'
 import { useEntity, useServiceCall } from '~/hooks'
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { useDashboardStore } from '~/store'
 import type { HassEntity } from '~/store/entityTypes'
 import type { DashboardState } from '~/store/types'
+import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
+import type * as HomeAssistantContextModule from '~/contexts/HomeAssistantContext'
+
+vi.mock('~/contexts/HomeAssistantContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof HomeAssistantContextModule>()
+  return { ...actual, useHomeAssistantOptional: vi.fn() }
+})
 
 vi.mock('~/hooks', () => ({
   useEntity: vi.fn(),
@@ -86,9 +96,9 @@ describe('FanCard', () => {
       isStale: false,
     })
   }
-
   beforeEach(() => {
     vi.clearAllMocks()
+    resetDispatchGuard()
     vi.mocked(useDashboardStore).mockImplementation((selector) => {
       const state = { mode: 'view' } as Pick<DashboardState, 'mode'>
       return selector ? selector(state as DashboardState) : state
@@ -101,6 +111,61 @@ describe('FanCard', () => {
       isStale: false,
     })
     vi.mocked(useServiceCall).mockReturnValue(serviceCall())
+  })
+
+  describe('dialog Retry', () => {
+    let hass: HomeAssistant
+
+    // The real hook's retention contract, mirrored: dispatchGuarded retains the
+    // identical command on failure; Retry re-dispatches it through the shell.
+    const failedServiceCall = (clearError: () => void) => {
+      const failedCommand = {
+        command: { domain: 'fan', service: 'turn_off', entityId: 'fan.living_room' },
+        retryable: true as const,
+      }
+      const dispatchGuarded = vi.fn(async () => ({ success: false, error: 'turn_off failed' }))
+      vi.mocked(useServiceCall).mockReturnValue(
+        serviceCall({ error: 'turn_off failed', failedCommand, dispatchGuarded, clearError })
+      )
+      return { dispatchGuarded }
+    }
+
+    const renderWithHass = () => {
+      hass = createMockHomeAssistant({ callService: vi.fn().mockResolvedValue(undefined) })
+      vi.mocked(useHomeAssistantOptional).mockReturnValue(hass)
+      return render(
+        <CardItemProvider entityId="fan.living_room" config={{ speedControl: 'steps' }}>
+          <FanCard entityId="fan.living_room" />
+        </CardItemProvider>
+      )
+    }
+
+    const openDialog = () => {
+      fireEvent.click(document.querySelector('.liebe-card') as HTMLElement)
+    }
+
+    it('keeps the error when Retry fails again, clears it when Retry lands', async () => {
+      // Both arms of `onRetrySettled`: a failed Retry keeps the card error, a
+      // landed Retry clears it.
+      const clearError = vi.fn()
+      failedServiceCall(clearError)
+      renderWithHass()
+      openDialog()
+
+      vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await act(async () => {})
+
+      expect(hass.callService).toHaveBeenCalledTimes(1)
+      expect(clearError).not.toHaveBeenCalled()
+
+      resetDispatchGuard()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await act(async () => {})
+
+      expect(hass.callService).toHaveBeenCalledTimes(2)
+      expect(clearError).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('step pills', () => {

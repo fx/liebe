@@ -193,6 +193,30 @@ describe('the toggle', () => {
     expect(callService).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps the error when dialog Retry fails again, clears it when Retry lands', async () => {
+    // Both arms of `onRetrySettled`: a failed Retry keeps the tile error, a
+    // landed Retry clears it.
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('nope'))
+    renderCard()
+
+    fireEvent.click(tile())
+    await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
+
+    // Retry fails again: the error stands. The retap opens the recovery
+    // dialog; the guard reset lets the re-dispatch reach the transport.
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+    resetDispatchGuard()
+    fireEvent.click(tile())
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(hass.callService).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(tile()).toHaveAttribute('data-error', 'true'))
+
+    // Retry lands: the observer clears the card error and the tile recovers.
+    resetDispatchGuard()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(tile()).not.toHaveAttribute('data-error'))
+  })
+
   /*
    * The drag guard used to be asserted here and is not any more. That version
    * fired a bare `pointerDown`, which in jsdom moves nothing — every element

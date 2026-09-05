@@ -215,8 +215,15 @@ export function useServiceCall(): UseServiceCallResult {
         // a `Retry` re-dispatch reuses): an aborted request lost the race to a
         // newer one, and its failure must not overwrite the newer request's
         // state — otherwise `Retry` would re-dispatch the older command.
+        //
+        // Code-bearing commands are never retryable: the code is a credential
+        // collected for one submission, and a generic `Retry` would re-submit
+        // it after the keypad closed — silently, and against an attempt-counting
+        // panel or lock. The error still surfaces; the user re-enters the code
+        // through a fresh keypad for a new command.
         if (latestDispatchIdRef.current === dispatchId) {
-          setFailedCommand({ command: options, retryable: true })
+          const carriesCode = options.data !== undefined && Object.hasOwn(options.data, 'code')
+          setFailedCommand({ command: options, retryable: !carriesCode })
         }
       }
       return result

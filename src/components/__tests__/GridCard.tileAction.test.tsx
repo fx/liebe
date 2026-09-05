@@ -448,4 +448,240 @@ describe('GridCard tile action control', () => {
     expect(onToggle).not.toHaveBeenCalled()
     expect(hass.callService).not.toHaveBeenCalled()
   })
+
+  it('ignores non-activation keys and key repeats on the tile control', () => {
+    // Lines 1157-1158: only Enter/Space route, and a held key must not
+    // re-dispatch — the repeat guard consumes the auto-repeat.
+    const onToggle = vi.fn()
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} onClick={onToggle}>
+        content
+      </GridCard>
+    )
+
+    fireEvent.keyDown(tileAction(/^Desk Lamp/), { key: 'Tab' })
+    fireEvent.keyDown(tileAction(/^Desk Lamp/), { key: 'Enter', repeat: true })
+    fireEvent.keyDown(tileAction(/^Desk Lamp/), { key: ' ', repeat: true })
+
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('leaves a both-modifier error activation inert instead of opening recovery twice', () => {
+    // Line 1165: Shift+Alt together is neither route — not even recovery.
+    // One modifier names a gesture to recover; both name none.
+    const onToggle = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId={ENTITY_ID}
+        isError
+        title="Service not found"
+        failureMessage="Service not found"
+        onDismiss={vi.fn()}
+        onClick={onToggle}
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.keyDown(tileAction(/^Desk Lamp, Service not found$/), {
+      key: 'Enter',
+      shiftKey: true,
+      altKey: true,
+    })
+
+    expect(screen.queryByTestId('detail-failure')).not.toBeInTheDocument()
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('leaves Ctrl/Shift error activations inert rather than recovering', () => {
+    // Line 1165, the other arm: Ctrl held alongside the gesture modifier is
+    // a browser shortcut, not a tile activation — recovery stays closed.
+    const onToggle = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId={ENTITY_ID}
+        isError
+        title="Service not found"
+        failureMessage="Service not found"
+        onDismiss={vi.fn()}
+        onClick={onToggle}
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.keyDown(tileAction(/^Desk Lamp, Service not found$/), {
+      key: 'Enter',
+      shiftKey: true,
+      ctrlKey: true,
+    })
+
+    expect(screen.queryByTestId('detail-failure')).not.toBeInTheDocument()
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('leaves a Ctrl-modified activation inert on a healthy tile', () => {
+    // Lines 1171/1174: Ctrl+Shift+Enter is neither the hold nor the
+    // double-tap route — the shell reserves Ctrl for the browser.
+    const onToggle = vi.fn()
+    const onMoreInfo = vi.fn()
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} onClick={onToggle} onMoreInfo={onMoreInfo}>
+        content
+      </GridCard>
+    )
+
+    fireEvent.keyDown(tileAction(/^Desk Lamp/), { key: 'Enter', shiftKey: true, ctrlKey: true })
+    fireEvent.keyDown(tileAction(/^Desk Lamp/), { key: 'Enter', altKey: true, metaKey: true })
+
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(onMoreInfo).not.toHaveBeenCalled()
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
+  it('keeps the tile control Tab-reachable where nothing else tabbable renders', () => {
+    // Line 1209: a tile with no other focusable control leaves the tile
+    // action in the Tab order — suppressing it there would leave the tile
+    // with no keyboard surface at all.
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+        content
+      </GridCard>
+    )
+
+    expect(tileAction(/^Desk Lamp/)).not.toHaveAttribute('tabindex', '-1')
+  })
+
+  it('steps the tile control out where a disabled control still renders', () => {
+    // Line 1244: decided on rendered tabbability, not mere presence — a
+    // `button` that is `disabled` is not a Tab stop, so the tile action
+    // stays reachable beside it.
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+        <button disabled>Busy</button>
+      </GridCard>
+    )
+
+    expect(tileAction(/^Desk Lamp/)).not.toHaveAttribute('tabindex', '-1')
+  })
+
+  it('withholds Retry in the dialog where the card names nothing to repeat', () => {
+    // Line 1669: `canRetry` alone is not enough — the dialog offers Retry
+    // only where a recovery action exists. A pre-dispatch refusal carries
+    // the flag with no action, so the dialog stays Dismiss-only.
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId={ENTITY_ID}
+        isError
+        title="Value refused"
+        failureMessage="Value refused"
+        canRetry
+        onDismiss={vi.fn()}
+        onClick={vi.fn()}
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.click(tileAction(/^Desk Lamp, Value refused$/))
+    expect(screen.getByTestId('detail-failure')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+  })
+
+  it('routes dialog Retry through the retained action and observes the outcome', () => {
+    // Lines 1669-1674, the taken arms: a retained action re-enters through
+    // `dispatchAction` with the card's observer — success clears the card
+    // error (covered per-card in ActionCard), failure keeps it standing.
+    const onRetrySettled = vi.fn()
+    renderCard(
+      <GridCard
+        domain="light"
+        entityId={ENTITY_ID}
+        isError
+        title="Service not found"
+        failureMessage="Service not found"
+        canRetry
+        retryAction={{ action: 'call-service', service: 'homeassistant.toggle' }}
+        onRetrySettled={onRetrySettled}
+        onDismiss={vi.fn()}
+        onClick={vi.fn()}
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.click(tileAction(/^Desk Lamp, Service not found$/))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(hass.callService).toHaveBeenCalledWith('homeassistant', 'toggle', {
+      entity_id: ENTITY_ID,
+    })
+  })
+
+  it('re-decides Tab reachability when the tile gains a control after mount', async () => {
+    // Line 1209, the untaken arm: the observer fires on a subtree change —
+    // a control mounting after the tile action re-runs the decision, and
+    // the tile action steps out of the Tab order beside it.
+    const { rerender } = render(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+            content
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(tileAction(/^Desk Lamp/)).not.toHaveAttribute('tabindex', '-1')
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+            <button>Later</button>
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    // The observer notifies asynchronously; the settle guard releases on a
+    // microtask, so flush before asserting the re-decision.
+    await act(async () => {})
+
+    expect(tileAction(/^Desk Lamp/)).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('re-checks Tab reachability on focus after a sibling disables', () => {
+    // Line 1244, the taken arm through the focus path: `decide` runs from
+    // `onFocus`, so a tile action focused after its sibling went disabled
+    // re-reads rendered tabbability and stays reachable.
+    const { rerender } = render(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+            <button>Busy</button>
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    expect(tileAction(/^Desk Lamp/)).toHaveAttribute('tabindex', '-1')
+
+    rerender(
+      <Theme>
+        <HomeAssistantProvider hass={hass}>
+          <GridCard domain="light" entityId={ENTITY_ID} onClick={vi.fn()}>
+            <button disabled>Busy</button>
+          </GridCard>
+        </HomeAssistantProvider>
+      </Theme>
+    )
+    fireEvent.focus(tileAction(/^Desk Lamp/))
+
+    expect(tileAction(/^Desk Lamp/)).not.toHaveAttribute('tabindex', '-1')
+  })
 })

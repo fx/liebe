@@ -1204,9 +1204,15 @@ export const GridCard = React.memo(
       const tileActionControlRef = React.useRef<HTMLButtonElement | null>(null)
       const tileActionObserverRef = React.useRef<MutationObserver | null>(null)
       const decideTileActionTabIndex = React.useCallback(() => {
+        // Read off the live control, not the ref object: the ref callback
+        // below clears the ref on unmount before disconnecting, so a queued
+        // observer notification landing after teardown sees `null` here and
+        // returns — deciding against a detached tile would write `tabindex`
+        // onto a control React has already released.
+        const tile = tileActionControlRef.current?.parentElement
+        if (tile == null) return
         const control = tileActionControlRef.current
-        const tile = control?.parentElement
-        if (!control || !tile) return
+        if (control == null) return
         // Decided on rendered tabbability, not mere presence: a `button`
         // that is `disabled`, or any element parked at `tabindex="-1"`, is
         // not a Tab stop, and suppressing the tile action beside one would

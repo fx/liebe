@@ -52,6 +52,61 @@ describe('useServiceCall retained failure', () => {
     await waitFor(() => expect(result.current.failedCommand).toEqual({ command, retryable: true }))
   })
 
+  it('retains a code-bearing failure as non-retryable so Retry cannot replay it', async () => {
+    // CodeRabbit Major on cardActions.ts:183 — a failed keypad command must
+    // not sit in React state re-submittable through generic `Retry` after the
+    // keypad closes. The error still surfaces; only the re-dispatch is
+    // withheld, and the user enters a fresh code for a new command.
+    vi.mocked(hassService.callServiceOnce).mockResolvedValue({
+      success: false,
+      error: 'Invalid code',
+    })
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    await act(async () => {
+      await result.current.dispatchGuarded({
+        domain: 'alarm_control_panel',
+        service: 'alarm_disarm',
+        entityId: 'alarm_control_panel.house',
+        data: { code: '1234' },
+      })
+    })
+
+    await waitFor(() => expect(result.current.failedCommand).not.toBeNull())
+    expect(result.current.failedCommand?.retryable).toBe(false)
+    expect(result.current.error).toBe('Invalid code')
+  })
+
+  it('keeps retrying a codeless failure on the same entity', async () => {
+    // The other half of the credential rule: withholding `Retry` must not
+    // leak onto the codeless path — an armless code_format panel still
+    // retries its plain commands.
+    vi.mocked(hassService.callServiceOnce).mockResolvedValue({
+      success: false,
+      error: 'Panel busy',
+    })
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    await act(async () => {
+      await result.current.dispatchGuarded({
+        domain: 'alarm_control_panel',
+        service: 'alarm_arm_away',
+        entityId: 'alarm_control_panel.house',
+      })
+    })
+
+    await waitFor(() =>
+      expect(result.current.failedCommand).toEqual({
+        command: {
+          domain: 'alarm_control_panel',
+          service: 'alarm_arm_away',
+          entityId: 'alarm_control_panel.house',
+        },
+        retryable: true,
+      })
+    )
+  })
+
   it('retains a pre-dispatch refusal as non-retryable', async () => {
     const { result } = renderHook(() => useServiceCall(), { wrapper })
 
@@ -190,5 +245,37 @@ describe('useServiceCall retained failure', () => {
     // Same object, older call: still must not clobber.
     expect(result.current.failedCommand).toEqual({ command: shared, retryable: true })
     expect(result.current.error).toBe('second failed')
+  })
+
+  it('surfaces a dispatch that throws instead of returning a failure', async () => {
+    // Line 162/165: the reshaped `runCall` catch — a transport throw becomes
+    // a failed result with the thrown message, rather than an unhandled
+    // rejection. Non-Error throws degrade to 'Unknown error'.
+    vi.mocked(hassService.callServiceOnce).mockRejectedValueOnce(new Error('socket hiccup'))
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    let outcome: unknown
+    await act(async () => {
+      outcome = await result.current.dispatchGuarded(command)
+    })
+
+    expect(outcome).toEqual({ success: false, error: 'socket hiccup' })
+    await waitFor(() => expect(result.current.error).toBe('socket hiccup'))
+  })
+
+  it('degrades a non-Error throw to Unknown error', async () => {
+    // Line 165, the other arm: a transport that rejects with a bare value
+    // still surfaces as a failed result rather than escaping.
+    resetDispatchGuard()
+    vi.mocked(hassService.callServiceOnce).mockRejectedValueOnce('cable cut')
+    const { result } = renderHook(() => useServiceCall(), { wrapper })
+
+    let outcome: unknown
+    await act(async () => {
+      outcome = await result.current.dispatchGuarded(command)
+    })
+
+    expect(outcome).toEqual({ success: false, error: 'Unknown error' })
+    await waitFor(() => expect(result.current.error).toBe('Unknown error occurred'))
   })
 })

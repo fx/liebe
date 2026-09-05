@@ -1,13 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { AlarmCard } from '..'
 import { CardItemProvider } from '../../cardItemContext'
 import { ALARM_FEATURE } from '../presentation'
 import { useEntity, useServiceCall } from '~/hooks'
+import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { useDashboardStore } from '~/store'
 import { entityStoreActions } from '~/store/entityStore'
 import type { HassEntity } from '~/store/entityTypes'
+
+vi.mock('~/contexts/HomeAssistantContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~/contexts/HomeAssistantContext')>()
+  return { ...actual, useHomeAssistantOptional: vi.fn() }
+})
 
 vi.mock('~/hooks', () => ({
   useEntity: vi.fn(),
@@ -790,6 +798,51 @@ describe('AlarmCard', () => {
       fireEvent.click(button('Disarm'))
 
       expect(mockClearError).toHaveBeenCalled()
+    })
+
+    it('keeps the error when dialog Retry fails again, clears it when Retry lands', async () => {
+      // Both arms of `onRetrySettled`: a failed Retry keeps the tile error, a
+      // landed Retry clears it. A codeless panel, so the arm pill dispatches
+      // with no keypad in front of it.
+      const failedCommand = {
+        command: {
+          domain: 'alarm_control_panel',
+          service: 'alarm_arm_away',
+          entityId: ENTITY_ID,
+        },
+        retryable: true as const,
+      }
+      const dispatchGuarded = vi.fn(async () => ({ success: false, error: 'Panel jammed' }))
+      const hass = createMockHomeAssistant({
+        callService: vi.fn().mockResolvedValue(undefined),
+      })
+      vi.mocked(useHomeAssistantOptional).mockReturnValue(hass)
+      const clearError = vi.fn()
+      ;(useServiceCall as any).mockReturnValue({
+        loading: false,
+        error: 'Panel jammed',
+        failedCommand,
+        callService: vi.fn(),
+        dispatchGuarded,
+        clearError,
+      })
+      renderCard('disarmed')
+      fireEvent.click(document.querySelector('.liebe-card') as HTMLElement)
+      expect(screen.getByTestId('detail-failure')).toHaveTextContent('Panel jammed')
+
+      // Retry fails again: the error stands (the failure arm of the observer).
+      vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await act(async () => {})
+      expect(hass.callService).toHaveBeenCalledTimes(1)
+      expect(clearError).not.toHaveBeenCalled()
+
+      // Retry lands: the observer clears the card error and the tile recovers.
+      resetDispatchGuard()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await act(async () => {})
+      expect(hass.callService).toHaveBeenCalledTimes(2)
+      expect(clearError).toHaveBeenCalledTimes(1)
     })
 
     it('renders no controls in edit mode', () => {
