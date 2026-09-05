@@ -620,6 +620,34 @@ describe('GridCard tile action control', () => {
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
   })
 
+  it('routes dialog Retry through an error tile with no tap route', () => {
+    // The helper-callback arm at the dialog site: a camera-style tile whose
+    // tap resolves to `none` still renders the dialog's Retry through the
+    // extracted resolver, exercising the inline arrow in GridCard's module.
+    const onStreamRetry = vi.fn()
+    renderCard(
+      <GridCard
+        domain="camera"
+        entityId={ENTITY_ID}
+        isError
+        title="Stream stalled"
+        failureMessage="Stream stalled"
+        canRetry
+        onStreamRetry={onStreamRetry}
+        onDismiss={vi.fn()}
+        defaultAction="none"
+      >
+        content
+      </GridCard>
+    )
+
+    fireEvent.click(tileAction(/^Desk Lamp, Stream stalled$/))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(onStreamRetry).toHaveBeenCalledTimes(1)
+    expect(hass.callService).not.toHaveBeenCalled()
+  })
+
   it('routes dialog Retry through the retained action and observes the outcome', () => {
     // Lines 1669-1674, the taken arms: a retained action re-enters through
     // `dispatchAction` with the card's observer — success clears the card
