@@ -155,7 +155,11 @@ export function isParameterizedCardAction(
  * it by effect on the entity (the generic `homeassistant.*` aliases and the
  * domain services alike), then the at-most-once guard refuses it while the
  * failed command's window is still open. Absent where there is nothing to
- * repeat — a pre-dispatch refusal, a stream that would not start.
+ * repeat — a pre-dispatch refusal, a stream that would not start — and absent
+ * for a code-bearing command even when marked retryable: the code is a
+ * credential collected for one submission, and a generic `Retry` must never
+ * re-submit it after the keypad closed. The error still surfaces; the user
+ * re-enters the code through a fresh keypad for a new command.
  */
 export function retainedRetryAction(
   failed:
@@ -173,6 +177,9 @@ export function retainedRetryAction(
 ): ResolvedCardAction | undefined {
   if (!failed?.retryable) return undefined
   const { domain, service, entityId, data } = failed.command
+  // Defense in depth beside the hook's non-retryable retention: even a caller
+  // holding a stale retryable flag cannot route a credential through Retry.
+  if (data !== undefined && Object.hasOwn(data, 'code')) return undefined
   // Built the way `HassService.buildServiceData` builds it: the command's own
   // target travels inside the payload, so the retry replays what was actually
   // dispatched — never the shell's current entity. An explicit `data.entity_id`

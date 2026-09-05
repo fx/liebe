@@ -430,7 +430,29 @@ describe('useCameraStreamStatus', () => {
     // No remount, no budget restore: dismiss is presentation-only.
     expect(result.current.remountKey).toBe(mounted)
 
+    // Dismissed with no new stream event: the load-budget timer stays
+    // disarmed, so no 'Stream failed to start' re-opens the failure state
+    // (CodeRabbit Major on useCameraStreamStatus.ts:266 — clearing the error
+    // makes `connecting` true, which used to re-arm CONNECT_TIMEOUT_MS).
+    act(() => {
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS + 5000)
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.remountKey).toBe(mounted)
+
+    // A new stream attempt ends the dismissal: the budget arms again for it.
+    act(() => {
+      result.current.onStreamEvent()
+    })
+    act(() => {
+      vi.advanceTimersByTime(CONNECT_TIMEOUT_MS + 250)
+    })
+    expect(result.current.error).toBe('Stream failed to start')
+
     // A fresh stall surfaces again through the normal machine path.
+    act(() => {
+      result.current.retry()
+    })
     act(() => {
       result.current.onStreamEvent()
     })

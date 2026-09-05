@@ -162,24 +162,28 @@ export interface UseCameraStreamStatusResult {
   /**
    * Clear the surfaced error without remounting: the `Dismiss` half of the
    * dialog's recovery pair for the stream-error source. Clears presentation
-   * state and dispatches nothing — the stream is not restarted.
+   * state and dispatches nothing — the stream is not restarted — and holds
+   * the load-budget timer disarmed until a new stream attempt begins, so a
+   * dismissed stall cannot re-surface as 'Stream failed to start' with no
+   * new stream event.
    */
   dismiss: () => void
 }
-
 // Status machine for the <ha-camera-stream> element: watches decoded frames on
 // the inner <video> after the element signals `load`/`streams`, surfaces a
 // warning after FRAME_WARNING_MS without frames, and requests an element
 // remount after a sustained STALL_MS stall (capped at MAX_AUTO_REMOUNTS
 // consecutive remounts, after which it surfaces a "Stream stalled" error
 // instead of looping forever).
-//
 // The load budget is ONE timer owned by connection state: it is armed exactly
-// while the machine is CONNECTING (enabled && !isStreaming && !error) —
-// independent of watch epochs, attach state, or the video-vs-MJPEG branch —
-// so no incarnation, early `streams` event, or player swap can ever leave an
-// infinite CONNECTING spinner: either frames/pixels flow (disarming it) or it
-// expires into 'Stream failed to start'.
+// while the machine is CONNECTING (enabled && !isStreaming && !error &&
+// !dismissed) — independent of watch epochs, attach state, or the
+// video-vs-MJPEG branch — so no incarnation, early `streams` event, or player
+// swap can ever leave an infinite CONNECTING spinner: either frames/pixels
+// flow (disarming it) or it expires into 'Stream failed to start'. A Dismiss
+// arms `dismissed`, which holds the timer disarmed until a new stream attempt
+// begins (a fresh `load`/`streams` event, or a manual Retry remount); a fresh
+// stall still surfaces again through the stall watchdog's normal path.
 export function useCameraStreamStatus({
   getInnerVideo,
   getMjpegImg,
@@ -192,6 +196,13 @@ export function useCameraStreamStatus({
   const [hasFrameWarning, setHasFrameWarning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [remountKey, setRemountKey] = useState(0)
+  // Dismissed until a new stream attempt begins: while set, the load-budget
+  // timer stays disarmed (Dismiss cleared the error, so `connecting` would
+  // otherwise read true and re-arm CONNECT_TIMEOUT_MS, re-surfacing 'Stream
+  // failed to start' after 20 s with no new stream event). `retry` and every
+  // fresh `load`/`streams` event (a remount, a player swap, a reconnect)
+  // clear it; the stall watchdog still surfaces a genuinely new stall.
+  const [dismissed, setDismissed] = useState(false)
   // Each `load`/`streams` event starts a fresh watch (the inner video is
   // recreated when the element remounts or swaps players).
   const [watchEpoch, setWatchEpoch] = useState(0)
@@ -221,12 +232,14 @@ export function useCameraStreamStatus({
     errorRef.current = value
     setError(value)
   }, [])
-
   const onStreamEvent = useCallback(() => {
     // A disabled machine ignores stray element events entirely: no warning
     // mutation, no epoch churn (the watch effect would reject the epoch
     // anyway, but state must not move while the disable-reset owns it).
     if (!enabled) return
+    // A new stream attempt ends any dismissal: the load budget may arm again
+    // for this attempt, and its expiry is a genuine failure of it.
+    setDismissed(false)
     // A stale frame warning must not leak across epochs: a video watch that
     // warned and then ended (player swap, element remount) would otherwise
     // latch NO SIGNAL into a mode that never clears it (MJPEG in particular
@@ -253,17 +266,22 @@ export function useCameraStreamStatus({
     setIsStreaming(false)
     setHasFrameWarning(false)
     setSurfacedError(null)
+    // A manual Retry is itself a new stream attempt: the fresh load budget
+    // must arm for the replacement element.
+    setDismissed(false)
     setRemountKey((key) => key + 1)
   }, [setSurfacedError])
 
   // Dismiss without remounting: drop the surfaced error and its warning, but
   // leave the watch epoch, the budgets and the element alone — nothing
-  // restarts, nothing re-dispatches. A fresh stall surfaces again through
-  // the normal machine path.
+  // restarts, nothing re-dispatches. Arms `dismissed` so the load-budget
+  // timer stays disarmed until a new stream attempt begins; a fresh stall
+  // surfaces again through the normal machine path.
   const dismiss = useCallback(() => {
     hasFrameWarningRef.current = false
     setHasFrameWarning(false)
     setSurfacedError(null)
+    setDismissed(true)
   }, [setSurfacedError])
 
   // An entity state transition means the camera itself changed (restarted,
@@ -356,12 +374,14 @@ export function useCameraStreamStatus({
   }, [enabled, entityAvailable])
 
   // THE load-budget timer — owned by connection state. Armed exactly when the
-  // machine is CONNECTING (enabled && !isStreaming && !error): streaming
-  // flipping true disarms it; streaming falling back to false (stall remount,
-  // player swap) re-arms a fresh budget; a surfaced error disarms it. By
-  // construction the timer therefore ALWAYS exists while CONNECTING — no
-  // watch epoch, attach state, or video-vs-MJPEG branch can open a gap.
-  const connecting = enabled && !isStreaming && !error
+  // machine is CONNECTING (enabled && !isStreaming && !error && !dismissed):
+  // streaming flipping true disarms it; streaming falling back to false
+  // (stall remount, player swap) re-arms a fresh budget; a surfaced error
+  // disarms it; a dismissal disarms it until a new stream attempt begins
+  // (onStreamEvent, retry). By construction the timer therefore ALWAYS exists
+  // while CONNECTING — no watch epoch, attach state, or video-vs-MJPEG
+  // branch can open a gap.
+  const connecting = enabled && !isStreaming && !error && !dismissed
   useEffect(() => {
     if (!connecting) return
     const timer = createVisibleTimeout(CONNECT_TIMEOUT_MS, () => {

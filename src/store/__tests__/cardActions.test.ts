@@ -223,6 +223,23 @@ describe('retainedRetryAction', () => {
       })
     ).toBeUndefined()
   })
+
+  it('withholds a code-bearing command even when marked retryable', () => {
+    // CodeRabbit Major on cardActions.ts:183 — defense in depth beside the
+    // hook's non-retryable retention: a stale retryable flag must not route a
+    // keypad credential through generic Retry after the keypad closes.
+    expect(
+      retainedRetryAction({
+        command: {
+          domain: 'alarm_control_panel',
+          service: 'alarm_disarm',
+          entityId: 'alarm_control_panel.house',
+          data: { code: '1234' },
+        },
+        retryable: true,
+      })
+    ).toBeUndefined()
+  })
 })
 
 describe('retainedRetryAction targetless shapes', () => {

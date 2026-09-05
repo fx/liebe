@@ -2,19 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Theme } from '@radix-ui/themes'
 import { ButtonCard } from '..'
-import { useEntity, useServiceCall } from '~/hooks'
-import { useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
+import { useEntity } from '~/hooks'
+import { HomeAssistantProvider, useHomeAssistantOptional } from '~/contexts/HomeAssistantContext'
 import { createMockHomeAssistant } from '~/testUtils/mockHomeAssistant'
 import { dashboardActions } from '~/store'
 import { CardItemProvider } from '../../cardItemContext'
 import { entityStore } from '~/store/entityStore'
-import { admitCommand, resetDispatchGuard } from '~/services/guardedDispatch'
+import { resetDispatchGuard } from '~/services/guardedDispatch'
 import { ACKNOWLEDGEMENT_TIMEOUT_MS } from '~/store/cardActions'
 import type { HomeAssistant } from '~/contexts/HomeAssistantContext'
 
-vi.mock('~/hooks', () => ({
+vi.mock('~/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('~/hooks')>()),
   useEntity: vi.fn(),
-  useServiceCall: vi.fn(),
 }))
 
 vi.mock('~/contexts/HomeAssistantContext', async (importOriginal) => ({
@@ -29,40 +29,16 @@ vi.mock('~/contexts/HomeAssistantContext', async (importOriginal) => ({
  * guard's window, since a transport rejection after Home Assistant accepted
  * the command is indistinguishable from one before it.
  *
- * Driven through the real shell + the real `useServiceCall` is impossible
- * here — `ButtonCard` reads the mocked hook — so these run against the real
- * guard (`resetDispatchGuard`, the real `entityStore`) with the card's own
- * `handleRetry` wiring: the retained command, the gate, and the guard refusal
- * are all observable at `hass.callService`.
+ * Driven through the real `useServiceCall` guarded path with a mocked
+ * transport: the failure retention, the Retry re-dispatch, and the guard
+ * refusal are all observable at `hass.callService` (CodeRabbit Major on this
+ * file — a `dispatchGuarded` mock that never calls the transport proves
+ * nothing about what Retry dispatches).
  */
 describe('ButtonCard Retry', () => {
   let hass: HomeAssistant
   const ENTITY_ID = 'switch.coffee_maker'
   const LAST_UPDATED = '2026-07-27T10:00:00Z'
-
-  // The real hook's retention contract, mirrored: dispatchGuarded retains the
-  // identical command on failure; handleRetry re-dispatches it.
-  function mockServiceCallWithFailure() {
-    const realFailed = {
-      command: { domain: 'switch', service: 'toggle', entityId: ENTITY_ID },
-      retryable: true as const,
-    }
-    const dispatchGuarded = vi.fn(async () => ({ success: false, error: 'toggle failed' }))
-    const clearError = vi.fn()
-    vi.mocked(useServiceCall).mockReturnValue({
-      loading: false,
-      error: 'toggle failed',
-      failedCommand: realFailed,
-      callService: vi.fn(),
-      turnOn: vi.fn(),
-      turnOff: vi.fn(),
-      toggle: vi.fn(),
-      dispatchGuarded,
-      setValue: vi.fn(),
-      clearError,
-    } as unknown as ReturnType<typeof useServiceCall>)
-    return { dispatchGuarded, clearError }
-  }
 
   function mockEntity() {
     entityStore.setState((state) => ({
@@ -126,14 +102,25 @@ describe('ButtonCard Retry', () => {
   function renderCard(config: Record<string, unknown> = {}) {
     // Wrapped exactly as the grid wraps a placed card: the shell reads the
     // entity id off this provider (ButtonCard never forwards it as a prop),
-    // and the tile control's accessible name is built from it.
+    // and the tile control's accessible name is built from it. The real
+    // `useServiceCall` reads `hass` off context, so the provider carries the
+    // mocked transport the assertions observe.
     return render(
       <Theme>
-        <CardItemProvider entityId={ENTITY_ID} config={config}>
-          <ButtonCard entityId={ENTITY_ID} tier="row" config={config} />
-        </CardItemProvider>
+        <HomeAssistantProvider hass={hass}>
+          <CardItemProvider entityId={ENTITY_ID} config={config}>
+            <ButtonCard entityId={ENTITY_ID} tier="row" config={config} />
+          </CardItemProvider>
+        </HomeAssistantProvider>
       </Theme>
     )
+  }
+
+  /** Tap the tile (dispatches through the real guarded path), rejecting once to arm the error tile. */
+  async function tapIntoFailure(message = 'toggle failed') {
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error(message))
+    fireEvent.click(screen.getByText('Coffee Maker'))
+    await act(async () => {})
   }
 
   /** Open the detail dialog through the recovery route (press is suppressed on error tiles). */
@@ -143,59 +130,69 @@ describe('ButtonCard Retry', () => {
   }
 
   it('re-dispatches the identical command on Retry', async () => {
-    mockServiceCallWithFailure()
     renderCard()
+    await tapIntoFailure()
+    expect(screen.getByText('ERROR')).toBeInTheDocument()
     openDialog()
 
+    resetDispatchGuard()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await act(async () => {})
 
-    // Through the shell gate and guard — the ungated toggle dispatches
-    // straight to the real guard and the real service.
+    // Through the shell gate and guard — the retry replays what was actually
+    // dispatched, at the mocked transport.
     expect(hass.callService).toHaveBeenCalledWith('switch', 'toggle', {
       entity_id: ENTITY_ID,
     })
   })
 
   it('clears the card error when Retry succeeds', async () => {
-    // Suppressed finding 7 is real: the shell gesture path must report the
-    // guarded outcome back so the tile recovers instead of reading ERROR
-    // about a command that landed.
-    const { clearError } = mockServiceCallWithFailure()
     renderCard()
+    await tapIntoFailure()
     openDialog()
 
+    resetDispatchGuard()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await act(async () => {})
 
-    expect(hass.callService).toHaveBeenCalledTimes(1)
-    expect(clearError).toHaveBeenCalled()
+    expect(hass.callService).toHaveBeenCalledTimes(2)
+    expect(screen.queryByText('ERROR')).not.toBeInTheDocument()
   })
 
   it('keeps the card error when Retry fails again', async () => {
-    const { clearError } = mockServiceCallWithFailure()
-    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
     renderCard()
+    await tapIntoFailure()
     openDialog()
 
+    resetDispatchGuard()
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('still jammed'))
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await act(async () => {})
 
-    expect(hass.callService).toHaveBeenCalledTimes(1)
-    expect(clearError).not.toHaveBeenCalled()
+    expect(hass.callService).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('ERROR')).toBeInTheDocument()
   })
 
   it('holds Retry behind the confirmation gate when the card is gated', async () => {
-    mockServiceCallWithFailure()
     renderCard({ confirm: true })
+    // The initial tap is itself gated: confirm it to dispatch, and the
+    // rejection arms the error tile.
+    vi.mocked(hass.callService).mockRejectedValueOnce(new Error('toggle failed'))
+    fireEvent.click(screen.getByText('Coffee Maker'))
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }))
+    await act(async () => {})
+    expect(screen.getByText('ERROR')).toBeInTheDocument()
     openDialog()
 
+    resetDispatchGuard()
+    const calls = vi.mocked(hass.callService).mock.calls.length
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await act(async () => {})
 
     // The gate stands in front: the command is not re-dispatched yet, and the
     // dialog names the action it is holding.
-    expect(hass.callService).not.toHaveBeenCalled()
+    expect(vi.mocked(hass.callService).mock.calls.length).toBe(calls)
     expect(screen.getByText('Turn on Coffee Maker?')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Turn on' }))
@@ -206,40 +203,41 @@ describe('ButtonCard Retry', () => {
     })
   })
 
-  it('refuses an immediate Retry while the failed command window is open', async () => {
+  it('refuses an immediate second Retry while the failed command window is open', async () => {
     // The ambiguous-outcome direction: the failure was reported, but the
     // command may already have been accepted — so the guard stays shut until
     // the entity transitions or the timeout elapses. Driven through the
-    // card: open recovery, press Retry, and the guarded re-dispatch is
-    // refused — nothing reaches the transport a second time.
-    mockServiceCallWithFailure()
+    // card: tap into failure, Retry once (it lands in the window), Retry
+    // again and the repeat is refused — nothing reaches the transport a
+    // second time.
     renderCard()
+    await tapIntoFailure()
     openDialog()
+
+    resetDispatchGuard()
+    vi.mocked(hass.callService).mockRejectedValue(new Error('still jammed'))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+    const calls = vi.mocked(hass.callService).mock.calls.length
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await act(async () => {})
-
-    // The mock's dispatchGuarded reported failure without touching the real
-    // guard, so seed the real guard's window the way the failed dispatch
-    // would have: admit once (it lands in the window), then Retry again and
-    // the repeat is refused.
-    const command = { domain: 'switch', service: 'toggle', entityId: ENTITY_ID }
-    expect(admitCommand(command)).toBe(true)
-    expect(admitCommand(command)).toBe(false)
-    expect(hass.callService).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(hass.callService).mock.calls.length).toBe(calls)
   })
 
   it('admits Retry once the entity transitions or the timeout elapses', async () => {
-    mockServiceCallWithFailure()
     renderCard()
+    await tapIntoFailure()
     openDialog()
 
+    resetDispatchGuard()
+    vi.mocked(hass.callService).mockRejectedValue(new Error('still jammed'))
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await act(async () => {})
-    expect(hass.callService).toHaveBeenCalledTimes(1)
+    const calls = vi.mocked(hass.callService).mock.calls.length
+    expect(calls).toBeGreaterThan(0)
 
-    // The entity moving reopens the window: the same command admits again.
-    const command = { domain: 'switch', service: 'toggle', entityId: ENTITY_ID }
+    // The entity moving reopens the window: Retry dispatches again.
     entityStore.setState((state) => ({
       ...state,
       entities: {
@@ -253,10 +251,13 @@ describe('ButtonCard Retry', () => {
         },
       },
     }))
-    expect(admitCommand(command)).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+    expect(vi.mocked(hass.callService).mock.calls.length).toBe(calls + 1)
 
-    expect(admitCommand(command)).toBe(false)
     vi.advanceTimersByTime(ACKNOWLEDGEMENT_TIMEOUT_MS + 1)
-    expect(admitCommand(command)).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await act(async () => {})
+    expect(vi.mocked(hass.callService).mock.calls.length).toBe(calls + 2)
   })
 })

@@ -18,12 +18,16 @@ export interface EntityDetailDialogProps {
    */
   failureMessage?: string | null
   /**
-   * Whether the failure is a dispatched service call with a command to repeat.
-   * False for the sources with nothing to re-send — a pre-dispatch refusal, a
-   * stream that would not start — which offer no `Retry`.
+   * Whether the dialog offers a Retry action — a dispatched service call the
+   * shell can replay, or a camera stream remount invoked through
+   * `onStreamRetry`. False (no Retry, Dismiss-only) for pre-dispatch refusals
+   * where nothing was sent.
    */
   canRetry?: boolean
-  /** Re-dispatches the retained command: gated, guarded, never retried. */
+  /**
+   * The Retry action: re-dispatches the retained service command (gated,
+   * guarded, never retried) or remounts the stream via `onStreamRetry`.
+   */
   onRetry?: () => void | Promise<void>
   /** Clears the presentation state; dispatches nothing. */
   onDismiss?: () => void

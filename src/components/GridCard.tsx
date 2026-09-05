@@ -170,19 +170,20 @@ export interface GridCardProps {
    * an edit in twenty-five card files would be in the wrong place. Cards keep
    * passing `title` for the hover convenience; the dialog is the carrier.
    * `onRetry` re-dispatches the retained command through the gate and the
-   * guard; `onDismiss` clears the presentation state and dispatches nothing.
-   * `canRetry` is false for the sources with nothing to re-send — a
-   * pre-dispatch refusal, a stream that would not start.
+   * guard, or remounts a stream through `onStreamRetry`; `onDismiss` clears
+   * the presentation state and dispatches nothing. `canRetry` is false (no
+   * Retry, Dismiss-only) for pre-dispatch refusals where nothing was sent.
    */
   failureMessage?: string | null
   canRetry?: boolean
   /**
    * The retained action to re-dispatch, in the same resolved form the gestures
-   * resolve to. `Retry` routes it through `dispatchAction` — the confirmation
-   * gate, then the guard — exactly as if the gesture had fired again, rather
-   * than dispatching around either. Absent (or `canRetry` false) where there
-   * is nothing to repeat: a pre-dispatch refusal, a stream that would not
-   * start.
+   * resolve to. Service-call retry routes it through `dispatchAction` — the
+   * confirmation gate, then the guard — exactly as if the gesture had fired
+   * again, rather than dispatching around either; stream retry invokes
+   * `onStreamRetry` instead, which has no service command to re-dispatch.
+   * Absent (or `canRetry` false) where there is nothing to repeat: a
+   * pre-dispatch refusal, where nothing was sent.
    */
   retryAction?: ResolvedCardAction | null
   /**
