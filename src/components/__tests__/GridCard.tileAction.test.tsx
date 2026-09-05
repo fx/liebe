@@ -281,7 +281,13 @@ describe('GridCard tile action control', () => {
     // announces the `title` instead — hover-only elsewhere, the carrier
     // here — so the tile-action name never goes message-less.
     renderCard(
-      <GridCard domain="light" entityId={ENTITY_ID} isError title="Stream stalled" onClick={vi.fn()}>
+      <GridCard
+        domain="light"
+        entityId={ENTITY_ID}
+        isError
+        title="Stream stalled"
+        onClick={vi.fn()}
+      >
         content
       </GridCard>
     )
@@ -765,7 +771,9 @@ describe('GridCard tile action control', () => {
       unmount()
       const pending = [...callbacks]
       for (const cb of pending) {
-        expect(() => cb([], new FakeObserver(() => {}) as unknown as MutationObserver)).not.toThrow()
+        expect(() =>
+          cb([], new FakeObserver(() => {}) as unknown as MutationObserver)
+        ).not.toThrow()
       }
     } finally {
       vi.unstubAllGlobals()
@@ -823,6 +831,22 @@ describe('GridCard tile action control', () => {
     fireEvent.click(tileAction(/^Desk Lamp, Stream stalled$/))
     expect(screen.getByTestId('detail-failure')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
+  it('opens the plain dialog where the error tile names no failure', () => {
+    // The `?? null` arm: an `isError` tile with neither `failureMessage` nor
+    // `title` carries nothing to recover from, so the dialog stays the plain
+    // one — no failure section, no Retry, no Dismiss, just Close.
+    renderCard(
+      <GridCard domain="light" entityId={ENTITY_ID} isError onClick={vi.fn()}>
+        content
+      </GridCard>
+    )
+
+    fireEvent.click(tileAction(/^Desk Lamp, on$/))
+    expect(screen.queryByTestId('detail-failure')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
   describe('resolveDialogRetry', () => {
