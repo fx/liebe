@@ -14,9 +14,9 @@ import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
  * is what turned this bump red with 2245 `Property 'toBeInTheDocument' does not
  * exist` errors and nothing else.
  *
- * `@testing-library/jest-dom/vitest` is the entry that entry's absence points
- * at, and switching the setup file to it does make `tsc` pass — which is the
- * reason to say plainly why it is not the fix. It declares `interface
+ * `@testing-library/jest-dom/vitest` is the obvious replacement, and switching
+ * the setup file to it does make `tsc` pass — which is exactly why it needs
+ * saying plainly that it is not the fix. It declares `interface
  * Assertion<T = any>`, one type parameter, where vitest 5's is
  * `Assertion<R, T>`; TypeScript merges an interface only when the type
  * parameter lists are identical, so that pairing is error TS2428, "All
