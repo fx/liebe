@@ -85,6 +85,17 @@ function TextCardComponent({
   const mode = useDashboardStore((state) => state.mode)
   const isEditMode = mode === 'edit'
   const [editContent, setEditContent] = useState(content)
+  // Reset the edit buffer when the resolved content changes underneath us
+  // (a config import, an edit made elsewhere). React's documented way to adjust
+  // state on a prop change is to compare against the last-seen value during
+  // render rather than in an effect: an effect would set state after paint and
+  // cascade an extra render, which `react-hooks/set-state-in-effect` reports.
+  // See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [lastSyncedContent, setLastSyncedContent] = useState(content)
+  if (content !== lastSyncedContent) {
+    setLastSyncedContent(content)
+    setEditContent(content)
+  }
   const textAreaRef = useRef<HTMLTextAreaElement>(null)
   const currentScreenId = useDashboardStore((state) => state.currentScreenId)
 
@@ -105,11 +116,6 @@ function TextCardComponent({
       textAreaRef.current.focus()
     }
   }, [isEditMode])
-
-  useEffect(() => {
-    // Update edit content when content prop changes
-    setEditContent(content)
-  }, [content])
 
   const handleClick = useCallback(() => {
     if (isEditMode && onSelect) {

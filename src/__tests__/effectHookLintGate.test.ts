@@ -9,14 +9,20 @@ import { join, dirname } from 'node:path'
  * The effect hooks must be called through the imported binding, and this is
  * what proves the ban is doing the job it was added for.
  *
- * `react-hooks/set-state-in-effect` is set to `error`
- * (`eslint.config.js`, change 0003) and **cannot see `React.useEffect(...)`**.
- * Its validation pass reads the *receiver* of a method call where it means the
- * callee, so for `React.useEffect(fn)` it asks whether `React` — an object — is
- * an effect hook, and gets `false`. Five call sites in this repo were written
- * that way and had therefore never been reported by a rule that has been at
- * `error` for months, including `GridCard`'s `setDetailFor(null)`. See
+ * `react-hooks/set-state-in-effect` is set to `error` (`eslint.config.js`,
+ * change 0003), and up to and including `eslint-plugin-react-hooks` 7.0.1 it
+ * **could not see `React.useEffect(...)`**. Its validation pass read the
+ * *receiver* of a method call where it meant the callee, so for
+ * `React.useEffect(fn)` it asked whether `React` — an object — is an effect
+ * hook, and got `false`. Five call sites in this repo were written that way and
+ * had therefore never been reported by a rule that had been at `error` for
+ * months, including `GridCard`'s `setDetailFor(null)`. See
  * docs/changes/0040-test-harness-reliability.md, PR 3.
+ *
+ * **7.1.1 fixed it.** The member-call form is analysed now, which is what
+ * assertion 3 below records. The ban stays as a convention; the rest of this
+ * spec is unchanged, because the *other* spellings it covers were never about
+ * that one upstream bug.
  *
  * The fix is a `no-restricted-syntax` ban on the member-call form, which routes
  * every effect through the binding the rule *can* see. That is a lint config
@@ -36,13 +42,12 @@ import { join, dirname } from 'node:path'
  *  2. `set-state-in-effect` fires on the imported form. This is why the ban is
  *     the right fix rather than a style preference — the rule genuinely works
  *     once the call reaches it.
- *  3. `set-state-in-effect` does **not** fire on `React.useEffect`. This one
- *     pins the upstream defect itself, and it is the assertion that will age:
- *     if a future `eslint-plugin-react-hooks` fixes the receiver/callee
- *     confusion, this goes red. That is the intended signal, not a failure —
- *     it says the ban has become redundant and can be reconsidered. Asserting
- *     it is the difference between "we chose to ban this" and "we can no longer
- *     remember why we banned this".
+ *  3. `set-state-in-effect` **does** fire on `React.useEffect`. This one pinned
+ *     the upstream defect itself and was flagged as the assertion that would
+ *     age. It aged, exactly as predicted: `eslint-plugin-react-hooks` 7.1.1
+ *     fixed the receiver/callee confusion, so it was inverted rather than
+ *     deleted and now guards the fix instead of the bug. The ban is therefore
+ *     no longer load-bearing for this hole — see the assertion's own comment.
  *  4. The imported binding is **not** restricted. This is the half a ban is
  *     most likely to break, and the half whose breakage a "does it fire?" test
  *     cannot see: a selector that grew to match the direct import would leave
@@ -408,10 +413,26 @@ describe('effect hooks must be called through the imported binding', () => {
     expect(reported.get('imported:useEffect')).toContain('react-hooks/set-state-in-effect')
   })
 
-  it('does not report the same state write when the effect is a member call', () => {
-    // The blind spot itself. If this ever contains the rule, the upstream bug
-    // is fixed and the `no-restricted-syntax` ban can be revisited.
-    expect(reported.get('member:useEffect')).not.toContain('react-hooks/set-state-in-effect')
+  it('reports the same state write when the effect is a member call', () => {
+    /*
+     * This assertion was written inverted, pinning the upstream blind spot, and
+     * flagged as the one that would age. It aged: `eslint-plugin-react-hooks`
+     * 7.1.1 resolves the callee of a member call, so `React.useEffect` is now
+     * analysed exactly like the imported form. Verified by attribution — the
+     * inverted form passes on 7.0.1 and fails on 7.1.1, with eslint held at 9.x.
+     *
+     * Inverted rather than deleted, for two reasons. It is now the regression
+     * detector for the upstream fix: if a later version reintroduces the
+     * receiver/callee confusion, the ban silently becomes load-bearing again and
+     * this is what says so. And it keeps the record of why the ban exists, which
+     * deleting it would discard.
+     *
+     * The `no-restricted-syntax` ban stays. It is no longer the only thing
+     * standing between the repo and a silent error-level rule, so it is now a
+     * convention with a safety margin rather than a load-bearing gate — whether
+     * to keep it is a decision for a change document, not for a dependency bump.
+     */
+    expect(reported.get('member:useEffect')).toContain('react-hooks/set-state-in-effect')
   })
 
   /*
@@ -445,14 +466,19 @@ describe('effect hooks must be called through the imported binding', () => {
  * peculiar spelling: an `exhaustive-deps` suppression anywhere in the enclosing
  * function.
  *
- * The React compiler treats that directive as "the author knows they are
- * breaking the rules of React" and stops analysing the **whole function**, so
- * every compiler-backed rule goes quiet with it — `set-state-in-effect`
- * included, at `error`. The suppression is not local to the line it sits on,
- * which is what makes it dangerous: it reads as a narrow, considered exception
- * and behaves as a blanket one.
+ * Through `eslint-plugin-react-hooks` 7.0.1, the React compiler treated that
+ * directive as "the author knows they are breaking the rules of React" and
+ * stopped analysing the **whole function**, so every compiler-backed rule went
+ * quiet with it — `set-state-in-effect` included, at `error`. The suppression
+ * was not local to the line it sat on, which is what made it dangerous: it read
+ * as a narrow, considered exception and behaved as a blanket one.
  *
- * It is also **self-concealing**. Once the rule stops reporting for a function,
+ * **7.1.1 removed that bail** and the assertions below now pin the fixed
+ * behaviour. The history is kept because the policy it produced is still in
+ * force: suppressions live in `eslint.config.js`, never in a comment. The rest
+ * of this block describes the defect as it was.
+ *
+ * It was also **self-concealing**. Once the rule stopped reporting for a function,
  * an explicit `set-state-in-effect` suppression inside it becomes an "unused
  * eslint-disable directive" — so the very comment that proves the rule once
  * applied there afterwards reads as though it never needed to. That is the
@@ -471,15 +497,30 @@ describe('effect hooks must be called through the imported binding', () => {
  * rename — and `rules-of-hooks` is untested (docs/changes/0040-test-harness-
  * reliability.md, PR 7).
  */
-describe('an exhaustive-deps suppression silences the rule for its whole function', () => {
+describe('an exhaustive-deps suppression no longer silences the rule for its whole function', () => {
   it('reports the state write when the function carries no directive', () => {
     expect(reported.get('bail-plain')).toContain('react-hooks/set-state-in-effect')
   })
 
-  it('does not report the same state write beside an exhaustive-deps directive', () => {
-    // If this ever contains the rule, the compiler has stopped bailing on the
-    // directive and the config-level suppressions can go back inline.
-    expect(reported.get('bail-suppressed')).not.toContain('react-hooks/set-state-in-effect')
+  it('reports the same state write beside an exhaustive-deps directive', () => {
+    /*
+     * The bail is **gone** as of `eslint-plugin-react-hooks` 7.1.1: an
+     * `exhaustive-deps` directive no longer stops the compiler analysing its
+     * enclosing function, so `set-state-in-effect` reports straight through it.
+     * Attribution is direct — this fixture reports nothing on 7.0.1 and reports
+     * the rule on 7.1.1, with eslint held at 9.x and the fixture untouched.
+     *
+     * Inverted rather than deleted so it guards the fix: if a later version
+     * reintroduces the whole-function bail, an inline directive silently
+     * becomes a blanket one again and this is the only thing that would say so.
+     *
+     * What this does **not** do is move the two theme-workshop suppressions
+     * back inline. The config-level `off` in `eslint.config.js` is still the
+     * right shape — it suppresses exactly the rule it names — and the scan
+     * below still requires zero inline directives under `src/`. Relaxing that
+     * policy is a change-document decision, not a dependency bump's to make.
+     */
+    expect(reported.get('bail-suppressed')).toContain('react-hooks/set-state-in-effect')
   })
 
   /*
