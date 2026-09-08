@@ -86,11 +86,20 @@ function TextCardComponent({
   const isEditMode = mode === 'edit'
   const [editContent, setEditContent] = useState(content)
   // Reset the edit buffer when the resolved content changes underneath us
-  // (a config import, an edit made elsewhere). React's documented way to adjust
-  // state on a prop change is to compare against the last-seen value during
-  // render rather than in an effect: an effect would set state after paint and
-  // cascade an extra render, which `react-hooks/set-state-in-effect` reports.
+  // (a config import, an edit made elsewhere). This is React's documented way
+  // to adjust state on a prop change — compare against the last-seen value
+  // during render rather than in an effect — and it is what keeps the reset out
+  // of `react-hooks/set-state-in-effect`, which this repo enforces at `error`.
   // See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  //
+  // It is NOT a render saving, and an earlier version of this comment wrongly
+  // implied it was. Measured through the real GridView path with a render
+  // counter: this form and the effect form both cost 1.00 renders per keystroke
+  // while typing, because `content` does not change under us at all — GridView
+  // passes no `entityId`, so `handleContentChange`'s store write-back is gated
+  // off and nothing feeds back. Wiring that loop deliberately makes both forms
+  // cost 2.00 per keystroke, still equal. The choice here is the lint contract
+  // and the documented pattern, not performance.
   const [lastSyncedContent, setLastSyncedContent] = useState(content)
   if (content !== lastSyncedContent) {
     setLastSyncedContent(content)
