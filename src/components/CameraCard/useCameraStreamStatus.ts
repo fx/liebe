@@ -573,7 +573,17 @@ export function useCameraStreamStatus({
     if (!img) {
       if (isStreamingRef.current) {
         isStreamingRef.current = false
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- the stale streaming flag is only detectable when the new epoch's watch finds no media target; it is a one-shot event response to the player swap, not state derivable during render.
+        // The stale streaming flag is only detectable when the new epoch's
+        // watch finds no media target; this is a one-shot event response to the
+        // player swap, not state derivable during render. This carried a
+        // `react-hooks/set-state-in-effect` disable until the rule learned to
+        // see through the ref guard in eslint-plugin-react-hooks 7.1.1, which
+        // turned the directive into an "unused eslint-disable" warning. The
+        // directive is gone; the reasoning it documented is not. The effect is
+        // still analysed — a planted unconditional setState in this same effect
+        // reports at error, so the silence here is the rule's precision rather
+        // than a bail (compare the whole-function bail described in
+        // src/__tests__/effectHookLintGate.test.ts, itself fixed in 7.1.1).
         setIsStreaming(false)
       }
       return
